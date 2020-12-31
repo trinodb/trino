@@ -16,14 +16,14 @@ package io.trino.plugin.hive.acid;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.orc.OrcWriter.OrcOperation;
+import io.trino.orc.OrcWriter.OrcOperation;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.plugin.hive.acid.AcidOperation.CREATE_TABLE;
-import static io.prestosql.plugin.hive.acid.AcidOperation.DELETE;
-import static io.prestosql.plugin.hive.acid.AcidOperation.INSERT;
-import static io.prestosql.plugin.hive.acid.AcidOperation.NONE;
+import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
+import static io.trino.plugin.hive.acid.AcidOperation.DELETE;
+import static io.trino.plugin.hive.acid.AcidOperation.INSERT;
+import static io.trino.plugin.hive.acid.AcidOperation.NONE;
 import static java.util.Objects.requireNonNull;
 
 public class AcidTransaction

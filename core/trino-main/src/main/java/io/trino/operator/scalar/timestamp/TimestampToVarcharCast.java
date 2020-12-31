@@ -14,17 +14,17 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.type.DateTimes;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.type.DateTimes;
 
 import java.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.function.OperatorType.CAST;
+import static io.trino.spi.function.OperatorType.CAST;
 import static java.time.ZoneOffset.UTC;
 
 @ScalarOperator(CAST)

@@ -20,7 +20,7 @@ import io.airlift.configuration.Config;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv4;
+import static io.trino.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv4;
 
 public class SubnetTopologyConfig
 {

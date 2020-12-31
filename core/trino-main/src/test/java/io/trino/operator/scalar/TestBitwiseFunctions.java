@@ -15,10 +15,10 @@ package io.trino.operator.scalar;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 
 public class TestBitwiseFunctions
         extends AbstractTestFunctions

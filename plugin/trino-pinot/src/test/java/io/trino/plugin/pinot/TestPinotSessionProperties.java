@@ -14,8 +14,8 @@
 package io.trino.plugin.pinot;
 
 import io.airlift.units.Duration;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.testing.TestingConnectorSession;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;

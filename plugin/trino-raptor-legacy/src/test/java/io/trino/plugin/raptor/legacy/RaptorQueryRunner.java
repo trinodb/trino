@@ -16,14 +16,14 @@ package io.trino.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 
@@ -32,9 +32,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.QueryAssertions.copyTpchTables;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 public final class RaptorQueryRunner

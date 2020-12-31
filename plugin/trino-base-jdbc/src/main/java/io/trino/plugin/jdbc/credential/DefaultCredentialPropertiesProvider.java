@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc.credential;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.trino.plugin.jdbc.JdbcIdentity;
 
 import java.util.Map;
 import java.util.Optional;

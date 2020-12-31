@@ -13,26 +13,26 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.Constraint;
-import io.prestosql.spi.statistics.ColumnStatistics;
-import io.prestosql.spi.statistics.TableStatistics;
-import io.prestosql.spi.type.FixedWidthType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.Session;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verifyNotNull;
-import static io.prestosql.sql.planner.plan.Patterns.tableScan;
+import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Double.NaN;
 import static java.util.Objects.requireNonNull;
 

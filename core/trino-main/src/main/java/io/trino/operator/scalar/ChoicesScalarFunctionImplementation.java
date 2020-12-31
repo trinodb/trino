@@ -15,14 +15,14 @@ package io.trino.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
-import io.prestosql.spi.function.ScalarFunctionAdapter;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.trino.spi.function.ScalarFunctionAdapter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -31,10 +31,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
-import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;

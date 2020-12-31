@@ -13,9 +13,9 @@
  */
 package io.trino.operator;
 
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.operator.annotations.ImplementationDependency;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.operator.annotations.ImplementationDependency;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;

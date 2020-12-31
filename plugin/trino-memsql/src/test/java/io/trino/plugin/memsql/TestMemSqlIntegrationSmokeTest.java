@@ -13,20 +13,20 @@
  */
 package io.trino.plugin.memsql;
 
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
-import io.prestosql.testing.QueryRunner;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;

@@ -13,10 +13,10 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.eventlistener.EventListener;
-import io.prestosql.spi.procedure.Procedure;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.procedure.Procedure;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Optional;

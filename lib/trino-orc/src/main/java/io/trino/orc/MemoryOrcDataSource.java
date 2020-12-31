@@ -15,8 +15,8 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.stream.MemoryOrcDataReader;
-import io.prestosql.orc.stream.OrcDataReader;
+import io.trino.orc.stream.MemoryOrcDataReader;
+import io.trino.orc.stream.OrcDataReader;
 
 import java.util.Map;
 import java.util.Map.Entry;

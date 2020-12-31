@@ -17,19 +17,19 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.accumulo.index.Indexer;
-import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
-import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.accumulo.index.Indexer;
+import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
+import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 /**

@@ -16,11 +16,11 @@ package io.trino.server.remotetask;
 import com.google.common.util.concurrent.FutureCallback;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpStatus;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.net.URI;
 
-import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_ERROR;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

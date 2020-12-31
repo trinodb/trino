@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Random;
 
-import static io.prestosql.orc.stream.TestingBitPackingUtils.unpackGeneric;
+import static io.trino.orc.stream.TestingBitPackingUtils.unpackGeneric;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

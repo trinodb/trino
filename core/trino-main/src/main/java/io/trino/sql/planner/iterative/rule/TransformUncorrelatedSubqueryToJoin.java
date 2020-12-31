@@ -17,29 +17,29 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.IfExpression;
-import io.prestosql.sql.tree.NullLiteral;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.IfExpression;
+import io.trino.sql.tree.NullLiteral;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.matching.Pattern.empty;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
-import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
-import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.matching.Pattern.empty;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
+import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TransformUncorrelatedSubqueryToJoin
         implements Rule<CorrelatedJoinNode>

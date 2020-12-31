@@ -17,8 +17,8 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.spi.type.Type;
+import io.trino.execution.Lifespan;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
@@ -30,7 +30,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static java.util.Objects.requireNonNull;
 
 public class JoinBridgeManager<T extends JoinBridge>

@@ -15,13 +15,13 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -44,12 +44,12 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.openjdk.jmh.annotations.Level.Invocation;
 
 @SuppressWarnings("MethodMayBeStatic")

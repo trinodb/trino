@@ -15,21 +15,21 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Partitioning;
-import io.prestosql.sql.planner.PartitioningScheme;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
+import io.trino.Session;
+import io.trino.SystemSessionProperties;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Partitioning;
+import io.trino.sql.planner.PartitioningScheme;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 
 import java.util.Map;
 import java.util.Optional;
@@ -37,12 +37,12 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.SystemSessionProperties.getTaskConcurrency;
-import static io.prestosql.matching.Pattern.empty;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.prestosql.sql.planner.plan.Patterns.Aggregation.groupingColumns;
-import static io.prestosql.sql.planner.plan.Patterns.Aggregation.step;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.trino.SystemSessionProperties.getTaskConcurrency;
+import static io.trino.matching.Pattern.empty;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.plan.Patterns.Aggregation.groupingColumns;
+import static io.trino.sql.planner.plan.Patterns.Aggregation.step;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
 
 /**
  * Adds INTERMEDIATE aggregations between an un-grouped FINAL aggregation and its preceding

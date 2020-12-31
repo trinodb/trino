@@ -17,13 +17,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HiveBucketProperty;
-import io.prestosql.plugin.hive.HiveStorageFormat;
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.HiveColumnStatistics;
-import io.prestosql.plugin.hive.metastore.Storage;
-import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.plugin.hive.HiveStorageFormat;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.HiveColumnStatistics;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.metastore.Table;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.Arrays;
@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
+import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static java.util.Objects.requireNonNull;
 
 public class TableMetadata

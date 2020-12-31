@@ -17,8 +17,8 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
-import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
-import io.prestosql.orc.OrcWriterOptions;
+import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.trino.orc.OrcWriterOptions;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;

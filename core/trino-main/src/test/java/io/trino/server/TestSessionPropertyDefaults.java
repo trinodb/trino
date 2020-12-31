@@ -15,20 +15,20 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.node.NodeInfo;
-import io.prestosql.Session;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
-import io.prestosql.spi.session.TestingSessionPropertyConfigurationManagerFactory;
+import io.trino.Session;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.spi.QueryId;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.security.Identity;
+import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.spi.session.TestingSessionPropertyConfigurationManagerFactory;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static org.testng.Assert.assertEquals;
 
 public class TestSessionPropertyDefaults

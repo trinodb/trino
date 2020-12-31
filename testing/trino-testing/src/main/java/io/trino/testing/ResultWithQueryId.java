@@ -13,7 +13,7 @@
  */
 package io.trino.testing;
 
-import io.prestosql.spi.QueryId;
+import io.trino.spi.QueryId;
 
 public class ResultWithQueryId<T>
 {

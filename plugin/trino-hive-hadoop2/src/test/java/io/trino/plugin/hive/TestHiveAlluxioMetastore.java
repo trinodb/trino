@@ -15,11 +15,11 @@ package io.trino.plugin.hive;
 
 import alluxio.client.table.TableMasterClient;
 import alluxio.conf.PropertyKey;
-import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
-import io.prestosql.plugin.hive.metastore.MetastoreConfig;
-import io.prestosql.plugin.hive.metastore.alluxio.AlluxioHiveMetastore;
-import io.prestosql.plugin.hive.metastore.alluxio.AlluxioHiveMetastoreConfig;
-import io.prestosql.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
+import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.alluxio.AlluxioHiveMetastore;
+import io.trino.plugin.hive.metastore.alluxio.AlluxioHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Parameters;

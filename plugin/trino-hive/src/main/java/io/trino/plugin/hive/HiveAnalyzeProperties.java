@@ -14,9 +14,9 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
@@ -29,9 +29,9 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.prestosql.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
+import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 
 public class HiveAnalyzeProperties

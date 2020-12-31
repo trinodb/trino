@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.type.RealType.REAL;
+import static io.trino.spi.type.RealType.REAL;
 
 public class ScoreColumnDecoder
         implements Decoder

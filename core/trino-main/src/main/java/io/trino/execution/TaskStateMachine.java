@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.prestosql.execution.StateMachine.StateChangeListener;
+import io.trino.execution.StateMachine.StateChangeListener;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -26,9 +26,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.execution.TaskState.FLUSHING;
-import static io.prestosql.execution.TaskState.RUNNING;
-import static io.prestosql.execution.TaskState.TERMINAL_TASK_STATES;
+import static io.trino.execution.TaskState.FLUSHING;
+import static io.trino.execution.TaskState.RUNNING;
+import static io.trino.execution.TaskState.TERMINAL_TASK_STATES;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

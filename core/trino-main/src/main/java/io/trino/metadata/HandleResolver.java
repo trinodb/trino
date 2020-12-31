@@ -13,19 +13,19 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.connector.informationschema.InformationSchemaHandleResolver;
-import io.prestosql.connector.system.SystemHandleResolver;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.connector.ConnectorIndexHandle;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableLayoutHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.split.EmptySplitHandleResolver;
+import io.trino.connector.informationschema.InformationSchemaHandleResolver;
+import io.trino.connector.system.SystemHandleResolver;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.connector.ConnectorIndexHandle;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableLayoutHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.split.EmptySplitHandleResolver;
 
 import javax.inject.Inject;
 
@@ -39,7 +39,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
+import static io.trino.operator.ExchangeOperator.REMOTE_CONNECTOR_ID;
 import static java.util.Objects.requireNonNull;
 
 public final class HandleResolver

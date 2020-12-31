@@ -14,25 +14,25 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.WorkProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.LazyBlock;
-import io.prestosql.spi.type.Type;
+import io.trino.operator.WorkProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.LazyBlock;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.SequencePageBuilder.createSequencePage;
-import static io.prestosql.execution.buffer.PageSplitterUtil.splitPage;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.operator.PageAssertions.assertPageEquals;
-import static io.prestosql.operator.WorkProcessorAssertion.assertFinishes;
-import static io.prestosql.operator.WorkProcessorAssertion.validateResult;
-import static io.prestosql.operator.project.MergePages.mergePages;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
+import static io.trino.SequencePageBuilder.createSequencePage;
+import static io.trino.execution.buffer.PageSplitterUtil.splitPage;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.WorkProcessorAssertion.assertFinishes;
+import static io.trino.operator.WorkProcessorAssertion.validateResult;
+import static io.trino.operator.project.MergePages.mergePages;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Math.toIntExact;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

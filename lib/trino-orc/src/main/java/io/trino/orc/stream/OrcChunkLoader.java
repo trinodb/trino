@@ -14,9 +14,9 @@
 package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.orc.OrcDataSourceId;
-import io.prestosql.orc.OrcDecompressor;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.OrcDataSourceId;
+import io.trino.orc.OrcDecompressor;
 
 import java.io.IOException;
 import java.util.Optional;

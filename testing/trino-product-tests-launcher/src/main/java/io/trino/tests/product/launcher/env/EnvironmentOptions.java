@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.env;
 
 import java.io.File;
 
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions

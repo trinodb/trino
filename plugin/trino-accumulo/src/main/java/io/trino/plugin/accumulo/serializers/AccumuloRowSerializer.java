@@ -15,12 +15,12 @@ package io.trino.plugin.accumulo.serializers;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.accumulo.Types;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeUtils;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.plugin.accumulo.Types;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeUtils;
+import io.trino.spi.type.VarcharType;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
 import org.apache.hadoop.io.Text;

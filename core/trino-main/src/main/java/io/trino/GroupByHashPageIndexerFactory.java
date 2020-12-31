@@ -13,12 +13,12 @@
  */
 package io.trino;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageIndexer;
-import io.prestosql.spi.PageIndexerFactory;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.spi.Page;
+import io.trino.spi.PageIndexer;
+import io.trino.spi.PageIndexerFactory;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 
 import javax.inject.Inject;
 

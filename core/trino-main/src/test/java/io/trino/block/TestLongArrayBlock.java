@@ -14,10 +14,10 @@
 package io.trino.block;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.LongArrayBlock;
-import io.prestosql.spi.block.LongArrayBlockBuilder;
-import io.prestosql.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.LongArrayBlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

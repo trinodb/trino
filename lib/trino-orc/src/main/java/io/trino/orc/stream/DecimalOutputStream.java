@@ -15,12 +15,12 @@ package io.trino.orc.stream;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcOutputBuffer;
-import io.prestosql.orc.checkpoint.DecimalStreamCheckpoint;
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.Stream;
-import io.prestosql.spi.type.Decimals;
+import io.trino.orc.OrcOutputBuffer;
+import io.trino.orc.checkpoint.DecimalStreamCheckpoint;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.Stream;
+import io.trino.spi.type.Decimals;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.math.BigInteger;
@@ -28,8 +28,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
-import static io.prestosql.orc.stream.LongDecode.writeVLong;
+import static io.trino.orc.metadata.Stream.StreamKind.DATA;
+import static io.trino.orc.stream.LongDecode.writeVLong;
 import static java.lang.Math.toIntExact;
 
 /**

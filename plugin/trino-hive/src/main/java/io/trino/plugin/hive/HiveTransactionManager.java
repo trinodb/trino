@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;

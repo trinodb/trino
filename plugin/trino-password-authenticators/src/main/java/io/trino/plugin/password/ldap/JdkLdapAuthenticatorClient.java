@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.security.pem.PemReader;
-import io.prestosql.spi.security.AccessDeniedException;
+import io.trino.spi.security.AccessDeniedException;
 
 import javax.inject.Inject;
 import javax.naming.AuthenticationException;
@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.plugin.password.jndi.JndiUtils.createDirContext;
+import static io.trino.plugin.password.jndi.JndiUtils.createDirContext;
 import static java.util.Objects.requireNonNull;
 import static javax.naming.Context.INITIAL_CONTEXT_FACTORY;
 import static javax.naming.Context.PROVIDER_URL;

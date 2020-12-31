@@ -13,10 +13,10 @@
  */
 package io.trino.dispatcher;
 
-import io.prestosql.Session;
-import io.prestosql.execution.QueryPreparer.PreparedQuery;
-import io.prestosql.server.protocol.Slug;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.trino.Session;
+import io.trino.execution.QueryPreparer.PreparedQuery;
+import io.trino.server.protocol.Slug;
+import io.trino.spi.resourcegroups.ResourceGroupId;
 
 public interface DispatchQueryFactory
 {

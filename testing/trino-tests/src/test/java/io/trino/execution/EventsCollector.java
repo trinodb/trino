@@ -14,9 +14,9 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.eventlistener.QueryCompletedEvent;
-import io.prestosql.spi.eventlistener.QueryCreatedEvent;
-import io.prestosql.spi.eventlistener.SplitCompletedEvent;
+import io.trino.spi.eventlistener.QueryCompletedEvent;
+import io.trino.spi.eventlistener.QueryCreatedEvent;
+import io.trino.spi.eventlistener.SplitCompletedEvent;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;

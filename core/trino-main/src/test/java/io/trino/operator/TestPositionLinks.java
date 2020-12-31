@@ -14,10 +14,10 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.RowPagesBuilder;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.RowPagesBuilder;
+import io.trino.spi.Page;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.Test;
 
@@ -25,8 +25,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.operator.SyntheticAddress.encodeSyntheticAddress;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.operator.SyntheticAddress.encodeSyntheticAddress;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestPositionLinks

@@ -14,12 +14,12 @@
 package io.trino.transaction;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.CatalogMetadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.CatalogMetadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Map;

@@ -14,16 +14,16 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.TopNOperator;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.TopNOperator;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.List;
 
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 
 public class Top100Benchmark
         extends AbstractSimpleOperatorBenchmark

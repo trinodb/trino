@@ -15,18 +15,18 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import static com.google.common.io.Resources.getResource;
 import static com.google.common.io.Resources.toByteArray;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.prestosql.orc.metadata.CompressionKind.LZ4;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.trino.orc.metadata.CompressionKind.LZ4;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcLz4

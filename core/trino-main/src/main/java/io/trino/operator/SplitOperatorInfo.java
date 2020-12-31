@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.CatalogName;
+import io.trino.connector.CatalogName;
 
 import static java.util.Objects.requireNonNull;
 

@@ -13,20 +13,20 @@
  */
 package io.trino.plugin.pinot.decoders;
 
-import io.prestosql.pinot.PinotException;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.FixedWidthType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.RealType;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.pinot.PinotException;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
-import static io.prestosql.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
-import static io.prestosql.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static java.util.Objects.requireNonNull;
 
 public class DecoderFactory

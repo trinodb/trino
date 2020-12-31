@@ -30,7 +30,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.security.pem.PemReader;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import javax.inject.Singleton;
 import javax.net.ssl.KeyManager;
@@ -60,7 +60,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
-import static io.prestosql.plugin.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
+import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.list;
 import static java.util.Objects.requireNonNull;

@@ -14,23 +14,23 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.intersection;
-import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
-import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * This rule restricts the outputs of CorrelatedJoinNode's input and subquery

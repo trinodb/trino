@@ -16,8 +16,8 @@ package io.trino.benchmark;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
-import io.prestosql.Session;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.Session;
+import io.trino.testing.LocalQueryRunner;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -26,7 +26,7 @@ import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
+import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -16,7 +16,7 @@ package io.trino.testng.services;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import static io.prestosql.testng.services.ReportMultiThreadedBeforeOrAfterMethod.reportMultiThreadedBeforeOrAfterMethod;
+import static io.trino.testng.services.ReportMultiThreadedBeforeOrAfterMethod.reportMultiThreadedBeforeOrAfterMethod;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestReportMultiThreadedBeforeOrAfterMethod

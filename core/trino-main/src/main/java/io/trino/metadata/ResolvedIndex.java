@@ -13,11 +13,11 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorResolvedIndex;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorResolvedIndex;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import static java.util.Objects.requireNonNull;
 

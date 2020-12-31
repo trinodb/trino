@@ -15,11 +15,11 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.hive.ReaderProjectionsAdapter.ChannelMapping;
-import io.prestosql.plugin.hive.util.ForwardingRecordCursor;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.ReaderProjectionsAdapter.ChannelMapping;
+import io.trino.plugin.hive.util.ForwardingRecordCursor;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 

@@ -15,9 +15,9 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Objects;
 

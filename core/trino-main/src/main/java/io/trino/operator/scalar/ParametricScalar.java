@@ -14,27 +14,27 @@
 package io.trino.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionDependencyDeclaration;
-import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.operator.ParametricImplementationsGroup;
-import io.prestosql.operator.annotations.ImplementationDependency;
-import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation;
-import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
-import io.prestosql.spi.PrestoException;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration;
+import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.ParametricImplementationsGroup;
+import io.trino.operator.annotations.ImplementationDependency;
+import io.trino.operator.scalar.annotations.ParametricScalarImplementation;
+import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
+import io.trino.spi.PrestoException;
 
 import java.util.Collection;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_IMPLEMENTATION;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

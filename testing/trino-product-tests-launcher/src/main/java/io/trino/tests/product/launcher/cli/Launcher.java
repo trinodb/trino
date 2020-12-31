@@ -14,7 +14,7 @@
 package io.trino.tests.product.launcher.cli;
 
 import com.google.common.io.Resources;
-import io.prestosql.tests.product.launcher.Extensions;
+import io.trino.tests.product.launcher.Extensions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.HelpCommand;
@@ -27,10 +27,10 @@ import java.io.UncheckedIOException;
 import java.util.ListResourceBundle;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.tests.product.launcher.cli.Launcher.EnvironmentCommand;
-import static io.prestosql.tests.product.launcher.cli.Launcher.SuiteCommand;
-import static io.prestosql.tests.product.launcher.cli.Launcher.TestCommand;
-import static io.prestosql.tests.product.launcher.cli.Launcher.VersionProvider;
+import static io.trino.tests.product.launcher.cli.Launcher.EnvironmentCommand;
+import static io.trino.tests.product.launcher.cli.Launcher.SuiteCommand;
+import static io.trino.tests.product.launcher.cli.Launcher.TestCommand;
+import static io.trino.tests.product.launcher.cli.Launcher.VersionProvider;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;

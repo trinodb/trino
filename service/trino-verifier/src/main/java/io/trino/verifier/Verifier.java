@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.PrestoException;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -33,10 +33,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
-import static io.prestosql.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
-import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
-import static io.prestosql.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
-import static io.prestosql.verifier.QueryResult.State.SUCCESS;
+import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_TIMEOUT;
+import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
+import static io.trino.spi.StandardErrorCode.TOO_MANY_REQUESTS_FAILED;
+import static io.trino.verifier.QueryResult.State.SUCCESS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;

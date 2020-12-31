@@ -20,18 +20,18 @@ import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.execution.RemoteTask;
-import io.prestosql.execution.SqlStageExecution;
-import io.prestosql.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.Split;
-import io.prestosql.server.DynamicFilterService;
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.split.EmptySplit;
-import io.prestosql.split.SplitSource;
-import io.prestosql.split.SplitSource.SplitBatch;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.Lifespan;
+import io.trino.execution.RemoteTask;
+import io.trino.execution.SqlStageExecution;
+import io.trino.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
+import io.trino.server.DynamicFilterService;
+import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.split.EmptySplit;
+import io.trino.split.SplitSource;
+import io.trino.split.SplitSource.SplitBatch;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,11 +52,11 @@ import static com.google.common.util.concurrent.Futures.nonCancellationPropagati
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
-import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
-import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
-import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
-import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
-import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
+import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.NO_ACTIVE_DRIVER_GROUP;
+import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
+import static io.trino.execution.scheduler.ScheduleResult.BlockedReason.WAITING_FOR_SOURCE;
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.Objects.requireNonNull;
 
 public class SourcePartitionedScheduler

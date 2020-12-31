@@ -17,16 +17,16 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
-import static io.prestosql.spi.type.Timestamps.MINUTES_PER_HOUR;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.POWERS_OF_TEN;
-import static io.prestosql.spi.type.Timestamps.SECONDS_PER_MINUTE;
-import static io.prestosql.spi.type.Timestamps.rescale;
-import static io.prestosql.spi.type.Timestamps.round;
+import static io.trino.spi.type.TimeType.MAX_PRECISION;
+import static io.trino.spi.type.Timestamps.MINUTES_PER_HOUR;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.POWERS_OF_TEN;
+import static io.trino.spi.type.Timestamps.SECONDS_PER_MINUTE;
+import static io.trino.spi.type.Timestamps.rescale;
+import static io.trino.spi.type.Timestamps.round;
 import static java.lang.String.format;
 
 public final class SqlTime

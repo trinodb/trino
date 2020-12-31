@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.SchemaTableName;
 import org.h2.Driver;
 
 import java.sql.Connection;
@@ -29,7 +29,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.util.function.Function.identity;
 
 final class TestingDatabase

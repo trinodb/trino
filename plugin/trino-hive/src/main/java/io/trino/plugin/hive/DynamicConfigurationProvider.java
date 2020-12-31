@@ -17,7 +17,7 @@ import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 
-import static io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
+import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import static org.apache.hadoop.fs.TrinoFileSystemCache.CACHE_KEY;
 
 public interface DynamicConfigurationProvider

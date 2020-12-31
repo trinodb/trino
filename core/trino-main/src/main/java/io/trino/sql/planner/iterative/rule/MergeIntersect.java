@@ -13,15 +13,15 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.IntersectNode;
-import io.prestosql.sql.planner.plan.SetOperationNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.IntersectNode;
+import io.trino.sql.planner.plan.SetOperationNode;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.plan.Patterns.intersect;
+import static io.trino.sql.planner.plan.Patterns.intersect;
 
 /**
  * Transforms:

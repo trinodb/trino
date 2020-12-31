@@ -15,8 +15,8 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
 
 import java.util.ArrayList;
 import java.util.List;

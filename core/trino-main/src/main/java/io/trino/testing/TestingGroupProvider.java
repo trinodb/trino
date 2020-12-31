@@ -15,7 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.security.GroupProvider;
+import io.trino.spi.security.GroupProvider;
 
 import java.util.Map;
 import java.util.Set;

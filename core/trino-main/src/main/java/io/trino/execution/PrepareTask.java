@@ -14,24 +14,24 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Deallocate;
-import io.prestosql.sql.tree.Execute;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Prepare;
-import io.prestosql.sql.tree.Statement;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.PrestoException;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.Deallocate;
+import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Prepare;
+import io.trino.sql.tree.Statement;
+import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.SqlFormatterUtil.getFormattedSql;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

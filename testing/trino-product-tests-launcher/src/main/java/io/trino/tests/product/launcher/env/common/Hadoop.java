@@ -13,23 +13,23 @@
  */
 package io.trino.tests.product.launcher.env.common;
 
-import io.prestosql.tests.product.launcher.docker.DockerFiles;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
-import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
+import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.DockerContainer;
+import io.trino.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
 import java.time.Duration;
 
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_CONF_ROOT;
-import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_HEALTH_D;
-import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_CONF_ROOT;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_HEALTH_D;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.utility.MountableFile.forHostPath;

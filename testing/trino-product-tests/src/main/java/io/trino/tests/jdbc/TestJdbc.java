@@ -13,7 +13,7 @@
  */
 package io.trino.tests.jdbc;
 
-import io.prestosql.jdbc.PrestoConnection;
+import io.trino.jdbc.PrestoConnection;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
@@ -29,11 +29,6 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
-import static io.prestosql.tests.utils.JdbcDriverUtils.getSessionProperty;
-import static io.prestosql.tests.utils.JdbcDriverUtils.resetSessionProperty;
-import static io.prestosql.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -45,6 +40,11 @@ import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.N
 import static io.trino.tempto.internal.convention.SqlResultDescriptor.sqlResultDescriptorForResource;
 import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.JDBC;
+import static io.trino.tests.TpchTableResults.PRESTO_NATION_RESULT;
+import static io.trino.tests.utils.JdbcDriverUtils.getSessionProperty;
+import static io.trino.tests.utils.JdbcDriverUtils.resetSessionProperty;
+import static io.trino.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static java.util.Locale.CHINESE;
 import static org.assertj.core.api.Assertions.assertThat;
 

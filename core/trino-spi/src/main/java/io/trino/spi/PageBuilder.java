@@ -13,15 +13,15 @@
  */
 package io.trino.spi;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -19,9 +19,9 @@ import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.spi.type.Varchars.byteCount;
-import static io.prestosql.spi.type.Varchars.truncateToLength;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.Varchars.byteCount;
+import static io.trino.spi.type.Varchars.truncateToLength;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

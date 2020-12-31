@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.pinot.decoders;
 
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.lang.Boolean.parseBoolean;
 
 public class BooleanDecoder

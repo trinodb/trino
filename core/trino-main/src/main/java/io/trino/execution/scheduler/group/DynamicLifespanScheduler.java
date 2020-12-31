@@ -15,11 +15,11 @@ package io.trino.execution.scheduler.group;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.execution.scheduler.BucketNodeMap;
-import io.prestosql.execution.scheduler.SourceScheduler;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
+import io.trino.execution.Lifespan;
+import io.trino.execution.scheduler.BucketNodeMap;
+import io.trino.execution.scheduler.SourceScheduler;
+import io.trino.metadata.InternalNode;
+import io.trino.spi.connector.ConnectorPartitionHandle;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntListIterator;
 

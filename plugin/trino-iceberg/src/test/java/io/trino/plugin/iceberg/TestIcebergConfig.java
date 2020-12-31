@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -22,9 +22,9 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.hive.HiveCompressionCodec.GZIP;
-import static io.prestosql.plugin.iceberg.IcebergFileFormat.ORC;
-import static io.prestosql.plugin.iceberg.IcebergFileFormat.PARQUET;
+import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 
 public class TestIcebergConfig
 {

@@ -14,28 +14,28 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.security.SecurityContext;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SetSession;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.security.SecurityContext;
+import io.trino.spi.PrestoException;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SetSession;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.SessionPropertyManager.evaluatePropertyValue;
-import static io.prestosql.metadata.SessionPropertyManager.serializeSessionProperty;
-import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.prestosql.sql.ParameterUtils.parameterExtractor;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.metadata.SessionPropertyManager.evaluatePropertyValue;
+import static io.trino.metadata.SessionPropertyManager.serializeSessionProperty;
+import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.lang.String.format;
 
 public class SetSessionTask

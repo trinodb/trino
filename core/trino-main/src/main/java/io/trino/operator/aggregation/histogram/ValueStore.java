@@ -14,21 +14,21 @@
 package io.trino.operator.aggregation.histogram;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.array.IntBigArray;
-import io.prestosql.array.LongBigArray;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.array.IntBigArray;
+import io.trino.array.LongBigArray;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.aggregation.histogram.HashUtil.calculateMaxFill;
-import static io.prestosql.operator.aggregation.histogram.HashUtil.computeBucketCount;
-import static io.prestosql.operator.aggregation.histogram.HashUtil.nextBucketId;
-import static io.prestosql.operator.aggregation.histogram.HashUtil.nextProbeLinear;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static io.trino.operator.aggregation.histogram.HashUtil.calculateMaxFill;
+import static io.trino.operator.aggregation.histogram.HashUtil.computeBucketCount;
+import static io.trino.operator.aggregation.histogram.HashUtil.nextBucketId;
+import static io.trino.operator.aggregation.histogram.HashUtil.nextProbeLinear;
+import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.util.Objects.requireNonNull;
 
 /**

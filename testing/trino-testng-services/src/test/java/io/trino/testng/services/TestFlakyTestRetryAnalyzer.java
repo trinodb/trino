@@ -16,7 +16,7 @@ package io.trino.testng.services;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static io.prestosql.testng.services.FlakyTestRetryAnalyzer.ALLOWED_RETRIES_COUNT;
+import static io.trino.testng.services.FlakyTestRetryAnalyzer.ALLOWED_RETRIES_COUNT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

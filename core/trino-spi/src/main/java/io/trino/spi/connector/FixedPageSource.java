@@ -13,7 +13,7 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import java.util.Iterator;
 

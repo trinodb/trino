@@ -14,14 +14,14 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;

@@ -16,20 +16,20 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.NodeRef;
+import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.type.Type;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.NodeRef;
 
 import javax.inject.Inject;
 
 import java.util.Map;
 
-import static io.prestosql.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
+import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
 
 /**
  * This class is to facilitate obtaining the type of an expression and its subexpressions

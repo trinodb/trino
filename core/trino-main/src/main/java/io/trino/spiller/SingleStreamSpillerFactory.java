@@ -13,9 +13,9 @@
  */
 package io.trino.spiller;
 
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.operator.SpillContext;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.SpillContext;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 

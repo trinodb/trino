@@ -15,11 +15,11 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -27,12 +27,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
-import static io.prestosql.operator.PageAssertions.assertPageEquals;
-import static io.prestosql.operator.UpdateMemory.NOOP;
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.operator.UpdateMemory.NOOP;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

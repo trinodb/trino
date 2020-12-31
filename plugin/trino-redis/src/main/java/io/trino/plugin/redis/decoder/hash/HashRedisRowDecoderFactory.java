@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.redis.decoder.hash;
 
-import io.prestosql.decoder.DecoderColumnHandle;
-import io.prestosql.decoder.RowDecoder;
-import io.prestosql.decoder.RowDecoderFactory;
-import io.prestosql.plugin.redis.RedisFieldDecoder;
+import io.trino.decoder.DecoderColumnHandle;
+import io.trino.decoder.RowDecoder;
+import io.trino.decoder.RowDecoderFactory;
+import io.trino.plugin.redis.RedisFieldDecoder;
 
 import java.util.Map;
 import java.util.Set;

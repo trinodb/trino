@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.ml.type;
 
-import io.prestosql.spi.type.ParameterKind;
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeParameter;
+import io.trino.spi.type.ParameterKind;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.List;
 

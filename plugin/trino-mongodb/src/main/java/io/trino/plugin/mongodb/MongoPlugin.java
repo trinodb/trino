@@ -15,13 +15,13 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.type.Type;
 
 import java.util.Set;
 
-import static io.prestosql.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 
 public class MongoPlugin
         implements Plugin

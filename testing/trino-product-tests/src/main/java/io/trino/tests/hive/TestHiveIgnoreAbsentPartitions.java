@@ -22,13 +22,13 @@ import io.trino.tempto.fulfillment.table.MutableTablesState;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
-import static io.prestosql.tests.hive.util.TableLocationUtils.getTablePath;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.LOADED;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
+import static io.trino.tests.hive.util.TableLocationUtils.getTablePath;
 import static java.lang.String.format;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

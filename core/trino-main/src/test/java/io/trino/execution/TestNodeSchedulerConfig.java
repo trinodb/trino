@@ -14,7 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.execution.scheduler.NodeSchedulerConfig;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -22,7 +22,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
+import static io.trino.execution.scheduler.NodeSchedulerConfig.NodeSchedulerPolicy.UNIFORM;
 
 public class TestNodeSchedulerConfig
 {

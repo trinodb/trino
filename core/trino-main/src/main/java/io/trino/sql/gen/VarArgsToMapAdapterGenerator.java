@@ -21,7 +21,7 @@ import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Variable;
-import io.prestosql.util.Reflection;
+import io.trino.util.Reflection;
 
 import java.lang.invoke.MethodHandle;
 import java.util.HashMap;
@@ -38,11 +38,11 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantString;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
-import static io.prestosql.util.CompilerUtils.defineClass;
-import static io.prestosql.util.CompilerUtils.makeClassName;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.sql.gen.BytecodeUtils.loadConstant;
+import static io.trino.util.CompilerUtils.defineClass;
+import static io.trino.util.CompilerUtils.makeClassName;
+import static io.trino.util.Failures.checkCondition;
 
 public final class VarArgsToMapAdapterGenerator
 {

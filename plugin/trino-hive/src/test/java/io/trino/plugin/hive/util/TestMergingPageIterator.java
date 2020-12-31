@@ -14,11 +14,11 @@
 package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 
-import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.nullsFirst;
 import static java.util.stream.Collectors.toList;

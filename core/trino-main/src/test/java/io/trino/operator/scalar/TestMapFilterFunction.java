@@ -15,21 +15,21 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampType.createTimestampType;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.type.UnknownType.UNKNOWN;
-import static io.prestosql.util.StructuralTestUtil.mapType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.StructuralTestUtil.mapType;
 
 public class TestMapFilterFunction
         extends AbstractTestFunctions

@@ -15,21 +15,21 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinNode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

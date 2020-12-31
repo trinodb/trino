@@ -15,17 +15,17 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.WindowNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
-import static io.prestosql.sql.planner.plan.Patterns.window;
+import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.trino.sql.planner.plan.Patterns.window;
 
 public class PruneWindowColumns
         extends ProjectOffPushDownRule<WindowNode>

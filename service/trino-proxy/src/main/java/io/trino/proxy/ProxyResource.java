@@ -25,7 +25,7 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.proxy.ProxyResponseHandler.ProxyResponse;
+import io.trino.proxy.ProxyResponseHandler.ProxyResponse;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;

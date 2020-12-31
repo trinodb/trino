@@ -13,11 +13,11 @@
  */
 package io.trino.operator.window;
 
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.RankingWindowFunction;
-import io.prestosql.spi.function.WindowFunctionSignature;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.RankingWindowFunction;
+import io.trino.spi.function.WindowFunctionSignature;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 @WindowFunctionSignature(name = "dense_rank", returnType = "bigint")
 public class DenseRankFunction

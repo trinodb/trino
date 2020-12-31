@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Set;
 
-import static io.prestosql.geospatial.KdbTree.buildKdbTree;
+import static io.trino.geospatial.KdbTree.buildKdbTree;
 import static org.testng.Assert.assertEquals;
 
 public class TestKdbTree

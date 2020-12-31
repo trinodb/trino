@@ -15,7 +15,7 @@ package io.trino.benchmark.driver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.HostAndPort;
-import io.prestosql.client.ClientSession;
+import io.trino.client.ClientSession;
 
 import java.io.Closeable;
 import java.util.HashMap;

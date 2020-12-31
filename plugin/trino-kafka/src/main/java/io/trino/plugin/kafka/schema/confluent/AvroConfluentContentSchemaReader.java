@@ -15,8 +15,8 @@ package io.trino.plugin.kafka.schema.confluent;
 
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
-import io.prestosql.plugin.kafka.schema.AbstractContentSchemaReader;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.kafka.schema.AbstractContentSchemaReader;
+import io.trino.spi.PrestoException;
 
 import javax.inject.Inject;
 
@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

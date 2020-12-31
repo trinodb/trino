@@ -13,8 +13,8 @@
  */
 package io.trino.parquet.predicate;
 
-import io.prestosql.parquet.ParquetCorruptionException;
-import io.prestosql.parquet.ParquetDataSourceId;
+import io.trino.parquet.ParquetCorruptionException;
+import io.trino.parquet.ParquetDataSourceId;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
 

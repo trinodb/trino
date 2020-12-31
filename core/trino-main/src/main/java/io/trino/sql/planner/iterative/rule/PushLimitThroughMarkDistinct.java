@@ -13,18 +13,18 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.LimitNode;
-import io.prestosql.sql.planner.plan.MarkDistinctNode;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
 
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.iterative.rule.Util.transpose;
-import static io.prestosql.sql.planner.plan.Patterns.limit;
-import static io.prestosql.sql.planner.plan.Patterns.markDistinct;
-import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.iterative.rule.Util.transpose;
+import static io.trino.sql.planner.plan.Patterns.limit;
+import static io.trino.sql.planner.plan.Patterns.markDistinct;
+import static io.trino.sql.planner.plan.Patterns.source;
 
 public class PushLimitThroughMarkDistinct
         implements Rule<LimitNode>

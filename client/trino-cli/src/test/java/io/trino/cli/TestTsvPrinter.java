@@ -20,8 +20,8 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
 
-import static io.prestosql.cli.TestAlignedTablePrinter.row;
-import static io.prestosql.cli.TestAlignedTablePrinter.rows;
+import static io.trino.cli.TestAlignedTablePrinter.row;
+import static io.trino.cli.TestAlignedTablePrinter.rows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 

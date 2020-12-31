@@ -14,21 +14,21 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.NullLiteral;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.NullLiteral;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

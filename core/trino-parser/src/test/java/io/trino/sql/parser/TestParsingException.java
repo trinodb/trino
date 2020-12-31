@@ -13,7 +13,7 @@
  */
 package io.trino.sql.parser;
 
-import io.prestosql.sql.tree.NodeLocation;
+import io.trino.sql.tree.NodeLocation;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

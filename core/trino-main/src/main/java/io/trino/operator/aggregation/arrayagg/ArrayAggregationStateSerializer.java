@@ -13,11 +13,11 @@
  */
 package io.trino.operator.aggregation.arrayagg;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 
 public class ArrayAggregationStateSerializer
         implements AccumulatorStateSerializer<ArrayAggregationState>

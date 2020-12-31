@@ -15,7 +15,7 @@ package io.trino.plugin.thrift.api;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.thrift.api.NameValidationUtils.checkValidName;
+import static io.trino.plugin.thrift.api.NameValidationUtils.checkValidName;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestNameValidationUtils

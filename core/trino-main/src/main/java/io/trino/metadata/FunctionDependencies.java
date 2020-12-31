@@ -15,11 +15,11 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
 import java.util.List;
@@ -29,9 +29,9 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.metadata.Signature.isOperatorName;
-import static io.prestosql.metadata.Signature.unmangleOperator;
-import static io.prestosql.spi.function.OperatorType.CAST;
+import static io.trino.metadata.Signature.isOperatorName;
+import static io.trino.metadata.Signature.unmangleOperator;
+import static io.trino.spi.function.OperatorType.CAST;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;

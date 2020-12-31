@@ -13,11 +13,11 @@
  */
 package io.trino.cost;
 
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestOutputNodeStats

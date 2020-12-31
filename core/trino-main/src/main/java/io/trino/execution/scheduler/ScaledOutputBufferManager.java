@@ -13,16 +13,16 @@
  */
 package io.trino.execution.scheduler;
 
-import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.List;
 import java.util.function.Consumer;
 
-import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
-import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
+import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 public class ScaledOutputBufferManager

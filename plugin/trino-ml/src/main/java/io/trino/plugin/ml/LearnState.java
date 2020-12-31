@@ -15,8 +15,8 @@ package io.trino.plugin.ml;
 
 import com.google.common.collect.BiMap;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 import java.util.List;
 

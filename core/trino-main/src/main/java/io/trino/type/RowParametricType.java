@@ -13,17 +13,17 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.type.NamedTypeSignature;
-import io.prestosql.spi.type.ParameterKind;
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.RowFieldName;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeParameter;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.NamedTypeSignature;
+import io.trino.spi.type.ParameterKind;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.RowFieldName;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 

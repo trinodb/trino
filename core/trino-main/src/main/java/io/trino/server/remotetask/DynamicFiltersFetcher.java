@@ -20,9 +20,9 @@ import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
-import io.prestosql.execution.TaskId;
-import io.prestosql.server.DynamicFilterService;
+import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.execution.TaskId;
+import io.trino.server.DynamicFilterService;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -39,9 +39,9 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
-import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
-import static io.prestosql.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
+import static io.trino.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
+import static io.trino.client.PrestoHeaders.PRESTO_MAX_WAIT;
+import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static java.util.Objects.requireNonNull;
 
 class DynamicFiltersFetcher

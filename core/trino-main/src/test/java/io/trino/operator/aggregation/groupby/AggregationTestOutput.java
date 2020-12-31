@@ -14,9 +14,9 @@
 
 package io.trino.operator.aggregation.groupby;
 
-import io.prestosql.block.BlockAssertions;
-import io.prestosql.operator.aggregation.GroupedAccumulator;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.block.BlockAssertions;
+import io.trino.operator.aggregation.GroupedAccumulator;
+import io.trino.spi.block.BlockBuilder;
 
 import java.util.function.BiConsumer;
 

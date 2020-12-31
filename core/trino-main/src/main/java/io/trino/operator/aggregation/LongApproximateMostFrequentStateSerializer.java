@@ -15,12 +15,12 @@ package io.trino.operator.aggregation;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.SliceInput;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
 public class LongApproximateMostFrequentStateSerializer
         implements AccumulatorStateSerializer<BigintApproximateMostFrequent.State>

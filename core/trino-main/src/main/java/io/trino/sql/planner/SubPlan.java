@@ -15,8 +15,8 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multiset;
-import io.prestosql.sql.planner.plan.PlanFragmentId;
-import io.prestosql.sql.planner.plan.RemoteSourceNode;
+import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.RemoteSourceNode;
 
 import javax.annotation.concurrent.Immutable;
 

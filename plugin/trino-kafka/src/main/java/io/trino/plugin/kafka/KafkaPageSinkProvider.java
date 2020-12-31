@@ -14,16 +14,16 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.kafka.encoder.DispatchingRowEncoderFactory;
-import io.prestosql.plugin.kafka.encoder.EncoderColumnHandle;
-import io.prestosql.plugin.kafka.encoder.RowEncoder;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorPageSink;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
+import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
+import io.trino.plugin.kafka.encoder.RowEncoder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import javax.inject.Inject;
 
@@ -32,7 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Optional;
 
-import static io.prestosql.plugin.kafka.KafkaErrorCode.KAFKA_SCHEMA_ERROR;
+import static io.trino.plugin.kafka.KafkaErrorCode.KAFKA_SCHEMA_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

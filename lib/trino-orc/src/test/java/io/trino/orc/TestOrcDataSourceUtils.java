@@ -20,7 +20,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.prestosql.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
+import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcDataSourceUtils

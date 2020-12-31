@@ -16,10 +16,10 @@ package io.trino.plugin.phoenix;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.jdbc.JdbcSplit;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.jdbc.JdbcSplit;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 
 import java.util.List;

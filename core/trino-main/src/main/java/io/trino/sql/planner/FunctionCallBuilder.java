@@ -13,16 +13,16 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.analyzer.TypeSignatureProvider;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.NodeLocation;
-import io.prestosql.sql.tree.OrderBy;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.Window;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.analyzer.TypeSignatureProvider;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.NodeLocation;
+import io.trino.sql.tree.OrderBy;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.Window;
 
 import java.util.ArrayList;
 import java.util.List;

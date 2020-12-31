@@ -13,14 +13,14 @@
  */
 package io.trino.orc.writer;
 
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.statistics.LongValueStatisticsBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.statistics.LongValueStatisticsBuilder;
+import io.trino.spi.type.Type;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 
 public class TimeColumnWriter
         extends LongColumnWriter

@@ -14,19 +14,19 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Rollback;
-import io.prestosql.transaction.TransactionId;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.PrestoException;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Rollback;
+import io.trino.transaction.TransactionId;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.spi.StandardErrorCode.NOT_IN_TRANSACTION;
+import static io.trino.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 
 public class RollbackTask
         implements DataDefinitionTask<Rollback>

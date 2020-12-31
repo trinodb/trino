@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.druid;
 
-import io.prestosql.spi.ErrorCode;
+import io.trino.spi.ErrorCode;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.druid.DruidErrorCode.DRUID_DDL_NOT_SUPPORTED;
-import static io.prestosql.plugin.druid.DruidErrorCode.DRUID_DML_NOT_SUPPORTED;
-import static io.prestosql.spi.ErrorType.EXTERNAL;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.plugin.druid.DruidErrorCode.DRUID_DDL_NOT_SUPPORTED;
+import static io.trino.plugin.druid.DruidErrorCode.DRUID_DML_NOT_SUPPORTED;
+import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestDruidErrorCode
 {

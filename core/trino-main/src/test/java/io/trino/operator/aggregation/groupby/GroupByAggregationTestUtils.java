@@ -14,9 +14,9 @@
 
 package io.trino.operator.aggregation.groupby;
 
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 
 import static org.testng.Assert.assertEquals;
 

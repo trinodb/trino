@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 
 public class TestWordStemFunction
         extends AbstractTestFunctions

@@ -14,14 +14,14 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
 
 public class TypeHandlingJdbcSessionProperties
         implements SessionPropertiesProvider

@@ -13,14 +13,14 @@
  */
 package io.trino.type;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
-import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 
 public class TestDecimalOperators
         extends AbstractTestFunctions

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.prestosql.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.orc.OrcConf;

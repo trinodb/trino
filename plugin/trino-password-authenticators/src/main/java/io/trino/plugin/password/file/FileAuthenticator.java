@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.password.file;
 
-import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.BasicPrincipal;
-import io.prestosql.spi.security.PasswordAuthenticator;
+import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.PasswordAuthenticator;
 
 import javax.inject.Inject;
 

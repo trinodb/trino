@@ -13,7 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
-import io.prestosql.execution.SqlStageExecution;
+import io.trino.execution.SqlStageExecution;
 
 import java.util.Collection;
 

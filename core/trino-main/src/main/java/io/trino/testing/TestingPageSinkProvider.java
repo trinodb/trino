@@ -15,13 +15,13 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorPageSink;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;

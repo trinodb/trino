@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.raptor.legacy.metadata;
 
-import io.prestosql.plugin.raptor.legacy.metadata.Table.TableMapper;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.raptor.legacy.metadata.Table.TableMapper;
+import io.trino.spi.connector.SchemaTableName;
 import org.skife.jdbi.v2.sqlobject.Bind;
 import org.skife.jdbi.v2.sqlobject.GetGeneratedKeys;
 import org.skife.jdbi.v2.sqlobject.SqlQuery;

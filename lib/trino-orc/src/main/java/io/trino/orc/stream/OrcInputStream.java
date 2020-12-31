@@ -15,8 +15,8 @@ package io.trino.orc.stream;
 
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDataSourceId;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDataSourceId;
 
 import javax.annotation.Nullable;
 
@@ -25,9 +25,9 @@ import java.io.InputStream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeCompressedBlockOffset;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.decodeDecompressedOffset;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;

@@ -14,10 +14,10 @@
 package io.trino.plugin.tpch.util;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.tpch.TpchColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.function.Predicate;
 

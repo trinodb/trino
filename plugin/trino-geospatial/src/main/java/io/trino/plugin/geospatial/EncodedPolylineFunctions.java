@@ -22,22 +22,22 @@ import com.esri.core.geometry.ogc.OGCLineString;
 import com.google.common.base.Joiner;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.geospatial.GeometryType;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.geospatial.GeometryType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import java.util.EnumSet;
 import java.util.Set;
 
-import static io.prestosql.geospatial.GeometryType.LINE_STRING;
-import static io.prestosql.geospatial.GeometryType.MULTI_POINT;
-import static io.prestosql.geospatial.serde.GeometrySerde.deserialize;
-import static io.prestosql.geospatial.serde.GeometrySerde.serialize;
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.geospatial.GeometryType.LINE_STRING;
+import static io.trino.geospatial.GeometryType.MULTI_POINT;
+import static io.trino.geospatial.serde.GeometrySerde.deserialize;
+import static io.trino.geospatial.serde.GeometrySerde.serialize;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 /**

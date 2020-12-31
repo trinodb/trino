@@ -20,8 +20,8 @@ import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
-import static io.prestosql.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
+import static io.trino.plugin.base.authentication.KerberosTicketUtils.getRefreshTime;
+import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.security.UserGroupInformationShim.getSubject;
 

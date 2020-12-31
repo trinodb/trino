@@ -14,20 +14,20 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.Driver;
-import io.prestosql.operator.DriverContext;
-import io.prestosql.operator.DriverFactory;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.TaskContext;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.NullOutputOperator.NullOutputOperatorFactory;
+import io.trino.operator.Driver;
+import io.trino.operator.DriverContext;
+import io.trino.operator.DriverFactory;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.TaskContext;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.NullOutputOperator.NullOutputOperatorFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.OptionalInt;
 
-import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 
 public abstract class AbstractSimpleOperatorBenchmark
         extends AbstractOperatorBenchmark

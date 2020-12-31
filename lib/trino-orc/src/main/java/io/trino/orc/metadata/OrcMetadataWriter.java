@@ -18,12 +18,12 @@ import com.google.common.io.CountingOutputStream;
 import com.google.common.primitives.Longs;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
-import io.prestosql.orc.metadata.Stream.StreamKind;
-import io.prestosql.orc.metadata.statistics.BloomFilter;
-import io.prestosql.orc.metadata.statistics.ColumnStatistics;
-import io.prestosql.orc.metadata.statistics.StripeStatistics;
+import io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.trino.orc.metadata.OrcType.OrcTypeKind;
+import io.trino.orc.metadata.Stream.StreamKind;
+import io.trino.orc.metadata.statistics.BloomFilter;
+import io.trino.orc.metadata.statistics.ColumnStatistics;
+import io.trino.orc.metadata.statistics.StripeStatistics;
 import io.trino.orc.proto.OrcProto;
 import io.trino.orc.proto.OrcProto.RowIndexEntry;
 import io.trino.orc.proto.OrcProto.Type;
@@ -40,7 +40,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.orc.metadata.PostScript.MAGIC;
+import static io.trino.orc.metadata.PostScript.MAGIC;
 import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
 

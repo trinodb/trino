@@ -13,9 +13,9 @@
  */
 package io.trino.spi.block;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.spi.block.TestingSession.SESSION;
+import static io.trino.spi.block.TestingSession.SESSION;
 import static org.testng.Assert.assertEquals;
 
 public class BlockTestUtils

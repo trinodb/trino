@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.base.type;
 
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TimestampType;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.TimestampType;
 
 public interface PrestoTimestampEncoder<T>
 {

@@ -15,25 +15,25 @@ package io.trino.sql.planner.iterative.rule.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.Plugin;
-import io.prestosql.split.PageSourceManager;
-import io.prestosql.split.SplitManager;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.Metadata;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.security.AccessControl;
+import io.trino.spi.Plugin;
+import io.trino.split.PageSourceManager;
+import io.trino.split.SplitManager;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.transaction.TransactionManager;
 
 import java.io.Closeable;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
 public class RuleTester

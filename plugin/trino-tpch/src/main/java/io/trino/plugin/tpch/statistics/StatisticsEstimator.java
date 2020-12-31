@@ -24,9 +24,9 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.plugin.tpch.util.Optionals.combine;
-import static io.prestosql.plugin.tpch.util.Types.checkSameType;
-import static io.prestosql.plugin.tpch.util.Types.checkType;
+import static io.trino.plugin.tpch.util.Optionals.combine;
+import static io.trino.plugin.tpch.util.Types.checkSameType;
+import static io.trino.plugin.tpch.util.Types.checkType;
 
 public class StatisticsEstimator
 {

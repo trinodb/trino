@@ -13,9 +13,9 @@
  */
 package io.trino.execution;
 
-import io.prestosql.Session;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 
 import java.time.Duration;

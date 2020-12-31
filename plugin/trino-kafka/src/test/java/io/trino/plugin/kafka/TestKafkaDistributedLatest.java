@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.kafka;
 
-import io.prestosql.testing.AbstractTestQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.kafka.BasicTestingKafka;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.kafka.BasicTestingKafka;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 

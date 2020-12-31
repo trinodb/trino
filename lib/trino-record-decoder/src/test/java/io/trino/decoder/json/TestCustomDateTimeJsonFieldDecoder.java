@@ -15,19 +15,19 @@ package io.trino.decoder.json;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.decoder.DecoderTestColumnHandle;
-import io.prestosql.spi.PrestoException;
+import io.trino.decoder.DecoderTestColumnHandle;
+import io.trino.spi.PrestoException;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

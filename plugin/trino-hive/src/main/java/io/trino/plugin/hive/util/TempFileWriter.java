@@ -15,14 +15,14 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.prestosql.orc.OrcDataSink;
-import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
-import io.prestosql.orc.OrcWriter;
-import io.prestosql.orc.OrcWriterOptions;
-import io.prestosql.orc.OrcWriterStats;
-import io.prestosql.orc.metadata.OrcType;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.OrcDataSink;
+import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.trino.orc.OrcWriter;
+import io.trino.orc.OrcWriterOptions;
+import io.trino.orc.OrcWriterStats;
+import io.trino.orc.metadata.OrcType;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -32,7 +32,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.orc.metadata.CompressionKind.LZ4;
+import static io.trino.orc.metadata.CompressionKind.LZ4;
 
 public class TempFileWriter
         implements Closeable

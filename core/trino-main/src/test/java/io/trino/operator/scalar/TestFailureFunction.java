@@ -14,14 +14,14 @@
 package io.trino.operator.scalar;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.client.FailureInfo;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.util.Failures;
+import io.trino.client.FailureInfo;
+import io.trino.spi.PrestoException;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.util.Failures;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public class TestFailureFunction
         extends AbstractTestFunctions

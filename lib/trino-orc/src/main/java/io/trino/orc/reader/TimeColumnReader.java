@@ -13,12 +13,12 @@
  */
 package io.trino.orc.reader;
 
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.orc.OrcColumn;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.orc.OrcColumn;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 
 public class TimeColumnReader
         extends LongColumnReader

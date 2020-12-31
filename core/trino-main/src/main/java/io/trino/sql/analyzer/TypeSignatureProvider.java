@@ -14,8 +14,8 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.function.Function;

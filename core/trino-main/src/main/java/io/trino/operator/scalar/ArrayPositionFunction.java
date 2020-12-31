@@ -13,25 +13,25 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.Convention;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.OperatorDependency;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.function.Convention;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.OperatorDependency;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.util.Failures.internalError;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.util.Failures.internalError;
 
 @Description("Returns the position of the first occurrence of the given value in array (or 0 if not found)")
 @ScalarFunction("array_position")

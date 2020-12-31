@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.prestosql.plugin.base.util.LoggingInvocationHandler;
-import io.prestosql.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
+import io.trino.plugin.base.util.LoggingInvocationHandler;
+import io.trino.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
 import org.testng.annotations.Test;
 

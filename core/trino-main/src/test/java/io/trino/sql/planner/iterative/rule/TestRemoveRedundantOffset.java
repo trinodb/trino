@@ -14,11 +14,11 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestRemoveRedundantOffset
         extends BaseRuleTest

@@ -14,7 +14,7 @@
 package io.trino.orc;
 
 import io.airlift.slice.DynamicSliceOutput;
-import io.prestosql.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.CompressionKind;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;

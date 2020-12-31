@@ -13,8 +13,8 @@
  */
 package io.trino.tests;
 
-import io.prestosql.testing.AbstractTestOrderByQueries;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestOrderByQueries;
+import io.trino.testing.QueryRunner;
 
 public class TestSpilledOrderByQueries
         extends AbstractTestOrderByQueries

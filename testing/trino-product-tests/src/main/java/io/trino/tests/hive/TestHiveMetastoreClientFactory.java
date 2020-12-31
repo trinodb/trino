@@ -16,9 +16,9 @@ package io.trino.tests.hive;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
-import io.prestosql.plugin.hive.metastore.thrift.NoHiveMetastoreAuthentication;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
-import io.prestosql.plugin.hive.metastore.thrift.Transport;
+import io.trino.plugin.hive.metastore.thrift.NoHiveMetastoreAuthentication;
+import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
+import io.trino.plugin.hive.metastore.thrift.Transport;
 import org.apache.thrift.TException;
 
 import java.net.URI;

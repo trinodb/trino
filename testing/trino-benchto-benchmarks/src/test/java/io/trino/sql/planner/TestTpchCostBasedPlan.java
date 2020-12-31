@@ -15,20 +15,20 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session.SessionBuilder;
-import io.prestosql.plugin.tpch.ColumnNaming;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
-import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.Session.SessionBuilder;
+import io.trino.plugin.tpch.ColumnNaming;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 /**

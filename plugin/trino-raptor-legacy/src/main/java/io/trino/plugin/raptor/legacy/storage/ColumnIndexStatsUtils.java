@@ -13,17 +13,17 @@
  */
 package io.trino.plugin.raptor.legacy.storage;
 
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.sql.JDBCType;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 
 public final class ColumnIndexStatsUtils
 {

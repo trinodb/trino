@@ -15,7 +15,7 @@ package io.trino.tests.hive.util;
 
 import java.security.SecureRandom;
 
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.lang.Character.MAX_RADIX;
 import static java.lang.Math.abs;
 import static java.lang.Math.min;

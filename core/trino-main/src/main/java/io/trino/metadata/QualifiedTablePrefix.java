@@ -15,7 +15,7 @@ package io.trino.metadata;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SchemaTablePrefix;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -23,9 +23,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.metadata.MetadataUtil.checkCatalogName;
-import static io.prestosql.metadata.MetadataUtil.checkSchemaName;
-import static io.prestosql.metadata.MetadataUtil.checkTableName;
+import static io.trino.metadata.MetadataUtil.checkCatalogName;
+import static io.trino.metadata.MetadataUtil.checkSchemaName;
+import static io.trino.metadata.MetadataUtil.checkTableName;
 
 @Immutable
 public class QualifiedTablePrefix

@@ -19,11 +19,11 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.TestGroups.TWO_HIVES;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.TestGroups.TWO_HIVES;
 import static java.lang.Math.pow;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;

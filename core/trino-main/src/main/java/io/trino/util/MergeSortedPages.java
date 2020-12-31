@@ -13,17 +13,17 @@
  */
 package io.trino.util;
 
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.PageWithPositionComparator;
-import io.prestosql.operator.WorkProcessor;
-import io.prestosql.operator.WorkProcessor.ProcessState;
-import io.prestosql.operator.WorkProcessor.TransformationState;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.PageWithPositionComparator;
+import io.trino.operator.WorkProcessor;
+import io.trino.operator.WorkProcessor.ProcessState;
+import io.trino.operator.WorkProcessor.TransformationState;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 
 import java.util.Comparator;
 import java.util.List;
@@ -31,7 +31,7 @@ import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.operator.WorkProcessor.mergeSorted;
+import static io.trino.operator.WorkProcessor.mergeSorted;
 import static java.util.Objects.requireNonNull;
 
 public final class MergeSortedPages

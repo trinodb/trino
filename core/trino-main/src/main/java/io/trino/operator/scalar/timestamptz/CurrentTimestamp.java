@@ -13,22 +13,22 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.type.DateTimes;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.type.DateTimes;
 
 import java.time.Instant;
 
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.roundToNearest;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
+import static io.trino.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
+import static io.trino.type.DateTimes.round;
+import static io.trino.type.DateTimes.roundToNearest;
 
 @ScalarFunction(value = "$current_timestamp", hidden = true)
 public final class CurrentTimestamp

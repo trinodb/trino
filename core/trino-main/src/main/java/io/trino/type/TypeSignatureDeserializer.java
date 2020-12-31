@@ -16,11 +16,11 @@ package io.trino.type;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public final class TypeSignatureDeserializer
         extends FromStringDeserializer<TypeSignature>

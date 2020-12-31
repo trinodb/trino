@@ -13,7 +13,7 @@
  */
 package io.trino.spiller;
 
-import io.prestosql.operator.SpillContext;
+import io.trino.operator.SpillContext;
 
 import javax.annotation.concurrent.ThreadSafe;
 

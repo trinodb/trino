@@ -14,13 +14,13 @@
 
 package io.trino.cost;
 
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.cost.PlanNodeStatsAssertion.assertThat;
-import static io.prestosql.cost.SemiJoinStatsCalculator.computeAntiJoin;
-import static io.prestosql.cost.SemiJoinStatsCalculator.computeSemiJoin;
+import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
+import static io.trino.cost.SemiJoinStatsCalculator.computeAntiJoin;
+import static io.trino.cost.SemiJoinStatsCalculator.computeSemiJoin;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;

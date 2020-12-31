@@ -14,7 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.io.Resources;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

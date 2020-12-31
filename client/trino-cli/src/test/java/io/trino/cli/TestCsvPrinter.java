@@ -20,15 +20,15 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.util.List;
 
-import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
-import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
-import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
-import static io.prestosql.cli.CsvPrinter.CsvOutputFormat.STANDARD;
-import static io.prestosql.cli.TestAlignedTablePrinter.item;
-import static io.prestosql.cli.TestAlignedTablePrinter.list;
-import static io.prestosql.cli.TestAlignedTablePrinter.map;
-import static io.prestosql.cli.TestAlignedTablePrinter.row;
-import static io.prestosql.cli.TestAlignedTablePrinter.rows;
+import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER;
+import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_HEADER_AND_QUOTES;
+import static io.trino.cli.CsvPrinter.CsvOutputFormat.NO_QUOTES;
+import static io.trino.cli.CsvPrinter.CsvOutputFormat.STANDARD;
+import static io.trino.cli.TestAlignedTablePrinter.item;
+import static io.trino.cli.TestAlignedTablePrinter.list;
+import static io.trino.cli.TestAlignedTablePrinter.map;
+import static io.trino.cli.TestAlignedTablePrinter.row;
+import static io.trino.cli.TestAlignedTablePrinter.rows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorMetadata;
 
 public interface TransactionalMetadata
         extends ConnectorMetadata

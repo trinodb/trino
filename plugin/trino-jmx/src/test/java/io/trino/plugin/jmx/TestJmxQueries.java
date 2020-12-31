@@ -14,19 +14,19 @@
 package io.trino.plugin.jmx;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.Locale;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
-import static io.prestosql.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
-import static io.prestosql.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
+import static io.trino.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
+import static io.trino.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

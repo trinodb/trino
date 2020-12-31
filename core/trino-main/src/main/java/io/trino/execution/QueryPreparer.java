@@ -14,28 +14,28 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.resourcegroups.QueryType;
-import io.prestosql.sql.parser.ParsingException;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Execute;
-import io.prestosql.sql.tree.Explain;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Statement;
-import io.prestosql.util.StatementUtils;
+import io.trino.Session;
+import io.trino.spi.PrestoException;
+import io.trino.spi.resourcegroups.QueryType;
+import io.trino.sql.parser.ParsingException;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.Execute;
+import io.trino.sql.tree.Explain;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Statement;
+import io.trino.util.StatementUtils;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.execution.ParameterExtractor.getParameterCount;
-import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.ParsingUtil.createParsingOptions;
-import static io.prestosql.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.execution.ParameterExtractor.getParameterCount;
+import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 

@@ -13,7 +13,7 @@
  */
 package io.trino.spi.statistics;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 import java.util.HashMap;
 import java.util.List;

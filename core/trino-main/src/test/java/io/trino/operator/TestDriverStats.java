@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.execution.Lifespan;
+import io.trino.execution.Lifespan;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
-import static io.prestosql.operator.TestOperatorStats.assertExpectedOperatorStats;
+import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;

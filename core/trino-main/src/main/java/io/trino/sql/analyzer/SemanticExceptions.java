@@ -13,15 +13,15 @@
  */
 package io.trino.sql.analyzer;
 
-import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.PrestoException;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.QualifiedName;
 
-import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
-import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
-import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
+import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static java.lang.String.format;
 
 public final class SemanticExceptions

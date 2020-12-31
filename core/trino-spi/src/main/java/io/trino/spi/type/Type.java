@@ -15,15 +15,15 @@ package io.trino.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.BlockBuilderStatus;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
+import static io.trino.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
 import static java.util.Objects.requireNonNull;
 
 public interface Type

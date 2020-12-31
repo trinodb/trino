@@ -27,16 +27,16 @@ import org.testng.annotations.Test;
 
 import java.util.Set;
 
-import static io.prestosql.tests.TestGroups.AUTHORIZATION;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tempto.assertions.QueryAssert.Row;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
+import static io.trino.tests.TestGroups.AUTHORIZATION;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 

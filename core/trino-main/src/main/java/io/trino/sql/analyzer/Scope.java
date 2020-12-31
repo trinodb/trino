@@ -15,11 +15,11 @@ package io.trino.sql.analyzer;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.sql.tree.AllColumns;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.WithQuery;
+import io.trino.spi.type.RowType;
+import io.trino.sql.tree.AllColumns;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.WithQuery;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -31,13 +31,13 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
-import static io.prestosql.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
-import static io.prestosql.sql.analyzer.Scope.BasisType.FIELD;
-import static io.prestosql.sql.analyzer.Scope.BasisType.TABLE;
-import static io.prestosql.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
-import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
+import static io.trino.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
+import static io.trino.sql.analyzer.Scope.BasisType.FIELD;
+import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
+import static io.trino.sql.analyzer.SemanticExceptions.ambiguousAttributeException;
+import static io.trino.sql.analyzer.SemanticExceptions.missingAttributeException;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

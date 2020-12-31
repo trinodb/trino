@@ -13,7 +13,7 @@
  */
 package io.trino.sql.relational;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 public abstract class RowExpression
 {

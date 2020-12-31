@@ -15,27 +15,27 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.TopNNode;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TopNNode;
 
 import java.util.List;
 
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
-import static io.prestosql.sql.planner.plan.Patterns.Join.type;
-import static io.prestosql.sql.planner.plan.Patterns.TopN.step;
-import static io.prestosql.sql.planner.plan.Patterns.join;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.topN;
-import static io.prestosql.sql.planner.plan.TopNNode.Step.PARTIAL;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
+import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.Patterns.Join.type;
+import static io.trino.sql.planner.plan.Patterns.TopN.step;
+import static io.trino.sql.planner.plan.Patterns.join;
+import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.Patterns.topN;
+import static io.trino.sql.planner.plan.TopNNode.Step.PARTIAL;
 
 /**
  * Transforms:

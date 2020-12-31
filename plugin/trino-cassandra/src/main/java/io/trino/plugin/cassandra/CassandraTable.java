@@ -14,7 +14,7 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.cassandra.util.CassandraCqlUtils;
+import io.trino.plugin.cassandra.util.CassandraCqlUtils;
 
 import java.util.List;
 

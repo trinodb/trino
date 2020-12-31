@@ -14,20 +14,20 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class TableDeleteOperator

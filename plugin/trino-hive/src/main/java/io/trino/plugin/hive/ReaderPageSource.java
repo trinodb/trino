@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorPageSource;
 
 import java.util.Optional;
 

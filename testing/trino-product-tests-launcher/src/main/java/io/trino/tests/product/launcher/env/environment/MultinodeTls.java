@@ -14,30 +14,30 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.docker.DockerFiles;
-import io.prestosql.tests.product.launcher.env.Debug;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
-import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
-import io.prestosql.tests.product.launcher.env.ServerPackage;
-import io.prestosql.tests.product.launcher.env.common.Hadoop;
-import io.prestosql.tests.product.launcher.env.common.Standard;
-import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
-import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
+import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.Debug;
+import io.trino.tests.product.launcher.env.DockerContainer;
+import io.trino.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentProvider;
+import io.trino.tests.product.launcher.env.ServerPackage;
+import io.trino.tests.product.launcher.env.common.Hadoop;
+import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import javax.inject.Inject;
 
 import java.io.File;
 
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.worker;
-import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
-import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
-import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
-import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
-import static io.prestosql.tests.product.launcher.env.common.Standard.createPrestoContainer;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.worker;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static io.trino.tests.product.launcher.env.common.Standard.createPrestoContainer;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 

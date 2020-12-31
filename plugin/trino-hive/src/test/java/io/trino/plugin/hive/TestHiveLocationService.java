@@ -14,15 +14,15 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.LocationService.WriteInfo;
-import io.prestosql.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.hive.LocationService.WriteInfo;
+import io.trino.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
-import static io.prestosql.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
-import static io.prestosql.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
+import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static org.testng.Assert.assertEquals;
 
 public class TestHiveLocationService

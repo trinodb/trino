@@ -17,7 +17,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.security.ConnectorIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.net.URI;
 import java.util.Collection;
@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.extractBucketName;
+import static io.trino.plugin.hive.s3.PrestoS3FileSystem.extractBucketName;
 import static java.util.Objects.requireNonNull;
 
 public class S3SecurityMapping

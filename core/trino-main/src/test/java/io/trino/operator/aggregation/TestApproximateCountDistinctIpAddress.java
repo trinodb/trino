@@ -14,11 +14,11 @@
 package io.trino.operator.aggregation;
 
 import io.airlift.slice.Slices;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.type.IpAddressType.IPADDRESS;
+import static io.trino.type.IpAddressType.IPADDRESS;
 
 public class TestApproximateCountDistinctIpAddress
         extends AbstractTestApproximateCountDistinct

@@ -15,7 +15,7 @@ package io.trino.orc.stream;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.orc.checkpoint.DoubleStreamCheckpoint;
+import io.trino.orc.checkpoint.DoubleStreamCheckpoint;
 
 import java.io.IOException;
 

@@ -14,13 +14,13 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.procedure.Procedure;
-import io.prestosql.spi.transaction.IsolationLevel;
-import io.prestosql.transaction.InternalConnector;
-import io.prestosql.transaction.TransactionId;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.procedure.Procedure;
+import io.trino.spi.transaction.IsolationLevel;
+import io.trino.transaction.InternalConnector;
+import io.trino.transaction.TransactionId;
 
 import java.util.Set;
 

@@ -14,10 +14,10 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.ForHiveMetastore;
-import io.prestosql.plugin.hive.authentication.HadoopAuthentication;
-import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
-import io.prestosql.plugin.hive.authentication.MetastoreKerberosConfig;
+import io.trino.plugin.hive.ForHiveMetastore;
+import io.trino.plugin.hive.authentication.HadoopAuthentication;
+import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
+import io.trino.plugin.hive.authentication.MetastoreKerberosConfig;
 import org.apache.hadoop.hive.metastore.security.DelegationTokenIdentifier;
 import org.apache.hadoop.hive.thrift.client.TUGIAssumingTransport;
 import org.apache.hadoop.security.SaslRpcServer;

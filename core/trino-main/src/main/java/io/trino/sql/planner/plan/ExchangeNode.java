@@ -17,12 +17,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.Partitioning;
-import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
-import io.prestosql.sql.planner.PartitioningHandle;
-import io.prestosql.sql.planner.PartitioningScheme;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Partitioning;
+import io.trino.sql.planner.Partitioning.ArgumentBinding;
+import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.PartitioningScheme;
+import io.trino.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -30,14 +30,14 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.LOCAL;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.prestosql.util.MoreLists.listOfListsCopy;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.util.MoreLists.listOfListsCopy;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

@@ -36,7 +36,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
+import static io.trino.sql.analyzer.RegexLibrary.JONI;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 

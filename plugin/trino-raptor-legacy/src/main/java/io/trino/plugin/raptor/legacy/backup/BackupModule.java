@@ -22,7 +22,7 @@ import com.google.inject.util.Providers;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationAwareModule;
-import io.prestosql.plugin.raptor.legacy.RaptorConnectorId;
+import io.trino.plugin.raptor.legacy.RaptorConnectorId;
 import org.weakref.jmx.MBeanExporter;
 
 import javax.annotation.Nullable;

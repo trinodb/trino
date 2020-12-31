@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.type.DecimalType;
+import io.trino.spi.type.DecimalType;
 
 import java.math.BigDecimal;
 
-import static io.prestosql.spi.type.Decimals.rescale;
+import static io.trino.spi.type.Decimals.rescale;
 import static java.math.RoundingMode.HALF_UP;
 import static java.nio.charset.StandardCharsets.UTF_8;
 

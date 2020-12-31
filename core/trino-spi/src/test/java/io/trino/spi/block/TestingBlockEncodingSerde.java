@@ -15,10 +15,10 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.type.TestingTypeManager;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;

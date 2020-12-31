@@ -15,10 +15,10 @@ package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
-import io.prestosql.cost.PlanCostEstimate;
-import io.prestosql.cost.PlanNodeStatsEstimate;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.cost.PlanCostEstimate;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.plan.PlanNode;
 
 import javax.annotation.Nullable;
 
@@ -32,7 +32,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.planner.iterative.Plans.resolveGroupReferences;
+import static io.trino.sql.planner.iterative.Plans.resolveGroupReferences;
 import static java.util.Objects.requireNonNull;
 
 /**

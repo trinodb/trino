@@ -14,15 +14,15 @@
 package io.trino.operator;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.List;
 import java.util.function.BiConsumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 

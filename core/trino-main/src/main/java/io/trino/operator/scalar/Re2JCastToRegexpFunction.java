@@ -16,22 +16,22 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.SqlOperator;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.type.Re2JRegexp;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.SqlOperator;
+import io.trino.spi.PrestoException;
+import io.trino.type.Re2JRegexp;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.Chars.padSpaces;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
-import static io.prestosql.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
+import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.util.Collections.emptyList;
 

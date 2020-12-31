@@ -20,11 +20,11 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Objects;
 
-import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.spi.type.Timestamps.formatTimestampWithTimeZone;
-import static io.prestosql.spi.type.Timestamps.round;
-import static io.prestosql.spi.type.Timestamps.roundDiv;
+import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.formatTimestampWithTimeZone;
+import static io.trino.spi.type.Timestamps.round;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;

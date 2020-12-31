@@ -14,18 +14,18 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static java.lang.String.format;
 
 public class JdbcMetadataSessionProperties

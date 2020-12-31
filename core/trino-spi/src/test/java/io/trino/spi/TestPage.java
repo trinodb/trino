@@ -15,17 +15,17 @@ package io.trino.spi;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.DictionaryId;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.DictionaryId;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
-import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.block.DictionaryId.randomDictionaryId;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;

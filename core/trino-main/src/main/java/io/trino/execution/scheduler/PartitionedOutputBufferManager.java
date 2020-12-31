@@ -14,9 +14,9 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
-import io.prestosql.sql.planner.PartitioningHandle;
+import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.sql.planner.PartitioningHandle;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe

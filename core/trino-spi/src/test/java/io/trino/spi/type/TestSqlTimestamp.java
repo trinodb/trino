@@ -17,8 +17,8 @@ import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
 
-import static io.prestosql.spi.type.SqlTimestamp.fromMillis;
-import static io.prestosql.spi.type.SqlTimestamp.newInstance;
+import static io.trino.spi.type.SqlTimestamp.fromMillis;
+import static io.trino.spi.type.SqlTimestamp.newInstance;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlTimestamp

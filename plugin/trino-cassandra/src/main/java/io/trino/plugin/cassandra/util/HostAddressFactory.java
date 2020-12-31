@@ -14,7 +14,7 @@
 package io.trino.plugin.cassandra.util;
 
 import com.datastax.driver.core.Host;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 import java.util.ArrayList;
 import java.util.Collection;

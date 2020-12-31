@@ -14,24 +14,24 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.docker.DockerFiles;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
-import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
-import io.prestosql.tests.product.launcher.env.common.Hadoop;
-import io.prestosql.tests.product.launcher.env.common.Standard;
-import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
-import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
+import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.DockerContainer;
+import io.trino.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentProvider;
+import io.trino.tests.product.launcher.env.common.Hadoop;
+import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
-import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
-import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
+import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 

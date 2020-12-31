@@ -24,20 +24,20 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.CallExpression;
-import io.prestosql.sql.relational.ConstantExpression;
-import io.prestosql.sql.relational.InputReferenceExpression;
-import io.prestosql.sql.relational.LambdaDefinitionExpression;
-import io.prestosql.sql.relational.RowExpressionVisitor;
-import io.prestosql.sql.relational.SpecialForm;
-import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.trino.spi.type.Type;
+import io.trino.sql.relational.CallExpression;
+import io.trino.sql.relational.ConstantExpression;
+import io.trino.sql.relational.InputReferenceExpression;
+import io.trino.sql.relational.LambdaDefinitionExpression;
+import io.trino.sql.relational.RowExpressionVisitor;
+import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.relational.VariableReferenceExpression;
 import org.objectweb.asm.MethodVisitor;
 
 import java.util.List;
 import java.util.function.BiFunction;
 
-import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
+import static io.trino.sql.gen.SqlTypeBytecodeExpression.constantType;
 import static java.util.Objects.requireNonNull;
 
 class InputReferenceCompiler

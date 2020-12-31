@@ -13,8 +13,8 @@
  */
 package io.trino.operator.aggregation.arrayagg;
 
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.type.Type;
 
 public class ArrayAggregationStateFactory
         implements AccumulatorStateFactory<ArrayAggregationState>

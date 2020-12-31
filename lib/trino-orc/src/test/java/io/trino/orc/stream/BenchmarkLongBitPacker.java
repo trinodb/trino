@@ -35,7 +35,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.orc.stream.TestingBitPackingUtils.unpackGeneric;
+import static io.trino.orc.stream.TestingBitPackingUtils.unpackGeneric;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)

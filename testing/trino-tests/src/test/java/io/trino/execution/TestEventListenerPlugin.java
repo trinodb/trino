@@ -14,9 +14,9 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.eventlistener.EventListener;
-import io.prestosql.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.eventlistener.EventListenerFactory;
 
 import java.util.Map;
 

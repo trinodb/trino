@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.bigquery;
 
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorFactory;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;

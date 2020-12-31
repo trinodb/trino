@@ -14,8 +14,8 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 

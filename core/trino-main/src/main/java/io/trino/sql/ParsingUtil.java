@@ -13,12 +13,12 @@
  */
 package io.trino.sql;
 
-import io.prestosql.Session;
-import io.prestosql.sql.parser.ParsingOptions;
+import io.trino.Session;
+import io.trino.sql.parser.ParsingOptions;
 
-import static io.prestosql.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
-import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
-import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.SystemSessionProperties.isParseDecimalLiteralsAsDouble;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 
 public final class ParsingUtil
 {

@@ -14,27 +14,27 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.trino.operator.scalar.ScalarFunctionImplementation;
 
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.util.Reflection.constructorMethodHandle;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.Signature.typeVariable;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.util.Reflection.constructorMethodHandle;
+import static io.trino.util.Reflection.methodHandle;
 import static java.util.Collections.nCopies;
 
 public class StatefulSleepingSum

@@ -15,25 +15,25 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.metadata.Metadata;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignatureParameter;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.util.StructuralTestUtil.appendToBlockBuilder;
 
 public final class StructuralTestUtil
 {

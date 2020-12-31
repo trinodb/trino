@@ -14,10 +14,10 @@
 package io.trino.parquet.writer.valuewriter;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Type;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.PrimitiveType;

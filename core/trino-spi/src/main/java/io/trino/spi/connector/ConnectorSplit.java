@@ -13,7 +13,7 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 import java.util.List;
 

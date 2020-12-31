@@ -14,10 +14,10 @@
 package io.trino.operator.scalar.annotations;
 
 import com.google.common.base.Joiner;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.type.UnknownType;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeSignature;
+import io.trino.type.UnknownType;
 
 import java.util.List;
 

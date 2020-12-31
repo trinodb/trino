@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.ExtendedSettableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.execution.StateMachine;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.execution.TaskId;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
-import io.prestosql.memory.context.LocalMemoryContext;
+import io.trino.execution.StateMachine;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.TaskId;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.memory.context.LocalMemoryContext;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -37,11 +37,11 @@ import java.util.function.Supplier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.execution.buffer.BufferResult.emptyResults;
-import static io.prestosql.execution.buffer.BufferState.FAILED;
-import static io.prestosql.execution.buffer.BufferState.FINISHED;
-import static io.prestosql.execution.buffer.BufferState.OPEN;
-import static io.prestosql.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
+import static io.trino.execution.buffer.BufferResult.emptyResults;
+import static io.trino.execution.buffer.BufferState.FAILED;
+import static io.trino.execution.buffer.BufferState.FINISHED;
+import static io.trino.execution.buffer.BufferState.OPEN;
+import static io.trino.execution.buffer.BufferState.TERMINAL_BUFFER_STATES;
 import static java.util.Objects.requireNonNull;
 
 public class LazyOutputBuffer

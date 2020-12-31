@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.type.Type;
 import org.apache.kudu.client.KeyEncoderAccessor;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduScanner;
@@ -33,8 +33,8 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class KuduRecordCursor

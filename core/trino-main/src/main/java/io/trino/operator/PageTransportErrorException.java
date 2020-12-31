@@ -13,10 +13,10 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.PrestoTransportException;
+import io.trino.spi.HostAddress;
+import io.trino.spi.PrestoTransportException;
 
-import static io.prestosql.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
+import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 
 public class PageTransportErrorException
         extends PrestoTransportException

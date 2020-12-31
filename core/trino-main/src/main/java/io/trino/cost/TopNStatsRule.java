@@ -13,17 +13,17 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.matching.Pattern;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.TopNNode;
+import io.trino.Session;
+import io.trino.matching.Pattern;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.TopNNode;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.plan.Patterns.topN;
+import static io.trino.sql.planner.plan.Patterns.topN;
 
 public class TopNStatsRule
         extends SimpleStatsRule<TopNNode>

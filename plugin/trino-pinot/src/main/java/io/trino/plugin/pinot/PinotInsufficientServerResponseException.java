@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.pinot;
 
-import io.prestosql.pinot.query.PinotQuery;
+import io.trino.plugin.pinot.query.PinotQuery;
 
 import java.util.Optional;
 
-import static io.prestosql.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
+import static io.trino.plugin.pinot.PinotErrorCode.PINOT_INSUFFICIENT_SERVER_RESPONSE;
 import static java.lang.String.format;
 
 public class PinotInsufficientServerResponseException

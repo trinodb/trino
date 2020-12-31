@@ -18,15 +18,15 @@ import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.prestosql.array.LongBigArray;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.AbstractLongType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.array.LongBigArray;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -54,9 +54,9 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.operator.UpdateMemory.NOOP;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.operator.UpdateMemory.NOOP;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 
 @SuppressWarnings("MethodMayBeStatic")

@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.ml;
 
-import io.prestosql.plugin.ml.type.ClassifierType;
-import io.prestosql.plugin.ml.type.ModelType;
+import io.trino.plugin.ml.type.ClassifierType;
+import io.trino.plugin.ml.type.ModelType;
 
 import java.util.List;
 

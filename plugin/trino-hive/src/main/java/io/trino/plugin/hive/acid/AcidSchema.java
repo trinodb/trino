@@ -14,10 +14,10 @@
 package io.trino.plugin.hive.acid;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.HiveTypeName;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.HiveTypeName;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.ql.io.IOConstants;
 
 import java.util.List;
@@ -25,11 +25,11 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
-import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RowType.field;
+import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 

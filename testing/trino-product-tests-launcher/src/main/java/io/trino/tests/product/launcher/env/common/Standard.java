@@ -14,13 +14,13 @@
 package io.trino.tests.product.launcher.env.common;
 
 import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.docker.DockerFiles;
-import io.prestosql.tests.product.launcher.env.Debug;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
-import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.ServerPackage;
-import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
+import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.Debug;
+import io.trino.tests.product.launcher.env.DockerContainer;
+import io.trino.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.ServerPackage;
+import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 
@@ -38,11 +38,11 @@ import java.time.Duration;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.WORKER;
-import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
+import static io.trino.tests.product.launcher.docker.ContainerUtil.exposePort;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;

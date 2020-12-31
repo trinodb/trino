@@ -13,15 +13,15 @@
  */
 package io.trino.tests;
 
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.ProcedureRegistry;
-import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.ProcedureTester;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.TestingProcedures;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.ProcedureRegistry;
+import io.trino.server.testing.TestingPrestoServer;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.ProcedureTester;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingProcedures;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -29,8 +29,8 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.testing.TestingSession.TESTING_CATALOG;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.TESTING_CATALOG;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;

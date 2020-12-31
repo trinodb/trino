@@ -14,15 +14,15 @@
 package io.trino.eventlistener;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.spi.eventlistener.EventListener;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.spi.eventlistener.EventListener;
+import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 

@@ -14,7 +14,7 @@
 package io.trino.server.security;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.security.Identity;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
@@ -23,7 +23,7 @@ import java.security.Principal;
 import java.security.cert.X509Certificate;
 import java.util.List;
 
-import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 
 public class CertificateAuthenticator

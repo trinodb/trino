@@ -13,19 +13,19 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)
 public final class DateToTimestampWithTimeZoneCast

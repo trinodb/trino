@@ -13,13 +13,13 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.GroupIdNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.GroupIdNode;
 
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static io.prestosql.sql.planner.plan.Patterns.groupId;
+import static io.trino.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static io.trino.sql.planner.plan.Patterns.groupId;
 
 public class PruneGroupIdSourceColumns
         implements Rule<GroupIdNode>

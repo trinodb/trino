@@ -15,22 +15,22 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.connector.MockConnectorTableHandle;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.TopNApplicationResult;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.RuleTester;
-import io.prestosql.sql.planner.plan.TopNNode;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorTableHandle;
+import io.trino.metadata.TableHandle;
+import io.trino.plugin.tpch.TpchColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TopNApplicationResult;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.RuleTester;
+import io.trino.sql.planner.plan.TopNNode;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -40,15 +40,15 @@ import java.util.Optional;
 
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
-import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
-import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
-import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
+import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestPushTopNIntoTableScan
 {

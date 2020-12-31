@@ -13,8 +13,8 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.WarningCode;
-import io.prestosql.spi.WarningCodeSupplier;
+import io.trino.spi.WarningCode;
+import io.trino.spi.WarningCodeSupplier;
 
 public enum StandardWarningCode
         implements WarningCodeSupplier

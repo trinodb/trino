@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.kafka.encoder.json.format;
 
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
@@ -24,8 +24,8 @@ import org.joda.time.format.DateTimeFormatter;
 
 import java.util.Locale;
 
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class RFC2822DateTimeFormatter

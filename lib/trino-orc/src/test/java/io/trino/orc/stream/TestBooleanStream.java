@@ -15,12 +15,12 @@ package io.trino.orc.stream;
 
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcDecompressor;
-import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.Stream;
-import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcDecompressor;
+import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.Stream;
+import io.trino.orc.metadata.Stream.StreamKind;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 import org.testng.annotations.Test;
@@ -31,9 +31,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcDecompressor.createOrcDecompressor;
-import static io.prestosql.orc.metadata.CompressionKind.SNAPPY;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
+import static io.trino.orc.metadata.CompressionKind.SNAPPY;
 import static org.testng.Assert.assertEquals;
 
 public class TestBooleanStream

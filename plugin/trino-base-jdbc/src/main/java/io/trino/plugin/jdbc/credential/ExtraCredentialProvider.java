@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jdbc.credential;
 
-import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.trino.plugin.jdbc.JdbcIdentity;
 
 import javax.inject.Inject;
 

@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.prestosql.operator.LookupSourceProvider.LookupSourceLease;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.operator.LookupSourceProvider.LookupSourceLease;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -47,8 +47,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.nonCancellationPropagating;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.prestosql.operator.OuterLookupSource.createOuterLookupSourceSupplier;
-import static io.prestosql.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
+import static io.trino.operator.OuterLookupSource.createOuterLookupSourceSupplier;
+import static io.trino.operator.PartitionedLookupSource.createPartitionedLookupSourceSupplier;
 import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 

@@ -13,13 +13,13 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.IntArrayBlockBuilder;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.RealType.REAL;
+import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;

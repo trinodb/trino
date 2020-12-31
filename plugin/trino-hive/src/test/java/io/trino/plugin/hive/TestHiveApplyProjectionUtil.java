@@ -14,17 +14,17 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.expression.Constant;
-import io.prestosql.spi.expression.FieldDereference;
-import io.prestosql.spi.expression.Variable;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.Variable;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
-import static io.prestosql.plugin.hive.HiveApplyProjectionUtil.isPushDownSupported;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RowType.field;
-import static io.prestosql.spi.type.RowType.rowType;
+import static io.trino.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
+import static io.trino.plugin.hive.HiveApplyProjectionUtil.isPushDownSupported;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.RowType.rowType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

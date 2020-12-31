@@ -16,12 +16,12 @@ package io.trino.plugin.hive.metastore;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
-import io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
-import io.prestosql.plugin.hive.metastore.cache.ForCachingHiveMetastore;
-import io.prestosql.plugin.hive.metastore.file.FileMetastoreModule;
-import io.prestosql.plugin.hive.metastore.glue.GlueMetastoreModule;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreModule;
+import io.trino.plugin.hive.metastore.alluxio.AlluxioMetastoreModule;
+import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.cache.ForCachingHiveMetastore;
+import io.trino.plugin.hive.metastore.file.FileMetastoreModule;
+import io.trino.plugin.hive.metastore.glue.GlueMetastoreModule;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreModule;
 
 import java.util.Optional;
 

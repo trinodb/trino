@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.kafka.encoder;
 
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.type.Type;
 
 public interface EncoderColumnHandle
         extends ColumnHandle

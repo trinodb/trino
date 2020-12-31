@@ -13,13 +13,13 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
+import static io.trino.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
 import static java.util.Objects.requireNonNull;
 
 public class BooleanStatisticsBuilder

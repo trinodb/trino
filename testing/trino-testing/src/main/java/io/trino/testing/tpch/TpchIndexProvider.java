@@ -14,18 +14,18 @@
 package io.trino.testing.tpch;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.tpch.TpchColumnHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorIndex;
-import io.prestosql.spi.connector.ConnectorIndexHandle;
-import io.prestosql.spi.connector.ConnectorIndexProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.Type;
-import io.prestosql.split.MappedRecordSet;
+import io.trino.plugin.tpch.TpchColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorIndex;
+import io.trino.spi.connector.ConnectorIndexHandle;
+import io.trino.spi.connector.ConnectorIndexProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
+import io.trino.split.MappedRecordSet;
 
 import java.util.ArrayList;
 import java.util.List;

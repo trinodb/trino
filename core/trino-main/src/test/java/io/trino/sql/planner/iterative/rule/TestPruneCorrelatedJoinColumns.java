@@ -15,23 +15,23 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.tree.ComparisonExpression;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.tree.ComparisonExpression;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.correlatedJoin;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
+import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 
 public class TestPruneCorrelatedJoinColumns
         extends BaseRuleTest

@@ -13,14 +13,14 @@
  */
 package io.trino.type;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.operator.scalar.CharacterStringCasts.varcharToCharSaturatedFloorCast;
-import static io.prestosql.spi.type.CharType.createCharType;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.operator.scalar.CharacterStringCasts.varcharToCharSaturatedFloorCast;
+import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestCharacterStringCasts

@@ -13,16 +13,16 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeParameter;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class VarcharParametricType
         implements ParametricType

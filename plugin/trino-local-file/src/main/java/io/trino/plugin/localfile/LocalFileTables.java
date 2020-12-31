@@ -19,9 +19,9 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.SchemaTableName;
 
 import javax.inject.Inject;
 
@@ -33,14 +33,14 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.prestosql.plugin.localfile.LocalFileMetadata.PRESTO_LOGS_SCHEMA;
-import static io.prestosql.plugin.localfile.LocalFileMetadata.SERVER_ADDRESS_COLUMN;
-import static io.prestosql.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
-import static io.prestosql.plugin.localfile.LocalFileTables.HttpRequestLogTable.getServerAddressColumn;
-import static io.prestosql.plugin.localfile.LocalFileTables.HttpRequestLogTable.getTimestampColumn;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.plugin.localfile.LocalFileMetadata.PRESTO_LOGS_SCHEMA;
+import static io.trino.plugin.localfile.LocalFileMetadata.SERVER_ADDRESS_COLUMN;
+import static io.trino.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
+import static io.trino.plugin.localfile.LocalFileTables.HttpRequestLogTable.getServerAddressColumn;
+import static io.trino.plugin.localfile.LocalFileTables.HttpRequestLogTable.getTimestampColumn;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class LocalFileTables

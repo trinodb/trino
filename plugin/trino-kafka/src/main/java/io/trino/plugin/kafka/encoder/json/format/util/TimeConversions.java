@@ -14,7 +14,7 @@
 package io.trino.plugin.kafka.encoder.json.format.util;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static java.lang.Math.floorMod;
 
 public final class TimeConversions

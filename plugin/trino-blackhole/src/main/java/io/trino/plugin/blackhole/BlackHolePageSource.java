@@ -15,8 +15,8 @@ package io.trino.plugin.blackhole;
 
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.units.Duration;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ConnectorPageSource;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorPageSource;
 
 import java.util.concurrent.CompletableFuture;
 

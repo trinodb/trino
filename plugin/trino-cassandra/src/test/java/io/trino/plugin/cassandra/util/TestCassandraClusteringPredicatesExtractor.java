@@ -16,18 +16,18 @@ package io.trino.plugin.cassandra.util;
 import com.datastax.driver.core.VersionNumber;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.cassandra.CassandraClusteringPredicatesExtractor;
-import io.prestosql.plugin.cassandra.CassandraColumnHandle;
-import io.prestosql.plugin.cassandra.CassandraTable;
-import io.prestosql.plugin.cassandra.CassandraTableHandle;
-import io.prestosql.plugin.cassandra.CassandraType;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.cassandra.CassandraClusteringPredicatesExtractor;
+import io.trino.plugin.cassandra.CassandraColumnHandle;
+import io.trino.plugin.cassandra.CassandraTable;
+import io.trino.plugin.cassandra.CassandraTableHandle;
+import io.trino.plugin.cassandra.CassandraType;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraClusteringPredicatesExtractor

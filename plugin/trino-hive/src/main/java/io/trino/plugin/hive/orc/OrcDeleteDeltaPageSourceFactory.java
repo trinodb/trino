@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.hive.orc;
 
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.spi.connector.ConnectorPageSource;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.spi.connector.ConnectorPageSource;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.hive.orc.OrcDeleteDeltaPageSource.createOrcDeleteDeltaPageSource;
+import static io.trino.plugin.hive.orc.OrcDeleteDeltaPageSource.createOrcDeleteDeltaPageSource;
 import static java.util.Objects.requireNonNull;
 
 public class OrcDeleteDeltaPageSourceFactory

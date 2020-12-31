@@ -22,7 +22,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -30,7 +30,7 @@ import java.io.OutputStream;
 
 import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
 import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 

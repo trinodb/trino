@@ -16,7 +16,7 @@ package io.trino.server.ui;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.server.security.oauth2.OAuth2ServiceModule;
+import io.trino.server.security.oauth2.OAuth2ServiceModule;
 
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 

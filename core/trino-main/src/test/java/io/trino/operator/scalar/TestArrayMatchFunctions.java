@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.type.BooleanType;
+import io.trino.spi.type.BooleanType;
 import org.testng.annotations.Test;
 
 public class TestArrayMatchFunctions

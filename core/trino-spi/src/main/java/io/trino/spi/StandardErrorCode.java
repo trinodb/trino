@@ -13,9 +13,9 @@
  */
 package io.trino.spi;
 
-import static io.prestosql.spi.ErrorType.INSUFFICIENT_RESOURCES;
-import static io.prestosql.spi.ErrorType.INTERNAL_ERROR;
-import static io.prestosql.spi.ErrorType.USER_ERROR;
+import static io.trino.spi.ErrorType.INSUFFICIENT_RESOURCES;
+import static io.trino.spi.ErrorType.INTERNAL_ERROR;
+import static io.trino.spi.ErrorType.USER_ERROR;
 
 public enum StandardErrorCode
         implements ErrorCodeSupplier

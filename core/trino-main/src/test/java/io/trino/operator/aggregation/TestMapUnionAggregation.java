@@ -15,27 +15,27 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.operator.aggregation.MapUnionAggregation.NAME;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
-import static io.prestosql.util.StructuralTestUtil.mapBlockOf;
-import static io.prestosql.util.StructuralTestUtil.mapType;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.operator.aggregation.MapUnionAggregation.NAME;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.util.StructuralTestUtil.arrayBlockOf;
+import static io.trino.util.StructuralTestUtil.mapBlockOf;
+import static io.trino.util.StructuralTestUtil.mapType;
 
 public class TestMapUnionAggregation
 {

@@ -13,13 +13,13 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class BitwiseFunctions
 {

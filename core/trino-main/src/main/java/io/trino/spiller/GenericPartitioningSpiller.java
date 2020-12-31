@@ -18,12 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.operator.PartitionFunction;
-import io.prestosql.operator.SpillContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.operator.PartitionFunction;
+import io.trino.operator.SpillContext;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import javax.annotation.concurrent.ThreadSafe;

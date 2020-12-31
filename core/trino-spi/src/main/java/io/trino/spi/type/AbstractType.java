@@ -14,8 +14,8 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
 import java.util.List;
 

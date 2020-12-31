@@ -15,19 +15,19 @@ package io.trino.sql.testing;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.parser.ParsingException;
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.DefaultTraversalVisitor;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.Statement;
+import io.trino.sql.parser.ParsingException;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.DefaultTraversalVisitor;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.Statement;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
 
-import static io.prestosql.sql.SqlFormatter.formatSql;
-import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.sql.SqlFormatter.formatSql;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static java.lang.String.format;
 
 public final class TreeAssertions

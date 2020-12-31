@@ -14,14 +14,14 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.SampleNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.planner.plan.ValuesNode;
 
-import static io.prestosql.sql.planner.plan.Patterns.Sample.sampleRatio;
-import static io.prestosql.sql.planner.plan.Patterns.sample;
+import static io.trino.sql.planner.plan.Patterns.Sample.sampleRatio;
+import static io.trino.sql.planner.plan.Patterns.sample;
 
 /**
  * Replaces 0% sample node with empty values node.

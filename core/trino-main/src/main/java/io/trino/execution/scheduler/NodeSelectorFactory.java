@@ -13,7 +13,7 @@
  */
 package io.trino.execution.scheduler;
 
-import io.prestosql.connector.CatalogName;
+import io.trino.connector.CatalogName;
 
 import java.util.Optional;
 

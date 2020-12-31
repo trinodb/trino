@@ -15,8 +15,8 @@ package io.trino.spi.block;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Type;
 
 import java.util.Random;
 

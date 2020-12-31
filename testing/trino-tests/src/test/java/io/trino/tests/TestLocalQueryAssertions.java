@@ -13,9 +13,9 @@
  */
 package io.trino.tests;
 
-import io.prestosql.Session;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;

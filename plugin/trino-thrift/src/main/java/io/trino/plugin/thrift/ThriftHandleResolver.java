@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.thrift;
 
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.connector.ConnectorIndexHandle;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.connector.ConnectorIndexHandle;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public class ThriftHandleResolver
         implements ConnectorHandleResolver

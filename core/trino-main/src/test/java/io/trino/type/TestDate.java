@@ -13,26 +13,26 @@
  */
 package io.trino.type;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.util.DateTimeZoneIndex.getDateTimeZone;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class TestDate

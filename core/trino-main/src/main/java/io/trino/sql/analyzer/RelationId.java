@@ -13,8 +13,8 @@
  */
 package io.trino.sql.analyzer;
 
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.NodeRef;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeRef;
 
 import java.util.Objects;
 import java.util.Optional;

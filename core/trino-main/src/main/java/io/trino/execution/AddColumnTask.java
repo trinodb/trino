@@ -14,40 +14,40 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeNotFoundException;
-import io.prestosql.sql.tree.AddColumn;
-import io.prestosql.sql.tree.ColumnDefinition;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
+import io.trino.security.AccessControl;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeNotFoundException;
+import io.trino.sql.tree.AddColumn;
+import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.Expression;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
-import static io.prestosql.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
-import static io.prestosql.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
-import static io.prestosql.sql.NodeUtils.mapFromProperties;
-import static io.prestosql.sql.ParameterUtils.parameterExtractor;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.sql.NodeUtils.mapFromProperties;
+import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Locale.ENGLISH;
 
 public class AddColumnTask

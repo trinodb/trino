@@ -13,16 +13,16 @@
  */
 package io.trino.sql;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.parser.ParsingException;
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Statement;
+import io.trino.spi.PrestoException;
+import io.trino.sql.parser.ParsingException;
+import io.trino.sql.parser.ParsingOptions;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.Statement;
 
 import javax.annotation.Nullable;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
 import static java.lang.String.format;
 
 public final class SqlFormatterUtil

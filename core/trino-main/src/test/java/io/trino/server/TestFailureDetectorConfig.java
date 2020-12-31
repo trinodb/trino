@@ -15,7 +15,7 @@ package io.trino.server;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.prestosql.failuredetector.FailureDetectorConfig;
+import io.trino.failuredetector.FailureDetectorConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;

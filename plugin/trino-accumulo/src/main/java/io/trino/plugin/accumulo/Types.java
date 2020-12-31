@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.accumulo;
 
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.Type;
 
 /**
  * Utility class for Presto Type-related functionality.

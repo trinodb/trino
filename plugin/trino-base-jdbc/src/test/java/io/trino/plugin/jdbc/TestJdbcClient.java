@@ -15,24 +15,24 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
-import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
-import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
-import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_REAL;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

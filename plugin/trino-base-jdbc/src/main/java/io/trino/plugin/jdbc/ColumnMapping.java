@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
+import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnMapping

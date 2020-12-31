@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.execution.QueryState;
-import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.server.BasicQueryStats;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.trino.execution.QueryState;
+import io.trino.server.BasicQueryInfo;
+import io.trino.server.BasicQueryStats;
+import io.trino.spi.QueryId;
+import io.trino.spi.resourcegroups.ResourceGroupId;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -30,11 +30,11 @@ import java.net.URI;
 import java.util.Optional;
 import java.util.OptionalDouble;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.execution.QueryState.FINISHED;
-import static io.prestosql.execution.QueryState.RUNNING;
-import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
-import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.QueryState.FINISHED;
+import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static org.testng.Assert.assertEquals;
 
 @Test

@@ -16,8 +16,8 @@ package io.trino.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.security.Privilege;
-import io.prestosql.spi.security.PrivilegeInfo;
+import io.trino.spi.security.Privilege;
+import io.trino.spi.security.PrivilegeInfo;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -25,10 +25,10 @@ import java.util.Objects;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
-import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
-import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
-import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

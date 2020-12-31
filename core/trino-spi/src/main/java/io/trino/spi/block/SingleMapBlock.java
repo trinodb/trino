@@ -14,8 +14,8 @@
 
 package io.trino.spi.block;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.lang.invoke.MethodHandle;
@@ -23,10 +23,10 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static io.airlift.slice.SizeOf.sizeOfIntArray;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
-import static io.prestosql.spi.block.MapHashTables.computePosition;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.block.MapHashTables.HASH_MULTIPLIER;
+import static io.trino.spi.block.MapHashTables.computePosition;
 import static java.lang.String.format;
 
 public class SingleMapBlock

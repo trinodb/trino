@@ -14,8 +14,8 @@
 package io.trino.sql.relational;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.Type;
 
 import java.util.Arrays;
 import java.util.List;

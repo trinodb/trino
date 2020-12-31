@@ -14,11 +14,11 @@
 package io.trino.operator;
 
 import com.google.common.io.Closer;
-import io.prestosql.operator.exchange.LocalPartitionGenerator;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.operator.exchange.LocalPartitionGenerator;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;

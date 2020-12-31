@@ -14,19 +14,19 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.sql.tree.ExplainType;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
+import io.trino.Session;
+import io.trino.sql.tree.ExplainType;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.testing.assertions.Assert.assertFalse;
-import static io.prestosql.testing.assertions.Assert.assertTrue;
+import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.assertions.Assert.assertFalse;
+import static io.trino.testing.assertions.Assert.assertTrue;
 
 public class TestIcebergMaterializedViews
         extends AbstractTestQueryFramework

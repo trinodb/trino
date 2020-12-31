@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.cassandra;
 
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseCassandraDistributedQueries

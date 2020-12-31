@@ -26,13 +26,13 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.function.Consumer;
 
-import static io.prestosql.tests.TestGroups.HIVE_VIEWS;
-import static io.prestosql.tests.utils.QueryExecutors.connectToPresto;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.HIVE_VIEWS;
+import static io.trino.tests.utils.QueryExecutors.connectToPresto;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

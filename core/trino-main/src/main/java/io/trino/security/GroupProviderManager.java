@@ -17,8 +17,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.prestosql.spi.security.GroupProvider;
-import io.prestosql.spi.security.GroupProviderFactory;
+import io.trino.spi.security.GroupProvider;
+import io.trino.spi.security.GroupProviderFactory;
 
 import java.io.File;
 import java.io.IOException;

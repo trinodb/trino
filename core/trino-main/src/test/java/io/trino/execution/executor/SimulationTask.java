@@ -16,8 +16,8 @@ package io.trino.execution.executor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
-import io.prestosql.execution.TaskId;
-import io.prestosql.execution.executor.SimulationController.TaskSpecification;
+import io.trino.execution.TaskId;
+import io.trino.execution.executor.SimulationController.TaskSpecification;
 
 import java.util.OptionalInt;
 import java.util.Set;

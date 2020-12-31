@@ -13,21 +13,21 @@
  */
 package io.trino.plugin.base.classloader;
 
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
-import io.prestosql.spi.connector.ConnectorPageSink;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.eventlistener.EventListener;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.eventlistener.EventListener;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestClassLoaderSafeWrappers
 {

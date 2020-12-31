@@ -13,11 +13,11 @@
  */
 package io.trino.execution.resourcegroups.db;
 
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.execution.resourcegroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
-import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getSimpleQueryRunner;
+import static io.trino.execution.resourcegroups.TestResourceGroupIntegration.waitForGlobalResourceGroup;
+import static io.trino.execution.resourcegroups.db.H2TestUtil.getSimpleQueryRunner;
 
 public class TestResourceGroupDbIntegration
 {

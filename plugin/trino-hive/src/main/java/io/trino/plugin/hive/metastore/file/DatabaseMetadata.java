@@ -16,8 +16,8 @@ package io.trino.plugin.hive.metastore.file;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.spi.security.PrincipalType;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.spi.security.PrincipalType;
 
 import java.util.Map;
 import java.util.Optional;

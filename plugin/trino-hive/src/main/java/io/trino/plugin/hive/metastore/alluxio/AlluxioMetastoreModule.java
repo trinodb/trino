@@ -24,7 +24,7 @@ import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;

@@ -14,12 +14,12 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.RoleGrant;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.RoleGrant;
 
 import java.util.List;
 import java.util.Objects;
@@ -33,8 +33,8 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.connector.MockConnectorFactory.Builder.defaultGetColumns;
-import static io.prestosql.spi.security.PrincipalType.USER;
+import static io.trino.connector.MockConnectorFactory.Builder.defaultGetColumns;
+import static io.trino.spi.security.PrincipalType.USER;
 
 public class CountingMockConnector
 {

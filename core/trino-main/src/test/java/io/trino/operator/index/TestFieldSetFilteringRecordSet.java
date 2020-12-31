@@ -15,17 +15,17 @@ package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.InMemoryRecordSet;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.TypeOperators;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static org.testng.Assert.assertTrue;
 
 public class TestFieldSetFilteringRecordSet

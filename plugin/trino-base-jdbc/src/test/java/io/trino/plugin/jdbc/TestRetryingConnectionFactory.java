@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.PrestoException;
+import io.trino.spi.StandardErrorCode;
+import io.trino.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -26,14 +26,14 @@ import java.util.Deque;
 import java.util.stream.Stream;
 
 import static com.google.common.reflect.Reflection.newProxy;
-import static io.prestosql.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.RETURN;
-import static io.prestosql.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_NPE;
-import static io.prestosql.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_PRESTO_EXCEPTION;
-import static io.prestosql.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_EXCEPTION;
-import static io.prestosql.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_RECOVERABLE_EXCEPTION;
-import static io.prestosql.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION;
-import static io.prestosql.spi.block.TestingSession.SESSION;
-import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.RETURN;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_NPE;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_PRESTO_EXCEPTION;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_EXCEPTION;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_RECOVERABLE_EXCEPTION;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION;
+import static io.trino.spi.block.TestingSession.SESSION;
+import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;

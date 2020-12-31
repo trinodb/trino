@@ -15,15 +15,15 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.elasticsearch.client.ElasticsearchClient;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorPageSource;
+import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorPageSource;
 
 import java.io.IOException;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class PassthroughQueryPageSource

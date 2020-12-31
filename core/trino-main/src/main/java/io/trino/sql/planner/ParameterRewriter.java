@@ -13,19 +13,19 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.Analysis;
-import io.prestosql.sql.tree.Cast;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.Parameter;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.Parameter;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
 
 public class ParameterRewriter

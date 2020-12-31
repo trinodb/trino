@@ -15,8 +15,8 @@ package io.trino.plugin.kinesis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
@@ -24,9 +24,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
 
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public final class KinesisSessionProperties
 {

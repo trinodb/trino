@@ -14,20 +14,20 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.ApplyNode;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.tree.Expression;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.Expression;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.intersection;
-import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
-import static io.prestosql.sql.planner.plan.Patterns.applyNode;
+import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
+import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.trino.sql.planner.plan.Patterns.applyNode;
 
 /**
  * This rule restricts the outputs of ApplyNode's input and subquery

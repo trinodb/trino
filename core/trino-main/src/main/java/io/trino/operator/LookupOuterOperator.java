@@ -15,11 +15,11 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.Lifespan;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.HashSet;
 import java.util.List;

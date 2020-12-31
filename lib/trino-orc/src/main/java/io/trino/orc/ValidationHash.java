@@ -13,23 +13,23 @@
  */
 package io.trino.orc;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.type.AbstractLongType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
+import io.trino.spi.block.Block;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.StandardTypes.ROW;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.type.StandardTypes.ARRAY;
+import static io.trino.spi.type.StandardTypes.MAP;
+import static io.trino.spi.type.StandardTypes.ROW;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.util.Objects.requireNonNull;
 

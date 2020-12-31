@@ -13,7 +13,7 @@
  */
 package io.trino.spi.security;
 
-import io.prestosql.spi.QueryId;
+import io.trino.spi.QueryId;
 
 import java.util.Optional;
 

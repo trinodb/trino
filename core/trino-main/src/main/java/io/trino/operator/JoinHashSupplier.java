@@ -14,10 +14,10 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.trino.Session;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 
 import java.util.List;
@@ -25,7 +25,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.operator.JoinUtils.channelsToPages;
+import static io.trino.operator.JoinUtils.channelsToPages;
 import static java.util.Objects.requireNonNull;
 
 public class JoinHashSupplier

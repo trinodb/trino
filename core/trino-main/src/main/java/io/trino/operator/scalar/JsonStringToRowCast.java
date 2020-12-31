@@ -14,17 +14,17 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.type.TypeSignature;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.withVariadicBound;
-import static io.prestosql.operator.scalar.JsonToRowCast.JSON_TO_ROW;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.Signature.withVariadicBound;
+import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class JsonStringToRowCast
         extends SqlScalarFunction

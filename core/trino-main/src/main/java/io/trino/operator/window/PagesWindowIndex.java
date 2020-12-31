@@ -14,10 +14,10 @@
 package io.trino.operator.window;
 
 import io.airlift.slice.Slice;
-import io.prestosql.operator.PagesIndex;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.WindowIndex;
+import io.trino.operator.PagesIndex;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.WindowIndex;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;

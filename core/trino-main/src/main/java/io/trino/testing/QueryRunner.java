@@ -13,18 +13,18 @@
  */
 package io.trino.testing;
 
-import io.prestosql.Session;
-import io.prestosql.cost.StatsCalculator;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.SqlFunction;
-import io.prestosql.spi.Plugin;
-import io.prestosql.split.PageSourceManager;
-import io.prestosql.split.SplitManager;
-import io.prestosql.sql.planner.NodePartitioningManager;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.cost.StatsCalculator;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.SqlFunction;
+import io.trino.spi.Plugin;
+import io.trino.split.PageSourceManager;
+import io.trino.split.SplitManager;
+import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.Plan;
+import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
 import java.io.Closeable;

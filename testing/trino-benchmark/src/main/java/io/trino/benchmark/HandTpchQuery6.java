@@ -15,36 +15,36 @@ package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.AggregationOperator.AggregationOperatorFactory;
-import io.prestosql.operator.FilterAndProjectOperator;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.project.InputChannels;
-import io.prestosql.operator.project.PageFilter;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.operator.project.PageProjection;
-import io.prestosql.operator.project.SelectedPositions;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.sql.gen.PageFunctionCompiler;
-import io.prestosql.sql.planner.plan.AggregationNode.Step;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.util.DateTimeUtils;
+import io.trino.metadata.Metadata;
+import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
+import io.trino.operator.FilterAndProjectOperator;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.operator.project.InputChannels;
+import io.trino.operator.project.PageFilter;
+import io.trino.operator.project.PageProcessor;
+import io.trino.operator.project.PageProjection;
+import io.trino.operator.project.SelectedPositions;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.sql.gen.PageFunctionCompiler;
+import io.trino.sql.planner.plan.AggregationNode.Step;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.util.DateTimeUtils;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.sql.relational.Expressions.field;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.relational.Expressions.field;
 
 public class HandTpchQuery6
         extends AbstractSimpleOperatorBenchmark

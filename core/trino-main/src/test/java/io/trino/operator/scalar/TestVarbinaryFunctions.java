@@ -18,17 +18,17 @@ import org.testng.annotations.Test;
 import java.util.Base64;
 
 import static com.google.common.io.BaseEncoding.base16;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
-import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
+import static io.trino.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 

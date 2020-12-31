@@ -14,7 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.OptionalInt;

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.base.util;
 
-import io.prestosql.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
+import io.trino.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.InvocationHandler;

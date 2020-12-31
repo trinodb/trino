@@ -14,11 +14,11 @@
 package io.trino;
 
 import io.airlift.units.DataSize;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
+import io.trino.spi.PrestoException;
+import io.trino.spi.StandardErrorCode;
 
-import static io.prestosql.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
-import static io.prestosql.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static java.lang.String.format;
 
 public class ExceededMemoryLimitException

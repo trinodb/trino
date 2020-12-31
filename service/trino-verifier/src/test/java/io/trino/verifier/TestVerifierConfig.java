@@ -25,9 +25,9 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.verifier.QueryType.CREATE;
-import static io.prestosql.verifier.QueryType.MODIFY;
-import static io.prestosql.verifier.QueryType.READ;
+import static io.trino.verifier.QueryType.CREATE;
+import static io.trino.verifier.QueryType.MODIFY;
+import static io.trino.verifier.QueryType.READ;
 
 public class TestVerifierConfig
 {

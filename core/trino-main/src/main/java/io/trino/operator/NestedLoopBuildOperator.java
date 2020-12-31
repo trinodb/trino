@@ -14,9 +14,9 @@
 package io.trino.operator;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.spi.Page;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.Page;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
 import java.util.concurrent.Future;

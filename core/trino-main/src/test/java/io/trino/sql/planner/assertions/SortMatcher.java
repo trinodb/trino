@@ -13,19 +13,19 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.SortNode;
+import io.trino.Session;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.assertions.PlanMatchPattern.Ordering;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.SortNode;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
-import static io.prestosql.sql.planner.assertions.Util.orderingSchemeMatches;
+import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
+import static io.trino.sql.planner.assertions.Util.orderingSchemeMatches;
 import static java.util.Objects.requireNonNull;
 
 final class SortMatcher

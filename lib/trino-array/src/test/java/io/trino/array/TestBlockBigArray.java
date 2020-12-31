@@ -13,9 +13,9 @@
  */
 package io.trino.array;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.IntArrayBlockBuilder;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 

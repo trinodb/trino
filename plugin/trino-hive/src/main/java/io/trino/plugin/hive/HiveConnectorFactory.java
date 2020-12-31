@@ -15,9 +15,9 @@ package io.trino.plugin.hive;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;

@@ -22,12 +22,6 @@ import io.trino.tempto.fulfillment.table.TableInstance;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.HIVE_WITH_EXTERNAL_WRITES;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
-import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -35,6 +29,12 @@ import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTables
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.HIVE_WITH_EXTERNAL_WRITES;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
+import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
+import static io.trino.tests.utils.QueryExecutors.onHive;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 
 public class TestExternalHiveTable

@@ -13,15 +13,15 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.ByteArrayBlock;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.ByteArrayBlock;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
+import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
 import static java.util.Objects.requireNonNull;
 
 public class EnforceSingleRowOperator

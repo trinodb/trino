@@ -14,7 +14,7 @@
 package io.trino.server.ui;
 
 import com.google.common.io.Resources;
-import io.prestosql.server.security.ResourceSecurity;
+import io.trino.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.FormParam;
@@ -34,14 +34,14 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM_URI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.getDeleteCookie;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.redirectFromSuccessfulLoginResponse;
+import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM_URI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.getDeleteCookie;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.redirectFromSuccessfulLoginResponse;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.TEXT_HTML;

@@ -14,9 +14,9 @@
 package io.trino.testing.tpch;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.type.Type;
 
 import java.util.Iterator;
 import java.util.List;

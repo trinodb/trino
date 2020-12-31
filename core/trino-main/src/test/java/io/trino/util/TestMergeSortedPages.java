@@ -14,34 +14,34 @@
 package io.trino.util;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.PageWithPositionComparator;
-import io.prestosql.operator.SimplePageWithPositionComparator;
-import io.prestosql.operator.WorkProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.testing.MaterializedResult;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.PageWithPositionComparator;
+import io.trino.operator.SimplePageWithPositionComparator;
+import io.trino.operator.WorkProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeOperators;
+import io.trino.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.operator.OperatorAssertion.toMaterializedResult;
-import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_FIRST;
-import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_LAST;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.RowPagesBuilder.rowPagesBuilder;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.operator.OperatorAssertion.toMaterializedResult;
+import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST;
+import static io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

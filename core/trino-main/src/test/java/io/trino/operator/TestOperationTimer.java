@@ -14,7 +14,7 @@
 package io.trino.operator;
 
 import io.airlift.slice.XxHash64;
-import io.prestosql.operator.OperationTimer.OperationTiming;
+import io.trino.operator.OperationTimer.OperationTiming;
 import org.testng.annotations.Test;
 
 import java.util.Random;

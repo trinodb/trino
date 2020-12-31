@@ -14,7 +14,7 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.pinot.client.PinotClient;
+import io.trino.plugin.pinot.client.PinotClient;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
 import org.apache.pinot.spi.data.Schema;
 import org.apache.pinot.spi.data.Schema.SchemaBuilder;

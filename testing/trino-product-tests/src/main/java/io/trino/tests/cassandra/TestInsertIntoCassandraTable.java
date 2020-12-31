@@ -28,18 +28,18 @@ import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
-import static io.prestosql.tests.TestGroups.CASSANDRA;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
-import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
-import static io.prestosql.tests.utils.QueryAssertions.assertContainsEventually;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
 import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTablesState;
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.CASSANDRA;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
+import static io.trino.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.trino.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.trino.tests.utils.QueryAssertions.assertContainsEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 

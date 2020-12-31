@@ -15,9 +15,9 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.SchemaTableName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -26,12 +26,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
-import static io.prestosql.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
+import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 

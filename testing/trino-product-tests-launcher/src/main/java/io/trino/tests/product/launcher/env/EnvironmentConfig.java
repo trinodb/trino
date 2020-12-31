@@ -14,11 +14,11 @@
 package io.trino.tests.product.launcher.env;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
+import io.trino.tests.product.launcher.env.common.EnvironmentExtender;
 
 import java.util.List;
 
-import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
+import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
 
 public interface EnvironmentConfig
         extends EnvironmentExtender

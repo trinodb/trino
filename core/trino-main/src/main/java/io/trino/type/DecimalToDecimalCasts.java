@@ -15,15 +15,15 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.spi.type.DecimalConversions;
-import io.prestosql.spi.type.DecimalType;
+import io.trino.metadata.PolymorphicScalarFunctionBuilder;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.type.DecimalConversions;
+import io.trino.spi.type.DecimalType;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.Decimals.longTenToNth;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 
 public final class DecimalToDecimalCasts
 {

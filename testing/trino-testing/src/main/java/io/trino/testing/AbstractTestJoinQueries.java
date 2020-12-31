@@ -14,19 +14,19 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.tests.QueryTemplate;
+import io.trino.Session;
+import io.trino.SystemSessionProperties;
+import io.trino.spi.type.Decimals;
+import io.trino.sql.analyzer.FeaturesConfig;
+import io.trino.tests.QueryTemplate;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.prestosql.tests.QueryTemplate.parameter;
-import static io.prestosql.tests.QueryTemplate.queryTemplate;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.tests.QueryTemplate.parameter;
+import static io.trino.tests.QueryTemplate.queryTemplate;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

@@ -15,14 +15,14 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.TDigest;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.prestosql.type.TDigestType.TDIGEST;
+import static io.trino.type.TDigestType.TDIGEST;
 
 public class TestMergeTDigestAggregation
         extends AbstractTestAggregationFunction

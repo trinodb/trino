@@ -14,19 +14,19 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
-import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.testing.TestingConnectorContext;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorMetadata;
+import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.prestosql.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
+import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
 import static org.testng.Assert.fail;
 
 public class TestHiveConnectorFactory

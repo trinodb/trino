@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators;
 
 public class MinNAggregationFunction
         extends AbstractMinMaxNAggregationFunction

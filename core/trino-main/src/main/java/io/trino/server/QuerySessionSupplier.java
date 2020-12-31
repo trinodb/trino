@@ -13,15 +13,15 @@
  */
 package io.trino.server;
 
-import io.prestosql.Session;
-import io.prestosql.metadata.SessionPropertyManager;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.sql.SqlEnvironmentConfig;
-import io.prestosql.sql.SqlPath;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.metadata.SessionPropertyManager;
+import io.trino.security.AccessControl;
+import io.trino.spi.QueryId;
+import io.trino.spi.security.Identity;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.SqlEnvironmentConfig;
+import io.trino.sql.SqlPath;
+import io.trino.transaction.TransactionManager;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -31,8 +31,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.Session.SessionBuilder;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.Session.SessionBuilder;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Map.Entry;
 import static java.util.Objects.requireNonNull;
 

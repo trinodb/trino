@@ -13,34 +13,34 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.BlockTypeOperators.BlockPositionXxHash64;
+import io.trino.metadata.Metadata;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.testng.annotations.Test;
 
 import static io.airlift.slice.Slices.wrappedLongArray;
-import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
-import static io.prestosql.block.BlockAssertions.createBooleansBlock;
-import static io.prestosql.block.BlockAssertions.createDoublesBlock;
-import static io.prestosql.block.BlockAssertions.createLongDecimalsBlock;
-import static io.prestosql.block.BlockAssertions.createLongsBlock;
-import static io.prestosql.block.BlockAssertions.createShortDecimalsBlock;
-import static io.prestosql.block.BlockAssertions.createStringsBlock;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.PRIME64;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.block.BlockAssertions.createArrayBigintBlock;
+import static io.trino.block.BlockAssertions.createBooleansBlock;
+import static io.trino.block.BlockAssertions.createDoublesBlock;
+import static io.trino.block.BlockAssertions.createLongDecimalsBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.block.BlockAssertions.createShortDecimalsBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.operator.aggregation.ChecksumAggregationFunction.PRIME64;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static java.util.Arrays.asList;
 
 public class TestChecksumAggregation

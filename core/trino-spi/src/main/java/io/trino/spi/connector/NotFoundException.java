@@ -13,9 +13,9 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 
 public abstract class NotFoundException
         extends PrestoException

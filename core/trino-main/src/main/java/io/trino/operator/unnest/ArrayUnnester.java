@@ -13,12 +13,12 @@
  */
 package io.trino.operator.unnest;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.ColumnarArray;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.ColumnarArray;
+import io.trino.spi.type.Type;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
+import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 
 /**
  * Unnester for a nested column with array type, only when array elements are NOT of type {@code RowType}.

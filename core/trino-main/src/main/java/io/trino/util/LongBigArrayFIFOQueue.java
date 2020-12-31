@@ -13,8 +13,8 @@
  */
 package io.trino.util;
 
-import io.prestosql.array.BigArrays;
-import io.prestosql.array.LongBigArray;
+import io.trino.array.BigArrays;
+import io.trino.array.LongBigArray;
 import it.unimi.dsi.fastutil.PriorityQueue;
 import it.unimi.dsi.fastutil.longs.LongComparator;
 import it.unimi.dsi.fastutil.longs.LongPriorityQueue;

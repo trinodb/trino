@@ -14,10 +14,10 @@
 
 package io.trino.plugin.base.classloader;
 
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 

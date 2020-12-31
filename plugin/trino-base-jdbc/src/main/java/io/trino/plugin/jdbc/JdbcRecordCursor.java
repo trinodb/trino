@@ -16,10 +16,10 @@ package io.trino.plugin.jdbc;
 import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -31,7 +31,7 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordCursor

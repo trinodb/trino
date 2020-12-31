@@ -19,10 +19,10 @@ import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.memory.MemoryAllocation;
-import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.memory.MemoryPoolInfo;
+import io.trino.spi.QueryId;
+import io.trino.spi.memory.MemoryAllocation;
+import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.memory.MemoryPoolInfo;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.Nullable;
@@ -38,7 +38,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.Operator.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 
 public class MemoryPool

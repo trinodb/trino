@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation.state;
 
 import io.airlift.stats.QuantileDigest;
-import io.prestosql.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorState;
 
 public interface QuantileDigestState
         extends AccumulatorState

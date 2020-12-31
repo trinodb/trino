@@ -13,8 +13,8 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.checkpoint.StreamCheckpoint;
-import io.prestosql.orc.metadata.OrcColumnId;
+import io.trino.orc.checkpoint.StreamCheckpoint;
+import io.trino.orc.metadata.OrcColumnId;
 
 import java.util.List;
 

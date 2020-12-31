@@ -15,7 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.airlift.json.JsonCodec;
-import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.PlanFragmentId;
 
 import java.util.List;
 import java.util.Optional;

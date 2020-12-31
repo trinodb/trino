@@ -14,18 +14,18 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)

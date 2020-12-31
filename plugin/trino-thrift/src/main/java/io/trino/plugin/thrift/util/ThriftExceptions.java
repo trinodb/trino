@@ -17,16 +17,16 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.TApplicationException;
 import io.airlift.drift.TException;
 import io.airlift.drift.protocol.TTransportException;
-import io.prestosql.plugin.thrift.api.PrestoThriftServiceException;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.thrift.api.PrestoThriftServiceException;
+import io.trino.spi.PrestoException;
 
 import static com.google.common.util.concurrent.Futures.catchingAsync;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
-import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
-import static io.prestosql.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_NO_AVAILABLE_HOSTS;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_CONNECTION_ERROR;
+import static io.trino.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_GENERIC_REMOTE_ERROR;
+import static io.trino.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_NO_AVAILABLE_HOSTS;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class ThriftExceptions
 {

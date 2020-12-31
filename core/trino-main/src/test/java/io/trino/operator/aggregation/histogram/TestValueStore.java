@@ -13,14 +13,14 @@
  */
 package io.trino.operator.aggregation.histogram;
 
-import io.prestosql.block.BlockAssertions;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.spi.type.VarcharType;
-import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.block.BlockAssertions;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.VarcharType;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

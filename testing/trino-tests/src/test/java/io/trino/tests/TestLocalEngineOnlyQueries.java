@@ -13,7 +13,7 @@
  */
 package io.trino.tests;
 
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 
 public class TestLocalEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries

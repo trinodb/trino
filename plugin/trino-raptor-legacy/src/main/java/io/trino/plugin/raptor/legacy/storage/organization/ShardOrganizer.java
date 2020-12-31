@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.storage.organization;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.prestosql.plugin.raptor.legacy.storage.StorageManagerConfig;
+import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

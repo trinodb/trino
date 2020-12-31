@@ -13,17 +13,17 @@
  */
 package io.trino.type;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.Metadata;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.TypeSignature.arrayType;
-import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 
 public class TestTinyintArrayType
         extends AbstractTestType

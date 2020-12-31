@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.resourcegroups;
 
-import io.prestosql.spi.resourcegroups.SelectionContext;
-import io.prestosql.spi.resourcegroups.SelectionCriteria;
+import io.trino.spi.resourcegroups.SelectionContext;
+import io.trino.spi.resourcegroups.SelectionCriteria;
 
 import java.util.Optional;
 

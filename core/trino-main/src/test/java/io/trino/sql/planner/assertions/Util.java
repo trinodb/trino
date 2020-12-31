@@ -14,15 +14,15 @@
 package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.Iterables;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern.Ordering;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.PlanMatchPattern.Ordering;
 
 import java.util.List;
 import java.util.Map;

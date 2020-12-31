@@ -24,15 +24,15 @@ import org.testng.annotations.Test;
 
 import java.sql.Date;
 
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.TestGroups.SQL_SERVER;
-import static io.prestosql.tests.sqlserver.SqlServerDataTypesTableDefinition.SQLSERVER_INSERT;
-import static io.prestosql.tests.sqlserver.TestConstants.KEY_SPACE;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
-import static io.prestosql.tests.utils.QueryExecutors.onSqlServer;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.TestGroups.SQL_SERVER;
+import static io.trino.tests.sqlserver.SqlServerDataTypesTableDefinition.SQLSERVER_INSERT;
+import static io.trino.tests.sqlserver.TestConstants.KEY_SPACE;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onSqlServer;
 import static java.lang.String.format;
 
 public class TestInsert

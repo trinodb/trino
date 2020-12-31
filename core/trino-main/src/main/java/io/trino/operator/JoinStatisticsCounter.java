@@ -13,12 +13,12 @@
  */
 package io.trino.operator;
 
-import io.prestosql.operator.LookupJoinOperators.JoinType;
+import io.trino.operator.LookupJoinOperators.JoinType;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.prestosql.operator.JoinOperatorInfo.createJoinOperatorInfo;
+import static io.trino.operator.JoinOperatorInfo.createJoinOperatorInfo;
 import static java.util.Objects.requireNonNull;
 
 public class JoinStatisticsCounter

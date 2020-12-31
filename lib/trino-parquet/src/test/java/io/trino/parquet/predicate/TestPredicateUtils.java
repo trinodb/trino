@@ -23,12 +23,12 @@ import org.testng.annotations.Test;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.union;
-import static io.prestosql.parquet.predicate.PredicateUtils.isOnlyDictionaryEncodingPages;
-import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.trino.parquet.predicate.PredicateUtils.isOnlyDictionaryEncodingPages;
+import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static org.apache.parquet.column.Encoding.BIT_PACKED;
 import static org.apache.parquet.column.Encoding.PLAIN;
 import static org.apache.parquet.column.Encoding.PLAIN_DICTIONARY;

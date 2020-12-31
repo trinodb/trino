@@ -13,15 +13,15 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
-import static io.prestosql.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
-import static io.prestosql.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.operator.aggregation.state.TriStateBooleanState.FALSE_VALUE;
+import static io.trino.operator.aggregation.state.TriStateBooleanState.NULL_VALUE;
+import static io.trino.operator.aggregation.state.TriStateBooleanState.TRUE_VALUE;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 
 public class TriStateBooleanStateSerializer
         implements AccumulatorStateSerializer<TriStateBooleanState>

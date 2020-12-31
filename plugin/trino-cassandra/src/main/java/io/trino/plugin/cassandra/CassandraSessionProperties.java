@@ -14,15 +14,15 @@
 package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.spi.session.PropertyMetadata.longProperty;
+import static io.trino.spi.session.PropertyMetadata.longProperty;
 
 public final class CassandraSessionProperties
 {

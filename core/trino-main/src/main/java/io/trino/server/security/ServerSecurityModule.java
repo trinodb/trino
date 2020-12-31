@@ -26,8 +26,8 @@ import io.airlift.discovery.store.StoreResource;
 import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
-import io.prestosql.server.security.jwt.JwtAuthenticator;
-import io.prestosql.server.security.jwt.JwtAuthenticatorSupportModule;
+import io.trino.server.security.jwt.JwtAuthenticator;
+import io.trino.server.security.jwt.JwtAuthenticatorSupportModule;
 
 import java.util.List;
 import java.util.Map;
@@ -41,7 +41,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.http.server.HttpServer.ClientCertificate.REQUESTED;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static io.prestosql.server.security.ResourceSecurityBinder.resourceSecurityBinder;
+import static io.trino.server.security.ResourceSecurityBinder.resourceSecurityBinder;
 import static java.util.Locale.ENGLISH;
 
 public class ServerSecurityModule

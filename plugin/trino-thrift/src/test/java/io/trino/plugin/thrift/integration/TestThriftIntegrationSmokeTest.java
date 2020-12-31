@@ -14,14 +14,14 @@
 package io.trino.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.QueryAssertions.assertContains;
+import static io.trino.plugin.thrift.integration.ThriftQueryRunner.createThriftQueryRunner;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.QueryAssertions.assertContains;
 
 public class TestThriftIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest

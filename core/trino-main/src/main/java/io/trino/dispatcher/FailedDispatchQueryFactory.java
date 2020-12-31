@@ -13,18 +13,18 @@
  */
 package io.trino.dispatcher;
 
-import io.prestosql.Session;
-import io.prestosql.event.QueryMonitor;
-import io.prestosql.execution.LocationFactory;
-import io.prestosql.server.BasicQueryInfo;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.trino.Session;
+import io.trino.event.QueryMonitor;
+import io.trino.execution.LocationFactory;
+import io.trino.server.BasicQueryInfo;
+import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import javax.inject.Inject;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-import static io.prestosql.util.Failures.toFailure;
+import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 
 public class FailedDispatchQueryFactory

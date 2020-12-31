@@ -14,20 +14,20 @@
 package io.trino.plugin.hive.metastore.glue;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
-import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpressionForSingleDomain;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
+import static io.trino.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpressionForSingleDomain;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

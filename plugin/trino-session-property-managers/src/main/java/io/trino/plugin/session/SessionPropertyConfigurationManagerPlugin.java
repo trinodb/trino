@@ -14,10 +14,10 @@
 package io.trino.plugin.session;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.session.db.DbSessionPropertyManagerFactory;
-import io.prestosql.plugin.session.file.FileSessionPropertyManagerFactory;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.plugin.session.db.DbSessionPropertyManagerFactory;
+import io.trino.plugin.session.file.FileSessionPropertyManagerFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
 
 public class SessionPropertyConfigurationManagerPlugin
         implements Plugin

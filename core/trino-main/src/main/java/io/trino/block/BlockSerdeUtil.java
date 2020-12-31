@@ -16,13 +16,13 @@ package io.trino.block;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.util.Reflection.methodHandle;
 
 public final class BlockSerdeUtil
 {

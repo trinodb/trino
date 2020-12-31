@@ -14,13 +14,13 @@
 
 package io.trino.type.setdigest;
 
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 @AggregationFunction("make_set_digest")
 public final class BuildSetDigestAggregation

@@ -13,15 +13,15 @@
  */
 package io.trino.type;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.type.Type;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

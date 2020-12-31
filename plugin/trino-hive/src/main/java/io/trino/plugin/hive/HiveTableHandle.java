@@ -19,12 +19,12 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Map;
@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static java.util.Objects.requireNonNull;
 
 public class HiveTableHandle

@@ -17,7 +17,7 @@ import java.util.List;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.planner.plan.ChildReplacer.replaceChildren;
+import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
 
 public abstract class SimplePlanRewriter<C>
         extends PlanVisitor<PlanNode, SimplePlanRewriter.RewriteContext<C>>

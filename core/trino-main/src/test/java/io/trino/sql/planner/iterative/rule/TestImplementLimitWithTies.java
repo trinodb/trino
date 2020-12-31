@@ -15,20 +15,20 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.ExpressionMatcher;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.ExpressionMatcher;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 
 public class TestImplementLimitWithTies
         extends BaseRuleTest

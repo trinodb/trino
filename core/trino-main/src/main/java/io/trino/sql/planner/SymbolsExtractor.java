@@ -15,29 +15,29 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.WindowNode;
-import io.prestosql.sql.tree.DefaultExpressionTraversalVisitor;
-import io.prestosql.sql.tree.DefaultTraversalVisitor;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.LambdaExpression;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SubqueryExpression;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.DefaultExpressionTraversalVisitor;
+import io.trino.sql.tree.DefaultTraversalVisitor;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LambdaExpression;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SubqueryExpression;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.sql.planner.ExpressionExtractor.extractExpressions;
-import static io.prestosql.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
-import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
+import static io.trino.sql.planner.ExpressionExtractor.extractExpressionsNonRecursive;
+import static io.trino.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static java.util.Objects.requireNonNull;
 
 public final class SymbolsExtractor

@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.BlockBuilder;
 
 /**
  * FixedWidthType is a type that has a fixed size for every value.

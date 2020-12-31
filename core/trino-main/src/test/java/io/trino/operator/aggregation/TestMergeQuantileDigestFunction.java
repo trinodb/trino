@@ -15,23 +15,23 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.stats.QuantileDigest;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.QuantileDigestType;
-import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.QuantileDigestType;
+import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.function.BiFunction;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.QuantileDigestParametricType.QDIGEST;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.QuantileDigestParametricType.QDIGEST;
 import static java.util.Objects.requireNonNull;
 
 public class TestMergeQuantileDigestFunction

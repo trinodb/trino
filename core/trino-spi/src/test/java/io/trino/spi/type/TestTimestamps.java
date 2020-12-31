@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.Timestamps.roundDiv;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

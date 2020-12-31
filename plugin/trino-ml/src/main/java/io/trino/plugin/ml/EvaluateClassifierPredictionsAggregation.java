@@ -15,15 +15,15 @@ package io.trino.plugin.ml;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import java.util.Locale;
 import java.util.Map;
@@ -31,7 +31,7 @@ import java.util.Set;
 
 import static com.google.common.collect.Sets.union;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 

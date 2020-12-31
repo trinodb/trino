@@ -16,10 +16,10 @@ package io.trino.tests;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.FUNCTIONS;
-import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
+import static io.trino.tests.TestGroups.FUNCTIONS;
+import static io.trino.tests.utils.QueryExecutors.onPresto;
 
 public class TestFunctions
         extends ProductTest

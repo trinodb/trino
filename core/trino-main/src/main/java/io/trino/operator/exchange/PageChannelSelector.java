@@ -13,7 +13,7 @@
  */
 package io.trino.operator.exchange;
 
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import java.util.function.Function;
 import java.util.stream.IntStream;

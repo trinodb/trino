@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
-import static io.prestosql.plugin.hive.s3select.S3SelectLineRecordReader.UnrecoverableS3OperationException;
+import static io.trino.plugin.hive.s3select.S3SelectLineRecordReader.UnrecoverableS3OperationException;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUnrecoverableS3OperationException

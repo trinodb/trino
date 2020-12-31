@@ -14,22 +14,22 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.MetadataManager;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeAnalyzer;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.assertions.SymbolAliases;
-import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.MetadataManager;
+import io.trino.spi.type.Type;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.assertions.SymbolAliases;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.ExpressionTestUtils.assertExpressionEquals;
-import static io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
+import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 
 public class TestCanonicalizeExpressionRewriter
 {

@@ -18,19 +18,19 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.SessionRepresentation;
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.ErrorType;
-import io.prestosql.spi.PrestoWarning;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.eventlistener.RoutineInfo;
-import io.prestosql.spi.eventlistener.TableInfo;
-import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.resourcegroups.QueryType;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.security.SelectedRole;
-import io.prestosql.sql.analyzer.Output;
-import io.prestosql.transaction.TransactionId;
+import io.trino.SessionRepresentation;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorType;
+import io.trino.spi.PrestoWarning;
+import io.trino.spi.QueryId;
+import io.trino.spi.eventlistener.RoutineInfo;
+import io.trino.spi.eventlistener.TableInfo;
+import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.resourcegroups.QueryType;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.security.SelectedRole;
+import io.trino.sql.analyzer.Output;
+import io.trino.transaction.TransactionId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -42,7 +42,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.execution.StageInfo.getAllStages;
+import static io.trino.execution.StageInfo.getAllStages;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

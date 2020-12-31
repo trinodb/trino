@@ -14,9 +14,9 @@
 package io.trino.testing.statistics;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.TypeProvider;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
 
 import java.util.Map;
 

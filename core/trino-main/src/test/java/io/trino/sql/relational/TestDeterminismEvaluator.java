@@ -14,17 +14,17 @@
 package io.trino.sql.relational;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.sql.relational.Expressions.constant;
-import static io.prestosql.sql.relational.Expressions.field;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.sql.relational.Expressions.field;
 import static java.util.Collections.singletonList;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

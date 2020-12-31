@@ -29,7 +29,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.plugin.jmx.JmxMetadata.toPattern;
+import static io.trino.plugin.jmx.JmxMetadata.toPattern;
 import static java.util.Locale.ENGLISH;
 import static javax.management.ObjectName.WILDCARD;
 

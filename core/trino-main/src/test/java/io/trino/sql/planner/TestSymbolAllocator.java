@@ -14,7 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.type.BigintType;
+import io.trino.spi.type.BigintType;
 import org.testng.annotations.Test;
 
 import java.util.Set;

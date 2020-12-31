@@ -18,12 +18,12 @@ import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.CREATE_DROP_VIEW;
-import static io.prestosql.tests.TestGroups.SMOKE;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ContextDsl.executeWith;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tempto.sql.SqlContexts.createViewAs;
+import static io.trino.tests.TestGroups.CREATE_DROP_VIEW;
+import static io.trino.tests.TestGroups.SMOKE;
 import static java.lang.String.format;
 
 @Requires(ImmutableNationTable.class)

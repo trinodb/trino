@@ -15,29 +15,29 @@
 package io.trino.plugin.hive.coercions;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.RealType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.RealType;
 
 import java.util.function.Function;
 
-import static io.prestosql.spi.type.DecimalConversions.doubleToLongDecimal;
-import static io.prestosql.spi.type.DecimalConversions.doubleToShortDecimal;
-import static io.prestosql.spi.type.DecimalConversions.longDecimalToDouble;
-import static io.prestosql.spi.type.DecimalConversions.longDecimalToReal;
-import static io.prestosql.spi.type.DecimalConversions.longToLongCast;
-import static io.prestosql.spi.type.DecimalConversions.longToShortCast;
-import static io.prestosql.spi.type.DecimalConversions.realToLongDecimal;
-import static io.prestosql.spi.type.DecimalConversions.realToShortDecimal;
-import static io.prestosql.spi.type.DecimalConversions.shortDecimalToDouble;
-import static io.prestosql.spi.type.DecimalConversions.shortDecimalToReal;
-import static io.prestosql.spi.type.DecimalConversions.shortToLongCast;
-import static io.prestosql.spi.type.DecimalConversions.shortToShortCast;
-import static io.prestosql.spi.type.Decimals.longTenToNth;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
+import static io.trino.spi.type.DecimalConversions.doubleToLongDecimal;
+import static io.trino.spi.type.DecimalConversions.doubleToShortDecimal;
+import static io.trino.spi.type.DecimalConversions.longDecimalToDouble;
+import static io.trino.spi.type.DecimalConversions.longDecimalToReal;
+import static io.trino.spi.type.DecimalConversions.longToLongCast;
+import static io.trino.spi.type.DecimalConversions.longToShortCast;
+import static io.trino.spi.type.DecimalConversions.realToLongDecimal;
+import static io.trino.spi.type.DecimalConversions.realToShortDecimal;
+import static io.trino.spi.type.DecimalConversions.shortDecimalToDouble;
+import static io.trino.spi.type.DecimalConversions.shortDecimalToReal;
+import static io.trino.spi.type.DecimalConversions.shortToLongCast;
+import static io.trino.spi.type.DecimalConversions.shortToShortCast;
+import static io.trino.spi.type.Decimals.longTenToNth;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 
 public final class DecimalCoercers
 {

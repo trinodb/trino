@@ -14,8 +14,8 @@
 
 package io.trino.memory;
 
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.memory.MemoryPoolId;
+import io.trino.spi.QueryId;
+import io.trino.spi.memory.MemoryPoolId;
 
 import java.util.List;
 import java.util.Optional;

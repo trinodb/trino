@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 
 import java.util.List;
 import java.util.Objects;

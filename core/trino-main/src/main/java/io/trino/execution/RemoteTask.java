@@ -15,10 +15,10 @@ package io.trino.execution;
 
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.metadata.Split;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.buffer.OutputBuffers;
+import io.trino.metadata.Split;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 public interface RemoteTask
 {

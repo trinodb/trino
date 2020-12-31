@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.spi.connector.ConnectorIndexHandle;
+import io.trino.spi.connector.ConnectorIndexHandle;
 
 public enum TestingConnectorIndexHandle
         implements ConnectorIndexHandle

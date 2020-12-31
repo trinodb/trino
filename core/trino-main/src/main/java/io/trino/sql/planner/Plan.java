@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.cost.StatsAndCosts;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.cost.StatsAndCosts;
+import io.trino.sql.planner.plan.PlanNode;
 
 import static java.util.Objects.requireNonNull;
 

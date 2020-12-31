@@ -17,12 +17,12 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
-import static io.prestosql.spi.block.ArrayBlock.createArrayBlockInternal;
-import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
-import static io.prestosql.spi.block.BlockUtil.checkValidPositions;
-import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
-import static io.prestosql.spi.block.BlockUtil.compactArray;
-import static io.prestosql.spi.block.BlockUtil.compactOffsets;
+import static io.trino.spi.block.ArrayBlock.createArrayBlockInternal;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidPositions;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.compactArray;
+import static io.trino.spi.block.BlockUtil.compactOffsets;
 import static java.util.Collections.singletonList;
 
 public abstract class AbstractArrayBlock

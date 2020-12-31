@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.tpcds;
 
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertFalse;

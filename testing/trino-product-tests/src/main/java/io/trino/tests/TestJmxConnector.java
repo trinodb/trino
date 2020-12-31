@@ -16,10 +16,10 @@ package io.trino.tests;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.TestGroups.JMX_CONNECTOR;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.JDBC;
+import static io.trino.tests.TestGroups.JMX_CONNECTOR;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.VARCHAR;
 

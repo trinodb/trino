@@ -16,16 +16,16 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.SystemSessionProperties;
-import io.prestosql.sql.planner.RuleStatsRecorder;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.assertions.ExpectedValueProvider;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.iterative.IterativeOptimizer;
-import io.prestosql.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
-import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
-import io.prestosql.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
-import io.prestosql.sql.tree.FunctionCall;
+import io.trino.SystemSessionProperties;
+import io.trino.sql.planner.RuleStatsRecorder;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.ExpectedValueProvider;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
+import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import io.trino.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
+import io.trino.sql.tree.FunctionCall;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -33,16 +33,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.aggregation;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anySymbol;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.groupId;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.aggregation;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anySymbol;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.groupId;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestOptimizeMixedDistinctAggregations
         extends BasePlanTest

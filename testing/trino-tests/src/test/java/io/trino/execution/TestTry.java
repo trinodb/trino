@@ -13,9 +13,9 @@
  */
 package io.trino.execution;
 
-import io.prestosql.plugin.memory.MemoryQueryRunner;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
+import io.trino.plugin.memory.MemoryQueryRunner;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

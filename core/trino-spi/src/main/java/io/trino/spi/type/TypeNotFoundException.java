@@ -13,9 +13,9 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public class TypeNotFoundException

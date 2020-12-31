@@ -14,21 +14,21 @@
 package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialLeftJoin;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.iterative.rule.test.RuleAssert;
-import io.prestosql.sql.planner.iterative.rule.test.RuleTester;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.rule.ExtractSpatialJoins.ExtractSpatialLeftJoin;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.RuleAssert;
+import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY;
-import static io.prestosql.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
+import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.spatialLeftJoin;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 
 public class TestExtractSpatialLeftJoin
         extends BaseRuleTest

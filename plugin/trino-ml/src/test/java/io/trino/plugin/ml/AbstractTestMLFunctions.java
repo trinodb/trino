@@ -14,10 +14,10 @@
 
 package io.trino.plugin.ml;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
+import static io.trino.metadata.FunctionExtractor.extractFunctions;
 
 abstract class AbstractTestMLFunctions
         extends AbstractTestFunctions

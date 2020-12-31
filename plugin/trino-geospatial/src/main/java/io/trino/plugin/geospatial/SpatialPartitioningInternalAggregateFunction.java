@@ -15,26 +15,26 @@ package io.trino.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
 import io.airlift.slice.Slice;
-import io.prestosql.geospatial.KdbTreeUtils;
-import io.prestosql.geospatial.Rectangle;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.geospatial.KdbTreeUtils;
+import io.trino.geospatial.Rectangle;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.geospatial.KdbTree.buildKdbTree;
-import static io.prestosql.geospatial.serde.GeometrySerde.deserializeEnvelope;
-import static io.prestosql.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
-import static io.prestosql.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
-import static io.prestosql.spi.type.StandardTypes.INTEGER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.geospatial.KdbTree.buildKdbTree;
+import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
+import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
+import static io.trino.plugin.geospatial.SpatialPartitioningAggregateFunction.NAME;
+import static io.trino.spi.type.StandardTypes.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 
 @AggregationFunction(value = NAME, decomposable = false, hidden = true)

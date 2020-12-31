@@ -13,15 +13,15 @@
  */
 package io.trino.cost;
 
-import io.prestosql.Session;
-import io.prestosql.cost.ComposableStatsCalculator.Rule;
-import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.iterative.Lookup;
-import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.transaction.TestingTransactionManager;
+import io.trino.Session;
+import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.iterative.Lookup;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.transaction.TestingTransactionManager;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,8 +30,8 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.planner.iterative.Lookup.noLookup;
-import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static io.trino.sql.planner.iterative.Lookup.noLookup;
+import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
 public class StatsCalculatorAssertion

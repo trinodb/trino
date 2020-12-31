@@ -13,7 +13,7 @@
  */
 package io.trino.jdbc;
 
-import io.prestosql.client.Warning;
+import io.trino.client.Warning;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;

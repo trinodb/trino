@@ -18,7 +18,7 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.prestosql.spi.block.BlockUtil.checkValidPosition;
+import static io.trino.spi.block.BlockUtil.checkValidPosition;
 
 public abstract class AbstractVariableWidthBlock
         implements Block

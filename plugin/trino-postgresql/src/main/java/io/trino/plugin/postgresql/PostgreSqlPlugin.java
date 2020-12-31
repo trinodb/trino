@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.postgresql;
 
-import io.prestosql.plugin.jdbc.JdbcPlugin;
+import io.trino.plugin.jdbc.JdbcPlugin;
 
 public class PostgreSqlPlugin
         extends JdbcPlugin

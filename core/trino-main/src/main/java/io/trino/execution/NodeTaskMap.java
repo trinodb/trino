@@ -15,8 +15,8 @@ package io.trino.execution;
 
 import com.google.common.collect.Sets;
 import io.airlift.log.Logger;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.util.FinalizerService;
+import io.trino.metadata.InternalNode;
+import io.trino.util.FinalizerService;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;

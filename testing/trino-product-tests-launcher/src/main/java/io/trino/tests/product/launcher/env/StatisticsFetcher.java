@@ -30,7 +30,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
-import static io.prestosql.tests.product.launcher.env.StatisticsFetcher.Stats.statisticsAreEmpty;
+import static io.trino.tests.product.launcher.env.StatisticsFetcher.Stats.statisticsAreEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

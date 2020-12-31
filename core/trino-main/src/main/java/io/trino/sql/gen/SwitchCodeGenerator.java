@@ -21,10 +21,10 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.bytecode.instruction.VariableInstruction;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.Type;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,7 +33,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
-import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
+import static io.trino.sql.relational.SpecialForm.Form.WHEN;
 import static java.util.Objects.requireNonNull;
 
 public class SwitchCodeGenerator

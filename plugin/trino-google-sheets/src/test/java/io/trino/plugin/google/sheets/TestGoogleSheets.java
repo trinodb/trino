@@ -14,15 +14,15 @@
 package io.trino.plugin.google.sheets;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
-import static io.prestosql.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.google.sheets.TestSheetsPlugin.TEST_METADATA_SHEET_ID;
+import static io.trino.plugin.google.sheets.TestSheetsPlugin.getTestCredentialsPath;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestGoogleSheets

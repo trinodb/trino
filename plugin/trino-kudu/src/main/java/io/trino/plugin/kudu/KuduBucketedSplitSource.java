@@ -14,8 +14,8 @@
 package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.spi.connector.ConnectorSplitSource;
 
 import java.util.List;
 import java.util.Map;

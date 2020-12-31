@@ -14,13 +14,13 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
-import io.prestosql.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.NotNull;
 
-import static io.prestosql.plugin.hive.HiveCompressionCodec.GZIP;
-import static io.prestosql.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 
 public class IcebergConfig
 {

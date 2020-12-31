@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kudu;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public enum KuduTransactionHandle
         implements ConnectorTransactionHandle

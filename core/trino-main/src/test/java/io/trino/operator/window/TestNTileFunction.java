@@ -15,10 +15,10 @@ package io.trino.operator.window;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 
 public class TestNTileFunction
         extends AbstractTestWindowFunction

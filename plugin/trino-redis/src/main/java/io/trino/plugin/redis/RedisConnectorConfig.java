@@ -19,7 +19,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;

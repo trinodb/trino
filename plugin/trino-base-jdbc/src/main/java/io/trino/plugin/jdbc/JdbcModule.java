@@ -18,12 +18,12 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.procedure.Procedure;
+import io.trino.plugin.base.CatalogName;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Provider;
 

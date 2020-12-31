@@ -14,11 +14,11 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
-import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.PolymorphicScalarFunction.PolymorphicScalarFunctionChoice;
+import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -31,11 +31,11 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.mangleOperatorName;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static java.util.Arrays.asList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;

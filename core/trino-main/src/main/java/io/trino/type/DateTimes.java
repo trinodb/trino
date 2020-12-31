@@ -13,16 +13,16 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.DateTimeEncoding;
-import io.prestosql.spi.type.LongTimeWithTimeZone;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.TimeWithTimeZoneType;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.DateTimeEncoding;
+import io.trino.spi.type.LongTimeWithTimeZone;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.TimeWithTimeZoneType;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.TimestampWithTimeZoneType;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -36,11 +36,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.DateTimeEncoding.packTimeWithTimeZone;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;

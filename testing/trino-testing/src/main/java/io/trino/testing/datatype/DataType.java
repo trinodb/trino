@@ -13,17 +13,17 @@
  */
 package io.trino.testing.datatype;
 
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.RealType;
-import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TinyintType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarbinaryType;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.TinyintType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.spi.type.VarcharType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -37,17 +37,17 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.io.BaseEncoding.base16;
-import static io.prestosql.spi.type.CharType.createCharType;
-import static io.prestosql.spi.type.Chars.padSpaces;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.TimeType.createTimeType;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampType.createTimestampType;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.type.JsonType.JSON;
+import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;

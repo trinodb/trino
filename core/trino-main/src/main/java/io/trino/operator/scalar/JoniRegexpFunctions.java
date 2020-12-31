@@ -23,24 +23,24 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.type.Constraint;
-import io.prestosql.type.JoniRegexp;
-import io.prestosql.type.JoniRegexpType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.type.Constraint;
+import io.trino.type.JoniRegexp;
+import io.trino.type.JoniRegexpType;
 
 import java.nio.charset.StandardCharsets;
 
 import static io.airlift.slice.SliceUtf8.lengthOfCodePointFromStartByte;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 

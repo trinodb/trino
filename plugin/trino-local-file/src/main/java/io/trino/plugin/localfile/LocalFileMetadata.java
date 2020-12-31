@@ -15,18 +15,18 @@ package io.trino.plugin.localfile;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTableProperties;
-import io.prestosql.spi.connector.Constraint;
-import io.prestosql.spi.connector.ConstraintApplicationResult;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SchemaTablePrefix;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -34,9 +34,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
-import static io.prestosql.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
+import static io.trino.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileMetadata

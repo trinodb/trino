@@ -14,9 +14,9 @@
 package io.trino.plugin.geospatial;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -29,9 +29,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 

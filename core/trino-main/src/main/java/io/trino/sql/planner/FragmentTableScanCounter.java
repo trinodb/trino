@@ -13,10 +13,10 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 

@@ -14,9 +14,9 @@
 package io.trino.execution.scheduler;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.execution.RemoteTask;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.Split;
+import io.trino.execution.RemoteTask;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
 
 import java.util.List;
 import java.util.Set;

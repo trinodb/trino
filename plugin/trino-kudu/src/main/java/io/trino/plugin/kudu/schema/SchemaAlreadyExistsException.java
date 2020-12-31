@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.kudu.schema;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class SchemaAlreadyExistsException

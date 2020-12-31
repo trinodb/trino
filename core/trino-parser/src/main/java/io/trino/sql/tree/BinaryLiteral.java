@@ -16,7 +16,7 @@ package io.trino.sql.tree;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.sql.parser.ParsingException;
+import io.trino.sql.parser.ParsingException;
 
 import java.util.Objects;
 import java.util.Optional;

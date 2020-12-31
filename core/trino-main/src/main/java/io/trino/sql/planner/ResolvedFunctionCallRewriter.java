@@ -13,12 +13,12 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.NodeRef;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.ExpressionRewriter;
+import io.trino.sql.tree.ExpressionTreeRewriter;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.NodeRef;
 
 import java.util.Map;
 

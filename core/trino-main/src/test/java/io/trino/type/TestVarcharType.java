@@ -15,14 +15,14 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestVarcharType

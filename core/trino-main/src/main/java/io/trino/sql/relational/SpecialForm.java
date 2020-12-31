@@ -15,17 +15,17 @@ package io.trino.sql.relational;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundSignature;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.BoundSignature;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.Signature;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
+import static io.trino.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
 public class SpecialForm

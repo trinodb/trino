@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.ConnectorPageSink;
+import io.trino.spi.Page;
+import io.trino.spi.connector.ConnectorPageSink;
 
 import java.util.Collection;
 import java.util.concurrent.Callable;

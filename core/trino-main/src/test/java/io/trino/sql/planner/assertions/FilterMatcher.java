@@ -13,20 +13,20 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.DynamicFilters;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.tree.Expression;
+import io.trino.Session;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
+import io.trino.sql.DynamicFilters;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.tree.Expression;
 
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
-import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.DynamicFilters.extractDynamicFilters;
+import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static java.util.Objects.requireNonNull;
 
 final class FilterMatcher

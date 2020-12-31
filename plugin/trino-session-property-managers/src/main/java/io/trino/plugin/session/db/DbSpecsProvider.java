@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.session.db;
 
-import io.prestosql.plugin.session.SessionMatchSpec;
+import io.trino.plugin.session.SessionMatchSpec;
 
 import java.util.List;
 import java.util.function.Supplier;

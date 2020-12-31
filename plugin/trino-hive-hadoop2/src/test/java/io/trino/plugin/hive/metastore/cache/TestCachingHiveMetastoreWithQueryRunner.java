@@ -15,11 +15,11 @@ package io.trino.plugin.hive.metastore.cache;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.hive.HiveHadoop2Plugin;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.SelectedRole;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.Session;
+import io.trino.plugin.hive.HiveHadoop2Plugin;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.SelectedRole;
+import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -34,8 +34,8 @@ import static com.google.common.collect.Lists.cartesianProduct;
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.prestosql.spi.security.SelectedRole.Type.ROLE;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.security.SelectedRole.Type.ROLE;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SuppressWarnings("UnstableApiUsage")

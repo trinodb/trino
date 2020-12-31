@@ -13,13 +13,13 @@
  */
 package io.trino.sql;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.LogicalBinaryExpression;
+import io.trino.metadata.Metadata;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.LogicalBinaryExpression;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static org.testng.Assert.assertEquals;
 
 public class TestExpressionUtils

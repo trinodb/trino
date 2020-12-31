@@ -15,24 +15,24 @@ package io.trino.plugin.ml;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.RowPageBuilder;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.aggregation.Accumulator;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.RowPageBuilder;
+import io.trino.metadata.Metadata;
+import io.trino.operator.aggregation.Accumulator;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.metadata.FunctionExtractor.extractFunctions;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
 public class TestEvaluateClassifierPredictions

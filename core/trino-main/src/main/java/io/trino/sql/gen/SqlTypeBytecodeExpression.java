@@ -19,13 +19,13 @@ import io.airlift.bytecode.MethodGenerationContext;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.InvokeInstruction;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
 import static io.airlift.bytecode.ParameterizedType.type;
-import static io.prestosql.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
+import static io.trino.sql.gen.Bootstrap.BOOTSTRAP_METHOD;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTypeBytecodeExpression

@@ -15,8 +15,8 @@ package io.trino.plugin.geospatial;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.operator.scalar.AbstractTestFunctions;
+import io.trino.spi.type.ArrayType;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -25,14 +25,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 
-import static io.prestosql.operator.scalar.ApplyFunction.APPLY_FUNCTION;
-import static io.prestosql.plugin.geospatial.BingTile.fromCoordinates;
-import static io.prestosql.plugin.geospatial.BingTileType.BING_TILE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
+import static io.trino.plugin.geospatial.BingTile.fromCoordinates;
+import static io.trino.plugin.geospatial.BingTileType.BING_TILE;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;

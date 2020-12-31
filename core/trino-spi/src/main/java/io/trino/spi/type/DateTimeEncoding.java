@@ -13,8 +13,8 @@
  */
 package io.trino.spi.type;
 
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static java.util.Objects.requireNonNull;
 
 public final class DateTimeEncoding

@@ -13,14 +13,14 @@
  */
 package io.trino.spi.security;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.security.Principal;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
 
 public class AccessDeniedException

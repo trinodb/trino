@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.raptor.legacy.storage.organization;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
 import java.time.Duration;
 
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 

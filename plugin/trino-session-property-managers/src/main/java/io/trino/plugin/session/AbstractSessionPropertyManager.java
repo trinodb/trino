@@ -14,8 +14,8 @@
 package io.trino.plugin.session;
 
 import com.google.common.collect.Table;
-import io.prestosql.spi.session.SessionConfigurationContext;
-import io.prestosql.spi.session.SessionPropertyConfigurationManager;
+import io.trino.spi.session.SessionConfigurationContext;
+import io.trino.spi.session.SessionPropertyConfigurationManager;
 
 import java.util.HashMap;
 import java.util.List;

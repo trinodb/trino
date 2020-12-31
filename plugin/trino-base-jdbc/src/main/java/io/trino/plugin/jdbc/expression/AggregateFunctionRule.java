@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.jdbc.expression;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.plugin.jdbc.JdbcExpression;
-import io.prestosql.spi.connector.AggregateFunction;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.Map;
 import java.util.Optional;

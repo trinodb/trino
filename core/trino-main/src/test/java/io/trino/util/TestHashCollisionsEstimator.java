@@ -16,8 +16,8 @@ package io.trino.util;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static io.prestosql.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
-import static io.prestosql.util.HashCollisionsSimulator.simulate;
+import static io.trino.util.HashCollisionsEstimator.estimateNumberOfHashCollisions;
+import static io.trino.util.HashCollisionsSimulator.simulate;
 import static java.lang.Math.pow;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

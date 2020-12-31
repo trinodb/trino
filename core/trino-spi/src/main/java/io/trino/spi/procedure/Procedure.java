@@ -13,9 +13,9 @@
  */
 package io.trino.spi.procedure;
 
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 

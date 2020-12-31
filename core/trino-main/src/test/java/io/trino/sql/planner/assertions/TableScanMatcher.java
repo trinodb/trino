@@ -13,21 +13,21 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.TableMetadata;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.Session;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.TableMetadata;
+import io.trino.spi.predicate.Domain;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.node;
-import static io.prestosql.sql.planner.assertions.Util.domainsMatch;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.Util.domainsMatch;
 import static java.util.Objects.requireNonNull;
 
 final class TableScanMatcher

@@ -16,15 +16,15 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.connector.ConstantProperty;
-import io.prestosql.spi.connector.LocalProperty;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.sql.planner.Partitioning;
-import io.prestosql.sql.planner.PartitioningHandle;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.Expression;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.spi.connector.ConstantProperty;
+import io.trino.spi.connector.LocalProperty;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.sql.planner.Partitioning;
+import io.trino.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.Expression;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -39,10 +39,10 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
-import static io.prestosql.util.MoreLists.filteredCopy;
+import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
+import static io.trino.util.MoreLists.filteredCopy;
 import static java.util.Objects.requireNonNull;
 
 public class ActualProperties

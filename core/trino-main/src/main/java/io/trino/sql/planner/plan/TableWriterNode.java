@@ -20,16 +20,16 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import io.prestosql.metadata.InsertTableHandle;
-import io.prestosql.metadata.NewTableLayout;
-import io.prestosql.metadata.OutputTableHandle;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.sql.planner.PartitioningScheme;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.NewTableLayout;
+import io.trino.metadata.OutputTableHandle;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.sql.planner.PartitioningScheme;
+import io.trino.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 

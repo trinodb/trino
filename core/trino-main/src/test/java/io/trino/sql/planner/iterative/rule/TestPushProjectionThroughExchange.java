@@ -15,26 +15,26 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.tree.ArithmeticBinaryExpression;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.exchange;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
-import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestPushProjectionThroughExchange
         extends BaseRuleTest

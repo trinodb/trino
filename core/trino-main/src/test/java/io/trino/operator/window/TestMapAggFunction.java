@@ -14,13 +14,13 @@
 package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.util.StructuralTestUtil.mapType;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.util.StructuralTestUtil.mapType;
 
 public class TestMapAggFunction
         extends AbstractTestWindowFunction

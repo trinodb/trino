@@ -13,8 +13,8 @@
  */
 package io.trino.util;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.StandardErrorCode;
+import io.trino.spi.PrestoException;
+import io.trino.spi.StandardErrorCode;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -22,7 +22,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 
 public final class Reflection
 {

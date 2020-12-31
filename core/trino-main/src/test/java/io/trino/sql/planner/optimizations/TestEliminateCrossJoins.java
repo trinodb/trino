@@ -15,20 +15,20 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.SystemSessionProperties;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.trino.SystemSessionProperties;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictTableScan;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 
 public class TestEliminateCrossJoins
         extends BasePlanTest

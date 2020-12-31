@@ -38,7 +38,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
-import static io.prestosql.server.security.jwt.JwkDecoder.decodeKeys;
+import static io.trino.server.security.jwt.JwkDecoder.decodeKeys;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 

@@ -13,7 +13,7 @@
  */
 package io.trino.orc.metadata.statistics;
 
-import io.prestosql.orc.metadata.ColumnMetadata;
+import io.trino.orc.metadata.ColumnMetadata;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;

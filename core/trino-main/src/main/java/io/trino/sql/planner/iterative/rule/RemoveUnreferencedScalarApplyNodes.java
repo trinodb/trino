@@ -14,12 +14,12 @@
 
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.ApplyNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.ApplyNode;
 
-import static io.prestosql.sql.planner.plan.Patterns.applyNode;
+import static io.trino.sql.planner.plan.Patterns.applyNode;
 
 public class RemoveUnreferencedScalarApplyNodes
         implements Rule<ApplyNode>

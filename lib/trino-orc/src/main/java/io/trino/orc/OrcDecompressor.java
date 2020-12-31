@@ -14,12 +14,12 @@
 package io.trino.orc;
 
 import io.airlift.units.DataSize;
-import io.prestosql.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.CompressionKind;
 
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.orc.metadata.CompressionKind.NONE;
+import static io.trino.orc.metadata.CompressionKind.NONE;
 import static java.lang.Math.toIntExact;
 
 public interface OrcDecompressor

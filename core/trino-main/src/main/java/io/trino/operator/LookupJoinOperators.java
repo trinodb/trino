@@ -13,11 +13,11 @@
  */
 package io.trino.operator;
 
-import io.prestosql.operator.JoinProbe.JoinProbeFactory;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spiller.PartitioningSpillerFactory;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.operator.JoinProbe.JoinProbeFactory;
+import io.trino.spi.type.Type;
+import io.trino.spiller.PartitioningSpillerFactory;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.type.BlockTypeOperators;
 
 import javax.inject.Inject;
 

@@ -18,17 +18,17 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.TestingBlockEncodingSerde;
-import io.prestosql.spi.block.TestingBlockJsonSerde;
-import io.prestosql.spi.type.TestingTypeDeserializer;
-import io.prestosql.spi.type.TestingTypeManager;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.TestingBlockEncodingSerde;
+import io.trino.spi.block.TestingBlockJsonSerde;
+import io.trino.spi.type.TestingTypeDeserializer;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Iterator;
 
-import static io.prestosql.spi.type.TestingIdType.ID;
+import static io.trino.spi.type.TestingIdType.ID;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

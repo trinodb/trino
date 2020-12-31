@@ -16,10 +16,10 @@ package io.trino.plugin.resourcegroups;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.prestosql.spi.memory.ClusterMemoryPoolManager;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManager;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.trino.spi.memory.ClusterMemoryPoolManager;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
 
 import java.util.Map;
 

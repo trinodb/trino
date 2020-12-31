@@ -19,14 +19,14 @@ import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.configuration.Configuration;
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.TestGroups.CASSANDRA;
-import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.prestosql.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
-import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.CASSANDRA;
+import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
+import static io.trino.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.trino.tests.cassandra.TestConstants.KEY_SPACE;
 import static java.lang.String.format;
 
 public class TestInvalidSelect

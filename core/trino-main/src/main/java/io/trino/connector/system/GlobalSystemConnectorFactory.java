@@ -14,12 +14,12 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.procedure.Procedure;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Inject;
 

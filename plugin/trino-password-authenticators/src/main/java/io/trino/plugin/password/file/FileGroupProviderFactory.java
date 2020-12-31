@@ -16,8 +16,8 @@ package io.trino.plugin.password.file;
 import com.google.inject.Injector;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.spi.security.GroupProvider;
-import io.prestosql.spi.security.GroupProviderFactory;
+import io.trino.spi.security.GroupProvider;
+import io.trino.spi.security.GroupProviderFactory;
 
 import java.util.Map;
 

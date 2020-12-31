@@ -14,16 +14,16 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.type.Type;
-import io.prestosql.testing.TestingConnectorContext;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.type.Type;
+import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.plugin.mongodb.ObjectIdType.OBJECT_ID;
+import static io.trino.plugin.mongodb.ObjectIdType.OBJECT_ID;
 import static org.testng.Assert.assertEquals;
 
 public class TestMongoPlugin

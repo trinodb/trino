@@ -13,7 +13,7 @@
  */
 package io.trino.spi.eventlistener;
 
-import io.prestosql.spi.ErrorCode;
+import io.trino.spi.ErrorCode;
 
 import java.util.Optional;
 

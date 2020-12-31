@@ -17,8 +17,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

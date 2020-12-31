@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.backup;
 
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.prestosql.spi.NodeManager;
+import io.trino.spi.NodeManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -37,8 +37,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import static io.prestosql.plugin.raptor.legacy.backup.HttpBackupStore.CONTENT_XXH64;
-import static io.prestosql.plugin.raptor.legacy.backup.HttpBackupStore.PRESTO_ENVIRONMENT;
+import static io.trino.plugin.raptor.legacy.backup.HttpBackupStore.CONTENT_XXH64;
+import static io.trino.plugin.raptor.legacy.backup.HttpBackupStore.PRESTO_ENVIRONMENT;
 import static java.lang.Long.parseUnsignedLong;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;

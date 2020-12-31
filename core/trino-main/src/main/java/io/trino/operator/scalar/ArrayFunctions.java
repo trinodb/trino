@@ -13,13 +13,13 @@
  */
 package io.trino.operator.scalar;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.ArrayType;
 
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.type.UnknownType.UNKNOWN;
 
 public final class ArrayFunctions
 {

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jmx;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public enum JmxTransactionHandle
         implements ConnectorTransactionHandle

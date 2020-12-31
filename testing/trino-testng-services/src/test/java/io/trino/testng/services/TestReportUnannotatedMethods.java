@@ -22,8 +22,8 @@ import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
 
-import static io.prestosql.testng.services.ReportUnannotatedMethods.findUnannotatedTestMethods;
-import static io.prestosql.testng.services.ReportUnannotatedMethods.isTemptoClass;
+import static io.trino.testng.services.ReportUnannotatedMethods.findUnannotatedTestMethods;
+import static io.trino.testng.services.ReportUnannotatedMethods.isTemptoClass;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

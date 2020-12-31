@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.base.security;
 
-import io.prestosql.spi.security.SystemAccessControl;
-import io.prestosql.spi.security.SystemAccessControlFactory;
-import io.prestosql.spi.security.SystemSecurityContext;
+import io.trino.spi.security.SystemAccessControl;
+import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.security.SystemSecurityContext;
 
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
+import static io.trino.spi.security.AccessDeniedException.denyImpersonateUser;
 import static java.util.Objects.requireNonNull;
 
 /**

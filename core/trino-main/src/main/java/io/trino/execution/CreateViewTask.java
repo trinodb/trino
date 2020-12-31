@@ -14,19 +14,19 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.cost.StatsCalculator;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.connector.ConnectorViewDefinition;
-import io.prestosql.spi.security.GroupProvider;
-import io.prestosql.sql.analyzer.Analysis;
-import io.prestosql.sql.analyzer.Analyzer;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.CreateView;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.cost.StatsCalculator;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.security.AccessControl;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.security.GroupProvider;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.Analyzer;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.CreateView;
+import io.trino.sql.tree.Expression;
+import io.trino.transaction.TransactionManager;
 
 import javax.inject.Inject;
 
@@ -35,11 +35,11 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
-import static io.prestosql.sql.ParameterUtils.parameterExtractor;
-import static io.prestosql.sql.SqlFormatterUtil.getFormattedSql;
-import static io.prestosql.sql.tree.CreateView.Security.INVOKER;
+import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.SqlFormatterUtil.getFormattedSql;
+import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static java.util.Objects.requireNonNull;
 
 public class CreateViewTask

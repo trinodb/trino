@@ -15,20 +15,20 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.Ordering;
 import io.airlift.stats.TDigest;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.util.Failures.checkCondition;
 
 public final class TDigestFunctions
 {

@@ -19,7 +19,7 @@ import com.google.inject.multibindings.MapBinder;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static io.prestosql.tests.product.launcher.suite.Suites.nameForSuiteClass;
+import static io.trino.tests.product.launcher.suite.Suites.nameForSuiteClass;
 import static java.util.Objects.requireNonNull;
 
 public final class SuiteModule

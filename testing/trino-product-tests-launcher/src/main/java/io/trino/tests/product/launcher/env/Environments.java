@@ -17,18 +17,18 @@ import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.DockerClientFactory;
 
 import java.io.IOException;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.killContainers;
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.removeNetworks;
-import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_NETWORK;
-import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME;
-import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE;
+import static io.trino.tests.product.launcher.docker.ContainerUtil.killContainers;
+import static io.trino.tests.product.launcher.docker.ContainerUtil.removeNetworks;
+import static io.trino.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_NETWORK;
+import static io.trino.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME;
+import static io.trino.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE;
 import static java.lang.reflect.Modifier.isAbstract;
 
 public final class Environments

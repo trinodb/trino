@@ -14,18 +14,18 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.operator.scalar.DateTimeFunctions.dateFormat;
-import static io.prestosql.type.DateTimes.epochMicrosToMillisWithRounding;
+import static io.trino.operator.scalar.DateTimeFunctions.dateFormat;
+import static io.trino.type.DateTimes.epochMicrosToMillisWithRounding;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")

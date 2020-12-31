@@ -15,7 +15,7 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ListMultimap;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 

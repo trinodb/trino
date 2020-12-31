@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.accumulo;
 
-import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
-import io.prestosql.plugin.accumulo.model.AccumuloSplit;
-import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
+import io.trino.plugin.accumulo.model.AccumuloSplit;
+import io.trino.plugin.accumulo.model.AccumuloTableHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public class AccumuloHandleResolver
         implements ConnectorHandleResolver

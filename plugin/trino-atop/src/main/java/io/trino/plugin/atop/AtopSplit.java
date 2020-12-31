@@ -16,8 +16,8 @@ package io.trino.plugin.atop;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ConnectorSplit;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSplit;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;

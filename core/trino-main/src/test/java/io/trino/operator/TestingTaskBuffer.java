@@ -15,15 +15,15 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static io.prestosql.SequencePageBuilder.createSequencePage;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.SequencePageBuilder.createSequencePage;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestingTaskBuffer
 {

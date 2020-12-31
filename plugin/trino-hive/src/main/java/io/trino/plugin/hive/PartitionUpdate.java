@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
@@ -25,7 +25,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

@@ -14,7 +14,7 @@
 package io.trino.parquet;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;

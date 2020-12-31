@@ -34,7 +34,7 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
-import io.prestosql.geospatial.GeometryType;
+import io.trino.geospatial.GeometryType;
 
 import javax.annotation.Nullable;
 
@@ -45,7 +45,7 @@ import java.util.List;
 import static com.esri.core.geometry.Geometry.Type.Unknown;
 import static com.esri.core.geometry.GeometryEngine.geometryToEsriShape;
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.geospatial.GeometryUtils.isEsriNaN;
+import static io.trino.geospatial.GeometryUtils.isEsriNaN;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
 import static java.lang.Math.toIntExact;

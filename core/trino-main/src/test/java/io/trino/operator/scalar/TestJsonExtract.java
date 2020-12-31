@@ -24,14 +24,14 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.List;
 
-import static io.prestosql.operator.scalar.JsonExtract.JsonExtractor;
-import static io.prestosql.operator.scalar.JsonExtract.JsonValueJsonExtractor;
-import static io.prestosql.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
-import static io.prestosql.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
-import static io.prestosql.operator.scalar.JsonExtract.generateExtractor;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.operator.scalar.JsonExtract.JsonExtractor;
+import static io.trino.operator.scalar.JsonExtract.JsonValueJsonExtractor;
+import static io.trino.operator.scalar.JsonExtract.ObjectFieldJsonExtractor;
+import static io.trino.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
+import static io.trino.operator.scalar.JsonExtract.generateExtractor;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 

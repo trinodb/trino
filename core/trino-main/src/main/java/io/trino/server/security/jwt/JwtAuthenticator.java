@@ -19,19 +19,19 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SigningKeyResolver;
-import io.prestosql.server.security.AuthenticationException;
-import io.prestosql.server.security.Authenticator;
-import io.prestosql.server.security.UserMapping;
-import io.prestosql.server.security.UserMappingException;
-import io.prestosql.spi.security.BasicPrincipal;
-import io.prestosql.spi.security.Identity;
+import io.trino.server.security.AuthenticationException;
+import io.trino.server.security.Authenticator;
+import io.trino.server.security.UserMapping;
+import io.trino.server.security.UserMappingException;
+import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
-import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 
 public class JwtAuthenticator

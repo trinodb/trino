@@ -22,9 +22,9 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 
-import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.INTEGER;
-import static io.prestosql.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
-import static io.prestosql.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
+import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.INTEGER;
+import static io.trino.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
+import static io.trino.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
 import static org.testng.Assert.assertEquals;

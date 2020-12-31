@@ -13,8 +13,8 @@
  */
 package io.trino.spi.connector;
 
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;

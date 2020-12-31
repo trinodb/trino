@@ -18,7 +18,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.plugin.ml.type.ModelType;
+import io.trino.plugin.ml.type.ModelType;
 import it.unimi.dsi.fastutil.ints.Int2DoubleMap;
 import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
 

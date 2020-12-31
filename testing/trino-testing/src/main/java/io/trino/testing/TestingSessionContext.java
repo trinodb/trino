@@ -14,12 +14,12 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.server.SessionContext;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.session.ResourceEstimates;
-import io.prestosql.transaction.TransactionId;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.server.SessionContext;
+import io.trino.spi.security.Identity;
+import io.trino.spi.session.ResourceEstimates;
+import io.trino.transaction.TransactionId;
 
 import java.util.Map;
 import java.util.Optional;

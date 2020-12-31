@@ -28,8 +28,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static io.prestosql.client.OkHttpUtil.setupChannelSocket;
-import static io.prestosql.client.OkHttpUtil.userAgent;
+import static io.trino.client.OkHttpUtil.setupChannelSocket;
+import static io.trino.client.OkHttpUtil.userAgent;
 import static java.lang.Integer.parseInt;
 
 public class PrestoDriver

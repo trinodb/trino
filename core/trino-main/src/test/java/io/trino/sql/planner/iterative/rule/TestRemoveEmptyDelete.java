@@ -15,18 +15,18 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.plugin.tpch.TpchTableHandle;
-import io.prestosql.plugin.tpch.TpchTransactionHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.metadata.TableHandle;
+import io.trino.plugin.tpch.TpchTableHandle;
+import io.trino.plugin.tpch.TpchTransactionHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.BigintType;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.CONNECTOR_ID;
+import static io.trino.sql.planner.iterative.rule.test.RuleTester.CONNECTOR_ID;
 
 public class TestRemoveEmptyDelete
         extends BaseRuleTest

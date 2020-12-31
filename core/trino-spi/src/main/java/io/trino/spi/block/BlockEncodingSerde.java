@@ -15,7 +15,7 @@ package io.trino.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 public interface BlockEncodingSerde
 {

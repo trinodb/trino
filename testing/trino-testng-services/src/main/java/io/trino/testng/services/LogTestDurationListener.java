@@ -40,7 +40,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.testng.services.Listeners.reportListenerFailure;
+import static io.trino.testng.services.Listeners.reportListenerFailure;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
 import static java.util.stream.Collectors.joining;

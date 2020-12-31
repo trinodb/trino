@@ -15,30 +15,30 @@
 package io.trino.plugin.tpcds.statistics;
 
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.tpcds.TpcdsColumnHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.statistics.ColumnStatistics;
-import io.prestosql.spi.statistics.DoubleRange;
-import io.prestosql.spi.statistics.Estimate;
-import io.prestosql.spi.statistics.TableStatistics;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.plugin.tpcds.TpcdsColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.DoubleRange;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.tpcds.Table;
 
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.Decimals.isLongDecimal;
-import static io.prestosql.spi.type.Decimals.isShortDecimal;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.isLongDecimal;
+import static io.trino.spi.type.Decimals.isShortDecimal;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Double.parseDouble;
 
 public class TpcdsTableStatisticsFactory

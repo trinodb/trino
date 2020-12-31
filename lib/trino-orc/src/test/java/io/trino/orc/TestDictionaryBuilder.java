@@ -15,8 +15,8 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.writer.DictionaryBuilder;
-import io.prestosql.spi.block.VariableWidthBlock;
+import io.trino.orc.writer.DictionaryBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;

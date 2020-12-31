@@ -16,7 +16,7 @@ package io.trino.plugin.accumulo.metadata;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Objects;
 

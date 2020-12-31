@@ -16,9 +16,9 @@ package io.trino.operator;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.operator.PartitionedOutputOperator.PartitionedOutputInfo;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.connector.CatalogName;
+import io.trino.operator.PartitionedOutputOperator.PartitionedOutputInfo;
+import io.trino.sql.planner.plan.PlanNodeId;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

@@ -13,7 +13,7 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.checkpoint.StreamCheckpoint;
+import io.trino.orc.checkpoint.StreamCheckpoint;
 
 import javax.annotation.Nullable;
 

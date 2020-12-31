@@ -14,18 +14,18 @@
 package io.trino.parquet.reader;
 
 import io.airlift.slice.Slice;
-import io.prestosql.parquet.RichColumnDescriptor;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.Type;
+import io.trino.parquet.RichColumnDescriptor;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Type;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
 
 import java.math.BigInteger;
 
-import static io.prestosql.spi.type.DecimalConversions.longToLongCast;
-import static io.prestosql.spi.type.DecimalConversions.longToShortCast;
+import static io.trino.spi.type.DecimalConversions.longToLongCast;
+import static io.trino.spi.type.DecimalConversions.longToShortCast;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

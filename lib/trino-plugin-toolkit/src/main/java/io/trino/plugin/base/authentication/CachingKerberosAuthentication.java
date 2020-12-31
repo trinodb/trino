@@ -17,7 +17,7 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.security.auth.Subject;
 import javax.security.auth.kerberos.KerberosTicket;
 
-import static io.prestosql.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
+import static io.trino.plugin.base.authentication.KerberosTicketUtils.getTicketGrantingTicket;
 import static java.util.Objects.requireNonNull;
 
 public class CachingKerberosAuthentication

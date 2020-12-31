@@ -14,8 +14,8 @@
 package io.trino.server;
 
 import com.google.common.collect.Maps;
-import io.prestosql.failuredetector.HeartbeatFailureDetector;
-import io.prestosql.server.security.ResourceSecurity;
+import io.trino.failuredetector.HeartbeatFailureDetector;
+import io.trino.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
 import javax.ws.rs.GET;
@@ -24,7 +24,7 @@ import javax.ws.rs.Path;
 import java.util.Collection;
 
 import static com.google.common.base.Predicates.in;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
+import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 
 @Path("/v1/node")
 public class NodeResource

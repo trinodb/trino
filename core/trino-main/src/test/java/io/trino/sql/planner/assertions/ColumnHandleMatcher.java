@@ -13,12 +13,12 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.Session;
+import io.trino.metadata.Metadata;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.Map;
 import java.util.Optional;

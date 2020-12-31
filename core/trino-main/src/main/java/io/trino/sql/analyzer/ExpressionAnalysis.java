@@ -15,14 +15,14 @@ package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.tree.ExistsPredicate;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.InPredicate;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.QuantifiedComparisonExpression;
-import io.prestosql.sql.tree.SubqueryExpression;
+import io.trino.spi.type.Type;
+import io.trino.sql.tree.ExistsPredicate;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.InPredicate;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.QuantifiedComparisonExpression;
+import io.trino.sql.tree.SubqueryExpression;
 
 import java.util.Map;
 import java.util.Set;

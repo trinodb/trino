@@ -14,15 +14,15 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 import org.apache.commons.math3.stat.correlation.Covariance;
 
 import java.util.List;
 
-import static io.prestosql.block.BlockAssertions.createSequenceBlockOfReal;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
-import static io.prestosql.spi.type.RealType.REAL;
+import static io.trino.block.BlockAssertions.createSequenceBlockOfReal;
+import static io.trino.operator.aggregation.AggregationTestUtils.constructDoublePrimitiveArray;
+import static io.trino.spi.type.RealType.REAL;
 
 public class TestRealCovariancePopAggregation
         extends AbstractTestAggregationFunction

@@ -14,7 +14,7 @@
 package io.trino.orc.metadata;
 
 import io.airlift.slice.SliceOutput;
-import io.prestosql.orc.metadata.statistics.BloomFilter;
+import io.trino.orc.metadata.statistics.BloomFilter;
 
 import java.io.IOException;
 import java.util.List;

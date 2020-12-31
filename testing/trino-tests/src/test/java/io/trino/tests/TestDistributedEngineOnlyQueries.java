@@ -13,17 +13,17 @@
  */
 package io.trino.tests;
 
-import io.prestosql.Session;
-import io.prestosql.plugin.memory.MemoryQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.plugin.memory.MemoryQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
 
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDistributedEngineOnlyQueries

@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.storage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
+import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

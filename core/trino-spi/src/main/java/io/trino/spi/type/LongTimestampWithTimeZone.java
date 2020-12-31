@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 
 public final class LongTimestampWithTimeZone
         implements Comparable<LongTimestampWithTimeZone>

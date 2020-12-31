@@ -18,10 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.Duration;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.CatalogMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.CatalogMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.transaction.IsolationLevel;
 import org.joda.time.DateTime;
 
 import java.util.List;

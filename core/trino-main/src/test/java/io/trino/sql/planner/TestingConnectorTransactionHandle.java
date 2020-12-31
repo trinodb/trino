@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public enum TestingConnectorTransactionHandle
         implements ConnectorTransactionHandle

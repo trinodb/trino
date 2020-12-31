@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.type.StandardTypes;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

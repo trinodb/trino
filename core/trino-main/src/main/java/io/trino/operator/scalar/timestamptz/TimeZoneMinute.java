@@ -13,14 +13,14 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
+import static io.trino.util.DateTimeZoneIndex.extractZoneOffsetMinutes;
 
 @Description("Time zone minute of the given timestamp")
 @ScalarFunction("timezone_minute")

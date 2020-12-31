@@ -16,7 +16,7 @@ package io.trino.plugin.hive.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorAccessControl;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 

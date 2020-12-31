@@ -15,14 +15,14 @@ package io.trino.plugin.thrift.server;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordCursor;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

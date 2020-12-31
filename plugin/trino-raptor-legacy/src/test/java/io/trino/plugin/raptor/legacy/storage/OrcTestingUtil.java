@@ -15,13 +15,13 @@ package io.trino.plugin.raptor.legacy.storage;
 
 import com.google.common.primitives.UnsignedBytes;
 import io.airlift.units.DataSize;
-import io.prestosql.orc.FileOrcDataSource;
-import io.prestosql.orc.OrcDataSource;
-import io.prestosql.orc.OrcPredicate;
-import io.prestosql.orc.OrcReader;
-import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.orc.OrcRecordReader;
-import io.prestosql.spi.type.Type;
+import io.trino.orc.FileOrcDataSource;
+import io.trino.orc.OrcDataSource;
+import io.trino.orc.OrcPredicate;
+import io.trino.orc.OrcReader;
+import io.trino.orc.OrcReaderOptions;
+import io.trino.orc.OrcRecordReader;
+import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import java.io.File;
@@ -30,8 +30,8 @@ import java.io.IOException;
 import java.util.List;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
+import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static org.testng.Assert.assertEquals;
 
 final class OrcTestingUtil

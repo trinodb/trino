@@ -15,7 +15,7 @@ package io.trino.execution.buffer;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.Objects;
 

@@ -15,11 +15,11 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.SqlVarbinary;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.SqlVarbinary;
 
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
 public class TestVarbinaryType
         extends AbstractTestType

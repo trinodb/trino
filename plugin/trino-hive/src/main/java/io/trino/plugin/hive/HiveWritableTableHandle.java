@@ -16,9 +16,9 @@ package io.trino.plugin.hive;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 import java.util.Optional;

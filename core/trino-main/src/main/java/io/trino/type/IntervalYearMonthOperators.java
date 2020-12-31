@@ -14,21 +14,21 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
-import io.prestosql.client.IntervalYearMonth;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.client.IntervalYearMonth;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.DIVIDE;
-import static io.prestosql.spi.function.OperatorType.MULTIPLY;
-import static io.prestosql.spi.function.OperatorType.NEGATION;
-import static io.prestosql.spi.function.OperatorType.SUBTRACT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.function.OperatorType.DIVIDE;
+import static io.trino.spi.function.OperatorType.MULTIPLY;
+import static io.trino.spi.function.OperatorType.NEGATION;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 

@@ -18,8 +18,8 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
-import io.prestosql.decoder.avro.AvroReaderSupplier;
-import io.prestosql.spi.PrestoException;
+import io.trino.decoder.avro.AvroReaderSupplier;
+import io.trino.spi.PrestoException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.DatumReader;
@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

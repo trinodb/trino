@@ -14,12 +14,12 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.pinot.client.PinotClient;
-import io.prestosql.pinot.client.PinotClient.BrokerResultRow;
-import io.prestosql.pinot.client.PinotClient.ResultsIterator;
-import io.prestosql.pinot.query.PinotQuery;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
+import io.trino.plugin.pinot.client.PinotClient;
+import io.trino.plugin.pinot.client.PinotClient.BrokerResultRow;
+import io.trino.plugin.pinot.client.PinotClient.ResultsIterator;
+import io.trino.plugin.pinot.query.PinotQuery;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
 import org.apache.pinot.common.utils.DataSchema;
@@ -30,10 +30,10 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.pinot.TestPinotSplitManager.createSessionWithNumSplits;
-import static io.prestosql.pinot.client.PinotClient.fromResultTable;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.pinot.TestPinotSplitManager.createSessionWithNumSplits;
+import static io.trino.plugin.pinot.client.PinotClient.fromResultTable;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.LONG;
 import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.STRING;
 import static org.testng.Assert.assertEquals;

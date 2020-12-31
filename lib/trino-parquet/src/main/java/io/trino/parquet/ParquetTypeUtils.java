@@ -13,7 +13,7 @@
  */
 package io.trino.parquet;
 
-import io.prestosql.spi.type.DecimalType;
+import io.trino.spi.type.DecimalType;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.ColumnIOFactory;

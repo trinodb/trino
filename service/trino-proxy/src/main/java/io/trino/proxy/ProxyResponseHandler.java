@@ -19,7 +19,7 @@ import io.airlift.http.client.HeaderName;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.Response;
 import io.airlift.http.client.ResponseHandler;
-import io.prestosql.proxy.ProxyResponseHandler.ProxyResponse;
+import io.trino.proxy.ProxyResponseHandler.ProxyResponse;
 
 import java.io.IOException;
 

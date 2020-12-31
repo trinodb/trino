@@ -14,12 +14,12 @@
 package io.trino.execution.warnings;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoWarning;
-import io.prestosql.testing.TestingWarningCollector;
-import io.prestosql.testing.TestingWarningCollectorConfig;
+import io.trino.spi.PrestoWarning;
+import io.trino.testing.TestingWarningCollector;
+import io.trino.testing.TestingWarningCollectorConfig;
 import org.testng.annotations.Test;
 
-import static io.prestosql.testing.TestingWarningCollector.createTestWarning;
+import static io.trino.testing.TestingWarningCollector.createTestWarning;
 import static org.testng.Assert.assertEquals;
 
 public class TestTestingWarningCollector

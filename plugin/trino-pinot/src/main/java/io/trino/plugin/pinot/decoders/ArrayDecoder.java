@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.pinot.decoders;
 
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.pinot.decoders.DecoderFactory.createDecoder;
+import static io.trino.plugin.pinot.decoders.DecoderFactory.createDecoder;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayDecoder

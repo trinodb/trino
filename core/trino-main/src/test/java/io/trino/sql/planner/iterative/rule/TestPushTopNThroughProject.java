@@ -15,30 +15,30 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.ExpressionMatcher;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.tree.ArithmeticBinaryExpression;
-import io.prestosql.sql.tree.BooleanLiteral;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.testing.TestingMetadata;
+import io.trino.spi.type.RowType;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.ExpressionMatcher;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.BooleanLiteral;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.SymbolReference;
+import io.trino.testing.TestingMetadata;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.sort;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.topN;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
-import static io.prestosql.sql.tree.SortItem.NullOrdering.FIRST;
-import static io.prestosql.sql.tree.SortItem.Ordering.ASCENDING;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.topN;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
+import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 
 public class TestPushTopNThroughProject
         extends BaseRuleTest

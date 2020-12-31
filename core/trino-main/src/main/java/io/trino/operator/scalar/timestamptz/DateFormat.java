@@ -14,20 +14,20 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.operator.scalar.DateTimeFunctions.dateFormat;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.DateTimes.roundToEpochMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
-import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
+import static io.trino.operator.scalar.DateTimeFunctions.dateFormat;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.type.DateTimes.roundToEpochMillis;
+import static io.trino.util.DateTimeZoneIndex.getChronology;
+import static io.trino.util.DateTimeZoneIndex.unpackChronology;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")

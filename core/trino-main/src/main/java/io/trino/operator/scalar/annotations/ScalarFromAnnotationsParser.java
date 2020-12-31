@@ -15,15 +15,15 @@ package io.trino.operator.scalar.annotations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.operator.ParametricImplementationsGroup;
-import io.prestosql.operator.annotations.FunctionsParserHelper;
-import io.prestosql.operator.scalar.ParametricScalar;
-import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.ParametricImplementationsGroup;
+import io.trino.operator.annotations.FunctionsParserHelper;
+import io.trino.operator.scalar.ParametricScalar;
+import io.trino.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
@@ -34,9 +34,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.operator.scalar.annotations.OperatorValidator.validateOperator;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.operator.scalar.annotations.OperatorValidator.validateOperator;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 public final class ScalarFromAnnotationsParser

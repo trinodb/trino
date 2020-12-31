@@ -13,17 +13,17 @@
  */
 package io.trino.spi;
 
-import io.prestosql.spi.block.BlockEncoding;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.eventlistener.EventListenerFactory;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
-import io.prestosql.spi.security.CertificateAuthenticatorFactory;
-import io.prestosql.spi.security.GroupProviderFactory;
-import io.prestosql.spi.security.PasswordAuthenticatorFactory;
-import io.prestosql.spi.security.SystemAccessControlFactory;
-import io.prestosql.spi.session.SessionPropertyConfigurationManagerFactory;
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.BlockEncoding;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.eventlistener.EventListenerFactory;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.trino.spi.security.CertificateAuthenticatorFactory;
+import io.trino.spi.security.GroupProviderFactory;
+import io.trino.spi.security.PasswordAuthenticatorFactory;
+import io.trino.spi.security.SystemAccessControlFactory;
+import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.Type;
 
 import java.util.Set;
 

@@ -13,17 +13,17 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.operator.aggregation.state.NullableLongState;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.type.BigintOperators;
+import io.trino.operator.aggregation.state.NullableLongState;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.type.BigintOperators;
 
-import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
-import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
+import static io.trino.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
+import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
 @AggregationFunction("sum")
 public final class IntervalDayToSecondSumAggregation

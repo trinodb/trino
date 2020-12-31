@@ -16,7 +16,7 @@ package io.trino.plugin.hive.orc;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
-import io.prestosql.orc.OrcReaderOptions;
+import io.trino.orc.OrcReaderOptions;
 
 import javax.validation.constraints.NotNull;
 

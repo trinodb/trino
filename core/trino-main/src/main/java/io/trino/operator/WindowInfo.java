@@ -16,8 +16,8 @@ package io.trino.operator;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.window.WindowPartition;
-import io.prestosql.util.Mergeable;
+import io.trino.operator.window.WindowPartition;
+import io.trino.util.Mergeable;
 
 import javax.annotation.concurrent.Immutable;
 

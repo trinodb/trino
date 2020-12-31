@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-import static io.prestosql.client.IntervalDayTime.formatMillis;
-import static io.prestosql.client.IntervalDayTime.toMillis;
+import static io.trino.client.IntervalDayTime.formatMillis;
+import static io.trino.client.IntervalDayTime.toMillis;
 
 public class SqlIntervalDayTime
 {

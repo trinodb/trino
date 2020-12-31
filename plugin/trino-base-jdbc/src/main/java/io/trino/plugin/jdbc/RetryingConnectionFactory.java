@@ -14,8 +14,8 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.Throwables;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeException;
 import net.jodah.failsafe.RetryPolicy;

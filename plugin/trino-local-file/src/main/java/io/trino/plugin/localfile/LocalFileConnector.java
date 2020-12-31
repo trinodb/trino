@@ -14,17 +14,17 @@
 package io.trino.plugin.localfile;
 
 import io.airlift.bootstrap.LifeCycleManager;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
-import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
-import static io.prestosql.spi.transaction.IsolationLevel.checkConnectorSupports;
+import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
+import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 public class LocalFileConnector

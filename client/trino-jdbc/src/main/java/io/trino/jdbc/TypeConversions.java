@@ -15,7 +15,7 @@ package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableTable;
 import com.google.common.collect.Table;
-import io.prestosql.client.ClientTypeSignature;
+import io.trino.client.ClientTypeSignature;
 
 import java.sql.SQLException;
 

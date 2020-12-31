@@ -15,7 +15,7 @@ package io.trino.plugin.hive.rubix;
 
 import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.spi.ClusterType;
-import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
+import io.trino.plugin.hive.s3.PrestoS3FileSystem;
 
 public class CachingPrestoS3FileSystem
         extends CachingFileSystem<PrestoS3FileSystem>

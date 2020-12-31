@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.raptor.legacy.storage.organization;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
 
 import java.time.Duration;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_DAY;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 

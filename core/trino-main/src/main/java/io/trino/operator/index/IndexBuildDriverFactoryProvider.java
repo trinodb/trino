@@ -14,20 +14,20 @@
 package io.trino.operator.index;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.DriverFactory;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.operator.DriverFactory;
+import io.trino.operator.OperatorFactory;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
-import static io.prestosql.operator.index.PageBufferOperator.PageBufferOperatorFactory;
-import static io.prestosql.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
+import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
+import static io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
+import static io.trino.operator.index.PagesIndexBuilderOperator.PagesIndexBuilderOperatorFactory;
 import static java.util.Objects.requireNonNull;
 
 public class IndexBuildDriverFactoryProvider

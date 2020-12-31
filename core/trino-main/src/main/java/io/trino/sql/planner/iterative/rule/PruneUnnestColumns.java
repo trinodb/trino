@@ -14,17 +14,17 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.UnnestNode;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.UnnestNode;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.planner.plan.Patterns.unnest;
+import static io.trino.sql.planner.plan.Patterns.unnest;
 
 /**
  * Absorb pruning projection into the node.

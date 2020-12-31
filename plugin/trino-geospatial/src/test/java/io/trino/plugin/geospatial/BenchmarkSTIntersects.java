@@ -36,11 +36,11 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.geospatial.GeoFunctions.stContains;
-import static io.prestosql.plugin.geospatial.GeoFunctions.stEnvelope;
-import static io.prestosql.plugin.geospatial.GeoFunctions.stGeometryFromText;
-import static io.prestosql.plugin.geospatial.GeoFunctions.stIntersects;
-import static io.prestosql.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
+import static io.trino.plugin.geospatial.GeoFunctions.stContains;
+import static io.trino.plugin.geospatial.GeoFunctions.stEnvelope;
+import static io.trino.plugin.geospatial.GeoFunctions.stGeometryFromText;
+import static io.trino.plugin.geospatial.GeoFunctions.stIntersects;
+import static io.trino.plugin.geospatial.GeometryBenchmarkUtils.loadPolygon;
 
 @State(Scope.Thread)
 @Fork(3)

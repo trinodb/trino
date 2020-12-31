@@ -16,17 +16,17 @@ package io.trino.sql.planner.plan;
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.statistics.ColumnStatisticMetadata;
-import io.prestosql.spi.statistics.ColumnStatisticType;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolAllocator;
+import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ColumnStatisticType;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeyDeserializer.deserialize;
-import static io.prestosql.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeySerializer.serialize;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeyDeserializer.deserialize;
+import static io.trino.sql.planner.plan.StatisticAggregationsDescriptor.ColumnStatisticMetadataKeySerializer.serialize;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestStatisticAggregationsDescriptor
 {

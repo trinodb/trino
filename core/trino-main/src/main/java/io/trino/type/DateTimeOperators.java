@@ -13,18 +13,18 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.SUBTRACT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
 
 public final class DateTimeOperators
 {

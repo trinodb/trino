@@ -14,22 +14,22 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.plugin.hive.HdfsConfig;
-import io.prestosql.plugin.hive.HdfsConfiguration;
-import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveHdfsConfiguration;
-import io.prestosql.plugin.hive.NodeVersion;
-import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.MetastoreConfig;
-import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
-import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.MaterializedRow;
+import io.trino.Session;
+import io.trino.plugin.hive.HdfsConfig;
+import io.trino.plugin.hive.HdfsConfiguration;
+import io.trino.plugin.hive.HdfsConfigurationInitializer;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HiveHdfsConfiguration;
+import io.trino.plugin.hive.NodeVersion;
+import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedRow;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -40,8 +40,8 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestIcebergSystemTables

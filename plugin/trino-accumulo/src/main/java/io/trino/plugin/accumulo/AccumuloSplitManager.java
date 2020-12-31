@@ -14,24 +14,24 @@
 package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
-import io.prestosql.plugin.accumulo.model.AccumuloColumnHandle;
-import io.prestosql.plugin.accumulo.model.AccumuloSplit;
-import io.prestosql.plugin.accumulo.model.AccumuloTableHandle;
-import io.prestosql.plugin.accumulo.model.TabletSplitMetadata;
-import io.prestosql.plugin.accumulo.model.WrappedRange;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.FixedSplitSource;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.TupleDomain.ColumnDomain;
+import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
+import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
+import io.trino.plugin.accumulo.model.AccumuloSplit;
+import io.trino.plugin.accumulo.model.AccumuloTableHandle;
+import io.trino.plugin.accumulo.model.TabletSplitMetadata;
+import io.trino.plugin.accumulo.model.WrappedRange;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.TupleDomain.ColumnDomain;
 
 import javax.inject.Inject;
 

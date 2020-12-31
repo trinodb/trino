@@ -16,15 +16,15 @@ package io.trino.operator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spiller.Spiller;
-import io.prestosql.spiller.SpillerFactory;
-import io.prestosql.sql.gen.OrderingCompiler;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
+import io.trino.spiller.Spiller;
+import io.trino.spiller.SpillerFactory;
+import io.trino.sql.gen.OrderingCompiler;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Iterator;
 import java.util.List;
@@ -39,7 +39,7 @@ import static com.google.common.collect.Iterators.transform;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.checkSuccess;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.prestosql.util.MergeSortedPages.mergeSortedPages;
+import static io.trino.util.MergeSortedPages.mergeSortedPages;
 import static java.util.Objects.requireNonNull;
 
 public class OrderByOperator

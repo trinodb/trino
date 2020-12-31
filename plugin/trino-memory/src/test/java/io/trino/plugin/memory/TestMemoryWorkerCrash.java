@@ -14,9 +14,9 @@
 package io.trino.plugin.memory;
 
 import io.airlift.units.Duration;
-import io.prestosql.server.testing.TestingPrestoServer;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
+import io.trino.server.testing.TestingPrestoServer;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static io.airlift.testing.Assertions.assertLessThan;

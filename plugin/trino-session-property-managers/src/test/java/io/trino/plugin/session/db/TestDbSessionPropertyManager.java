@@ -15,10 +15,10 @@ package io.trino.plugin.session.db;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.session.AbstractTestSessionPropertyManager;
-import io.prestosql.plugin.session.SessionMatchSpec;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.session.SessionConfigurationContext;
+import io.trino.plugin.session.AbstractTestSessionPropertyManager;
+import io.trino.plugin.session.SessionMatchSpec;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.session.SessionConfigurationContext;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;

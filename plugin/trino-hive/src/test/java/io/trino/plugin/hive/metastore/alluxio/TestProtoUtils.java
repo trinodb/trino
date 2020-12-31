@@ -15,17 +15,17 @@ package io.trino.plugin.hive.metastore.alluxio;
 
 import alluxio.grpc.table.Layout;
 import alluxio.shaded.client.com.google.protobuf.ByteString;
-import io.prestosql.plugin.hive.HiveBucketProperty;
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.metastore.Column;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.SortingColumn;
-import io.prestosql.plugin.hive.metastore.Storage;
-import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.plugin.hive.util.HiveBucketing;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.SortingColumn;
+import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.util.HiveBucketing;
+import io.trino.spi.PrestoException;
 import org.testng.annotations.Test;
 
 import java.util.Collections;

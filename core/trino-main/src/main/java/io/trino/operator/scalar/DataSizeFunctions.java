@@ -14,18 +14,18 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
-import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.type.Decimals.encodeUnscaledValue;
 import static java.lang.Character.isDigit;
 import static java.lang.String.format;
 

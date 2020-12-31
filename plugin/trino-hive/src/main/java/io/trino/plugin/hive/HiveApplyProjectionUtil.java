@@ -15,10 +15,10 @@ package io.trino.plugin.hive;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.expression.FieldDereference;
-import io.prestosql.spi.expression.Variable;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FieldDereference;
+import io.trino.spi.expression.Variable;
 
 import java.util.List;
 import java.util.Map;

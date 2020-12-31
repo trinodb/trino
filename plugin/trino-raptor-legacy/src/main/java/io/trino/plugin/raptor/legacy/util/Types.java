@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.raptor.legacy.util;
 
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.Type;
 
 public final class Types
 {

@@ -16,9 +16,9 @@ package io.trino.plugin.raptor.legacy;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Module;
-import io.prestosql.plugin.raptor.legacy.metadata.DatabaseMetadataModule;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.plugin.raptor.legacy.metadata.DatabaseMetadataModule;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.Map;
 

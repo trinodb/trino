@@ -16,22 +16,22 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.tree.ArithmeticBinaryExpression;
-import io.prestosql.sql.tree.LongLiteral;
+import io.trino.spi.type.RowType;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.union;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestPushProjectionThroughUnion
         extends BaseRuleTest

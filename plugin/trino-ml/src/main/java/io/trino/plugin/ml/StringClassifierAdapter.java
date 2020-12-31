@@ -18,14 +18,14 @@ import io.airlift.slice.BasicSliceInput;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.plugin.ml.type.ModelType;
+import io.trino.plugin.ml.type.ModelType;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.plugin.ml.ModelUtils.serialize;
-import static io.prestosql.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
+import static io.trino.plugin.ml.ModelUtils.serialize;
+import static io.trino.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 

@@ -17,12 +17,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.Lifespan;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Iterator;
 import java.util.List;

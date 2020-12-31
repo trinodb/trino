@@ -13,9 +13,9 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.DesugarTryExpressionRewriter;
-import io.prestosql.sql.planner.TypeAnalyzer;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.DesugarTryExpressionRewriter;
+import io.trino.sql.planner.TypeAnalyzer;
 
 public class DesugarTryExpression
         extends ExpressionRewriteRuleSet

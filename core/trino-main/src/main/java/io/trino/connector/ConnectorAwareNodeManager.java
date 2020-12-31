@@ -14,9 +14,9 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeManager;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
 
 import java.util.Set;
 

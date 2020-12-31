@@ -14,20 +14,20 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 
 public class TestScalarParser
         extends AbstractTestFunctions

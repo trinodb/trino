@@ -15,9 +15,9 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.metastore.HivePageSinkMetadata;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 
 import java.util.List;
 import java.util.Optional;

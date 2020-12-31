@@ -15,8 +15,8 @@ package io.trino.plugin.thrift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;

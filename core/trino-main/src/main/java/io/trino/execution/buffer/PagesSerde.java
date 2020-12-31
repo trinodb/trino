@@ -18,10 +18,10 @@ import io.airlift.compress.Decompressor;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.execution.buffer.PageCodecMarker.MarkerSet;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.BlockEncodingSerde;
-import io.prestosql.spiller.SpillCipher;
+import io.trino.execution.buffer.PageCodecMarker.MarkerSet;
+import io.trino.spi.Page;
+import io.trino.spi.block.BlockEncodingSerde;
+import io.trino.spiller.SpillCipher;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -29,11 +29,11 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.execution.buffer.PageCodecMarker.COMPRESSED;
-import static io.prestosql.execution.buffer.PageCodecMarker.ENCRYPTED;
-import static io.prestosql.execution.buffer.PagesSerdeUtil.readRawPage;
-import static io.prestosql.execution.buffer.PagesSerdeUtil.writeRawPage;
-import static io.prestosql.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
+import static io.trino.execution.buffer.PageCodecMarker.COMPRESSED;
+import static io.trino.execution.buffer.PageCodecMarker.ENCRYPTED;
+import static io.trino.execution.buffer.PagesSerdeUtil.readRawPage;
+import static io.trino.execution.buffer.PagesSerdeUtil.writeRawPage;
+import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

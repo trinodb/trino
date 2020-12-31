@@ -14,15 +14,15 @@
 package io.trino.plugin.geospatial.aggregation;
 
 import com.esri.core.geometry.ogc.OGCGeometry;
-import io.prestosql.operator.aggregation.state.StateCompiler;
-import io.prestosql.plugin.geospatial.GeometryType;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
+import io.trino.operator.aggregation.state.StateCompiler;
+import io.trino.plugin.geospatial.GeometryType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.AccumulatorStateSerializer;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
+import static io.trino.plugin.geospatial.aggregation.GeometryStateFactory.GroupedGeometryState;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 

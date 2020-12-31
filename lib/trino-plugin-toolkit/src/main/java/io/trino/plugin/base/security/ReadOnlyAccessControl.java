@@ -13,29 +13,29 @@
  */
 package io.trino.plugin.base.security;
 
-import io.prestosql.spi.connector.ConnectorAccessControl;
-import io.prestosql.spi.connector.ConnectorSecurityContext;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.PrestoPrincipal;
-import io.prestosql.spi.security.Privilege;
+import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorSecurityContext;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.Privilege;
 
 import java.util.Set;
 
-import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyCreateView;
-import static io.prestosql.spi.security.AccessDeniedException.denyDeleteTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyDropColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
-import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
-import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
-import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
-import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
+import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
+import static io.trino.spi.security.AccessDeniedException.denyCreateTable;
+import static io.trino.spi.security.AccessDeniedException.denyCreateView;
+import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
+import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropTable;
+import static io.trino.spi.security.AccessDeniedException.denyDropView;
+import static io.trino.spi.security.AccessDeniedException.denyGrantTablePrivilege;
+import static io.trino.spi.security.AccessDeniedException.denyInsertTable;
+import static io.trino.spi.security.AccessDeniedException.denyRenameColumn;
+import static io.trino.spi.security.AccessDeniedException.denyRenameTable;
+import static io.trino.spi.security.AccessDeniedException.denyRenameView;
+import static io.trino.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 
 public class ReadOnlyAccessControl
         implements ConnectorAccessControl

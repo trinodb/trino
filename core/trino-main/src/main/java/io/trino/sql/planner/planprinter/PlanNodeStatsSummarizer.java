@@ -15,14 +15,14 @@ package io.trino.sql.planner.planprinter;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.prestosql.execution.StageInfo;
-import io.prestosql.execution.TaskInfo;
-import io.prestosql.operator.HashCollisionsInfo;
-import io.prestosql.operator.OperatorStats;
-import io.prestosql.operator.PipelineStats;
-import io.prestosql.operator.TaskStats;
-import io.prestosql.operator.WindowInfo;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.StageInfo;
+import io.trino.execution.TaskInfo;
+import io.trino.operator.HashCollisionsInfo;
+import io.trino.operator.OperatorStats;
+import io.trino.operator.PipelineStats;
+import io.trino.operator.TaskStats;
+import io.trino.operator.WindowInfo;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,7 +34,7 @@ import java.util.Set;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Lists.reverse;
 import static io.airlift.units.DataSize.succinctBytes;
-import static io.prestosql.util.MoreMaps.mergeMaps;
+import static io.trino.util.MoreMaps.mergeMaps;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toList;
 

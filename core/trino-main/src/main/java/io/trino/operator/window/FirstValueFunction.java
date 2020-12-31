@@ -13,9 +13,9 @@
  */
 package io.trino.operator.window;
 
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.ValueWindowFunction;
-import io.prestosql.spi.function.WindowFunctionSignature;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.ValueWindowFunction;
+import io.trino.spi.function.WindowFunctionSignature;
 
 import java.util.List;
 

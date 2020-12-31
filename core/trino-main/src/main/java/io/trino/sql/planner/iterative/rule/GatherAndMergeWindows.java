@@ -17,19 +17,19 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.matching.PropertyPattern;
-import io.prestosql.sql.planner.OrderingScheme;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.WindowNode;
-import io.prestosql.sql.tree.Expression;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.matching.PropertyPattern;
+import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.Expression;
 
 import java.util.Iterator;
 import java.util.List;
@@ -41,13 +41,13 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
-import static io.prestosql.sql.planner.iterative.rule.Util.transpose;
-import static io.prestosql.sql.planner.optimizations.WindowNodeUtil.dependsOn;
-import static io.prestosql.sql.planner.plan.Patterns.project;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.window;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
+import static io.trino.sql.planner.iterative.rule.Util.transpose;
+import static io.trino.sql.planner.optimizations.WindowNodeUtil.dependsOn;
+import static io.trino.sql.planner.plan.Patterns.project;
+import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.Patterns.window;
 
 public final class GatherAndMergeWindows
 {

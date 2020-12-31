@@ -13,22 +13,22 @@
  */
 package io.trino.tests.hive;
 
-import io.prestosql.testng.services.Flaky;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.prestosql.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestCsv

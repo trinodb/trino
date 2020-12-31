@@ -16,8 +16,8 @@ package io.trino.server.security;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.prestosql.spi.security.PasswordAuthenticator;
-import io.prestosql.spi.security.PasswordAuthenticatorFactory;
+import io.trino.spi.security.PasswordAuthenticator;
+import io.trino.spi.security.PasswordAuthenticatorFactory;
 
 import java.io.File;
 import java.util.HashMap;

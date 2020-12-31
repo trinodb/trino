@@ -14,7 +14,7 @@
 package io.trino.jdbc;
 
 import io.airlift.log.Logging;
-import io.prestosql.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 

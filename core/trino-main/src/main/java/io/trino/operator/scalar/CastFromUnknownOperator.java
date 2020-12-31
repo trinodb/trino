@@ -14,20 +14,20 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.SqlOperator;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.SqlOperator;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.UnknownType.UNKNOWN;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.metadata.Signature.typeVariable;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.type.UnknownType.UNKNOWN;
+import static io.trino.util.Reflection.methodHandle;
 
 public final class CastFromUnknownOperator
         extends SqlOperator

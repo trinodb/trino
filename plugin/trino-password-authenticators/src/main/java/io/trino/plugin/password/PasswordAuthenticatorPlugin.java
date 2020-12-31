@@ -14,13 +14,13 @@
 package io.trino.plugin.password;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.password.file.FileAuthenticatorFactory;
-import io.prestosql.plugin.password.file.FileGroupProviderFactory;
-import io.prestosql.plugin.password.ldap.LdapAuthenticatorFactory;
-import io.prestosql.plugin.password.salesforce.SalesforceAuthenticatorFactory;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.security.GroupProviderFactory;
-import io.prestosql.spi.security.PasswordAuthenticatorFactory;
+import io.trino.plugin.password.file.FileAuthenticatorFactory;
+import io.trino.plugin.password.file.FileGroupProviderFactory;
+import io.trino.plugin.password.ldap.LdapAuthenticatorFactory;
+import io.trino.plugin.password.salesforce.SalesforceAuthenticatorFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.security.GroupProviderFactory;
+import io.trino.spi.security.PasswordAuthenticatorFactory;
 
 public class PasswordAuthenticatorPlugin
         implements Plugin

@@ -13,11 +13,11 @@
  */
 package io.trino.operator.scalar.timestamptz;
 
-import io.prestosql.Session;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.sql.query.QueryAssertions;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -26,11 +26,11 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.type.DateTimes.MILLISECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

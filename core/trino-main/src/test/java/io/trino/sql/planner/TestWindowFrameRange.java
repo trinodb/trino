@@ -15,37 +15,37 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.tree.DecimalLiteral;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.spi.connector.SortOrder;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.tree.DecimalLiteral;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.SymbolReference;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.prestosql.sql.planner.LogicalPlanner.Stage.CREATED;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.functionCall;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.specification;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static io.prestosql.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.prestosql.sql.tree.FrameBound.Type.FOLLOWING;
-import static io.prestosql.sql.tree.FrameBound.Type.PRECEDING;
-import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.planner.LogicalPlanner.Stage.CREATED;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
+import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
+import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 
 public class TestWindowFrameRange
         extends BasePlanTest

@@ -14,7 +14,7 @@
 package io.trino.operator.project;
 
 import com.google.common.primitives.Ints;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import java.util.Arrays;
 import java.util.Collections;

@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 
 public class TablePropertyManager
         extends AbstractPropertyManager

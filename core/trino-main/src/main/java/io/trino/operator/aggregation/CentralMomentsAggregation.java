@@ -13,20 +13,20 @@
  */
 package io.trino.operator.aggregation;
 
-import io.prestosql.operator.aggregation.state.CentralMomentsState;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.operator.aggregation.state.CentralMomentsState;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
-import static io.prestosql.operator.aggregation.AggregationUtils.mergeCentralMomentsState;
-import static io.prestosql.operator.aggregation.AggregationUtils.updateCentralMomentsState;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.operator.aggregation.AggregationUtils.mergeCentralMomentsState;
+import static io.trino.operator.aggregation.AggregationUtils.updateCentralMomentsState;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 
 @AggregationFunction
 @Description("Returns the central moments of the argument as an array")

@@ -15,15 +15,15 @@ package io.trino.server;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.SessionRepresentation;
-import io.prestosql.execution.QueryInfo;
-import io.prestosql.execution.QueryState;
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.ErrorType;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.resourcegroups.QueryType;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.trino.SessionRepresentation;
+import io.trino.execution.QueryInfo;
+import io.trino.execution.QueryState;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorType;
+import io.trino.spi.QueryId;
+import io.trino.spi.memory.MemoryPoolId;
+import io.trino.spi.resourcegroups.QueryType;
+import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;

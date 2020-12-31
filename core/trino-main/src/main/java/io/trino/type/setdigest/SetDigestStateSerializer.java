@@ -14,12 +14,12 @@
 
 package io.trino.type.setdigest;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.type.setdigest.SetDigestType.SET_DIGEST;
+import static io.trino.type.setdigest.SetDigestType.SET_DIGEST;
 
 public class SetDigestStateSerializer
         implements AccumulatorStateSerializer<SetDigestState>

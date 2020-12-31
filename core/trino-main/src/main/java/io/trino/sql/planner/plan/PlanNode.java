@@ -16,7 +16,7 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 

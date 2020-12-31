@@ -14,16 +14,16 @@
 package io.trino.util;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.client.ErrorLocation;
-import io.prestosql.execution.ExecutionFailureInfo;
-import io.prestosql.execution.Failure;
-import io.prestosql.spi.ErrorCode;
-import io.prestosql.spi.ErrorCodeSupplier;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.PrestoTransportException;
-import io.prestosql.spi.StandardErrorCode;
-import io.prestosql.sql.parser.ParsingException;
+import io.trino.client.ErrorLocation;
+import io.trino.execution.ExecutionFailureInfo;
+import io.trino.execution.Failure;
+import io.trino.spi.ErrorCode;
+import io.trino.spi.ErrorCodeSupplier;
+import io.trino.spi.HostAddress;
+import io.trino.spi.PrestoException;
+import io.trino.spi.PrestoTransportException;
+import io.trino.spi.StandardErrorCode;
+import io.trino.sql.parser.ParsingException;
 
 import javax.annotation.Nullable;
 
@@ -37,8 +37,8 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.newIdentityHashSet;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

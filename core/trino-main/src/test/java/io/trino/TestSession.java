@@ -13,12 +13,12 @@
  */
 package io.trino;
 
-import io.prestosql.connector.CatalogName;
+import io.trino.connector.CatalogName;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSession

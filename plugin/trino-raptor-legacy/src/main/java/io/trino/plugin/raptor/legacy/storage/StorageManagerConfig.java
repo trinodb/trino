@@ -22,7 +22,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
-import io.prestosql.orc.OrcReaderOptions;
+import io.trino.orc.OrcReaderOptions;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;

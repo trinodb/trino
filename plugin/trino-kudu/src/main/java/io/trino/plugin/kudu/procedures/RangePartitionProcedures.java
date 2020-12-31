@@ -14,19 +14,19 @@
 package io.trino.plugin.kudu.procedures;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.kudu.KuduClientSession;
-import io.prestosql.plugin.kudu.properties.KuduTableProperties;
-import io.prestosql.plugin.kudu.properties.RangePartition;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.procedure.Procedure;
-import io.prestosql.spi.procedure.Procedure.Argument;
+import io.trino.plugin.kudu.KuduClientSession;
+import io.trino.plugin.kudu.properties.KuduTableProperties;
+import io.trino.plugin.kudu.properties.RangePartition;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.procedure.Procedure;
+import io.trino.spi.procedure.Procedure.Argument;
 
 import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class RangePartitionProcedures

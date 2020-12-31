@@ -18,17 +18,17 @@ import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.type.JoniRegexp;
-import io.prestosql.type.JoniRegexpType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.type.JoniRegexp;
+import io.trino.type.JoniRegexpType;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.Chars.padSpaces;
 
 public final class JoniRegexpCasts
 {

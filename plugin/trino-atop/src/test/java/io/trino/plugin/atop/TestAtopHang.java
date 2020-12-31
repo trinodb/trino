@@ -15,8 +15,8 @@ package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.testing.QueryRunner;
+import io.trino.spi.PrestoException;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -28,8 +28,8 @@ import java.nio.file.Path;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Resources.toByteArray;
-import static io.prestosql.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
-import static io.prestosql.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
+import static io.trino.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
+import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 

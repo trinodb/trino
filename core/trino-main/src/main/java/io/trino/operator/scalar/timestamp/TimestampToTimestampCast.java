@@ -13,18 +13,18 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
 
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
-import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.roundToNearest;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.TimestampType.MAX_PRECISION;
+import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.type.DateTimes.round;
+import static io.trino.type.DateTimes.roundToNearest;
 
 @ScalarOperator(CAST)
 public final class TimestampToTimestampCast

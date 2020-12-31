@@ -15,7 +15,7 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
+import static io.trino.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

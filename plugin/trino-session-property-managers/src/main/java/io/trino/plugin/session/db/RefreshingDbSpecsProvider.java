@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.stats.CounterStat;
-import io.prestosql.plugin.session.SessionMatchSpec;
+import io.trino.plugin.session.SessionMatchSpec;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

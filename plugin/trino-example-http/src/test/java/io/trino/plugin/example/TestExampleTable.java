@@ -14,14 +14,14 @@
 package io.trino.plugin.example;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnMetadata;
 import org.testng.annotations.Test;
 
 import java.net.URI;
 
-import static io.prestosql.plugin.example.MetadataUtil.TABLE_CODEC;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.plugin.example.MetadataUtil.TABLE_CODEC;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestExampleTable

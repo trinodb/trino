@@ -15,15 +15,15 @@ package io.trino.metadata;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

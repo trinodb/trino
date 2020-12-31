@@ -15,7 +15,7 @@ package io.trino.failuredetector;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.discovery.client.ServiceDescriptor;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 
 import java.util.Set;
 

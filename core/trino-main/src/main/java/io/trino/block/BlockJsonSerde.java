@@ -24,15 +24,15 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockEncodingSerde;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockEncodingSerde;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 
-import static io.prestosql.block.BlockSerdeUtil.readBlock;
-import static io.prestosql.block.BlockSerdeUtil.writeBlock;
+import static io.trino.block.BlockSerdeUtil.readBlock;
+import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 

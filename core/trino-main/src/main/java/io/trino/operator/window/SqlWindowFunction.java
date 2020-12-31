@@ -13,15 +13,15 @@
  */
 package io.trino.operator.window;
 
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlFunction;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlFunction;
 
 import static com.google.common.base.Strings.nullToEmpty;
-import static io.prestosql.metadata.FunctionKind.WINDOW;
+import static io.trino.metadata.FunctionKind.WINDOW;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 

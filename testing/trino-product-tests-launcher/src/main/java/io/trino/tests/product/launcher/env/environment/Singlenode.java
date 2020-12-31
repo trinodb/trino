@@ -14,11 +14,11 @@
 package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
-import io.prestosql.tests.product.launcher.env.common.Hadoop;
-import io.prestosql.tests.product.launcher.env.common.Standard;
-import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.env.EnvironmentProvider;
+import io.trino.tests.product.launcher.env.common.Hadoop;
+import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 

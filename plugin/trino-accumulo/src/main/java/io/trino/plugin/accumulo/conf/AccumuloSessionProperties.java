@@ -15,18 +15,18 @@ package io.trino.plugin.accumulo.conf;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
 import java.util.List;
 
-import static io.prestosql.plugin.base.session.PropertyMetadataUtil.durationProperty;
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.doubleProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**

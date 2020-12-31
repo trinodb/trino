@@ -14,10 +14,10 @@
 package io.trino.operator.aggregation.builder;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.operator.HashCollisionsCounter;
-import io.prestosql.operator.Work;
-import io.prestosql.operator.WorkProcessor;
-import io.prestosql.spi.Page;
+import io.trino.operator.HashCollisionsCounter;
+import io.trino.operator.Work;
+import io.trino.operator.WorkProcessor;
+import io.trino.spi.Page;
 
 public interface HashAggregationBuilder
         extends AutoCloseable

@@ -20,7 +20,7 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
-import io.prestosql.plugin.hive.util.RetryDriver;
+import io.trino.plugin.hive.util.RetryDriver;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;

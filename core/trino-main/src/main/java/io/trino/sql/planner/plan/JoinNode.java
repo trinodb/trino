@@ -18,11 +18,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.cost.PlanNodeStatsAndCostSummary;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.tree.ComparisonExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Join;
+import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Join;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -34,11 +34,11 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.FULL;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.prestosql.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
+import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
+import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

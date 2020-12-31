@@ -13,7 +13,7 @@
  */
 package io.trino.array;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 import org.openjdk.jol.info.ClassLayout;
 
 public final class BlockBigArray

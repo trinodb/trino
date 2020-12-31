@@ -15,10 +15,10 @@ package io.trino.plugin.resourcegroups;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.resourcegroups.SelectionContext;
-import io.prestosql.spi.resourcegroups.SelectionCriteria;
-import io.prestosql.spi.session.ResourceEstimates;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.SelectionContext;
+import io.trino.spi.resourcegroups.SelectionCriteria;
+import io.trino.spi.session.ResourceEstimates;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

@@ -13,9 +13,9 @@
  */
 package io.trino.tests;
 
-import io.prestosql.testing.AbstractTestQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 
 public class TestDistributedQueriesNoHashGeneration
         extends AbstractTestQueries

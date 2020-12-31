@@ -15,7 +15,7 @@ package io.trino.tests.product.launcher.env;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.tests.product.launcher.env.Environments.canonicalName;
+import static io.trino.tests.product.launcher.env.Environments.canonicalName;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEnvironments

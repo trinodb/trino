@@ -13,9 +13,9 @@
  */
 package io.trino.testing;
 
-import io.prestosql.connector.CatalogName;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.testing.TestingMetadata.TestingTableHandle;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.TableHandle;
+import io.trino.testing.TestingMetadata.TestingTableHandle;
 
 import java.util.Optional;
 

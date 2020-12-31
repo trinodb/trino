@@ -13,17 +13,17 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.FilterNode;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.FilterNode;
 
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
-import static io.prestosql.sql.planner.plan.Patterns.filter;
-import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.ExpressionUtils.combineConjuncts;
+import static io.trino.sql.planner.plan.Patterns.filter;
+import static io.trino.sql.planner.plan.Patterns.source;
 import static java.util.Objects.requireNonNull;
 
 public class MergeFilters

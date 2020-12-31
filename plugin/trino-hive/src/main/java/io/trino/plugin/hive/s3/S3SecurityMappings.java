@@ -16,7 +16,7 @@ package io.trino.plugin.hive.s3;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.security.ConnectorIdentity;
+import io.trino.spi.security.ConnectorIdentity;
 
 import java.net.URI;
 import java.util.List;

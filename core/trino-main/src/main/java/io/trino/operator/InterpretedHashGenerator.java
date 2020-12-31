@@ -15,13 +15,13 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.operator.scalar.CombineHashFunction;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.optimizations.HashGenerationOptimizer;
-import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.operator.scalar.CombineHashFunction;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.optimizations.HashGenerationOptimizer;
+import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 
 import java.util.List;
 import java.util.function.IntFunction;

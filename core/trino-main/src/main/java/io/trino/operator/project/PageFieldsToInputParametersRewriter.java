@@ -14,14 +14,14 @@
 package io.trino.operator.project;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.relational.CallExpression;
-import io.prestosql.sql.relational.ConstantExpression;
-import io.prestosql.sql.relational.InputReferenceExpression;
-import io.prestosql.sql.relational.LambdaDefinitionExpression;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.RowExpressionVisitor;
-import io.prestosql.sql.relational.SpecialForm;
-import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.trino.sql.relational.CallExpression;
+import io.trino.sql.relational.ConstantExpression;
+import io.trino.sql.relational.InputReferenceExpression;
+import io.trino.sql.relational.LambdaDefinitionExpression;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.RowExpressionVisitor;
+import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.relational.VariableReferenceExpression;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.relational.Expressions.field;
+import static io.trino.sql.relational.Expressions.field;
 
 /**
  * Rewrite input references from columns in the input page (to the filter/project node)

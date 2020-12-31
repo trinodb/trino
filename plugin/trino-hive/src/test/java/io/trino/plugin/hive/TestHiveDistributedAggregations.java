@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.testing.AbstractTestAggregations;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestAggregations;
+import io.trino.testing.QueryRunner;
 
 import static io.trino.tpch.TpchTable.getTables;
 

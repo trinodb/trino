@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignature;
 
 import javax.annotation.Nullable;
 

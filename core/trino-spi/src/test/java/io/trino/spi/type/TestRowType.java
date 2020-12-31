@@ -17,9 +17,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 

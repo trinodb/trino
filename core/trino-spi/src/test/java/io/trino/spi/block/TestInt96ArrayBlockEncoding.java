@@ -13,13 +13,13 @@
  */
 package io.trino.spi.block;
 
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.Type;
 
 import java.util.Random;
 
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_PICOS;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_PICOS;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 
 public class TestInt96ArrayBlockEncoding
         extends BaseBlockEncodingTest<LongTimestamp>

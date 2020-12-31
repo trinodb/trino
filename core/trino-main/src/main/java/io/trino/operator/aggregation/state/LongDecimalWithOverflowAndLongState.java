@@ -13,7 +13,7 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateFactoryClass = LongDecimalWithOverflowAndLongStateFactory.class, stateSerializerClass = LongDecimalWithOverflowAndLongStateSerializer.class)
 public interface LongDecimalWithOverflowAndLongState

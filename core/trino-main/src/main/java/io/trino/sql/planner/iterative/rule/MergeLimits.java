@@ -14,15 +14,15 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.LimitNode;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.LimitNode;
 
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.plan.Patterns.limit;
-import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.Patterns.limit;
+import static io.trino.sql.planner.plan.Patterns.source;
 
 /**
  * This rule handles both LimitNode with ties and LimitNode without ties.

@@ -13,9 +13,9 @@
  */
 package io.trino.operator;
 
-import io.prestosql.metadata.Split;
-import io.prestosql.spi.connector.UpdatablePageSource;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.metadata.Split;
+import io.trino.spi.connector.UpdatablePageSource;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Optional;
 import java.util.function.Supplier;

@@ -13,25 +13,25 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.type.Constraint;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
+import io.trino.type.Constraint;
 import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.SUBTRACT;
-import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.DateTimes.getMicrosOfMilli;
-import static io.prestosql.type.DateTimes.rescale;
-import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
+import static io.trino.spi.function.OperatorType.ADD;
+import static io.trino.spi.function.OperatorType.SUBTRACT;
+import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.type.DateTimes.getMicrosOfMilli;
+import static io.trino.type.DateTimes.rescale;
+import static io.trino.type.DateTimes.round;
+import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static java.lang.Math.multiplyExact;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")

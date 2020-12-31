@@ -20,7 +20,7 @@ import io.airlift.stats.Distribution;
 import io.airlift.stats.Distribution.DistributionSnapshot;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.spi.eventlistener.StageGcStatistics;
+import io.trino.spi.eventlistener.StageGcStatistics;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 

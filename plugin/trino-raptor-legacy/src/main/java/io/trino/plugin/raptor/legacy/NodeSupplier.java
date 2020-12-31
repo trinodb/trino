@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.raptor.legacy;
 
-import io.prestosql.spi.Node;
+import io.trino.spi.Node;
 
 import java.util.Set;
 

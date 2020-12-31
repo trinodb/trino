@@ -14,44 +14,44 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionDependencies;
-import io.prestosql.metadata.FunctionDependencyDeclaration;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.DuplicateMapKeyException;
-import io.prestosql.spi.block.MapBlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionDependencyDeclaration;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.DuplicateMapKeyException;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.comparableTypeParameter;
-import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.TypeSignature.arrayType;
-import static io.prestosql.spi.type.TypeUtils.readNativeValue;
-import static io.prestosql.util.Failures.checkCondition;
-import static io.prestosql.util.Failures.internalError;
-import static io.prestosql.util.Reflection.constructorMethodHandle;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.Signature.comparableTypeParameter;
+import static io.trino.metadata.Signature.typeVariable;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.HASH_CODE;
+import static io.trino.spi.function.OperatorType.INDETERMINATE;
+import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeUtils.readNativeValue;
+import static io.trino.util.Failures.checkCondition;
+import static io.trino.util.Failures.internalError;
+import static io.trino.util.Reflection.constructorMethodHandle;
+import static io.trino.util.Reflection.methodHandle;
 
 public final class MapConstructor
         extends SqlScalarFunction

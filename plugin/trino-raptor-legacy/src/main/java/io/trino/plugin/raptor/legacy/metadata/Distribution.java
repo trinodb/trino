@@ -15,9 +15,9 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeId;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
+import io.trino.spi.type.TypeManager;
 import org.skife.jdbi.v2.StatementContext;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 

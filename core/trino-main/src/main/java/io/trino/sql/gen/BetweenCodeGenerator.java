@@ -17,20 +17,20 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SpecialForm;
-import io.prestosql.sql.relational.VariableReferenceExpression;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SpecialForm;
+import io.trino.sql.relational.VariableReferenceExpression;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
-import static io.prestosql.sql.gen.RowExpressionCompiler.createTempVariableReferenceExpression;
-import static io.prestosql.sql.relational.Expressions.call;
-import static io.prestosql.sql.relational.SpecialForm.Form.AND;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
+import static io.trino.sql.gen.RowExpressionCompiler.createTempVariableReferenceExpression;
+import static io.trino.sql.relational.Expressions.call;
+import static io.trino.sql.relational.SpecialForm.Form.AND;
 import static java.util.Objects.requireNonNull;
 
 public class BetweenCodeGenerator

@@ -18,19 +18,19 @@ import com.google.re2j.Matcher;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
-import io.prestosql.type.Re2JRegexp;
-import io.prestosql.type.Re2JRegexpType;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.sql.gen.lambda.UnaryFunctionInterface;
+import io.trino.type.Re2JRegexp;
+import io.trino.type.Re2JRegexpType;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 @ScalarFunction("regexp_replace")
 @Description("Replaces substrings matching a regular expression using a lambda function")

@@ -15,11 +15,11 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.common.type.HiveChar;
 import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
@@ -51,9 +51,9 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
 

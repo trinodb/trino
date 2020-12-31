@@ -15,17 +15,17 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.PartitioningScheme;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.PartitioningScheme;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static io.prestosql.sql.planner.plan.Patterns.exchange;
+import static io.trino.sql.planner.plan.Patterns.exchange;
 
 /**
  * This rule restricts the outputs of ExchangeNode based on which

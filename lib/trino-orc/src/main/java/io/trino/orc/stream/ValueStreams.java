@@ -13,22 +13,22 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.StreamId;
-import io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind;
-import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
+import io.trino.orc.StreamId;
+import io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind;
+import io.trino.orc.metadata.OrcType.OrcTypeKind;
 
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
-import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
-import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
-import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
-import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP_INSTANT;
-import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
-import static io.prestosql.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
-import static io.prestosql.orc.metadata.Stream.StreamKind.LENGTH;
-import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
-import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DICTIONARY_V2;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT;
+import static io.trino.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT_V2;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.DECIMAL;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.TIMESTAMP_INSTANT;
+import static io.trino.orc.metadata.Stream.StreamKind.DATA;
+import static io.trino.orc.metadata.Stream.StreamKind.DICTIONARY_DATA;
+import static io.trino.orc.metadata.Stream.StreamKind.LENGTH;
+import static io.trino.orc.metadata.Stream.StreamKind.PRESENT;
+import static io.trino.orc.metadata.Stream.StreamKind.SECONDARY;
 import static java.lang.String.format;
 
 public final class ValueStreams

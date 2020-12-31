@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.sql.tree.SymbolReference;
 
 import static java.util.Objects.requireNonNull;
 

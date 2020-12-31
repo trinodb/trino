@@ -18,16 +18,16 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.hash.HashCode;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.plugin.ml.type.RegressorType;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.plugin.ml.type.RegressorType;
+import io.trino.spi.block.Block;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.ml.type.ClassifierType.BIGINT_CLASSIFIER;
-import static io.prestosql.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
-import static io.prestosql.plugin.ml.type.RegressorType.REGRESSOR;
+import static io.trino.plugin.ml.type.ClassifierType.BIGINT_CLASSIFIER;
+import static io.trino.plugin.ml.type.ClassifierType.VARCHAR_CLASSIFIER;
+import static io.trino.plugin.ml.type.RegressorType.REGRESSOR;
 
 public final class MLFunctions
 {

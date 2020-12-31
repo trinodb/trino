@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.redis;
 
-import io.prestosql.plugin.redis.util.RedisServer;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.QueryRunner;
+import io.trino.plugin.redis.util.RedisServer;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
+import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;

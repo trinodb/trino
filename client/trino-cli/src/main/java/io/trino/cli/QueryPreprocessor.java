@@ -38,7 +38,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.propagateIfPossible;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.prestosql.cli.TerminalUtils.isRealTerminal;
+import static io.trino.cli.TerminalUtils.isRealTerminal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;

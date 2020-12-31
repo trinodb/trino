@@ -14,9 +14,9 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.parquet.writer.repdef.DefLevelIterable;
-import io.prestosql.parquet.writer.repdef.RepLevelIterable;
-import io.prestosql.spi.block.Block;
+import io.trino.parquet.writer.repdef.DefLevelIterable;
+import io.trino.parquet.writer.repdef.RepLevelIterable;
+import io.trino.spi.block.Block;
 
 import java.util.List;
 

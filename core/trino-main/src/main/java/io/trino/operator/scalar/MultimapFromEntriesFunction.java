@@ -14,35 +14,35 @@
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.aggregation.TypedSet;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.Convention;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.OperatorDependency;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlNullable;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.operator.aggregation.TypedSet;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.Convention;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.OperatorDependency;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlNullable;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.trino.operator.aggregation.TypedSet.createEqualityTypedSet;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.HASH_CODE;
 
 @ScalarFunction("multimap_from_entries")
 @Description("Construct a multimap from an array of entries")

@@ -13,7 +13,7 @@
  */
 package io.trino.server.ui;
 
-import io.prestosql.server.security.SecurityConfig;
+import io.trino.server.security.SecurityConfig;
 
 import javax.inject.Inject;
 

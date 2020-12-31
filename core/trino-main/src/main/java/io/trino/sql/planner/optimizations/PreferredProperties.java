@@ -16,9 +16,9 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.prestosql.spi.connector.LocalProperty;
-import io.prestosql.sql.planner.Partitioning;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.spi.connector.LocalProperty;
+import io.trino.sql.planner.Partitioning;
+import io.trino.sql.planner.Symbol;
 
 import javax.annotation.concurrent.Immutable;
 

@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.memory;
 
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
 
 import static java.util.Objects.requireNonNull;
 

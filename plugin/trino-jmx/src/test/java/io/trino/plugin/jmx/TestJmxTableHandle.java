@@ -16,18 +16,18 @@ package io.trino.plugin.jmx;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.EquivalenceTester;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.NullableValue;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.jmx.MetadataUtil.TABLE_CODEC;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.plugin.jmx.MetadataUtil.TABLE_CODEC;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
 public class TestJmxTableHandle

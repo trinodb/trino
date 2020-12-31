@@ -16,9 +16,9 @@ package io.trino.plugin.raptor.legacy.security;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.base.security.AllowAllAccessControlModule;
-import io.prestosql.plugin.base.security.FileBasedAccessControlModule;
-import io.prestosql.plugin.base.security.ReadOnlySecurityModule;
+import io.trino.plugin.base.security.AllowAllAccessControlModule;
+import io.trino.plugin.base.security.FileBasedAccessControlModule;
+import io.trino.plugin.base.security.ReadOnlySecurityModule;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static java.util.Objects.requireNonNull;

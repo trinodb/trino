@@ -13,12 +13,12 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeParameter;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeParameter;
 
 import java.util.List;
 

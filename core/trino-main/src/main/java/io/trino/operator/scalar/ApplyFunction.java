@@ -15,26 +15,26 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.spi.type.TypeSignature.functionType;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.Signature.typeVariable;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.type.TypeSignature.functionType;
+import static io.trino.util.Reflection.methodHandle;
 
 /**
  * This scalar function exists primarily to test lambda expression support.

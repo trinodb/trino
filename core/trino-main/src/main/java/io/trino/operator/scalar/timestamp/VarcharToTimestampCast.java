@@ -15,27 +15,27 @@ package io.trino.operator.scalar.timestamp;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.type.DateTimes;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.type.DateTimes;
 
 import java.time.ZonedDateTime;
 import java.util.regex.Matcher;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.operator.scalar.StringFunctions.trim;
-import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
-import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
-import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.longTimestamp;
-import static io.prestosql.type.DateTimes.rescale;
-import static io.prestosql.type.DateTimes.round;
+import static io.trino.operator.scalar.StringFunctions.trim;
+import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.trino.spi.function.OperatorType.CAST;
+import static io.trino.spi.type.TimestampType.MAX_PRECISION;
+import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.trino.type.DateTimes.longTimestamp;
+import static io.trino.type.DateTimes.rescale;
+import static io.trino.type.DateTimes.round;
 import static java.time.ZoneOffset.UTC;
 
 @ScalarOperator(CAST)

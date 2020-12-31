@@ -15,18 +15,18 @@ package io.trino.spi.type;
 
 import com.google.common.base.Throwables;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.VariableWidthBlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
 
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
 import static java.lang.Math.signum;
 import static org.testng.Assert.assertEquals;
 

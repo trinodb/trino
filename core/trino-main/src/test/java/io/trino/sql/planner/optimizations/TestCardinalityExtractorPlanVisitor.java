@@ -17,16 +17,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.TestingColumnHandle;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.rule.test.PlanBuilder;
-import io.prestosql.sql.planner.plan.AggregationNode;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.TestingColumnHandle;
+import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
+import io.trino.sql.planner.plan.AggregationNode;
 import org.testng.annotations.Test;
 
-import static io.prestosql.metadata.AbstractMockMetadata.dummyMetadata;
-import static io.prestosql.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
+import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
 

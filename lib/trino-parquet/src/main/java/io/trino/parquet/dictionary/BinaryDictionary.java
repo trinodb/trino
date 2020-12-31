@@ -14,7 +14,7 @@
 package io.trino.parquet.dictionary;
 
 import io.airlift.slice.Slice;
-import io.prestosql.parquet.DictionaryPage;
+import io.trino.parquet.DictionaryPage;
 import org.apache.parquet.io.api.Binary;
 
 import java.io.IOException;

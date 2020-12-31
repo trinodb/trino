@@ -13,14 +13,14 @@
  */
 package io.trino.operator.aggregation.state;
 
-import io.prestosql.operator.aggregation.DoubleHistogramAggregation;
-import io.prestosql.operator.aggregation.NumericHistogram;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.Type;
+import io.trino.operator.aggregation.DoubleHistogramAggregation;
+import io.trino.operator.aggregation.NumericHistogram;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 
 public class DoubleHistogramStateSerializer
         implements AccumulatorStateSerializer<DoubleHistogramAggregation.State>

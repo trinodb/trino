@@ -14,12 +14,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.ProjectNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.ProjectNode;
 
-import static io.prestosql.sql.planner.plan.Patterns.project;
+import static io.trino.sql.planner.plan.Patterns.project;
 
 /**
  * Removes projection nodes that only perform non-renaming identity projections

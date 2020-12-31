@@ -15,8 +15,8 @@ package io.trino.security;
 
 import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TempFile;
-import io.prestosql.spi.security.GroupProvider;
-import io.prestosql.spi.security.GroupProviderFactory;
+import io.trino.spi.security.GroupProvider;
+import io.trino.spi.security.GroupProviderFactory;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

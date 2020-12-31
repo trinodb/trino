@@ -18,16 +18,16 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.hive.ForHiveMetastore;
-import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
-import io.prestosql.plugin.hive.authentication.HadoopAuthentication;
-import io.prestosql.plugin.hive.authentication.HiveMetastoreAuthentication;
-import io.prestosql.plugin.hive.authentication.MetastoreKerberosConfig;
-import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
+import io.trino.plugin.hive.ForHiveMetastore;
+import io.trino.plugin.hive.HdfsConfigurationInitializer;
+import io.trino.plugin.hive.authentication.HadoopAuthentication;
+import io.trino.plugin.hive.authentication.HiveMetastoreAuthentication;
+import io.trino.plugin.hive.authentication.MetastoreKerberosConfig;
+import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.hive.authentication.AuthenticationModules.createCachingKerberosHadoopAuthentication;
+import static io.trino.plugin.hive.authentication.AuthenticationModules.createCachingKerberosHadoopAuthentication;
 
 public class ThriftMetastoreAuthenticationModule
         extends AbstractConfigurationAwareModule

@@ -14,14 +14,14 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorTableProperties;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.DiscretePredicates;
-import io.prestosql.spi.connector.LocalProperty;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.sql.planner.PartitioningHandle;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DiscretePredicates;
+import io.trino.spi.connector.LocalProperty;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.List;
 import java.util.Objects;

@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_READ_ONLY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

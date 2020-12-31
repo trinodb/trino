@@ -13,11 +13,11 @@
  */
 package io.trino.spi.block;
 
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.Random;
 
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 
 public class TestShortArrayBlockEncoding
         extends BaseBlockEncodingTest<Short>

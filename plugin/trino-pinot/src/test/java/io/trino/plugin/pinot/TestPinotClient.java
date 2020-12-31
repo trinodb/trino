@@ -20,9 +20,9 @@ import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.units.Duration;
-import io.prestosql.pinot.client.IdentityPinotHostMapper;
-import io.prestosql.pinot.client.PinotClient;
-import io.prestosql.testing.assertions.Assert;
+import io.trino.plugin.pinot.client.IdentityPinotHostMapper;
+import io.trino.plugin.pinot.client.PinotClient;
+import io.trino.testing.assertions.Assert;
 import org.testng.annotations.Test;
 
 import java.util.concurrent.TimeUnit;

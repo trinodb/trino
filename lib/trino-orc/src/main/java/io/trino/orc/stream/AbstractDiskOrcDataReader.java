@@ -16,7 +16,7 @@ package io.trino.orc.stream;
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.orc.OrcDataSourceId;
+import io.trino.orc.OrcDataSourceId;
 
 import javax.annotation.Nullable;
 

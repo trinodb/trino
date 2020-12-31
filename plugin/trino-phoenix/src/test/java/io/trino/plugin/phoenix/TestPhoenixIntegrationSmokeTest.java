@@ -14,10 +14,10 @@
 package io.trino.plugin.phoenix;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.plugin.jdbc.UnsupportedTypeHandling;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -26,9 +26,9 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
-import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.prestosql.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
+import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
+import static io.trino.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;

@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.hive.util;
 
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.plugin.hive.HiveType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
@@ -25,13 +25,13 @@ import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
 
 import java.util.List;
 
-import static io.prestosql.plugin.hive.HiveType.HIVE_BYTE;
-import static io.prestosql.plugin.hive.HiveType.HIVE_DOUBLE;
-import static io.prestosql.plugin.hive.HiveType.HIVE_FLOAT;
-import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
-import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
-import static io.prestosql.plugin.hive.HiveType.HIVE_SHORT;
-import static io.prestosql.plugin.hive.util.HiveUtil.extractStructFieldTypes;
+import static io.trino.plugin.hive.HiveType.HIVE_BYTE;
+import static io.trino.plugin.hive.HiveType.HIVE_DOUBLE;
+import static io.trino.plugin.hive.HiveType.HIVE_FLOAT;
+import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.HiveType.HIVE_LONG;
+import static io.trino.plugin.hive.HiveType.HIVE_SHORT;
+import static io.trino.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 

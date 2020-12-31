@@ -14,13 +14,13 @@
 
 package io.trino.plugin.hive.coercions;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.RealType;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.RealType;
 
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 
 public class FloatToDoubleCoercer

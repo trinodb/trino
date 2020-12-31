@@ -13,16 +13,16 @@
  */
 package io.trino.spi.type;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
-import io.prestosql.spi.function.OperatorMethodHandle;
-import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.function.ScalarFunctionAdapter;
-import io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.trino.spi.function.OperatorMethodHandle;
+import io.trino.spi.function.OperatorType;
+import io.trino.spi.function.ScalarFunctionAdapter;
+import io.trino.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -38,17 +38,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
-import static io.prestosql.spi.function.OperatorType.COMPARISON;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.spi.function.InvocationConvention.simpleConvention;
+import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.LESS_THAN;
+import static io.trino.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.dropArguments;

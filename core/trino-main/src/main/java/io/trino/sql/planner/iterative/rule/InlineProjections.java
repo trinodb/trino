@@ -15,20 +15,20 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.tree.DereferenceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Literal;
-import io.prestosql.sql.tree.TryExpression;
-import io.prestosql.sql.util.AstUtils;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.tree.DereferenceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Literal;
+import io.trino.sql.tree.TryExpression;
+import io.trino.sql.util.AstUtils;
 
 import java.util.Map;
 import java.util.Optional;
@@ -36,10 +36,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.ExpressionSymbolInliner.inlineSymbols;
-import static io.prestosql.sql.planner.plan.Patterns.project;
-import static io.prestosql.sql.planner.plan.Patterns.source;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.ExpressionSymbolInliner.inlineSymbols;
+import static io.trino.sql.planner.plan.Patterns.project;
+import static io.trino.sql.planner.plan.Patterns.source;
 import static java.util.stream.Collectors.toSet;
 
 /**

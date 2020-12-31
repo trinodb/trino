@@ -15,8 +15,8 @@ package io.trino.cost;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Ordering;
-import io.prestosql.Session;
-import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.trino.Session;
+import io.trino.sql.analyzer.FeaturesConfig;
 
 import javax.inject.Inject;
 

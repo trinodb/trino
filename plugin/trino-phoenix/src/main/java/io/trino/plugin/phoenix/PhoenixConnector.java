@@ -15,17 +15,17 @@ package io.trino.plugin.phoenix;
 
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
-import io.prestosql.plugin.jdbc.JdbcTransactionHandle;
-import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
-import io.prestosql.plugin.jdbc.TablePropertiesProvider;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorMetadata;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.transaction.IsolationLevel;
+import io.trino.plugin.jdbc.JdbcTransactionHandle;
+import io.trino.plugin.jdbc.SessionPropertiesProvider;
+import io.trino.plugin.jdbc.TablePropertiesProvider;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
 import java.util.Set;

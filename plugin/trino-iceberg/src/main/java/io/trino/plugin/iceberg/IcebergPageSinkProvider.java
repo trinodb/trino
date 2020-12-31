@@ -14,15 +14,15 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.json.JsonCodec;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.prestosql.spi.PageIndexerFactory;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorPageSink;
-import io.prestosql.spi.connector.ConnectorPageSinkProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import io.trino.spi.PageIndexerFactory;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;

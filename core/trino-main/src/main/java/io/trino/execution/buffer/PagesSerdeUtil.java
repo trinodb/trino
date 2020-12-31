@@ -19,15 +19,15 @@ import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockEncodingSerde;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockEncodingSerde;
 
 import java.util.Iterator;
 import java.util.List;
 
-import static io.prestosql.block.BlockSerdeUtil.readBlock;
-import static io.prestosql.block.BlockSerdeUtil.writeBlock;
+import static io.trino.block.BlockSerdeUtil.readBlock;
+import static io.trino.block.BlockSerdeUtil.writeBlock;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 

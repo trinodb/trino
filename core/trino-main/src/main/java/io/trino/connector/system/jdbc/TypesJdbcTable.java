@@ -13,30 +13,30 @@
  */
 package io.trino.connector.system.jdbc;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.InMemoryRecordSet;
-import io.prestosql.spi.connector.InMemoryRecordSet.Builder;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.ParametricType;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.Metadata;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.InMemoryRecordSet.Builder;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.ParametricType;
+import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
 
-import static io.prestosql.connector.system.jdbc.ColumnJdbcTable.columnSize;
-import static io.prestosql.connector.system.jdbc.ColumnJdbcTable.jdbcDataType;
-import static io.prestosql.connector.system.jdbc.ColumnJdbcTable.numPrecRadix;
-import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.connector.system.jdbc.ColumnJdbcTable.columnSize;
+import static io.trino.connector.system.jdbc.ColumnJdbcTable.jdbcDataType;
+import static io.trino.connector.system.jdbc.ColumnJdbcTable.numPrecRadix;
+import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class TypesJdbcTable

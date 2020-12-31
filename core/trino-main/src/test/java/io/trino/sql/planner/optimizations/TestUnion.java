@@ -14,23 +14,23 @@
 package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.Iterables;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ExchangeNode;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.GATHER;
-import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
+import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;

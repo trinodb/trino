@@ -15,7 +15,7 @@ package io.trino.plugin.atop;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnHandle;
 
 import java.util.Objects;
 

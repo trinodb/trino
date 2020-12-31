@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.kafka.encoder;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 import java.io.Closeable;
 

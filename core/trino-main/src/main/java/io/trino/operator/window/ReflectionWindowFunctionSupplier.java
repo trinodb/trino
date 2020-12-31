@@ -16,12 +16,12 @@ package io.trino.operator.window;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import io.prestosql.metadata.Signature;
-import io.prestosql.operator.aggregation.LambdaProvider;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ValueWindowFunction;
-import io.prestosql.spi.function.WindowFunction;
-import io.prestosql.spi.type.Type;
+import io.trino.metadata.Signature;
+import io.trino.operator.aggregation.LambdaProvider;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ValueWindowFunction;
+import io.trino.spi.function.WindowFunction;
+import io.trino.spi.type.Type;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;

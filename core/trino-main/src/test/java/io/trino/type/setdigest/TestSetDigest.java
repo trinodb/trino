@@ -28,10 +28,10 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import static io.prestosql.type.setdigest.SetDigest.DEFAULT_MAX_HASHES;
-import static io.prestosql.type.setdigest.SetDigest.NUMBER_OF_BUCKETS;
-import static io.prestosql.type.setdigest.SetDigestFunctions.hashCounts;
-import static io.prestosql.type.setdigest.SetDigestFunctions.intersectionCardinality;
+import static io.trino.type.setdigest.SetDigest.DEFAULT_MAX_HASHES;
+import static io.trino.type.setdigest.SetDigest.NUMBER_OF_BUCKETS;
+import static io.trino.type.setdigest.SetDigestFunctions.hashCounts;
+import static io.trino.type.setdigest.SetDigestFunctions.intersectionCardinality;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;

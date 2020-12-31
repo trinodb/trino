@@ -14,22 +14,22 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionArgumentDefinition;
-import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.trino.metadata.FunctionArgumentDefinition;
+import io.trino.metadata.FunctionBinding;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Signature;
+import io.trino.metadata.SqlScalarFunction;
+import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.trino.operator.scalar.ScalarFunctionImplementation;
 
 import java.lang.invoke.MethodHandle;
 import java.util.function.LongUnaryOperator;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public final class GenericLongFunction

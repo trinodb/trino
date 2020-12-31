@@ -13,21 +13,21 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import io.prestosql.plugin.hive.HivePartition;
-import io.prestosql.plugin.hive.PartitionStatistics;
-import io.prestosql.plugin.hive.acid.AcidOperation;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.metastore.HivePrincipal;
-import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
-import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.security.RoleGrant;
-import io.prestosql.spi.statistics.ColumnStatisticType;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.HivePartition;
+import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.RoleGrant;
+import io.trino.spi.statistics.ColumnStatisticType;
+import io.trino.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -41,7 +41,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 
 public interface ThriftMetastore
 {

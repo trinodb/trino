@@ -15,33 +15,33 @@ package io.trino.dispatcher;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.prestosql.Session;
-import io.prestosql.event.QueryMonitor;
-import io.prestosql.execution.ClusterSizeMonitor;
-import io.prestosql.execution.LocationFactory;
-import io.prestosql.execution.QueryExecution;
-import io.prestosql.execution.QueryExecution.QueryExecutionFactory;
-import io.prestosql.execution.QueryManager;
-import io.prestosql.execution.QueryPreparer.PreparedQuery;
-import io.prestosql.execution.QueryStateMachine;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.execution.warnings.WarningCollectorFactory;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.server.protocol.Slug;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.sql.tree.Statement;
-import io.prestosql.transaction.TransactionManager;
-import io.prestosql.util.StatementUtils;
+import io.trino.Session;
+import io.trino.event.QueryMonitor;
+import io.trino.execution.ClusterSizeMonitor;
+import io.trino.execution.LocationFactory;
+import io.trino.execution.QueryExecution;
+import io.trino.execution.QueryExecution.QueryExecutionFactory;
+import io.trino.execution.QueryManager;
+import io.trino.execution.QueryPreparer.PreparedQuery;
+import io.trino.execution.QueryStateMachine;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.warnings.WarningCollectorFactory;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.server.protocol.Slug;
+import io.trino.spi.PrestoException;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.sql.tree.Statement;
+import io.trino.transaction.TransactionManager;
+import io.trino.util.StatementUtils;
 
 import javax.inject.Inject;
 
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.util.StatementUtils.isTransactionControlStatement;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.util.StatementUtils.isTransactionControlStatement;
 import static java.util.Objects.requireNonNull;
 
 public class LocalDispatchQueryFactory

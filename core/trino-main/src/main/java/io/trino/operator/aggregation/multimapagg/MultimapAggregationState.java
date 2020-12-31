@@ -13,9 +13,9 @@
  */
 package io.trino.operator.aggregation.multimapagg;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.block.Block;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
 
 @AccumulatorStateMetadata(stateFactoryClass = MultimapAggregationStateFactory.class, stateSerializerClass = MultimapAggregationStateSerializer.class)
 public interface MultimapAggregationState

@@ -14,15 +14,15 @@
 package io.trino.sql.planner;
 
 import com.google.common.primitives.Ints;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.Field;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.GroupingOperation;
-import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.SymbolReference;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.Field;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.GroupingOperation;
+import io.trino.sql.tree.Identifier;
+import io.trino.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.Map;

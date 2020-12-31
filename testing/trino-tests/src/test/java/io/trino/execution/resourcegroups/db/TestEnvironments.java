@@ -13,21 +13,21 @@
  */
 package io.trino.execution.resourcegroups.db;
 
-import io.prestosql.plugin.resourcegroups.db.H2ResourceGroupsDao;
-import io.prestosql.spi.QueryId;
-import io.prestosql.testing.DistributedQueryRunner;
+import io.trino.plugin.resourcegroups.db.H2ResourceGroupsDao;
+import io.trino.spi.QueryId;
+import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.Test;
 
-import static io.prestosql.execution.QueryState.FAILED;
-import static io.prestosql.execution.QueryState.RUNNING;
-import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
-import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
-import static io.prestosql.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT;
-import static io.prestosql.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT_2;
-import static io.prestosql.execution.resourcegroups.db.H2TestUtil.adhocSession;
-import static io.prestosql.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
-import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getDao;
-import static io.prestosql.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
+import static io.trino.execution.QueryState.FAILED;
+import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.execution.TestQueryRunnerUtil.createQuery;
+import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.trino.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT;
+import static io.trino.execution.resourcegroups.db.H2TestUtil.TEST_ENVIRONMENT_2;
+import static io.trino.execution.resourcegroups.db.H2TestUtil.adhocSession;
+import static io.trino.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
+import static io.trino.execution.resourcegroups.db.H2TestUtil.getDao;
+import static io.trino.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
 
 @Test(singleThreaded = true)
 public class TestEnvironments

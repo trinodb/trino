@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.util.HiveBucketing;
-import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.BucketFunction;
+import io.trino.plugin.hive.util.HiveBucketing;
+import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
+import io.trino.spi.Page;
+import io.trino.spi.connector.BucketFunction;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;

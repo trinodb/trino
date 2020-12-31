@@ -14,11 +14,11 @@
 package io.trino.operator.aggregation;
 
 import io.airlift.slice.Slices;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestApproximateCountDistinctVarchar
         extends AbstractTestApproximateCountDistinct

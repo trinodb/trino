@@ -16,9 +16,9 @@ package io.trino.testing.statistics;
 import java.util.OptionalDouble;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.testing.statistics.MetricComparison.Result.DIFFER;
-import static io.prestosql.testing.statistics.MetricComparison.Result.MATCH;
-import static io.prestosql.testing.statistics.MetricComparison.Result.NO_ESTIMATE;
+import static io.trino.testing.statistics.MetricComparison.Result.DIFFER;
+import static io.trino.testing.statistics.MetricComparison.Result.MATCH;
+import static io.trino.testing.statistics.MetricComparison.Result.NO_ESTIMATE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

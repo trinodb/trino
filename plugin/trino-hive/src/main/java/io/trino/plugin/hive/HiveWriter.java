@@ -14,8 +14,8 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.hive.PartitionUpdate.UpdateMode;
-import io.prestosql.spi.Page;
+import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
+import io.trino.spi.Page;
 
 import java.util.Optional;
 import java.util.function.Consumer;

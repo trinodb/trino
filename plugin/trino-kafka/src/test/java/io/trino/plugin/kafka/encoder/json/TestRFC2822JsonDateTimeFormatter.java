@@ -13,19 +13,19 @@
  */
 package io.trino.plugin.kafka.encoder.json;
 
-import io.prestosql.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.kafka.encoder.json.format.DateTimeFormat.RFC2822;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.RFC2822;
+import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.trino.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
+import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestRFC2822JsonDateTimeFormatter
 {

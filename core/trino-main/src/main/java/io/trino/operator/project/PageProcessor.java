@@ -15,18 +15,18 @@ package io.trino.operator.project;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
-import io.prestosql.array.ReferenceCountMap;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.operator.DriverYieldSignal;
-import io.prestosql.operator.Work;
-import io.prestosql.operator.WorkProcessor;
-import io.prestosql.operator.WorkProcessor.ProcessState;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.DictionaryId;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.sql.gen.ExpressionProfiler;
+import io.trino.array.ReferenceCountMap;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.DriverYieldSignal;
+import io.trino.operator.Work;
+import io.trino.operator.WorkProcessor;
+import io.trino.operator.WorkProcessor.ProcessState;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.DictionaryId;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.sql.gen.ExpressionProfiler;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -42,12 +42,12 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.operator.PageUtils.recordMaterializedBytes;
-import static io.prestosql.operator.WorkProcessor.ProcessState.finished;
-import static io.prestosql.operator.WorkProcessor.ProcessState.ofResult;
-import static io.prestosql.operator.WorkProcessor.ProcessState.yield;
-import static io.prestosql.operator.project.SelectedPositions.positionsRange;
-import static io.prestosql.spi.block.DictionaryId.randomDictionaryId;
+import static io.trino.operator.PageUtils.recordMaterializedBytes;
+import static io.trino.operator.WorkProcessor.ProcessState.finished;
+import static io.trino.operator.WorkProcessor.ProcessState.ofResult;
+import static io.trino.operator.WorkProcessor.ProcessState.yield;
+import static io.trino.operator.project.SelectedPositions.positionsRange;
+import static io.trino.spi.block.DictionaryId.randomDictionaryId;
 import static java.util.Objects.requireNonNull;
 
 @NotThreadSafe

@@ -13,8 +13,8 @@
  */
 package io.trino.parquet.reader;
 
-import io.prestosql.parquet.Field;
-import io.prestosql.parquet.ParquetTypeUtils;
+import io.trino.parquet.Field;
+import io.trino.parquet.ParquetTypeUtils;
 import it.unimi.dsi.fastutil.booleans.BooleanList;
 import it.unimi.dsi.fastutil.ints.IntList;
 

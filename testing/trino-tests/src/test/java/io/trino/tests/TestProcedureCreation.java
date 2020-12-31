@@ -14,14 +14,14 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.procedure.Procedure;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.procedure.Procedure;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)

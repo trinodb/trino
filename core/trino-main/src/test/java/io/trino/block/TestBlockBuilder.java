@@ -15,19 +15,19 @@ package io.trino.block;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static io.prestosql.block.BlockAssertions.assertBlockEquals;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.block.BlockAssertions.assertBlockEquals;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;

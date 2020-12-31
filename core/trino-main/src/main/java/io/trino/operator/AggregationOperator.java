@@ -14,14 +14,14 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.operator.aggregation.AccumulatorFactory;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.AggregationNode.Step;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.operator.aggregation.AccumulatorFactory;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.AggregationNode.Step;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 

@@ -13,10 +13,10 @@
  */
 package io.trino.orc.reader;
 
-import io.prestosql.orc.metadata.ColumnEncoding;
-import io.prestosql.orc.metadata.ColumnMetadata;
-import io.prestosql.orc.stream.InputStreamSources;
-import io.prestosql.spi.block.Block;
+import io.trino.orc.metadata.ColumnEncoding;
+import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.stream.InputStreamSources;
+import io.trino.spi.block.Block;
 
 import java.io.IOException;
 import java.time.ZoneId;

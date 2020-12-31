@@ -13,10 +13,10 @@
  */
 package io.trino.type;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BigintType.BIGINT;
 
 public class TestBigintType
         extends AbstractTestType

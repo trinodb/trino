@@ -14,9 +14,9 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Map;
 

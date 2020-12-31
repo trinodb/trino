@@ -14,10 +14,10 @@
 
 package io.trino.operator.aggregation.histogram;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators.BlockPositionEqual;
+import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
 import org.openjdk.jol.info.ClassLayout;
 
 import static java.util.Objects.requireNonNull;

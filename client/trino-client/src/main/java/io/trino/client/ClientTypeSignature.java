@@ -16,7 +16,7 @@ package io.trino.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.client.ClientTypeSignatureParameter.ParameterKind;
+import io.trino.client.ClientTypeSignatureParameter.ParameterKind;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -29,8 +29,8 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.client.ClientStandardTypes.ROW;
-import static io.prestosql.client.ClientStandardTypes.VARCHAR;
+import static io.trino.client.ClientStandardTypes.ROW;
+import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;

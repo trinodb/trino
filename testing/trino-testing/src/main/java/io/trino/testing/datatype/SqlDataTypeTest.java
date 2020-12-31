@@ -13,13 +13,13 @@
  */
 package io.trino.testing.datatype;
 
-import io.prestosql.Session;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.query.QueryAssertions;
-import io.prestosql.sql.query.QueryAssertions.QueryAssert;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.Session;
+import io.trino.spi.type.Type;
+import io.trino.sql.query.QueryAssertions;
+import io.trino.sql.query.QueryAssertions.QueryAssert;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 
 import java.util.ArrayList;
 import java.util.List;

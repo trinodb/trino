@@ -15,9 +15,9 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.SizeOf;
-import io.prestosql.array.IntBigArray;
-import io.prestosql.spi.Page;
-import io.prestosql.util.LongBigArrayFIFOQueue;
+import io.trino.array.IntBigArray;
+import io.trino.spi.Page;
+import io.trino.util.LongBigArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongComparator;

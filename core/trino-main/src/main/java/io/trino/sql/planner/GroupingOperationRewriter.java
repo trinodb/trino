@@ -13,17 +13,17 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.analyzer.FieldId;
-import io.prestosql.sql.analyzer.RelationId;
-import io.prestosql.sql.analyzer.ResolvedField;
-import io.prestosql.sql.tree.ArithmeticBinaryExpression;
-import io.prestosql.sql.tree.ArrayConstructor;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.GenericLiteral;
-import io.prestosql.sql.tree.GroupingOperation;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.SubscriptExpression;
+import io.trino.sql.analyzer.FieldId;
+import io.trino.sql.analyzer.RelationId;
+import io.trino.sql.analyzer.ResolvedField;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArrayConstructor;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.GroupingOperation;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.SubscriptExpression;
 
 import java.util.List;
 import java.util.Map;
@@ -32,7 +32,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
+import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static java.util.Objects.requireNonNull;
 
 public final class GroupingOperationRewriter

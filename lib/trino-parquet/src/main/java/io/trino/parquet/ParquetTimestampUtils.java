@@ -16,15 +16,15 @@ package io.trino.parquet;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
-import io.prestosql.plugin.base.type.DecodedTimestamp;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.base.type.DecodedTimestamp;
+import io.trino.spi.PrestoException;
 import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
-import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
-import static io.prestosql.spi.type.Timestamps.SECONDS_PER_DAY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.SECONDS_PER_DAY;
 
 /**
  * Utility class for decoding INT96 encoded parquet timestamp to timestamp millis in GMT.

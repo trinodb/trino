@@ -14,35 +14,35 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AllowAllAccessControl;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.analyzer.ExpressionAnalyzer;
-import io.prestosql.sql.analyzer.Scope;
-import io.prestosql.sql.planner.ExpressionInterpreter;
-import io.prestosql.sql.planner.LiteralEncoder;
-import io.prestosql.sql.planner.NoOpSymbolResolver;
-import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.relational.RowExpression;
-import io.prestosql.sql.relational.SqlToRowExpressionTranslator;
-import io.prestosql.sql.tree.CoalesceExpression;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.LongLiteral;
-import io.prestosql.sql.tree.NodeRef;
+import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
+import io.trino.security.AllowAllAccessControl;
+import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.ExpressionAnalyzer;
+import io.trino.sql.analyzer.Scope;
+import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.relational.RowExpression;
+import io.trino.sql.relational.SqlToRowExpressionTranslator;
+import io.trino.sql.tree.CoalesceExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.NodeRef;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.util.Map;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
-import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.prestosql.sql.relational.Expressions.constant;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.encodeScaledValue;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.trino.sql.relational.Expressions.constant;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.util.Collections.emptyMap;
 
 public class TestSqlToRowExpressionTranslator

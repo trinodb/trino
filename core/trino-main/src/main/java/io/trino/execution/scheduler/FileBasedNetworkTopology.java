@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Files;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.CharMatcher.whitespace;
-import static io.prestosql.execution.scheduler.NetworkLocation.ROOT_LOCATION;
+import static io.trino.execution.scheduler.NetworkLocation.ROOT_LOCATION;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;

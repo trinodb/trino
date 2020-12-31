@@ -13,7 +13,7 @@
  */
 package io.trino.execution;
 
-import io.prestosql.spi.ErrorCode;
+import io.trino.spi.ErrorCode;
 
 import javax.annotation.Nullable;
 

@@ -16,21 +16,21 @@ package io.trino.plugin.accumulo.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.accumulo.metadata.AccumuloTable;
-import io.prestosql.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorInsertTableHandle;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.plugin.accumulo.metadata.AccumuloTable;
+import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public final class AccumuloTableHandle

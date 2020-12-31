@@ -29,8 +29,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 
-import static io.prestosql.tests.TestGroups.JDBC;
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
@@ -40,6 +38,8 @@ import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.JDBC;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.JDBCType.BIGINT;

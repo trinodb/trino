@@ -14,22 +14,22 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 import org.joda.time.format.DateTimeFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.type.DateTimes.round;
+import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Formats the given time by the given format")
 @ScalarFunction("format_datetime")

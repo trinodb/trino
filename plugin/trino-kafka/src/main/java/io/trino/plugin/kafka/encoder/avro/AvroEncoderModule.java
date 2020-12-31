@@ -16,10 +16,10 @@ package io.trino.plugin.kafka.encoder.avro;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
-import io.prestosql.plugin.kafka.encoder.RowEncoderFactory;
+import io.trino.plugin.kafka.encoder.RowEncoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
-import static io.prestosql.plugin.kafka.encoder.EncoderModule.encoderFactory;
+import static io.trino.plugin.kafka.encoder.EncoderModule.encoderFactory;
 
 public class AvroEncoderModule
         implements Module

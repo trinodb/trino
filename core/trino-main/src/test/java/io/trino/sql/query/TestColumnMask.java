@@ -15,28 +15,28 @@ package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.metadata.QualifiedObjectName;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.spi.connector.ConnectorViewDefinition;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.ViewExpression;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.VarcharType;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.TestingAccessControlManager;
+import io.trino.Session;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.spi.connector.ConnectorViewDefinition;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.VarcharType;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.TestingAccessControlManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
-import static io.prestosql.testing.TestingAccessControlManager.privilege;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.privilege;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

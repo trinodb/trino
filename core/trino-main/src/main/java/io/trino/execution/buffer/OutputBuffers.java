@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.PartitioningHandle;
+import io.trino.sql.planner.PartitioningHandle;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,11 +27,11 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
-import static io.prestosql.execution.buffer.OutputBuffers.BufferType.BROADCAST;
-import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
-import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
+import static io.trino.execution.buffer.OutputBuffers.BufferType.ARBITRARY;
+import static io.trino.execution.buffer.OutputBuffers.BufferType.BROADCAST;
+import static io.trino.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 

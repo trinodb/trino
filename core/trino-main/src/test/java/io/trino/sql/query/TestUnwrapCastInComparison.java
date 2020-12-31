@@ -14,8 +14,8 @@
 package io.trino.sql.query;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.Session;
+import io.trino.spi.type.TimeZoneKey;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;

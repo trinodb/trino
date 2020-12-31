@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.SelectedRole;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.SelectedRole;
 import org.testng.annotations.Test;
 
 import javax.ws.rs.WebApplicationException;
@@ -27,21 +27,21 @@ import javax.ws.rs.core.MultivaluedMap;
 
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.HASH_PARTITION_COUNT;
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.QUERY_MAX_MEMORY;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CATALOG;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CLIENT_INFO;
-import static io.prestosql.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
-import static io.prestosql.client.PrestoHeaders.PRESTO_LANGUAGE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_PATH;
-import static io.prestosql.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
-import static io.prestosql.client.PrestoHeaders.PRESTO_ROLE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_SCHEMA;
-import static io.prestosql.client.PrestoHeaders.PRESTO_SESSION;
-import static io.prestosql.client.PrestoHeaders.PRESTO_SOURCE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_TIME_ZONE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.SystemSessionProperties.HASH_PARTITION_COUNT;
+import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
+import static io.trino.client.PrestoHeaders.PRESTO_CATALOG;
+import static io.trino.client.PrestoHeaders.PRESTO_CLIENT_INFO;
+import static io.trino.client.PrestoHeaders.PRESTO_EXTRA_CREDENTIAL;
+import static io.trino.client.PrestoHeaders.PRESTO_LANGUAGE;
+import static io.trino.client.PrestoHeaders.PRESTO_PATH;
+import static io.trino.client.PrestoHeaders.PRESTO_PREPARED_STATEMENT;
+import static io.trino.client.PrestoHeaders.PRESTO_ROLE;
+import static io.trino.client.PrestoHeaders.PRESTO_SCHEMA;
+import static io.trino.client.PrestoHeaders.PRESTO_SESSION;
+import static io.trino.client.PrestoHeaders.PRESTO_SOURCE;
+import static io.trino.client.PrestoHeaders.PRESTO_TIME_ZONE;
+import static io.trino.client.PrestoHeaders.PRESTO_USER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 

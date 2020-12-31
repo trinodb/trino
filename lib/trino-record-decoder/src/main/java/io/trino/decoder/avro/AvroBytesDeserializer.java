@@ -13,7 +13,7 @@
  */
 package io.trino.decoder.avro;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DecoderFactory;
@@ -21,7 +21,7 @@ import org.apache.avro.io.DecoderFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class AvroBytesDeserializer<T>

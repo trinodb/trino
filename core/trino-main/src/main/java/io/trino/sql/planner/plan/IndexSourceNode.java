@@ -18,10 +18,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.metadata.IndexHandle;
-import io.prestosql.metadata.TableHandle;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.sql.planner.Symbol;
+import io.trino.metadata.IndexHandle;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.sql.planner.Symbol;
 
 import java.util.List;
 import java.util.Map;

@@ -25,7 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
+import static io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
 import static java.util.Objects.requireNonNull;
 
 public class CatalogAccessControlRule

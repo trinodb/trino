@@ -13,30 +13,30 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.optimizations.UnaliasSymbolReferences;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ApplyNode;
-import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.EnforceSingleRowNode;
-import io.prestosql.sql.planner.plan.ExceptNode;
-import io.prestosql.sql.planner.plan.FilterNode;
-import io.prestosql.sql.planner.plan.GroupIdNode;
-import io.prestosql.sql.planner.plan.IntersectNode;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.LimitNode;
-import io.prestosql.sql.planner.plan.OffsetNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.SampleNode;
-import io.prestosql.sql.planner.plan.SimplePlanRewriter;
-import io.prestosql.sql.planner.plan.SortNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.sql.planner.plan.TopNNode;
-import io.prestosql.sql.planner.plan.UnionNode;
-import io.prestosql.sql.planner.plan.UnnestNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.planner.plan.WindowNode;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ApplyNode;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.EnforceSingleRowNode;
+import io.trino.sql.planner.plan.ExceptNode;
+import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.GroupIdNode;
+import io.trino.sql.planner.plan.IntersectNode;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.OffsetNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.SortNode;
+import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.UnionNode;
+import io.trino.sql.planner.plan.UnnestNode;
+import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.WindowNode;
 
 import java.util.List;
 

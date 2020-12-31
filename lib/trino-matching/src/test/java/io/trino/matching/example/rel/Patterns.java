@@ -13,11 +13,11 @@
  */
 package io.trino.matching.example.rel;
 
-import io.prestosql.matching.Pattern;
-import io.prestosql.matching.Property;
+import io.trino.matching.Pattern;
+import io.trino.matching.Property;
 
-import static io.prestosql.matching.Pattern.typeOf;
-import static io.prestosql.matching.Property.property;
+import static io.trino.matching.Pattern.typeOf;
+import static io.trino.matching.Property.property;
 
 public final class Patterns
 {

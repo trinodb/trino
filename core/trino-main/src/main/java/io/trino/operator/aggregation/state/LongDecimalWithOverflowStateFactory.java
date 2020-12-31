@@ -14,12 +14,12 @@
 package io.trino.operator.aggregation.state;
 
 import io.airlift.slice.Slice;
-import io.prestosql.array.LongBigArray;
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.spi.function.AccumulatorStateFactory;
+import io.trino.array.LongBigArray;
+import io.trino.array.ObjectBigArray;
+import io.trino.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
 
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static java.util.Objects.requireNonNull;
 
 public class LongDecimalWithOverflowStateFactory

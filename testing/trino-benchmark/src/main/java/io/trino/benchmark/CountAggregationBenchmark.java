@@ -14,19 +14,19 @@
 package io.trino.benchmark;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.AggregationOperator.AggregationOperatorFactory;
-import io.prestosql.operator.OperatorFactory;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.sql.planner.plan.AggregationNode.Step;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.sql.tree.QualifiedName;
-import io.prestosql.testing.LocalQueryRunner;
+import io.trino.metadata.Metadata;
+import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
+import io.trino.operator.OperatorFactory;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.sql.planner.plan.AggregationNode.Step;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.sql.tree.QualifiedName;
+import io.trino.testing.LocalQueryRunner;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.trino.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
 
 public class CountAggregationBenchmark
         extends AbstractSimpleOperatorBenchmark

@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
-import io.prestosql.parquet.ParquetReaderOptions;
+import io.trino.parquet.ParquetReaderOptions;
 
 import javax.validation.constraints.NotNull;
 

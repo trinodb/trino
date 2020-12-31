@@ -16,9 +16,9 @@ package io.trino.plugin.hive.gcs;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
-import io.prestosql.plugin.hive.DynamicConfigurationProvider;
-import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
+import io.trino.plugin.hive.ConfigurationInitializer;
+import io.trino.plugin.hive.DynamicConfigurationProvider;
+import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;

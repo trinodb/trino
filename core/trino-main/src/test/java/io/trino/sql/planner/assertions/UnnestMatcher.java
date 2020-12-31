@@ -13,15 +13,15 @@
  */
 package io.trino.sql.planner.assertions;
 
-import io.prestosql.Session;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.JoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.UnnestNode;
-import io.prestosql.sql.planner.plan.UnnestNode.Mapping;
-import io.prestosql.sql.tree.Expression;
+import io.trino.Session;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.UnnestNode;
+import io.trino.sql.planner.plan.UnnestNode.Mapping;
+import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,7 +30,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
+import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static java.util.Objects.requireNonNull;
 
 final class UnnestMatcher

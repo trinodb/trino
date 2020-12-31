@@ -13,9 +13,9 @@
  */
 package io.trino.operator;
 
-import io.prestosql.execution.Lifespan;
-import io.prestosql.spi.Page;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.Lifespan;
+import io.trino.spi.Page;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 public interface WorkProcessorOperatorFactory
 {

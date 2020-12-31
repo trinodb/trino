@@ -14,9 +14,9 @@
 
 package io.trino.plugin.hive.coercions;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 
 public class IntegerNumberUpscaleCoercer<F extends Type, T extends Type>
         extends TypeCoercer<F, T>

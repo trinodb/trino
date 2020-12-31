@@ -14,8 +14,8 @@
 package io.trino.decoder;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
 
 /**
  * Base class for all providers that return values for a selected column.

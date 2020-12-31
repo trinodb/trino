@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner;
 
-import io.prestosql.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNode;
 
 import java.util.List;
 

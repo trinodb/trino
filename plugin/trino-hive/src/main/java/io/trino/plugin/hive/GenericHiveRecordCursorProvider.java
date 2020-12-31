@@ -14,12 +14,12 @@
 package io.trino.plugin.hive;
 
 import io.airlift.units.DataSize;
-import io.prestosql.plugin.hive.util.HiveUtil;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.hive.util.HiveUtil;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
@@ -34,8 +34,8 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.prestosql.plugin.hive.HivePageSourceProvider.projectBaseColumns;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.trino.plugin.hive.HivePageSourceProvider.projectBaseColumns;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toUnmodifiableList;

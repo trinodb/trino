@@ -15,9 +15,9 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitSource;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.collect.Iterators.limit;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
+import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;

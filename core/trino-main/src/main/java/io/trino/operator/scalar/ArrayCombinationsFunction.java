@@ -14,24 +14,24 @@
 package io.trino.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.ArrayBlock;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.DictionaryBlock;
-import io.prestosql.spi.block.PageBuilderStatus;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.ArrayBlock;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.function.TypeParameter;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.Type;
 
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.StandardTypes.INTEGER;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.StandardTypes.INTEGER;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.multiplyExact;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;

@@ -16,9 +16,9 @@ package io.trino.split;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ConnectorSplit;
+import io.trino.connector.CatalogName;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
 

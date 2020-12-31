@@ -13,12 +13,12 @@
  */
 package io.trino.execution.resourcegroups;
 
-import io.prestosql.execution.ManagedQueryExecution;
-import io.prestosql.server.ResourceGroupInfo;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.resourcegroups.SelectionContext;
-import io.prestosql.spi.resourcegroups.SelectionCriteria;
+import io.trino.execution.ManagedQueryExecution;
+import io.trino.server.ResourceGroupInfo;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerFactory;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.SelectionContext;
+import io.trino.spi.resourcegroups.SelectionCriteria;
 
 import javax.annotation.concurrent.ThreadSafe;
 

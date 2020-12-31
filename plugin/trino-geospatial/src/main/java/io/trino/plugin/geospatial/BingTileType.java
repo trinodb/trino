@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.geospatial;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractLongType;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.AbstractLongType;
+import io.trino.spi.type.TypeSignature;
 
 public class BingTileType
         extends AbstractLongType

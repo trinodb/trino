@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.testing.TestingConnectorContext;
+import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;

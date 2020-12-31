@@ -15,24 +15,24 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.sql.planner.RuleStatsRecorder;
-import io.prestosql.sql.planner.assertions.BasePlanTest;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.iterative.IterativeOptimizer;
-import io.prestosql.sql.planner.iterative.rule.MergeExcept;
-import io.prestosql.sql.planner.iterative.rule.MergeIntersect;
-import io.prestosql.sql.planner.iterative.rule.MergeUnion;
-import io.prestosql.sql.planner.iterative.rule.PruneDistinctAggregation;
-import io.prestosql.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
+import io.trino.sql.planner.RuleStatsRecorder;
+import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.planner.iterative.IterativeOptimizer;
+import io.trino.sql.planner.iterative.rule.MergeExcept;
+import io.trino.sql.planner.iterative.rule.MergeIntersect;
+import io.trino.sql.planner.iterative.rule.MergeUnion;
+import io.trino.sql.planner.iterative.rule.PruneDistinctAggregation;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.except;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.intersect;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.union;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.except;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.intersect;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.union;
 
 public class TestSetFlattening
         extends BasePlanTest

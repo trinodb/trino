@@ -14,7 +14,7 @@
 
 package io.trino.sql.planner;
 
-import io.prestosql.sql.planner.plan.TableWriterNode;
+import io.trino.sql.planner.plan.TableWriterNode;
 
 public class TestingWriterTarget
         extends TableWriterNode.WriterTarget

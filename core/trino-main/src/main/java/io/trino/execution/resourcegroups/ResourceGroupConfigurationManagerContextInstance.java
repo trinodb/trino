@@ -13,8 +13,8 @@
  */
 package io.trino.execution.resourcegroups;
 
-import io.prestosql.spi.memory.ClusterMemoryPoolManager;
-import io.prestosql.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
+import io.trino.spi.memory.ClusterMemoryPoolManager;
+import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
 
 import static java.util.Objects.requireNonNull;
 

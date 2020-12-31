@@ -13,15 +13,15 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.MetastoreConfig;
-import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
-import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.MetastoreConfig;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
+import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import org.testng.SkipException;
 
 import java.io.File;
 
-import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 
 public class TestHiveFileMetastore
         extends AbstractTestHiveLocal

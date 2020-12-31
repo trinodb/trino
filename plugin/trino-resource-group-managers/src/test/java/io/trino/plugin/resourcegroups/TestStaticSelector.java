@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.resourcegroups.SelectorResourceEstimate.Range;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.resourcegroups.SelectionContext;
-import io.prestosql.spi.resourcegroups.SelectionCriteria;
-import io.prestosql.spi.session.ResourceEstimates;
+import io.trino.plugin.resourcegroups.SelectorResourceEstimate.Range;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.SelectionContext;
+import io.trino.spi.resourcegroups.SelectionCriteria;
+import io.trino.spi.session.ResourceEstimates;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

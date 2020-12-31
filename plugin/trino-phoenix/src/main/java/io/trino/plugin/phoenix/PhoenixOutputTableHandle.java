@@ -15,9 +15,9 @@ package io.trino.plugin.phoenix;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
-import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;

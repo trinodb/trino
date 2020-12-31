@@ -25,7 +25,7 @@ import java.util.Map;
 import static io.airlift.bytecode.Access.FINAL;
 import static io.airlift.bytecode.Access.PRIVATE;
 import static io.airlift.bytecode.Access.a;
-import static io.prestosql.sql.gen.BytecodeUtils.invoke;
+import static io.trino.sql.gen.BytecodeUtils.invoke;
 import static java.util.Objects.requireNonNull;
 
 public final class CachedInstanceBinder

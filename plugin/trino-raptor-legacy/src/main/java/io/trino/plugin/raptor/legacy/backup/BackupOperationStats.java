@@ -15,14 +15,14 @@ package io.trino.plugin.raptor.legacy.backup;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_NOT_FOUND;
-import static io.prestosql.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_TIMEOUT;
+import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_NOT_FOUND;
+import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_TIMEOUT;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class BackupOperationStats

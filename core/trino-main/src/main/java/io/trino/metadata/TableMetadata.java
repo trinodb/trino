@@ -13,10 +13,10 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.connector.CatalogName;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.connector.CatalogName;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
 

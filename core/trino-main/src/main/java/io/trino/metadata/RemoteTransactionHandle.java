@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public enum RemoteTransactionHandle
         implements ConnectorTransactionHandle

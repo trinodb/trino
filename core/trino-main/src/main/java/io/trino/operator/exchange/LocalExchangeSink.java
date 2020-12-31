@@ -14,13 +14,13 @@
 package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
-import static io.prestosql.operator.Operator.NOT_BLOCKED;
-import static io.prestosql.operator.exchange.LocalExchanger.FINISHED;
+import static io.trino.operator.Operator.NOT_BLOCKED;
+import static io.trino.operator.exchange.LocalExchanger.FINISHED;
 import static java.util.Objects.requireNonNull;
 
 public class LocalExchangeSink

@@ -14,22 +14,22 @@
 package io.trino.operator.aggregation;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorState;
-import io.prestosql.spi.function.AccumulatorStateMetadata;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AccumulatorState;
+import io.trino.spi.function.AccumulatorStateMetadata;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.BigintType;
+import io.trino.spi.type.VarcharType;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.StandardTypes.VARCHAR;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.type.StandardTypes.BIGINT;
+import static io.trino.spi.type.StandardTypes.VARCHAR;
+import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
 /**

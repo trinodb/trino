@@ -18,24 +18,24 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.Session;
-import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.planprinter.IoPlanPrinter;
-import io.prestosql.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
-import io.prestosql.testing.AbstractTestQueries;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
-import io.prestosql.type.TypeDeserializer;
+import io.trino.Session;
+import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.planprinter.IoPlanPrinter;
+import io.trino.sql.planner.planprinter.IoPlanPrinter.EstimatedStatsAndCost;
+import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.type.TypeDeserializer;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.spi.predicate.Marker.Bound.EXACTLY;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestTpchDistributedQueries

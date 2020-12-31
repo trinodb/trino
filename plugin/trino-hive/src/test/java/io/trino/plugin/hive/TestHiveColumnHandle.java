@@ -18,24 +18,24 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.type.InternalTypeManager;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
+import io.trino.type.InternalTypeManager;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
-import static io.prestosql.plugin.hive.HiveType.toHiveType;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RowType.field;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
+import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RowType.field;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.asList;
 import static org.testng.Assert.assertEquals;
 

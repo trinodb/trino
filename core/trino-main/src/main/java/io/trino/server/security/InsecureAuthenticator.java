@@ -13,8 +13,8 @@
  */
 package io.trino.server.security;
 
-import io.prestosql.spi.security.BasicPrincipal;
-import io.prestosql.spi.security.Identity;
+import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
@@ -22,9 +22,9 @@ import javax.ws.rs.container.ContainerRequestContext;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
-import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
-import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
-import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static io.trino.client.PrestoHeaders.PRESTO_USER;
+import static io.trino.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
+import static io.trino.server.security.UserMapping.createUserMapping;
 import static java.util.Objects.requireNonNull;
 
 public class InsecureAuthenticator

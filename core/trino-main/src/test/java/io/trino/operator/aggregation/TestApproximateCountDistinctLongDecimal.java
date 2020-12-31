@@ -14,12 +14,12 @@
 package io.trino.operator.aggregation;
 
 import io.airlift.slice.Slices;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.Type;
 
 import java.util.concurrent.ThreadLocalRandom;
 
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.Decimals.MAX_PRECISION;
 
 public class TestApproximateCountDistinctLongDecimal
         extends AbstractTestApproximateCountDistinct

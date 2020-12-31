@@ -16,21 +16,21 @@ package io.trino.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.BlockIndex;
-import io.prestosql.spi.function.BlockPosition;
-import io.prestosql.spi.function.ScalarOperator;
-import io.prestosql.spi.type.AbstractVariableWidthType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeOperatorDeclaration;
-import io.prestosql.spi.type.TypeOperators;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
+import io.trino.spi.function.ScalarOperator;
+import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeOperatorDeclaration;
+import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static io.trino.spi.function.OperatorType.EQUAL;
+import static io.trino.spi.function.OperatorType.XX_HASH_64;
+import static io.trino.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
 
 /**

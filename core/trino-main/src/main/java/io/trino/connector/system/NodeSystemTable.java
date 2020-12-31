@@ -13,32 +13,32 @@
  */
 package io.trino.connector.system;
 
-import io.prestosql.metadata.AllNodes;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.InternalNodeManager;
-import io.prestosql.metadata.NodeState;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.InMemoryRecordSet;
-import io.prestosql.spi.connector.InMemoryRecordSet.Builder;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.metadata.AllNodes;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.NodeState;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.InMemoryRecordSet.Builder;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
 import java.util.Locale;
 import java.util.Set;
 
-import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.prestosql.metadata.NodeState.ACTIVE;
-import static io.prestosql.metadata.NodeState.INACTIVE;
-import static io.prestosql.metadata.NodeState.SHUTTING_DOWN;
-import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
+import static io.trino.metadata.NodeState.ACTIVE;
+import static io.trino.metadata.NodeState.INACTIVE;
+import static io.trino.metadata.NodeState.SHUTTING_DOWN;
+import static io.trino.spi.connector.SystemTable.Distribution.SINGLE_COORDINATOR;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
 public class NodeSystemTable

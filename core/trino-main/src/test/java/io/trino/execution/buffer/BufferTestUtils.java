@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.block.BlockAssertions;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
-import io.prestosql.operator.PageAssertions;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
+import io.trino.block.BlockAssertions;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.operator.PageAssertions;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,7 +29,7 @@ import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
-import static io.prestosql.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
+import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;

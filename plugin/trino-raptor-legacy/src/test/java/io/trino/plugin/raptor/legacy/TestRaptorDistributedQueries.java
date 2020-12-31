@@ -14,14 +14,14 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 
 import java.util.Optional;
 
-import static io.prestosql.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
+import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 
 public class TestRaptorDistributedQueries
         extends AbstractTestDistributedQueries

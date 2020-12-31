@@ -13,7 +13,7 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.checkpoint.BooleanStreamCheckpoint;
+import io.trino.orc.checkpoint.BooleanStreamCheckpoint;
 
 import java.io.IOException;
 

@@ -28,8 +28,8 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.geospatial.KdbTree.Node.newInternal;
-import static io.prestosql.geospatial.KdbTree.Node.newLeaf;
+import static io.trino.geospatial.KdbTree.Node.newInternal;
+import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static java.util.Objects.requireNonNull;
 
 /**

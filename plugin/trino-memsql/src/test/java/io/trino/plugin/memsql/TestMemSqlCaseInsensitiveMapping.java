@@ -16,16 +16,16 @@ package io.trino.plugin.memsql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;

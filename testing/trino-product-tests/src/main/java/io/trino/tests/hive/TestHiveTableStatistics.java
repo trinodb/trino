@@ -29,10 +29,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Objects;
 
-import static io.prestosql.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
-import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
-import static io.prestosql.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
-import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.anyOf;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -40,6 +36,10 @@ import static io.trino.tempto.fulfillment.table.MutableTablesState.mutableTables
 import static io.trino.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_TEXTFILE;
+import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
+import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_VARCHAR_REGIONKEY;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestHiveTableStatistics

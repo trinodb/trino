@@ -14,7 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
+import io.trino.spi.Page;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -26,8 +26,8 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.operator.SyntheticAddress.decodePosition;
-import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
+import static io.trino.operator.SyntheticAddress.decodePosition;
+import static io.trino.operator.SyntheticAddress.decodeSliceIndex;
 import static java.util.Objects.requireNonNull;
 
 /**

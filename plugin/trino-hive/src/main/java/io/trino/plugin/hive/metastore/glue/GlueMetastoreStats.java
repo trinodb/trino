@@ -16,7 +16,7 @@ package io.trino.plugin.hive.metastore.glue;
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.hive.aws.AbstractSdkMetricsCollector;
+import io.trino.plugin.hive.aws.AbstractSdkMetricsCollector;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

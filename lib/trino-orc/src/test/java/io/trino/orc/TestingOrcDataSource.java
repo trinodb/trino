@@ -15,7 +15,7 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.stream.OrcDataReader;
+import io.trino.orc.stream.OrcDataReader;
 
 import java.io.IOException;
 import java.util.List;

@@ -13,8 +13,8 @@
  */
 package io.trino.sql.planner.iterative;
 
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanVisitor;
 
 import java.util.List;
 import java.util.stream.Collectors;

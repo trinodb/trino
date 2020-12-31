@@ -14,10 +14,10 @@
 package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
-import static io.prestosql.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
+import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
 public class TestMongoDistributedQueries
         extends BaseMongoDistributedQueries

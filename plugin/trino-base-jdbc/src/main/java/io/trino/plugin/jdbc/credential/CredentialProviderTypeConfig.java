@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 
 import javax.validation.constraints.NotNull;
 
-import static io.prestosql.plugin.jdbc.credential.CredentialProviderType.INLINE;
+import static io.trino.plugin.jdbc.credential.CredentialProviderType.INLINE;
 import static java.util.Objects.requireNonNull;
 
 public class CredentialProviderTypeConfig

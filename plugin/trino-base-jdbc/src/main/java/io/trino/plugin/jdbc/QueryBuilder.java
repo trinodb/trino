@@ -18,12 +18,12 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.Range;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.ValueSet;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;

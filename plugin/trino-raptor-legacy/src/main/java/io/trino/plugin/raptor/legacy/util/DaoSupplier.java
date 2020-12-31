@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.util;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 
-import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
+import static io.trino.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static java.util.Objects.requireNonNull;
 
 public class DaoSupplier<T>

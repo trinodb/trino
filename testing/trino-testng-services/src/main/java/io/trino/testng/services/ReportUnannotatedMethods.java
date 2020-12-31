@@ -28,7 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.testng.services.Listeners.reportListenerFailure;
+import static io.trino.testng.services.Listeners.reportListenerFailure;
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.stream.Collectors.joining;

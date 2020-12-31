@@ -14,20 +14,20 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.prestosql.operator.scalar.DateTimeFunctions;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameter;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.operator.scalar.DateTimeFunctions;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameter;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.LongTimestamp;
+import io.trino.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.type.DateTimes.getMicrosOfMilli;
-import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
+import static io.trino.type.DateTimes.getMicrosOfMilli;
+import static io.trino.type.DateTimes.round;
+import static io.trino.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static java.lang.Math.toIntExact;
 
 @Description("Add the specified amount of time to the given timestamp")

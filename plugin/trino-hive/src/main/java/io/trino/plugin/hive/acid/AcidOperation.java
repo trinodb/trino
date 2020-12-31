@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive.acid;
 
-import io.prestosql.orc.OrcWriter.OrcOperation;
+import io.trino.orc.OrcWriter.OrcOperation;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
 public enum AcidOperation

@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.Resources;
-import io.prestosql.testing.assertions.Assert;
+import io.trino.testing.assertions.Assert;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;

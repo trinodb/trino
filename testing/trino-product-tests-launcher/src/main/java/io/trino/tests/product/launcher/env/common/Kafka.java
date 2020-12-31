@@ -14,14 +14,14 @@
 
 package io.trino.tests.product.launcher.env.common;
 
-import io.prestosql.tests.product.launcher.env.DockerContainer;
-import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
+import io.trino.tests.product.launcher.env.DockerContainer;
+import io.trino.tests.product.launcher.env.Environment;
+import io.trino.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 
 import javax.inject.Inject;
 
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
+import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forLogMessage;
 

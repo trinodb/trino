@@ -13,12 +13,12 @@
  */
 package io.trino.parquet.writer.valuewriter;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 
 public class TimestampTzMillisValueWriter
         extends PrimitiveValueWriter

@@ -13,9 +13,9 @@
  */
 package io.trino.operator;
 
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
-import static io.prestosql.spi.StandardErrorCode.PAGE_TOO_LARGE;
+import static io.trino.spi.StandardErrorCode.PAGE_TOO_LARGE;
 
 public class PageTooLargeException
         extends PrestoException

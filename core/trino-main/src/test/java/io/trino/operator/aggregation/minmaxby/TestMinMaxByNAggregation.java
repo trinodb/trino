@@ -14,30 +14,30 @@
 package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.sql.tree.QualifiedName;
+import io.trino.metadata.Metadata;
+import io.trino.operator.aggregation.InternalAggregationFunction;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.ArrayType;
+import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
-import static io.prestosql.block.BlockAssertions.createArrayBigintBlock;
-import static io.prestosql.block.BlockAssertions.createBlockOfReals;
-import static io.prestosql.block.BlockAssertions.createDoublesBlock;
-import static io.prestosql.block.BlockAssertions.createLongsBlock;
-import static io.prestosql.block.BlockAssertions.createRLEBlock;
-import static io.prestosql.block.BlockAssertions.createStringsBlock;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.assertAggregation;
-import static io.prestosql.operator.aggregation.AggregationTestUtils.groupedAggregation;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.block.BlockAssertions.createArrayBigintBlock;
+import static io.trino.block.BlockAssertions.createBlockOfReals;
+import static io.trino.block.BlockAssertions.createDoublesBlock;
+import static io.trino.block.BlockAssertions.createLongsBlock;
+import static io.trino.block.BlockAssertions.createRLEBlock;
+import static io.trino.block.BlockAssertions.createStringsBlock;
+import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.operator.aggregation.AggregationTestUtils.assertAggregation;
+import static io.trino.operator.aggregation.AggregationTestUtils.groupedAggregation;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static org.testng.Assert.assertEquals;
 
 public class TestMinMaxByNAggregation

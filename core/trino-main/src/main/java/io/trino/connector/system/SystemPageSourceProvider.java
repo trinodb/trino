@@ -14,33 +14,33 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorPageSourceProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.EmptyPageSource;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.connector.RecordPageSource;
-import io.prestosql.spi.connector.RecordSet;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.Type;
-import io.prestosql.split.MappedPageSource;
-import io.prestosql.split.MappedRecordSet;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.EmptyPageSource;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordPageSource;
+import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
+import io.trino.split.MappedPageSource;
+import io.trino.split.MappedRecordSet;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

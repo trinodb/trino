@@ -13,17 +13,17 @@
  */
 package io.trino.parquet.reader;
 
-import io.prestosql.parquet.DataPage;
-import io.prestosql.parquet.DataPageV1;
-import io.prestosql.parquet.DataPageV2;
-import io.prestosql.parquet.DictionaryPage;
+import io.trino.parquet.DataPage;
+import io.trino.parquet.DataPageV1;
+import io.trino.parquet.DataPageV2;
+import io.trino.parquet.DictionaryPage;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
+import static io.trino.parquet.ParquetCompressionUtils.decompress;
 
 class PageReader
 {

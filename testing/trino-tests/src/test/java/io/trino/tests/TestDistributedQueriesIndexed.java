@@ -13,13 +13,13 @@
  */
 package io.trino.tests;
 
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestIndexedQueries;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.tpch.IndexedTpchPlugin;
+import io.trino.Session;
+import io.trino.testing.AbstractTestIndexedQueries;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.tpch.IndexedTpchPlugin;
 
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDistributedQueriesIndexed
         extends AbstractTestIndexedQueries

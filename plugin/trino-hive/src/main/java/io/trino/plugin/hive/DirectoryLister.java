@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.metastore.Table;
+import io.trino.plugin.hive.metastore.Table;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;

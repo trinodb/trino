@@ -15,8 +15,8 @@ package io.trino.array;
 
 import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.MapHashTables;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.MapHashTables;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import org.openjdk.jol.info.ClassLayout;
 

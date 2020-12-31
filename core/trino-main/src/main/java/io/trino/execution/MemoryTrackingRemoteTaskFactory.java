@@ -14,14 +14,14 @@
 package io.trino.execution;
 
 import com.google.common.collect.Multimap;
-import io.prestosql.Session;
-import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.metadata.Split;
-import io.prestosql.sql.planner.PlanFragment;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.Session;
+import io.trino.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.buffer.OutputBuffers;
+import io.trino.metadata.InternalNode;
+import io.trino.metadata.Split;
+import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.OptionalInt;
 

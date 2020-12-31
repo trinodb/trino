@@ -13,16 +13,16 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
 
 import java.util.Arrays;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 enum BuiltinColumns
 {

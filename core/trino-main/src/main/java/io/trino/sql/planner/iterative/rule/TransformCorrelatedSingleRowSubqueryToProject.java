@@ -13,21 +13,21 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
 
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
-import static io.prestosql.sql.planner.plan.Patterns.CorrelatedJoin.filter;
-import static io.prestosql.sql.planner.plan.Patterns.correlatedJoin;
-import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
+import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 /**
  * This optimizer can rewrite correlated single row subquery to projection in a way described here:

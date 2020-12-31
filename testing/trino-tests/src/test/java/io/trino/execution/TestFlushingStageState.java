@@ -15,20 +15,20 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.prestosql.spi.QueryId;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.tests.tpch.TpchQueryRunnerBuilder;
+import io.trino.spi.QueryId;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.execution.QueryState.RUNNING;
-import static io.prestosql.execution.StageState.CANCELED;
-import static io.prestosql.execution.StageState.FLUSHING;
-import static io.prestosql.execution.TestQueryRunnerUtil.createQuery;
-import static io.prestosql.execution.TestQueryRunnerUtil.waitForQueryState;
-import static io.prestosql.testing.assertions.Assert.assertEventually;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.execution.StageState.CANCELED;
+import static io.trino.execution.StageState.FLUSHING;
+import static io.trino.execution.TestQueryRunnerUtil.createQuery;
+import static io.trino.execution.TestQueryRunnerUtil.waitForQueryState;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 

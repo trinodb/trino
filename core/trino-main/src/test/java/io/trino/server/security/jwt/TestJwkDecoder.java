@@ -21,8 +21,8 @@ import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
-import io.prestosql.server.security.jwt.JwkDecoder.JwkEcPublicKey;
-import io.prestosql.server.security.jwt.JwkDecoder.JwkRsaPublicKey;
+import io.trino.server.security.jwt.JwkDecoder.JwkEcPublicKey;
+import io.trino.server.security.jwt.JwkDecoder.JwkRsaPublicKey;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -37,7 +37,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.server.security.jwt.JwkDecoder.decodeKeys;
+import static io.trino.server.security.jwt.JwkDecoder.decodeKeys;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;

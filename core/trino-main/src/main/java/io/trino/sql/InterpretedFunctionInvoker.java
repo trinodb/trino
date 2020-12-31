@@ -14,14 +14,14 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
-import io.prestosql.type.FunctionType;
+import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.type.FunctionType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -29,12 +29,12 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.prestosql.type.FunctionType.NAME;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.trino.type.FunctionType.NAME;
 import static java.lang.invoke.MethodHandleProxies.asInterfaceInstance;
 import static java.util.Objects.requireNonNull;
 

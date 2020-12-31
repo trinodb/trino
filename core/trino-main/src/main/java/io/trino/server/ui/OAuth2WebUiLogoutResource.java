@@ -13,7 +13,7 @@
  */
 package io.trino.server.ui;
 
-import io.prestosql.server.security.ResourceSecurity;
+import io.trino.server.security.ResourceSecurity;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -23,10 +23,10 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
-import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION_URI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
-import static io.prestosql.server.ui.OAuthWebUiCookie.delete;
+import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION_URI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
+import static io.trino.server.ui.OAuthWebUiCookie.delete;
 
 @Path(UI_LOGOUT)
 public class OAuth2WebUiLogoutResource

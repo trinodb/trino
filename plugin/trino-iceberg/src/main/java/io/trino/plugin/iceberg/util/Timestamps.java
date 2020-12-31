@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.iceberg.util;
 
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.TimeZoneKey;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.LongTimestampWithTimeZone;
+import io.trino.spi.type.TimeZoneKey;
 
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.spi.type.Timestamps.roundDiv;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 

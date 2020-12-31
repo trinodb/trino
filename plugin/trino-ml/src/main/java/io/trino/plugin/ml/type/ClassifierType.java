@@ -14,15 +14,15 @@
 package io.trino.plugin.ml.type;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeSignature;
+import io.trino.spi.type.TypeSignatureParameter;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 // Layout is <size>:<model>, where
 //   size: is an int describing the length of the model bytes

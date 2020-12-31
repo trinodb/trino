@@ -14,18 +14,18 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.Streams;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.SymbolsExtractor;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.AggregationNode;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.AggregationNode;
 
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.sql.planner.iterative.rule.Util.restrictChildOutputs;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
+import static io.trino.sql.planner.iterative.rule.Util.restrictChildOutputs;
+import static io.trino.sql.planner.plan.Patterns.aggregation;
 
 public class PruneAggregationSourceColumns
         implements Rule<AggregationNode>

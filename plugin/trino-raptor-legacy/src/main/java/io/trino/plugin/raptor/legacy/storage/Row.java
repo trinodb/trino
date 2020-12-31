@@ -14,13 +14,13 @@
 package io.trino.plugin.raptor.legacy.storage;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.Page;
+import io.trino.spi.PrestoException;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.Decimals;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 
 import java.math.BigInteger;
@@ -34,9 +34,9 @@ import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_BYTE;
 import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.prestosql.plugin.raptor.legacy.util.Types.isArrayType;
-import static io.prestosql.plugin.raptor.legacy.util.Types.isMapType;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.plugin.raptor.legacy.util.Types.isArrayType;
+import static io.trino.plugin.raptor.legacy.util.Types.isMapType;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class Row

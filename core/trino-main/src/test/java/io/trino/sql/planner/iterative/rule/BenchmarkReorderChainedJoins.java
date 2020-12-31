@@ -14,11 +14,11 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.tpch.TpchConnectorFactory;
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -35,7 +35,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;

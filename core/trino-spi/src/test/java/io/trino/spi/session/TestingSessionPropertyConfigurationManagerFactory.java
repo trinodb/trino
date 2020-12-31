@@ -13,7 +13,7 @@
  */
 package io.trino.spi.session;
 
-import io.prestosql.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
+import io.trino.spi.resourcegroups.SessionPropertyConfigurationManagerContext;
 
 import java.util.Map;
 

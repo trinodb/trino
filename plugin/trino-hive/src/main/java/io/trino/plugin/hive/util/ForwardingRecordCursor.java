@@ -14,8 +14,8 @@
 package io.trino.plugin.hive.util;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.RecordCursor;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.type.Type;
 
 public abstract class ForwardingRecordCursor
         implements RecordCursor

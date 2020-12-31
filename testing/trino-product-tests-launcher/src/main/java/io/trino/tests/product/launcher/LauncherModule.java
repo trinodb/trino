@@ -16,7 +16,7 @@ package io.trino.tests.product.launcher;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.docker.DockerFiles;
 
 public final class LauncherModule
         implements Module

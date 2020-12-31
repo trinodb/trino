@@ -16,20 +16,20 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.execution.scheduler.NodeScheduler;
-import io.prestosql.execution.scheduler.NodeSelector;
-import io.prestosql.metadata.InternalNode;
-import io.prestosql.operator.BucketPartitionFunction;
-import io.prestosql.operator.HashGenerator;
-import io.prestosql.operator.InterpretedHashGenerator;
-import io.prestosql.operator.PartitionFunction;
-import io.prestosql.operator.PrecomputedHashGenerator;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.connector.BucketFunction;
-import io.prestosql.spi.connector.ConnectorPartitioningHandle;
-import io.prestosql.spi.type.Type;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.Session;
+import io.trino.execution.scheduler.NodeScheduler;
+import io.trino.execution.scheduler.NodeSelector;
+import io.trino.metadata.InternalNode;
+import io.trino.operator.BucketPartitionFunction;
+import io.trino.operator.HashGenerator;
+import io.trino.operator.InterpretedHashGenerator;
+import io.trino.operator.PartitionFunction;
+import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.spi.Page;
+import io.trino.spi.connector.BucketFunction;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.type.Type;
+import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,9 +37,9 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
-import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.SystemSessionProperties.getHashPartitionCount;
+import static io.trino.spi.StandardErrorCode.NO_NODES_AVAILABLE;
+import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 public final class SystemPartitioningHandle

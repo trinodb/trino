@@ -14,12 +14,12 @@
 package io.trino.operator.scalar;
 
 import com.google.common.base.Joiner;
-import io.prestosql.spi.type.ArrayType;
+import io.trino.spi.type.ArrayType;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.nCopies;
 
 public class TestArrayFunctions

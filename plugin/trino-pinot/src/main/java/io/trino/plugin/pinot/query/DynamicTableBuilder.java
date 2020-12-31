@@ -15,11 +15,11 @@ package io.trino.plugin.pinot.query;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.pinot.PinotColumnHandle;
-import io.prestosql.pinot.PinotMetadata;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnNotFoundException;
-import io.prestosql.spi.connector.SchemaTableName;
+import io.trino.plugin.pinot.PinotColumnHandle;
+import io.trino.plugin.pinot.PinotMetadata;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnNotFoundException;
+import io.trino.spi.connector.SchemaTableName;
 import org.apache.pinot.common.request.AggregationInfo;
 import org.apache.pinot.common.request.BrokerRequest;
 import org.apache.pinot.common.request.SelectionSort;

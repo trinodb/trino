@@ -13,10 +13,10 @@
  */
 package io.trino.sql.analyzer;
 
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.Node;
-import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.util.AstUtils;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.Node;
+import io.trino.sql.tree.NodeRef;
+import io.trino.sql.util.AstUtils;
 
 import java.util.Map;
 import java.util.Objects;

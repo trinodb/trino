@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.tests.product.launcher.util.ConsoleTable.Alignment.RIGHT;
+import static io.trino.tests.product.launcher.util.ConsoleTable.Alignment.RIGHT;
 import static java.lang.Math.max;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;

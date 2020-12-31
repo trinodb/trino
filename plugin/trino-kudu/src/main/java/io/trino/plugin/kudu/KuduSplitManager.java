@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.kudu;
 
-import io.prestosql.spi.connector.ConnectorPartitionHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.ConnectorPartitionHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
 
 import javax.inject.Inject;
 
@@ -28,8 +28,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static io.prestosql.plugin.kudu.KuduSessionProperties.getDynamicFilteringWaitTimeout;
-import static io.prestosql.spi.connector.DynamicFilter.NOT_BLOCKED;
+import static io.trino.plugin.kudu.KuduSessionProperties.getDynamicFilteringWaitTimeout;
+import static io.trino.spi.connector.DynamicFilter.NOT_BLOCKED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

@@ -14,25 +14,25 @@
 package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import io.prestosql.Session;
-import io.prestosql.client.ClientCapabilities;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.sql.SqlPath;
-import io.prestosql.sql.SqlPathElement;
-import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.SetPath;
-import io.prestosql.transaction.TransactionManager;
+import io.trino.Session;
+import io.trino.client.ClientCapabilities;
+import io.trino.metadata.Metadata;
+import io.trino.security.AccessControl;
+import io.trino.spi.PrestoException;
+import io.trino.sql.SqlPath;
+import io.trino.sql.SqlPathElement;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SetPath;
+import io.trino.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Locale.ENGLISH;
 
 public class SetPathTask

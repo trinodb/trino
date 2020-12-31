@@ -15,19 +15,19 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.assertions.RowNumberSymbolMatcher;
-import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.prestosql.sql.planner.plan.Assignments;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
+import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.Assignments;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.limit;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.rowNumber;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.strictProject;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestPruneRowNumberColumns
         extends BaseRuleTest

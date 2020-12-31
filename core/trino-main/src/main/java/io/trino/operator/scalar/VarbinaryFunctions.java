@@ -21,20 +21,20 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import java.util.Base64;
 import java.util.zip.CRC32;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
-import static io.prestosql.operator.scalar.HmacFunctions.computeHash;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.util.Failures.checkCondition;
+import static io.trino.operator.scalar.HmacFunctions.computeHash;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.util.Failures.checkCondition;
 
 public final class VarbinaryFunctions
 {

@@ -14,16 +14,16 @@
 package io.trino.plugin.tpch;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Node;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.connector.ConnectorSplitManager;
-import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.DynamicFilter;
-import io.prestosql.spi.connector.FixedSplitSource;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.FixedSplitSource;
 
 import java.util.Set;
 

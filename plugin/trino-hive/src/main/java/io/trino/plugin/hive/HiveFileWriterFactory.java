@@ -13,9 +13,9 @@
  */
 package io.trino.plugin.hive;
 
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.metastore.StorageFormat;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 

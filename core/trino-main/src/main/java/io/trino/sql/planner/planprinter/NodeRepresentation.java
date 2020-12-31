@@ -13,12 +13,12 @@
  */
 package io.trino.sql.planner.planprinter;
 
-import io.prestosql.cost.PlanCostEstimate;
-import io.prestosql.cost.PlanNodeStatsAndCostSummary;
-import io.prestosql.cost.PlanNodeStatsEstimate;
-import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.PlanFragmentId;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.cost.PlanCostEstimate;
+import io.trino.cost.PlanNodeStatsAndCostSummary;
+import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.plan.PlanFragmentId;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
 import java.util.Optional;

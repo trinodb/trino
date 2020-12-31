@@ -14,17 +14,17 @@
 package io.trino.operator.aggregation.multimapagg;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.ColumnarRow;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.operator.aggregation.multimapagg.GroupedMultimapAggregationState.KEY_CHANNEL;
-import static io.prestosql.operator.aggregation.multimapagg.GroupedMultimapAggregationState.VALUE_CHANNEL;
-import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
+import static io.trino.operator.aggregation.multimapagg.GroupedMultimapAggregationState.KEY_CHANNEL;
+import static io.trino.operator.aggregation.multimapagg.GroupedMultimapAggregationState.VALUE_CHANNEL;
+import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 
 public class MultimapAggregationStateSerializer

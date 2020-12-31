@@ -15,25 +15,25 @@ package io.trino.plugin.iceberg.util;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public final class PageListBuilder
 {

@@ -20,8 +20,8 @@ import io.trino.tempto.internal.fulfillment.table.cassandra.tpch.CassandraTpchDa
 
 import java.sql.JDBCType;
 
-import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
-import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
+import static io.trino.tests.cassandra.TestConstants.CONNECTOR_NAME;
+import static io.trino.tests.cassandra.TestConstants.KEY_SPACE;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.DOUBLE;
 import static java.sql.JDBCType.VARCHAR;

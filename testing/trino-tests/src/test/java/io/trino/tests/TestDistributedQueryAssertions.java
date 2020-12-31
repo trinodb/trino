@@ -13,8 +13,8 @@
  */
 package io.trino.tests;
 
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 

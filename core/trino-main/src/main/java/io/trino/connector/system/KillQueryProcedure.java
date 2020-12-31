@@ -14,16 +14,16 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.FullConnectorSession;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.dispatcher.DispatchManager;
-import io.prestosql.dispatcher.DispatchQuery;
-import io.prestosql.security.AccessControl;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.procedure.Procedure;
-import io.prestosql.spi.procedure.Procedure.Argument;
+import io.trino.FullConnectorSession;
+import io.trino.annotation.UsedByGeneratedCode;
+import io.trino.dispatcher.DispatchManager;
+import io.trino.dispatcher.DispatchQuery;
+import io.trino.security.AccessControl;
+import io.trino.spi.PrestoException;
+import io.trino.spi.QueryId;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.procedure.Procedure;
+import io.trino.spi.procedure.Procedure.Argument;
 
 import javax.inject.Inject;
 
@@ -33,14 +33,14 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static io.prestosql.security.AccessControlUtil.checkCanKillQueryOwnedBy;
-import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
-import static io.prestosql.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
-import static io.prestosql.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.util.Reflection.methodHandle;
+import static io.trino.security.AccessControlUtil.checkCanKillQueryOwnedBy;
+import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_KILLED;
+import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
+import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
 public class KillQueryProcedure

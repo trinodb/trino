@@ -14,23 +14,23 @@
 package io.trino.execution;
 
 import io.airlift.concurrent.SetThreadName;
-import io.prestosql.Session;
-import io.prestosql.event.SplitMonitor;
-import io.prestosql.execution.buffer.OutputBuffer;
-import io.prestosql.execution.executor.TaskExecutor;
-import io.prestosql.memory.QueryContext;
-import io.prestosql.operator.TaskContext;
-import io.prestosql.sql.planner.LocalExecutionPlanner;
-import io.prestosql.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
-import io.prestosql.sql.planner.PlanFragment;
-import io.prestosql.sql.planner.TypeProvider;
+import io.trino.Session;
+import io.trino.event.SplitMonitor;
+import io.trino.execution.buffer.OutputBuffer;
+import io.trino.execution.executor.TaskExecutor;
+import io.trino.memory.QueryContext;
+import io.trino.operator.TaskContext;
+import io.trino.sql.planner.LocalExecutionPlanner;
+import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
+import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.TypeProvider;
 
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.prestosql.execution.SqlTaskExecution.createSqlTaskExecution;
+import static io.trino.execution.SqlTaskExecution.createSqlTaskExecution;
 import static java.util.Objects.requireNonNull;
 
 public class SqlTaskExecutionFactory

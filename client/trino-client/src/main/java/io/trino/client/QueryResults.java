@@ -27,7 +27,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.unmodifiableIterable;
-import static io.prestosql.client.FixJsonDataUtils.fixData;
+import static io.trino.client.FixJsonDataUtils.fixData;
 import static java.util.Objects.requireNonNull;
 
 @Immutable

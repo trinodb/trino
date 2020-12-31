@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import java.util.List;
 import java.util.Objects;

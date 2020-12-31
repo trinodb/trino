@@ -13,7 +13,7 @@
  */
 package io.trino.orc.stream;
 
-import io.prestosql.orc.checkpoint.ByteArrayStreamCheckpoint;
+import io.trino.orc.checkpoint.ByteArrayStreamCheckpoint;
 
 import java.io.IOException;
 

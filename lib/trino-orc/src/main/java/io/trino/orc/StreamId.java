@@ -13,9 +13,9 @@
  */
 package io.trino.orc;
 
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.Stream;
-import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.Stream;
+import io.trino.orc.metadata.Stream.StreamKind;
 
 import java.util.Objects;
 

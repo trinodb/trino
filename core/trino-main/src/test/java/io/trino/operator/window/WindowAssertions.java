@@ -13,8 +13,8 @@
  */
 package io.trino.operator.window;
 
-import io.prestosql.testing.LocalQueryRunner;
-import io.prestosql.testing.MaterializedResult;
+import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.MaterializedResult;
 import org.intellij.lang.annotations.Language;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;

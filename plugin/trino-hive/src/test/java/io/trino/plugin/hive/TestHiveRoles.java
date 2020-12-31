@@ -15,13 +15,13 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.Session;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.security.SelectedRole;
-import io.prestosql.spi.type.Type;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.spi.security.Identity;
+import io.trino.spi.security.SelectedRole;
+import io.trino.spi.type.Type;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
@@ -32,9 +32,9 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.testing.QueryAssertions.assertContains;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.testing.QueryAssertions.assertContains;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)

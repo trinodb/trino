@@ -15,7 +15,7 @@ package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.atop.AtopConnectorConfig.AtopSecurity;
+import io.trino.plugin.atop.AtopConnectorConfig.AtopSecurity;
 import org.testng.annotations.Test;
 
 import java.io.IOException;

@@ -13,8 +13,8 @@
  */
 package io.trino.server;
 
-import io.prestosql.Session;
-import io.prestosql.spi.QueryId;
+import io.trino.Session;
+import io.trino.spi.QueryId;
 
 /**
  * Used on workers.

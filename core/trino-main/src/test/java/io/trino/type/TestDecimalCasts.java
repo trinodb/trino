@@ -13,17 +13,17 @@
  */
 package io.trino.type;
 
-import io.prestosql.operator.scalar.AbstractTestFunctions;
+import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class TestDecimalCasts
         extends AbstractTestFunctions

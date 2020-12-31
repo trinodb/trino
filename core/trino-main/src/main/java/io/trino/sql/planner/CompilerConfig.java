@@ -15,7 +15,7 @@ package io.trino.sql.planner;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
-import io.prestosql.spi.function.Description;
+import io.trino.spi.function.Description;
 
 import javax.validation.constraints.Min;
 

@@ -18,10 +18,10 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
-import io.prestosql.execution.StageInfo;
-import io.prestosql.sql.planner.PlanFragment;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.trino.execution.StageInfo;
+import io.trino.sql.planner.PlanFragment;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
 
 import java.util.Map;
 

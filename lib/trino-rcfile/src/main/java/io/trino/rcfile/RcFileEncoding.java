@@ -13,28 +13,28 @@
  */
 package io.trino.rcfile;
 
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.type.ArrayType;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 
 import java.util.List;
 
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.util.stream.Collectors.toList;
 
 public interface RcFileEncoding

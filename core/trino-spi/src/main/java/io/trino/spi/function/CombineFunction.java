@@ -13,7 +13,7 @@
  */
 package io.trino.spi.function;
 
-import io.prestosql.spi.block.Block;
+import io.trino.spi.block.Block;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;

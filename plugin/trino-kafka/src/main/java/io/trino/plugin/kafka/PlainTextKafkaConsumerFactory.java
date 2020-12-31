@@ -14,7 +14,7 @@
 package io.trino.plugin.kafka;
 
 import io.airlift.units.DataSize;
-import io.prestosql.spi.HostAddress;
+import io.trino.spi.HostAddress;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import javax.inject.Inject;

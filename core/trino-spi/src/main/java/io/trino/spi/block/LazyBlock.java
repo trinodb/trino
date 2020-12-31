@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import static io.prestosql.spi.block.BlockUtil.checkArrayRange;
-import static io.prestosql.spi.block.BlockUtil.checkValidRegion;
+import static io.trino.spi.block.BlockUtil.checkArrayRange;
+import static io.trino.spi.block.BlockUtil.checkValidRegion;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;

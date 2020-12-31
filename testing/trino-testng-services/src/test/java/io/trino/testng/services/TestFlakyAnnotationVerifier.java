@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
 
-import static io.prestosql.testng.services.FlakyAnnotationVerifier.findMethodsWithFlakyAndNoTestAnnotation;
+import static io.trino.testng.services.FlakyAnnotationVerifier.findMethodsWithFlakyAndNoTestAnnotation;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFlakyAnnotationVerifier

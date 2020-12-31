@@ -14,13 +14,13 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.execution.Lifespan;
-import io.prestosql.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
-import io.prestosql.operator.project.PageProcessor;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.testing.TestingTaskContext;
+import io.trino.execution.Lifespan;
+import io.trino.operator.NestedLoopBuildOperator.NestedLoopBuildOperatorFactory;
+import io.trino.operator.project.PageProcessor;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.TestingTaskContext;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -30,9 +30,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.block.BlockAssertions.createLongSequenceBlock;
-import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.block.BlockAssertions.createLongSequenceBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertEquals;

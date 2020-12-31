@@ -14,9 +14,9 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.connector.ConnectorPageSource;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
+import io.trino.spi.connector.ConnectorPageSource;
 
 public class BigQueryEmptyProjectionPageSource
         implements ConnectorPageSource

@@ -20,7 +20,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,7 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_PARSE_ERROR;
+import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_PARSE_ERROR;
 import static java.util.Collections.singletonList;
 
 public class PrometheusQueryResponseParse

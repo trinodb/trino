@@ -13,12 +13,12 @@
  */
 package io.trino.connector;
 
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.PageIndexerFactory;
-import io.prestosql.spi.PageSorter;
-import io.prestosql.spi.VersionEmbedder;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.NodeManager;
+import io.trino.spi.PageIndexerFactory;
+import io.trino.spi.PageSorter;
+import io.trino.spi.VersionEmbedder;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.type.TypeManager;
 
 import java.util.function.Supplier;
 

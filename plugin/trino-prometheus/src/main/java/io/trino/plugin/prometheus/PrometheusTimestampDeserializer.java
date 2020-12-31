@@ -16,12 +16,12 @@ package io.trino.plugin.prometheus;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import io.prestosql.spi.PrestoException;
+import io.trino.spi.PrestoException;
 
 import java.io.IOException;
 import java.time.Instant;
 
-import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
+import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static java.time.Instant.ofEpochMilli;
 
 public class PrometheusTimestampDeserializer

@@ -13,8 +13,8 @@
  */
 package io.trino.testing.sql;
 
-import io.prestosql.Session;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.QueryRunner;
 
 import static java.util.Objects.requireNonNull;
 

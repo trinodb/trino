@@ -17,9 +17,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.spi.resourcegroups.ResourceGroupId;
-import io.prestosql.spi.resourcegroups.ResourceGroupState;
-import io.prestosql.spi.resourcegroups.SchedulingPolicy;
+import io.trino.spi.resourcegroups.ResourceGroupId;
+import io.trino.spi.resourcegroups.ResourceGroupState;
+import io.trino.spi.resourcegroups.SchedulingPolicy;
 
 import javax.annotation.Nullable;
 

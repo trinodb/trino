@@ -13,16 +13,16 @@
  */
 package io.trino.sql.analyzer;
 
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Identifier;
+import io.trino.sql.parser.SqlParser;
+import io.trino.sql.tree.Identifier;
 import org.testng.annotations.Test;
 
 import java.util.Comparator;
 import java.util.Locale;
 
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toDataType;
-import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.prestosql.sql.parser.ParserAssert.type;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toDataType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.sql.parser.ParserAssert.type;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTypeSignatureTranslator

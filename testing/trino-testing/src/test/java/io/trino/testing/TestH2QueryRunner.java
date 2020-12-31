@@ -23,8 +23,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static org.testng.Assert.assertEquals;
 
 public class TestH2QueryRunner

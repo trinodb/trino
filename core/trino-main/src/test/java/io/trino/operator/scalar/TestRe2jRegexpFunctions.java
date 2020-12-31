@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
+import static io.trino.sql.analyzer.RegexLibrary.RE2J;
 
 public class TestRe2jRegexpFunctions
         extends AbstractTestRegexpFunctions

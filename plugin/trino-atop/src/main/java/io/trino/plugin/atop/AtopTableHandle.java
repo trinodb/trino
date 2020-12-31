@@ -15,12 +15,12 @@ package io.trino.plugin.atop;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.predicate.Domain;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.predicate.Domain;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Objects.requireNonNull;
 
 public class AtopTableHandle

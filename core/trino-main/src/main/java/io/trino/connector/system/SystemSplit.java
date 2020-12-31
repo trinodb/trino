@@ -16,10 +16,10 @@ package io.trino.connector.system;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.HostAddress;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSplit;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 

@@ -15,11 +15,11 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameters;
-import io.prestosql.spi.function.ScalarFunction;
-import io.prestosql.spi.function.SqlType;
+import io.trino.spi.PrestoException;
+import io.trino.spi.function.Description;
+import io.trino.spi.function.LiteralParameters;
+import io.trino.spi.function.ScalarFunction;
+import io.trino.spi.function.SqlType;
 import org.tartarus.snowball.SnowballProgram;
 import org.tartarus.snowball.ext.ArmenianStemmer;
 import org.tartarus.snowball.ext.BasqueStemmer;
@@ -46,7 +46,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class WordStemFunction
 {

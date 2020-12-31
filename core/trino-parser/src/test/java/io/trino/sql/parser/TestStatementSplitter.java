@@ -20,9 +20,9 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.sql.parser.StatementSplitter.Statement;
-import static io.prestosql.sql.parser.StatementSplitter.isEmptyStatement;
-import static io.prestosql.sql.parser.StatementSplitter.squeezeStatement;
+import static io.trino.sql.parser.StatementSplitter.Statement;
+import static io.trino.sql.parser.StatementSplitter.isEmptyStatement;
+import static io.trino.sql.parser.StatementSplitter.squeezeStatement;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;

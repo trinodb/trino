@@ -13,24 +13,24 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
-import io.prestosql.Session;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.connector.SampleType;
-import io.prestosql.sql.planner.iterative.Rule;
-import io.prestosql.sql.planner.plan.SampleNode;
-import io.prestosql.sql.planner.plan.SampleNode.Type;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.trino.Session;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.metadata.Metadata;
+import io.trino.spi.connector.SampleType;
+import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.planner.plan.SampleNode.Type;
+import io.trino.sql.planner.plan.TableScanNode;
 
-import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.sql.planner.plan.Patterns.Sample.sampleType;
-import static io.prestosql.sql.planner.plan.Patterns.sample;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.tableScan;
-import static io.prestosql.sql.planner.plan.SampleNode.Type.SYSTEM;
+import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.sql.planner.plan.Patterns.Sample.sampleType;
+import static io.trino.sql.planner.plan.Patterns.sample;
+import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static io.trino.sql.planner.plan.SampleNode.Type.SYSTEM;
 
 public class PushSampleIntoTableScan
         implements Rule<SampleNode>

@@ -17,7 +17,7 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import io.prestosql.spi.procedure.Procedure;
+import io.trino.spi.procedure.Procedure;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 

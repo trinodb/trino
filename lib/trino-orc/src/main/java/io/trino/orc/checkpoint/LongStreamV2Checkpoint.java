@@ -14,14 +14,14 @@
 package io.trino.orc.checkpoint;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.orc.checkpoint.Checkpoints.ColumnPositionsList;
+import io.trino.orc.checkpoint.Checkpoints.ColumnPositionsList;
 
 import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.createInputStreamPositionList;
-import static io.prestosql.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.createInputStreamCheckpoint;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.createInputStreamPositionList;
+import static io.trino.orc.checkpoint.InputStreamCheckpoint.inputStreamCheckpointToString;
 
 public final class LongStreamV2Checkpoint
         implements LongStreamCheckpoint

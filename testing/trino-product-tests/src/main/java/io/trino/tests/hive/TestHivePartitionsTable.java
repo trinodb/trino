@@ -32,7 +32,6 @@ import java.math.RoundingMode;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
-import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
@@ -42,6 +41,7 @@ import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createReso
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createStringDataSource;
 import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.NATION;
 import static io.trino.tempto.query.QueryExecutor.query;
+import static io.trino.tests.TestGroups.HIVE_PARTITIONING;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

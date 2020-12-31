@@ -13,9 +13,9 @@
  */
 package io.trino.server;
 
-import io.prestosql.spi.security.Identity;
-import io.prestosql.spi.session.ResourceEstimates;
-import io.prestosql.transaction.TransactionId;
+import io.trino.spi.security.Identity;
+import io.trino.spi.session.ResourceEstimates;
+import io.trino.transaction.TransactionId;
 
 import javax.annotation.Nullable;
 

@@ -14,21 +14,21 @@
 package io.trino.operator.aggregation;
 
 import io.airlift.stats.TDigest;
-import io.prestosql.operator.aggregation.state.TDigestAndPercentileArrayState;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.CombineFunction;
-import io.prestosql.spi.function.InputFunction;
-import io.prestosql.spi.function.OutputFunction;
-import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.StandardTypes;
+import io.trino.operator.aggregation.state.TDigestAndPercentileArrayState;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunction;
+import io.trino.spi.function.AggregationState;
+import io.trino.spi.function.CombineFunction;
+import io.trino.spi.function.InputFunction;
+import io.trino.spi.function.OutputFunction;
+import io.trino.spi.function.SqlType;
+import io.trino.spi.type.StandardTypes;
 
 import java.util.List;
 
-import static io.prestosql.operator.aggregation.ApproximateDoublePercentileArrayAggregations.valuesAtPercentiles;
-import static io.prestosql.spi.type.RealType.REAL;
+import static io.trino.operator.aggregation.ApproximateDoublePercentileArrayAggregations.valuesAtPercentiles;
+import static io.trino.spi.type.RealType.REAL;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 

@@ -18,15 +18,15 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
-import io.prestosql.plugin.raptor.legacy.metadata.Distribution;
-import io.prestosql.plugin.raptor.legacy.metadata.ForMetadata;
-import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
-import io.prestosql.plugin.raptor.legacy.systemtables.ShardMetadataSystemTable;
-import io.prestosql.plugin.raptor.legacy.systemtables.TableMetadataSystemTable;
-import io.prestosql.plugin.raptor.legacy.systemtables.TableStatsSystemTable;
-import io.prestosql.spi.NodeManager;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.plugin.raptor.legacy.metadata.Distribution;
+import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
+import io.trino.plugin.raptor.legacy.metadata.TableColumn;
+import io.trino.plugin.raptor.legacy.systemtables.ShardMetadataSystemTable;
+import io.trino.plugin.raptor.legacy.systemtables.TableMetadataSystemTable;
+import io.trino.plugin.raptor.legacy.systemtables.TableStatsSystemTable;
+import io.trino.spi.NodeManager;
+import io.trino.spi.connector.SystemTable;
+import io.trino.spi.type.TypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.tweak.ConnectionFactory;
@@ -34,7 +34,7 @@ import org.skife.jdbi.v2.tweak.ConnectionFactory;
 import javax.inject.Singleton;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.prestosql.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorModule

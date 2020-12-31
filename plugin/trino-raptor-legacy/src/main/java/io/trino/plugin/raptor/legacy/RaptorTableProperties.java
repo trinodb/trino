@@ -14,9 +14,9 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.session.PropertyMetadata;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSignatureParameter;
+import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignatureParameter;
 
 import javax.inject.Inject;
 
@@ -24,10 +24,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 
-import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
-import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.type.StandardTypes.ARRAY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.toList;
 

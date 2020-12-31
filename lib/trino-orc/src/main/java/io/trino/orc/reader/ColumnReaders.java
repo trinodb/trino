@@ -13,17 +13,17 @@
  */
 package io.trino.orc.reader;
 
-import io.prestosql.memory.context.AggregatedMemoryContext;
-import io.prestosql.orc.OrcBlockFactory;
-import io.prestosql.orc.OrcColumn;
-import io.prestosql.orc.OrcCorruptionException;
-import io.prestosql.orc.OrcReader;
-import io.prestosql.spi.type.TimeType;
-import io.prestosql.spi.type.Type;
+import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.OrcBlockFactory;
+import io.trino.orc.OrcColumn;
+import io.trino.orc.OrcCorruptionException;
+import io.trino.orc.OrcReader;
+import io.trino.spi.type.TimeType;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.LONG;
-import static io.prestosql.orc.reader.ReaderUtils.invalidStreamType;
-import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.trino.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.trino.orc.reader.ReaderUtils.invalidStreamType;
+import static io.trino.spi.type.TimeType.TIME_MICROS;
 
 public final class ColumnReaders
 {

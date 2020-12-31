@@ -14,7 +14,7 @@
 package io.trino.server;
 
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
-import io.prestosql.operator.ForExchange;
+import io.trino.operator.ForExchange;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 

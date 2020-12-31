@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.kafka.encoder.json.format;
 
-import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.type.SqlDate;
+import io.trino.spi.type.SqlTime;
+import io.trino.spi.type.SqlTimeWithTimeZone;
+import io.trino.spi.type.SqlTimestamp;
+import io.trino.spi.type.SqlTimestampWithTimeZone;
+import io.trino.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.joda.time.LocalTime;
@@ -29,15 +29,15 @@ import org.joda.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.PICOSECONDS_PER_SECOND;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.getMillisOfDay;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.scaleEpochMicrosToMillis;
-import static io.prestosql.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToMillis;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimeType.TIME_MILLIS;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.PICOSECONDS_PER_SECOND;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.getMillisOfDay;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scaleEpochMicrosToMillis;
+import static io.trino.plugin.kafka.encoder.json.format.util.TimeConversions.scalePicosToMillis;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.TimeType.TIME_MILLIS;
+import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.joda.time.DateTimeZone.UTC;
 

@@ -15,14 +15,14 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
-import io.prestosql.Session;
-import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
-import io.prestosql.execution.StateMachine.StateChangeListener;
-import io.prestosql.execution.buffer.BufferResult;
-import io.prestosql.execution.buffer.OutputBuffers;
-import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
-import io.prestosql.memory.MemoryPoolAssignmentsRequest;
-import io.prestosql.sql.planner.PlanFragment;
+import io.trino.Session;
+import io.trino.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
+import io.trino.execution.StateMachine.StateChangeListener;
+import io.trino.execution.buffer.BufferResult;
+import io.trino.execution.buffer.OutputBuffers;
+import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
+import io.trino.memory.MemoryPoolAssignmentsRequest;
+import io.trino.sql.planner.PlanFragment;
 
 import java.util.List;
 import java.util.Optional;

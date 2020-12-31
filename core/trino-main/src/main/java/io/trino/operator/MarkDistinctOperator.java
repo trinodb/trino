@@ -16,13 +16,13 @@ package io.trino.operator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.sql.planner.plan.PlanNodeId;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.Page;
+import io.trino.spi.block.Block;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.type.BlockTypeOperators;
 
 import java.util.Collection;
 import java.util.List;
@@ -30,7 +30,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class MarkDistinctOperator

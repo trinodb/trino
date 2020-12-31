@@ -15,19 +15,19 @@ package io.trino.orc.stream;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.orc.OrcOutputBuffer;
-import io.prestosql.orc.checkpoint.ByteArrayStreamCheckpoint;
-import io.prestosql.orc.metadata.CompressionKind;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.Stream;
-import io.prestosql.orc.metadata.Stream.StreamKind;
+import io.trino.orc.OrcOutputBuffer;
+import io.trino.orc.checkpoint.ByteArrayStreamCheckpoint;
+import io.trino.orc.metadata.CompressionKind;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.Stream;
+import io.trino.orc.metadata.Stream.StreamKind;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
+import static io.trino.orc.metadata.Stream.StreamKind.DATA;
 import static java.lang.Math.toIntExact;
 
 /**

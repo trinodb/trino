@@ -15,8 +15,8 @@ package io.trino.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.orc.metadata.OrcColumnId;
-import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
+import io.trino.orc.metadata.OrcColumnId;
+import io.trino.orc.metadata.OrcType.OrcTypeKind;
 
 import java.util.List;
 import java.util.Map;

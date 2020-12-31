@@ -16,17 +16,17 @@ package io.trino.plugin.raptor.legacy;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.type.Type;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 
-import static io.prestosql.plugin.raptor.legacy.util.MetadataUtil.checkSchemaName;
-import static io.prestosql.plugin.raptor.legacy.util.MetadataUtil.checkTableName;
+import static io.trino.plugin.raptor.legacy.util.MetadataUtil.checkSchemaName;
+import static io.trino.plugin.raptor.legacy.util.MetadataUtil.checkTableName;
 import static java.util.Objects.requireNonNull;
 
 public class RaptorOutputTableHandle

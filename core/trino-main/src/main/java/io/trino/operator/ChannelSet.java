@@ -15,18 +15,18 @@ package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.memory.context.LocalMemoryContext;
-import io.prestosql.spi.Page;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BlockTypeOperators;
+import io.trino.memory.context.LocalMemoryContext;
+import io.trino.spi.Page;
+import io.trino.spi.type.Type;
+import io.trino.sql.gen.JoinCompiler;
+import io.trino.type.BlockTypeOperators;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.SystemSessionProperties.isDictionaryAggregationEnabled;
-import static io.prestosql.operator.GroupByHash.createGroupByHash;
-import static io.prestosql.type.UnknownType.UNKNOWN;
+import static io.trino.SystemSessionProperties.isDictionaryAggregationEnabled;
+import static io.trino.operator.GroupByHash.createGroupByHash;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 public class ChannelSet

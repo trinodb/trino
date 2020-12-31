@@ -15,13 +15,13 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.stats.TDigest;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.AbstractVariableWidthType;
-import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TypeSignature;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.AbstractVariableWidthType;
+import io.trino.spi.type.SqlVarbinary;
+import io.trino.spi.type.StandardTypes;
+import io.trino.spi.type.TypeSignature;
 
 public class TDigestType
         extends AbstractVariableWidthType

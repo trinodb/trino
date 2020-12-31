@@ -20,8 +20,8 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.util.Map;
 
-import static io.prestosql.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv4;
-import static io.prestosql.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv6;
+import static io.trino.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv4;
+import static io.trino.execution.scheduler.SubnetBasedTopology.AddressProtocol.IPv6;
 
 public class TestSubnetTopologyConfig
 {

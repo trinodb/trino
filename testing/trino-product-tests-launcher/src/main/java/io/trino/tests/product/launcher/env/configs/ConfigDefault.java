@@ -13,11 +13,11 @@
  */
 package io.trino.tests.product.launcher.env.configs;
 
-import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.EnvironmentDefaults;
+import io.trino.tests.product.launcher.env.EnvironmentConfig;
+import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
+import static io.trino.tests.product.launcher.env.Environments.nameForConfigClass;
 
 public class ConfigDefault
         implements EnvironmentConfig

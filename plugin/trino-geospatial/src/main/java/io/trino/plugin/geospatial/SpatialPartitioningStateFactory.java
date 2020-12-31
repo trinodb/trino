@@ -14,12 +14,12 @@
 package io.trino.plugin.geospatial;
 
 import com.esri.core.geometry.Envelope;
-import io.prestosql.array.IntBigArray;
-import io.prestosql.array.LongBigArray;
-import io.prestosql.array.ObjectBigArray;
-import io.prestosql.geospatial.Rectangle;
-import io.prestosql.spi.function.AccumulatorStateFactory;
-import io.prestosql.spi.function.GroupedAccumulatorState;
+import io.trino.array.IntBigArray;
+import io.trino.array.LongBigArray;
+import io.trino.array.ObjectBigArray;
+import io.trino.geospatial.Rectangle;
+import io.trino.spi.function.AccumulatorStateFactory;
+import io.trino.spi.function.GroupedAccumulatorState;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.util.ArrayList;

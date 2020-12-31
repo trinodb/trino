@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.hive.TableToPartitionMapping.isIdentityMapping;
+import static io.trino.plugin.hive.TableToPartitionMapping.isIdentityMapping;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 

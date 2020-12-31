@@ -15,12 +15,12 @@ package io.trino.sql.planner.assertions;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import io.prestosql.Session;
-import io.prestosql.cost.StatsProvider;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.ValuesNode;
-import io.prestosql.sql.tree.Expression;
+import io.trino.Session;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
+import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.tree.Expression;
 
 import java.util.List;
 import java.util.Map;
@@ -28,8 +28,8 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
-import static io.prestosql.sql.planner.assertions.MatchResult.match;
+import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
+import static io.trino.sql.planner.assertions.MatchResult.match;
 import static java.util.Objects.requireNonNull;
 
 public class ValuesMatcher
