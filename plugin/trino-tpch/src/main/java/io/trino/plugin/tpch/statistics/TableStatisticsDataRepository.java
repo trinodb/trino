@@ -46,7 +46,7 @@ public class TableStatisticsDataRepository
             TableStatisticsData statisticsData)
     {
         String filename = tableStatisticsDataFilename(table, partitionColumn, partitionValue);
-        Path path = Paths.get("presto-tpch", "src", "main", "resources", "tpch", "statistics", schemaName, filename + ".json");
+        Path path = Paths.get("trino-tpch", "src", "main", "resources", "tpch", "statistics", schemaName, filename + ".json");
         writeStatistics(path, statisticsData);
     }
 

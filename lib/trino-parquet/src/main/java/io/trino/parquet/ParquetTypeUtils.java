@@ -223,7 +223,7 @@ public final class ParquetTypeUtils
         return !required && (definitionLevel == maxDefinitionLevel - 1);
     }
 
-    // copied from presto-hive DecimalUtils
+    // copied from trino-hive DecimalUtils
     public static long getShortDecimalValue(byte[] bytes)
     {
         long value = 0;

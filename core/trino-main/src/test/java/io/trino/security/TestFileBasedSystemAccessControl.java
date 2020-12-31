@@ -119,7 +119,7 @@ public class TestFileBasedSystemAccessControl
         AccessControlManager accessControlManager = new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig());
         accessControlManager.setSystemAccessControl(
                 FileBasedSystemAccessControl.NAME,
-                ImmutableMap.of("security.config-file", new File("../presto-docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
+                ImmutableMap.of("security.config-file", new File("../../docs/src/main/sphinx/security/user-impersonation.json").getAbsolutePath()));
 
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("alice"), "charlie");
         accessControlManager.checkCanImpersonateUser(Identity.ofUser("bob"), "charlie");

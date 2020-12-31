@@ -41,6 +41,6 @@ public interface RowDecoder
      * @param dataMap The row data as fields map
      * @return Returns mapping from column handle to decoded value. Unmapped columns will be reported as null. Optional.empty() signals decoding error.
      */
-    // TODO This is Redis-specific, move to presto-redis
+    // TODO This is Redis-specific, move to trino-redis
     Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, @Nullable Map<String, String> dataMap);
 }

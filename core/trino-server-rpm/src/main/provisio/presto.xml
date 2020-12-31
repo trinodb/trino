@@ -2,7 +2,7 @@
 
     <!-- Bring server tar.gz over for the RPM -->
     <artifactSet to="/">
-        <artifact id="${project.groupId}:presto-server:tar.gz:${project.version}">
+        <artifact id="${project.groupId}:trino-server:tar.gz:${project.version}">
             <unpack useRoot="true" />
         </artifact>
     </artifactSet>

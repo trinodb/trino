@@ -3,13 +3,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>presto-matching</artifactId>
-    <name>presto-matching</name>
+    <artifactId>trino-matching</artifactId>
+    <name>trino-matching</name>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

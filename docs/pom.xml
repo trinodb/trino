@@ -3,13 +3,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-root</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
         <version>351-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-docs</artifactId>
-    <name>presto-docs</name>
+    <artifactId>trino-docs</artifactId>
+    <name>trino-docs</name>
     <packaging>pom</packaging>
 
     <properties>
@@ -54,8 +54,8 @@
                 </executions>
                 <dependencies>
                     <dependency>
-                        <groupId>io.prestosql</groupId>
-                        <artifactId>presto-thrift-api</artifactId>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-thrift-api</artifactId>
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>
@@ -112,8 +112,8 @@
                 </configuration>
                 <dependencies>
                     <dependency>
-                        <groupId>io.prestosql</groupId>
-                        <artifactId>presto-parser</artifactId>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-parser</artifactId>
                         <version>${project.version}</version>
                     </dependency>
                 </dependencies>

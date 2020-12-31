@@ -30,8 +30,8 @@ RUN \
     chown -R "presto:presto" /usr/lib/presto /data/presto
 
 ARG PRESTO_VERSION
-COPY presto-cli-${PRESTO_VERSION}-executable.jar /usr/bin/presto
-COPY --chown=presto:presto presto-server-${PRESTO_VERSION} /usr/lib/presto
+COPY trino-cli-${PRESTO_VERSION}-executable.jar /usr/bin/presto
+COPY --chown=presto:presto trino-server-${PRESTO_VERSION} /usr/lib/presto
 
 EXPOSE 8080
 USER presto:presto
