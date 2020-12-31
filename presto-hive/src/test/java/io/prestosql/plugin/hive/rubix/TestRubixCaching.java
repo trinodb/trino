@@ -23,7 +23,6 @@ import com.qubole.rubix.prestosql.CachingPrestoAdlFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
-import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;

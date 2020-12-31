@@ -24,10 +24,8 @@ import com.qubole.rubix.prestosql.CachingPrestoAdlFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
-import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureNativeAzureFileSystem;
-import com.qubole.rubix.prestosql.PrestoClusterManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.CatalogName;
@@ -61,6 +59,7 @@ import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
 import static com.qubole.rubix.spi.CacheConfig.setEmbeddedMode;
 import static com.qubole.rubix.spi.CacheConfig.setIsParallelWarmupEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setOnMaster;
+import static com.qubole.rubix.spi.CacheConfig.setPrestoClusterManager;
 import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.prestosql.plugin.hive.rubix.RubixInitializer.Owner.PRESTO;
 import static io.prestosql.plugin.hive.rubix.RubixInitializer.Owner.RUBIX;
@@ -328,6 +327,8 @@ public class RubixInitializer
         if (owner == RUBIX) {
             config.set(FILESYSTEM_OWNED_BY_RUBIX_CONFIG_PROPETY, "true");
         }
+
+        setPrestoClusterManager(config, PrestoClusterManager.class.getName());
 
         rubixHdfsInitializer.initializeConfiguration(config);
     }
