@@ -52,25 +52,25 @@ operator. This shows you that the pushdown was successful.
 .. code-block:: text
 
     Fragment 0 [SINGLE]
-        Output layout: [regionkey_0, _presto_generated_1]
+        Output layout: [regionkey_0, _generated_1]
         Output partitioning: SINGLE []
         Stage Execution Strategy: UNGROUPED_EXECUTION
         Output[regionkey, _col1]
-        │   Layout: [regionkey_0:bigint, _presto_generated_1:bigint]
+        │   Layout: [regionkey_0:bigint, _generated_1:bigint]
         │   Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: ?}
         │   regionkey := regionkey_0
-        │   _col1 := _presto_generated_1
+        │   _col1 := _generated_1
         └─ RemoteSource[1]
-                Layout: [regionkey_0:bigint, _presto_generated_1:bigint]
+                Layout: [regionkey_0:bigint, _generated_1:bigint]
 
     Fragment 1 [SOURCE]
-        Output layout: [regionkey_0, _presto_generated_1]
+        Output layout: [regionkey_0, _generated_1]
         Output partitioning: SINGLE []
         Stage Execution Strategy: UNGROUPED_EXECUTION
-        TableScan[postgresql:tpch.nation tpch.nation columns=[regionkey:bigint:int8, count(*):_presto_generated_1:bigint:bigint] groupingSets=[[regionkey:bigint:int8]], gro
-            Layout: [regionkey_0:bigint, _presto_generated_1:bigint]
+        TableScan[postgresql:tpch.nation tpch.nation columns=[regionkey:bigint:int8, count(*):_generated_1:bigint:bigint] groupingSets=[[regionkey:bigint:int8]], gro
+            Layout: [regionkey_0:bigint, _generated_1:bigint]
             Estimates: {rows: ? (?), cpu: ?, memory: 0B, network: 0B}
-            _presto_generated_1 := count(*):_presto_generated_1:bigint:bigint
+            _generated_1 := count(*):_generated_1:bigint:bigint
             regionkey_0 := regionkey:bigint:int8
 
 A number of factors can prevent a push down:
