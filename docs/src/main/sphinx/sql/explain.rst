@@ -47,11 +47,12 @@ Examples
 EXPLAIN (TYPE LOGICAL)
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Logical plan:
+Logical plan::
+
+    EXPLAIN (TYPE LOGICAL) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 
 .. code-block:: text
 
-    presto:tiny> EXPLAIN (TYPE LOGICAL) SELECT regionkey, count(*) FROM nation GROUP BY 1;
                                                        Query Plan
     -----------------------------------------------------------------------------------------------------------------
      Output[regionkey, _col1]
@@ -86,11 +87,12 @@ Logical plan:
 EXPLAIN (TYPE DISTRIBUTED)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Distributed plan:
+Distributed plan::
+
+    EXPLAIN (TYPE DISTRIBUTED) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 
 .. code-block:: text
 
-    presto:tiny> EXPLAIN (TYPE DISTRIBUTED) SELECT regionkey, count(*) FROM nation GROUP BY 1;
                                                   Query Plan
     ------------------------------------------------------------------------------------------------------
      Fragment 0 [SINGLE]
@@ -137,11 +139,12 @@ Distributed plan:
 EXPLAIN (TYPE VALIDATE)
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-Validate:
+Validate::
+
+    EXPLAIN (TYPE VALIDATE) SELECT regionkey, count(*) FROM nation GROUP BY 1;
 
 .. code-block:: text
 
-    presto:tiny> EXPLAIN (TYPE VALIDATE) SELECT regionkey, count(*) FROM nation GROUP BY 1;
      Valid
     -------
      true
@@ -149,12 +152,13 @@ Validate:
 EXPLAIN (TYPE IO)
 ^^^^^^^^^^^^^^^^^
 
-IO:
+IO::
+
+    EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_lineitem
+    SELECT * FROM lineitem WHERE shipdate = '2020-02-01' AND quantity > 10;
 
 .. code-block:: text
 
-
-    presto:hive> EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_lineitem SELECT * FROM lineitem WHERE shipdate = '2020-02-01' AND quantity > 10;
                 Query Plan
     -----------------------------------
     {
