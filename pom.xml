@@ -162,6 +162,9 @@
         <repository>
             <id>confluent</id>
             <url>http://packages.confluent.io/maven/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
