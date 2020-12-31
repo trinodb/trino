@@ -262,8 +262,8 @@ public final class TestRun
                 container
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
-                        .withFileSystemBind(cliJar.getPath(), "/docker/presto-cli", READ_ONLY)
-                        .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-presto-cli.sh"), "/etc/profile.d/set-presto-cli.sh")
+                        .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
+                        .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
                                         "/usr/lib/jvm/zulu-11/bin/java",

@@ -2,7 +2,7 @@
   "queryId": "20150505_160116_00005_sdzex",
   "session": {
     "user": "losipiuk",
-    "source": "presto-cli",
+    "source": "trino-cli",
     "catalog": "hive",
     "schema": "default",
     "timeZoneKey": 2103,

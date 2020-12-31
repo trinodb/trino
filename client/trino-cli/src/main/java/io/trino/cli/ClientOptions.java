@@ -47,7 +47,7 @@ public class ClientOptions
     private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Presto server location " + DEFAULT_VALUE)
+    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Trino server location " + DEFAULT_VALUE)
     public String server;
 
     @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", defaultValue = "$${SERVICE}@$${HOST}", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
@@ -101,7 +101,7 @@ public class ClientOptions
     @Option(names = "--password", paramLabel = "<password>", description = "Prompt for password")
     public boolean password;
 
-    @Option(names = "--source", paramLabel = "<source>", defaultValue = "presto-cli", description = "Name of source making query " + DEFAULT_VALUE)
+    @Option(names = "--source", paramLabel = "<source>", defaultValue = "trino-cli", description = "Name of source making query " + DEFAULT_VALUE)
     public String source;
 
     @Option(names = "--client-info", paramLabel = "<info>", description = "Extra information about client making query")

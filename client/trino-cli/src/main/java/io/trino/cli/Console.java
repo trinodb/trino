@@ -20,7 +20,7 @@ import io.airlift.log.Logging;
 import io.airlift.log.LoggingConfiguration;
 import io.airlift.units.Duration;
 import io.trino.cli.ClientOptions.OutputFormat;
-import io.trino.cli.Presto.VersionProvider;
+import io.trino.cli.Trino.VersionProvider;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.ClientSession;
 import io.trino.sql.parser.StatementSplitter;
@@ -75,8 +75,8 @@ import static org.jline.utils.AttributedStyle.CYAN;
 import static org.jline.utils.AttributedStyle.DEFAULT;
 
 @Command(
-        name = "presto",
-        header = "Presto command line interface",
+        name = "trino",
+        header = "Trino command line interface",
         synopsisHeading = "%nUSAGE:%n%n",
         optionListHeading = "%nOPTIONS:%n",
         usageHelpAutoWidth = true,
@@ -86,7 +86,7 @@ public class Console
 {
     public static final Set<String> STATEMENT_DELIMITERS = ImmutableSet.of(";", "\\G");
 
-    private static final String PROMPT_NAME = "presto";
+    private static final String PROMPT_NAME = "trino";
     private static final Duration EXIT_DELAY = new Duration(3, SECONDS);
 
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
@@ -202,7 +202,7 @@ public class Console
     private String getPassword()
     {
         checkState(clientOptions.user != null, "Username must be specified along with password");
-        String defaultPassword = System.getenv("PRESTO_PASSWORD");
+        String defaultPassword = System.getenv("TRINO_PASSWORD");
         if (defaultPassword != null) {
             return defaultPassword;
         }
@@ -424,11 +424,11 @@ public class Console
 
     private static Path getHistoryFile()
     {
-        String path = System.getenv("PRESTO_HISTORY_FILE");
+        String path = System.getenv("TRINO_HISTORY_FILE");
         if (!isNullOrEmpty(path)) {
             return Paths.get(path);
         }
-        return Paths.get(nullToEmpty(USER_HOME.value()), ".presto_history");
+        return Paths.get(nullToEmpty(USER_HOME.value()), ".trino_history");
     }
 
     private static void initializeLogging(String logLevelsFile)

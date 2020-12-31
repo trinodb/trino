@@ -45,10 +45,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class QueryPreprocessor
 {
-    public static final String ENV_PREPROCESSOR = "PRESTO_PREPROCESSOR";
-    public static final String ENV_PREPROCESSOR_TIMEOUT = "PRESTO_PREPROCESSOR_TIMEOUT";
-    public static final String ENV_PRESTO_CATALOG = "PRESTO_CATALOG";
-    public static final String ENV_PRESTO_SCHEMA = "PRESTO_SCHEMA";
+    public static final String ENV_PREPROCESSOR = "TRINO_PREPROCESSOR";
+    public static final String ENV_PREPROCESSOR_TIMEOUT = "TRINO_PREPROCESSOR_TIMEOUT";
+    public static final String ENV_TRINO_CATALOG = "TRINO_CATALOG";
+    public static final String ENV_TRINO_SCHEMA = "TRINO_SCHEMA";
     private static final Duration DEFAULT_PREPROCESSOR_TIMEOUT = new Duration(10, SECONDS);
 
     private static final String PREPROCESSING_QUERY_MESSAGE = "Preprocessing query...";
@@ -105,8 +105,8 @@ public final class QueryPreprocessor
             Future<String> readStderr;
             try {
                 ProcessBuilder processBuilder = new ProcessBuilder(preprocessorCommand);
-                processBuilder.environment().put(ENV_PRESTO_CATALOG, catalog.orElse(""));
-                processBuilder.environment().put(ENV_PRESTO_SCHEMA, schema.orElse(""));
+                processBuilder.environment().put(ENV_TRINO_CATALOG, catalog.orElse(""));
+                processBuilder.environment().put(ENV_TRINO_SCHEMA, schema.orElse(""));
 
                 Process process = processBuilder.start();
                 processReference.set(process);

@@ -26,16 +26,16 @@ INFO	main	io.trino.server.Server	======== SERVER STARTED ========
 
 The Presto server is now running on `localhost:8080` (the default port).
 
-### Run the Presto CLI
+### Run the Trino CLI
 
-Run the [Presto CLI](https://trino.io/docs/current/installation/cli.html),
+Run the [Trino CLI](https://trino.io/docs/current/installation/cli.html),
 which connects to `localhost:8080` by default:
 
 ```bash
 docker exec -it presto presto
 ```
 
-You can pass additional arguments to the Presto CLI:
+You can pass additional arguments to the Trino CLI:
 
 ```bash
 docker exec -it presto presto --catalog tpch --schema sf1

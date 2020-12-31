@@ -31,7 +31,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Class contains all session-based properties for the Accumulo connector.
- * Use SHOW SESSION to view all available properties in the Presto CLI.
+ * Use SHOW SESSION to view all available properties.
  * <p>
  * Can set the property using:
  * <p>

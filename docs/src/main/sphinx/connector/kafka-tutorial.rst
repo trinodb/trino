@@ -115,13 +115,13 @@ Start the :doc:`Trino CLI </installation/cli>`:
 
 .. code-block:: text
 
-    $ ./presto --catalog kafka --schema tpch
+    $ ./trino --catalog kafka --schema tpch
 
 List the tables to verify that things are working:
 
 .. code-block:: text
 
-    presto:tpch> SHOW TABLES;
+    trino:tpch> SHOW TABLES;
       Table
     ----------
      customer
@@ -144,7 +144,7 @@ built-in ones:
 
 .. code-block:: text
 
-    presto:tpch> DESCRIBE customer;
+    trino:tpch> DESCRIBE customer;
           Column       |  Type      | Extra |                   Comment
     -------------------+------------+-------+---------------------------------------------
      _partition_id     | bigint     |       | Partition Id
@@ -158,12 +158,12 @@ built-in ones:
      _timestamp        | timestamp  |       | Message timestamp
     (11 rows)
 
-    presto:tpch> SELECT count(*) FROM customer;
+    trino:tpch> SELECT count(*) FROM customer;
      _col0
     -------
       1500
 
-    presto:tpch> SELECT _message FROM customer LIMIT 5;
+    trino:tpch> SELECT _message FROM customer LIMIT 5;
                                                                                                                                                      _message
     --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
      {"rowNumber":1,"customerKey":1,"name":"Customer#000000001","address":"IVhzIApeRb ot,c,E","nationKey":15,"phone":"25-989-741-2988","accountBalance":711.56,"marketSegment":"BUILDING","comment":"to the even, regular platelets. regular, ironic epitaphs nag e"}
@@ -173,7 +173,7 @@ built-in ones:
      {"rowNumber":9,"customerKey":9,"name":"Customer#000000009","address":"xKiAFTjUsCuxfeleNqefumTrjS","nationKey":8,"phone":"18-338-906-3675","accountBalance":8324.07,"marketSegment":"FURNITURE","comment":"r theodolites according to the requests wake thinly excuses: pending
     (5 rows)
 
-    presto:tpch> SELECT sum(cast(json_extract_scalar(_message, '$.accountBalance') AS double)) FROM customer LIMIT 10;
+    trino:tpch> SELECT sum(cast(json_extract_scalar(_message, '$.accountBalance') AS double)) FROM customer LIMIT 10;
        _col0
     ------------
      6681865.59
@@ -218,7 +218,7 @@ The customer table now has an additional column: ``kafka_key``.
 
 .. code-block:: text
 
-    presto:tpch> DESCRIBE customer;
+    trino:tpch> DESCRIBE customer;
           Column       |  Type      | Extra |                   Comment
     -------------------+------------+-------+---------------------------------------------
      kafka_key         | bigint     |       |
@@ -233,7 +233,7 @@ The customer table now has an additional column: ``kafka_key``.
      _timestamp        | timestamp  |       | Message timestamp
     (12 rows)
 
-    presto:tpch> SELECT kafka_key FROM customer ORDER BY kafka_key LIMIT 10;
+    trino:tpch> SELECT kafka_key FROM customer ORDER BY kafka_key LIMIT 10;
      kafka_key
     -----------
              0
@@ -333,7 +333,7 @@ the sum query from earlier can operate on the ``account_balance`` column directl
 
 .. code-block:: text
 
-    presto:tpch> DESCRIBE customer;
+    trino:tpch> DESCRIBE customer;
           Column       |  Type      | Extra |                   Comment
     -------------------+------------+-------+---------------------------------------------
      kafka_key         | bigint     |       |
@@ -357,7 +357,7 @@ the sum query from earlier can operate on the ``account_balance`` column directl
      _timestamp        | timestamp  |       | Message timestamp
     (21 rows)
 
-    presto:tpch> SELECT * FROM customer LIMIT 5;
+    trino:tpch> SELECT * FROM customer LIMIT 5;
      kafka_key | row_number | customer_key |        name        |                address                | nation_key |      phone      | account_balance | market_segment |                                                      comment
     -----------+------------+--------------+--------------------+---------------------------------------+------------+-----------------+-----------------+----------------+---------------------------------------------------------------------------------------------------------
              1 |          2 |            2 | Customer#000000002 | XSTf4,NCwDVaWNe6tEgvwfmRchLXak        |         13 | 23-768-687-3665 |          121.65 | AUTOMOBILE     | l accounts. blithely ironic theodolites integrate boldly: caref
@@ -367,7 +367,7 @@ the sum query from earlier can operate on the ``account_balance`` column directl
              9 |         10 |           10 | Customer#000000010 | 6LrEaV6KR6PLVcgl2ArL Q3rqzLzcT1 v2    |          5 | 15-741-346-9870 |         2753.54 | HOUSEHOLD      | es regular deposits haggle. fur
     (5 rows)
 
-    presto:tpch> SELECT sum(account_balance) FROM customer LIMIT 10;
+    trino:tpch> SELECT sum(account_balance) FROM customer LIMIT 10;
        _col0
     ------------
      6681865.59
@@ -514,27 +514,27 @@ Now run queries against live data:
 
 .. code-block:: text
 
-    $ ./presto-cli --catalog kafka --schema default
+    $ ./trino --catalog kafka --schema default
 
-    presto:default> SELECT count(*) FROM tweets;
+    trino:default> SELECT count(*) FROM tweets;
      _col0
     -------
       4467
     (1 row)
 
-    presto:default> SELECT count(*) FROM tweets;
+    trino:default> SELECT count(*) FROM tweets;
      _col0
     -------
       4517
     (1 row)
 
-    presto:default> SELECT count(*) FROM tweets;
+    trino:default> SELECT count(*) FROM tweets;
      _col0
     -------
       4572
     (1 row)
 
-    presto:default> SELECT kafka_key, user_name, lang, created_at FROM tweets LIMIT 10;
+    trino:default> SELECT kafka_key, user_name, lang, created_at FROM tweets LIMIT 10;
          kafka_key      |    user_name    | lang |       created_at
     --------------------+-----------------+------+-------------------------
      494227746231685121 | burncaniff      | en   | 2014-07-29 14:07:31.000
@@ -559,7 +559,7 @@ RFC 2822 format as ``created_at`` attribute in each tweet.
 
 .. code-block:: text
 
-    presto:default> SELECT DISTINCT json_extract_scalar(_message, '$.created_at')) AS raw_date
+    trino:default> SELECT DISTINCT json_extract_scalar(_message, '$.created_at')) AS raw_date
                  -> FROM tweets LIMIT 5;
                 raw_date
     --------------------------------
@@ -588,7 +588,7 @@ This allows the raw data to be mapped onto a Trino timestamp column:
 
 .. code-block:: text
 
-    presto:default> SELECT created_at, raw_date FROM (
+    trino:default> SELECT created_at, raw_date FROM (
                  ->   SELECT created_at, json_extract_scalar(_message, '$.created_at') AS raw_date
                  ->   FROM tweets)
                  -> GROUP BY 1, 2 LIMIT 5;

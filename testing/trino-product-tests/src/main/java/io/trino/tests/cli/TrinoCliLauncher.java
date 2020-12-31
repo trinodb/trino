@@ -27,10 +27,10 @@ import static com.google.common.io.Resources.readLines;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 
-public class PrestoCliLauncher
+public class TrinoCliLauncher
         extends ProductTest
 {
-    private static final Logger log = Logger.get(PrestoCliLauncher.class);
+    private static final Logger log = Logger.get(TrinoCliLauncher.class);
 
     protected static final long TIMEOUT = 300 * 1000; // 30 secs per test
     protected final List<String> nationTableInteractiveLines;
@@ -44,9 +44,9 @@ public class PrestoCliLauncher
     @Named("databases.presto.server_address")
     protected String serverAddress;
 
-    protected PrestoCliProcess presto;
+    protected TrinoCliProcess trino;
 
-    protected PrestoCliLauncher()
+    protected TrinoCliLauncher()
             throws IOException
     {
         nationTableInteractiveLines = readLines(getResource("io/trino/tests/cli/interactive_query.results"), UTF_8);
@@ -56,28 +56,28 @@ public class PrestoCliLauncher
     protected void stopPresto()
             throws InterruptedException
     {
-        if (presto != null) {
-            presto.close();
-            presto = null;
+        if (trino != null) {
+            trino.close();
+            trino = null;
         }
     }
 
-    protected void launchPrestoCli(String... arguments)
+    protected void launchTrinoCli(String... arguments)
             throws IOException
     {
-        launchPrestoCli(asList(arguments));
+        launchTrinoCli(asList(arguments));
     }
 
-    protected void launchPrestoCli(List<String> arguments)
+    protected void launchTrinoCli(List<String> arguments)
             throws IOException
     {
-        presto = new PrestoCliProcess(getProcessBuilder(arguments).start());
+        trino = new TrinoCliProcess(getProcessBuilder(arguments).start());
     }
 
     protected ProcessBuilder getProcessBuilder(List<String> arguments)
     {
         List<String> command = ImmutableList.<String>builder()
-                .add("/docker/presto-cli")
+                .add("/docker/trino-cli")
                 .addAll(arguments)
                 .build();
 

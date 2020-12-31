@@ -23,9 +23,9 @@ import picocli.CommandLine.IVersionProvider;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 
-public final class Presto
+public final class Trino
 {
-    private Presto() {}
+    private Trino() {}
 
     public static void main(String[] args)
     {
@@ -49,7 +49,7 @@ public final class Presto
         public String[] getVersion()
         {
             String version = getClass().getPackage().getImplementationVersion();
-            return new String[] {"Presto CLI " + firstNonNull(version, "(version unknown)")};
+            return new String[] {"Trino CLI " + firstNonNull(version, "(version unknown)")};
         }
     }
 }
