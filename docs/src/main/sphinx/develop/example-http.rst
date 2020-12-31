@@ -10,7 +10,7 @@ write a SQL query to process it.
 Code
 ----
 
-The Example HTTP connector can be found in the ``presto-example-http``
+The Example HTTP connector can be found in the ``trino-example-http``
 directory in the root of the Trino source tree.
 
 Plugin Implementation

@@ -13,7 +13,7 @@ Trino: they back each catalog available to Trino.
 Code
 ----
 
-The SPI source can be found in the ``presto-spi`` directory in the
+The SPI source can be found in the ``trino-spi`` directory in the
 root of the Trino source tree.
 
 Plugin Metadata
@@ -22,7 +22,7 @@ Plugin Metadata
 Each plugin identifies an entry point: an implementation of the
 ``Plugin`` interface. This class name is provided to Trino via
 the standard Java ``ServiceLoader`` interface: the classpath contains
-a resource file named ``io.prestosql.spi.Plugin`` in the
+a resource file named ``io.trino.spi.Plugin`` in the
 ``META-INF/services`` directory. The content of this file is a
 single line listing the name of the plugin class:
 
@@ -57,8 +57,8 @@ Plugins depend on the SPI from Trino:
 .. code-block:: xml
 
     <dependency>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-spi</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-spi</artifactId>
         <scope>provided</scope>
     </dependency>
 
@@ -77,7 +77,7 @@ to provide isolation and to allow plugins to use a different version
 of a library that Trino uses internally.
 
 For an example ``pom.xml`` file, see the example HTTP connector in the
-``presto-example-http`` directory in the root of the Trino source tree.
+``trino-example-http`` directory in the root of the Trino source tree.
 
 Deploying a Custom Plugin
 -------------------------
