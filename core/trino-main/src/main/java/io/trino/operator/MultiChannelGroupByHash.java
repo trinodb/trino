@@ -318,6 +318,8 @@ public class MultiChannelGroupByHash
         int pageIndex = channelBuilders.get(0).size() - 1;
         int pagePosition = currentPageBuilder.getPositionCount() - 1;
         long address = encodeSyntheticAddress(pageIndex, pagePosition);
+        // -1 is reserved for marking hash position as empty
+        checkState(address != -1, "Address cannot be -1");
 
         // record group id in hash
         int groupId = nextGroupId++;
