@@ -81,6 +81,11 @@ public class RowPagesBuilder
         return this;
     }
 
+    public RowPagesBuilder addBlocksPage(Iterable<Block> blocks)
+    {
+        return addBlocksPage(Iterables.toArray(blocks, Block.class));
+    }
+
     public RowPagesBuilder addBlocksPage(Block... blocks)
     {
         pages.add(new Page(blocks));
