@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner;
+package io.trino.sql.planner;
 
 import io.prestosql.sql.planner.plan.ExchangeNode;
 import io.prestosql.sql.planner.plan.PlanNode;

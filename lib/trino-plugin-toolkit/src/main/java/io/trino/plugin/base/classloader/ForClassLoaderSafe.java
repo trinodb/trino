@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.base.classloader;
+package io.trino.plugin.base.classloader;
 
 import javax.inject.Qualifier;
 

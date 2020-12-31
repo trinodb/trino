@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.util;
+package io.trino.sql.util;
 
 import com.google.common.graph.SuccessorsFunction;
 import com.google.common.graph.Traverser;

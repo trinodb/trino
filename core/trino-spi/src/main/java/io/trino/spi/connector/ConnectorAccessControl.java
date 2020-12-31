@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.connector;
+package io.trino.spi.connector;
 
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;

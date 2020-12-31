@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.query;
+package io.trino.sql.query;
 
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;

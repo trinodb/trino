@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.operator.aggregation.groupby;
+package io.trino.operator.aggregation.groupby;
 
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.base.util;
+package io.trino.plugin.base.util;
 
 import io.prestosql.plugin.base.util.LoggingInvocationHandler.ReflectiveParameterNamesProvider;
 import org.testng.annotations.Test;

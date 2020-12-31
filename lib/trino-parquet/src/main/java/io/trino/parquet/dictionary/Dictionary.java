@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.parquet.dictionary;
+package io.trino.parquet.dictionary;
 
 import io.prestosql.parquet.ParquetEncoding;
 import org.apache.parquet.io.api.Binary;

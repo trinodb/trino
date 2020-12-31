@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar.timetz;
+package io.trino.operator.scalar.timetz;
 
 import io.prestosql.Session;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;

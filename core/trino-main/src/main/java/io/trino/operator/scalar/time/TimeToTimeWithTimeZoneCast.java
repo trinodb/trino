@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar.time;
+package io.trino.operator.scalar.time;
 
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;

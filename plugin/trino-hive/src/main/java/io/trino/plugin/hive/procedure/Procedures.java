@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.procedure;
+package io.trino.plugin.hive.procedure;
 
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Table;

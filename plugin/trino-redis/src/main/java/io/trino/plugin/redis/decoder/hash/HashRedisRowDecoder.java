@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.redis.decoder.hash;
+package io.trino.plugin.redis.decoder.hash;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.decoder.DecoderColumnHandle;

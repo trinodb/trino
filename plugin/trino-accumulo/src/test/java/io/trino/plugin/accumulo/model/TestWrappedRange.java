@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.accumulo.model;
+package io.trino.plugin.accumulo.model;
 
 import org.apache.accumulo.core.data.Range;
 import org.testng.annotations.Test;

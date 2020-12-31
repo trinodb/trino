@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.aggregation.minmaxby;
+package io.trino.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;

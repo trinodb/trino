@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.matching.pattern;
+package io.trino.matching.pattern;
 
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;

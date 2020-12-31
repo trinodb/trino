@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.transaction;
+package io.trino.transaction;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.gen;
+package io.trino.sql.gen;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.LambdaConversionException;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.ml.type;
+package io.trino.plugin.ml.type;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.type.Type;

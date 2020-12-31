@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.planner.optimizations;
+package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

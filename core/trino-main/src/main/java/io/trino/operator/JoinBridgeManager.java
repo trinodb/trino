@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.operator;
+package io.trino.operator;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;

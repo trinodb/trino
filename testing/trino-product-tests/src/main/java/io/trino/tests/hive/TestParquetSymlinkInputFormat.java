@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.hive;
+package io.trino.tests.hive;
 
 import com.google.inject.name.Named;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;

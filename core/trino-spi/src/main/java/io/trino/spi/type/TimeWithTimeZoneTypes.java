@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.spi.type;
+package io.trino.spi.type;
 
 import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;

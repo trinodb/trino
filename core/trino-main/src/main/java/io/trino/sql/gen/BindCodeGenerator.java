@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.gen;
+package io.trino.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
 import io.prestosql.sql.gen.LambdaBytecodeGenerator.CompiledLambda;

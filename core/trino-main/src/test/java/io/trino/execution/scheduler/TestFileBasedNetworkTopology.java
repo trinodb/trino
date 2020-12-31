@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.scheduler;
+package io.trino.execution.scheduler;
 
 import com.google.common.io.Files;
 import com.google.common.io.Resources;

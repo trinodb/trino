@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server.protocol;
+package io.trino.server.protocol;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;

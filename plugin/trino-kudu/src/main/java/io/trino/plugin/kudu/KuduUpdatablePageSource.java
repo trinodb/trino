@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.kudu;
+package io.trino.plugin.kudu;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.Page;

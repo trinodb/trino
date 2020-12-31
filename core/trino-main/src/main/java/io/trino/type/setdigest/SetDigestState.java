@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.type.setdigest;
+package io.trino.type.setdigest;
 
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateMetadata;

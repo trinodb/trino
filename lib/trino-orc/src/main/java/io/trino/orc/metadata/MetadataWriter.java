@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.orc.metadata;
+package io.trino.orc.metadata;
 
 import io.airlift.slice.SliceOutput;
 import io.prestosql.orc.metadata.statistics.BloomFilter;

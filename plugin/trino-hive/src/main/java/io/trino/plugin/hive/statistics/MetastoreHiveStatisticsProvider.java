@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.hive.statistics;
+package io.trino.plugin.hive.statistics;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;

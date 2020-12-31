@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.connector.system;
+package io.trino.connector.system;
 
 import io.airlift.node.NodeInfo;
 import io.airlift.units.DataSize;

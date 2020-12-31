@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.exchange;
+package io.trino.operator.exchange;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.spi.Page;

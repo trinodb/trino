@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.hive.metastore;
+package io.trino.plugin.hive.metastore;
 
 public interface HiveMetastoreDecorator
 {

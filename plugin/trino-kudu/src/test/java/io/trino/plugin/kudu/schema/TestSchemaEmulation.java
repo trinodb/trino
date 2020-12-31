@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.kudu.schema;
+package io.trino.plugin.kudu.schema;
 
 import io.prestosql.spi.connector.SchemaTableName;
 import org.testng.annotations.Test;

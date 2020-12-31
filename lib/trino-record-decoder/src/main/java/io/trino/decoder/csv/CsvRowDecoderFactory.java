@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.decoder.csv;
+package io.trino.decoder.csv;
 
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;

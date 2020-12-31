@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server;
+package io.trino.server;
 
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.blackhole;
+package io.trino.tests.blackhole;
 
 import io.trino.tempto.query.QueryResult;
 import org.testng.annotations.Test;

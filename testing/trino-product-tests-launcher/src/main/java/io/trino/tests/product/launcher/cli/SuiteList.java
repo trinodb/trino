@@ -1,4 +1,4 @@
-package io.prestosql.tests.product.launcher.cli;
+package io.trino.tests.product.launcher.cli;
 
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");

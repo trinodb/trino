@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.operator.scalar;
+package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;

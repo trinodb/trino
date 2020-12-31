@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.prometheus;
+package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;

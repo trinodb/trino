@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.parquet.reader;
+package io.trino.parquet.reader;
 
 import io.prestosql.parquet.Field;
 import it.unimi.dsi.fastutil.booleans.BooleanArrayList;

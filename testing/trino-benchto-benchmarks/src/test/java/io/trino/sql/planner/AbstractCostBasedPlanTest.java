@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.planner;
+package io.trino.sql.planner;
 
 import com.google.common.base.VerifyException;
 import com.google.common.io.Resources;

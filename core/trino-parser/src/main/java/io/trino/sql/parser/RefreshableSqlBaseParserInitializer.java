@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.sql.parser;
+package io.trino.sql.parser;
 
 import javax.annotation.concurrent.ThreadSafe;
 

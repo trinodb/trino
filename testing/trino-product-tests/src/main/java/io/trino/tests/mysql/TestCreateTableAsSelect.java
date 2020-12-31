@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.mysql;
+package io.trino.tests.mysql;
 
 import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;

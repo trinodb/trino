@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.array;
+package io.trino.array;
 
 import static io.prestosql.array.BigArrays.SEGMENT_SHIFT;
 import static io.prestosql.array.BigArrays.SEGMENT_SIZE;

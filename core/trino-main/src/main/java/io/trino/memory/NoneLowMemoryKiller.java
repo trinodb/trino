@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.memory;
+package io.trino.memory;
 
 import io.prestosql.spi.QueryId;
 

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.planner.assertions;
+package io.trino.sql.planner.assertions;
 
 import com.google.common.base.MoreObjects.ToStringHelper;
 import io.prestosql.Session;

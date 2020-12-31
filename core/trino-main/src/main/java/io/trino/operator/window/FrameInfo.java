@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.window;
+package io.trino.operator.window;
 
 import io.prestosql.sql.tree.FrameBound;
 import io.prestosql.sql.tree.SortItem.Ordering;

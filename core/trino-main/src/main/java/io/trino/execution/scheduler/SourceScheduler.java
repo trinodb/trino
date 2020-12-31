@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.execution.scheduler;
+package io.trino.execution.scheduler;
 
 import io.prestosql.execution.Lifespan;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;

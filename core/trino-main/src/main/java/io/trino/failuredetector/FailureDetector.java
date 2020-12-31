@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.failuredetector;
+package io.trino.failuredetector;
 
 import io.airlift.discovery.client.ServiceDescriptor;
 import io.prestosql.spi.HostAddress;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.cassandra;
+package io.trino.plugin.cassandra;
 
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorCodeSupplier;

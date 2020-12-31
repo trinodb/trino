@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.metadata;
+package io.trino.metadata;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.connector.ColumnHandle;

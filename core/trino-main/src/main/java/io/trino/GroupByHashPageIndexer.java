@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql;
+package io.trino;
 
 import io.prestosql.operator.GroupByHash;
 import io.prestosql.operator.GroupByIdBlock;

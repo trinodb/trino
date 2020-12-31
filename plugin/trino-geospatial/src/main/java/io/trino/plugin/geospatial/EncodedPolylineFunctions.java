@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.geospatial;
+package io.trino.plugin.geospatial;
 
 import com.esri.core.geometry.MultiPath;
 import com.esri.core.geometry.MultiVertexGeometry;

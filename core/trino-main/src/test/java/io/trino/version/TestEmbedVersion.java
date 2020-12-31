@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.version;
+package io.trino.version;
 
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;

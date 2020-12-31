@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.memsql;
+package io.trino.plugin.memsql;
 
 import io.prestosql.plugin.jdbc.JdbcPlugin;
 

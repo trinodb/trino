@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.raptor.legacy.util;
+package io.trino.plugin.raptor.legacy.util;
 
 import org.skife.jdbi.v2.ResultIterator;
 

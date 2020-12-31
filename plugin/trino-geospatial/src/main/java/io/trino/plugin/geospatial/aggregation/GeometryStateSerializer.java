@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.geospatial.aggregation;
+package io.trino.plugin.geospatial.aggregation;
 
 import io.prestosql.geospatial.serde.GeometrySerde;
 import io.prestosql.spi.block.Block;

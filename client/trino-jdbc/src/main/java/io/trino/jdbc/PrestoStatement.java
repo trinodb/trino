@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.jdbc;
+package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;

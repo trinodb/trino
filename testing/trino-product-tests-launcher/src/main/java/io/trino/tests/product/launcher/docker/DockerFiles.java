@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.docker;
+package io.trino.tests.product.launcher.docker;
 
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;

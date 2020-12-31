@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive.orc;
+package io.trino.plugin.hive.orc;
 
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;

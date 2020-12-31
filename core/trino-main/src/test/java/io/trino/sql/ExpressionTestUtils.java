@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql;
+package io.trino.sql;
 
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;

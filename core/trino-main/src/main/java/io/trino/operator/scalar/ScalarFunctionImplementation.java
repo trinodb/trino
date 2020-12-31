@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar;
+package io.trino.operator.scalar;
 
 import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.spi.function.InvocationConvention;

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.operator.aggregation.groupby;
+package io.trino.operator.aggregation.groupby;
 
 import com.google.common.base.Suppliers;
 import com.google.common.primitives.Ints;

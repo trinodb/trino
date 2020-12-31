@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.password.jndi;
+package io.trino.plugin.password.jndi;
 
 import javax.naming.NamingException;
 import javax.naming.directory.DirContext;

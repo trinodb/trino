@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.execution.warnings;
+package io.trino.execution.warnings;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PrestoWarning;

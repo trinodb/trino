@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.iceberg;
+package io.trino.tests.iceberg;
 
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;

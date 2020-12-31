@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.matching;
+package io.trino.matching;
 
 import io.prestosql.matching.example.rel.FilterNode;
 import io.prestosql.matching.example.rel.JoinNode;

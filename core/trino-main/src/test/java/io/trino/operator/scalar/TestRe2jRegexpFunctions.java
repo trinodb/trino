@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.scalar;
+package io.trino.operator.scalar;
 
 import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
 

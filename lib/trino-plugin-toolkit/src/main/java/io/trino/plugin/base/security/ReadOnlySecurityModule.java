@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.base.security;
+package io.trino.plugin.base.security;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;

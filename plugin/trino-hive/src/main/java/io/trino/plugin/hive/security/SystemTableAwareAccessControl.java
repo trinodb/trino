@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package io.prestosql.plugin.hive.security;
+package io.trino.plugin.hive.security;
 
 import io.prestosql.plugin.base.security.ForwardingConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorAccessControl;

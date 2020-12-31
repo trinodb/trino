@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.localfile;
+package io.trino.plugin.localfile;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;

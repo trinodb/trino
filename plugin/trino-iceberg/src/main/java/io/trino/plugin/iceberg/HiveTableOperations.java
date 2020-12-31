@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.iceberg;
+package io.trino.plugin.iceberg;
 
 import io.airlift.log.Logger;
 import io.prestosql.plugin.hive.HdfsEnvironment;

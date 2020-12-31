@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.operator.annotations;
+package io.trino.operator.annotations;
 
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;

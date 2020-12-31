@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.kafka.encoder.csv;
+package io.trino.plugin.kafka.encoder.csv;
 
 import au.com.bytecode.opencsv.CSVWriter;
 import com.google.common.collect.ImmutableSet;

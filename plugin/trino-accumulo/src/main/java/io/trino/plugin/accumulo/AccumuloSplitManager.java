@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.accumulo;
+package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.accumulo.model.AccumuloColumnConstraint;
