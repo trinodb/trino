@@ -406,7 +406,7 @@ public class VerifyCommand
         if (statement instanceof Insert) {
             return MODIFY;
         }
-        if (statement instanceof io.prestosql.sql.tree.Query) {
+        if (statement instanceof io.trino.sql.tree.Query) {
             return READ;
         }
         if (statement instanceof RenameColumn) {

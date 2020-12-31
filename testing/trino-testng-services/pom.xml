@@ -74,7 +74,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <systemPropertyVariables>
-                        <io.prestosql.testng.services.FlakyTestRetryAnalyzer.enabled>true</io.prestosql.testng.services.FlakyTestRetryAnalyzer.enabled>
+                        <io.trino.testng.services.FlakyTestRetryAnalyzer.enabled>true</io.trino.testng.services.FlakyTestRetryAnalyzer.enabled>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

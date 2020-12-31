@@ -277,7 +277,7 @@ public class MapType
     }
 
     /**
-     * Internal use by this package and io.prestosql.spi.block only.
+     * Internal use by this package and io.trino.spi.block only.
      */
     public MethodHandle getKeyNativeHashCode()
     {
@@ -285,7 +285,7 @@ public class MapType
     }
 
     /**
-     * Internal use by this package and io.prestosql.spi.block only.
+     * Internal use by this package and io.trino.spi.block only.
      */
     public MethodHandle getKeyBlockHashCode()
     {
@@ -293,7 +293,7 @@ public class MapType
     }
 
     /**
-     * Internal use by this package and io.prestosql.spi.block only.
+     * Internal use by this package and io.trino.spi.block only.
      */
     public MethodHandle getKeyBlockNativeEqual()
     {
@@ -301,7 +301,7 @@ public class MapType
     }
 
     /**
-     * Internal use by this package and io.prestosql.spi.block only.
+     * Internal use by this package and io.trino.spi.block only.
      */
     public MethodHandle getKeyBlockEqual()
     {

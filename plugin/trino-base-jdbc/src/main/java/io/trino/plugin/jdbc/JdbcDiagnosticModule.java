@@ -53,7 +53,7 @@ public class JdbcDiagnosticModule
     @StatsCollecting
     public JdbcClient createJdbcClientWithStats(@ForBaseJdbc JdbcClient client, CatalogName catalogName)
     {
-        Logger logger = Logger.get(format("io.prestosql.plugin.jdbc.%s.jdbcclient", catalogName));
+        Logger logger = Logger.get(format("io.trino.plugin.jdbc.%s.jdbcclient", catalogName));
 
         JdbcClient loggingInvocationsJdbcClient = newProxy(JdbcClient.class, new LoggingInvocationHandler(
                 client,

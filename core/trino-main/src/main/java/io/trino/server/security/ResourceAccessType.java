@@ -71,7 +71,7 @@ public class ResourceAccessType
     private static void verifyNotPrestoResource(ResourceInfo resourceInfo)
     {
         Method resourceMethod = resourceInfo.getResourceMethod();
-        if (resourceMethod != null && resourceMethod.getDeclaringClass().getPackageName().startsWith("io.prestosql.")) {
+        if (resourceMethod != null && resourceMethod.getDeclaringClass().getPackageName().startsWith("io.trino.")) {
             throw new IllegalArgumentException("Presto resource is not annotated with @" + ResourceSecurity.class.getSimpleName() + ": " + resourceInfo.getResourceMethod());
         }
     }

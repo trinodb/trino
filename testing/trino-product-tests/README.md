@@ -128,7 +128,7 @@ and each type can be run individually with the following commands:
 trino-product-tests-launcher/bin/run-launcher test run \
             --environment <environment> \
             [--config <environment config>] \
-            -- -t io.prestosql.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
+            -- -t io.trino.tests.functions.operators.Comparison.testLessThanOrEqualOperatorExists
 
 # Run single convention based test
 trino-product-tests-launcher/bin/run-launcher test run \

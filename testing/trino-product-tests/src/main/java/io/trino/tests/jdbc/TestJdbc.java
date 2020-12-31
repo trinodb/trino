@@ -155,7 +155,7 @@ public class TestJdbc
             throws SQLException
     {
         QueryResult result = QueryResult.forResultSet(metaData().getColumns("hive", "default", "nation", null));
-        assertThat(result).matches(sqlResultDescriptorForResource("io/prestosql/tests/jdbc/get_nation_columns.result"));
+        assertThat(result).matches(sqlResultDescriptorForResource("io/trino/tests/jdbc/get_nation_columns.result"));
     }
 
     @Test(groups = JDBC)
@@ -182,7 +182,7 @@ public class TestJdbc
     }
 
     /**
-     * Same as {@code io.prestosql.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for EnterpriseJdbcDriver as well.
+     * Same as {@code io.trino.jdbc.TestJdbcPreparedStatement#testDeallocate()}. This one is run for EnterpriseJdbcDriver as well.
      */
     @Test(groups = JDBC)
     public void testDeallocate()

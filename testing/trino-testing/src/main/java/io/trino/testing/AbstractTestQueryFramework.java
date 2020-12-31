@@ -83,7 +83,7 @@ public abstract class AbstractTestQueryFramework
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
     private final AutoCloseableCloser afterClassCloser = AutoCloseableCloser.create();
-    private io.prestosql.sql.query.QueryAssertions queryAssertions;
+    private io.trino.sql.query.QueryAssertions queryAssertions;
 
     @BeforeClass
     public void init()
@@ -92,7 +92,7 @@ public abstract class AbstractTestQueryFramework
         queryRunner = afterClassCloser.register(createQueryRunner());
         h2QueryRunner = afterClassCloser.register(new H2QueryRunner());
         sqlParser = new SqlParser();
-        queryAssertions = new io.prestosql.sql.query.QueryAssertions(queryRunner);
+        queryAssertions = new io.trino.sql.query.QueryAssertions(queryRunner);
     }
 
     protected abstract QueryRunner createQueryRunner()

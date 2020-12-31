@@ -250,7 +250,7 @@ public interface SystemAccessControl
     /**
      * Check if identity is allowed to execute SHOW CREATE SCHEMA.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowCreateSchema(SystemSecurityContext context, CatalogSchemaName schemaName)
     {
@@ -260,7 +260,7 @@ public interface SystemAccessControl
     /**
      * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowCreateTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
@@ -346,7 +346,7 @@ public interface SystemAccessControl
      * The {@link #filterColumns} method must filter all results for unauthorized users,
      * since there are multiple ways to list columns.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowColumns(SystemSecurityContext context, CatalogSchemaTableName table)
     {

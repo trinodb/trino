@@ -212,8 +212,8 @@ public class KafkaFilterManager
             if (valueSet instanceof SortedRangeSet) {
                 // still return range for single value case like (_partition_offset in (XXX1,XXX2) or _timestamp in XXX1, XXX2)
                 Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
-                List<io.prestosql.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
-                if (rangeList.stream().allMatch(io.prestosql.spi.predicate.Range::isSingleValue)) {
+                List<io.trino.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
+                if (rangeList.stream().allMatch(io.trino.spi.predicate.Range::isSingleValue)) {
                     List<Long> values = rangeList.stream()
                             .map(range -> (Long) range.getSingleValue())
                             .collect(toImmutableList());
@@ -246,8 +246,8 @@ public class KafkaFilterManager
             ValueSet valueSet = domain.getValues();
             if (valueSet instanceof SortedRangeSet) {
                 Ranges ranges = ((SortedRangeSet) valueSet).getRanges();
-                List<io.prestosql.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
-                if (rangeList.stream().allMatch(io.prestosql.spi.predicate.Range::isSingleValue)) {
+                List<io.trino.spi.predicate.Range> rangeList = ranges.getOrderedRanges();
+                if (rangeList.stream().allMatch(io.trino.spi.predicate.Range::isSingleValue)) {
                     return rangeList.stream()
                             .map(range -> (Long) range.getSingleValue())
                             .filter(sourceValues::contains)

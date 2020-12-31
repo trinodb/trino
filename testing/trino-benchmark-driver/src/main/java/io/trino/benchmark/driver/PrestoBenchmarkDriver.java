@@ -164,7 +164,7 @@ public class PrestoBenchmarkDriver
             if (debug) {
                 Logging logging = Logging.initialize();
                 logging.configure(new LoggingConfiguration());
-                logging.setLevel("io.prestosql", Level.DEBUG);
+                logging.setLevel("io.trino", Level.DEBUG);
             }
             else {
                 System.setOut(new PrintStream(nullOutputStream()));

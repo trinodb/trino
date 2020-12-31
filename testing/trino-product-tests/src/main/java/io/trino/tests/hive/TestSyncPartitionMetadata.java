@@ -111,7 +111,7 @@ public class TestSyncPartitionMetadata
         String tableName = "test_sync_partition_mixed_case";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
         String tableLocation = tableLocation(tableName);
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/hive/data/single_int_column/data.orc");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=h/col_Y=11", dataSource);
         hdfsClient.createDirectory(tableLocation + "/COL_X=UPPER/COL_Y=12");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/COL_X=UPPER/COL_Y=12", dataSource);
@@ -127,7 +127,7 @@ public class TestSyncPartitionMetadata
     {
         String tableName = "test_sync_partition_mixed_case";
         prepare(hdfsClient, hdfsDataSourceWriter, tableName);
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/hive/data/single_int_column/data.orc");
         // this conflicts with a partition that already exits in the metastore
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation(tableName) + "/COL_X=a/cOl_y=1", dataSource);
 
@@ -153,7 +153,7 @@ public class TestSyncPartitionMetadata
         hdfsClient.delete(tableLocation + "/col_x=b/col_y=2");
         // add partition directory col_x=f/col_y=9 with single_int_column/data.orc file
         hdfsClient.createDirectory(tableLocation + "/col_x=f/col_y=9");
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.orc");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/hive/data/single_int_column/data.orc");
         hdfsDataSourceWriter.ensureDataOnHdfs(tableLocation + "/col_x=f/col_y=9", dataSource);
         // should only be picked up when not in case sensitive mode
         hdfsClient.createDirectory(tableLocation + "/COL_X=g/col_y=10");

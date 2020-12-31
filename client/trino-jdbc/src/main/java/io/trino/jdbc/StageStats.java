@@ -66,7 +66,7 @@ public final class StageStats
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
     }
 
-    static StageStats create(io.prestosql.client.StageStats stats)
+    static StageStats create(io.trino.client.StageStats stats)
     {
         return new StageStats(
                 stats.getStageId(),

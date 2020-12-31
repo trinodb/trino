@@ -190,11 +190,11 @@ public class QueryRewriter
     private List<Column> getColumns(Connection connection, CreateTableAsSelect createTableAsSelect)
             throws SQLException
     {
-        io.prestosql.sql.tree.Query createSelectClause = createTableAsSelect.getQuery();
+        io.trino.sql.tree.Query createSelectClause = createTableAsSelect.getQuery();
 
         // Rewrite the query to select zero rows, so that we can get the column names and types
         QueryBody innerQuery = createSelectClause.getQueryBody();
-        io.prestosql.sql.tree.Query zeroRowsQuery;
+        io.trino.sql.tree.Query zeroRowsQuery;
         if (innerQuery instanceof QuerySpecification) {
             QuerySpecification querySpecification = (QuerySpecification) innerQuery;
             innerQuery = new QuerySpecification(
@@ -207,10 +207,10 @@ public class QueryRewriter
                     querySpecification.getOffset(),
                     Optional.of(new Limit(new LongLiteral("0"))));
 
-            zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.empty());
+            zeroRowsQuery = new io.trino.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.empty());
         }
         else {
-            zeroRowsQuery = new io.prestosql.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.of(new Limit(new LongLiteral("0"))));
+            zeroRowsQuery = new io.trino.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.of(new Limit(new LongLiteral("0"))));
         }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();

@@ -112,7 +112,7 @@ public class TestJdbcCompatibility
             throw new SkipException("Information about JDBC version under test is missing");
         }
 
-        assertThat(Class.forName("io.prestosql.jdbc.$internal.client.StatementClientFactory").getPackage().getImplementationVersion())
+        assertThat(Class.forName("io.trino.jdbc.$internal.client.StatementClientFactory").getPackage().getImplementationVersion())
                 .isEqualTo(VERSION_UNDER_TEST.get().toString());
     }
 

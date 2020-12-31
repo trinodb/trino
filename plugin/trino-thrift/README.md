@@ -20,4 +20,4 @@ Instead of supporting all of the variations in the connector this task can be mo
 * You cannot or don't want to modify Presto code to add a custom connector to support your storage system.
 
 You can find thrift service interface that needs to be implemented together with related thrift structures in `trino-thrift-api` project.
-Documentation of [`PrestoThriftService`](../trino-thrift-api/src/main/java/io/prestosql/connector/thrift/api/PrestoThriftService.java) is a good starting point.
+Documentation of [`PrestoThriftService`](../trino-thrift-api/src/main/java/io/trino/plugin/thrift/api/PrestoThriftService.java) is a good starting point.

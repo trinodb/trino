@@ -69,7 +69,7 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertDatabase()
     {
-        io.prestosql.plugin.hive.metastore.Database prestoDatabase = GlueToPrestoConverter.convertDatabase(testDatabase);
+        io.trino.plugin.hive.metastore.Database prestoDatabase = GlueToPrestoConverter.convertDatabase(testDatabase);
         assertEquals(prestoDatabase.getDatabaseName(), testDatabase.getName());
         assertEquals(prestoDatabase.getLocation().get(), testDatabase.getLocationUri());
         assertEquals(prestoDatabase.getComment().get(), testDatabase.getDescription());
@@ -81,7 +81,7 @@ public class TestGlueToPrestoConverter
     @Test
     public void testConvertTable()
     {
-        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
+        io.trino.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
         assertEquals(prestoTable.getTableName(), testTable.getName());
         assertEquals(prestoTable.getDatabaseName(), testDatabase.getName());
         assertEquals(prestoTable.getTableType(), testTable.getTableType());
@@ -99,7 +99,7 @@ public class TestGlueToPrestoConverter
     {
         Table table = getGlueTestTable(testDatabase.getName());
         table.setTableType(null);
-        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(table, testDatabase.getName());
+        io.trino.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(table, testDatabase.getName());
         assertEquals(prestoTable.getTableType(), EXTERNAL_TABLE.name());
     }
 
@@ -107,7 +107,7 @@ public class TestGlueToPrestoConverter
     public void testConvertTableNullPartitions()
     {
         testTable.setPartitionKeys(null);
-        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
+        io.trino.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
         assertTrue(prestoTable.getPartitionColumns().isEmpty());
     }
 
@@ -123,7 +123,7 @@ public class TestGlueToPrestoConverter
     public void testConvertPartition()
     {
         GluePartitionConverter converter = createPartitionConverter(testTable);
-        io.prestosql.plugin.hive.metastore.Partition prestoPartition = converter.apply(testPartition);
+        io.trino.plugin.hive.metastore.Partition prestoPartition = converter.apply(testPartition);
         assertEquals(prestoPartition.getDatabaseName(), testPartition.getDatabaseName());
         assertEquals(prestoPartition.getTableName(), testPartition.getTableName());
         assertColumnList(prestoPartition.getColumns(), testPartition.getStorageDescriptor().getColumns());
@@ -148,8 +148,8 @@ public class TestGlueToPrestoConverter
         partitionTwo.getStorageDescriptor().setParameters(new HashMap<>(testPartition.getStorageDescriptor().getParameters()));
 
         GluePartitionConverter converter = createPartitionConverter(testTable);
-        io.prestosql.plugin.hive.metastore.Partition prestoPartition = converter.apply(testPartition);
-        io.prestosql.plugin.hive.metastore.Partition prestoPartition2 = converter.apply(partitionTwo);
+        io.trino.plugin.hive.metastore.Partition prestoPartition = converter.apply(testPartition);
+        io.trino.plugin.hive.metastore.Partition prestoPartition2 = converter.apply(partitionTwo);
 
         assertNotSame(prestoPartition, prestoPartition2);
         assertSame(prestoPartition2.getDatabaseName(), prestoPartition.getDatabaseName());
@@ -179,7 +179,7 @@ public class TestGlueToPrestoConverter
     {
         testTable.setParameters(null);
         testTable.getStorageDescriptor().getSerdeInfo().setParameters(null);
-        io.prestosql.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
+        io.trino.plugin.hive.metastore.Table prestoTable = GlueToPrestoConverter.convertTable(testTable, testDatabase.getName());
         assertNotNull(prestoTable.getParameters());
         assertNotNull(prestoTable.getStorage().getSerdeParameters());
     }

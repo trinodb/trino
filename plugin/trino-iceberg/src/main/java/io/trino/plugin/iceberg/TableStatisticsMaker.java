@@ -228,7 +228,7 @@ public class TableStatisticsMaker
         return true;
     }
 
-    private NullableValue makeNullableValue(io.prestosql.spi.type.Type type, Object value)
+    private NullableValue makeNullableValue(io.trino.spi.type.Type type, Object value)
     {
         return value == null ? NullableValue.asNull(type) : NullableValue.of(type, value);
     }
@@ -249,10 +249,10 @@ public class TableStatisticsMaker
         private final PartitionField field;
         private final IcebergColumnHandle columnHandle;
         private final Type icebergType;
-        private final io.prestosql.spi.type.Type prestoType;
+        private final io.trino.spi.type.Type prestoType;
         private final Class<?> javaClass;
 
-        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, io.prestosql.spi.type.Type prestoType, Class<?> javaClass)
+        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, io.trino.spi.type.Type prestoType, Class<?> javaClass)
         {
             this.field = requireNonNull(field, "field is null");
             this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
@@ -276,7 +276,7 @@ public class TableStatisticsMaker
             return icebergType;
         }
 
-        public io.prestosql.spi.type.Type getPrestoType()
+        public io.trino.spi.type.Type getPrestoType()
         {
             return prestoType;
         }

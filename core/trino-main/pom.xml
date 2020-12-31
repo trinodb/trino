@@ -463,7 +463,7 @@
                 <artifactId>modernizer-maven-plugin</artifactId>
                 <configuration>
                     <ignorePackages>
-                        <ignorePackage>io.prestosql.testing.assertions</ignorePackage>
+                        <ignorePackage>io.trino.testing.assertions</ignorePackage>
                     </ignorePackages>
                 </configuration>
             </plugin>
@@ -493,7 +493,7 @@
                                 <argument>-Dmyproperty=myvalue</argument>
                                 <argument>-classpath</argument>
                                 <classpath />
-                                <argument>io.prestosql.benchmark.BenchmarkSuite</argument>
+                                <argument>io.trino.benchmark.BenchmarkSuite</argument>
                             </arguments>
                             <classpathScope>test</classpathScope>
                         </configuration>

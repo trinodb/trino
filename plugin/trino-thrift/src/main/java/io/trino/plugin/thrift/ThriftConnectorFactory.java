@@ -60,7 +60,7 @@ public class ThriftConnectorFactory
         Bootstrap app = new Bootstrap(
                 new MBeanModule(),
                 new MBeanServerModule(),
-                new ConnectorObjectNameGeneratorModule(catalogName, "io.prestosql.plugin.thrift", "presto.plugin.thrift"),
+                new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.thrift", "presto.plugin.thrift"),
                 new DriftNettyClientModule(),
                 binder -> {
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());

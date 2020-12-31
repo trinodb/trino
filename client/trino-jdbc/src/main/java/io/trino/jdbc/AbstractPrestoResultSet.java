@@ -166,8 +166,8 @@ abstract class AbstractPrestoResultSet
                     .add("interval day to second", String.class, PrestoIntervalDayTime.class, AbstractPrestoResultSet::parseIntervalDayTime)
                     .add("array", List.class, List.class, (type, list) -> (List<?>) convertFromClientRepresentation(type, list))
                     .add("map", Map.class, Map.class, (type, map) -> (Map<?, ?>) convertFromClientRepresentation(type, map))
-                    .add("row", io.prestosql.client.Row.class, Row.class, (type, clientRow) -> (Row) convertFromClientRepresentation(type, clientRow))
-                    .add("row", io.prestosql.client.Row.class, Map.class, (type, clientRow) -> {
+                    .add("row", io.trino.client.Row.class, Row.class, (type, clientRow) -> (Row) convertFromClientRepresentation(type, clientRow))
+                    .add("row", io.trino.client.Row.class, Map.class, (type, clientRow) -> {
                         Row row = (Row) convertFromClientRepresentation(type, clientRow);
                         Map<String, Object> result = new HashMap<>();
                         for (RowField field : row.getFields()) {
@@ -658,13 +658,13 @@ abstract class AbstractPrestoResultSet
             }
 
             case "row": {
-                io.prestosql.client.Row row = (io.prestosql.client.Row) value;
-                List<io.prestosql.client.RowField> fields = row.getFields();
+                io.trino.client.Row row = (io.trino.client.Row) value;
+                List<io.trino.client.RowField> fields = row.getFields();
                 List<ClientTypeSignatureParameter> typeArguments = columnType.getArguments();
                 Row.Builder builder = Row.builder();
                 verify(fields.size() == typeArguments.size(), "Type mismatch: %s, %s", row, columnType);
                 for (int i = 0; i < fields.size(); i++) {
-                    io.prestosql.client.RowField field = fields.get(i);
+                    io.trino.client.RowField field = fields.get(i);
                     ClientTypeSignatureParameter clientTypeSignatureParameter = typeArguments.get(i);
                     verify(clientTypeSignatureParameter.getKind() == ClientTypeSignatureParameter.ParameterKind.NAMED_TYPE, "Not a NAMED_TYPE: %s", clientTypeSignatureParameter);
                     verify(field.getName().equals(clientTypeSignatureParameter.getNamedTypeSignature().getName()), "Name mismatch: %s, %s", field, clientTypeSignatureParameter);

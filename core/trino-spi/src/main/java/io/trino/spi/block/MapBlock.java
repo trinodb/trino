@@ -74,7 +74,7 @@ public class MapBlock
     /**
      * Create a map block directly without per element validations.
      * <p>
-     * Internal use by this package and io.prestosql.spi.Type only.
+     * Internal use by this package and io.trino.spi.Type only.
      */
     public static MapBlock createMapBlockInternal(
             MapType mapType,

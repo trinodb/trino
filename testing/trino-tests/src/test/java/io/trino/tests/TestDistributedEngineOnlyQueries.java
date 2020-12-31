@@ -37,7 +37,7 @@ public class TestDistributedEngineOnlyQueries
     }
 
     /**
-     * Ensure the tests are run with {@link io.prestosql.testing.DistributedQueryRunner}. E.g. {@link io.prestosql.testing.LocalQueryRunner} takes some
+     * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner}. E.g. {@link io.trino.testing.LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
      */
     @Test

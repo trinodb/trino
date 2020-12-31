@@ -37,7 +37,7 @@ public final class PrestoTimestampEncoderFactory
         return new LongTimestampEncoder(type, timeZone);
     }
 
-    // copied from io.prestosql.type.DateTimes
+    // copied from io.trino.type.DateTimes
     static LongTimestamp longTimestamp(long epochSecond, long fractionInPicos)
     {
         return new LongTimestamp(

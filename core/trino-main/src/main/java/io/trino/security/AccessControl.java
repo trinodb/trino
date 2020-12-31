@@ -189,7 +189,7 @@ public interface AccessControl
 
     /**
      * Check if identity is allowed to comment the specified column.
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     void checkCanSetColumnComment(SecurityContext context, QualifiedObjectName tableName);
 

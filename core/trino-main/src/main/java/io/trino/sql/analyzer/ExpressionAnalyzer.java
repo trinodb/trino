@@ -1606,7 +1606,7 @@ public class ExpressionAnalyzer
             for (int i = 0; i < lambdaArguments.size(); i++) {
                 LambdaArgumentDeclaration lambdaArgument = lambdaArguments.get(i);
                 Type type = types.get(i);
-                fields.add(io.prestosql.sql.analyzer.Field.newUnqualified(lambdaArgument.getName().getValue(), type));
+                fields.add(io.trino.sql.analyzer.Field.newUnqualified(lambdaArgument.getName().getValue(), type));
                 setExpressionType(lambdaArgument, type);
             }
 

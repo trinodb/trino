@@ -1,1 +1,1 @@
-io.prestosql.jdbc.PrestoDriver
+io.trino.jdbc.PrestoDriver

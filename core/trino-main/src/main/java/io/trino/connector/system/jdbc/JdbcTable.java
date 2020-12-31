@@ -31,7 +31,7 @@ public abstract class JdbcTable
     }
 
     /**
-     * @param constraint a {@link Constraint} using {@link io.prestosql.connector.system.SystemColumnHandle} to identify columns
+     * @param constraint a {@link Constraint} using {@link io.trino.connector.system.SystemColumnHandle} to identify columns
      */
     /*
      * This method is not part of the SystemTable interface, because system tables do not operate on column handles,

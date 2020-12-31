@@ -273,7 +273,7 @@ public class TestHivePartitionProcedures
     private void createDanglingLocationWithData(String path, String tableName)
     {
         hdfsClient.createDirectory(path);
-        HiveDataSource dataSource = createResourceDataSource(tableName, "io/prestosql/tests/hive/data/single_int_column/data.textfile");
+        HiveDataSource dataSource = createResourceDataSource(tableName, "io/trino/tests/hive/data/single_int_column/data.textfile");
         hdfsDataSourceWriter.ensureDataOnHdfs(path, dataSource);
     }
 

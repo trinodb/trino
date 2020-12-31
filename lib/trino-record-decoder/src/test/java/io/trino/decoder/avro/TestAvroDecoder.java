@@ -136,7 +136,7 @@ public class TestAvroDecoder
     private static FieldAssembler<Schema> getFieldBuilder()
     {
         return SchemaBuilder.record("test_schema")
-                .namespace("io.prestosql.decoder.avro")
+                .namespace("io.trino.decoder.avro")
                 .fields();
     }
 
@@ -485,7 +485,7 @@ public class TestAvroDecoder
     {
         String schema = "{\"type\" : \"record\", " +
                 "  \"name\" : \"nested_schema\"," +
-                "  \"namespace\" : \"io.prestosql.decoder.avro\"," +
+                "  \"namespace\" : \"io.trino.decoder.avro\"," +
                 "  \"fields\" :" +
                 "  [{" +
                 "            \"name\":\"nested\"," +

@@ -19,7 +19,7 @@ import io.trino.testing.QueryRunner;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 
 /**
- * Test {@link io.prestosql.sql.query.QueryAssertions} with {@link io.prestosql.testing.DistributedQueryRunner}
+ * Test {@link io.trino.sql.query.QueryAssertions} with {@link io.trino.testing.DistributedQueryRunner}
  */
 public class TestDistributedQueryAssertions
         extends AbstractQueryAssertionsTest

@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Test {@link io.prestosql.sql.query.QueryAssertions}.
+ * Test {@link io.trino.sql.query.QueryAssertions}.
  */
 public abstract class AbstractQueryAssertionsTest
         extends AbstractTestQueryFramework

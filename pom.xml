@@ -1677,6 +1677,11 @@
                 <artifactId>presto-maven-plugin</artifactId>
                 <version>9</version>
                 <extensions>true</extensions>
+                <configuration>
+                    <pluginClassName>io.trino.spi.Plugin</pluginClassName>
+                    <spiGroupId>io.trino</spiGroupId>
+                    <spiArtifactId>trino-spi</spiArtifactId>
+                </configuration>
             </plugin>
 
             <plugin>
@@ -1731,7 +1736,7 @@
 
                 java \
                   -cp ./plugin/trino-geospatial/target/trino-geospatial-*-tests-with-dependencies.jar \
-                  io.prestosql.plugin.geospatial.BenchmarkSTIntersects
+                  io.trino.plugin.geospatial.BenchmarkSTIntersects
             -->
             <build>
                 <plugins>

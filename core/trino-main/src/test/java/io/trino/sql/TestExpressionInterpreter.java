@@ -1512,7 +1512,7 @@ public class TestExpressionInterpreter
         });
     }
 
-    // TODO replace that method with io.prestosql.sql.ExpressionTestUtils.planExpression
+    // TODO replace that method with io.trino.sql.ExpressionTestUtils.planExpression
     private static Expression planExpression(@Language("SQL") String expression)
     {
         return TransactionBuilder.transaction(new TestingTransactionManager(), new AllowAllAccessControl())

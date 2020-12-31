@@ -69,7 +69,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to create the specified schema in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
@@ -79,7 +79,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to drop the specified schema in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDropSchema(ConnectorSecurityContext context, String schemaName)
     {
@@ -89,7 +89,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to rename the specified schema in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRenameSchema(ConnectorSecurityContext context, String schemaName, String newSchemaName)
     {
@@ -99,7 +99,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to change the specified schema's user/role.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSetSchemaAuthorization(ConnectorSecurityContext context, String schemaName, PrestoPrincipal principal)
     {
@@ -113,7 +113,7 @@ public interface ConnectorAccessControl
      * The {@link #filterSchemas} method must handle filter all results for unauthorized users,
      * since there are multiple way to list schemas.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowSchemas(ConnectorSecurityContext context)
     {
@@ -131,7 +131,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to execute SHOW CREATE SCHEMA.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowCreateSchema(ConnectorSecurityContext context, String schemaName)
     {
@@ -141,7 +141,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -151,7 +151,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to create the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -161,7 +161,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to drop the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDropTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -171,7 +171,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to rename the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRenameTable(ConnectorSecurityContext context, SchemaTableName tableName, SchemaTableName newTableName)
     {
@@ -181,7 +181,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to comment the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSetTableComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -191,7 +191,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to comment the column in the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSetColumnComment(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -205,7 +205,7 @@ public interface ConnectorAccessControl
      * The {@link #filterTables} method must filter all results for unauthorized users,
      * since there are multiple ways to list tables.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowTables(ConnectorSecurityContext context, String schemaName)
     {
@@ -227,7 +227,7 @@ public interface ConnectorAccessControl
      * The {@link #filterColumns} method must filter all results for unauthorized users,
      * since there are multiple ways to list columns.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowColumns(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -245,7 +245,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to add columns to the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanAddColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -255,7 +255,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to drop columns from the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDropColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -265,7 +265,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to change the specified table's user/role.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSetTableAuthorization(ConnectorSecurityContext context, SchemaTableName tableName, PrestoPrincipal principal)
     {
@@ -275,7 +275,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to rename a column in the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRenameColumn(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -285,7 +285,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
@@ -295,7 +295,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to insert into the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanInsertIntoTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -305,7 +305,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to delete from the specified table in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDeleteFromTable(ConnectorSecurityContext context, SchemaTableName tableName)
     {
@@ -315,7 +315,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to create the specified view in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
@@ -325,7 +325,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to rename the specified view in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRenameView(ConnectorSecurityContext context, SchemaTableName viewName, SchemaTableName newViewName)
     {
@@ -335,7 +335,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to change the specified view's user/role.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSetViewAuthorization(ConnectorSecurityContext context, SchemaTableName viewName, PrestoPrincipal principal)
     {
@@ -345,7 +345,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to drop the specified view in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanDropView(ConnectorSecurityContext context, SchemaTableName viewName)
     {
@@ -355,7 +355,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to create a view that selects from the specified columns in a relation.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
@@ -365,7 +365,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to set the specified property in this catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
@@ -375,7 +375,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to grant to any other user the specified privilege on the specified schema.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal grantee, boolean grantOption)
     {
@@ -390,7 +390,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to grant to any other user the specified privilege on the specified table.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
@@ -400,7 +400,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to revoke the specified privilege on the specified table from any user.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
     {
@@ -435,7 +435,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to show role authorization descriptors (i.e. RoleGrants).
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowRoleAuthorizationDescriptors(ConnectorSecurityContext context, String catalogName)
     {
@@ -445,7 +445,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to show roles on the specified catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowRoles(ConnectorSecurityContext context, String catalogName)
     {
@@ -455,7 +455,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to show current roles on the specified catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowCurrentRoles(ConnectorSecurityContext context, String catalogName)
     {
@@ -465,7 +465,7 @@ public interface ConnectorAccessControl
     /**
      * Check if identity is allowed to show its own role grants on the specified catalog.
      *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @throws io.trino.spi.security.AccessDeniedException if not allowed
      */
     default void checkCanShowRoleGrants(ConnectorSecurityContext context, String catalogName)
     {

@@ -36,8 +36,8 @@ import static java.util.Objects.requireNonNullElse;
 public final class EnvironmentModule
         implements Module
 {
-    public static final String BASE_PACKAGE = "io.prestosql.tests.product.launcher.env.environment";
-    public static final String BASE_CONFIG_PACKAGE = "io.prestosql.tests.product.launcher.env.configs";
+    public static final String BASE_PACKAGE = "io.trino.tests.product.launcher.env.environment";
+    public static final String BASE_CONFIG_PACKAGE = "io.trino.tests.product.launcher.env.configs";
     private final EnvironmentOptions environmentOptions;
     private final Module additionalEnvironments;
 

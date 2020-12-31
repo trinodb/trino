@@ -23,9 +23,9 @@ import static java.util.Objects.requireNonNull;
 // A public facade for RowField from presto-client
 public final class RowField
 {
-    private final io.prestosql.client.RowField rowField;
+    private final io.trino.client.RowField rowField;
 
-    RowField(io.prestosql.client.RowField rowField)
+    RowField(io.trino.client.RowField rowField)
     {
         this.rowField = requireNonNull(rowField, "rowField is null");
     }

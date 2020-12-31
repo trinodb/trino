@@ -25,9 +25,9 @@ import static java.util.Objects.requireNonNull;
 // A public facade for Row from trino-client
 public final class Row
 {
-    private final io.prestosql.client.Row row;
+    private final io.trino.client.Row row;
 
-    Row(io.prestosql.client.Row row)
+    Row(io.trino.client.Row row)
     {
         this.row = requireNonNull(row, "row is null");
     }
@@ -72,7 +72,7 @@ public final class Row
     // A public facade for Row.Builder from trino-client
     public static final class Builder
     {
-        private final io.prestosql.client.Row.Builder builder = io.prestosql.client.Row.builder();
+        private final io.trino.client.Row.Builder builder = io.trino.client.Row.builder();
 
         private Builder() {}
 

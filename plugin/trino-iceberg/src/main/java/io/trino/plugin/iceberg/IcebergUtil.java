@@ -54,7 +54,7 @@ final class IcebergUtil
 
     private IcebergUtil() {}
 
-    public static boolean isIcebergTable(io.prestosql.plugin.hive.metastore.Table table)
+    public static boolean isIcebergTable(io.trino.plugin.hive.metastore.Table table)
     {
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }

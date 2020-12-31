@@ -133,7 +133,7 @@ public class HandTpchQuery1
     }
 
     public static class TpchQuery1Operator
-            implements io.prestosql.operator.Operator // TODO: use import when Java 7 compiler bug is fixed
+            implements io.trino.operator.Operator // TODO: use import when Java 7 compiler bug is fixed
     {
         private static final ImmutableList<Type> TYPES = ImmutableList.of(
                 VARCHAR,

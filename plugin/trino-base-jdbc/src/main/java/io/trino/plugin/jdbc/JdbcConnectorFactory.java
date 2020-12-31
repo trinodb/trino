@@ -43,7 +43,7 @@ public class JdbcConnectorFactory
 
     /**
      * @deprecated Prefer {@link JdbcConnectorFactory#JdbcConnectorFactory(String, Module)} instead.
-     * Notice that {@link io.prestosql.plugin.base.CatalogName} is available in guice context.
+     * Notice that {@link io.trino.plugin.base.CatalogName} is available in guice context.
      */
     @Deprecated
     public JdbcConnectorFactory(String name, JdbcModuleProvider moduleProvider)
@@ -88,7 +88,7 @@ public class JdbcConnectorFactory
 
     /**
      * @deprecated Prefer {@link JdbcConnectorFactory#JdbcConnectorFactory(String, Module)} instead.
-     * Notice that {@link io.prestosql.plugin.base.CatalogName} is available in guice context.
+     * Notice that {@link io.trino.plugin.base.CatalogName} is available in guice context.
      */
     @Deprecated
     public interface JdbcModuleProvider

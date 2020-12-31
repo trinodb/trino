@@ -31,7 +31,7 @@ public class DesugarCurrentUser
 
     private static ExpressionRewriter createRewrite(Metadata metadata)
     {
-        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<>()
+        return (expression, context) -> ExpressionTreeRewriter.rewriteWith(new io.trino.sql.tree.ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteCurrentUser(CurrentUser node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

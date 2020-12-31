@@ -78,7 +78,7 @@ public final class ProtoUtils
                 .setDatabaseName(db.getDbName())
                 .setLocation(db.hasLocation() ? Optional.of(db.getLocation()) : Optional.empty())
                 .setOwnerName(db.getOwnerName())
-                .setOwnerType(db.getOwnerType() == PrincipalType.USER ? io.prestosql.spi.security.PrincipalType.USER : io.prestosql.spi.security.PrincipalType.ROLE)
+                .setOwnerType(db.getOwnerType() == PrincipalType.USER ? io.trino.spi.security.PrincipalType.USER : io.trino.spi.security.PrincipalType.ROLE)
                 .setComment(db.hasComment() ? Optional.of(db.getComment()) : Optional.empty())
                 .setParameters(db.getParameterMap())
                 .build();

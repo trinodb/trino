@@ -357,7 +357,7 @@ public final class QueryAssertions
             return true;
         }
 
-        if (exception.getClass().getName().equals("io.prestosql.client.FailureInfo$FailureException")) {
+        if (exception.getClass().getName().equals("io.trino.client.FailureInfo$FailureException")) {
             try {
                 String originalClassName = exception.toString().split(":", 2)[0];
                 Class<? extends Throwable> originalClass = Class.forName(originalClassName).asSubclass(Throwable.class);

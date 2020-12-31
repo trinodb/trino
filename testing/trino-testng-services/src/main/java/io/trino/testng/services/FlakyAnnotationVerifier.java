@@ -64,7 +64,7 @@ public class FlakyAnnotationVerifier
             return;
         }
 
-        if (realClass.getName().startsWith("io.prestosql.testng.services.TestFlakyAnnotationVerifier")) {
+        if (realClass.getName().startsWith("io.trino.testng.services.TestFlakyAnnotationVerifier")) {
             // ignore test of FlakyAnnotationVerifier and internal classes
             return;
         }

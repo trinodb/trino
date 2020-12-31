@@ -21,7 +21,7 @@ docker run -p 8080:8080 --name presto prestosql/presto
 
 Wait for the following message log line:
 ```
-INFO	main	io.prestosql.server.Server	======== SERVER STARTED ========
+INFO	main	io.trino.server.Server	======== SERVER STARTED ========
 ```
 
 The Presto server is now running on `localhost:8080` (the default port).

@@ -15,7 +15,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
-        <shadeBase>io.prestosql.jdbc.\$internal</shadeBase>
+        <shadeBase>io.trino.jdbc.\$internal</shadeBase>
     </properties>
 
     <dependencies>
@@ -234,7 +234,7 @@
                             <dependencyReducedPomLocation>${project.build.directory}/pom.xml</dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
-                                    <pattern>io.prestosql.client</pattern>
+                                    <pattern>io.trino.client</pattern>
                                     <shadedPattern>${shadeBase}.client</shadedPattern>
                                 </relocation>
                                 <relocation>

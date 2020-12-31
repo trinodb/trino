@@ -237,9 +237,9 @@ public class PinotSegmentPageSource
     }
 
     /**
-     * Generates the {@link io.prestosql.spi.block.Block} for the specific column from the {@link #currentDataTable}.
+     * Generates the {@link io.trino.spi.block.Block} for the specific column from the {@link #currentDataTable}.
      *
-     * <p>Based on the original Pinot column types, write as Presto-supported values to {@link io.prestosql.spi.block.BlockBuilder}, e.g.
+     * <p>Based on the original Pinot column types, write as Presto-supported values to {@link io.trino.spi.block.BlockBuilder}, e.g.
      * FLOAT -> Double, INT -> Long, String -> Slice.
      *
      * @param blockBuilder blockBuilder for the current column

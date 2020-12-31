@@ -29,7 +29,7 @@
          starts up separate Presto server docker container -->
     <test name="all" group-by-instances="true">
         <packages>
-            <package name="io.prestosql"/>
+            <package name="io.trino"/>
         </packages>
     </test>
 </suite>

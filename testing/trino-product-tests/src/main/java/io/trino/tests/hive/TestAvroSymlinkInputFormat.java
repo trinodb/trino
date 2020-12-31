@@ -54,7 +54,7 @@ public class TestAvroSymlinkInputFormat
                 "CREATE TABLE " + table +
                 " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                 "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
-                "\"namespace\": \"io.prestosql.tests.hive\"," +
+                "\"namespace\": \"io.trino.tests.hive\"," +
                 "\"name\": \"test_avro_symlink\"," +
                 "\"type\": \"record\"," +
                 "\"fields\": [" +
@@ -88,7 +88,7 @@ public class TestAvroSymlinkInputFormat
                 "CREATE TABLE " + table +
                 " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                 "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
-                "\"namespace\": \"io.prestosql.tests.hive\"," +
+                "\"namespace\": \"io.trino.tests.hive\"," +
                 "\"name\": \"test_avro_symlink\"," +
                 "\"type\": \"record\"," +
                 "\"fields\": [" +
@@ -125,7 +125,7 @@ public class TestAvroSymlinkInputFormat
                 "CREATE TABLE " + table +
                 " ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                 "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
-                "\"namespace\": \"io.prestosql.tests.hive\"," +
+                "\"namespace\": \"io.trino.tests.hive\"," +
                 "\"name\": \"test_avro_symlink\"," +
                 "\"type\": \"record\"," +
                 "\"fields\": [" +
