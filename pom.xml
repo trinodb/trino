@@ -1610,7 +1610,7 @@
                     <artifactId>modernizer-maven-plugin</artifactId>
                     <configuration>
                         <violationsFiles>
-                            <violationsFile>${air.main.basedir}/src/modernizer/violations.xml</violationsFile>
+                            <violationsFile>${air.main.basedir}/.mvn/modernizer/violations.xml</violationsFile>
                         </violationsFiles>
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
@@ -1735,7 +1735,7 @@
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>
                         <configuration>
-                            <descriptor>${air.main.basedir}/src/assembly/tests-with-dependencies.xml</descriptor>
+                            <descriptor>${air.main.basedir}/.mvn/assembly/tests-with-dependencies.xml</descriptor>
                         </configuration>
                         <executions>
                             <execution>
