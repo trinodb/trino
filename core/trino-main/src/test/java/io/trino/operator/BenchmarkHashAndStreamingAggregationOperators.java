@@ -79,7 +79,7 @@ import static org.testng.Assert.assertEquals;
 @OutputTimeUnit(MILLISECONDS)
 @BenchmarkMode(AverageTime)
 @Fork(3)
-@Warmup(iterations = 5)
+@Warmup(iterations = 10)
 @Measurement(iterations = 10, time = 2, timeUnit = SECONDS)
 public class BenchmarkHashAndStreamingAggregationOperators
 {
