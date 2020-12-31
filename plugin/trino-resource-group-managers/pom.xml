@@ -11,7 +11,7 @@
 
     <artifactId>trino-resource-group-managers</artifactId>
     <description>Presto - Resource Group Configuration Managers</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

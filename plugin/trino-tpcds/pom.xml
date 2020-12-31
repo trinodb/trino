@@ -10,7 +10,7 @@
 
     <artifactId>trino-tpcds</artifactId>
     <description>Presto - TPC-DS Connector</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

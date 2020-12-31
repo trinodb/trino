@@ -1673,15 +1673,10 @@
 
         <plugins>
             <plugin>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-maven-plugin</artifactId>
-                <version>9</version>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-maven-plugin</artifactId>
+                <version>10</version>
                 <extensions>true</extensions>
-                <configuration>
-                    <pluginClassName>io.trino.spi.Plugin</pluginClassName>
-                    <spiGroupId>io.trino</spiGroupId>
-                    <spiArtifactId>trino-spi</spiArtifactId>
-                </configuration>
             </plugin>
 
             <plugin>

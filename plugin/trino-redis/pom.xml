@@ -11,7 +11,7 @@
 
     <artifactId>trino-redis</artifactId>
     <description>Presto - Redis Connector</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

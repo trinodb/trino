@@ -10,7 +10,7 @@
 
     <artifactId>trino-jmx</artifactId>
     <description>Presto - JMX Connector</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

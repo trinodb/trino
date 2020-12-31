@@ -11,7 +11,7 @@
 
     <artifactId>trino-password-authenticators</artifactId>
     <description>Presto - Password Authenticators</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

@@ -10,7 +10,7 @@
 
     <artifactId>trino-cassandra</artifactId>
     <description>Presto - Cassandra Connector</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
