@@ -609,7 +609,7 @@ public class MongoSession
                         .collect(Collectors.toList()));
             }
             else {
-                // TODO: presto cli doesn't handle empty field name row type yet
+                // TODO: client doesn't handle empty field name row type yet
                 typeSignature = new TypeSignature(StandardTypes.ROW,
                         IntStream.range(0, subTypes.size())
                                 .mapToObj(idx -> TypeSignatureParameter.namedTypeParameter(

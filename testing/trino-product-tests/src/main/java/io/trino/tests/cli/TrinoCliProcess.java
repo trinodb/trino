@@ -22,12 +22,12 @@ import java.util.regex.Pattern;
 import static com.google.common.base.CharMatcher.whitespace;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public final class PrestoCliProcess
+public final class TrinoCliProcess
         extends LocalCliProcess
 {
-    private static final Pattern PRESTO_PROMPT_PATTERN = Pattern.compile("presto(:[a-z0-9_]+)?>");
+    private static final Pattern TRINO_PROMPT_PATTERN = Pattern.compile("trino(:[a-z0-9_]+)?>");
 
-    public PrestoCliProcess(Process process)
+    public TrinoCliProcess(Process process)
     {
         super(process);
     }
@@ -35,7 +35,7 @@ public final class PrestoCliProcess
     public List<String> readLinesUntilPrompt()
     {
         List<String> lines = new ArrayList<>();
-        while (!hasNextOutput(PRESTO_PROMPT_PATTERN)) {
+        while (!hasNextOutput(TRINO_PROMPT_PATTERN)) {
             lines.add(whitespace().trimFrom(nextOutputLine()));
         }
         waitForPrompt();
@@ -44,6 +44,6 @@ public final class PrestoCliProcess
 
     public void waitForPrompt()
     {
-        assertThat(nextOutputToken()).matches(PRESTO_PROMPT_PATTERN);
+        assertThat(nextOutputToken()).matches(TRINO_PROMPT_PATTERN);
     }
 }

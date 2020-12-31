@@ -86,7 +86,7 @@ public class BasicAuthCredentials
             throws AuthenticationException
     {
         // The original basic auth RFC 2617 did not specify a character set.
-        // Many clients, including the Presto CLI and JDBC driver, use ISO-8859-1.
+        // Many clients, including the Trino CLI and JDBC driver, use ISO-8859-1.
         // RFC 7617 allows the server to specify UTF-8 as the character set during
         // the challenge, but this doesn't help as most clients pre-authenticate.
         try {

@@ -44,8 +44,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 
-public class TestPrestoCli
-        extends PrestoCliLauncher
+public class TestTrinoCli
+        extends TrinoCliLauncher
         implements RequirementsProvider
 {
     @Inject(optional = true)
@@ -84,7 +84,7 @@ public class TestPrestoCli
     @Named("databases.presto.jdbc_user")
     private String jdbcUser;
 
-    public TestPrestoCli()
+    public TestTrinoCli()
             throws IOException
     {}
 
@@ -106,14 +106,14 @@ public class TestPrestoCli
     public void shouldDisplayVersion()
             throws IOException
     {
-        launchPrestoCli("--version");
-        assertThat(presto.readRemainingOutputLines()).containsExactly("Presto CLI " + readPrestoCliVersion());
+        launchTrinoCli("--version");
+        assertThat(trino.readRemainingOutputLines()).containsExactly("Trino CLI " + readPrestoCliVersion());
     }
 
     private static String readPrestoCliVersion()
     {
         try {
-            String version = Resources.toString(Resources.getResource("presto-cli-version.txt"), UTF_8).trim();
+            String version = Resources.toString(Resources.getResource("trino-cli-version.txt"), UTF_8).trim();
             checkState(!version.isEmpty(), "version is empty");
             return version;
         }
@@ -126,18 +126,18 @@ public class TestPrestoCli
     public void shouldRunQuery()
             throws IOException
     {
-        launchPrestoCliWithServerArgument();
-        presto.waitForPrompt();
-        presto.getProcessInput().println("select * from hive.default.nation;");
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
+        trino.getProcessInput().println("select * from hive.default.nation;");
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldRunBatchQuery()
             throws Exception
     {
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
-        presto.waitForWithTimeoutAndKill();
+        launchTrinoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        trino.waitForWithTimeoutAndKill();
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
@@ -147,9 +147,9 @@ public class TestPrestoCli
         try (TempFile file = new TempFile()) {
             Files.write("select * from hive.default.nation;", file.file(), UTF_8);
 
-            launchPrestoCliWithRedirectedStdin(file.file());
-            assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
-            presto.waitForWithTimeoutAndKill();
+            launchTrinoCliWithRedirectedStdin(file.file());
+            assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+            trino.waitForWithTimeoutAndKill();
         }
     }
 
@@ -160,7 +160,7 @@ public class TestPrestoCli
         try (TempFile file = new TempFile()) {
             Files.write("select * from hive.default.nation;select 1;select 2", file.file(), UTF_8);
 
-            launchPrestoCliWithRedirectedStdin(file.file());
+            launchTrinoCliWithRedirectedStdin(file.file());
 
             List<String> expectedLines = ImmutableList.<String>builder()
                     .addAll(nationTableBatchLines)
@@ -168,8 +168,8 @@ public class TestPrestoCli
                     .add("\"2\"")
                     .build();
 
-            assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(expectedLines);
-            presto.waitForWithTimeoutAndKill();
+            assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(expectedLines);
+            trino.waitForWithTimeoutAndKill();
         }
     }
 
@@ -177,18 +177,18 @@ public class TestPrestoCli
     public void shouldExecuteEmptyListOfStatements()
             throws Exception
     {
-        launchPrestoCliWithServerArgument("--execute", "");
-        assertTrue(trimLines(presto.readRemainingOutputLines()).isEmpty());
-        presto.waitForWithTimeoutAndKill();
+        launchTrinoCliWithServerArgument("--execute", "");
+        assertTrue(trimLines(trino.readRemainingOutputLines()).isEmpty());
+        trino.waitForWithTimeoutAndKill();
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldUseCatalogAndSchemaOptions()
             throws Exception
     {
-        launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
-        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
-        presto.waitForWithTimeoutAndKill();
+        launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
+        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        trino.waitForWithTimeoutAndKill();
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
@@ -198,10 +198,10 @@ public class TestPrestoCli
         try (TempFile file = new TempFile()) {
             Files.write("select * from hive.default.nation;\n", file.file(), UTF_8);
 
-            launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath());
-            assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+            launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath());
+            assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
 
-            presto.waitForWithTimeoutAndKill();
+            trino.waitForWithTimeoutAndKill();
         }
     }
 
@@ -210,10 +210,10 @@ public class TestPrestoCli
             throws IOException
     {
         String sql = "select * from hive.default.nations; select * from hive.default.nation;";
-        launchPrestoCliWithServerArgument("--execute", sql);
-        assertThat(trimLines(presto.readRemainingOutputLines())).isEmpty();
+        launchTrinoCliWithServerArgument("--execute", sql);
+        assertThat(trimLines(trino.readRemainingOutputLines())).isEmpty();
 
-        assertThatThrownBy(() -> presto.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
+        assertThatThrownBy(() -> trino.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
@@ -223,10 +223,10 @@ public class TestPrestoCli
         try (TempFile file = new TempFile()) {
             Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
 
-            launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath());
-            assertThat(trimLines(presto.readRemainingOutputLines())).isEmpty();
+            launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath());
+            assertThat(trimLines(trino.readRemainingOutputLines())).isEmpty();
 
-            assertThatThrownBy(() -> presto.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
+            assertThatThrownBy(() -> trino.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
         }
     }
 
@@ -235,10 +235,10 @@ public class TestPrestoCli
             throws IOException
     {
         String sql = "select * from hive.default.nations; select * from hive.default.nation;";
-        launchPrestoCliWithServerArgument("--execute", sql, "--ignore-errors");
-        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        launchTrinoCliWithServerArgument("--execute", sql, "--ignore-errors");
+        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
 
-        assertThatThrownBy(() -> presto.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
+        assertThatThrownBy(() -> trino.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
@@ -248,10 +248,10 @@ public class TestPrestoCli
         try (TempFile file = new TempFile()) {
             Files.write("select * from hive.default.nations;\nselect * from hive.default.nation;\n", file.file(), UTF_8);
 
-            launchPrestoCliWithServerArgument("--file", file.file().getAbsolutePath(), "--ignore-errors");
-            assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+            launchTrinoCliWithServerArgument("--file", file.file().getAbsolutePath(), "--ignore-errors");
+            assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
 
-            assertThatThrownBy(() -> presto.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
+            assertThatThrownBy(() -> trino.waitForWithTimeoutAndKill()).hasMessage("Child process exited with non-zero code: 1");
         }
     }
 
@@ -259,24 +259,24 @@ public class TestPrestoCli
     public void shouldHandleSession()
             throws IOException
     {
-        launchPrestoCliWithServerArgument();
-        presto.waitForPrompt();
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
 
-        presto.getProcessInput().println("use hive.default;");
-        assertThat(presto.readLinesUntilPrompt()).contains("USE");
+        trino.getProcessInput().println("use hive.default;");
+        assertThat(trino.readLinesUntilPrompt()).contains("USE");
 
-        presto.getProcessInput().println("select * from nation;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
+        trino.getProcessInput().println("select * from nation;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
 
-        presto.getProcessInput().println("show session;");
-        assertThat(squeezeLines(presto.readLinesUntilPrompt()))
+        trino.getProcessInput().println("show session;");
+        assertThat(squeezeLines(trino.readLinesUntilPrompt()))
                 .contains("join_distribution_type|AUTOMATIC|AUTOMATIC|varchar|Join distribution type. Possible values: [BROADCAST, PARTITIONED, AUTOMATIC]");
 
-        presto.getProcessInput().println("set session join_distribution_type = 'BROADCAST';");
-        assertThat(presto.readLinesUntilPrompt()).contains("SET SESSION");
+        trino.getProcessInput().println("set session join_distribution_type = 'BROADCAST';");
+        assertThat(trino.readLinesUntilPrompt()).contains("SET SESSION");
 
-        presto.getProcessInput().println("show session;");
-        assertThat(squeezeLines(presto.readLinesUntilPrompt()))
+        trino.getProcessInput().println("show session;");
+        assertThat(squeezeLines(trino.readLinesUntilPrompt()))
                 .contains("join_distribution_type|BROADCAST|AUTOMATIC|varchar|Join distribution type. Possible values: [BROADCAST, PARTITIONED, AUTOMATIC]");
     }
 
@@ -284,108 +284,108 @@ public class TestPrestoCli
     public void shouldHandleTransaction()
             throws IOException
     {
-        launchPrestoCliWithServerArgument();
-        presto.waitForPrompt();
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
 
-        presto.getProcessInput().println("use hive.default;");
-        assertThat(presto.readLinesUntilPrompt()).contains("USE");
+        trino.getProcessInput().println("use hive.default;");
+        assertThat(trino.readLinesUntilPrompt()).contains("USE");
 
         // start transaction and create table
-        presto.getProcessInput().println("start transaction;");
-        assertThat(presto.readLinesUntilPrompt()).contains("START TRANSACTION");
+        trino.getProcessInput().println("start transaction;");
+        assertThat(trino.readLinesUntilPrompt()).contains("START TRANSACTION");
 
-        presto.getProcessInput().println("create table txn_test (x bigint);");
-        assertThat(presto.readLinesUntilPrompt()).contains("CREATE TABLE");
+        trino.getProcessInput().println("create table txn_test (x bigint);");
+        assertThat(trino.readLinesUntilPrompt()).contains("CREATE TABLE");
 
         // cause an error that aborts the transaction
-        presto.getProcessInput().println("select foo;");
-        assertThat(presto.readLinesUntilPrompt()).extracting(TestPrestoCli::removePrefix)
+        trino.getProcessInput().println("select foo;");
+        assertThat(trino.readLinesUntilPrompt()).extracting(TestTrinoCli::removePrefix)
                 .contains("line 1:8: Column 'foo' cannot be resolved");
 
         // verify commands are rejected until rollback
-        presto.getProcessInput().println("select * from nation;");
-        assertThat(presto.readLinesUntilPrompt()).extracting(TestPrestoCli::removePrefix)
+        trino.getProcessInput().println("select * from nation;");
+        assertThat(trino.readLinesUntilPrompt()).extracting(TestTrinoCli::removePrefix)
                 .contains("Current transaction is aborted, commands ignored until end of transaction block");
 
-        presto.getProcessInput().println("rollback;");
-        assertThat(presto.readLinesUntilPrompt()).contains("ROLLBACK");
+        trino.getProcessInput().println("rollback;");
+        assertThat(trino.readLinesUntilPrompt()).contains("ROLLBACK");
 
         // verify commands work after rollback
-        presto.getProcessInput().println("select * from nation;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
+        trino.getProcessInput().println("select * from nation;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
 
         // verify table was not created
-        presto.getProcessInput().println("show tables;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).doesNotContain("txn_test");
+        trino.getProcessInput().println("show tables;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).doesNotContain("txn_test");
 
         // start transaction, create two tables and commit
-        presto.getProcessInput().println("start transaction;");
-        assertThat(presto.readLinesUntilPrompt()).contains("START TRANSACTION");
+        trino.getProcessInput().println("start transaction;");
+        assertThat(trino.readLinesUntilPrompt()).contains("START TRANSACTION");
 
-        presto.getProcessInput().println("create table txn_test1 (x bigint);");
-        assertThat(presto.readLinesUntilPrompt()).contains("CREATE TABLE");
+        trino.getProcessInput().println("create table txn_test1 (x bigint);");
+        assertThat(trino.readLinesUntilPrompt()).contains("CREATE TABLE");
 
-        presto.getProcessInput().println("create table txn_test2 (x bigint);");
-        assertThat(presto.readLinesUntilPrompt()).contains("CREATE TABLE");
+        trino.getProcessInput().println("create table txn_test2 (x bigint);");
+        assertThat(trino.readLinesUntilPrompt()).contains("CREATE TABLE");
 
-        presto.getProcessInput().println("commit;");
-        assertThat(presto.readLinesUntilPrompt()).contains("COMMIT");
+        trino.getProcessInput().println("commit;");
+        assertThat(trino.readLinesUntilPrompt()).contains("COMMIT");
 
         // verify tables were created
-        presto.getProcessInput().println("show tables;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("txn_test1", "txn_test2");
+        trino.getProcessInput().println("show tables;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).contains("txn_test1", "txn_test2");
     }
 
     @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void testSetRole()
             throws IOException
     {
-        launchPrestoCliWithServerArgument();
-        presto.waitForPrompt();
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
 
-        presto.getProcessInput().println("use hive.default;");
-        assertThat(presto.readLinesUntilPrompt()).contains("USE");
+        trino.getProcessInput().println("use hive.default;");
+        assertThat(trino.readLinesUntilPrompt()).contains("USE");
 
-        presto.getProcessInput().println("show current roles;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("public");
+        trino.getProcessInput().println("show current roles;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).contains("public");
 
-        presto.getProcessInput().println("set role admin;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("SET ROLE");
-        presto.getProcessInput().println("show current roles;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("public", "admin");
+        trino.getProcessInput().println("set role admin;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).contains("SET ROLE");
+        trino.getProcessInput().println("show current roles;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).contains("public", "admin");
 
-        presto.getProcessInput().println("set role none;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).contains("SET ROLE");
-        presto.getProcessInput().println("show current roles;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).doesNotContain("admin");
+        trino.getProcessInput().println("set role none;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).contains("SET ROLE");
+        trino.getProcessInput().println("show current roles;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).doesNotContain("admin");
     }
 
-    private void launchPrestoCliWithServerArgument(String... arguments)
+    private void launchTrinoCliWithServerArgument(String... arguments)
             throws IOException
     {
-        launchPrestoCli(getPrestoCliArguments(arguments));
+        launchTrinoCli(getTrinoCliArguments(arguments));
     }
 
-    private void launchPrestoCliWithRedirectedStdin(File inputFile)
+    private void launchTrinoCliWithRedirectedStdin(File inputFile)
             throws IOException
     {
-        ProcessBuilder processBuilder = getProcessBuilder(getPrestoCliArguments());
+        ProcessBuilder processBuilder = getProcessBuilder(getTrinoCliArguments());
         processBuilder.redirectInput(inputFile);
-        presto = new PrestoCliProcess(processBuilder.start());
+        trino = new TrinoCliProcess(processBuilder.start());
     }
 
-    private List<String> getPrestoCliArguments(String... arguments)
+    private List<String> getTrinoCliArguments(String... arguments)
     {
-        ImmutableList.Builder<String> prestoClientOptions = ImmutableList.builder();
-        prestoClientOptions.add("--server", serverAddress);
-        prestoClientOptions.add("--user", jdbcUser);
+        ImmutableList.Builder<String> trinoClientOptions = ImmutableList.builder();
+        trinoClientOptions.add("--server", serverAddress);
+        trinoClientOptions.add("--user", jdbcUser);
 
         if (keystorePath != null) {
-            prestoClientOptions.add("--keystore-path", keystorePath);
+            trinoClientOptions.add("--keystore-path", keystorePath);
         }
 
         if (keystorePassword != null) {
-            prestoClientOptions.add("--keystore-password", keystorePassword);
+            trinoClientOptions.add("--keystore-password", keystorePassword);
         }
 
         if (kerberosAuthentication) {
@@ -394,18 +394,18 @@ public class TestPrestoCli
             requireNonNull(kerberosServiceName, "databases.presto.cli_kerberos_service_name is null");
             requireNonNull(kerberosConfigPath, "databases.presto.cli_kerberos_config_path is null");
 
-            prestoClientOptions.add("--krb5-principal", kerberosPrincipal);
-            prestoClientOptions.add("--krb5-keytab-path", kerberosKeytab);
-            prestoClientOptions.add("--krb5-remote-service-name", kerberosServiceName);
-            prestoClientOptions.add("--krb5-config-path", kerberosConfigPath);
+            trinoClientOptions.add("--krb5-principal", kerberosPrincipal);
+            trinoClientOptions.add("--krb5-keytab-path", kerberosKeytab);
+            trinoClientOptions.add("--krb5-remote-service-name", kerberosServiceName);
+            trinoClientOptions.add("--krb5-config-path", kerberosConfigPath);
 
             if (!kerberosUseCanonicalHostname) {
-                prestoClientOptions.add("--krb5-disable-remote-service-hostname-canonicalization");
+                trinoClientOptions.add("--krb5-disable-remote-service-hostname-canonicalization");
             }
         }
 
-        prestoClientOptions.add(arguments);
-        return prestoClientOptions.build();
+        trinoClientOptions.add(arguments);
+        return trinoClientOptions.build();
     }
 
     private static String removePrefix(String line)

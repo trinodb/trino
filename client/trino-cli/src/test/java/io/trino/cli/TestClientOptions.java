@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import java.time.ZoneId;
 import java.util.Optional;
 
-import static io.trino.cli.Presto.createCommandLine;
+import static io.trino.cli.Trino.createCommandLine;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -40,7 +40,7 @@ public class TestClientOptions
         assertEquals(options.krb5ServicePrincipalPattern, "${SERVICE}@${HOST}");
         ClientSession session = options.toClientSession();
         assertEquals(session.getServer().toString(), "http://localhost:8080");
-        assertEquals(session.getSource(), "presto-cli");
+        assertEquals(session.getSource(), "trino-cli");
         assertEquals(session.getTimeZone(), ZoneId.systemDefault());
     }
 

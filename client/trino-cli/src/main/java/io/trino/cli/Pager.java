@@ -29,7 +29,7 @@ import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 public class Pager
         extends FilterOutputStream
 {
-    public static final String ENV_PAGER = "PRESTO_PAGER";
+    public static final String ENV_PAGER = "TRINO_PAGER";
     public static final List<String> LESS = ImmutableList.of("less", "-FXRSn");
 
     private final Process process;

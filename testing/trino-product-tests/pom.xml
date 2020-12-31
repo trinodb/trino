@@ -167,14 +167,14 @@
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
                 <includes>
-                    <include>presto-cli-version.txt</include>
+                    <include>trino-cli-version.txt</include>
                 </includes>
             </resource>
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>false</filtering>
                 <excludes>
-                    <exclude>presto-cli-version.txt</exclude>
+                    <exclude>trino-cli-version.txt</exclude>
                 </excludes>
             </resource>
         </resources>

@@ -53,7 +53,7 @@ options. The simplest way to invoke the CLI is with a wrapper script.
 
     #!/bin/bash
 
-    ./presto \
+    ./trino \
       --server https://trino-coordinator.example.com:7778 \
       --krb5-config-path /etc/krb5.conf \
       --krb5-principal someuser@EXAMPLE.COM \
@@ -102,7 +102,7 @@ file cannot pass the option to the JVM.
 
     java \
       -Dsun.security.krb5.debug=true \
-      -jar presto-cli-*-executable.jar \
+      -jar trino-cli-*-executable.jar \
       --server https://trino-coordinator.example.com:7778 \
       --krb5-config-path /etc/krb5.conf \
       --krb5-principal someuser@EXAMPLE.COM \

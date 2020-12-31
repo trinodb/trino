@@ -40,7 +40,7 @@ public class TerminalUtils
     {
         try {
             return TerminalBuilder.builder()
-                    .name("Presto")
+                    .name("Trino")
                     .build();
         }
         catch (IOException e) {

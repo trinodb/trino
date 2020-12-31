@@ -267,7 +267,7 @@ wrapper script.
 
     #!/bin/bash
 
-    ./presto \
+    ./trino \
     --server https://trino-coordinator.example.com:8443 \
     --keystore-path /tmp/trino.jks \
     --keystore-password password \
@@ -330,7 +330,7 @@ Trino CLI executable JAR to enable this. For example:
 
     java -Djavax.net.debug=ssl \
     -jar \
-    presto-cli-<version>-executable.jar \
+    trino-cli-<version>-executable.jar \
     --server https://coordinator:8443 \
     <other_cli_arguments>
 

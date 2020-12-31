@@ -51,8 +51,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestPrestoLdapCli
-        extends PrestoCliLauncher
+public class TestTrinoLdapCli
+        extends TrinoCliLauncher
         implements RequirementsProvider
 {
     @Inject(optional = true)
@@ -75,7 +75,7 @@ public class TestPrestoLdapCli
     @Named("databases.presto.cli_ldap_user_password")
     private String ldapUserPassword;
 
-    public TestPrestoLdapCli()
+    public TestTrinoLdapCli()
             throws IOException
     {}
 
@@ -102,18 +102,18 @@ public class TestPrestoLdapCli
     public void shouldRunQueryWithLdap()
             throws IOException
     {
-        launchPrestoCliWithServerArgument();
-        presto.waitForPrompt();
-        presto.getProcessInput().println("select * from hive.default.nation;");
-        assertThat(trimLines(presto.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
+        trino.getProcessInput().println("select * from hive.default.nation;");
+        assertThat(trimLines(trino.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldRunBatchQueryWithLdap()
             throws IOException
     {
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        launchTrinoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -124,8 +124,8 @@ public class TestPrestoLdapCli
         temporayFile.deleteOnExit();
         Files.write("select * from hive.default.nation;\n", temporayFile, UTF_8);
 
-        launchPrestoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
-        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        launchTrinoCliWithServerArgument("--file", temporayFile.getAbsolutePath());
+        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -134,8 +134,8 @@ public class TestPrestoLdapCli
     {
         ldapUserName = USER_IN_MULTIPLE_GROUPS.getAttributes().get("cn");
 
-        launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
-        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
+        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -143,8 +143,8 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapUserName = CHILD_GROUP_USER.getAttributes().get("cn");
-        launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
     }
 
@@ -153,8 +153,8 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapUserName = PARENT_GROUP_USER.getAttributes().get("cn");
-        launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
     }
 
@@ -163,8 +163,8 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapUserName = ORPHAN_USER.getAttributes().get("cn");
-        launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains(format("User [%s] not a member of an authorized group", ldapUserName)));
     }
 
@@ -173,8 +173,8 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapUserPassword = "wrong_password";
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Invalid credentials"));
     }
 
@@ -183,8 +183,8 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapUserName = "invalid_user";
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Access Denied"));
     }
 
@@ -193,8 +193,8 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapUserName = "";
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Malformed credentials: user is empty"));
     }
 
@@ -202,12 +202,12 @@ public class TestPrestoLdapCli
     public void shouldFailQueryForLdapWithoutPassword()
             throws IOException
     {
-        launchPrestoCli("--server", ldapServerAddress,
+        launchTrinoCli("--server", ldapServerAddress,
                 "--truststore-path", ldapTruststorePath,
                 "--truststore-password", ldapTruststorePassword,
                 "--user", ldapUserName,
                 "--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Authentication failed: Unauthorized"));
     }
 
@@ -216,8 +216,8 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapServerAddress = format("http://%s:8443", serverHost);
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Authentication using username/password requires HTTPS to be enabled"));
         skipAfterTestWithContext();
     }
@@ -227,16 +227,16 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapTruststorePassword = "wrong_password";
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Keystore was tampered with, or password was incorrect"));
         skipAfterTestWithContext();
     }
 
     private void skipAfterTestWithContext()
     {
-        presto.close();
-        presto = null;
+        trino.close();
+        trino = null;
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -245,8 +245,8 @@ public class TestPrestoLdapCli
     {
         ldapUserName = SPECIAL_USER.getAttributes().get("cn");
         ldapUserPassword = SPECIAL_USER.getAttributes().get("userPassword");
-        launchPrestoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
-        assertThat(trimLines(presto.readRemainingOutputLines())).containsAll(nationTableBatchLines);
+        launchTrinoCliWithServerArgument("--catalog", "hive", "--schema", "default", "--execute", "select * from nation;");
+        assertThat(trimLines(trino.readRemainingOutputLines())).containsAll(nationTableBatchLines);
     }
 
     @Test(groups = {LDAP, LDAP_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
@@ -254,13 +254,13 @@ public class TestPrestoLdapCli
             throws IOException
     {
         ldapUserName = "UserWith:Colon";
-        launchPrestoCliWithServerArgument("--execute", "select * from hive.default.nation;");
-        assertThat(trimLines(presto.readRemainingErrorLines())).anySatisfy(line ->
+        launchTrinoCliWithServerArgument("--execute", "select * from hive.default.nation;");
+        assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Illegal character ':' found in username"));
         skipAfterTestWithContext();
     }
 
-    private void launchPrestoCliWithServerArgument(String... arguments)
+    private void launchTrinoCliWithServerArgument(String... arguments)
             throws IOException
     {
         requireNonNull(ldapTruststorePath, "databases.presto.cli_ldap_truststore_path is null");
@@ -279,7 +279,7 @@ public class TestPrestoLdapCli
 
         prestoClientOptions.add(arguments);
         ProcessBuilder processBuilder = getProcessBuilder(prestoClientOptions.build());
-        processBuilder.environment().put("PRESTO_PASSWORD", ldapUserPassword);
-        presto = new PrestoCliProcess(processBuilder.start());
+        processBuilder.environment().put("TRINO_PASSWORD", ldapUserPassword);
+        trino = new TrinoCliProcess(processBuilder.start());
     }
 }
