@@ -14,7 +14,7 @@
 package io.trino.plugin.thrift;
 
 import io.airlift.drift.client.DriftClient;
-import io.trino.plugin.thrift.api.PrestoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftService;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 public class ThriftConnectorIndex
         implements ConnectorIndex
 {
-    private final DriftClient<PrestoThriftService> client;
+    private final DriftClient<TrinoThriftService> client;
     private final Map<String, String> thriftHeaders;
     private final ThriftIndexHandle indexHandle;
     private final List<ColumnHandle> lookupColumns;
@@ -39,7 +39,7 @@ public class ThriftConnectorIndex
     private final ThriftConnectorStats stats;
 
     public ThriftConnectorIndex(
-            DriftClient<PrestoThriftService> client,
+            DriftClient<TrinoThriftService> client,
             Map<String, String> thriftHeaders,
             ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,

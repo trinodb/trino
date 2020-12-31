@@ -20,8 +20,8 @@ import com.google.inject.Scopes;
 import io.airlift.drift.client.ExceptionClassification;
 import io.airlift.drift.client.ExceptionClassification.HostStatus;
 import io.trino.plugin.thrift.annotations.ForMetadataRefresh;
-import io.trino.plugin.thrift.api.PrestoThriftService;
-import io.trino.plugin.thrift.api.PrestoThriftServiceException;
+import io.trino.plugin.thrift.api.TrinoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftServiceException;
 
 import javax.inject.Singleton;
 
@@ -42,10 +42,10 @@ public class ThriftModule
     public void configure(Binder binder)
     {
         driftClientBinder(binder)
-                .bindDriftClient(PrestoThriftService.class)
+                .bindDriftClient(TrinoThriftService.class)
                 .withExceptionClassifier(t -> {
-                    if (t instanceof PrestoThriftServiceException) {
-                        boolean retryable = ((PrestoThriftServiceException) t).isRetryable();
+                    if (t instanceof TrinoThriftServiceException) {
+                        boolean retryable = ((TrinoThriftServiceException) t).isRetryable();
                         return new ExceptionClassification(Optional.of(retryable), HostStatus.NORMAL);
                     }
                     return NORMAL_EXCEPTION;

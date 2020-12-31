@@ -16,8 +16,8 @@ package io.trino.plugin.thrift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.thrift.api.PrestoThriftColumnMetadata;
-import io.trino.plugin.thrift.api.PrestoThriftTableMetadata;
+import io.trino.plugin.thrift.api.TrinoThriftColumnMetadata;
+import io.trino.plugin.thrift.api.TrinoThriftTableMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -49,7 +49,7 @@ class ThriftTableMetadata
         this.indexableKeys = deepImmutableCopy(requireNonNull(indexableKeys, "indexableKeys is null"));
     }
 
-    public ThriftTableMetadata(PrestoThriftTableMetadata thriftTableMetadata, TypeManager typeManager)
+    public ThriftTableMetadata(TrinoThriftTableMetadata thriftTableMetadata, TypeManager typeManager)
     {
         this(thriftTableMetadata.getSchemaTableName().toSchemaTableName(),
                 columnMetadata(thriftTableMetadata.getColumns(), typeManager),
@@ -118,7 +118,7 @@ class ThriftTableMetadata
                 .toString();
     }
 
-    private static List<ColumnMetadata> columnMetadata(List<PrestoThriftColumnMetadata> columns, TypeManager typeManager)
+    private static List<ColumnMetadata> columnMetadata(List<TrinoThriftColumnMetadata> columns, TypeManager typeManager)
     {
         return columns.stream()
                 .map(column -> column.toColumnMetadata(typeManager))

@@ -14,7 +14,7 @@
 package io.trino.plugin.thrift;
 
 import io.airlift.drift.client.DriftClient;
-import io.trino.plugin.thrift.api.PrestoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftService;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -33,13 +33,13 @@ import static java.util.Objects.requireNonNull;
 public class ThriftPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final DriftClient<PrestoThriftService> client;
+    private final DriftClient<TrinoThriftService> client;
     private final ThriftHeaderProvider thriftHeaderProvider;
     private final long maxBytesPerResponse;
     private final ThriftConnectorStats stats;
 
     @Inject
-    public ThriftPageSourceProvider(DriftClient<PrestoThriftService> client, ThriftHeaderProvider thriftHeaderProvider, ThriftConnectorStats stats, ThriftConnectorConfig config)
+    public ThriftPageSourceProvider(DriftClient<TrinoThriftService> client, ThriftHeaderProvider thriftHeaderProvider, ThriftConnectorStats stats, ThriftConnectorConfig config)
     {
         this.client = requireNonNull(client, "client is null");
         this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderFactor is null");

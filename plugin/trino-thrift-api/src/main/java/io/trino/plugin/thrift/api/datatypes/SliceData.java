@@ -15,7 +15,7 @@ package io.trino.plugin.thrift.api.datatypes;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.plugin.thrift.api.PrestoThriftBlock;
+import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.Type;
@@ -29,12 +29,12 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.calculateOffsets;
-import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.sameSizeIfPresent;
-import static io.trino.plugin.thrift.api.datatypes.PrestoThriftTypeUtils.totalSize;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.calculateOffsets;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.sameSizeIfPresent;
+import static io.trino.plugin.thrift.api.datatypes.TrinoThriftTypeUtils.totalSize;
 
 final class SliceData
-        implements PrestoThriftColumnData
+        implements TrinoThriftColumnData
 {
     private final boolean[] nulls;
     private final int[] sizes;
@@ -121,7 +121,7 @@ final class SliceData
                 .toString();
     }
 
-    public static PrestoThriftBlock fromSliceBasedBlock(Block block, Type type, CreateSliceThriftBlockFunction create)
+    public static TrinoThriftBlock fromSliceBasedBlock(Block block, Type type, CreateSliceThriftBlockFunction create)
     {
         int positions = block.getPositionCount();
         if (positions == 0) {
@@ -172,6 +172,6 @@ final class SliceData
 
     public interface CreateSliceThriftBlockFunction
     {
-        PrestoThriftBlock apply(boolean[] nulls, int[] sizes, byte[] bytes);
+        TrinoThriftBlock apply(boolean[] nulls, int[] sizes, byte[] bytes);
     }
 }

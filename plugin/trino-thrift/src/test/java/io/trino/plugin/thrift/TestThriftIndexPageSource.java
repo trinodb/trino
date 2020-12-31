@@ -18,18 +18,18 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import io.trino.plugin.thrift.api.PrestoThriftId;
-import io.trino.plugin.thrift.api.PrestoThriftNullableColumnSet;
-import io.trino.plugin.thrift.api.PrestoThriftNullableSchemaName;
-import io.trino.plugin.thrift.api.PrestoThriftNullableTableMetadata;
-import io.trino.plugin.thrift.api.PrestoThriftNullableToken;
-import io.trino.plugin.thrift.api.PrestoThriftPageResult;
-import io.trino.plugin.thrift.api.PrestoThriftSchemaTableName;
-import io.trino.plugin.thrift.api.PrestoThriftService;
-import io.trino.plugin.thrift.api.PrestoThriftSplit;
-import io.trino.plugin.thrift.api.PrestoThriftSplitBatch;
-import io.trino.plugin.thrift.api.PrestoThriftTupleDomain;
-import io.trino.plugin.thrift.api.datatypes.PrestoThriftInteger;
+import io.trino.plugin.thrift.api.TrinoThriftId;
+import io.trino.plugin.thrift.api.TrinoThriftNullableColumnSet;
+import io.trino.plugin.thrift.api.TrinoThriftNullableSchemaName;
+import io.trino.plugin.thrift.api.TrinoThriftNullableTableMetadata;
+import io.trino.plugin.thrift.api.TrinoThriftNullableToken;
+import io.trino.plugin.thrift.api.TrinoThriftPageResult;
+import io.trino.plugin.thrift.api.TrinoThriftSchemaTableName;
+import io.trino.plugin.thrift.api.TrinoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftSplit;
+import io.trino.plugin.thrift.api.TrinoThriftSplitBatch;
+import io.trino.plugin.thrift.api.TrinoThriftTupleDomain;
+import io.trino.plugin.thrift.api.datatypes.TrinoThriftInteger;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.InMemoryRecordSet;
@@ -47,7 +47,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.trino.plugin.thrift.api.PrestoThriftBlock.integerData;
+import static io.trino.plugin.thrift.api.TrinoThriftBlock.integerData;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.shuffle;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -68,8 +68,8 @@ public class TestThriftIndexPageSource
         final int splits = 3;
         final int lookupRequestsConcurrency = 2;
         final int rowsPerSplit = 1;
-        List<SettableFuture<PrestoThriftPageResult>> futures = IntStream.range(0, splits)
-                .mapToObj(i -> SettableFuture.<PrestoThriftPageResult>create())
+        List<SettableFuture<TrinoThriftPageResult>> futures = IntStream.range(0, splits)
+                .mapToObj(i -> SettableFuture.<TrinoThriftPageResult>create())
                 .collect(toImmutableList());
         List<CountDownLatch> signals = IntStream.range(0, splits)
                 .mapToObj(i -> new CountDownLatch(1))
@@ -77,7 +77,7 @@ public class TestThriftIndexPageSource
         TestingThriftService client = new TestingThriftService(rowsPerSplit, false, false)
         {
             @Override
-            public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
+            public ListenableFuture<TrinoThriftPageResult> getRows(TrinoThriftId splitId, List<String> columns, long maxBytes, TrinoThriftNullableToken nextToken)
             {
                 int key = Ints.fromByteArray(splitId.getId());
                 signals.get(key).countDown();
@@ -225,7 +225,7 @@ public class TestThriftIndexPageSource
     }
 
     private static class TestingThriftService
-            implements PrestoThriftService
+            implements TrinoThriftService
     {
         private final int rowsPerSplit;
         private final boolean shuffleSplits;
@@ -239,12 +239,12 @@ public class TestThriftIndexPageSource
         }
 
         @Override
-        public ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(PrestoThriftSchemaTableName schemaTableName, List<String> indexColumnNames, List<String> outputColumnNames, PrestoThriftPageResult keys, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<TrinoThriftSplitBatch> getIndexSplits(TrinoThriftSchemaTableName schemaTableName, List<String> indexColumnNames, List<String> outputColumnNames, TrinoThriftPageResult keys, TrinoThriftTupleDomain outputConstraint, int maxSplitCount, TrinoThriftNullableToken nextToken)
         {
             if (keys.getRowCount() == 0) {
-                return immediateFuture(new PrestoThriftSplitBatch(ImmutableList.of(), null));
+                return immediateFuture(new TrinoThriftSplitBatch(ImmutableList.of(), null));
             }
-            PrestoThriftId newNextToken = null;
+            TrinoThriftId newNextToken = null;
             int[] values = keys.getColumnBlocks().get(0).getIntegerData().getInts();
             int begin;
             int end;
@@ -252,7 +252,7 @@ public class TestThriftIndexPageSource
                 if (nextToken.getToken() == null) {
                     begin = 0;
                     end = values.length / 2;
-                    newNextToken = new PrestoThriftId(Ints.toByteArray(1));
+                    newNextToken = new TrinoThriftId(Ints.toByteArray(1));
                 }
                 else {
                     begin = values.length / 2;
@@ -264,25 +264,25 @@ public class TestThriftIndexPageSource
                 end = values.length;
             }
 
-            List<PrestoThriftSplit> splits = new ArrayList<>(end - begin);
+            List<TrinoThriftSplit> splits = new ArrayList<>(end - begin);
             for (int i = begin; i < end; i++) {
-                splits.add(new PrestoThriftSplit(new PrestoThriftId(Ints.toByteArray(values[i])), ImmutableList.of()));
+                splits.add(new TrinoThriftSplit(new TrinoThriftId(Ints.toByteArray(values[i])), ImmutableList.of()));
             }
             if (shuffleSplits) {
                 shuffle(splits);
             }
-            return immediateFuture(new PrestoThriftSplitBatch(splits, newNextToken));
+            return immediateFuture(new TrinoThriftSplitBatch(splits, newNextToken));
         }
 
         @Override
-        public ListenableFuture<PrestoThriftPageResult> getRows(PrestoThriftId splitId, List<String> columns, long maxBytes, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<TrinoThriftPageResult> getRows(TrinoThriftId splitId, List<String> columns, long maxBytes, TrinoThriftNullableToken nextToken)
         {
             if (rowsPerSplit == 0) {
-                return immediateFuture(new PrestoThriftPageResult(ImmutableList.of(), 0, null));
+                return immediateFuture(new TrinoThriftPageResult(ImmutableList.of(), 0, null));
             }
             int key = Ints.fromByteArray(splitId.getId());
             int offset = nextToken.getToken() != null ? Ints.fromByteArray(nextToken.getToken().getId()) : 0;
-            PrestoThriftId newNextToken = offset + 1 < rowsPerSplit ? new PrestoThriftId(Ints.toByteArray(offset + 1)) : null;
+            TrinoThriftId newNextToken = offset + 1 < rowsPerSplit ? new TrinoThriftId(Ints.toByteArray(offset + 1)) : null;
             return immediateFuture(pageResult(key * 10 + offset, newNextToken));
         }
 
@@ -295,19 +295,19 @@ public class TestThriftIndexPageSource
         }
 
         @Override
-        public List<PrestoThriftSchemaTableName> listTables(PrestoThriftNullableSchemaName schemaNameOrNull)
+        public List<TrinoThriftSchemaTableName> listTables(TrinoThriftNullableSchemaName schemaNameOrNull)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public PrestoThriftNullableTableMetadata getTableMetadata(PrestoThriftSchemaTableName schemaTableName)
+        public TrinoThriftNullableTableMetadata getTableMetadata(TrinoThriftSchemaTableName schemaTableName)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public ListenableFuture<PrestoThriftSplitBatch> getSplits(PrestoThriftSchemaTableName schemaTableName, PrestoThriftNullableColumnSet desiredColumns, PrestoThriftTupleDomain outputConstraint, int maxSplitCount, PrestoThriftNullableToken nextToken)
+        public ListenableFuture<TrinoThriftSplitBatch> getSplits(TrinoThriftSchemaTableName schemaTableName, TrinoThriftNullableColumnSet desiredColumns, TrinoThriftTupleDomain outputConstraint, int maxSplitCount, TrinoThriftNullableToken nextToken)
         {
             throw new UnsupportedOperationException();
         }
@@ -325,8 +325,8 @@ public class TestThriftIndexPageSource
                 .collect(toImmutableList());
     }
 
-    private static PrestoThriftPageResult pageResult(int value, PrestoThriftId nextToken)
+    private static TrinoThriftPageResult pageResult(int value, TrinoThriftId nextToken)
     {
-        return new PrestoThriftPageResult(ImmutableList.of(integerData(new PrestoThriftInteger(null, new int[] {value}))), 1, nextToken);
+        return new TrinoThriftPageResult(ImmutableList.of(integerData(new TrinoThriftInteger(null, new int[] {value}))), 1, nextToken);
     }
 }

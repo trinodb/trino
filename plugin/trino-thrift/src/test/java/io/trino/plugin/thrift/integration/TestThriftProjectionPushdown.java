@@ -99,9 +99,9 @@ public class TestThriftProjectionPushdown
                 .collect(joining(","));
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
-                .put("presto.thrift.client.addresses", addresses)
-                .put("presto.thrift.client.connect-timeout", "30s")
-                .put("presto-thrift.lookup-requests-concurrency", "2")
+                .put("trino.thrift.client.addresses", addresses)
+                .put("trino.thrift.client.connect-timeout", "30s")
+                .put("trino-thrift.lookup-requests-concurrency", "2")
                 .build();
 
         LocalQueryRunner runner = LocalQueryRunner.create(SESSION);

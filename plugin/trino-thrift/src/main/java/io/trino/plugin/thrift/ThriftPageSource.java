@@ -16,10 +16,10 @@ package io.trino.plugin.thrift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.client.DriftClient;
-import io.trino.plugin.thrift.api.PrestoThriftId;
-import io.trino.plugin.thrift.api.PrestoThriftNullableToken;
-import io.trino.plugin.thrift.api.PrestoThriftPageResult;
-import io.trino.plugin.thrift.api.PrestoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftId;
+import io.trino.plugin.thrift.api.TrinoThriftNullableToken;
+import io.trino.plugin.thrift.api.TrinoThriftPageResult;
+import io.trino.plugin.thrift.api.TrinoThriftService;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
@@ -44,21 +44,21 @@ import static java.util.stream.Collectors.joining;
 public class ThriftPageSource
         implements ConnectorPageSource
 {
-    private final PrestoThriftId splitId;
-    private final PrestoThriftService client;
+    private final TrinoThriftId splitId;
+    private final TrinoThriftService client;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final long maxBytesPerResponse;
     private final AtomicLong readTimeNanos = new AtomicLong(0);
 
-    private PrestoThriftId nextToken;
+    private TrinoThriftId nextToken;
     private boolean firstCall = true;
-    private CompletableFuture<PrestoThriftPageResult> future;
+    private CompletableFuture<TrinoThriftPageResult> future;
     private final ThriftConnectorStats stats;
     private long completedBytes;
 
     public ThriftPageSource(
-            DriftClient<PrestoThriftService> client,
+            DriftClient<TrinoThriftService> client,
             Map<String, String> thriftHeader,
             ThriftConnectorSplit split,
             List<ColumnHandle> columns,
@@ -155,25 +155,25 @@ public class ThriftPageSource
         return result;
     }
 
-    private static boolean canGetMoreData(PrestoThriftId nextToken)
+    private static boolean canGetMoreData(TrinoThriftId nextToken)
     {
         return nextToken != null;
     }
 
-    private CompletableFuture<PrestoThriftPageResult> sendDataRequestInternal()
+    private CompletableFuture<TrinoThriftPageResult> sendDataRequestInternal()
     {
         long start = System.nanoTime();
-        ListenableFuture<PrestoThriftPageResult> rowsBatchFuture = client.getRows(
+        ListenableFuture<TrinoThriftPageResult> rowsBatchFuture = client.getRows(
                 splitId,
                 columnNames,
                 maxBytesPerResponse,
-                new PrestoThriftNullableToken(nextToken));
+                new TrinoThriftNullableToken(nextToken));
         rowsBatchFuture = catchingThriftException(rowsBatchFuture);
         rowsBatchFuture.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         return toCompletableFuture(nonCancellationPropagating(rowsBatchFuture));
     }
 
-    private Page processBatch(PrestoThriftPageResult rowsBatch)
+    private Page processBatch(TrinoThriftPageResult rowsBatch)
     {
         firstCall = false;
         nextToken = rowsBatch.getNextToken();

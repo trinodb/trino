@@ -33,8 +33,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.thrift.api.PrestoThriftBlock.fromBlock;
-import static io.trino.plugin.thrift.api.PrestoThriftPageResult.fromRecordSet;
+import static io.trino.plugin.thrift.api.TrinoThriftBlock.fromBlock;
+import static io.trino.plugin.thrift.api.TrinoThriftPageResult.fromRecordSet;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -137,11 +137,11 @@ public class TestReadWrite
     private void testPageReadWrite(Random random, int records)
     {
         testReadWrite(random, records, blocks -> {
-            List<PrestoThriftBlock> columnBlocks = new ArrayList<>(columns.size());
+            List<TrinoThriftBlock> columnBlocks = new ArrayList<>(columns.size());
             for (int i = 0; i < columns.size(); i++) {
                 columnBlocks.add(fromBlock(blocks.get(i), columns.get(i).getType()));
             }
-            return new PrestoThriftPageResult(columnBlocks, records, null);
+            return new TrinoThriftPageResult(columnBlocks, records, null);
         });
     }
 
@@ -154,7 +154,7 @@ public class TestReadWrite
         });
     }
 
-    private void testReadWrite(Random random, int records, Function<List<Block>, PrestoThriftPageResult> convert)
+    private void testReadWrite(Random random, int records, Function<List<Block>, TrinoThriftPageResult> convert)
     {
         // generate columns data
         List<Block> inputBlocks = new ArrayList<>(columns.size());
@@ -163,7 +163,7 @@ public class TestReadWrite
         }
 
         // convert column data to thrift ("write step")
-        PrestoThriftPageResult batch = convert.apply(inputBlocks);
+        TrinoThriftPageResult batch = convert.apply(inputBlocks);
 
         // convert thrift data to page/blocks ("read step")
         Page page = batch.toPage(columns.stream().map(ColumnDefinition::getType).collect(toImmutableList()));

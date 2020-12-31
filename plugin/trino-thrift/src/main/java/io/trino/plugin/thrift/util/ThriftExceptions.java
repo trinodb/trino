@@ -17,7 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.TApplicationException;
 import io.airlift.drift.TException;
 import io.airlift.drift.protocol.TTransportException;
-import io.trino.plugin.thrift.api.PrestoThriftServiceException;
+import io.trino.plugin.thrift.api.TrinoThriftServiceException;
 import io.trino.spi.TrinoException;
 
 import static com.google.common.util.concurrent.Futures.catchingAsync;
@@ -37,7 +37,7 @@ public final class ThriftExceptions
         if ((e instanceof TTransportException) && "No hosts available".equals(e.getMessage())) {
             throw new TrinoException(THRIFT_SERVICE_NO_AVAILABLE_HOSTS, e);
         }
-        if ((e instanceof TApplicationException) || (e instanceof PrestoThriftServiceException)) {
+        if ((e instanceof TApplicationException) || (e instanceof TrinoThriftServiceException)) {
             return new TrinoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by remote Thrift server: " + e.getMessage(), e);
         }
         if (e instanceof TException) {

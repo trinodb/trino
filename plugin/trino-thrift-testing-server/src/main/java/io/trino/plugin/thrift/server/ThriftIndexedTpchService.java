@@ -15,14 +15,14 @@ package io.trino.plugin.thrift.server;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.plugin.thrift.api.PrestoThriftBlock;
-import io.trino.plugin.thrift.api.PrestoThriftId;
-import io.trino.plugin.thrift.api.PrestoThriftNullableToken;
-import io.trino.plugin.thrift.api.PrestoThriftPageResult;
-import io.trino.plugin.thrift.api.PrestoThriftSchemaTableName;
-import io.trino.plugin.thrift.api.PrestoThriftServiceException;
-import io.trino.plugin.thrift.api.PrestoThriftSplit;
-import io.trino.plugin.thrift.api.PrestoThriftSplitBatch;
+import io.trino.plugin.thrift.api.TrinoThriftBlock;
+import io.trino.plugin.thrift.api.TrinoThriftId;
+import io.trino.plugin.thrift.api.TrinoThriftNullableToken;
+import io.trino.plugin.thrift.api.TrinoThriftPageResult;
+import io.trino.plugin.thrift.api.TrinoThriftSchemaTableName;
+import io.trino.plugin.thrift.api.TrinoThriftServiceException;
+import io.trino.plugin.thrift.api.TrinoThriftSplit;
+import io.trino.plugin.thrift.api.TrinoThriftSplitBatch;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.RecordSet;
@@ -56,19 +56,19 @@ public class ThriftIndexedTpchService
     }
 
     @Override
-    protected PrestoThriftSplitBatch getIndexSplitsSync(
-            PrestoThriftSchemaTableName schemaTableName,
+    protected TrinoThriftSplitBatch getIndexSplitsSync(
+            TrinoThriftSchemaTableName schemaTableName,
             List<String> indexColumnNames,
-            PrestoThriftPageResult keys,
+            TrinoThriftPageResult keys,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException
+            TrinoThriftNullableToken nextToken)
+            throws TrinoThriftServiceException
     {
         checkArgument(NUMBER_OF_INDEX_SPLITS <= maxSplitCount, "maxSplitCount for lookup splits is too low");
         checkArgument(nextToken.getToken() == null, "no continuation is supported for lookup splits");
         int totalKeys = keys.getRowCount();
         int partSize = totalKeys / NUMBER_OF_INDEX_SPLITS;
-        List<PrestoThriftSplit> splits = new ArrayList<>(NUMBER_OF_INDEX_SPLITS);
+        List<TrinoThriftSplit> splits = new ArrayList<>(NUMBER_OF_INDEX_SPLITS);
         for (int splitIndex = 0; splitIndex < NUMBER_OF_INDEX_SPLITS; splitIndex++) {
             int begin = partSize * splitIndex;
             int end = partSize * (splitIndex + 1);
@@ -85,9 +85,9 @@ public class ThriftIndexedTpchService
                     schemaTableName.getTableName(),
                     indexColumnNames,
                     thriftPageToList(keys, begin, end));
-            splits.add(new PrestoThriftSplit(new PrestoThriftId(SPLIT_INFO_CODEC.toJsonBytes(splitInfo)), ImmutableList.of()));
+            splits.add(new TrinoThriftSplit(new TrinoThriftId(SPLIT_INFO_CODEC.toJsonBytes(splitInfo)), ImmutableList.of()));
         }
-        return new PrestoThriftSplitBatch(splits, null);
+        return new TrinoThriftSplitBatch(splits, null);
     }
 
     @Override
@@ -117,22 +117,22 @@ public class ThriftIndexedTpchService
         return new MappedRecordSet(allColumnsOutputRecordSet, outputRemap);
     }
 
-    private static List<List<String>> thriftPageToList(PrestoThriftPageResult page, int begin, int end)
+    private static List<List<String>> thriftPageToList(TrinoThriftPageResult page, int begin, int end)
     {
         checkArgument(begin <= end, "invalid interval");
         if (begin == end) {
             // empty interval
             return ImmutableList.of();
         }
-        List<PrestoThriftBlock> blocks = page.getColumnBlocks();
+        List<TrinoThriftBlock> blocks = page.getColumnBlocks();
         List<List<String>> result = new ArrayList<>(blocks.size());
-        for (PrestoThriftBlock block : blocks) {
+        for (TrinoThriftBlock block : blocks) {
             result.add(blockAsList(block, begin, end));
         }
         return result;
     }
 
-    private static List<String> blockAsList(PrestoThriftBlock block, int begin, int end)
+    private static List<String> blockAsList(TrinoThriftBlock block, int begin, int end)
     {
         List<String> result = new ArrayList<>(end - begin);
         if (block.getBigintData() != null) {
