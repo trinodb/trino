@@ -94,9 +94,6 @@ To enable SSL/TLS for Trino internal communication, do the following:
        Is CN=*.example.com, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
          [no]:  yes
 
-       Enter key password for <presto>
-               (RETURN if same as keystore password):
-
    .. Note: Replace `example.com` with the appropriate domain.
 
 4. Distribute the Java Keystore File across the Trino cluster.
