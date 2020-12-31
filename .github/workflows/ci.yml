@@ -47,7 +47,7 @@ jobs:
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!presto-server,!presto-cli'
       - name: Test Docker Image
-        run: docker/build-local.sh
+        run: core/docker/build-local.sh
 
   error-prone-checks:
     runs-on: ubuntu-latest
