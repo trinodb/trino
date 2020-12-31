@@ -285,11 +285,17 @@ removes the trailing spaces from the initial values for the column. Inserting
 ``CHAR`` values into existing ``NCLOB`` columns keeps the trailing spaces. For
 example::
 
-    presto> CREATE TABLE vals AS SELECT CAST('A' as CHAR(2001)) col;
-    presto> INSERT INTO vals (col) VALUES (CAST('BB' as CHAR(2001)));
-    presto> SELECT LENGTH(col) FROM vals;
-    2001
-    1
+    CREATE TABLE vals AS SELECT CAST('A' as CHAR(2001)) col;
+    INSERT INTO vals (col) VALUES (CAST('BB' as CHAR(2001)));
+    SELECT LENGTH(col) FROM vals;
+
+.. code-block:: text
+
+     _col0
+    -------
+      2001
+         1
+    (2 rows)
 
 Attempting to write a ``CHAR`` that doesn't fit in the column's actual size
 fails. This is also true for the equivalent ``VARCHAR`` types.
