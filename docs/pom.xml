@@ -44,9 +44,9 @@
                             <goal>generate-thrift-idl</goal>
                         </goals>
                         <configuration>
-                            <outputFile>${project.build.directory}/PrestoThriftService.thrift</outputFile>
+                            <outputFile>${project.build.directory}/TrinoThriftService.thrift</outputFile>
                             <classes>
-                                <class>io.trino.plugin.thrift.api.PrestoThriftService</class>
+                                <class>io.trino.plugin.thrift.api.TrinoThriftService</class>
                             </classes>
                             <recursive>true</recursive>
                         </configuration>
@@ -90,8 +90,8 @@
                             <arguments>
                                 <argument>-b</argument>
                                 <argument>-c</argument>
-                                <argument>${project.basedir}/src/main/sphinx/include/PrestoThriftService.thrift</argument>
-                                <argument>${project.build.directory}/PrestoThriftService.thrift</argument>
+                                <argument>${project.basedir}/src/main/sphinx/include/TrinoThriftService.thrift</argument>
+                                <argument>${project.build.directory}/TrinoThriftService.thrift</argument>
                             </arguments>
                         </configuration>
                     </execution>

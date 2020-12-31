@@ -37,7 +37,7 @@ public class ThriftConnectorConfig
         return maxResponseSize;
     }
 
-    @Config("presto-thrift.max-response-size")
+    @Config("trino-thrift.max-response-size")
     public ThriftConnectorConfig setMaxResponseSize(DataSize maxResponseSize)
     {
         this.maxResponseSize = maxResponseSize;
@@ -50,7 +50,7 @@ public class ThriftConnectorConfig
         return metadataRefreshThreads;
     }
 
-    @Config("presto-thrift.metadata-refresh-threads")
+    @Config("trino-thrift.metadata-refresh-threads")
     public ThriftConnectorConfig setMetadataRefreshThreads(int metadataRefreshThreads)
     {
         this.metadataRefreshThreads = metadataRefreshThreads;
@@ -63,7 +63,7 @@ public class ThriftConnectorConfig
         return lookupRequestsConcurrency;
     }
 
-    @Config("presto-thrift.lookup-requests-concurrency")
+    @Config("trino-thrift.lookup-requests-concurrency")
     public ThriftConnectorConfig setLookupRequestsConcurrency(int lookupRequestsConcurrency)
     {
         this.lookupRequestsConcurrency = lookupRequestsConcurrency;

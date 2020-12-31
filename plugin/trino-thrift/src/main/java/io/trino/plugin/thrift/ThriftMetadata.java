@@ -22,11 +22,11 @@ import io.airlift.drift.TException;
 import io.airlift.drift.client.DriftClient;
 import io.airlift.units.Duration;
 import io.trino.plugin.thrift.annotations.ForMetadataRefresh;
-import io.trino.plugin.thrift.api.PrestoThriftNullableSchemaName;
-import io.trino.plugin.thrift.api.PrestoThriftNullableTableMetadata;
-import io.trino.plugin.thrift.api.PrestoThriftSchemaTableName;
-import io.trino.plugin.thrift.api.PrestoThriftService;
-import io.trino.plugin.thrift.api.PrestoThriftServiceException;
+import io.trino.plugin.thrift.api.TrinoThriftNullableSchemaName;
+import io.trino.plugin.thrift.api.TrinoThriftNullableTableMetadata;
+import io.trino.plugin.thrift.api.TrinoThriftSchemaTableName;
+import io.trino.plugin.thrift.api.TrinoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftServiceException;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
@@ -72,14 +72,14 @@ public class ThriftMetadata
     private static final Duration EXPIRE_AFTER_WRITE = new Duration(10, MINUTES);
     private static final Duration REFRESH_AFTER_WRITE = new Duration(2, MINUTES);
 
-    private final DriftClient<PrestoThriftService> client;
+    private final DriftClient<TrinoThriftService> client;
     private final ThriftHeaderProvider thriftHeaderProvider;
     private final TypeManager typeManager;
     private final LoadingCache<SchemaTableName, Optional<ThriftTableMetadata>> tableCache;
 
     @Inject
     public ThriftMetadata(
-            DriftClient<PrestoThriftService> client,
+            DriftClient<TrinoThriftService> client,
             ThriftHeaderProvider thriftHeaderProvider,
             TypeManager typeManager,
             @ForMetadataRefresh Executor metadataRefreshExecutor)
@@ -99,7 +99,7 @@ public class ThriftMetadata
         try {
             return client.get(thriftHeaderProvider.getHeaders(session)).listSchemaNames();
         }
-        catch (PrestoThriftServiceException | TException e) {
+        catch (TrinoThriftServiceException | TException e) {
             throw toTrinoException(e);
         }
     }
@@ -124,11 +124,11 @@ public class ThriftMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         try {
-            return client.get(thriftHeaderProvider.getHeaders(session)).listTables(new PrestoThriftNullableSchemaName(schemaName.orElse(null))).stream()
-                    .map(PrestoThriftSchemaTableName::toSchemaTableName)
+            return client.get(thriftHeaderProvider.getHeaders(session)).listTables(new TrinoThriftNullableSchemaName(schemaName.orElse(null))).stream()
+                    .map(TrinoThriftSchemaTableName::toSchemaTableName)
                     .collect(toImmutableList());
         }
-        catch (PrestoThriftServiceException | TException e) {
+        catch (TrinoThriftServiceException | TException e) {
             throw toTrinoException(e);
         }
     }
@@ -236,7 +236,7 @@ public class ThriftMetadata
     private Optional<ThriftTableMetadata> getTableMetadataInternal(SchemaTableName schemaTableName)
     {
         requireNonNull(schemaTableName, "schemaTableName is null");
-        PrestoThriftNullableTableMetadata thriftTableMetadata = getTableMetadata(schemaTableName);
+        TrinoThriftNullableTableMetadata thriftTableMetadata = getTableMetadata(schemaTableName);
         if (thriftTableMetadata.getTableMetadata() == null) {
             return Optional.empty();
         }
@@ -247,21 +247,21 @@ public class ThriftMetadata
         return Optional.of(tableMetadata);
     }
 
-    private PrestoThriftNullableTableMetadata getTableMetadata(SchemaTableName schemaTableName)
+    private TrinoThriftNullableTableMetadata getTableMetadata(SchemaTableName schemaTableName)
     {
         // treat invalid names as not found
-        PrestoThriftSchemaTableName name;
+        TrinoThriftSchemaTableName name;
         try {
-            name = new PrestoThriftSchemaTableName(schemaTableName);
+            name = new TrinoThriftSchemaTableName(schemaTableName);
         }
         catch (IllegalArgumentException e) {
-            return new PrestoThriftNullableTableMetadata(null);
+            return new TrinoThriftNullableTableMetadata(null);
         }
 
         try {
             return client.get().getTableMetadata(name);
         }
-        catch (PrestoThriftServiceException | TException e) {
+        catch (TrinoThriftServiceException | TException e) {
             throw toTrinoException(e);
         }
     }

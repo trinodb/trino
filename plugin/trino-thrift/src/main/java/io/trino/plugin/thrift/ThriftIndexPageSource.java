@@ -16,14 +16,14 @@ package io.trino.plugin.thrift;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.client.DriftClient;
-import io.trino.plugin.thrift.api.PrestoThriftId;
-import io.trino.plugin.thrift.api.PrestoThriftNullableToken;
-import io.trino.plugin.thrift.api.PrestoThriftPageResult;
-import io.trino.plugin.thrift.api.PrestoThriftSchemaTableName;
-import io.trino.plugin.thrift.api.PrestoThriftService;
-import io.trino.plugin.thrift.api.PrestoThriftSplit;
-import io.trino.plugin.thrift.api.PrestoThriftSplitBatch;
-import io.trino.plugin.thrift.api.PrestoThriftTupleDomain;
+import io.trino.plugin.thrift.api.TrinoThriftId;
+import io.trino.plugin.thrift.api.TrinoThriftNullableToken;
+import io.trino.plugin.thrift.api.TrinoThriftPageResult;
+import io.trino.plugin.thrift.api.TrinoThriftSchemaTableName;
+import io.trino.plugin.thrift.api.TrinoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftSplit;
+import io.trino.plugin.thrift.api.TrinoThriftSplitBatch;
+import io.trino.plugin.thrift.api.TrinoThriftTupleDomain;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -52,7 +52,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
-import static io.trino.plugin.thrift.api.PrestoThriftPageResult.fromRecordSet;
+import static io.trino.plugin.thrift.api.TrinoThriftPageResult.fromRecordSet;
 import static io.trino.plugin.thrift.util.ThriftExceptions.catchingThriftException;
 import static io.trino.plugin.thrift.util.TupleDomainConversion.tupleDomainToThriftTupleDomain;
 import static java.lang.Math.min;
@@ -64,14 +64,14 @@ public class ThriftIndexPageSource
 {
     private static final int MAX_SPLIT_COUNT = 10_000_000;
 
-    private final DriftClient<PrestoThriftService> client;
+    private final DriftClient<TrinoThriftService> client;
     private final Map<String, String> thriftHeaders;
-    private final PrestoThriftSchemaTableName schemaTableName;
+    private final TrinoThriftSchemaTableName schemaTableName;
     private final List<String> lookupColumnNames;
     private final List<String> outputColumnNames;
     private final List<Type> outputColumnTypes;
-    private final PrestoThriftTupleDomain outputConstraint;
-    private final PrestoThriftPageResult keys;
+    private final TrinoThriftTupleDomain outputConstraint;
+    private final TrinoThriftPageResult keys;
     private final long maxBytesPerResponse;
     private final int lookupRequestsConcurrency;
 
@@ -79,12 +79,12 @@ public class ThriftIndexPageSource
     private long completedBytes;
 
     private CompletableFuture<?> statusFuture;
-    private ListenableFuture<PrestoThriftSplitBatch> splitFuture;
-    private ListenableFuture<PrestoThriftPageResult> dataSignalFuture;
+    private ListenableFuture<TrinoThriftSplitBatch> splitFuture;
+    private ListenableFuture<TrinoThriftPageResult> dataSignalFuture;
 
-    private final List<PrestoThriftSplit> splits = new ArrayList<>();
-    private final Queue<ListenableFuture<PrestoThriftPageResult>> dataRequests = new LinkedList<>();
-    private final Map<ListenableFuture<PrestoThriftPageResult>, RunningSplitContext> contexts;
+    private final List<TrinoThriftSplit> splits = new ArrayList<>();
+    private final Queue<ListenableFuture<TrinoThriftPageResult>> dataRequests = new LinkedList<>();
+    private final Map<ListenableFuture<TrinoThriftPageResult>, RunningSplitContext> contexts;
     private final ThriftConnectorStats stats;
 
     private int splitIndex;
@@ -92,7 +92,7 @@ public class ThriftIndexPageSource
     private boolean finished;
 
     public ThriftIndexPageSource(
-            DriftClient<PrestoThriftService> client,
+            DriftClient<TrinoThriftService> client,
             Map<String, String> thriftHeaders,
             ThriftConnectorStats stats,
             ThriftIndexHandle indexHandle,
@@ -107,7 +107,7 @@ public class ThriftIndexPageSource
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(indexHandle, "indexHandle is null");
-        this.schemaTableName = new PrestoThriftSchemaTableName(indexHandle.getSchemaTableName());
+        this.schemaTableName = new TrinoThriftSchemaTableName(indexHandle.getSchemaTableName());
         this.outputConstraint = tupleDomainToThriftTupleDomain(indexHandle.getTupleDomain());
 
         requireNonNull(lookupColumns, "lookupColumns is null");
@@ -198,10 +198,10 @@ public class ThriftIndexPageSource
         }
 
         // at least one of data requests completed
-        ListenableFuture<PrestoThriftPageResult> resultFuture = getAndRemoveNextCompletedRequest();
+        ListenableFuture<TrinoThriftPageResult> resultFuture = getAndRemoveNextCompletedRequest();
         RunningSplitContext resultContext = contexts.remove(resultFuture);
         checkState(resultContext != null, "no associated context for the request");
-        PrestoThriftPageResult pageResult = getFutureValue(resultFuture);
+        TrinoThriftPageResult pageResult = getFutureValue(resultFuture);
         Page page = pageResult.toPage(outputColumnTypes);
         if (page != null) {
             long pageSize = page.getSizeInBytes();
@@ -253,7 +253,7 @@ public class ThriftIndexPageSource
             return false;
         }
         // split request is ready
-        PrestoThriftSplitBatch batch = getFutureValue(splitFuture);
+        TrinoThriftSplitBatch batch = getFutureValue(splitFuture);
         splits.addAll(batch.getSplits());
         // check if it's possible to request more splits
         if (batch.getNextToken() != null) {
@@ -279,43 +279,43 @@ public class ThriftIndexPageSource
 
     private void startDataFetchForNextSplit()
     {
-        PrestoThriftSplit split = splits.get(splitIndex);
+        TrinoThriftSplit split = splits.get(splitIndex);
         splitIndex++;
         RunningSplitContext context = new RunningSplitContext(openClient(split), split);
         sendDataRequest(context, null);
     }
 
-    private ListenableFuture<PrestoThriftSplitBatch> sendSplitRequest(@Nullable PrestoThriftId nextToken)
+    private ListenableFuture<TrinoThriftSplitBatch> sendSplitRequest(@Nullable TrinoThriftId nextToken)
     {
         long start = System.nanoTime();
-        ListenableFuture<PrestoThriftSplitBatch> future = client.get(thriftHeaders).getIndexSplits(
+        ListenableFuture<TrinoThriftSplitBatch> future = client.get(thriftHeaders).getIndexSplits(
                 schemaTableName,
                 lookupColumnNames,
                 outputColumnNames,
                 keys,
                 outputConstraint,
                 MAX_SPLIT_COUNT,
-                new PrestoThriftNullableToken(nextToken));
+                new TrinoThriftNullableToken(nextToken));
         future = catchingThriftException(future);
         future.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         return future;
     }
 
-    private void sendDataRequest(RunningSplitContext context, @Nullable PrestoThriftId nextToken)
+    private void sendDataRequest(RunningSplitContext context, @Nullable TrinoThriftId nextToken)
     {
         long start = System.nanoTime();
-        ListenableFuture<PrestoThriftPageResult> future = context.getClient().getRows(
+        ListenableFuture<TrinoThriftPageResult> future = context.getClient().getRows(
                 context.getSplit().getSplitId(),
                 outputColumnNames,
                 maxBytesPerResponse,
-                new PrestoThriftNullableToken(nextToken));
+                new TrinoThriftNullableToken(nextToken));
         future = catchingThriftException(future);
         future.addListener(() -> readTimeNanos.addAndGet(System.nanoTime() - start), directExecutor());
         dataRequests.add(future);
         contexts.put(future, context);
     }
 
-    private PrestoThriftService openClient(PrestoThriftSplit split)
+    private TrinoThriftService openClient(TrinoThriftSplit split)
     {
         if (split.getHosts().isEmpty()) {
             return client.get(thriftHeaders);
@@ -334,11 +334,11 @@ public class ThriftIndexPageSource
         dataRequests.forEach(ThriftIndexPageSource::cancelQuietly);
     }
 
-    private ListenableFuture<PrestoThriftPageResult> getAndRemoveNextCompletedRequest()
+    private ListenableFuture<TrinoThriftPageResult> getAndRemoveNextCompletedRequest()
     {
-        Iterator<ListenableFuture<PrestoThriftPageResult>> iterator = dataRequests.iterator();
+        Iterator<ListenableFuture<TrinoThriftPageResult>> iterator = dataRequests.iterator();
         while (iterator.hasNext()) {
-            ListenableFuture<PrestoThriftPageResult> future = iterator.next();
+            ListenableFuture<TrinoThriftPageResult> future = iterator.next();
             if (future.isDone()) {
                 iterator.remove();
                 return future;
@@ -356,21 +356,21 @@ public class ThriftIndexPageSource
 
     private static final class RunningSplitContext
     {
-        private final PrestoThriftService client;
-        private final PrestoThriftSplit split;
+        private final TrinoThriftService client;
+        private final TrinoThriftSplit split;
 
-        public RunningSplitContext(PrestoThriftService client, PrestoThriftSplit split)
+        public RunningSplitContext(TrinoThriftService client, TrinoThriftSplit split)
         {
             this.client = client;
             this.split = split;
         }
 
-        public PrestoThriftService getClient()
+        public TrinoThriftService getClient()
         {
             return client;
         }
 
-        public PrestoThriftSplit getSplit()
+        public TrinoThriftSplit getSplit()
         {
             return split;
         }

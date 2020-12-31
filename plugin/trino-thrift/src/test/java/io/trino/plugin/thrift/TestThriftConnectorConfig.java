@@ -39,9 +39,9 @@ public class TestThriftConnectorConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("presto-thrift.max-response-size", "2MB")
-                .put("presto-thrift.metadata-refresh-threads", "10")
-                .put("presto-thrift.lookup-requests-concurrency", "8")
+                .put("trino-thrift.max-response-size", "2MB")
+                .put("trino-thrift.metadata-refresh-threads", "10")
+                .put("trino-thrift.lookup-requests-concurrency", "8")
                 .build();
 
         ThriftConnectorConfig expected = new ThriftConnectorConfig()

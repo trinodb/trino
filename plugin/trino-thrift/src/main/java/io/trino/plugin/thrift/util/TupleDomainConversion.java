@@ -14,23 +14,23 @@
 package io.trino.plugin.thrift.util;
 
 import io.trino.plugin.thrift.ThriftColumnHandle;
-import io.trino.plugin.thrift.api.PrestoThriftTupleDomain;
+import io.trino.plugin.thrift.api.TrinoThriftTupleDomain;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.thrift.api.PrestoThriftDomain.fromDomain;
+import static io.trino.plugin.thrift.api.TrinoThriftDomain.fromDomain;
 
 public final class TupleDomainConversion
 {
     private TupleDomainConversion() {}
 
-    public static PrestoThriftTupleDomain tupleDomainToThriftTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
+    public static TrinoThriftTupleDomain tupleDomainToThriftTupleDomain(TupleDomain<ColumnHandle> tupleDomain)
     {
         if (tupleDomain.getDomains().isEmpty()) {
-            return new PrestoThriftTupleDomain(null);
+            return new TrinoThriftTupleDomain(null);
         }
-        return new PrestoThriftTupleDomain(tupleDomain.getDomains().get()
+        return new TrinoThriftTupleDomain(tupleDomain.getDomains().get()
                 .entrySet().stream()
                 .collect(toImmutableMap(
                         entry -> ((ThriftColumnHandle) entry.getKey()).getColumnName(),

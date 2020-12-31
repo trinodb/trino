@@ -15,7 +15,7 @@ package io.trino.plugin.thrift;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.trino.plugin.thrift.api.PrestoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftService;
 
 import static com.google.inject.Scopes.SINGLETON;
 import static io.airlift.drift.client.guice.DriftClientBinder.driftClientBinder;
@@ -29,7 +29,7 @@ public class ThriftClientModule
     {
         binder.bind(ThriftHeaderProvider.class).to(DefaultThriftHeaderProvider.class).in(SINGLETON);
         driftClientBinder(binder)
-                .bindDriftClient(PrestoThriftService.class)
+                .bindDriftClient(TrinoThriftService.class)
                 .withAddressSelector(extendedSimpleAddressSelector());
     }
 }

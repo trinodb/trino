@@ -16,7 +16,7 @@ package io.trino.plugin.thrift;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.thrift.api.PrestoThriftId;
+import io.trino.plugin.thrift.api.TrinoThriftId;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
@@ -29,12 +29,12 @@ import static java.util.Objects.requireNonNull;
 public class ThriftConnectorSplit
         implements ConnectorSplit
 {
-    private final PrestoThriftId splitId;
+    private final TrinoThriftId splitId;
     private final List<HostAddress> addresses;
 
     @JsonCreator
     public ThriftConnectorSplit(
-            @JsonProperty("splitId") PrestoThriftId splitId,
+            @JsonProperty("splitId") TrinoThriftId splitId,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
         this.splitId = requireNonNull(splitId, "splitId is null");
@@ -42,7 +42,7 @@ public class ThriftConnectorSplit
     }
 
     @JsonProperty
-    public PrestoThriftId getSplitId()
+    public TrinoThriftId getSplitId()
     {
         return splitId;
     }

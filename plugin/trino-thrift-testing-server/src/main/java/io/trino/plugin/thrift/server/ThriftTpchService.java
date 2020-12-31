@@ -18,21 +18,21 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.json.JsonCodec;
-import io.trino.plugin.thrift.api.PrestoThriftBlock;
-import io.trino.plugin.thrift.api.PrestoThriftColumnMetadata;
-import io.trino.plugin.thrift.api.PrestoThriftId;
-import io.trino.plugin.thrift.api.PrestoThriftNullableColumnSet;
-import io.trino.plugin.thrift.api.PrestoThriftNullableSchemaName;
-import io.trino.plugin.thrift.api.PrestoThriftNullableTableMetadata;
-import io.trino.plugin.thrift.api.PrestoThriftNullableToken;
-import io.trino.plugin.thrift.api.PrestoThriftPageResult;
-import io.trino.plugin.thrift.api.PrestoThriftSchemaTableName;
-import io.trino.plugin.thrift.api.PrestoThriftService;
-import io.trino.plugin.thrift.api.PrestoThriftServiceException;
-import io.trino.plugin.thrift.api.PrestoThriftSplit;
-import io.trino.plugin.thrift.api.PrestoThriftSplitBatch;
-import io.trino.plugin.thrift.api.PrestoThriftTableMetadata;
-import io.trino.plugin.thrift.api.PrestoThriftTupleDomain;
+import io.trino.plugin.thrift.api.TrinoThriftBlock;
+import io.trino.plugin.thrift.api.TrinoThriftColumnMetadata;
+import io.trino.plugin.thrift.api.TrinoThriftId;
+import io.trino.plugin.thrift.api.TrinoThriftNullableColumnSet;
+import io.trino.plugin.thrift.api.TrinoThriftNullableSchemaName;
+import io.trino.plugin.thrift.api.TrinoThriftNullableTableMetadata;
+import io.trino.plugin.thrift.api.TrinoThriftNullableToken;
+import io.trino.plugin.thrift.api.TrinoThriftPageResult;
+import io.trino.plugin.thrift.api.TrinoThriftSchemaTableName;
+import io.trino.plugin.thrift.api.TrinoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftServiceException;
+import io.trino.plugin.thrift.api.TrinoThriftSplit;
+import io.trino.plugin.thrift.api.TrinoThriftSplitBatch;
+import io.trino.plugin.thrift.api.TrinoThriftTableMetadata;
+import io.trino.plugin.thrift.api.TrinoThriftTupleDomain;
 import io.trino.spi.Page;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordPageSource;
@@ -55,7 +55,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static io.trino.plugin.thrift.api.PrestoThriftBlock.fromBlock;
+import static io.trino.plugin.thrift.api.TrinoThriftBlock.fromBlock;
 import static io.trino.plugin.thrift.server.SplitInfo.normalSplit;
 import static io.trino.plugin.tpch.TpchMetadata.getPrestoType;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
@@ -65,7 +65,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
 
 public class ThriftTpchService
-        implements PrestoThriftService, Closeable
+        implements TrinoThriftService, Closeable
 {
     private static final int DEFAULT_NUMBER_OF_SPLITS = 3;
     private static final List<String> SCHEMAS = ImmutableList.of("tiny", "sf1");
@@ -81,32 +81,32 @@ public class ThriftTpchService
     }
 
     @Override
-    public final List<PrestoThriftSchemaTableName> listTables(PrestoThriftNullableSchemaName schemaNameOrNull)
+    public final List<TrinoThriftSchemaTableName> listTables(TrinoThriftNullableSchemaName schemaNameOrNull)
     {
-        List<PrestoThriftSchemaTableName> tables = new ArrayList<>();
+        List<TrinoThriftSchemaTableName> tables = new ArrayList<>();
         for (String schemaName : getSchemaNames(schemaNameOrNull.getSchemaName())) {
             for (TpchTable<?> tpchTable : TpchTable.getTables()) {
-                tables.add(new PrestoThriftSchemaTableName(schemaName, tpchTable.getTableName()));
+                tables.add(new TrinoThriftSchemaTableName(schemaName, tpchTable.getTableName()));
             }
         }
         return tables;
     }
 
     @Override
-    public final PrestoThriftNullableTableMetadata getTableMetadata(PrestoThriftSchemaTableName schemaTableName)
+    public final TrinoThriftNullableTableMetadata getTableMetadata(TrinoThriftSchemaTableName schemaTableName)
     {
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
         if (!SCHEMAS.contains(schemaName) || TpchTable.getTables().stream().noneMatch(table -> table.getTableName().equals(tableName))) {
-            return new PrestoThriftNullableTableMetadata(null);
+            return new TrinoThriftNullableTableMetadata(null);
         }
         TpchTable<?> tpchTable = TpchTable.getTable(schemaTableName.getTableName());
-        List<PrestoThriftColumnMetadata> columns = new ArrayList<>();
+        List<TrinoThriftColumnMetadata> columns = new ArrayList<>();
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
-            columns.add(new PrestoThriftColumnMetadata(column.getSimplifiedColumnName(), getTypeString(column), null, false));
+            columns.add(new TrinoThriftColumnMetadata(column.getSimplifiedColumnName(), getTypeString(column), null, false));
         }
         List<Set<String>> indexableKeys = getIndexableKeys(schemaName, tableName);
-        return new PrestoThriftNullableTableMetadata(new PrestoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null));
+        return new TrinoThriftNullableTableMetadata(new TrinoThriftTableMetadata(schemaTableName, columns, null, !indexableKeys.isEmpty() ? indexableKeys : null));
     }
 
     protected List<Set<String>> getIndexableKeys(String schemaName, String tableName)
@@ -115,79 +115,79 @@ public class ThriftTpchService
     }
 
     @Override
-    public final ListenableFuture<PrestoThriftSplitBatch> getSplits(
-            PrestoThriftSchemaTableName schemaTableName,
-            PrestoThriftNullableColumnSet desiredColumns,
-            PrestoThriftTupleDomain outputConstraint,
+    public final ListenableFuture<TrinoThriftSplitBatch> getSplits(
+            TrinoThriftSchemaTableName schemaTableName,
+            TrinoThriftNullableColumnSet desiredColumns,
+            TrinoThriftTupleDomain outputConstraint,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
+            TrinoThriftNullableToken nextToken)
     {
         return executor.submit(() -> getSplitsSync(schemaTableName, maxSplitCount, nextToken));
     }
 
-    private static PrestoThriftSplitBatch getSplitsSync(
-            PrestoThriftSchemaTableName schemaTableName,
+    private static TrinoThriftSplitBatch getSplitsSync(
+            TrinoThriftSchemaTableName schemaTableName,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
+            TrinoThriftNullableToken nextToken)
     {
         int totalParts = DEFAULT_NUMBER_OF_SPLITS;
         // last sent part
         int partNumber = nextToken.getToken() == null ? 0 : Ints.fromByteArray(nextToken.getToken().getId());
         int numberOfSplits = min(maxSplitCount, totalParts - partNumber);
 
-        List<PrestoThriftSplit> splits = new ArrayList<>(numberOfSplits);
+        List<TrinoThriftSplit> splits = new ArrayList<>(numberOfSplits);
         for (int i = 0; i < numberOfSplits; i++) {
             SplitInfo splitInfo = normalSplit(
                     schemaTableName.getSchemaName(),
                     schemaTableName.getTableName(),
                     partNumber + 1,
                     totalParts);
-            splits.add(new PrestoThriftSplit(new PrestoThriftId(SPLIT_INFO_CODEC.toJsonBytes(splitInfo)), ImmutableList.of()));
+            splits.add(new TrinoThriftSplit(new TrinoThriftId(SPLIT_INFO_CODEC.toJsonBytes(splitInfo)), ImmutableList.of()));
             partNumber++;
         }
-        PrestoThriftId newNextToken = partNumber < totalParts ? new PrestoThriftId(Ints.toByteArray(partNumber)) : null;
-        return new PrestoThriftSplitBatch(splits, newNextToken);
+        TrinoThriftId newNextToken = partNumber < totalParts ? new TrinoThriftId(Ints.toByteArray(partNumber)) : null;
+        return new TrinoThriftSplitBatch(splits, newNextToken);
     }
 
     @Override
-    public final ListenableFuture<PrestoThriftSplitBatch> getIndexSplits(
-            PrestoThriftSchemaTableName schemaTableName,
+    public final ListenableFuture<TrinoThriftSplitBatch> getIndexSplits(
+            TrinoThriftSchemaTableName schemaTableName,
             List<String> indexColumnNames,
             List<String> outputColumnNames,
-            PrestoThriftPageResult keys,
-            PrestoThriftTupleDomain outputConstraint,
+            TrinoThriftPageResult keys,
+            TrinoThriftTupleDomain outputConstraint,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
+            TrinoThriftNullableToken nextToken)
     {
         return executor.submit(() -> getIndexSplitsSync(schemaTableName, indexColumnNames, keys, maxSplitCount, nextToken));
     }
 
-    protected PrestoThriftSplitBatch getIndexSplitsSync(
-            PrestoThriftSchemaTableName schemaTableName,
+    protected TrinoThriftSplitBatch getIndexSplitsSync(
+            TrinoThriftSchemaTableName schemaTableName,
             List<String> indexColumnNames,
-            PrestoThriftPageResult keys,
+            TrinoThriftPageResult keys,
             int maxSplitCount,
-            PrestoThriftNullableToken nextToken)
-            throws PrestoThriftServiceException
+            TrinoThriftNullableToken nextToken)
+            throws TrinoThriftServiceException
     {
-        throw new PrestoThriftServiceException("Index join is not supported", false);
+        throw new TrinoThriftServiceException("Index join is not supported", false);
     }
 
     @Override
-    public final ListenableFuture<PrestoThriftPageResult> getRows(
-            PrestoThriftId splitId,
+    public final ListenableFuture<TrinoThriftPageResult> getRows(
+            TrinoThriftId splitId,
             List<String> outputColumns,
             long maxBytes,
-            PrestoThriftNullableToken nextToken)
+            TrinoThriftNullableToken nextToken)
     {
         return executor.submit(() -> getRowsSync(splitId, outputColumns, maxBytes, nextToken));
     }
 
-    private PrestoThriftPageResult getRowsSync(
-            PrestoThriftId splitId,
+    private TrinoThriftPageResult getRowsSync(
+            TrinoThriftId splitId,
             List<String> outputColumns,
             long maxBytes,
-            PrestoThriftNullableToken nextToken)
+            TrinoThriftNullableToken nextToken)
     {
         SplitInfo splitInfo = SPLIT_INFO_CODEC.fromJson(splitId.getId());
         checkArgument(maxBytes >= DEFAULT_MAX_PAGE_SIZE_IN_BYTES, "requested maxBytes is too small");
@@ -232,7 +232,7 @@ public class ThriftTpchService
         throw new IllegalArgumentException("Schema is not setup: " + schemaName);
     }
 
-    private static PrestoThriftPageResult getRowsInternal(ConnectorPageSource pageSource, String tableName, List<String> columnNames, @Nullable PrestoThriftId nextToken)
+    private static TrinoThriftPageResult getRowsInternal(ConnectorPageSource pageSource, String tableName, List<String> columnNames, @Nullable TrinoThriftId nextToken)
     {
         // very inefficient implementation as it needs to re-generate all previous results to get the next page
         int skipPages = nextToken != null ? Ints.fromByteArray(nextToken.getId()) : 0;
@@ -243,24 +243,24 @@ public class ThriftTpchService
             page = pageSource.getNextPage();
             skipPages++;
         }
-        PrestoThriftId newNextToken = pageSource.isFinished() ? null : new PrestoThriftId(Ints.toByteArray(skipPages));
+        TrinoThriftId newNextToken = pageSource.isFinished() ? null : new TrinoThriftId(Ints.toByteArray(skipPages));
 
         return toThriftPage(page, types(tableName, columnNames), newNextToken);
     }
 
-    private static PrestoThriftPageResult toThriftPage(Page page, List<Type> columnTypes, @Nullable PrestoThriftId nextToken)
+    private static TrinoThriftPageResult toThriftPage(Page page, List<Type> columnTypes, @Nullable TrinoThriftId nextToken)
     {
         if (page == null) {
             checkState(nextToken == null, "there must be no more data when page is null");
-            return new PrestoThriftPageResult(ImmutableList.of(), 0, null);
+            return new TrinoThriftPageResult(ImmutableList.of(), 0, null);
         }
         checkState(page.getChannelCount() == columnTypes.size(), "number of columns in a page doesn't match the one in requested types");
         int numberOfColumns = columnTypes.size();
-        List<PrestoThriftBlock> columnBlocks = new ArrayList<>(numberOfColumns);
+        List<TrinoThriftBlock> columnBlocks = new ArrayList<>(numberOfColumns);
         for (int i = 0; i < numberOfColumns; i++) {
             columnBlocks.add(fromBlock(page.getBlock(i), columnTypes.get(i)));
         }
-        return new PrestoThriftPageResult(columnBlocks, page.getPositionCount(), nextToken);
+        return new TrinoThriftPageResult(columnBlocks, page.getPositionCount(), nextToken);
     }
 
     private static void skipPages(ConnectorPageSource pageSource, int skipPages)

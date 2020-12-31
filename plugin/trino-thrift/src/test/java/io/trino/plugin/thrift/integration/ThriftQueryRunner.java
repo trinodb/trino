@@ -132,11 +132,11 @@ public final class ThriftQueryRunner
 
         queryRunner.installPlugin(new ThriftPlugin());
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
-                .put("presto.thrift.client.addresses", addresses)
-                .put("presto.thrift.client.connect-timeout", "30s")
-                .put("presto-thrift.lookup-requests-concurrency", "2")
+                .put("trino.thrift.client.addresses", addresses)
+                .put("trino.thrift.client.connect-timeout", "30s")
+                .put("trino-thrift.lookup-requests-concurrency", "2")
                 .build();
-        queryRunner.createCatalog("thrift", "presto-thrift", connectorProperties);
+        queryRunner.createCatalog("thrift", "trino-thrift", connectorProperties);
 
         return queryRunner;
     }

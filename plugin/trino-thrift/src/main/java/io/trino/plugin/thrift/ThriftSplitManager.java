@@ -16,15 +16,15 @@ package io.trino.plugin.thrift;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.drift.client.DriftClient;
-import io.trino.plugin.thrift.api.PrestoThriftHostAddress;
-import io.trino.plugin.thrift.api.PrestoThriftId;
-import io.trino.plugin.thrift.api.PrestoThriftNullableColumnSet;
-import io.trino.plugin.thrift.api.PrestoThriftNullableToken;
-import io.trino.plugin.thrift.api.PrestoThriftSchemaTableName;
-import io.trino.plugin.thrift.api.PrestoThriftService;
-import io.trino.plugin.thrift.api.PrestoThriftSplit;
-import io.trino.plugin.thrift.api.PrestoThriftSplitBatch;
-import io.trino.plugin.thrift.api.PrestoThriftTupleDomain;
+import io.trino.plugin.thrift.api.TrinoThriftHostAddress;
+import io.trino.plugin.thrift.api.TrinoThriftId;
+import io.trino.plugin.thrift.api.TrinoThriftNullableColumnSet;
+import io.trino.plugin.thrift.api.TrinoThriftNullableToken;
+import io.trino.plugin.thrift.api.TrinoThriftSchemaTableName;
+import io.trino.plugin.thrift.api.TrinoThriftService;
+import io.trino.plugin.thrift.api.TrinoThriftSplit;
+import io.trino.plugin.thrift.api.TrinoThriftSplitBatch;
+import io.trino.plugin.thrift.api.TrinoThriftTupleDomain;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPartitionHandle;
@@ -59,11 +59,11 @@ import static java.util.Objects.requireNonNull;
 public class ThriftSplitManager
         implements ConnectorSplitManager
 {
-    private final DriftClient<PrestoThriftService> client;
+    private final DriftClient<TrinoThriftService> client;
     private final ThriftHeaderProvider thriftHeaderProvider;
 
     @Inject
-    public ThriftSplitManager(DriftClient<PrestoThriftService> client, ThriftHeaderProvider thriftHeaderProvider)
+    public ThriftSplitManager(DriftClient<TrinoThriftService> client, ThriftHeaderProvider thriftHeaderProvider)
     {
         this.client = requireNonNull(client, "client is null");
         this.thriftHeaderProvider = requireNonNull(thriftHeaderProvider, "thriftHeaderProvider is null");
@@ -80,7 +80,7 @@ public class ThriftSplitManager
         ThriftTableHandle tableHandle = (ThriftTableHandle) table;
         return new ThriftSplitSource(
                 client.get(thriftHeaderProvider.getHeaders(session)),
-                new PrestoThriftSchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName()),
+                new TrinoThriftSchemaTableName(tableHandle.getSchemaName(), tableHandle.getTableName()),
                 tableHandle.getDesiredColumns().map(ThriftSplitManager::columnNames),
                 tupleDomainToThriftTupleDomain(tableHandle.getConstraint()));
     }
@@ -97,22 +97,22 @@ public class ThriftSplitManager
     private static class ThriftSplitSource
             implements ConnectorSplitSource
     {
-        private final PrestoThriftService client;
-        private final PrestoThriftSchemaTableName schemaTableName;
+        private final TrinoThriftService client;
+        private final TrinoThriftSchemaTableName schemaTableName;
         private final Optional<Set<String>> columnNames;
-        private final PrestoThriftTupleDomain constraint;
+        private final TrinoThriftTupleDomain constraint;
 
         // the code assumes getNextBatch is called by a single thread
 
         private final AtomicBoolean hasMoreData;
-        private final AtomicReference<PrestoThriftId> nextToken;
+        private final AtomicReference<TrinoThriftId> nextToken;
         private final AtomicReference<Future<?>> future;
 
         public ThriftSplitSource(
-                PrestoThriftService client,
-                PrestoThriftSchemaTableName schemaTableName,
+                TrinoThriftService client,
+                TrinoThriftSchemaTableName schemaTableName,
                 Optional<Set<String>> columnNames,
-                PrestoThriftTupleDomain constraint)
+                TrinoThriftTupleDomain constraint)
         {
             this.client = requireNonNull(client, "client is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
@@ -133,13 +133,13 @@ public class ThriftSplitManager
         {
             checkState(future.get() == null || future.get().isDone(), "previous batch not completed");
             checkState(hasMoreData.get(), "this method cannot be invoked when there's no more data");
-            PrestoThriftId currentToken = nextToken.get();
-            ListenableFuture<PrestoThriftSplitBatch> splitsFuture = client.getSplits(
+            TrinoThriftId currentToken = nextToken.get();
+            ListenableFuture<TrinoThriftSplitBatch> splitsFuture = client.getSplits(
                     schemaTableName,
-                    new PrestoThriftNullableColumnSet(columnNames.orElse(null)),
+                    new TrinoThriftNullableColumnSet(columnNames.orElse(null)),
                     constraint,
                     maxSize,
-                    new PrestoThriftNullableToken(currentToken));
+                    new TrinoThriftNullableToken(currentToken));
             ListenableFuture<ConnectorSplitBatch> resultFuture = Futures.transform(
                     splitsFuture,
                     batch -> {
@@ -171,16 +171,16 @@ public class ThriftSplitManager
             }
         }
 
-        private static ThriftConnectorSplit toConnectorSplit(PrestoThriftSplit thriftSplit)
+        private static ThriftConnectorSplit toConnectorSplit(TrinoThriftSplit thriftSplit)
         {
             return new ThriftConnectorSplit(
                     thriftSplit.getSplitId(),
                     toHostAddressList(thriftSplit.getHosts()));
         }
 
-        private static List<HostAddress> toHostAddressList(List<PrestoThriftHostAddress> hosts)
+        private static List<HostAddress> toHostAddressList(List<TrinoThriftHostAddress> hosts)
         {
-            return hosts.stream().map(PrestoThriftHostAddress::toHostAddress).collect(toImmutableList());
+            return hosts.stream().map(TrinoThriftHostAddress::toHostAddress).collect(toImmutableList());
         }
     }
 }
