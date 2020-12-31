@@ -36,7 +36,7 @@ contains the following line:
 
 .. code-block:: xml
 
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
 Plugin
 ------

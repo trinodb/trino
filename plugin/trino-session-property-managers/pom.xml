@@ -11,7 +11,7 @@
 
     <artifactId>trino-session-property-managers</artifactId>
     <description>Presto - Session Property Managers</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

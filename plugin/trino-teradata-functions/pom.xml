@@ -10,7 +10,7 @@
 
     <artifactId>trino-teradata-functions</artifactId>
     <description>Teradata's specific functions for Presto</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

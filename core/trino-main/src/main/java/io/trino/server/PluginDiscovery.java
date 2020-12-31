@@ -49,7 +49,7 @@ final class PluginDiscovery
     public static Set<String> discoverPlugins(Artifact artifact, ClassLoader classLoader)
             throws IOException
     {
-        if (!artifact.getExtension().equals("presto-plugin")) {
+        if (!artifact.getExtension().equals("trino-plugin")) {
             throw new RuntimeException("Unexpected extension for main artifact: " + artifact);
         }
 

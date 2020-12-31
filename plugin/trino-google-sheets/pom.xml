@@ -10,7 +10,7 @@
 
     <artifactId>trino-google-sheets</artifactId>
     <description>Presto - Google Sheets Connector</description>
-    <packaging>presto-plugin</packaging>
+    <packaging>trino-plugin</packaging>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
