@@ -17,7 +17,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -183,7 +183,7 @@ public final class TypeUtils
             return utf8Slice(CharMatcher.is(' ').trimTrailingFrom((String) jdbcObject));
         }
 
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported type %s and object type %s", prestoType, jdbcObject.getClass()));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported type %s and object type %s", prestoType, jdbcObject.getClass()));
     }
 
     private static Object prestoNativeToJdbcObject(ConnectorSession session, Type prestoType, Object prestoNative)
@@ -237,6 +237,6 @@ public final class TypeUtils
             return getJdbcObjectArray(session, ((ArrayType) prestoType).getElementType(), (Block) prestoNative);
         }
 
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + prestoType);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + prestoType);
     }
 }

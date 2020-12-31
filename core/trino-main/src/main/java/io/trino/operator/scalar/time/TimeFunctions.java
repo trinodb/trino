@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.time;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -97,7 +97,7 @@ public class TimeFunctions
             case "hour":
                 return time / PICOSECONDS_PER_HOUR * PICOSECONDS_PER_HOUR;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
         }
     }
 
@@ -127,7 +127,7 @@ public class TimeFunctions
                 delta = (delta % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
                 break;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
         }
 
         long result = TimeOperators.add(time, delta);
@@ -159,7 +159,7 @@ public class TimeFunctions
             case "hour":
                 return delta / PICOSECONDS_PER_HOUR;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
         }
     }
 }

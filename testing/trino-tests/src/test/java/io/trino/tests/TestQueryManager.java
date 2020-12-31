@@ -21,8 +21,8 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.protocol.Slug;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.TestingSessionContext;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
@@ -92,7 +92,7 @@ public class TestQueryManager
 
         // cancel query
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        queryManager.failQuery(queryId, new PrestoException(GENERIC_INTERNAL_ERROR, "mock exception"));
+        queryManager.failQuery(queryId, new TrinoException(GENERIC_INTERNAL_ERROR, "mock exception"));
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
         assertEquals(queryInfo.getState(), FAILED);
         assertEquals(queryInfo.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());

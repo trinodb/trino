@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
@@ -96,13 +96,13 @@ public final class ArrayElementAtFunction
     }
 
     /**
-     * @return PrestoException if the index is 0, -1 if the index is out of range (to tell the calling function to return null), and the element position otherwise.
+     * @return TrinoException if the index is 0, -1 if the index is out of range (to tell the calling function to return null), and the element position otherwise.
      */
     private static int checkedIndexToBlockPosition(Block block, long index)
     {
         int arrayLength = block.getPositionCount();
         if (index == 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
         if (Math.abs(index) > arrayLength) {
             return -1; // -1 indicates that the element is out of range and "ELEMENT_AT" should return null

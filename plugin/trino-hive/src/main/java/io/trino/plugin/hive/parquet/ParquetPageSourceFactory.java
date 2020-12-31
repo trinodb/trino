@@ -34,7 +34,7 @@ import io.trino.plugin.hive.HivePageSourceFactory;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
@@ -242,21 +242,21 @@ public class ParquetPageSourceFactory
             }
             catch (IOException ignored) {
             }
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
+            if (e instanceof TrinoException) {
+                throw (TrinoException) e;
             }
             if (e instanceof ParquetCorruptionException) {
-                throw new PrestoException(HIVE_BAD_DATA, e);
+                throw new TrinoException(HIVE_BAD_DATA, e);
             }
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
                     e instanceof FileNotFoundException) {
-                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
+                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
             String message = format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
             if (e instanceof BlockMissingException) {
-                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+                throw new TrinoException(HIVE_MISSING_DATA, message, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
 
         Optional<ReaderColumns> readerProjections = projectBaseColumns(columns);

@@ -20,7 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.Closer;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
@@ -126,7 +126,7 @@ public abstract class S3SelectLineRecordReader
         if (codec instanceof BZip2Codec) {
             return CompressionType.BZIP2;
         }
-        throw new PrestoException(NOT_SUPPORTED, "Compression extension not supported for S3 Select: " + path);
+        throw new TrinoException(NOT_SUPPORTED, "Compression extension not supported for S3 Select: " + path);
     }
 
     private int readLine(Text value)

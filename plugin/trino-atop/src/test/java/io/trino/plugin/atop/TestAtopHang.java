@@ -15,7 +15,7 @@ package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -60,7 +60,7 @@ public class TestAtopHang
             queryRunner.execute("SELECT * FROM disks");
             fail();
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), ATOP_READ_TIMEOUT.toErrorCode(), e.getMessage());
         }
     }

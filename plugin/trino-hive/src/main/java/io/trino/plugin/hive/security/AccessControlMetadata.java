@@ -14,7 +14,7 @@
 package io.trino.plugin.hive.security;
 
 import io.trino.plugin.hive.metastore.HivePrincipal;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.GrantInfo;
@@ -37,7 +37,7 @@ public interface AccessControlMetadata
      */
     default void createRole(ConnectorSession session, String role, Optional<HivePrincipal> grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support create role");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support create role");
     }
 
     /**
@@ -45,7 +45,7 @@ public interface AccessControlMetadata
      */
     default void dropRole(ConnectorSession session, String role)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support drop role");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support drop role");
     }
 
     /**
@@ -53,7 +53,7 @@ public interface AccessControlMetadata
      */
     default Set<String> listRoles(ConnectorSession session)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -61,7 +61,7 @@ public interface AccessControlMetadata
      */
     default Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -69,7 +69,7 @@ public interface AccessControlMetadata
      */
     default Set<RoleGrant> listRoleGrants(ConnectorSession session, HivePrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -79,7 +79,7 @@ public interface AccessControlMetadata
      */
     default void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, Optional<HivePrincipal> grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -89,7 +89,7 @@ public interface AccessControlMetadata
      */
     default void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, Optional<HivePrincipal> grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -97,7 +97,7 @@ public interface AccessControlMetadata
      */
     default Set<RoleGrant> listApplicableRoles(ConnectorSession session, HivePrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -105,7 +105,7 @@ public interface AccessControlMetadata
      */
     default Set<String> listEnabledRoles(ConnectorSession session)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -113,7 +113,7 @@ public interface AccessControlMetadata
      */
     default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants");
     }
 
     /**
@@ -121,7 +121,7 @@ public interface AccessControlMetadata
      */
     default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, HivePrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes");
     }
 
     /**
@@ -129,6 +129,6 @@ public interface AccessControlMetadata
      */
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, List<SchemaTableName> tableName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support table privileges");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support table privileges");
     }
 }

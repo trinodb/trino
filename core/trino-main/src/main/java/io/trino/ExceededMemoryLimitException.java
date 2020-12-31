@@ -14,15 +14,15 @@
 package io.trino;
 
 import io.airlift.units.DataSize;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.EXCEEDED_GLOBAL_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static java.lang.String.format;
 
 public class ExceededMemoryLimitException
-        extends PrestoException
+        extends TrinoException
 {
     public static ExceededMemoryLimitException exceededGlobalUserLimit(DataSize maxMemory)
     {

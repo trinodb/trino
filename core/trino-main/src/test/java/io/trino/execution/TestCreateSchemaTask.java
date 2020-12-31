@@ -21,7 +21,7 @@ import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.PrestoPrincipal;
 import io.trino.sql.tree.CreateSchema;
@@ -76,7 +76,7 @@ public class TestCreateSchemaTask
         CreateSchema statement = new CreateSchema(QualifiedName.of(schemaName), false, ImmutableList.of());
         getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
         assertEquals(metadata.getCreateSchemaCount(), 1);
-        assertThatExceptionOfType(PrestoException.class)
+        assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(new CreateSchemaTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
                 .withMessage("Schema already exists");
     }
@@ -125,7 +125,7 @@ public class TestCreateSchemaTask
         public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal)
         {
             if (schemas.contains(schema)) {
-                throw new PrestoException(ALREADY_EXISTS, "Schema already exists");
+                throw new TrinoException(ALREADY_EXISTS, "Schema already exists");
             }
             schemas.add(schema);
         }

@@ -15,7 +15,7 @@ package io.trino.orc.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -252,7 +252,7 @@ public class OrcType
 
             return createOrcRowType(nextFieldTypeIndex, fieldNames, fieldTypes);
         }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
     private static List<OrcType> createOrcArrayType(int nextFieldTypeIndex, Type itemType)

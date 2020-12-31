@@ -24,7 +24,7 @@ import io.trino.plugin.kafka.KafkaConfig;
 import io.trino.plugin.kafka.KafkaTopicDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -190,7 +190,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         SchemaMetadata schemaMetadata = getLatestSchemaMetadata(subject);
         SchemaParser schemaParser = schemaParsers.get(schemaMetadata.getSchemaType());
         if (schemaParser == null) {
-            throw new PrestoException(NOT_SUPPORTED, "Not supported schema: " + schemaMetadata.getSchemaType());
+            throw new TrinoException(NOT_SUPPORTED, "Not supported schema: " + schemaMetadata.getSchemaType());
         }
         return schemaParser.parse(session, subject, schemaMetadata.getSchema());
     }

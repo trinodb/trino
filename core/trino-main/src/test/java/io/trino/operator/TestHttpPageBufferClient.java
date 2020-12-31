@@ -28,7 +28,7 @@ import io.trino.execution.buffer.SerializedPage;
 import io.trino.operator.HttpPageBufferClient.ClientCallback;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.testng.annotations.AfterClass;
@@ -437,7 +437,7 @@ public class TestHttpPageBufferClient
 
         MockExchangeRequestProcessor processor = new MockExchangeRequestProcessor(DataSize.of(10, MEGABYTE));
         CyclicBarrier requestComplete = new CyclicBarrier(2);
-        PrestoException expectedException = new PrestoException(EXCEEDED_LOCAL_MEMORY_LIMIT, "Memory limit exceeded");
+        TrinoException expectedException = new TrinoException(EXCEEDED_LOCAL_MEMORY_LIMIT, "Memory limit exceeded");
         AtomicBoolean addPagesCalled = new AtomicBoolean(false);
 
         TestingClientCallback callback = new TestingClientCallback(requestComplete) {

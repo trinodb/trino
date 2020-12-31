@@ -26,7 +26,7 @@ import io.trino.plugin.resourcegroups.ResourceGroupIdTemplate;
 import io.trino.plugin.resourcegroups.ResourceGroupSelector;
 import io.trino.plugin.resourcegroups.ResourceGroupSpec;
 import io.trino.plugin.resourcegroups.SelectorSpec;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -118,10 +118,10 @@ public class DbResourceGroupConfigurationManager
     protected List<ResourceGroupSpec> getRootGroups()
     {
         if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Root groups cannot be fetched from database");
+            throw new TrinoException(CONFIGURATION_UNAVAILABLE, "Root groups cannot be fetched from database");
         }
         if (this.selectors.get().isEmpty()) {
-            throw new PrestoException(CONFIGURATION_INVALID, "No root groups are configured");
+            throw new TrinoException(CONFIGURATION_INVALID, "No root groups are configured");
         }
 
         return rootGroups.get();
@@ -158,10 +158,10 @@ public class DbResourceGroupConfigurationManager
     public Optional<SelectionContext<ResourceGroupIdTemplate>> match(SelectionCriteria criteria)
     {
         if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
+            throw new TrinoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
         }
         if (selectors.get().isEmpty()) {
-            throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
+            throw new TrinoException(CONFIGURATION_INVALID, "No selectors are configured");
         }
 
         return selectors.get().stream()
@@ -175,10 +175,10 @@ public class DbResourceGroupConfigurationManager
     public List<ResourceGroupSelector> getSelectors()
     {
         if (lastRefresh.get() == 0) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
+            throw new TrinoException(CONFIGURATION_UNAVAILABLE, "Selectors cannot be fetched from database");
         }
         if (selectors.get().isEmpty()) {
-            throw new PrestoException(CONFIGURATION_INVALID, "No selectors are configured");
+            throw new TrinoException(CONFIGURATION_INVALID, "No selectors are configured");
         }
         return selectors.get();
     }

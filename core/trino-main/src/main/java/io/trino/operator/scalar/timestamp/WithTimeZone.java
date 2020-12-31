@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -52,7 +52,7 @@ public class WithTimeZone
             toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
         }
         DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
         return packDateTimeWithZone(UTC.getMillisKeepLocal(toDateTimeZone, scaleEpochMicrosToMillis(timestamp)), toTimeZoneKey);
@@ -82,7 +82,7 @@ public class WithTimeZone
             toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
         }
         DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
 

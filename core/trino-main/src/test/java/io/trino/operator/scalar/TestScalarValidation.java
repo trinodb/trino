@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.trino.metadata.FunctionListBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.ScalarFunction;
@@ -43,7 +43,7 @@ public class TestScalarValidation
         public static void bad() {}
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Parametric class .* does not have any annotated methods")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Parametric class .* does not have any annotated methods")
     public void testNoParametricMethods()
     {
         extractParametricScalar(NoParametricMethods.class);
@@ -65,7 +65,7 @@ public class TestScalarValidation
         public static void bad() {}
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @SqlType is missing @ScalarFunction or @ScalarOperator")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Method .* annotated with @SqlType is missing @ScalarFunction or @ScalarOperator")
     public void testMethodMissingScalarAnnotation()
     {
         extractScalars(MethodMissingScalarAnnotation.class);
@@ -111,7 +111,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "A parameter with USE_NULL_FLAG or RETURN_NULL_ON_NULL convention must not use wrapper type. Found in method .*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "A parameter with USE_NULL_FLAG or RETURN_NULL_ON_NULL convention must not use wrapper type. Found in method .*")
     public void testPrimitiveWrapperParameterWithoutNullable()
     {
         extractScalars(PrimitiveWrapperParameterWithoutNullable.class);
@@ -127,7 +127,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Method .* has parameter with primitive type double annotated with @SqlNullable")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Method .* has parameter with primitive type double annotated with @SqlNullable")
     public void testPrimitiveParameterWithNullable()
     {
         extractScalars(PrimitiveParameterWithNullable.class);
@@ -240,7 +240,7 @@ public class TestScalarValidation
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "A parameter with USE_NULL_FLAG or RETURN_NULL_ON_NULL convention must not use wrapper type. Found in method .*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "A parameter with USE_NULL_FLAG or RETURN_NULL_ON_NULL convention must not use wrapper type. Found in method .*")
     public void testParameterWithBoxedPrimitiveIsNull()
     {
         extractScalars(ParameterWithBoxedPrimitiveIsNull.class);

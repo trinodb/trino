@@ -34,7 +34,7 @@ import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -149,7 +149,7 @@ public class MetastoreHiveStatisticsProvider
             validatePartitionStatistics(table, statisticsSample);
             return getTableStatistics(columns, columnTypes, partitions, statisticsSample);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             if (e.getErrorCode().equals(HIVE_CORRUPTED_COLUMN_STATISTICS.toErrorCode()) && isIgnoreCorruptedStatistics(session)) {
                 log.error(e);
                 return TableStatistics.empty();
@@ -370,7 +370,7 @@ public class MetastoreHiveStatisticsProvider
     private static void checkStatistics(boolean expression, SchemaTableName table, String partition, String column, String message, Object... args)
     {
         if (!expression) {
-            throw new PrestoException(
+            throw new TrinoException(
                     HIVE_CORRUPTED_COLUMN_STATISTICS,
                     format("Corrupted partition statistics (Table: %s Partition: [%s] Column: %s): %s", table, partition, column, format(message, args)));
         }
@@ -379,7 +379,7 @@ public class MetastoreHiveStatisticsProvider
     private static void checkStatistics(boolean expression, SchemaTableName table, String partition, String message, Object... args)
     {
         if (!expression) {
-            throw new PrestoException(
+            throw new TrinoException(
                     HIVE_CORRUPTED_COLUMN_STATISTICS,
                     format("Corrupted partition statistics (Table: %s Partition: [%s]): %s", table, partition, format(message, args)));
         }

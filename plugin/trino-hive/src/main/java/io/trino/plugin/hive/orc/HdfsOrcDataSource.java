@@ -19,7 +19,7 @@ import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.util.FSDataInputStreamTail;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.hdfs.BlockMissingException;
 
@@ -76,19 +76,19 @@ public class HdfsOrcDataSource
             inputStream.readFully(position, buffer, bufferOffset, bufferLength);
             stats.readDataBytesPerSecond(bufferLength, System.nanoTime() - readStart);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             // just in case there is a Presto wrapper or hook
             throw e;
         }
         catch (Exception e) {
             String message = format("Error reading from %s at position %s", this, position);
             if (e instanceof BlockMissingException) {
-                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+                throw new TrinoException(HIVE_MISSING_DATA, message, e);
             }
             if (e instanceof IOException) {
-                throw new PrestoException(HIVE_FILESYSTEM_ERROR, message, e);
+                throw new TrinoException(HIVE_FILESYSTEM_ERROR, message, e);
             }
-            throw new PrestoException(HIVE_UNKNOWN_ERROR, message, e);
+            throw new TrinoException(HIVE_UNKNOWN_ERROR, message, e);
         }
     }
 }

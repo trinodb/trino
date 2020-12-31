@@ -31,7 +31,7 @@ import static io.trino.operator.scalar.JsonExtract.ScalarValueJsonExtractor;
 import static io.trino.operator.scalar.JsonExtract.generateExtractor;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -132,7 +132,7 @@ public class TestJsonExtract
 
     public static void assertInvalidPath(String path)
     {
-        assertPrestoExceptionThrownBy(() -> tokenizePath(path))
+        assertTrinoExceptionThrownBy(() -> tokenizePath(path))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
@@ -368,7 +368,7 @@ public class TestJsonExtract
 
     private static void assertInvalidExtract(String inputJson, String jsonPath, String message)
     {
-        assertPrestoExceptionThrownBy(() -> doJsonExtract(inputJson, jsonPath))
+        assertTrinoExceptionThrownBy(() -> doJsonExtract(inputJson, jsonPath))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage(message);
     }

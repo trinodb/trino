@@ -19,7 +19,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.tree.Identifier;
@@ -79,7 +79,7 @@ public class TestSetPathTask
         assertEquals(stateMachine.getSetPath(), "foo");
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Catalog does not exist: .*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Catalog does not exist: .*")
     public void testSetPathInvalidCatalog()
     {
         PathSpecification invalidPathSpecification = new PathSpecification(Optional.empty(), ImmutableList.of(

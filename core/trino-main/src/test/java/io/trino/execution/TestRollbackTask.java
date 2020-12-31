@@ -37,7 +37,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -85,7 +85,7 @@ public class TestRollbackTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
 
-        assertPrestoExceptionThrownBy(
+        assertTrinoExceptionThrownBy(
                 () -> getFutureValue((Future<?>) new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList())))
                 .hasErrorCode(NOT_IN_TRANSACTION);
 

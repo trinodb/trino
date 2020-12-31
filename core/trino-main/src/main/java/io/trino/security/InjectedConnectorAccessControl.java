@@ -14,7 +14,7 @@
 package io.trino.security;
 
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -362,7 +362,7 @@ public class InjectedConnectorAccessControl
         if (accessControl.getRowFilters(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName())).isEmpty()) {
             return Optional.empty();
         }
-        throw new PrestoException(NOT_SUPPORTED, "Row filtering not supported");
+        throw new TrinoException(NOT_SUPPORTED, "Row filtering not supported");
     }
 
     @Override
@@ -372,7 +372,7 @@ public class InjectedConnectorAccessControl
         if (accessControl.getColumnMasks(securityContext, new QualifiedObjectName(catalogName, tableName.getSchemaName(), tableName.getTableName()), columnName, type).isEmpty()) {
             return Optional.empty();
         }
-        throw new PrestoException(NOT_SUPPORTED, "Column masking not supported");
+        throw new TrinoException(NOT_SUPPORTED, "Column masking not supported");
     }
 
     private QualifiedObjectName getQualifiedObjectName(SchemaTableName schemaTableName)

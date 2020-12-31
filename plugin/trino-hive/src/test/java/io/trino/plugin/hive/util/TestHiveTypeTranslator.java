@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveType;
 import io.trino.spi.ErrorCode;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
@@ -88,7 +88,7 @@ public class TestHiveTypeTranslator
             toHiveType(type);
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             try {
                 assertEquals(e.getErrorCode(), errorCode);
                 assertContains(e.getMessage(), message);

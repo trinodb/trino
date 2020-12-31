@@ -27,7 +27,7 @@ import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescrip
 import io.trino.operator.aggregation.GenericAccumulatorFactoryBinder;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.aggregation.TypedKeyValueHeap;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -115,7 +115,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
         TypedKeyValueHeap heap = state.getTypedKeyValueHeap();
         if (heap == null) {
             if (n <= 0) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "third argument of max_by/min_by must be a positive integer");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "third argument of max_by/min_by must be a positive integer");
             }
             checkCondition(n <= MAX_NUMBER_OF_VALUES, INVALID_FUNCTION_ARGUMENT, "third argument of max_by/min_by must be less than or equal to %s; found %s", MAX_NUMBER_OF_VALUES, n);
             heap = new TypedKeyValueHeap(comparison, keyType, valueType, toIntExact(n));

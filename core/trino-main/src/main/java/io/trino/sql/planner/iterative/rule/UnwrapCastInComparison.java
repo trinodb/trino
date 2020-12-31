@@ -20,7 +20,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -348,7 +348,7 @@ public class UnwrapCastInComparison
             try {
                 literalInSourceType = coerce(right, targetToSource);
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 // A failure to cast from target -> source type could be because:
                 //  1. missing cast
                 //  2. bad implementation
@@ -504,7 +504,7 @@ public class UnwrapCastInComparison
             }
             catch (Throwable throwable) {
                 Throwables.throwIfUnchecked(throwable);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
             }
         }
     }

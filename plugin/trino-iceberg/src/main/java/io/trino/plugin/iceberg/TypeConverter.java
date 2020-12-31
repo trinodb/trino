@@ -19,7 +19,7 @@ import io.trino.orc.metadata.ColumnMetadata;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -156,15 +156,15 @@ public final class TypeConverter
             return fromMap((MapType) type);
         }
         if (type instanceof TimeType) {
-            throw new PrestoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
+            throw new TrinoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
         }
         if (type instanceof TimestampType) {
-            throw new PrestoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", ((TimestampType) type).getPrecision()));
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", ((TimestampType) type).getPrecision()));
         }
         if (type instanceof TimestampWithTimeZoneType) {
-            throw new PrestoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", ((TimestampWithTimeZoneType) type).getPrecision()));
+            throw new TrinoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", ((TimestampWithTimeZoneType) type).getPrecision()));
         }
-        throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
+        throw new TrinoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
 
     private static org.apache.iceberg.types.Type fromDecimal(DecimalType type)
@@ -177,7 +177,7 @@ public final class TypeConverter
         List<Types.NestedField> fields = new ArrayList<>();
         for (RowType.Field field : type.getFields()) {
             String name = field.getName().orElseThrow(() ->
-                    new PrestoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
+                    new TrinoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
             fields.add(Types.NestedField.optional(fields.size() + 1, name, toIcebergType(field.getType())));
         }
         return Types.StructType.of(fields);
@@ -238,7 +238,7 @@ public final class TypeConverter
             case MAP:
                 return toOrcMapType(nextFieldTypeIndex, (Types.MapType) type, attributes);
             default:
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported Iceberg type: " + type);
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: " + type);
         }
     }
 

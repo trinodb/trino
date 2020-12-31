@@ -44,7 +44,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.parquet.HdfsParquetDataSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -219,7 +219,7 @@ public class IcebergPageSourceProvider
                         predicate,
                         fileFormatDataSourceStats);
         }
-        throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
+        throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 
     private static ConnectorPageSource createOrcPageSource(
@@ -247,7 +247,7 @@ public class IcebergPageSourceProvider
                     stats);
 
             OrcReader reader = OrcReader.createOrcReader(orcDataSource, options)
-                    .orElseThrow(() -> new PrestoException(ICEBERG_BAD_DATA, "ORC file is zero length"));
+                    .orElseThrow(() -> new TrinoException(ICEBERG_BAD_DATA, "ORC file is zero length"));
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
             Map<Integer, OrcColumn> fileColumnsByIcebergId = fileColumns.stream()
                     .filter(orcColumn -> orcColumn.getAttributes().containsKey(ORC_ICEBERG_ID_KEY))
@@ -321,14 +321,14 @@ public class IcebergPageSourceProvider
                 catch (IOException ignored) {
                 }
             }
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
+            if (e instanceof TrinoException) {
+                throw (TrinoException) e;
             }
             String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
             if (e instanceof BlockMissingException) {
-                throw new PrestoException(ICEBERG_MISSING_DATA, message, e);
+                throw new TrinoException(ICEBERG_MISSING_DATA, message, e);
             }
-            throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
+            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
     }
 
@@ -424,19 +424,19 @@ public class IcebergPageSourceProvider
             }
             catch (IOException ignored) {
             }
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
+            if (e instanceof TrinoException) {
+                throw (TrinoException) e;
             }
             String message = format("Error opening Iceberg split %s (offset=%s, length=%s): %s", path, start, length, e.getMessage());
 
             if (e instanceof ParquetCorruptionException) {
-                throw new PrestoException(ICEBERG_BAD_DATA, message, e);
+                throw new TrinoException(ICEBERG_BAD_DATA, message, e);
             }
 
             if (e instanceof BlockMissingException) {
-                throw new PrestoException(ICEBERG_MISSING_DATA, message, e);
+                throw new TrinoException(ICEBERG_MISSING_DATA, message, e);
             }
-            throw new PrestoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
+            throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
         }
     }
 
@@ -460,14 +460,14 @@ public class IcebergPageSourceProvider
         return TupleDomain.withColumnDomains(predicate.build());
     }
 
-    private static PrestoException handleException(OrcDataSourceId dataSourceId, Exception exception)
+    private static TrinoException handleException(OrcDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof PrestoException) {
-            return (PrestoException) exception;
+        if (exception instanceof TrinoException) {
+            return (TrinoException) exception;
         }
         if (exception instanceof OrcCorruptionException) {
-            return new PrestoException(ICEBERG_BAD_DATA, exception);
+            return new TrinoException(ICEBERG_BAD_DATA, exception);
         }
-        return new PrestoException(ICEBERG_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
+        return new TrinoException(ICEBERG_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
     }
 }

@@ -19,7 +19,7 @@ import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcRecordReader;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -121,12 +121,12 @@ public class OrcPageSource
         return new Page(page.getPositionCount(), blocks);
     }
 
-    static PrestoException handleException(Exception exception)
+    static TrinoException handleException(Exception exception)
     {
-        if (exception instanceof PrestoException) {
-            return (PrestoException) exception;
+        if (exception instanceof TrinoException) {
+            return (TrinoException) exception;
         }
-        throw new PrestoException(RAPTOR_ERROR, exception);
+        throw new TrinoException(RAPTOR_ERROR, exception);
     }
 
     @Override
@@ -141,7 +141,7 @@ public class OrcPageSource
             recordReader.close();
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, e);
+            throw new TrinoException(RAPTOR_ERROR, e);
         }
     }
 

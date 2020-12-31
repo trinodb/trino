@@ -15,7 +15,7 @@ package io.trino.plugin.hive.procedure;
 
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.hive.metastore.TableType;
 
 import java.util.List;
@@ -31,15 +31,15 @@ final class Procedures
     public static void checkIsPartitionedTable(Table table)
     {
         if (table.getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is a view: " + table.getSchemaTableName());
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is a view: " + table.getSchemaTableName());
         }
 
         if (table.getTableType().equals(TableType.MATERIALIZED_VIEW.name())) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is a materialized view: " + table.getSchemaTableName());
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is a materialized view: " + table.getSchemaTableName());
         }
 
         if (table.getPartitionColumns().isEmpty()) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + table.getSchemaTableName());
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + table.getSchemaTableName());
         }
     }
 
@@ -50,7 +50,7 @@ final class Procedures
                 .collect(toImmutableList());
 
         if (!Objects.equals(expectedPartitions, actualPartitionColumnNames)) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Provided partition column names do not match actual partition column names: " + actualPartitionColumnNames);
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Provided partition column names do not match actual partition column names: " + actualPartitionColumnNames);
         }
     }
 }

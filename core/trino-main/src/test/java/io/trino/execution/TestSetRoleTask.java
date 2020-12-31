@@ -41,7 +41,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertEquals;
@@ -92,7 +92,7 @@ public class TestSetRoleTask
     @Test
     public void testSetRoleInvalidCatalog()
     {
-        assertPrestoExceptionThrownBy(() -> executeSetRole("invalid", "SET ROLE foo"))
+        assertTrinoExceptionThrownBy(() -> executeSetRole("invalid", "SET ROLE foo"))
                 .hasErrorCode(NOT_FOUND)
                 .hasMessage("Catalog does not exist: invalid");
     }

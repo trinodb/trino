@@ -13,12 +13,12 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class TimeZoneNotSupportedException
-        extends PrestoException
+        extends TrinoException
 {
     private final String zoneId;
 

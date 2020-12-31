@@ -16,7 +16,7 @@ package io.trino.decoder.json;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
@@ -64,7 +64,7 @@ public abstract class AbstractDateTimeJsonValueProvider
 
         if (type.equals(TIME) || type.equals(TIME_WITH_TIME_ZONE)) {
             if (millis < 0 || millis >= TimeUnit.DAYS.toMillis(1)) {
-                throw new PrestoException(
+                throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
                         format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
             }

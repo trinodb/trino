@@ -15,7 +15,7 @@ package io.trino.operator.scalar.timetz;
 
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.time.TimeOperators;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -96,7 +96,7 @@ public class DateAdd
                 delta = (delta % HOURS_PER_DAY) * PICOSECONDS_PER_HOUR;
                 break;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
         }
 
         return TimeOperators.add(picos, delta);

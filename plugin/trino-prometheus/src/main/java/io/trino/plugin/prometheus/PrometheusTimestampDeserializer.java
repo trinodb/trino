@@ -16,7 +16,7 @@ package io.trino.plugin.prometheus;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -36,7 +36,7 @@ public class PrometheusTimestampDeserializer
             return decimalEpochTimestampToSQLTimestamp(timestamp);
         }
         catch (NumberFormatException e) {
-            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "unable to deserialize timestamp: " + e.getMessage());
+            throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "unable to deserialize timestamp: " + e.getMessage());
         }
     }
 

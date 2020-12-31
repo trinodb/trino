@@ -21,7 +21,7 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -126,7 +126,7 @@ public interface ThriftMetastore
         }
 
         if (table.get().getSd() == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
 
         return Optional.of(table.get().getSd().getCols());

@@ -23,8 +23,8 @@ import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.spi.PrestoException;
 import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoException;
 import io.trino.spi.WarningCode;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -106,7 +106,7 @@ public class TestPlannerWarnings
                 return null;
             });
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             // ignore
         }
         Set<WarningCode> warnings = warningCollector.getWarnings().stream()

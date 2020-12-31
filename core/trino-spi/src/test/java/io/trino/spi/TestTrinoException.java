@@ -18,18 +18,18 @@ import org.testng.annotations.Test;
 import static io.trino.spi.ErrorType.USER_ERROR;
 import static org.testng.Assert.assertEquals;
 
-public class TestPrestoException
+public class TestTrinoException
 {
     @Test
     public void testMessage()
     {
-        PrestoException exception = new PrestoException(new TestErrorCode(), "test");
+        TrinoException exception = new TrinoException(new TestErrorCode(), "test");
         assertEquals(exception.getMessage(), "test");
 
-        exception = new PrestoException(new TestErrorCode(), new RuntimeException("test2"));
+        exception = new TrinoException(new TestErrorCode(), new RuntimeException("test2"));
         assertEquals(exception.getMessage(), "test2");
 
-        exception = new PrestoException(new TestErrorCode(), new RuntimeException());
+        exception = new TrinoException(new TestErrorCode(), new RuntimeException());
         assertEquals(exception.getMessage(), "test");
     }
 

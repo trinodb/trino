@@ -19,8 +19,8 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -70,7 +70,7 @@ public class KillQueryProcedure
 
             // check before killing to provide the proper error message (this is racy)
             if (dispatchQuery.isDone()) {
-                throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
+                throw new TrinoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
 
             dispatchQuery.fail(createKillQueryException(message));
@@ -78,11 +78,11 @@ public class KillQueryProcedure
             // verify if the query was killed (if not, we lost the race)
             checkState(dispatchQuery.isDone(), "Failure to fail the query: %s", query);
             if (!ADMINISTRATIVELY_KILLED.toErrorCode().equals(dispatchQuery.getErrorCode().orElse(null))) {
-                throw new PrestoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
+                throw new TrinoException(NOT_SUPPORTED, "Target query is not running: " + queryId);
             }
         }
         catch (NoSuchElementException e) {
-            throw new PrestoException(NOT_FOUND, "Target query not found: " + queryId);
+            throw new TrinoException(NOT_FOUND, "Target query not found: " + queryId);
         }
     }
 
@@ -98,15 +98,15 @@ public class KillQueryProcedure
                 KILL_QUERY.bindTo(this));
     }
 
-    public static PrestoException createKillQueryException(String message)
+    public static TrinoException createKillQueryException(String message)
     {
-        return new PrestoException(ADMINISTRATIVELY_KILLED, "Query killed. " +
+        return new TrinoException(ADMINISTRATIVELY_KILLED, "Query killed. " +
                 (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
     }
 
-    public static PrestoException createPreemptQueryException(String message)
+    public static TrinoException createPreemptQueryException(String message)
     {
-        return new PrestoException(ADMINISTRATIVELY_PREEMPTED, "Query preempted. " +
+        return new TrinoException(ADMINISTRATIVELY_PREEMPTED, "Query preempted. " +
                 (isNullOrEmpty(message) ? "No message provided." : "Message: " + message));
     }
 
@@ -116,7 +116,7 @@ public class KillQueryProcedure
             return QueryId.valueOf(queryId);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, e);
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, e);
         }
     }
 }

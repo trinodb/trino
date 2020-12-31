@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.concurrent.ExecutorServiceAdapter;
 import io.airlift.units.Duration;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.PreDestroy;
 
@@ -106,8 +106,8 @@ public class TimeoutBackupStore
         return limiter.newProxy(target, clazz, timeout.toMillis(), MILLISECONDS);
     }
 
-    private static PrestoException timeoutException(UUID uuid, String message)
+    private static TrinoException timeoutException(UUID uuid, String message)
     {
-        throw new PrestoException(RAPTOR_BACKUP_TIMEOUT, message + ": " + uuid);
+        throw new TrinoException(RAPTOR_BACKUP_TIMEOUT, message + ": " + uuid);
     }
 }

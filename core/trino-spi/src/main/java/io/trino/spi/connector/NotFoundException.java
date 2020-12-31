@@ -13,12 +13,12 @@
  */
 package io.trino.spi.connector;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 
 public abstract class NotFoundException
-        extends PrestoException
+        extends TrinoException
 {
     protected NotFoundException()
     {

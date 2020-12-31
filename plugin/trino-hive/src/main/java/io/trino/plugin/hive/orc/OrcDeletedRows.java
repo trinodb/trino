@@ -18,7 +18,7 @@ import io.trino.orc.OrcCorruptionException;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -227,14 +227,14 @@ public class OrcDeletedRows
             catch (FileNotFoundException ignored) {
                 // source file does not have a delete delta file in this location
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 throw e;
             }
             catch (OrcCorruptionException e) {
-                throw new PrestoException(HIVE_BAD_DATA, "Failed to read ORC delete delta file: " + path, e);
+                throw new TrinoException(HIVE_BAD_DATA, "Failed to read ORC delete delta file: " + path, e);
             }
             catch (RuntimeException | IOException e) {
-                throw new PrestoException(HIVE_CURSOR_ERROR, "Failed to read ORC delete delta file: " + path, e);
+                throw new TrinoException(HIVE_CURSOR_ERROR, "Failed to read ORC delete delta file: " + path, e);
             }
         }
         deletedRows = deletedRowsBuilder.build();

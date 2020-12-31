@@ -27,7 +27,7 @@ import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LongArrayBlock;
@@ -166,7 +166,7 @@ public class OrcFileWriter
             orcWriter.write(page);
         }
         catch (IOException | UncheckedIOException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
+            throw new TrinoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 
@@ -186,7 +186,7 @@ public class OrcFileWriter
             catch (Exception ignored) {
                 // ignore
             }
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
 
         if (validationInputFactory.isPresent()) {
@@ -198,7 +198,7 @@ public class OrcFileWriter
                 }
             }
             catch (IOException | UncheckedIOException e) {
-                throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
+                throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
     }
@@ -240,7 +240,7 @@ public class OrcFileWriter
             }
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
     }
 

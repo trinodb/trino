@@ -37,7 +37,7 @@ import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -436,7 +436,7 @@ public class SemiTransactionalHiveMetastore
         switch (oldTableAction.getType()) {
             case DROP:
                 if (!oldTableAction.getHdfsContext().getIdentity().getUser().equals(session.getUser())) {
-                    throw new PrestoException(TRANSACTION_CONFLICT, "Operation on the same table with different user in the same transaction is not supported");
+                    throw new TrinoException(TRANSACTION_CONFLICT, "Operation on the same table with different user in the same transaction is not supported");
                 }
                 HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
                 tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, hdfsContext, identity));
@@ -582,7 +582,7 @@ public class SemiTransactionalHiveMetastore
             throw new TableNotFoundException(schemaTableName);
         }
         if (!table.get().getTableType().equals(MANAGED_TABLE.toString())) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot delete from non-managed Hive table");
         }
         if (!table.get().getPartitionColumns().isEmpty()) {
             throw new IllegalArgumentException("Table is partitioned");
@@ -593,7 +593,7 @@ public class SemiTransactionalHiveMetastore
         setExclusive((delegate, hdfsEnvironment) -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
-                throw new PrestoException(HIVE_FILESYSTEM_ERROR, format(
+                throw new TrinoException(HIVE_FILESYSTEM_ERROR, format(
                         "Error deleting from unpartitioned table %s. These items cannot be deleted: %s",
                         schemaTableName,
                         recursiveDeleteResult.getNotDeletedEligibleItems()));
@@ -703,7 +703,7 @@ public class SemiTransactionalHiveMetastore
             case PRE_EXISTING_TABLE:
                 Optional<List<String>> partitionNameResult = delegate.getPartitionNamesByFilter(identity, databaseName, tableName, columnNames, partitionKeysFilter);
                 if (partitionNameResult.isEmpty()) {
-                    throw new PrestoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName));
+                    throw new TrinoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName));
                 }
                 partitionNames = partitionNameResult.get();
                 break;
@@ -722,7 +722,7 @@ public class SemiTransactionalHiveMetastore
             }
             switch (partitionAction.getType()) {
                 case ADD:
-                    throw new PrestoException(TRANSACTION_CONFLICT, format("Another transaction created partition %s in table %s.%s", partitionValues, databaseName, tableName));
+                    throw new TrinoException(TRANSACTION_CONFLICT, format("Another transaction created partition %s in table %s.%s", partitionValues, databaseName, tableName));
                 case DROP:
                 case DROP_PRESERVE_DATA:
                     // do nothing
@@ -828,7 +828,7 @@ public class SemiTransactionalHiveMetastore
             case DROP:
             case DROP_PRESERVE_DATA:
                 if (!oldPartitionAction.getHdfsContext().getIdentity().getUser().equals(session.getUser())) {
-                    throw new PrestoException(TRANSACTION_CONFLICT, "Operation on the same partition with different user in the same transaction is not supported");
+                    throw new TrinoException(TRANSACTION_CONFLICT, "Operation on the same partition with different user in the same transaction is not supported");
                 }
                 partitionActionsOfTable.put(
                         partition.getValues(),
@@ -838,7 +838,7 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
-                throw new PrestoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
+                throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
             default:
                 throw new IllegalStateException("Unknown action type");
         }
@@ -868,7 +868,7 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
-                throw new PrestoException(
+                throw new TrinoException(
                         NOT_SUPPORTED,
                         format("dropping a partition added in the same transaction is not supported: %s %s %s", databaseName, tableName, partitionValues));
             default:
@@ -896,7 +896,7 @@ public class SemiTransactionalHiveMetastore
             String partitionName = getPartitionName(identity, databaseName, tableName, partitionValues);
             PartitionStatistics currentStatistics = delegate.getPartitionStatistics(identity, databaseName, tableName, ImmutableSet.of(partitionName)).get(partitionName);
             if (currentStatistics == null) {
-                throw new PrestoException(HIVE_METASTORE_ERROR, "currentStatistics is null");
+                throw new TrinoException(HIVE_METASTORE_ERROR, "currentStatistics is null");
             }
             HdfsContext context = new HdfsContext(session, databaseName, tableName);
             partitionActionsOfTable.put(
@@ -1048,7 +1048,7 @@ public class SemiTransactionalHiveMetastore
         if (writeMode == WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
             Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.get(schemaTableName);
             if (partitionActionsOfTable != null && !partitionActionsOfTable.isEmpty()) {
-                throw new PrestoException(NOT_SUPPORTED, "Cannot insert into a table with a partition that has been modified in the same transaction when Presto is configured to skip temporary directories.");
+                throw new TrinoException(NOT_SUPPORTED, "Cannot insert into a table with a partition that has been modified in the same transaction when Presto is configured to skip temporary directories.");
             }
         }
         HdfsContext hdfsContext = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
@@ -1224,7 +1224,7 @@ public class SemiTransactionalHiveMetastore
         ScheduledFuture<?> heartbeatTask = transaction.get().getHeartbeatTask();
         heartbeatTask.cancel(true);
 
-        // Any failure around aborted transactions, etc would be handled by Hive Metastore commit and PrestoException will be thrown
+        // Any failure around aborted transactions, etc would be handled by Hive Metastore commit and TrinoException will be thrown
         delegate.commitTransaction(identity, transactionId);
     }
 
@@ -1405,7 +1405,7 @@ public class SemiTransactionalHiveMetastore
             Table table = tableAndMore.getTable();
             String targetLocation = table.getStorage().getLocation();
             Table oldTable = delegate.getTable(identity, table.getDatabaseName(), table.getTableName())
-                    .orElseThrow(() -> new PrestoException(TRANSACTION_CONFLICT, "The table that this transaction modified was deleted in another transaction. " + table.getSchemaTableName()));
+                    .orElseThrow(() -> new TrinoException(TRANSACTION_CONFLICT, "The table that this transaction modified was deleted in another transaction. " + table.getSchemaTableName()));
             String oldTableLocation = oldTable.getStorage().getLocation();
             Path oldTablePath = new Path(oldTableLocation);
 
@@ -1493,7 +1493,7 @@ public class SemiTransactionalHiveMetastore
                             // a directory had been created.
                         }
                         else {
-                            throw new PrestoException(
+                            throw new TrinoException(
                                     HIVE_PATH_ALREADY_EXISTS,
                                     format("Unable to create directory %s: target directory already exists", targetPath));
                         }
@@ -1639,7 +1639,7 @@ public class SemiTransactionalHiveMetastore
             String targetLocation = partition.getStorage().getLocation();
             Optional<Partition> oldPartition = delegate.getPartition(identity, partition.getDatabaseName(), partition.getTableName(), partition.getValues());
             if (oldPartition.isEmpty()) {
-                throw new PrestoException(
+                throw new TrinoException(
                         TRANSACTION_CONFLICT,
                         format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
             }
@@ -1698,13 +1698,13 @@ public class SemiTransactionalHiveMetastore
                 PartitionStatistics statistics = delegate.getPartitionStatistics(identity, partition.getDatabaseName(), partition.getTableName(), ImmutableSet.of(partitionName))
                         .get(partitionName);
                 if (statistics == null) {
-                    throw new PrestoException(
+                    throw new TrinoException(
                             TRANSACTION_CONFLICT,
                             format("The partition that this transaction modified was deleted in another transaction. %s %s", partition.getTableName(), partition.getValues()));
                 }
                 return statistics;
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 if (e.getErrorCode().equals(HIVE_CORRUPTED_COLUMN_STATISTICS.toErrorCode())) {
                     log.warn(
                             e,
@@ -1818,7 +1818,7 @@ public class SemiTransactionalHiveMetastore
         private void waitForAsyncRenames()
         {
             for (CompletableFuture<?> fileRenameFuture : fileRenameFutures) {
-                getFutureValue(fileRenameFuture, PrestoException.class);
+                getFutureValue(fileRenameFuture, TrinoException.class);
             }
         }
 
@@ -1895,9 +1895,9 @@ public class SemiTransactionalHiveMetastore
                 StringBuilder message = new StringBuilder();
                 message.append("All operations other than the following update operations were completed: ");
                 Joiner.on("; ").appendTo(message, failedUpdateStatisticsOperationDescriptions);
-                PrestoException prestoException = new PrestoException(HIVE_METASTORE_ERROR, message.toString());
-                suppressedExceptions.forEach(prestoException::addSuppressed);
-                throw prestoException;
+                TrinoException trinoException = new TrinoException(HIVE_METASTORE_ERROR, message.toString());
+                suppressedExceptions.forEach(trinoException::addSuppressed);
+                throw trinoException;
             }
         }
 
@@ -2003,9 +2003,9 @@ public class SemiTransactionalHiveMetastore
                 }
                 Joiner.on("; ").appendTo(message, failedIrreversibleOperationDescriptions);
 
-                PrestoException prestoException = new PrestoException(HIVE_METASTORE_ERROR, message.toString());
-                suppressedExceptions.forEach(prestoException::addSuppressed);
-                throw prestoException;
+                TrinoException trinoException = new TrinoException(HIVE_METASTORE_ERROR, message.toString());
+                suppressedExceptions.forEach(trinoException::addSuppressed);
+                throw trinoException;
             }
         }
     }
@@ -2123,7 +2123,7 @@ public class SemiTransactionalHiveMetastore
             case SHARED_OPERATION_BUFFERED:
                 return;
             case EXCLUSIVE_OPERATION_BUFFERED:
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported combination of operations in a single transaction");
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported combination of operations in a single transaction");
             case FINISHED:
                 throw new IllegalStateException("Tried to access metastore after transaction has been committed/aborted");
         }
@@ -2144,7 +2144,7 @@ public class SemiTransactionalHiveMetastore
         checkHoldsLock();
 
         if (state != State.EMPTY) {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported combination of operations in a single transaction");
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported combination of operations in a single transaction");
         }
         state = State.EXCLUSIVE_OPERATION_BUFFERED;
         bufferedExclusiveOperation = exclusiveOperation;
@@ -2157,7 +2157,7 @@ public class SemiTransactionalHiveMetastore
 
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.get(new SchemaTableName(databaseName, tableName));
         if (partitionActionsOfTable != null && !partitionActionsOfTable.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot make schema changes to a table/view with modified partitions in the same transaction");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot make schema changes to a table/view with modified partitions in the same transaction");
         }
     }
 
@@ -2214,7 +2214,7 @@ public class SemiTransactionalHiveMetastore
             fileSystem = hdfsEnvironment.getFileSystem(context, currentPath);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files to final location. Error listing directory %s", currentPath), e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files to final location. Error listing directory %s", currentPath), e);
         }
 
         for (String fileName : fileNames) {
@@ -2226,11 +2226,11 @@ public class SemiTransactionalHiveMetastore
                 }
                 try {
                     if (fileSystem.exists(target) || !fileSystem.rename(source, target)) {
-                        throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target));
+                        throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target));
                     }
                 }
                 catch (IOException e) {
-                    throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target), e);
+                    throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error moving data files from %s to final location %s", source, target), e);
                 }
             }, executor));
         }
@@ -2404,7 +2404,7 @@ public class SemiTransactionalHiveMetastore
     private static void renameDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path source, Path target, Runnable runWhenPathDoesntExist)
     {
         if (pathExists(context, hdfsEnvironment, target)) {
-            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS,
+            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS,
                     format("Unable to rename from %s to %s: target directory already exists", source, target));
         }
 
@@ -2418,11 +2418,11 @@ public class SemiTransactionalHiveMetastore
 
         try {
             if (!hdfsEnvironment.getFileSystem(context, source).rename(source, target)) {
-                throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s: rename returned false", source, target));
+                throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s: rename returned false", source, target));
             }
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Failed to rename %s to %s", source, target), e);
         }
     }
 
@@ -2958,7 +2958,7 @@ public class SemiTransactionalHiveMetastore
                             // but another tx already created T(a: varchar)).
                             // This may be a problem if there is an insert after this step.
                             if (!hasTheSameSchema(newTable, table)) {
-                                e = new PrestoException(TRANSACTION_CONFLICT, format("Table already exists with a different schema: '%s'", newTable.getTableName()));
+                                e = new TrinoException(TRANSACTION_CONFLICT, format("Table already exists with a different schema: '%s'", newTable.getTableName()));
                             }
                             else {
                                 done = ignoreExisting;
@@ -3237,7 +3237,7 @@ public class SemiTransactionalHiveMetastore
                     // But we would consider it successful anyways.
                     if (!batchCompletelyAdded) {
                         if (t instanceof TableNotFoundException) {
-                            throw new PrestoException(HIVE_TABLE_DROPPED_DURING_QUERY, t);
+                            throw new TrinoException(HIVE_TABLE_DROPPED_DURING_QUERY, t);
                         }
                         throw t;
                     }

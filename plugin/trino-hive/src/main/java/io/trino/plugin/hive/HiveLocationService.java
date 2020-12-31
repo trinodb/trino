@@ -18,7 +18,7 @@ import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.hadoop.fs.Path;
 
@@ -60,7 +60,7 @@ public class HiveLocationService
 
         // verify the target directory for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {
-            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
+            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
         // TODO detect when existing table's location is a on a different file system than the temporary directory
@@ -109,7 +109,7 @@ public class HiveLocationService
     public WriteInfo getTableWriteInfo(LocationHandle locationHandle, boolean overwrite)
     {
         if (overwrite && locationHandle.getWriteMode() != STAGE_AND_MOVE_TO_TARGET_DIRECTORY) {
-            throw new PrestoException(NOT_SUPPORTED, "Overwriting unpartitioned table not supported when writing directly to target directory");
+            throw new TrinoException(NOT_SUPPORTED, "Overwriting unpartitioned table not supported when writing directly to target directory");
         }
         return new WriteInfo(locationHandle.getTargetPath(), locationHandle.getWritePath(), locationHandle.getWriteMode());
     }

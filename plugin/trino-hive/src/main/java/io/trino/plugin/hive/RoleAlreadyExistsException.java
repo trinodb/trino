@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class RoleAlreadyExistsException
-        extends PrestoException
+        extends TrinoException
 {
     public RoleAlreadyExistsException(String roleName)
     {

@@ -22,7 +22,7 @@ import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
 import io.trino.metadata.Metadata;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -364,7 +364,7 @@ public class TestAvroDecoder
                 .toString();
 
         assertThatThrownBy(() -> decodeRow(originalIntData, ImmutableSet.of(stringColumnReadingIntData), ImmutableMap.of(DATA_SCHEMA, changedTypeSchema)))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasCauseExactlyInstanceOf(AvroTypeException.class)
                 .hasStackTraceContaining("Found int, expecting string")
                 .hasMessageMatching("Decoding Avro record failed.");
@@ -544,7 +544,7 @@ public class TestAvroDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = buildAndDecodeColumn(booleanColumn, "long_field", "\"long\"", (long) 1);
 
         assertThatThrownBy(decodedRow.get(booleanColumn)::getBoolean)
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("cannot decode object of 'class java.lang.Long' as 'boolean' for column 'some_column'");
     }
 
@@ -1180,11 +1180,11 @@ public class TestAvroDecoder
     public void testInvalidExtraneousParameters()
     {
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "mapping", null, "hint", false, false, false))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("unexpected format hint 'hint' defined for column 'some_column'");
 
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "mapping", null, null, false, false, true))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("unexpected internal column 'some_column'");
     }
 
@@ -1209,7 +1209,7 @@ public class TestAvroDecoder
     private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
     {
         assertThatThrownBy(callable)
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("Unsupported column type .* for column .*");
     }
 

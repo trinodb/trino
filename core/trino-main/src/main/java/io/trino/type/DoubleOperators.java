@@ -18,7 +18,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.MathFunctions;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -110,13 +110,13 @@ public final class DoubleOperators
     public static long castToInteger(@SqlType(StandardTypes.DOUBLE) double value)
     {
         if (Double.isNaN(value)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to integer");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to integer");
         }
         try {
             return toIntExact((long) MathFunctions.round(value));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
         }
     }
 
@@ -125,13 +125,13 @@ public final class DoubleOperators
     public static long castToSmallint(@SqlType(StandardTypes.DOUBLE) double value)
     {
         if (Double.isNaN(value)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to smallint");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to smallint");
         }
         try {
             return Shorts.checkedCast((long) MathFunctions.round(value));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
         }
     }
 
@@ -140,13 +140,13 @@ public final class DoubleOperators
     public static long castToTinyint(@SqlType(StandardTypes.DOUBLE) double value)
     {
         if (Double.isNaN(value)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to tinyint");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast double NaN to tinyint");
         }
         try {
             return SignedBytes.checkedCast((long) MathFunctions.round(value));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
         }
     }
 
@@ -158,7 +158,7 @@ public final class DoubleOperators
             return DoubleMath.roundToLong(value, HALF_UP);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Unable to cast %s to bigint", value), e);
         }
     }
 
@@ -235,7 +235,7 @@ public final class DoubleOperators
             return DoubleMath.roundToLong(value, FLOOR);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast double %s to %s", value, targetType), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Unable to cast double %s to %s", value, targetType), e);
         }
     }
 }

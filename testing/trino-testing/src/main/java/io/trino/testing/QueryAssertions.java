@@ -24,7 +24,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
@@ -294,7 +294,7 @@ public final class QueryAssertions
             exception.addSuppressed(new Exception("Query: " + sql));
             assertThat(exception)
                     .hasMessageMatching(expectedMessageRegExp)
-                    .satisfies(e -> assertThat(getPrestoExceptionCause(e)).hasMessageMatching(expectedMessageRegExp));
+                    .satisfies(e -> assertThat(getTrinoExceptionCause(e)).hasMessageMatching(expectedMessageRegExp));
         }
     }
 
@@ -340,20 +340,20 @@ public final class QueryAssertions
         log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    static RuntimeException getPrestoExceptionCause(Throwable e)
+    static RuntimeException getTrinoExceptionCause(Throwable e)
     {
         return Throwables.getCausalChain(e).stream()
-                .filter(QueryAssertions::isPrestoException)
+                .filter(QueryAssertions::isTrinoException)
                 .findFirst() // TODO .collect(toOptional()) -- should be exactly one in the causal chain
                 .map(RuntimeException.class::cast)
-                .orElseThrow(() -> new IllegalArgumentException("Exception does not have PrestoException cause", e));
+                .orElseThrow(() -> new IllegalArgumentException("Exception does not have TrinoException cause", e));
     }
 
-    private static boolean isPrestoException(Throwable exception)
+    private static boolean isTrinoException(Throwable exception)
     {
         requireNonNull(exception, "exception is null");
 
-        if (exception instanceof PrestoException || exception instanceof ParsingException) {
+        if (exception instanceof TrinoException || exception instanceof ParsingException) {
             return true;
         }
 
@@ -361,7 +361,7 @@ public final class QueryAssertions
             try {
                 String originalClassName = exception.toString().split(":", 2)[0];
                 Class<? extends Throwable> originalClass = Class.forName(originalClassName).asSubclass(Throwable.class);
-                return PrestoException.class.isAssignableFrom(originalClass) ||
+                return TrinoException.class.isAssignableFrom(originalClass) ||
                         ParsingException.class.isAssignableFrom(originalClass);
             }
             catch (ClassNotFoundException e) {

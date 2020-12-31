@@ -17,7 +17,7 @@ import com.google.common.primitives.Ints;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -50,7 +50,7 @@ public final class BigintOperators
             return Math.addExact(left, right);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint addition overflow: %s + %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint addition overflow: %s + %s", left, right), e);
         }
     }
 
@@ -62,7 +62,7 @@ public final class BigintOperators
             return Math.subtractExact(left, right);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint subtraction overflow: %s - %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint subtraction overflow: %s - %s", left, right), e);
         }
     }
 
@@ -74,7 +74,7 @@ public final class BigintOperators
             return Math.multiplyExact(left, right);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint multiplication overflow: %s * %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint multiplication overflow: %s * %s", left, right), e);
         }
     }
 
@@ -84,12 +84,12 @@ public final class BigintOperators
     {
         try {
             if (left == Long.MIN_VALUE && right == -1) {
-                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint division overflow: %s / %s", left, right));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("bigint division overflow: %s / %s", left, right));
             }
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -101,7 +101,7 @@ public final class BigintOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -113,7 +113,7 @@ public final class BigintOperators
             return Math.negateExact(value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "bigint negation overflow: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "bigint negation overflow: " + value, e);
         }
     }
 
@@ -132,7 +132,7 @@ public final class BigintOperators
             return toIntExact(value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + value, e);
         }
     }
 
@@ -165,7 +165,7 @@ public final class BigintOperators
             return Shorts.checkedCast(value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
         }
     }
 
@@ -177,7 +177,7 @@ public final class BigintOperators
             return SignedBytes.checkedCast(value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
         }
     }
 

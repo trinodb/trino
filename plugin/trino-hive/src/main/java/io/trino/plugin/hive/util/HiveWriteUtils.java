@@ -31,8 +31,8 @@ import io.trino.plugin.hive.parquet.ParquetRecordWriter;
 import io.trino.plugin.hive.rubix.CachingPrestoS3FileSystem;
 import io.trino.plugin.hive.s3.PrestoS3FileSystem;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -179,7 +179,7 @@ public final class HiveWriteUtils
             return ((HiveOutputFormat<?, ?>) writer).getHiveRecordWriter(conf, target, Text.class, compress, properties, Reporter.NULL);
         }
         catch (IOException | ReflectiveOperationException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
+            throw new TrinoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 
@@ -191,10 +191,10 @@ public final class HiveWriteUtils
             return result;
         }
         catch (ClassNotFoundException e) {
-            throw new PrestoException(HIVE_SERDE_NOT_FOUND, "Serializer does not exist: " + serializerName);
+            throw new TrinoException(HIVE_SERDE_NOT_FOUND, "Serializer does not exist: " + serializerName);
         }
         catch (SerDeException | ReflectiveOperationException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
+            throw new TrinoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 
@@ -271,7 +271,7 @@ public final class HiveWriteUtils
             else {
                 String valueString = value.toString();
                 if (!CharMatcher.inRange((char) 0x20, (char) 0x7E).matchesAllOf(valueString)) {
-                    throw new PrestoException(HIVE_INVALID_PARTITION_VALUE,
+                    throw new TrinoException(HIVE_INVALID_PARTITION_VALUE,
                             "Hive partition keys can only contain printable ASCII characters (0x20 - 0x7E). Invalid value: " +
                                     base16().withSeparator(" ", 2).encode(valueString.getBytes(UTF_8)));
                 }
@@ -368,17 +368,17 @@ public final class HiveWriteUtils
 
             return Collections.unmodifiableList(row);
         }
-        throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
     public static void checkTableIsWritable(Table table, boolean writesToNonManagedTablesEnabled)
     {
         if (table.getTableType().equals(MATERIALIZED_VIEW.toString())) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot write to Hive materialized view");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot write to Hive materialized view");
         }
 
         if (!writesToNonManagedTablesEnabled && !table.getTableType().equals(MANAGED_TABLE.toString())) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot write to non-managed Hive table");
         }
 
         checkWritable(
@@ -421,7 +421,7 @@ public final class HiveWriteUtils
 
         // verify skew info
         if (storage.isSkewed()) {
-            throw new PrestoException(NOT_SUPPORTED, format("Inserting into bucketed tables with skew is not supported. %s", tablePartitionDescription));
+            throw new TrinoException(NOT_SUPPORTED, format("Inserting into bucketed tables with skew is not supported. %s", tablePartitionDescription));
         }
     }
 
@@ -437,16 +437,16 @@ public final class HiveWriteUtils
     {
         Optional<String> location = database.getLocation();
         if (location.isEmpty() || location.get().isEmpty()) {
-            throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
+            throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName));
         }
 
         Path databasePath = new Path(location.get());
         if (!isS3FileSystem(context, hdfsEnvironment, databasePath)) {
             if (!pathExists(context, hdfsEnvironment, databasePath)) {
-                throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
+                throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
             }
             if (!isDirectory(context, hdfsEnvironment, databasePath)) {
-                throw new PrestoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
+                throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
             }
         }
 
@@ -459,7 +459,7 @@ public final class HiveWriteUtils
             return hdfsEnvironment.getFileSystem(context, path).exists(path);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
@@ -470,7 +470,7 @@ public final class HiveWriteUtils
             return fileSystem instanceof PrestoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME) || fileSystem instanceof CachingPrestoS3FileSystem;
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
@@ -480,7 +480,7 @@ public final class HiveWriteUtils
             return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path)) instanceof ViewFileSystem;
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
@@ -498,7 +498,7 @@ public final class HiveWriteUtils
             return hdfsEnvironment.getFileSystem(context, path).isDirectory(path);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
         }
     }
 
@@ -512,7 +512,7 @@ public final class HiveWriteUtils
             return false;
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed checking encryption status for path: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking encryption status for path: " + path, e);
         }
     }
 
@@ -562,7 +562,7 @@ public final class HiveWriteUtils
             fileSystem.setOwner(path, owner, group);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Failed to set owner on %s based on %s", path, targetPath), e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Failed to set owner on %s based on %s", path, targetPath), e);
         }
     }
 
@@ -574,7 +574,7 @@ public final class HiveWriteUtils
             }
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + path, e);
         }
 
         // explicitly set permission since the default umask overrides it on creation
@@ -582,7 +582,7 @@ public final class HiveWriteUtils
             hdfsEnvironment.getFileSystem(context, path).setPermission(path, hdfsEnvironment.getNewDirectoryPermissions());
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
         }
     }
 

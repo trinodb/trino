@@ -13,7 +13,7 @@
  */
 package io.trino.type;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
@@ -40,7 +40,7 @@ public final class DateTimeOperators
     public static long datePlusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
         if (MILLIS_OF_DAY.get(interval) != 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot add hour, minutes or seconds to a date");
         }
         return date + TimeUnit.MILLISECONDS.toDays(interval);
     }
@@ -72,7 +72,7 @@ public final class DateTimeOperators
     public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
     {
         if (MILLIS_OF_DAY.get(interval) != 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
         }
         return date - TimeUnit.MILLISECONDS.toDays(interval);
     }

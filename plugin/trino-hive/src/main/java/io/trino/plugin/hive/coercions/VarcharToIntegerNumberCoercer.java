@@ -14,7 +14,7 @@
 
 package io.trino.plugin.hive.coercions;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -54,7 +54,7 @@ public class VarcharToIntegerNumberCoercer<T extends Type>
             maxValue = Long.MAX_VALUE;
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, format("Could not create Coercer from from varchar to %s", toType));
+            throw new TrinoException(NOT_SUPPORTED, format("Could not create Coercer from from varchar to %s", toType));
         }
     }
 

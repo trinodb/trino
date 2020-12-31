@@ -28,7 +28,7 @@ import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.orc.HdfsOrcDataSource;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -117,7 +117,7 @@ public class IcebergFileWriterFactory
             case ORC:
                 return createOrcWriter(outputPath, icebergSchema, jobConf, session);
         }
-        throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
+        throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 
     private IcebergFileWriter createParquetWriter(
@@ -161,7 +161,7 @@ public class IcebergFileWriterFactory
                     hdfsContext);
         }
         catch (IOException e) {
-            throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
+            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
         }
     }
 
@@ -200,7 +200,7 @@ public class IcebergFileWriterFactory
                                 readStats);
                     }
                     catch (IOException e) {
-                        throw new PrestoException(ICEBERG_WRITE_VALIDATION_FAILED, e);
+                        throw new TrinoException(ICEBERG_WRITE_VALIDATION_FAILED, e);
                     }
                 });
             }
@@ -230,7 +230,7 @@ public class IcebergFileWriterFactory
                     orcWriterStats);
         }
         catch (IOException e) {
-            throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e);
+            throw new TrinoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating ORC file", e);
         }
     }
 }

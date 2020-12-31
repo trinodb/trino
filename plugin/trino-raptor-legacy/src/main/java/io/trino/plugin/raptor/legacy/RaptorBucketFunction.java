@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy;
 
 import io.airlift.slice.XxHash64;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.type.Type;
@@ -73,7 +73,7 @@ public class RaptorBucketFunction
         if (type instanceof VarcharType) {
             return varcharHashFunction();
         }
-        throw new PrestoException(NOT_SUPPORTED, "Bucketing is supported for bigint, integer and varchar, not " + type.getDisplayName());
+        throw new TrinoException(NOT_SUPPORTED, "Bucketing is supported for bigint, integer and varchar, not " + type.getDisplayName());
     }
 
     private static HashFunction bigintHashFunction()

@@ -30,7 +30,7 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.acid.AcidSchema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -176,7 +176,7 @@ public class OrcFileWriterFactory
                                 readStats);
                     }
                     catch (IOException e) {
-                        throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
+                        throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
                     }
                 });
             }
@@ -223,7 +223,7 @@ public class OrcFileWriterFactory
                     stats));
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e);
+            throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating ORC file", e);
         }
     }
 
@@ -245,7 +245,7 @@ public class OrcFileWriterFactory
             compression = CompressionKind.valueOf(compressionName.toUpperCase(ENGLISH));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Unknown ORC compression type " + compressionName);
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Unknown ORC compression type " + compressionName);
         }
         return compression;
     }

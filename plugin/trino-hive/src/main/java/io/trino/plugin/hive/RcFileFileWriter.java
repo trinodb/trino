@@ -22,7 +22,7 @@ import io.trino.rcfile.RcFileDataSource;
 import io.trino.rcfile.RcFileEncoding;
 import io.trino.rcfile.RcFileWriter;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -125,7 +125,7 @@ public class RcFileFileWriter
             rcFileWriter.write(page);
         }
         catch (IOException | UncheckedIOException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
+            throw new TrinoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 
@@ -142,7 +142,7 @@ public class RcFileFileWriter
             catch (Exception ignored) {
                 // ignore
             }
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
 
         if (validationInputFactory.isPresent()) {
@@ -154,7 +154,7 @@ public class RcFileFileWriter
                 }
             }
             catch (IOException | UncheckedIOException e) {
-                throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
+                throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
             }
         }
     }
@@ -171,7 +171,7 @@ public class RcFileFileWriter
             }
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
     }
 

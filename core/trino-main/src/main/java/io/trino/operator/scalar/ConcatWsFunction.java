@@ -22,7 +22,7 @@ import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.ScalarFunction;
@@ -114,7 +114,7 @@ public final class ConcatWsFunction
     {
         int valueCount = binding.getArity() - 1;
         if (valueCount < 1) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments");
         }
 
         MethodHandle arrayMethodHandle = methodHandle(ConcatWsFunction.class, "concatWs", Slice.class, Slice[].class);
@@ -153,7 +153,7 @@ public final class ConcatWsFunction
     private static Slice concatWs(Slice separator, SliceArray values)
     {
         if (values.getCount() > MAX_INPUT_VALUES) {
-            throw new PrestoException(NOT_SUPPORTED, "Too many arguments for string concatenation");
+            throw new TrinoException(NOT_SUPPORTED, "Too many arguments for string concatenation");
         }
 
         // Validate size of output
@@ -175,7 +175,7 @@ public final class ConcatWsFunction
             requiresSeparator = true;
 
             if (length > MAX_OUTPUT_LENGTH) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
             }
         }
 

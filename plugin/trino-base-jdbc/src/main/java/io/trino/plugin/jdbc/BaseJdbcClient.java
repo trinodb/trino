@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -178,7 +178,7 @@ public abstract class BaseJdbcClient
                     .collect(toImmutableSet());
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -196,7 +196,7 @@ public abstract class BaseJdbcClient
             return schemaNames.build();
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -231,7 +231,7 @@ public abstract class BaseJdbcClient
             }
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -251,13 +251,13 @@ public abstract class BaseJdbcClient
                     return Optional.empty();
                 }
                 if (tableHandles.size() > 1) {
-                    throw new PrestoException(NOT_SUPPORTED, "Multiple tables matched: " + schemaTableName);
+                    throw new TrinoException(NOT_SUPPORTED, "Multiple tables matched: " + schemaTableName);
                 }
                 return Optional.of(getOnlyElement(tableHandles));
             }
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -319,7 +319,7 @@ public abstract class BaseJdbcClient
             return ImmutableList.copyOf(columns);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -373,7 +373,7 @@ public abstract class BaseJdbcClient
                     .collect(toImmutableList());
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -392,7 +392,7 @@ public abstract class BaseJdbcClient
                 unboundedVarcharType,
                 varcharReadFunction(unboundedVarcharType),
                 (statement, index, value) -> {
-                    throw new PrestoException(
+                    throw new TrinoException(
                             NOT_SUPPORTED,
                             "Underlying type that is mapped to VARCHAR is not supported for INSERT: " + typeHandle.getJdbcTypeName().get());
                 },
@@ -442,7 +442,7 @@ public abstract class BaseJdbcClient
             createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -453,7 +453,7 @@ public abstract class BaseJdbcClient
             return createTable(session, tableMetadata, generateTemporaryTableName());
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -464,7 +464,7 @@ public abstract class BaseJdbcClient
 
         JdbcIdentity identity = JdbcIdentity.from(session);
         if (!getSchemaNames(session).contains(schemaTableName.getSchemaName())) {
-            throw new PrestoException(NOT_FOUND, "Schema not found: " + schemaTableName.getSchemaName());
+            throw new TrinoException(NOT_FOUND, "Schema not found: " + schemaTableName.getSchemaName());
         }
 
         try (Connection connection = connectionFactory.openConnection(session)) {
@@ -559,7 +559,7 @@ public abstract class BaseJdbcClient
                     tableName);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -613,7 +613,7 @@ public abstract class BaseJdbcClient
             execute(connection, sql);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -632,7 +632,7 @@ public abstract class BaseJdbcClient
             execute(connection, insertSql);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
 
         try (Connection connection = getConnection(session, handle)) {
@@ -658,7 +658,7 @@ public abstract class BaseJdbcClient
             execute(connection, sql);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -677,7 +677,7 @@ public abstract class BaseJdbcClient
             execute(connection, sql);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -776,7 +776,7 @@ public abstract class BaseJdbcClient
                 }
             }
             catch (RuntimeException e) {
-                throw new PrestoException(JDBC_ERROR, "Failed to find remote schema name: " + firstNonNull(e.getMessage(), e), e);
+                throw new TrinoException(JDBC_ERROR, "Failed to find remote schema name: " + firstNonNull(e.getMessage(), e), e);
             }
         }
 
@@ -788,7 +788,7 @@ public abstract class BaseJdbcClient
             return schemaName;
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -822,7 +822,7 @@ public abstract class BaseJdbcClient
                 }
             }
             catch (RuntimeException e) {
-                throw new PrestoException(JDBC_ERROR, "Failed to find remote table name: " + firstNonNull(e.getMessage(), e), e);
+                throw new TrinoException(JDBC_ERROR, "Failed to find remote table name: " + firstNonNull(e.getMessage(), e), e);
             }
         }
 
@@ -834,7 +834,7 @@ public abstract class BaseJdbcClient
             return tableName;
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -849,7 +849,7 @@ public abstract class BaseJdbcClient
             return map.build();
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -877,7 +877,7 @@ public abstract class BaseJdbcClient
             execute(connection, query);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -888,7 +888,7 @@ public abstract class BaseJdbcClient
             statement.execute(query);
         }
         catch (SQLException e) {
-            PrestoException exception = new PrestoException(JDBC_ERROR, e);
+            TrinoException exception = new TrinoException(JDBC_ERROR, e);
             exception.addSuppressed(new RuntimeException("Query: " + query));
             throw exception;
         }
@@ -927,7 +927,7 @@ public abstract class BaseJdbcClient
         if (writeMapping != null) {
             return writeMapping;
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     protected Function<String, String> tryApplyLimit(OptionalLong limit)
@@ -954,7 +954,7 @@ public abstract class BaseJdbcClient
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
-        throw new PrestoException(JDBC_ERROR, "limitFunction() is implemented without isLimitGuaranteed()");
+        throw new TrinoException(JDBC_ERROR, "limitFunction() is implemented without isLimitGuaranteed()");
     }
 
     @Override

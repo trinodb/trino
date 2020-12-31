@@ -16,7 +16,7 @@ package io.trino.plugin.postgresql;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
@@ -224,7 +224,7 @@ final class TypeUtils
             return getJdbcObjectArray(session, ((ArrayType) prestoType).getElementType(), (Block) prestoNative);
         }
 
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + prestoType);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + prestoType);
     }
 
     static PGobject toPgTimestamp(LocalDateTime localDateTime)

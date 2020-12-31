@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.teradata.functions.dateformat;
 
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.Token;
 import org.joda.time.format.DateTimeFormatter;
@@ -63,7 +63,7 @@ public final class DateFormatParser
                     break;
                 case DateFormat.UNRECOGNIZED:
                 default:
-                    throw new PrestoException(
+                    throw new TrinoException(
                             StandardErrorCode.INVALID_FUNCTION_ARGUMENT,
                             format("Failed to tokenize string [%s] at offset [%d]", token.getText(), token.getCharPositionInLine()));
             }
@@ -73,7 +73,7 @@ public final class DateFormatParser
             return builder.toFormatter();
         }
         catch (UnsupportedOperationException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 

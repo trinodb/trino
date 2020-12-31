@@ -14,7 +14,7 @@
 package io.trino.parquet.reader;
 
 import io.trino.parquet.RichColumnDescriptor;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -95,11 +95,11 @@ public class ShortDecimalColumnReader
             }
             else {
                 if (parquetDecimalType.getScale() != 0) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
+                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
                 }
 
                 if (!isInValidNumberRange(prestoType, value)) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Could not coerce from %s to %s: %s", parquetDecimalType, prestoType, value));
+                    throw new TrinoException(NOT_SUPPORTED, format("Could not coerce from %s to %s: %s", parquetDecimalType, prestoType, value));
                 }
                 prestoType.writeLong(blockBuilder, value);
             }

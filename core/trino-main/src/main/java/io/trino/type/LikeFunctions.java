@@ -21,7 +21,7 @@ import io.airlift.joni.Syntax;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -251,6 +251,6 @@ public final class LikeFunctions
         if (escapeString.length() == 1) {
             return escapeString.charAt(0);
         }
-        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
     }
 }

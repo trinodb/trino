@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.trino.plugin.hive.util.ForwardingRecordCursor;
 import io.trino.plugin.hive.util.HiveUtil;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -156,7 +156,7 @@ public class HiveRecordCursor
                     slices[columnIndex] = longDecimalPartitionKey(columnValue, (DecimalType) type, name);
                 }
                 else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
+                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
                 }
             }
         }

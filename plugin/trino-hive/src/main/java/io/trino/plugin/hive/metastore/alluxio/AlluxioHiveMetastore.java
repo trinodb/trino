@@ -39,7 +39,7 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -87,7 +87,7 @@ public class AlluxioHiveMetastore
             return Optional.of(ProtoUtils.fromProto(client.getDatabase(databaseName)));
         }
         catch (AlluxioStatusException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -98,7 +98,7 @@ public class AlluxioHiveMetastore
             return client.getAllDatabases();
         }
         catch (AlluxioStatusException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -112,7 +112,7 @@ public class AlluxioHiveMetastore
             return Optional.empty();
         }
         catch (AlluxioStatusException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -140,7 +140,7 @@ public class AlluxioHiveMetastore
             return new PartitionStatistics(basicStats, groupStatisticsByColumn(colStatsList, basicStats.getRowCount()));
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -178,7 +178,7 @@ public class AlluxioHiveMetastore
             return result.build();
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -190,7 +190,7 @@ public class AlluxioHiveMetastore
             Function<PartitionStatistics, PartitionStatistics> update,
             AcidTransaction transaction)
     {
-        throw new PrestoException(NOT_SUPPORTED, "updateTableStatistics");
+        throw new TrinoException(NOT_SUPPORTED, "updateTableStatistics");
     }
 
     @Override
@@ -200,7 +200,7 @@ public class AlluxioHiveMetastore
             String partitionName,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        throw new PrestoException(NOT_SUPPORTED, "updatePartitionStatistics");
+        throw new TrinoException(NOT_SUPPORTED, "updatePartitionStatistics");
     }
 
     @Override
@@ -213,7 +213,7 @@ public class AlluxioHiveMetastore
             return new ArrayList<>(0);
         }
         catch (AlluxioStatusException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -236,13 +236,13 @@ public class AlluxioHiveMetastore
                             return value != null && value.equals(parameterValue);
                         }
                         catch (AlluxioStatusException e) {
-                            throw new PrestoException(HIVE_METASTORE_ERROR, "Failed to get info for table: " + tableName, e);
+                            throw new TrinoException(HIVE_METASTORE_ERROR, "Failed to get info for table: " + tableName, e);
                         }
                     })
                     .collect(Collectors.toList());
         }
         catch (AlluxioStatusException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -256,95 +256,95 @@ public class AlluxioHiveMetastore
     @Override
     public void createDatabase(HiveIdentity identity, Database database)
     {
-        throw new PrestoException(NOT_SUPPORTED, "createDatabase");
+        throw new TrinoException(NOT_SUPPORTED, "createDatabase");
     }
 
     @Override
     public void dropDatabase(HiveIdentity identity, String databaseName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "dropDatabase");
+        throw new TrinoException(NOT_SUPPORTED, "dropDatabase");
     }
 
     @Override
     public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "renameDatabase");
+        throw new TrinoException(NOT_SUPPORTED, "renameDatabase");
     }
 
     @Override
     public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "setDatabaseOwner");
+        throw new TrinoException(NOT_SUPPORTED, "setDatabaseOwner");
     }
 
     @Override
     public void createTable(HiveIdentity identity, Table table, PrincipalPrivileges principalPrivileges)
     {
-        throw new PrestoException(NOT_SUPPORTED, "createTable");
+        throw new TrinoException(NOT_SUPPORTED, "createTable");
     }
 
     @Override
     public void dropTable(HiveIdentity identity, String databaseName, String tableName, boolean deleteData)
     {
-        throw new PrestoException(NOT_SUPPORTED, "dropTable");
+        throw new TrinoException(NOT_SUPPORTED, "dropTable");
     }
 
     @Override
     public void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table newTable,
             PrincipalPrivileges principalPrivileges)
     {
-        throw new PrestoException(NOT_SUPPORTED, "replaceTable");
+        throw new TrinoException(NOT_SUPPORTED, "replaceTable");
     }
 
     @Override
     public void renameTable(HiveIdentity identity, String databaseName, String tableName, String newDatabaseName,
             String newTableName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "renameTable");
+        throw new TrinoException(NOT_SUPPORTED, "renameTable");
     }
 
     @Override
     public void commentTable(HiveIdentity identity, String databaseName, String tableName, Optional<String> comment)
     {
-        throw new PrestoException(NOT_SUPPORTED, "commentTable");
+        throw new TrinoException(NOT_SUPPORTED, "commentTable");
     }
 
     @Override
     public void setTableOwner(HiveIdentity identity, String databaseName, String tableName, HivePrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "setTableOwner");
+        throw new TrinoException(NOT_SUPPORTED, "setTableOwner");
     }
 
     @Override
     public void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
     {
-        throw new PrestoException(NOT_SUPPORTED, "commentColumn");
+        throw new TrinoException(NOT_SUPPORTED, "commentColumn");
     }
 
     @Override
     public void addColumn(HiveIdentity identity, String databaseName, String tableName, String columnName,
             HiveType columnType, String columnComment)
     {
-        throw new PrestoException(NOT_SUPPORTED, "addColumn");
+        throw new TrinoException(NOT_SUPPORTED, "addColumn");
     }
 
     @Override
     public void renameColumn(HiveIdentity identity, String databaseName, String tableName, String oldColumnName,
             String newColumnName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "renameColumn");
+        throw new TrinoException(NOT_SUPPORTED, "renameColumn");
     }
 
     @Override
     public void dropColumn(HiveIdentity identity, String databaseName, String tableName, String columnName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "dropColumn");
+        throw new TrinoException(NOT_SUPPORTED, "dropColumn");
     }
 
     @Override
     public Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues)
     {
-        throw new PrestoException(NOT_SUPPORTED, "getPartition");
+        throw new TrinoException(NOT_SUPPORTED, "getPartition");
     }
 
     @Override
@@ -364,7 +364,7 @@ public class AlluxioHiveMetastore
             return Optional.of(partitionNames);
         }
         catch (AlluxioStatusException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -395,7 +395,7 @@ public class AlluxioHiveMetastore
             return Collections.unmodifiableMap(result);
         }
         catch (AlluxioStatusException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -403,85 +403,85 @@ public class AlluxioHiveMetastore
     public void addPartitions(HiveIdentity identity, String databaseName, String tableName,
             List<PartitionWithStatistics> partitions)
     {
-        throw new PrestoException(NOT_SUPPORTED, "addPartitions");
+        throw new TrinoException(NOT_SUPPORTED, "addPartitions");
     }
 
     @Override
     public void dropPartition(HiveIdentity identity, String databaseName, String tableName, List<String> parts,
             boolean deleteData)
     {
-        throw new PrestoException(NOT_SUPPORTED, "dropPartition");
+        throw new TrinoException(NOT_SUPPORTED, "dropPartition");
     }
 
     @Override
     public void alterPartition(HiveIdentity identity, String databaseName, String tableName,
             PartitionWithStatistics partition)
     {
-        throw new PrestoException(NOT_SUPPORTED, "alterPartition");
+        throw new TrinoException(NOT_SUPPORTED, "alterPartition");
     }
 
     @Override
     public void createRole(String role, String grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "createRole");
+        throw new TrinoException(NOT_SUPPORTED, "createRole");
     }
 
     @Override
     public void dropRole(String role)
     {
-        throw new PrestoException(NOT_SUPPORTED, "dropRole");
+        throw new TrinoException(NOT_SUPPORTED, "dropRole");
     }
 
     @Override
     public Set<String> listRoles()
     {
-        throw new PrestoException(NOT_SUPPORTED, "listRoles");
+        throw new TrinoException(NOT_SUPPORTED, "listRoles");
     }
 
     @Override
     public void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean withAdminOption,
             HivePrincipal grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "grantRoles");
+        throw new TrinoException(NOT_SUPPORTED, "grantRoles");
     }
 
     @Override
     public void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOptionFor,
             HivePrincipal grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "revokeRoles");
+        throw new TrinoException(NOT_SUPPORTED, "revokeRoles");
     }
 
     @Override
     public Set<RoleGrant> listGrantedPrincipals(String role)
     {
-        throw new PrestoException(NOT_SUPPORTED, "listRoleGrants");
+        throw new TrinoException(NOT_SUPPORTED, "listRoleGrants");
     }
 
     @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "listRoleGrants");
+        throw new TrinoException(NOT_SUPPORTED, "listRoleGrants");
     }
 
     @Override
     public void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee,
             Set<HivePrivilegeInfo> privileges)
     {
-        throw new PrestoException(NOT_SUPPORTED, "grantTablePrivileges");
+        throw new TrinoException(NOT_SUPPORTED, "grantTablePrivileges");
     }
 
     @Override
     public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee,
             Set<HivePrivilegeInfo> privileges)
     {
-        throw new PrestoException(NOT_SUPPORTED, "revokeTablePrivileges");
+        throw new TrinoException(NOT_SUPPORTED, "revokeTablePrivileges");
     }
 
     @Override
     public Set<HivePrivilegeInfo> listTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "listTablePrivileges");
+        throw new TrinoException(NOT_SUPPORTED, "listTablePrivileges");
     }
 
     @Override

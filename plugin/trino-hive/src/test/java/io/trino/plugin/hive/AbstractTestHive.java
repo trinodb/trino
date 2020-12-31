@@ -59,7 +59,7 @@ import io.trino.plugin.hive.s3.HiveS3Config;
 import io.trino.plugin.hive.s3.PrestoS3ConfigurationInitializer;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
@@ -273,7 +273,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -1173,7 +1173,7 @@ public abstract class AbstractTestHive
 
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             // expected
             assertEquals(e.getErrorCode(), HIVE_PARTITION_SCHEMA_MISMATCH.toErrorCode());
         }
@@ -1794,7 +1794,7 @@ public abstract class AbstractTestHive
             metadata.beginQuery(session);
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
             List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
-            assertPrestoExceptionThrownBy(
+            assertTrinoExceptionThrownBy(
                     () -> readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat)))
                     .hasErrorCode(HIVE_INVALID_BUCKET_FILES)
                     .hasMessageMatching("Hive table is corrupt\\. File '.*/000002_0_.*' is for bucket 2, but contains a row for bucket 5.");
@@ -2011,7 +2011,7 @@ public abstract class AbstractTestHive
         }
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.presto_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.presto_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
     public void testPartitionSchemaMismatch()
             throws Exception
     {
@@ -2048,7 +2048,7 @@ public abstract class AbstractTestHive
             try (ConnectorPageSource ignored = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, table, columnHandles, DynamicFilter.EMPTY)) {
                 fail("expected exception");
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 assertEquals(e.getErrorCode(), HIVE_INVALID_PARTITION_VALUE.toErrorCode());
             }
         }
@@ -2103,21 +2103,21 @@ public abstract class AbstractTestHive
         assertEmptyFile(TEXTFILE);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .* not a SequenceFile")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Error opening Hive split .* not a SequenceFile")
     public void testEmptySequenceFile()
             throws Exception
     {
         assertEmptyFile(SEQUENCEFILE);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
     public void testEmptyRcTextFile()
             throws Exception
     {
         assertEmptyFile(RCTEXT);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "RCFile is empty: .*")
     public void testEmptyRcBinaryFile()
             throws Exception
     {
@@ -2305,7 +2305,7 @@ public abstract class AbstractTestHive
                 transaction.commit();
                 fail("Expected exception");
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 assertInstanceOf(e, TableAlreadyExistsException.class);
             }
 
@@ -2326,7 +2326,7 @@ public abstract class AbstractTestHive
                 transaction.commit();
                 fail("Expected exception");
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
                 assertEquals(e.getMessage(), format("Table already exists with a different schema: '%s'", schemaTableName.getTableName()));
             }
@@ -2650,7 +2650,7 @@ public abstract class AbstractTestHive
                 metadata.beginCreateTable(session, tableMetadata, Optional.empty());
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
             }
         }
@@ -3923,7 +3923,7 @@ public abstract class AbstractTestHive
             metadata.beginInsert(session, tableHandle);
             fail("expected failure");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertThat(e).hasMessageMatching("Inserting into Hive table .* with column type uniontype<smallint,tinyint> not supported");
         }
     }
@@ -5109,7 +5109,7 @@ public abstract class AbstractTestHive
             catch (TestingRollbackException e) {
                 transaction.rollback();
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 assertFalse(expectQuerySucceed);
                 if (conflictTrigger.isPresent()) {
                     conflictTrigger.get().verifyAndCleanup(newSession(), tableName);

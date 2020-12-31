@@ -21,7 +21,7 @@ import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
@@ -119,10 +119,10 @@ public final class SessionPropertyManager
         requireNonNull(propertyName, "propertyName is null");
         Map<String, PropertyMetadata<?>> properties = connectorSessionProperties.get(catalogName);
         if (properties == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown catalog: " + catalogName);
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Unknown catalog: " + catalogName);
         }
         if (properties.isEmpty()) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "No session properties found for catalog: " + catalogName);
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "No session properties found for catalog: " + catalogName);
         }
 
         return Optional.ofNullable(properties.get(propertyName));
@@ -175,7 +175,7 @@ public final class SessionPropertyManager
     public <T> T decodeSystemPropertyValue(String name, @Nullable String value, Class<T> type)
     {
         PropertyMetadata<?> property = getSystemSessionPropertyMetadata(name)
-                .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name));
+                .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name));
 
         return decodePropertyValue(name, value, type, property);
     }
@@ -184,7 +184,7 @@ public final class SessionPropertyManager
     {
         String fullPropertyName = catalogName + "." + propertyName;
         PropertyMetadata<?> property = getConnectorSessionPropertyMetadata(catalog, propertyName)
-                .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
+                .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         return decodePropertyValue(fullPropertyName, propertyValue, type, property);
     }
@@ -192,7 +192,7 @@ public final class SessionPropertyManager
     public void validateSystemSessionProperty(String propertyName, String propertyValue)
     {
         PropertyMetadata<?> propertyMetadata = getSystemSessionPropertyMetadata(propertyName)
-                .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + propertyName));
+                .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + propertyName));
 
         decodePropertyValue(propertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
@@ -201,7 +201,7 @@ public final class SessionPropertyManager
     {
         String fullPropertyName = catalogName + "." + propertyName;
         PropertyMetadata<?> propertyMetadata = getConnectorSessionPropertyMetadata(catalog, propertyName)
-                .orElseThrow(() -> new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
+                .orElseThrow(() -> new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + fullPropertyName));
 
         decodePropertyValue(fullPropertyName, propertyValue, propertyMetadata.getJavaType(), propertyMetadata);
     }
@@ -209,7 +209,7 @@ public final class SessionPropertyManager
     private static <T> T decodePropertyValue(String fullPropertyName, @Nullable String propertyValue, Class<T> type, PropertyMetadata<?> metadata)
     {
         if (metadata.getJavaType() != type) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, format("Property %s is type %s, but requested type was %s", fullPropertyName,
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("Property %s is type %s, but requested type was %s", fullPropertyName,
                     metadata.getJavaType().getName(),
                     type.getName()));
         }
@@ -220,12 +220,12 @@ public final class SessionPropertyManager
         try {
             return type.cast(metadata.decode(objectValue));
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             throw e;
         }
         catch (Exception e) {
             // the system property decoder can throw any exception
-            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s is invalid: %s", fullPropertyName, propertyValue), e);
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s is invalid: %s", fullPropertyName, propertyValue), e);
         }
     }
 
@@ -240,7 +240,7 @@ public final class SessionPropertyManager
         Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
 
         if (objectValue == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property value must not be null");
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property value must not be null");
         }
         return objectValue;
     }
@@ -248,7 +248,7 @@ public final class SessionPropertyManager
     public static String serializeSessionProperty(Type type, Object value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property cannot be null");
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property cannot be null");
         }
         if (BooleanType.BOOLEAN.equals(type)) {
             return value.toString();
@@ -268,13 +268,13 @@ public final class SessionPropertyManager
         if (type instanceof ArrayType || type instanceof MapType) {
             return getJsonCodecForType(type).toJson(value);
         }
-        throw new PrestoException(INVALID_SESSION_PROPERTY, format("Session property type %s is not supported", type));
+        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property type %s is not supported", type));
     }
 
     private static Object deserializeSessionProperty(Type type, String value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Session property cannot be null");
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Session property cannot be null");
         }
         if (VarcharType.VARCHAR.equals(type)) {
             return value;
@@ -294,7 +294,7 @@ public final class SessionPropertyManager
         if (type instanceof ArrayType || type instanceof MapType) {
             return getJsonCodecForType(type).fromJson(value);
         }
-        throw new PrestoException(INVALID_SESSION_PROPERTY, format("Session property type %s is not supported", type));
+        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property type %s is not supported", type));
     }
 
     private static <T> JsonCodec<T> getJsonCodecForType(Type type)
@@ -323,7 +323,7 @@ public final class SessionPropertyManager
             Type valueType = ((MapType) type).getValueType();
             return (JsonCodec<T>) JSON_CODEC_FACTORY.mapJsonCodec(getMapKeyType(keyType), getJsonCodecForType(valueType));
         }
-        throw new PrestoException(INVALID_SESSION_PROPERTY, format("Session property type %s is not supported", type));
+        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property type %s is not supported", type));
     }
 
     private static Class<?> getMapKeyType(Type type)
@@ -343,7 +343,7 @@ public final class SessionPropertyManager
         if (DoubleType.DOUBLE.equals(type)) {
             return Double.class;
         }
-        throw new PrestoException(INVALID_SESSION_PROPERTY, format("Session property map key type %s is not supported", type));
+        throw new TrinoException(INVALID_SESSION_PROPERTY, format("Session property map key type %s is not supported", type));
     }
 
     public static class SessionPropertyValue

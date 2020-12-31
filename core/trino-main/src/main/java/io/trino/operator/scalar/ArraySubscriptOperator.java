@@ -18,7 +18,7 @@ import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.SqlOperator;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -151,10 +151,10 @@ public class ArraySubscriptOperator
     public static void checkArrayIndex(long index)
     {
         if (index == 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "SQL array indices start at 1");
         }
         if (index < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: " + index);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Array subscript is negative: " + index);
         }
     }
 
@@ -162,7 +162,7 @@ public class ArraySubscriptOperator
     {
         checkArrayIndex(index);
         if (index > array.getPositionCount()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Array subscript must be less than or equal to array length: %s > %s", index, array.getPositionCount()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Array subscript must be less than or equal to array length: %s > %s", index, array.getPositionCount()));
         }
     }
 }

@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.kudu.schema;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class SchemaAlreadyExistsException
-        extends PrestoException
+        extends TrinoException
 {
     private final String schemaName;
 

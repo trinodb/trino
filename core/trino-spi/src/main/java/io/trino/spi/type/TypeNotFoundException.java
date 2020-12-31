@@ -13,13 +13,13 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 public class TypeNotFoundException
-        extends PrestoException
+        extends TrinoException
 {
     private final TypeSignature type;
 

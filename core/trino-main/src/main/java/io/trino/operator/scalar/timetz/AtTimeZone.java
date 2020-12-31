@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.timetz;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -53,7 +53,7 @@ public class AtTimeZone
             zoneKey = getTimeZoneKey(zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId));
         }
 
         int offsetMinutes = getOffsetMinutes(session.getStart(), zoneKey);
@@ -73,7 +73,7 @@ public class AtTimeZone
             zoneKey = getTimeZoneKey(zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId));
         }
 
         int offsetMinutes = getOffsetMinutes(session.getStart(), zoneKey);

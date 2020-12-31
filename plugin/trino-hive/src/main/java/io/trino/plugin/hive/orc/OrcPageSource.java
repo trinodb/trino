@@ -24,7 +24,7 @@ import io.trino.orc.metadata.OrcType;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
@@ -145,15 +145,15 @@ public class OrcPageSource
         return new Page(maskDeletedRowsFunction.getPositionCount(), blocks);
     }
 
-    static PrestoException handleException(OrcDataSourceId dataSourceId, Exception exception)
+    static TrinoException handleException(OrcDataSourceId dataSourceId, Exception exception)
     {
-        if (exception instanceof PrestoException) {
-            return (PrestoException) exception;
+        if (exception instanceof TrinoException) {
+            return (TrinoException) exception;
         }
         if (exception instanceof OrcCorruptionException) {
-            return new PrestoException(HIVE_BAD_DATA, exception);
+            return new TrinoException(HIVE_BAD_DATA, exception);
         }
-        return new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
+        return new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read ORC file: %s", dataSourceId), exception);
     }
 
     @Override

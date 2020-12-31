@@ -23,7 +23,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.metadata.AccumuloTable;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.model.AccumuloTableHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -133,7 +133,7 @@ public class AccumuloMetadata
             SchemaTableName newTableName)
     {
         if (client.getTable(newTableName) != null) {
-            throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Table " + newTableName + " already exists");
+            throw new TrinoException(ACCUMULO_TABLE_EXISTS, "Table " + newTableName + " already exists");
         }
 
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
@@ -220,7 +220,7 @@ public class AccumuloMetadata
         // Any mutations that were successfully written will be overwritten
         // with the same values, so that isn't a problem.
         AccumuloTableHandle handle = (AccumuloTableHandle) insertHandle;
-        throw new PrestoException(NOT_SUPPORTED, format("Unable to rollback insert for table %s.%s. Some rows may have been written. Please run your insert again.", handle.getSchema(), handle.getTable()));
+        throw new TrinoException(NOT_SUPPORTED, format("Unable to rollback insert for table %s.%s. Some rows may have been written. Please run your insert again.", handle.getSchema(), handle.getTable()));
     }
 
     @Override

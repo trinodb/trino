@@ -35,7 +35,7 @@ import io.trino.operator.exchange.LocalExchangeSourceOperator.LocalExchangeSourc
 import io.trino.operator.index.PageBuffer;
 import io.trino.operator.index.PageBufferOperator.PageBufferOperatorFactory;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -1562,7 +1562,7 @@ public class TestHashJoinOperator
                 try {
                     driver.process();
                 }
-                catch (PrestoException e) {
+                catch (TrinoException e) {
                     driver.getDriverContext().failed(e);
                     return;
                 }
@@ -1708,7 +1708,7 @@ public class TestHashJoinOperator
                 {
                     checkState(writing, "writing already finished");
                     if (failSpill) {
-                        return immediateFailedFuture(new PrestoException(GENERIC_INTERNAL_ERROR, "Spill failed"));
+                        return immediateFailedFuture(new TrinoException(GENERIC_INTERNAL_ERROR, "Spill failed"));
                     }
                     Iterators.addAll(spills, pageIterator);
                     return immediateFuture(null);
@@ -1718,7 +1718,7 @@ public class TestHashJoinOperator
                 public Iterator<Page> getSpilledPages()
                 {
                     if (failUnspill) {
-                        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unspill failed");
+                        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unspill failed");
                     }
                     writing = false;
                     return unmodifiableIterator(spills.iterator());
@@ -1736,7 +1736,7 @@ public class TestHashJoinOperator
                 public ListenableFuture<List<Page>> getAllSpilledPages()
                 {
                     if (failUnspill) {
-                        return immediateFailedFuture(new PrestoException(GENERIC_INTERNAL_ERROR, "Unspill failed"));
+                        return immediateFailedFuture(new TrinoException(GENERIC_INTERNAL_ERROR, "Unspill failed"));
                     }
                     writing = false;
                     return immediateFuture(ImmutableList.copyOf(spills));

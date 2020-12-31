@@ -33,7 +33,7 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.nCopies;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -232,7 +232,7 @@ public class TestTypedSet
     @Test
     public void testMemoryExceeded()
     {
-        assertPrestoExceptionThrownBy(() -> {
+        assertTrinoExceptionThrownBy(() -> {
             TypedSet typedSet = createEqualityTypedSet(BIGINT, 10);
             for (int i = 0; i <= TypedSet.MAX_FUNCTION_MEMORY.toBytes() + 1; i++) {
                 Block block = createLongsBlock(nCopies(1, (long) i));

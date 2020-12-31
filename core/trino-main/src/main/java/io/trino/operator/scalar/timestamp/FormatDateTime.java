@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -46,7 +46,7 @@ public class FormatDateTime
 
         if (datetimeFormatSpecifiesZone(formatString)) {
             // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
         }
         ISOChronology chronology = ISOChronology.getInstanceUTC();
 
@@ -57,7 +57,7 @@ public class FormatDateTime
                     .print(timestamp));
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 

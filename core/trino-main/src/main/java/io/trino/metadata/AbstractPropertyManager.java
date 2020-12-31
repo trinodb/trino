@@ -19,7 +19,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.security.AccessControl;
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
@@ -81,7 +81,7 @@ abstract class AbstractPropertyManager
     {
         Map<String, PropertyMetadata<?>> supportedProperties = connectorProperties.get(catalogName);
         if (supportedProperties == null) {
-            throw new PrestoException(NOT_FOUND, "Catalog not found: " + catalog);
+            throw new TrinoException(NOT_FOUND, "Catalog not found: " + catalog);
         }
 
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -91,7 +91,7 @@ abstract class AbstractPropertyManager
             String propertyName = sqlProperty.getKey().toLowerCase(ENGLISH);
             PropertyMetadata<?> property = supportedProperties.get(propertyName);
             if (property == null) {
-                throw new PrestoException(
+                throw new TrinoException(
                         propertyError,
                         format("Catalog '%s' does not support %s property '%s'",
                                 catalog,
@@ -103,8 +103,8 @@ abstract class AbstractPropertyManager
             try {
                 sqlObjectValue = evaluatePropertyValue(sqlProperty.getValue(), property.getSqlType(), session, metadata, accessControl, parameters);
             }
-            catch (PrestoException e) {
-                throw new PrestoException(
+            catch (TrinoException e) {
+                throw new TrinoException(
                         propertyError,
                         format("Invalid value for %s property '%s': Cannot convert [%s] to %s",
                                 propertyType,
@@ -119,7 +119,7 @@ abstract class AbstractPropertyManager
                 value = property.decode(sqlObjectValue);
             }
             catch (Exception e) {
-                throw new PrestoException(
+                throw new TrinoException(
                         propertyError,
                         format(
                                 "Unable to set %s property '%s' to [%s]: %s",
@@ -168,7 +168,7 @@ abstract class AbstractPropertyManager
         Object objectValue = expectedType.getObjectValue(session.toConnectorSession(), blockBuilder, 0);
 
         if (objectValue == null) {
-            throw new PrestoException(propertyError, format("Invalid null value for %s property", propertyType));
+            throw new TrinoException(propertyError, format("Invalid null value for %s property", propertyType));
         }
         return objectValue;
     }

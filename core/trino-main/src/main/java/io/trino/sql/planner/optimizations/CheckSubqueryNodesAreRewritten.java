@@ -16,7 +16,7 @@ package io.trino.sql.planner.optimizations;
 
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -56,7 +56,7 @@ public class CheckSubqueryNodesAreRewritten
         return plan;
     }
 
-    private PrestoException error(List<Symbol> correlation, Node originSubquery)
+    private TrinoException error(List<Symbol> correlation, Node originSubquery)
     {
         checkState(!correlation.isEmpty(), "All the non correlated subqueries should be rewritten at this point");
         throw semanticException(NOT_SUPPORTED, originSubquery, "Given correlated subquery is not supported");

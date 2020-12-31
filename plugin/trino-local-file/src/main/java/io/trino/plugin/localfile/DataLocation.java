@@ -16,7 +16,7 @@ package io.trino.plugin.localfile;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.io.File;
 import java.io.IOException;
@@ -90,14 +90,14 @@ final class DataLocation
             List<File> files = builder.build();
 
             if (files.isEmpty()) {
-                throw new PrestoException(LOCAL_FILE_NO_FILES, "No matching files found in directory: " + location);
+                throw new TrinoException(LOCAL_FILE_NO_FILES, "No matching files found in directory: " + location);
             }
             return files.stream()
                     .sorted((o1, o2) -> Long.compare(o2.lastModified(), o1.lastModified()))
                     .collect(Collectors.toList());
         }
         catch (IOException e) {
-            throw new PrestoException(LOCAL_FILE_FILESYSTEM_ERROR, "Error listing files in directory: " + location, e);
+            throw new TrinoException(LOCAL_FILE_FILESYSTEM_ERROR, "Error listing files in directory: " + location, e);
         }
     }
 }

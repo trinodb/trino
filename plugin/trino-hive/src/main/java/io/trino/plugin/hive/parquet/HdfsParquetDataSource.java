@@ -25,7 +25,7 @@ import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.util.FSDataInputStreamTail;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 
 import java.io.IOException;
@@ -109,7 +109,7 @@ public class HdfsParquetDataSource
             tailSlice = fileTail.getTailSlice();
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading tail from %s with length %s", id, length), e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error reading tail from %s with length %s", id, length), e);
         }
         long currentReadTimeNanos = System.nanoTime() - start;
 
@@ -134,12 +134,12 @@ public class HdfsParquetDataSource
         try {
             inputStream.readFully(position, buffer, bufferOffset, bufferLength);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             // just in case there is a Presto wrapper or hook
             throw e;
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading from %s at position %s", id, position), e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Error reading from %s at position %s", id, position), e);
         }
         long currentReadTimeNanos = System.nanoTime() - start;
 

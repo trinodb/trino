@@ -29,8 +29,8 @@ import io.trino.execution.QueryStateMachine;
 import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.server.BasicQueryInfo;
 import io.trino.spi.ErrorCode;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import org.joda.time.DateTime;
 
 import java.util.Optional;
@@ -185,7 +185,7 @@ public class LocalDispatchQuery
 
         if (queryInfo.getState() == QueryState.FAILED) {
             ExecutionFailureInfo failureInfo = stateMachine.getFailureInfo()
-                    .orElseGet(() -> toFailure(new PrestoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
+                    .orElseGet(() -> toFailure(new TrinoException(GENERIC_INTERNAL_ERROR, "Query failed for an unknown reason")));
             return DispatchInfo.failed(failureInfo, queryInfo.getQueryStats().getElapsedTime(), queryInfo.getQueryStats().getQueuedTime());
         }
         if (dispatched) {

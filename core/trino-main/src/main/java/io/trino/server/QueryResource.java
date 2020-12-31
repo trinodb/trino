@@ -19,8 +19,8 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryState;
 import io.trino.security.AccessControl;
 import io.trino.server.security.ResourceSecurity;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 
@@ -143,7 +143,7 @@ public class QueryResource
         return failQuery(queryId, createPreemptQueryException(message), servletRequest, httpHeaders);
     }
 
-    private Response failQuery(QueryId queryId, PrestoException queryException, HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
+    private Response failQuery(QueryId queryId, TrinoException queryException, HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
         requireNonNull(queryId, "queryId is null");
 

@@ -22,7 +22,7 @@ import io.trino.plugin.kudu.properties.PartitionDesign;
 import io.trino.plugin.kudu.properties.RangePartition;
 import io.trino.plugin.kudu.properties.RangePartitionDefinition;
 import io.trino.plugin.kudu.schema.SchemaEmulation;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -103,7 +103,7 @@ public class KuduClientSession
             return client.getTablesList(prefix).getTablesList();
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -260,7 +260,7 @@ public class KuduClientSession
             client.deleteTable(rawName);
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -274,7 +274,7 @@ public class KuduClientSession
             client.alterTable(rawName, alterOptions);
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -300,7 +300,7 @@ public class KuduClientSession
             return client.createTable(rawName, schema, options);
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -314,7 +314,7 @@ public class KuduClientSession
             client.alterTable(rawName, alterOptions);
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -327,7 +327,7 @@ public class KuduClientSession
             client.alterTable(rawName, alterOptions);
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -340,7 +340,7 @@ public class KuduClientSession
             client.alterTable(rawName, alterOptions);
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -364,7 +364,7 @@ public class KuduClientSession
             PartitionDesign design = KuduTableProperties.getPartitionDesign(table);
             RangePartitionDefinition definition = design.getRange();
             if (definition == null) {
-                throw new PrestoException(QUERY_REJECTED, "Table " + schemaTableName + " has no range partition");
+                throw new TrinoException(QUERY_REJECTED, "Table " + schemaTableName + " has no range partition");
             }
             PartialRow lowerBound = KuduTableProperties.toRangeBoundToPartialRow(schema, definition, rangePartition.getLower());
             PartialRow upperBound = KuduTableProperties.toRangeBoundToPartialRow(schema, definition, rangePartition.getUpper());
@@ -380,7 +380,7 @@ public class KuduClientSession
             client.alterTable(rawName, alterOptions);
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -424,7 +424,7 @@ public class KuduClientSession
                 builder.compressionAlgorithm(algorithm);
             }
             catch (IllegalArgumentException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unknown compression algorithm " + design.getCompression() + " for column " + name);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unknown compression algorithm " + design.getCompression() + " for column " + name);
             }
         }
     }
@@ -437,7 +437,7 @@ public class KuduClientSession
                 builder.encoding(encoding);
             }
             catch (IllegalArgumentException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unknown encoding " + design.getEncoding() + " for column " + name);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unknown encoding " + design.getEncoding() + " for column " + name);
             }
         }
     }
@@ -607,7 +607,7 @@ public class KuduClientSession
             return new KuduSplit(tableHandle, primaryKeyColumnCount, serializedScanToken, bucketNumber);
         }
         catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 }

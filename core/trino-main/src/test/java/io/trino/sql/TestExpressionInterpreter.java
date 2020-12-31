@@ -19,7 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
@@ -1286,19 +1286,19 @@ public class TestExpressionInterpreter
     public void testInvalidLike()
     {
         assertThatThrownBy(() -> optimize("unbound_string LIKE 'abc' ESCAPE ''"))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape string must be a single character");
         assertThatThrownBy(() -> optimize("unbound_string LIKE 'abc' ESCAPE 'bc'"))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape string must be a single character");
         assertThatThrownBy(() -> optimize("unbound_string LIKE '#' ESCAPE '#'"))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
         assertThatThrownBy(() -> optimize("unbound_string LIKE '#abc' ESCAPE '#'"))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
         assertThatThrownBy(() -> optimize("unbound_string LIKE 'ab#' ESCAPE '#'"))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 
@@ -1327,7 +1327,7 @@ public class TestExpressionInterpreter
                 "CASE WHEN unbound_boolean THEN CAST(fail('fail') AS integer) ELSE 1 END");
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testOptimizeDivideByZero()
     {
         optimize("0 / 0");
@@ -1381,19 +1381,19 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("ROW(1, 'a', ROW(2, 'b', ROW(3, 'c')))[3][3][2]", "'c'");
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testArraySubscriptConstantNegativeIndex()
     {
         optimize("ARRAY[1, 2, 3][-1]");
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testArraySubscriptConstantZeroIndex()
     {
         optimize("ARRAY[1, 2, 3][0]");
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testMapSubscriptMissingKey()
     {
         optimize("MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]");

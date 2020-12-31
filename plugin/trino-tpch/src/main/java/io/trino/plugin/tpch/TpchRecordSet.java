@@ -16,7 +16,7 @@ package io.trino.plugin.tpch;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
@@ -242,7 +242,7 @@ public class TpchRecordSet<E extends TpchEntity>
                 return getSlice(column);
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s", type.getDisplayName()));
+                throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s", type.getDisplayName()));
             }
         }
 

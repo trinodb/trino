@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -260,12 +260,12 @@ public class CassandraMetadata
         checkArgument(tableHandle instanceof CassandraTableHandle, "tableHandle is not an instance of CassandraTableHandle");
 
         if (!allowDropTable) {
-            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Cassandra catalog");
+            throw new TrinoException(PERMISSION_DENIED, "DROP TABLE is disabled in this Cassandra catalog");
         }
 
         CassandraTableHandle cassandraTableHandle = (CassandraTableHandle) tableHandle;
         if (cassandraSession.isMaterializedView(cassandraTableHandle.getSchemaTableName())) {
-            throw new PrestoException(NOT_SUPPORTED, "Dropping materialized views not yet supported");
+            throw new TrinoException(NOT_SUPPORTED, "Dropping materialized views not yet supported");
         }
 
         cassandraSession.execute(format("DROP TABLE \"%s\".\"%s\"", cassandraTableHandle.getSchemaName(), cassandraTableHandle.getTableName()));
@@ -274,7 +274,7 @@ public class CassandraMetadata
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Renaming tables not yet supported for Cassandra");
+        throw new TrinoException(NOT_SUPPORTED, "Renaming tables not yet supported for Cassandra");
     }
 
     @Override
@@ -335,7 +335,7 @@ public class CassandraMetadata
     {
         CassandraTableHandle table = (CassandraTableHandle) tableHandle;
         if (cassandraSession.isMaterializedView(table.getSchemaTableName())) {
-            throw new PrestoException(NOT_SUPPORTED, "Inserting into materialized views not yet supported");
+            throw new TrinoException(NOT_SUPPORTED, "Inserting into materialized views not yet supported");
         }
 
         SchemaTableName schemaTableName = new SchemaTableName(table.getSchemaName(), table.getTableName());
@@ -381,7 +381,7 @@ public class CassandraMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete with primary key or partition key");
+        throw new TrinoException(NOT_SUPPORTED, "This connector only supports delete with primary key or partition key");
     }
 
     @Override
@@ -396,7 +396,7 @@ public class CassandraMetadata
         CassandraTableHandle handle = (CassandraTableHandle) deleteHandle;
         Optional<List<CassandraPartition>> partitions = handle.getPartitions();
         if (partitions.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Deleting without partition key is unsupported");
+            throw new TrinoException(NOT_SUPPORTED, "Deleting without partition key is unsupported");
         }
         if (partitions.get().isEmpty()) {
             // there are no records of a given partition key

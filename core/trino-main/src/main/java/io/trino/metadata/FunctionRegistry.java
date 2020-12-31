@@ -226,7 +226,7 @@ import io.trino.operator.window.RankFunction;
 import io.trino.operator.window.RowNumberFunction;
 import io.trino.operator.window.SqlWindowFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
@@ -809,7 +809,7 @@ public class FunctionRegistry
             return specializedWindowCache.get(functionBinding, () -> specializeWindow(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new RuntimeException(e.getCause());
         }
     }
@@ -826,7 +826,7 @@ public class FunctionRegistry
             return specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new RuntimeException(e.getCause());
         }
     }
@@ -853,7 +853,7 @@ public class FunctionRegistry
             scalarFunctionImplementation = specializedScalarCache.get(functionBinding, () -> specializeScalarFunction(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new RuntimeException(e.getCause());
         }
         return scalarFunctionImplementation.getScalarFunctionInvoker(invocationConvention);

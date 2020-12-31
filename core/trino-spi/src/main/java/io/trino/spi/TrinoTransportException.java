@@ -13,17 +13,17 @@
  */
 package io.trino.spi;
 
-public class PrestoTransportException
-        extends PrestoException
+public class TrinoTransportException
+        extends TrinoException
 {
     private final HostAddress remoteHost;
 
-    public PrestoTransportException(ErrorCodeSupplier errorCode, HostAddress remoteHost, String message)
+    public TrinoTransportException(ErrorCodeSupplier errorCode, HostAddress remoteHost, String message)
     {
         this(errorCode, remoteHost, message, null);
     }
 
-    public PrestoTransportException(ErrorCodeSupplier errorCodeSupplier, HostAddress remoteHost, String message, Throwable cause)
+    public TrinoTransportException(ErrorCodeSupplier errorCodeSupplier, HostAddress remoteHost, String message, Throwable cause)
     {
         super(errorCodeSupplier, message, cause);
         this.remoteHost = remoteHost;

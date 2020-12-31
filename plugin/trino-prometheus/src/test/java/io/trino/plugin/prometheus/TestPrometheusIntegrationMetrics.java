@@ -15,7 +15,7 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RecordSet;
@@ -73,7 +73,7 @@ public class TestPrometheusIntegrationMetrics
     public void testHandleErrorResponse()
     {
         assertThatThrownBy(() -> client.getTableNames("unknown"))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Prometheus did no return metrics list (table names)");
         PrometheusTable table = client.getTable("unknown", "up");
         assertNull(table);
@@ -100,7 +100,7 @@ public class TestPrometheusIntegrationMetrics
         // directly.
     }
 
-    @Test(expectedExceptions = PrestoException.class, dependsOnMethods = "testRetrieveUpValue")
+    @Test(expectedExceptions = TrinoException.class, dependsOnMethods = "testRetrieveUpValue")
     public void testCreateTable()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -112,7 +112,7 @@ public class TestPrometheusIntegrationMetrics
                 false);
     }
 
-    @Test(expectedExceptions = PrestoException.class, dependsOnMethods = "testRetrieveUpValue")
+    @Test(expectedExceptions = TrinoException.class, dependsOnMethods = "testRetrieveUpValue")
     public void testDropTableTable()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);

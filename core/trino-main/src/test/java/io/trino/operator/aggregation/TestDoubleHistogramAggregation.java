@@ -18,7 +18,7 @@ import com.google.common.collect.Maps;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
 import io.trino.sql.tree.QualifiedName;
@@ -102,7 +102,7 @@ public class TestDoubleHistogramAggregation
         assertTrue(result.isNull(0));
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testBadNumberOfBuckets()
     {
         Accumulator singleStep = factory.createAccumulator();

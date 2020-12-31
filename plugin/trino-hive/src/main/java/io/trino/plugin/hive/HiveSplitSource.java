@@ -24,7 +24,7 @@ import io.trino.plugin.hive.InternalHiveSplit.InternalHiveBlock;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hive.util.AsyncQueue.BorrowResult;
 import io.trino.plugin.hive.util.ThrottledAsyncQueue;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -277,7 +277,7 @@ class HiveSplitSource
                 log.warn("Split buffering for %s.%s in query %s exceeded memory limit (%s). %s splits are buffered.",
                         databaseName, tableName, queryId, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount());
             }
-            throw new PrestoException(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT, format(
+            throw new TrinoException(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT, format(
                     "Split buffering for %s.%s exceeded memory limit (%s). %s splits are buffered.",
                     databaseName, tableName, succinctBytes(maxOutstandingSplitsBytes), getBufferedInternalSplitCount()));
         }
@@ -435,7 +435,7 @@ class HiveSplitSource
             case NO_MORE_SPLITS:
                 return bufferedInternalSplitCount.get() == 0;
             case FAILED:
-                throw propagatePrestoException(state.getThrowable());
+                throw propagateTrinoException(state.getThrowable());
             case CLOSED:
                 throw new IllegalStateException("HiveSplitSource is already closed");
             default:
@@ -476,15 +476,15 @@ class HiveSplitSource
         }
     }
 
-    private static RuntimeException propagatePrestoException(Throwable throwable)
+    private static RuntimeException propagateTrinoException(Throwable throwable)
     {
-        if (throwable instanceof PrestoException) {
-            throw (PrestoException) throwable;
+        if (throwable instanceof TrinoException) {
+            throw (TrinoException) throwable;
         }
         if (throwable instanceof FileNotFoundException) {
-            throw new PrestoException(HIVE_FILE_NOT_FOUND, throwable);
+            throw new TrinoException(HIVE_FILE_NOT_FOUND, throwable);
         }
-        throw new PrestoException(HIVE_UNKNOWN_ERROR, throwable);
+        throw new TrinoException(HIVE_UNKNOWN_ERROR, throwable);
     }
 
     interface PerBucket

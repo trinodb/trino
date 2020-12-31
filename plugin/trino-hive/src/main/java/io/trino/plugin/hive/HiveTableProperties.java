@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 
@@ -214,15 +214,15 @@ public class HiveTableProperties
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
         if ((bucketedBy.isEmpty()) && (bucketCount == 0)) {
             if (!sortedBy.isEmpty()) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
             }
             return Optional.empty();
         }
         if (bucketCount < 0) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be greater than zero", BUCKET_COUNT_PROPERTY));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be greater than zero", BUCKET_COUNT_PROPERTY));
         }
         if (bucketedBy.isEmpty() || bucketCount == 0) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s and %s must be specified together", BUCKETED_BY_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
         BucketingVersion bucketingVersion = getBucketingVersion(tableProperties);
         return Optional.of(new HiveBucketProperty(bucketedBy, bucketingVersion, bucketCount, sortedBy));
@@ -237,7 +237,7 @@ public class HiveTableProperties
         if (property == 2) {
             return BUCKETING_V2;
         }
-        throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be between 1 and 2 (inclusive): %s", BUCKETING_VERSION, property));
+        throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be between 1 and 2 (inclusive): %s", BUCKETING_VERSION, property));
     }
 
     @SuppressWarnings("unchecked")
@@ -271,7 +271,7 @@ public class HiveTableProperties
         }
         String stringValue = (String) value;
         if (stringValue.length() != 1) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("%s must be a single character string, but was: '%s'", key, stringValue));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be a single character string, but was: '%s'", key, stringValue));
         }
         return Optional.of(stringValue.charAt(0));
     }

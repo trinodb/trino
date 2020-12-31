@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -63,7 +63,7 @@ public final class DataSizeFunctions
             return encodeUnscaledValue(bytes);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value out of range: '%s' ('%sB')", dataSize, bytes));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value out of range: '%s' ('%sB')", dataSize, bytes));
         }
     }
 
@@ -77,9 +77,9 @@ public final class DataSizeFunctions
         }
     }
 
-    private static PrestoException invalidDataSize(String dataSize)
+    private static TrinoException invalidDataSize(String dataSize)
     {
-        return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid data size: '%s'", dataSize));
+        return new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid data size: '%s'", dataSize));
     }
 
     private enum Unit

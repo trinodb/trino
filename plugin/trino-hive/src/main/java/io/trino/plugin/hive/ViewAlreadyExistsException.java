@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.lang.String.format;
 
 public class ViewAlreadyExistsException
-        extends PrestoException
+        extends TrinoException
 {
     private final SchemaTableName viewName;
 

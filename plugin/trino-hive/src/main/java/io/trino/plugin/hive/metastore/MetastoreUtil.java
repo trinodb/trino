@@ -22,7 +22,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.PartitionOfflineException;
 import io.trino.plugin.hive.TableOfflineException;
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
@@ -304,10 +304,10 @@ public final class MetastoreUtil
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
         if (table.getPartitionColumns().stream().anyMatch(column -> column.getName().equals(columnName))) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot drop partition columns");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop partition columns");
         }
         if (table.getDataColumns().size() <= 1) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop the only non-partition column in a table");
         }
     }
 
@@ -384,7 +384,7 @@ public final class MetastoreUtil
 
     /**
      * @return canonical string representation of a given value according to its type.
-     * @throws PrestoException if the type is not supported
+     * @throws TrinoException if the type is not supported
      */
     public static String sqlScalarToString(Type type, Object value, String nullString)
     {
@@ -412,7 +412,7 @@ public final class MetastoreUtil
         }
         else if (type instanceof TimestampType) {
             // we throw on this type as we don't have timezone. Callers should not ask for this conversion type, but document for possible future work (?)
-            throw new PrestoException(NOT_SUPPORTED, "TimestampType conversion to scalar expressions is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "TimestampType conversion to scalar expressions is not supported");
         }
         else if (type instanceof TinyintType
                 || type instanceof SmallintType
@@ -424,7 +424,7 @@ public final class MetastoreUtil
             return value.toString();
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
         }
     }
 

@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 
@@ -55,7 +55,7 @@ public class SimpleChannelComparator
         }
         catch (Throwable throwable) {
             throwIfUnchecked(throwable);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
         }
     }
 }

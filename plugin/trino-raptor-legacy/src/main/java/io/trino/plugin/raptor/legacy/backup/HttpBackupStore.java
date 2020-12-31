@@ -23,7 +23,7 @@ import io.airlift.http.client.ResponseHandler;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.slice.XxHash64;
 import io.trino.spi.NodeManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.inject.Inject;
 
@@ -89,7 +89,7 @@ public class HttpBackupStore
             }
         }
         catch (RuntimeException e) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to backup shard: " + uuid, e);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed to backup shard: " + uuid, e);
         }
     }
 
@@ -104,14 +104,14 @@ public class HttpBackupStore
         try {
             StatusResponse status = httpClient.execute(request, new FileResponseHandler(target));
             if (isNotFound(status) || isGone(status)) {
-                throw new PrestoException(RAPTOR_BACKUP_ERROR, "Backup shard not found: " + uuid);
+                throw new TrinoException(RAPTOR_BACKUP_ERROR, "Backup shard not found: " + uuid);
             }
             if (!isOk(status)) {
                 throw badResponse(status);
             }
         }
         catch (IOException | RuntimeException e) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to restore shard: " + uuid, e);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed to restore shard: " + uuid, e);
         }
     }
 
@@ -134,7 +134,7 @@ public class HttpBackupStore
             throw badResponse(status);
         }
         catch (RuntimeException e) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to delete shard: " + uuid, e);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed to delete shard: " + uuid, e);
         }
     }
 
@@ -157,7 +157,7 @@ public class HttpBackupStore
             throw badResponse(status);
         }
         catch (RuntimeException e) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to check if shard exists: " + uuid, e);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed to check if shard exists: " + uuid, e);
         }
     }
 
@@ -195,7 +195,7 @@ public class HttpBackupStore
             return XxHash64.hash(in);
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to read file: " + file, e);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed to read file: " + file, e);
         }
     }
 

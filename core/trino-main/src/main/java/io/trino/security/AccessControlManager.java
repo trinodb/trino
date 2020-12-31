@@ -27,8 +27,8 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.plugin.base.security.ForwardingSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -1004,7 +1004,7 @@ public class AccessControlManager
             }
             authorizationSuccess.update(1);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             authorizationFail.update(1);
             throw e;
         }
@@ -1018,7 +1018,7 @@ public class AccessControlManager
             }
             authorizationSuccess.update(1);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             authorizationFail.update(1);
             throw e;
         }
@@ -1035,7 +1035,7 @@ public class AccessControlManager
             check.accept(entry.getAccessControl(), entry.toConnectorSecurityContext(securityContext));
             authorizationSuccess.update(1);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             authorizationFail.update(1);
             throw e;
         }
@@ -1093,7 +1093,7 @@ public class AccessControlManager
         @Override
         protected SystemAccessControl delegate()
         {
-            throw new PrestoException(SERVER_STARTING_UP, "Presto server is still initializing");
+            throw new TrinoException(SERVER_STARTING_UP, "Presto server is still initializing");
         }
     }
 }

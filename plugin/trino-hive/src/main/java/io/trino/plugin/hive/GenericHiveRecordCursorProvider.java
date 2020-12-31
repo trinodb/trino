@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import io.airlift.units.DataSize;
 import io.trino.plugin.hive.util.HiveUtil;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.predicate.TupleDomain;
@@ -80,7 +80,7 @@ public class GenericHiveRecordCursorProvider
             this.hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + path, e);
         }
 
         Optional<ReaderColumns> projections = projectBaseColumns(columns);

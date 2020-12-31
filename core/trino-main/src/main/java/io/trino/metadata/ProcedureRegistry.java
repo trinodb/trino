@@ -16,7 +16,7 @@ package io.trino.metadata;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Primitives;
 import io.trino.connector.CatalogName;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -80,7 +80,7 @@ public class ProcedureRegistry
                 return procedure;
             }
         }
-        throw new PrestoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + name);
+        throw new TrinoException(PROCEDURE_NOT_FOUND, "Procedure not registered: " + name);
     }
 
     private void validateProcedure(Procedure procedure)

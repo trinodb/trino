@@ -17,7 +17,7 @@ import com.google.re2j.Matcher;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
@@ -148,11 +148,11 @@ public final class Re2JRegexpFunctions
     {
         // start position cannot be smaller than 1
         if (start < 1) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "start position cannot be smaller than 1");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "start position cannot be smaller than 1");
         }
         // occurrence cannot be smaller than 1
         if (occurrence < 1) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "occurrence cannot be smaller than 1");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "occurrence cannot be smaller than 1");
         }
         // returns -1 if start is greater than the length of source
         if (start > SliceUtf8.countCodePoints(source)) {

@@ -20,7 +20,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -80,7 +80,7 @@ public class ApplyTableScanRedirection
                 context.getSession(),
                 convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()));
         if (destinationTableHandle.isEmpty()) {
-            throw new PrestoException(TABLE_NOT_FOUND, format("Destination table %s from table scan redirection not found", destinationTable));
+            throw new TrinoException(TABLE_NOT_FOUND, format("Destination table %s from table scan redirection not found", destinationTable));
         }
         if (destinationTableHandle.get().equals(scanNode.getTable())) {
             return Result.empty();
@@ -92,11 +92,11 @@ public class ApplyTableScanRedirection
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> {
                     String destinationColumn = columnMapping.get(entry.getValue());
                     if (destinationColumn == null) {
-                        throw new PrestoException(COLUMN_NOT_FOUND, format("Did not find mapping for source column %s in table scan redirection", entry.getValue()));
+                        throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find mapping for source column %s in table scan redirection", entry.getValue()));
                     }
                     ColumnHandle destinationColumnHandle = destinationColumnHandles.get(destinationColumn);
                     if (destinationColumnHandle == null) {
-                        throw new PrestoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
+                        throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
                     }
 
                     // validate that redirected types match source types
@@ -136,7 +136,7 @@ public class ApplyTableScanRedirection
         TupleDomain<Symbol> transformedConstraint = requiredFilter.transform(destinationColumn -> {
             ColumnHandle sourceColumnHandle = inverseColumnsMapping.get(destinationColumn);
             if (sourceColumnHandle == null) {
-                throw new PrestoException(COLUMN_NOT_FOUND, format("Did not find mapping for destination column %s in table scan redirection", destinationColumn));
+                throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find mapping for destination column %s in table scan redirection", destinationColumn));
             }
             Symbol symbol = inverseAssignments.get(sourceColumnHandle);
             if (symbol != null) {
@@ -161,7 +161,7 @@ public class ApplyTableScanRedirection
             // Column pruning after predicate is pushed into table scan can remove assignments for filter columns from the scan node
             symbol = context.getSymbolAllocator().newSymbol(destinationColumn, domainType);
             if (destinationColumnHandle == null) {
-                throw new PrestoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
+                throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
             }
             newAssignmentsBuilder.put(symbol, destinationColumnHandle);
             newOutputSymbolsBuilder.add(symbol);
@@ -200,7 +200,7 @@ public class ApplyTableScanRedirection
             ColumnHandle sourceColumnHandle,
             Type sourceType)
     {
-        throw new PrestoException(TYPE_MISMATCH, format(
+        throw new TrinoException(TYPE_MISMATCH, format(
                 "Redirected column %s.%s has type %s, different from source column %s.%s type: %s",
                 destinationTable,
                 destinationColumn,

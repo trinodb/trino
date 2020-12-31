@@ -29,7 +29,7 @@ import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
 import io.trino.spi.Node;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -159,7 +159,7 @@ public class TestDatabaseShardManager
             shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
         }
     }
@@ -184,7 +184,7 @@ public class TestDatabaseShardManager
             shardManager.replaceShardAssignment(tableId, shard, "node2", true);
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), SERVER_STARTING_UP.toErrorCode());
         }
 
@@ -336,7 +336,7 @@ public class TestDatabaseShardManager
             shardManager.replaceShardUuids(transactionId, tableId, columns, replacedUuids, newShards, OptionalLong.of(0));
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
         }
     }
@@ -362,7 +362,7 @@ public class TestDatabaseShardManager
             shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, 0);
             fail("expected external batch exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS.toErrorCode());
         }
     }
@@ -395,7 +395,7 @@ public class TestDatabaseShardManager
             shardManager.getBucketAssignments(distributionId);
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), SERVER_STARTING_UP.toErrorCode());
         }
 
@@ -698,7 +698,7 @@ public class TestDatabaseShardManager
             shardManager.replaceShardUuids(transactionId, tableId, columns, oldShards, ImmutableSet.of(), OptionalLong.empty());
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
             assertEquals(e.getMessage(), "Maintenance is blocked for table");
         }

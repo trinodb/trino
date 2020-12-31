@@ -15,7 +15,7 @@ package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -63,14 +63,14 @@ public class MemoryPagesStore
     public synchronized void add(Long tableId, Page page)
     {
         if (!contains(tableId)) {
-            throw new PrestoException(MISSING_DATA, "Failed to find table on a worker.");
+            throw new TrinoException(MISSING_DATA, "Failed to find table on a worker.");
         }
 
         page.compact();
 
         long newSize = currentBytes + page.getRetainedSizeInBytes();
         if (maxBytes < newSize) {
-            throw new PrestoException(MEMORY_LIMIT_EXCEEDED, format("Memory limit [%d] for memory connector exceeded", maxBytes));
+            throw new TrinoException(MEMORY_LIMIT_EXCEEDED, format("Memory limit [%d] for memory connector exceeded", maxBytes));
         }
         currentBytes = newSize;
 
@@ -88,11 +88,11 @@ public class MemoryPagesStore
             OptionalDouble sampleRatio)
     {
         if (!contains(tableId)) {
-            throw new PrestoException(MISSING_DATA, "Failed to find table on a worker.");
+            throw new TrinoException(MISSING_DATA, "Failed to find table on a worker.");
         }
         TableData tableData = tables.get(tableId);
         if (tableData.getRows() < expectedRows) {
-            throw new PrestoException(MISSING_DATA,
+            throw new TrinoException(MISSING_DATA,
                     format("Expected to find [%s] rows on a worker, but found [%s].", expectedRows, tableData.getRows()));
         }
 

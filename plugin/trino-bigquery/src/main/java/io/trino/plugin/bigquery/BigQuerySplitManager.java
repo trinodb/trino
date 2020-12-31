@@ -21,7 +21,7 @@ import com.google.cloud.bigquery.storage.v1beta1.Storage.ReadSession;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.spi.NodeManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -139,7 +139,7 @@ public class BigQuerySplitManager
                     numberOfRows = result.iterateAll().iterator().next().get(0).getLongValue();
                 }
                 else {
-                    throw new PrestoException(NOT_SUPPORTED, "Unsupported table type: " + tableInfo.getDefinition().getType());
+                    throw new TrinoException(NOT_SUPPORTED, "Unsupported table type: " + tableInfo.getDefinition().getType());
                 }
             }
 
@@ -152,7 +152,7 @@ public class BigQuerySplitManager
             return splits;
         }
         catch (BigQueryException e) {
-            throw new PrestoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to compute empty projection", e);
+            throw new TrinoException(BIGQUERY_FAILED_TO_EXECUTE_QUERY, "Failed to compute empty projection", e);
         }
     }
 }

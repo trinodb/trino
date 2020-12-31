@@ -14,7 +14,7 @@
 package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
@@ -79,7 +79,7 @@ public class SimplePagesIndexComparator
         }
         catch (Throwable throwable) {
             throwIfUnchecked(throwable);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
         }
     }
 }

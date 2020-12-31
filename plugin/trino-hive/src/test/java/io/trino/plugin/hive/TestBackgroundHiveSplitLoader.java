@@ -29,7 +29,7 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
@@ -115,7 +115,7 @@ import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITION
 import static io.trino.spi.predicate.TupleDomain.withColumnDomains;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -238,7 +238,7 @@ public class TestBackgroundHiveSplitLoader
             drainSplits(hiveSplitSource);
             fail("Expected split generation to call isSplittable and fail");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             Throwable cause = Throwables.getRootCause(e);
             assertTrue(cause instanceof IllegalStateException);
             assertEquals(cause.getMessage(), "isSplittable called");
@@ -365,10 +365,10 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         assertThatThrownBy(() -> drain(hiveSplitSource))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("OFFLINE");
         assertThatThrownBy(hiveSplitSource::isFinished)
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("OFFLINE");
     }
 
@@ -714,7 +714,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         assertThatThrownBy(() -> drain(hiveSplitSource))
-                .isInstanceOfSatisfying(PrestoException.class, e -> assertEquals(NOT_SUPPORTED.toErrorCode(), e.getErrorCode()))
+                .isInstanceOfSatisfying(TrinoException.class, e -> assertEquals(NOT_SUPPORTED.toErrorCode(), e.getErrorCode()))
                 .hasMessage("Hive transactional tables are supported with Hive 3.0 and only after a major compaction has been run");
 
         deleteRecursively(tablePath, ALLOW_INSECURE);
@@ -730,17 +730,17 @@ public class TestBackgroundHiveSplitLoader
         bucketFiles.put(6, null);
         bucketFiles.put(9, null);
 
-        assertPrestoExceptionThrownBy(() -> BackgroundHiveSplitLoader.validateFileBuckets(bucketFiles, 1, "tableName", "partitionName"))
+        assertTrinoExceptionThrownBy(() -> BackgroundHiveSplitLoader.validateFileBuckets(bucketFiles, 1, "tableName", "partitionName"))
                 .hasErrorCode(HIVE_INVALID_BUCKET_FILES)
                 .hasMessage("Hive table 'tableName' is corrupt. The highest bucket number in the directory (9) exceeds the bucket number range " +
                         "defined by the declared bucket count (1) for partition: partitionName");
 
-        assertPrestoExceptionThrownBy(() -> BackgroundHiveSplitLoader.validateFileBuckets(bucketFiles, 5, "tableName", "partitionName"))
+        assertTrinoExceptionThrownBy(() -> BackgroundHiveSplitLoader.validateFileBuckets(bucketFiles, 5, "tableName", "partitionName"))
                 .hasErrorCode(HIVE_INVALID_BUCKET_FILES)
                 .hasMessage("Hive table 'tableName' is corrupt. The highest bucket number in the directory (9) exceeds the bucket number range " +
                         "defined by the declared bucket count (5) for partition: partitionName");
 
-        assertPrestoExceptionThrownBy(() -> BackgroundHiveSplitLoader.validateFileBuckets(bucketFiles, 9, "tableName", "partitionName"))
+        assertTrinoExceptionThrownBy(() -> BackgroundHiveSplitLoader.validateFileBuckets(bucketFiles, 9, "tableName", "partitionName"))
                 .hasErrorCode(HIVE_INVALID_BUCKET_FILES)
                 .hasMessage("Hive table 'tableName' is corrupt. The highest bucket number in the directory (9) exceeds the bucket number range " +
                         "defined by the declared bucket count (9) for partition: partitionName");

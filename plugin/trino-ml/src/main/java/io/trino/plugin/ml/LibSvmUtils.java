@@ -14,7 +14,7 @@
 package io.trino.plugin.ml;
 
 import com.google.common.base.Splitter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import libsvm.svm_parameter;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -73,7 +73,7 @@ public final class LibSvmUtils
                     params.eps = Double.parseDouble(value);
                     break;
                 default:
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unknown parameter %s", pair[0]));
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unknown parameter %s", pair[0]));
             }
         }
 
@@ -92,7 +92,7 @@ public final class LibSvmUtils
             case "sigmoid":
                 return svm_parameter.SIGMOID;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unknown kernel type %s", value));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unknown kernel type %s", value));
         }
     }
 }

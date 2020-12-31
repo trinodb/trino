@@ -39,7 +39,7 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
@@ -472,7 +472,7 @@ public class TestJsonOperators
                 "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
                 "FROM (VALUES('" + json + "')) AS t(col)";
 
-        assertPrestoExceptionThrownBy(() -> runner.execute(query))
+        assertTrinoExceptionThrownBy(() -> runner.execute(query))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage(message);
     }
@@ -483,7 +483,7 @@ public class TestJsonOperators
                 "SELECT CAST(JSON_PARSE(col) AS " + castSqlType + ") " +
                 "FROM (VALUES('" + json + "')) AS t(col)";
 
-        assertPrestoExceptionThrownBy(() -> runner.execute(query))
+        assertTrinoExceptionThrownBy(() -> runner.execute(query))
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage(message);
     }

@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.ParameterKind;
 import io.trino.spi.type.RowType;
@@ -703,7 +703,7 @@ public class SignatureBinder
             metadata.getCoercion(fromType, toType);
             return true;
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             return false;
         }
     }

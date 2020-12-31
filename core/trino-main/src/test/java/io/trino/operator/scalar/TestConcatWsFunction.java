@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.VarcharType;
 import org.testng.annotations.Test;
 
@@ -69,19 +69,19 @@ public class TestConcatWsFunction
         assertFunction("concat_ws(',', ARRAY['abc', '', '', 'xyz','abcdefghi'])", "abc,,,xyz,abcdefghi");
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Unexpected parameters.*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*Unexpected parameters.*")
     public void testBadArray()
     {
         assertFunction("concat_ws(',', ARRAY[1, 15])", "");
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = ".*Unexpected parameters.*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*Unexpected parameters.*")
     public void testBadArguments()
     {
         assertFunction("concat_ws(',', 1, 15)", "");
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "There must be two or more.*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "There must be two or more.*")
     public void testLowArguments()
     {
         assertFunction("concat_ws(',')", "");

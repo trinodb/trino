@@ -34,7 +34,7 @@ import io.trino.plugin.hive.util.RetryDriver;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.Nullable;
@@ -239,13 +239,13 @@ public class RubixInitializer
                     () -> {
                         if (nodeManager.getAllNodes().stream().noneMatch(Node::isCoordinator)) {
                             // This exception will only be propagated when timeout is reached.
-                            throw new PrestoException(GENERIC_INTERNAL_ERROR, "No coordinator node available");
+                            throw new TrinoException(GENERIC_INTERNAL_ERROR, "No coordinator node available");
                         }
                         return null;
                     });
         }
         catch (Exception exception) {
-            propagateIfPossible(exception, PrestoException.class);
+            propagateIfPossible(exception, TrinoException.class);
             throw new RuntimeException(exception);
         }
     }

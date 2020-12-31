@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.operator.aggregation.ApproximateCountDistinctAggregation.standardErrorToBuckets;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestApproximateCountDistinctAggregations
@@ -51,11 +51,11 @@ public class TestApproximateCountDistinctAggregations
     public void testStandardErrorToBucketsBounds()
     {
         // Lower bound
-        assertPrestoExceptionThrownBy(() -> standardErrorToBuckets(0.0040624))
+        assertTrinoExceptionThrownBy(() -> standardErrorToBuckets(0.0040624))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         // Upper bound
-        assertPrestoExceptionThrownBy(() -> standardErrorToBuckets(0.26001))
+        assertTrinoExceptionThrownBy(() -> standardErrorToBuckets(0.26001))
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

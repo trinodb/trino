@@ -19,7 +19,7 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.Expression;
@@ -78,8 +78,8 @@ public class SetSessionTask
         try {
             objectValue = evaluatePropertyValue(statement.getValue(), type, session, metadata, accessControl, parameterExtractor(statement, parameters));
         }
-        catch (PrestoException e) {
-            throw new PrestoException(
+        catch (TrinoException e) {
+            throw new TrinoException(
                     INVALID_SESSION_PROPERTY,
                     format("Unable to set session property '%s' to '%s': %s", propertyName, statement.getValue(), e.getRawMessage()));
         }

@@ -14,7 +14,7 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -56,10 +56,10 @@ public final class UuidOperators
                         reverseBytes(uuid.getMostSignificantBits()),
                         reverseBytes(uuid.getLeastSignificantBits()));
             }
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid UUID string length: " + slice.length());
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid UUID string length: " + slice.length());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast value to UUID: " + slice.toStringUtf8());
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to UUID: " + slice.toStringUtf8());
         }
     }
 
@@ -79,7 +79,7 @@ public final class UuidOperators
         if (slice.length() == 16) {
             return slice;
         }
-        throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid UUID binary length: " + slice.length());
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid UUID binary length: " + slice.length());
     }
 
     @ScalarOperator(CAST)

@@ -26,7 +26,7 @@ import io.trino.execution.ScheduledSplit;
 import io.trino.execution.TaskSource;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.UpdatablePageSource;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -458,7 +458,7 @@ public class Driver
             // If this becomes the actual cause of a failed query there is a bug in the task state machine.
             Exception exception = new Exception("Interrupted By");
             exception.setStackTrace(interrupterStack.stream().toArray(StackTraceElement[]::new));
-            PrestoException newException = new PrestoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted", exception);
+            TrinoException newException = new TrinoException(GENERIC_INTERNAL_ERROR, "Driver was interrupted", exception);
             newException.addSuppressed(t);
             driverContext.failed(newException);
             throw newException;

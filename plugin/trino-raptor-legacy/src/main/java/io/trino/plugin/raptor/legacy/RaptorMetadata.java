@@ -34,7 +34,7 @@ import io.trino.plugin.raptor.legacy.metadata.Table;
 import io.trino.plugin.raptor.legacy.metadata.TableColumn;
 import io.trino.plugin.raptor.legacy.metadata.ViewResult;
 import io.trino.plugin.raptor.legacy.systemtables.ColumnRangesSystemTable;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -388,10 +388,10 @@ public class RaptorMetadata
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(getBucketColumns(properties), columnHandleMap);
 
         if (bucketCount.isPresent() && bucketColumnHandles.isEmpty()) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, BUCKET_COUNT_PROPERTY));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, BUCKET_COUNT_PROPERTY));
         }
         if (bucketCount.isEmpty() && !bucketColumnHandles.isEmpty()) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKET_COUNT_PROPERTY, BUCKETED_ON_PROPERTY));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKET_COUNT_PROPERTY, BUCKETED_ON_PROPERTY));
         }
         ImmutableList.Builder<Type> bucketColumnTypes = ImmutableList.builder();
         for (RaptorColumnHandle column : bucketColumnHandles) {
@@ -403,23 +403,23 @@ public class RaptorMetadata
         String distributionName = getDistributionName(properties);
         if (distributionName != null) {
             if (bucketColumnHandles.isEmpty()) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, DISTRIBUTION_NAME_PROPERTY));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Must specify '%s' along with '%s'", BUCKETED_ON_PROPERTY, DISTRIBUTION_NAME_PROPERTY));
             }
 
             Distribution distribution = dao.getDistribution(distributionName);
             if (distribution == null) {
                 if (bucketCount.isEmpty()) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, "Distribution does not exist and bucket count is not specified");
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, "Distribution does not exist and bucket count is not specified");
                 }
                 distribution = getOrCreateDistribution(distributionName, bucketColumnTypes.build(), bucketCount.getAsInt());
             }
             distributionId = distribution.getId();
 
             if (bucketCount.isPresent() && (distribution.getBucketCount() != bucketCount.getAsInt())) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "Bucket count must match distribution");
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Bucket count must match distribution");
             }
             if (!distribution.getColumnTypes().equals(bucketColumnTypes.build())) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "Bucket column types must match distribution");
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Bucket column types must match distribution");
             }
         }
         else if (bucketCount.isPresent()) {
@@ -442,7 +442,7 @@ public class RaptorMetadata
 
         Distribution distribution = dao.getDistribution(name);
         if (distribution == null) {
-            throw new PrestoException(RAPTOR_ERROR, "Distribution does not exist after insert");
+            throw new TrinoException(RAPTOR_ERROR, "Distribution does not exist after insert");
         }
         return distribution;
     }
@@ -511,25 +511,25 @@ public class RaptorMetadata
 
         List<TableColumn> existingColumns = dao.listTableColumns(table.getSchemaName(), table.getTableName());
         if (existingColumns.size() <= 1) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop the only column in a table");
         }
         long maxColumnId = existingColumns.stream().mapToLong(TableColumn::getColumnId).max().getAsLong();
         if (raptorColumn.getColumnId() == maxColumnId) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot drop the column which has the largest column ID in the table");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop the column which has the largest column ID in the table");
         }
 
         if (getBucketColumnHandles(table.getTableId()).contains(column)) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot drop bucket columns");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop bucket columns");
         }
 
         Optional.ofNullable(dao.getTemporalColumnId(table.getTableId())).ifPresent(tempColumnId -> {
             if (raptorColumn.getColumnId() == tempColumnId) {
-                throw new PrestoException(NOT_SUPPORTED, "Cannot drop the temporal column");
+                throw new TrinoException(NOT_SUPPORTED, "Cannot drop the temporal column");
             }
         });
 
         if (getSortColumnHandles(table.getTableId()).contains(raptorColumn)) {
-            throw new PrestoException(NOT_SUPPORTED, "Cannot drop sort columns");
+            throw new TrinoException(NOT_SUPPORTED, "Cannot drop sort columns");
         }
 
         daoTransaction(dbi, MetadataDao.class, dao -> {
@@ -544,7 +544,7 @@ public class RaptorMetadata
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         if (viewExists(session, tableMetadata.getTable())) {
-            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + tableMetadata.getTable());
         }
 
         Optional<RaptorPartitioningHandle> partitioning = layout
@@ -569,17 +569,17 @@ public class RaptorMetadata
         if (temporalColumnHandle.isPresent()) {
             RaptorColumnHandle column = temporalColumnHandle.get();
             if (!column.getColumnType().equals(TIMESTAMP_MILLIS) && !column.getColumnType().equals(DATE)) {
-                throw new PrestoException(NOT_SUPPORTED, "Temporal column must be of type timestamp or date: " + column.getColumnName());
+                throw new TrinoException(NOT_SUPPORTED, "Temporal column must be of type timestamp or date: " + column.getColumnName());
             }
         }
 
         boolean organized = isOrganized(tableMetadata.getProperties());
         if (organized) {
             if (temporalColumnHandle.isPresent()) {
-                throw new PrestoException(NOT_SUPPORTED, "Table with temporal columns cannot be organized");
+                throw new TrinoException(NOT_SUPPORTED, "Table with temporal columns cannot be organized");
             }
             if (sortColumnHandles.isEmpty()) {
-                throw new PrestoException(NOT_SUPPORTED, "Table organization requires an ordering");
+                throw new TrinoException(NOT_SUPPORTED, "Table organization requires an ordering");
             }
         }
 
@@ -609,7 +609,7 @@ public class RaptorMetadata
     {
         Distribution distribution = dao.getDistribution(distributionId);
         if (distribution == null) {
-            throw new PrestoException(RAPTOR_ERROR, "Distribution ID does not exist: " + distributionId);
+            throw new TrinoException(RAPTOR_ERROR, "Distribution ID does not exist: " + distributionId);
         }
         List<RaptorColumnHandle> bucketColumnHandles = getBucketColumnHandles(getBucketColumns(properties), columnHandleMap);
         return new DistributionInfo(distributionId, distribution.getBucketCount(), bucketColumnHandles);
@@ -623,7 +623,7 @@ public class RaptorMetadata
 
         RaptorColumnHandle handle = columnHandleMap.get(temporalColumn);
         if (handle == null) {
-            throw new PrestoException(NOT_FOUND, "Temporal column does not exist: " + temporalColumn);
+            throw new TrinoException(NOT_FOUND, "Temporal column does not exist: " + temporalColumn);
         }
         return Optional.of(handle);
     }
@@ -633,7 +633,7 @@ public class RaptorMetadata
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         for (String column : sortColumns) {
             if (!columnHandleMap.containsKey(column)) {
-                throw new PrestoException(NOT_FOUND, "Ordering column does not exist: " + column);
+                throw new TrinoException(NOT_FOUND, "Ordering column does not exist: " + column);
             }
             columnHandles.add(columnHandleMap.get(column));
         }
@@ -645,7 +645,7 @@ public class RaptorMetadata
         ImmutableList.Builder<RaptorColumnHandle> columnHandles = ImmutableList.builder();
         for (String column : bucketColumns) {
             if (!columnHandleMap.containsKey(column)) {
-                throw new PrestoException(NOT_FOUND, "Bucketing column does not exist: " + column);
+                throw new TrinoException(NOT_FOUND, "Bucketing column does not exist: " + column);
             }
             columnHandles.add(columnHandleMap.get(column));
         }
@@ -851,7 +851,7 @@ public class RaptorMetadata
         String viewData = VIEW_CODEC.toJson(definition);
 
         if (getTableHandle(viewName) != null) {
-            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+            throw new TrinoException(ALREADY_EXISTS, "Table already exists: " + viewName);
         }
 
         if (replace) {
@@ -865,9 +865,9 @@ public class RaptorMetadata
         try {
             dao.insertView(schemaName, tableName, viewData);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             if (viewExists(session, viewName)) {
-                throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
+                throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
             }
             throw e;
         }

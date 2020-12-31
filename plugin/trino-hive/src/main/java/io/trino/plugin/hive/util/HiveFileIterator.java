@@ -18,7 +18,7 @@ import io.airlift.stats.TimeStat;
 import io.trino.plugin.hive.DirectoryLister;
 import io.trino.plugin.hive.NamenodeStats;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -124,7 +124,7 @@ public class HiveFileIterator
             return fileSystem.exists(path);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to check if path exists: " + path, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to check if path exists: " + path, e);
         }
     }
 
@@ -176,13 +176,13 @@ public class HiveFileIterator
             }
         }
 
-        private PrestoException processException(IOException exception)
+        private TrinoException processException(IOException exception)
         {
             namenodeStats.getRemoteIteratorNext().recordException(exception);
             if (exception instanceof FileNotFoundException) {
-                return new PrestoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
+                return new TrinoException(HIVE_FILE_NOT_FOUND, "Partition location does not exist: " + path);
             }
-            return new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed to list directory: " + path, exception);
+            return new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to list directory: " + path, exception);
         }
     }
 

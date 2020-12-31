@@ -34,7 +34,7 @@ import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.MapType;
@@ -177,7 +177,7 @@ public final class MapTransformValuesFunction
         // throw null key exception block
         BytecodeNode throwNullKeyException = new BytecodeBlock()
                 .append(newInstance(
-                        PrestoException.class,
+                        TrinoException.class,
                         getStatic(INVALID_FUNCTION_ARGUMENT.getDeclaringClass(), "INVALID_FUNCTION_ARGUMENT").cast(ErrorCodeSupplier.class),
                         constantString("map key cannot be null")))
                 .throwObject();

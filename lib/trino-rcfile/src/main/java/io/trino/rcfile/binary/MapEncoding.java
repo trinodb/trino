@@ -15,8 +15,8 @@ package io.trino.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -52,7 +52,7 @@ public class MapEncoding
         int bits = 0;
         for (int elementIndex = 0; elementIndex < map.getPositionCount(); elementIndex += 2) {
             if (map.isNull(elementIndex)) {
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Map must never contain null keys");
+                throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Map must never contain null keys");
             }
 
             if (bits == 8) {

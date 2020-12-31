@@ -25,7 +25,7 @@ import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -132,7 +132,7 @@ public class ElasticsearchMetadata
                         decoded = BaseEncoding.base32().decode(parts[1].toUpperCase(ENGLISH));
                     }
                     catch (IllegalArgumentException e) {
-                        throw new PrestoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not base32-encoded correctly", table), e);
+                        throw new TrinoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not base32-encoded correctly", table), e);
                     }
 
                     String queryJson = new String(decoded, UTF_8);
@@ -141,7 +141,7 @@ public class ElasticsearchMetadata
                         JSON_PARSER.readTree(queryJson);
                     }
                     catch (JsonProcessingException e) {
-                        throw new PrestoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not valid JSON", table), e);
+                        throw new TrinoException(INVALID_ARGUMENTS, format("Elasticsearch query for '%s' is not valid JSON", table), e);
                     }
 
                     query = Optional.of(queryJson);

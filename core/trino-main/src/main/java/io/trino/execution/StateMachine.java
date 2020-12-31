@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
@@ -321,7 +321,7 @@ public class StateMachine<T>
         }
         catch (RejectedExecutionException e) {
             if ((executor instanceof ExecutorService) && ((ExecutorService) executor).isShutdown()) {
-                throw new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
+                throw new TrinoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
             }
             throw e;
         }

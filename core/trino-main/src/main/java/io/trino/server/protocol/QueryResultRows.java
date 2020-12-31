@@ -20,7 +20,7 @@ import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.client.Column;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -258,7 +258,7 @@ public class QueryResultRows
                 row + 1,
                 column.getPosition() + 1);
 
-        exceptionConsumer.ifPresent(consumer -> consumer.accept(new PrestoException(SERIALIZATION_ERROR, message, cause)));
+        exceptionConsumer.ifPresent(consumer -> consumer.accept(new TrinoException(SERIALIZATION_ERROR, message, cause)));
     }
 
     @Override

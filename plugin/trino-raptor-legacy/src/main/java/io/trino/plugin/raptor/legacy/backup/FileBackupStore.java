@@ -14,7 +14,7 @@
 package io.trino.plugin.raptor.legacy.backup;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.PostConstruct;
 import javax.inject.Inject;
@@ -71,7 +71,7 @@ public class FileBackupStore
             }
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to create backup shard file", e);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed to create backup shard file", e);
         }
     }
 
@@ -82,10 +82,10 @@ public class FileBackupStore
             copyFile(getBackupFile(uuid), target);
         }
         catch (FileNotFoundException e) {
-            throw new PrestoException(RAPTOR_BACKUP_NOT_FOUND, "Backup shard not found: " + uuid, e);
+            throw new TrinoException(RAPTOR_BACKUP_NOT_FOUND, "Backup shard not found: " + uuid, e);
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to copy backup shard: " + uuid, e);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed to copy backup shard: " + uuid, e);
         }
     }
 
@@ -96,7 +96,7 @@ public class FileBackupStore
             return deleteIfExists(getBackupFile(uuid).toPath());
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed to delete backup shard: " + uuid, e);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed to delete backup shard: " + uuid, e);
         }
     }
 
@@ -115,7 +115,7 @@ public class FileBackupStore
     private static void createDirectories(File dir)
     {
         if (!dir.mkdirs() && !dir.isDirectory()) {
-            throw new PrestoException(RAPTOR_BACKUP_ERROR, "Failed creating directories: " + dir);
+            throw new TrinoException(RAPTOR_BACKUP_ERROR, "Failed creating directories: " + dir);
         }
     }
 

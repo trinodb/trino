@@ -13,7 +13,7 @@
  */
 package io.trino.spi.block;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.MapType;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -186,7 +186,7 @@ public final class MapHashTables
                 }
 
                 if (isDuplicateKey == null) {
-                    throw new PrestoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+                    throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
                 }
 
                 if (isDuplicateKey) {

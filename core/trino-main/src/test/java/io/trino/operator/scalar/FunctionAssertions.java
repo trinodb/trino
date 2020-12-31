@@ -128,7 +128,7 @@ import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.SqlToRowExpressionTranslator.translate;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -322,7 +322,7 @@ public final class FunctionAssertions
 
     public void assertInvalidFunction(String projection, ErrorCodeSupplier errorCode, String message)
     {
-        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+        assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(errorCode)
                 .hasMessage(message);
     }
@@ -334,26 +334,26 @@ public final class FunctionAssertions
 
     public void assertInvalidFunction(String projection, ErrorCodeSupplier expectedErrorCode)
     {
-        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+        assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(expectedErrorCode);
     }
 
     public void assertNumericOverflow(String projection, String message)
     {
-        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+        assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE)
                 .hasMessage(message);
     }
 
     public void assertInvalidCast(String projection)
     {
-        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+        assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(INVALID_CAST_ARGUMENT);
     }
 
     public void assertInvalidCast(String projection, String message)
     {
-        assertPrestoExceptionThrownBy(() -> evaluateInvalid(projection))
+        assertTrinoExceptionThrownBy(() -> evaluateInvalid(projection))
                 .hasErrorCode(INVALID_CAST_ARGUMENT)
                 .hasMessage(message);
     }

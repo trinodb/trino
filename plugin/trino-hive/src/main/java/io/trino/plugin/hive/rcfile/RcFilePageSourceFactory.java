@@ -39,7 +39,7 @@ import io.trino.rcfile.RcFileEncoding;
 import io.trino.rcfile.RcFileReader;
 import io.trino.rcfile.binary.BinaryRcFileEncoding;
 import io.trino.rcfile.text.TextRcFileEncoding;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
@@ -143,7 +143,7 @@ public class RcFilePageSourceFactory
         checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
         if (estimatedFileSize == 0) {
-            throw new PrestoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
+            throw new TrinoException(HIVE_BAD_DATA, "RCFile is empty: " + path);
         }
 
         List<HiveColumnHandle> projectedReaderColumns = columns;
@@ -177,9 +177,9 @@ public class RcFilePageSourceFactory
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
                     e instanceof FileNotFoundException) {
-                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
+                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
         length = min(dataSource.getSize() - start, length);
@@ -213,17 +213,17 @@ public class RcFilePageSourceFactory
             }
             catch (IOException ignored) {
             }
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
+            if (e instanceof TrinoException) {
+                throw (TrinoException) e;
             }
             String message = splitError(e, path, start, length);
             if (e instanceof RcFileCorruptionException) {
-                throw new PrestoException(HIVE_BAD_DATA, message, e);
+                throw new TrinoException(HIVE_BAD_DATA, message, e);
             }
             if (e instanceof BlockMissingException) {
-                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+                throw new TrinoException(HIVE_MISSING_DATA, message, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
     }
 

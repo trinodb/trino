@@ -31,8 +31,8 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager.SessionPropertyValue;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -418,13 +418,13 @@ final class ShowQueriesRewrite
         }
 
         private static <T> Expression getExpression(PropertyMetadata<T> property, Object value)
-                throws PrestoException
+                throws TrinoException
         {
             return toExpression(property.encode(property.getJavaType().cast(value)));
         }
 
         private static Expression toExpression(Object value)
-                throws PrestoException
+                throws TrinoException
         {
             if (value instanceof String) {
                 return new StringLiteral(value.toString());
@@ -449,7 +449,7 @@ final class ShowQueriesRewrite
                         .collect(toList()));
             }
 
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Failed to convert object of type %s to expression: %s", value.getClass().getName(), value));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Failed to convert object of type %s to expression: %s", value.getClass().getName(), value));
         }
 
         @Override
@@ -590,15 +590,15 @@ final class ShowQueriesRewrite
                 String propertyName = propertyEntry.getKey();
                 Object value = propertyEntry.getValue();
                 if (value == null) {
-                    throw new PrestoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifiedName(objectName, columnName)));
+                    throw new TrinoException(errorCode, format("Property %s for %s cannot have a null value", propertyName, toQualifiedName(objectName, columnName)));
                 }
 
                 PropertyMetadata<?> property = allProperties.get(propertyName);
                 if (property == null) {
-                    throw new PrestoException(errorCode, "No PropertyMetadata for property: " + propertyName);
+                    throw new TrinoException(errorCode, "No PropertyMetadata for property: " + propertyName);
                 }
                 if (!Primitives.wrap(property.getJavaType()).isInstance(value)) {
-                    throw new PrestoException(errorCode, format(
+                    throw new TrinoException(errorCode, format(
                             "Property %s for %s should have value of type %s, not %s",
                             propertyName,
                             toQualifiedName(objectName, columnName),

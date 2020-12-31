@@ -14,7 +14,7 @@
 package io.trino.spiller;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -77,7 +77,7 @@ public final class AesSpillCipher
             return ivBytes + n + cipher.doFinal(destination, destinationOffset + ivBytes + n);
         }
         catch (GeneralSecurityException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to encrypt data: " + e.getMessage(), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to encrypt data: " + e.getMessage(), e);
         }
     }
 
@@ -93,7 +93,7 @@ public final class AesSpillCipher
             return n + cipher.doFinal(destination, destinationOffset + n);
         }
         catch (GeneralSecurityException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Cannot decrypt previously encrypted data: " + e.getMessage(), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Cannot decrypt previously encrypted data: " + e.getMessage(), e);
         }
     }
 
@@ -119,7 +119,7 @@ public final class AesSpillCipher
     private static <T> T throwCipherClosedIfNull(T value)
     {
         if (value == null) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Spill cipher already closed");
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Spill cipher already closed");
         }
         return value;
     }
@@ -132,7 +132,7 @@ public final class AesSpillCipher
             return cipher;
         }
         catch (GeneralSecurityException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to initialize spill cipher for encryption: " + e.getMessage(), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to initialize spill cipher for encryption: " + e.getMessage(), e);
         }
     }
 
@@ -144,7 +144,7 @@ public final class AesSpillCipher
             return cipher;
         }
         catch (GeneralSecurityException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to initialize spill cipher for decryption: " + e.getMessage(), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to initialize spill cipher for decryption: " + e.getMessage(), e);
         }
     }
 
@@ -154,7 +154,7 @@ public final class AesSpillCipher
             return Cipher.getInstance(CIPHER_NAME);
         }
         catch (GeneralSecurityException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to create spill cipher: " + e.getMessage(), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create spill cipher: " + e.getMessage(), e);
         }
     }
 
@@ -166,7 +166,7 @@ public final class AesSpillCipher
             return keyGenerator.generateKey();
         }
         catch (NoSuchAlgorithmException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to generate new secret key: " + e.getMessage(), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to generate new secret key: " + e.getMessage(), e);
         }
     }
 }

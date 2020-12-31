@@ -31,7 +31,7 @@ public interface NodeManager
     {
         Set<Node> nodes = getWorkerNodes();
         if (nodes.isEmpty()) {
-            throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+            throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
         }
         return nodes;
     }

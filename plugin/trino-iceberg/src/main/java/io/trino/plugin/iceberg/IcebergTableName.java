@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -73,7 +73,7 @@ public class IcebergTableName
     {
         Matcher match = TABLE_PATTERN.matcher(name);
         if (!match.matches()) {
-            throw new PrestoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
+            throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name: " + name);
         }
 
         String table = match.group("table");
@@ -87,14 +87,14 @@ public class IcebergTableName
                 type = TableType.valueOf(typeString.toUpperCase(Locale.ROOT));
             }
             catch (IllegalArgumentException e) {
-                throw new PrestoException(NOT_SUPPORTED, format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));
+                throw new TrinoException(NOT_SUPPORTED, format("Invalid Iceberg table name (unknown type '%s'): %s", typeString, name));
             }
         }
 
         Optional<Long> version = Optional.empty();
         if (type == TableType.DATA || type == TableType.PARTITIONS || type == TableType.MANIFESTS || type == TableType.FILES) {
             if (ver1 != null && ver2 != null) {
-                throw new PrestoException(NOT_SUPPORTED, "Invalid Iceberg table name (cannot specify two @ versions): " + name);
+                throw new TrinoException(NOT_SUPPORTED, "Invalid Iceberg table name (cannot specify two @ versions): " + name);
             }
             if (ver1 != null) {
                 version = Optional.of(parseLong(ver1));
@@ -104,7 +104,7 @@ public class IcebergTableName
             }
         }
         else if (ver1 != null || ver2 != null) {
-            throw new PrestoException(NOT_SUPPORTED, format("Invalid Iceberg table name (cannot use @ version with table type '%s'): %s", type, name));
+            throw new TrinoException(NOT_SUPPORTED, format("Invalid Iceberg table name (cannot use @ version with table type '%s'): %s", type, name));
         }
 
         return new IcebergTableName(table, type, version);

@@ -23,7 +23,7 @@ import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.SqlOperator;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleMapBlock;
 import io.trino.spi.connector.ConnectorSession;
@@ -159,24 +159,24 @@ public class MapSubscriptOperator
                 castMetadata = functionDependencies.getCastMetadata(keyType, VARCHAR);
                 castFunction = functionDependencies.getCastInvoker(keyType, VARCHAR, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
             }
-            catch (PrestoException ignored) {
+            catch (TrinoException ignored) {
             }
             this.castMetadata = castMetadata;
             this.castFunction = castFunction;
         }
 
-        public PrestoException create(ConnectorSession session, Object value)
+        public TrinoException create(ConnectorSession session, Object value)
         {
             if (castFunction != null) {
                 try {
                     Slice varcharValue = (Slice) InterpretedFunctionInvoker.invoke(castMetadata, castFunction, session, ImmutableList.of(value));
 
-                    return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue == null ? "NULL" : varcharValue.toStringUtf8()));
+                    return new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue == null ? "NULL" : varcharValue.toStringUtf8()));
                 }
                 catch (RuntimeException ignored) {
                 }
             }
-            return new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key not present in map");
+            return new TrinoException(INVALID_FUNCTION_ARGUMENT, "Key not present in map");
         }
     }
 }

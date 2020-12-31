@@ -19,7 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.trino.plugin.kinesis.s3config.S3TableConfigClient;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 
 import javax.annotation.PreDestroy;
@@ -108,7 +108,7 @@ public class KinesisTableDescriptionSupplier
     private static List<Path> listFiles(Path path)
     {
         if (path == null || !Files.isDirectory(path)) {
-            throw new PrestoException(KinesisErrorCode.KINESIS_METADATA_EXCEPTION, "Table description location does not exist or is not a directory");
+            throw new TrinoException(KinesisErrorCode.KINESIS_METADATA_EXCEPTION, "Table description location does not exist or is not a directory");
         }
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
             ImmutableList.Builder<Path> builder = ImmutableList.builder();

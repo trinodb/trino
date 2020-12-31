@@ -19,7 +19,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.spi.HostAddress;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -102,7 +102,7 @@ public class PhoenixSplitManager
             return new FixedSplitSource(splits);
         }
         catch (IOException | SQLException e) {
-            throw new PrestoException(PHOENIX_SPLIT_ERROR, "Couldn't get Phoenix splits", e);
+            throw new TrinoException(PHOENIX_SPLIT_ERROR, "Couldn't get Phoenix splits", e);
         }
     }
 
@@ -115,7 +115,7 @@ public class PhoenixSplitManager
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            throw new PrestoException(PHOENIX_INTERNAL_ERROR, "Exception when getting split addresses", e);
+            throw new TrinoException(PHOENIX_INTERNAL_ERROR, "Exception when getting split addresses", e);
         }
     }
 

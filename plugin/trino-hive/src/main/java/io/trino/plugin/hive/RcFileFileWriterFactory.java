@@ -20,7 +20,7 @@ import io.trino.plugin.hive.rcfile.HdfsRcFileDataSource;
 import io.trino.rcfile.RcFileDataSource;
 import io.trino.rcfile.RcFileEncoding;
 import io.trino.rcfile.binary.BinaryRcFileEncoding;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -145,7 +145,7 @@ public class RcFileFileWriterFactory
                                 stats);
                     }
                     catch (IOException e) {
-                        throw new PrestoException(HIVE_WRITE_VALIDATION_FAILED, e);
+                        throw new TrinoException(HIVE_WRITE_VALIDATION_FAILED, e);
                     }
                 });
             }
@@ -169,7 +169,7 @@ public class RcFileFileWriterFactory
                     validationInputFactory));
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating RCFile file", e);
+            throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating RCFile file", e);
         }
     }
 }

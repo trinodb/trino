@@ -120,7 +120,7 @@ import io.trino.operator.window.FrameInfo;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.SingleRowBlock;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndex;
@@ -1379,11 +1379,11 @@ public class LocalExecutionPlanner
                     return new PhysicalOperation(operatorFactory, outputMappings, context, source);
                 }
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 throw e;
             }
             catch (RuntimeException e) {
-                throw new PrestoException(COMPILER_ERROR, "Compiler failed", e);
+                throw new TrinoException(COMPILER_ERROR, "Compiler failed", e);
             }
         }
 

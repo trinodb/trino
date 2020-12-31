@@ -13,7 +13,7 @@
  */
 package io.trino.spi.security;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.security.Principal;
 import java.util.Collection;
@@ -24,7 +24,7 @@ import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.String.format;
 
 public class AccessDeniedException
-        extends PrestoException
+        extends TrinoException
 {
     public static final String PREFIX = "Access Denied: ";
 

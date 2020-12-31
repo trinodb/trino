@@ -19,8 +19,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.spi.type.Varchars;
@@ -154,7 +154,7 @@ public class RawColumnDecoder
             }
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(StandardErrorCode.GENERIC_USER_ERROR, e);
+            throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, e);
         }
     }
 
@@ -188,7 +188,7 @@ public class RawColumnDecoder
         int actualEnd = end.orElse(value.length);
 
         if (start > value.length) {
-            throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format(
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format(
                     "start offset %s for column '%s' must be less that or equal to value length %s",
                     start,
                     columnName,
@@ -196,7 +196,7 @@ public class RawColumnDecoder
         }
 
         if (actualEnd > value.length) {
-            throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format(
+            throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format(
                     "end offset %s for column '%s' must be less that or equal to value length %s",
                     actualEnd,
                     columnName,
@@ -245,7 +245,7 @@ public class RawColumnDecoder
                 case LONG:
                     return value.getLong(start) != 0;
                 default:
-                    throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to boolean not supported", fieldType));
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to boolean not supported", fieldType));
             }
         }
 
@@ -263,7 +263,7 @@ public class RawColumnDecoder
                 case LONG:
                     return value.getLong(start);
                 default:
-                    throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to long not supported", fieldType));
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to long not supported", fieldType));
             }
         }
 
@@ -277,7 +277,7 @@ public class RawColumnDecoder
                 case DOUBLE:
                     return value.getDouble(start);
                 default:
-                    throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to double not supported", fieldType));
+                    throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("conversion '%s' to double not supported", fieldType));
             }
         }
 

@@ -29,7 +29,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
@@ -77,7 +77,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
@@ -154,9 +154,9 @@ public class TestCreateTableTask
         }
         catch (RuntimeException e) {
             // Expected
-            assertTrue(e instanceof PrestoException);
-            PrestoException prestoException = (PrestoException) e;
-            assertEquals(prestoException.getErrorCode(), ALREADY_EXISTS.toErrorCode());
+            assertTrue(e instanceof TrinoException);
+            TrinoException trinoException = (TrinoException) e;
+            assertEquals(trinoException.getErrorCode(), ALREADY_EXISTS.toErrorCode());
         }
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
@@ -203,7 +203,7 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        assertPrestoExceptionThrownBy(() ->
+        assertTrinoExceptionThrownBy(() ->
                 getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("Catalog 'catalog' does not support non-null column for column name 'b'");
@@ -300,7 +300,7 @@ public class TestCreateTableTask
         {
             tables.add(tableMetadata);
             if (!ignoreExisting) {
-                throw new PrestoException(ALREADY_EXISTS, "Table already exists");
+                throw new TrinoException(ALREADY_EXISTS, "Table already exists");
             }
         }
 

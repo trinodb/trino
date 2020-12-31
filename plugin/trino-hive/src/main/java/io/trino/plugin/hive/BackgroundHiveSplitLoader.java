@@ -36,7 +36,7 @@ import io.trino.plugin.hive.util.HiveFileIterator;
 import io.trino.plugin.hive.util.InternalHiveSplitFactory;
 import io.trino.plugin.hive.util.ResumableTask;
 import io.trino.plugin.hive.util.ResumableTasks;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
@@ -267,10 +267,10 @@ public class BackgroundHiveSplitLoader
                 }
                 catch (Throwable e) {
                     if (e instanceof IOException) {
-                        e = new PrestoException(HIVE_FILESYSTEM_ERROR, e);
+                        e = new TrinoException(HIVE_FILESYSTEM_ERROR, e);
                     }
-                    else if (!(e instanceof PrestoException)) {
-                        e = new PrestoException(HIVE_UNKNOWN_ERROR, e);
+                    else if (!(e instanceof TrinoException)) {
+                        e = new TrinoException(HIVE_UNKNOWN_ERROR, e);
                     }
                     // Fail the split source before releasing the execution lock
                     // Otherwise, a race could occur where the split source is completed before we fail it.
@@ -378,7 +378,7 @@ public class BackgroundHiveSplitLoader
 
         if (inputFormat instanceof SymlinkTextInputFormat) {
             if (tableBucketInfo.isPresent()) {
-                throw new PrestoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
+                throw new TrinoException(NOT_SUPPORTED, "Bucketed table in SymlinkTextInputFormat is not yet supported");
             }
             InputFormat<?, ?> targetInputFormat = getInputFormat(configuration, schema, true);
             List<Path> targetPaths = hdfsEnvironment.doAs(
@@ -463,11 +463,11 @@ public class BackgroundHiveSplitLoader
         // on the input format to obtain file splits.
         if (shouldUseFileSplitsFromInputFormat(inputFormat)) {
             if (tableBucketInfo.isPresent()) {
-                throw new PrestoException(NOT_SUPPORTED, "Presto cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
+                throw new TrinoException(NOT_SUPPORTED, "Presto cannot read bucketed partition in an input format with UseFileSplitsFromInputFormat annotation: " + inputFormat.getClass().getSimpleName());
             }
 
             if (AcidUtils.isTransactionalTable(table.getParameters())) {
-                throw new PrestoException(NOT_SUPPORTED, "Hive transactional tables in an input format with UseFileSplitsFromInputFormat annotation are not supported: " + inputFormat.getClass().getSimpleName());
+                throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables in an input format with UseFileSplitsFromInputFormat annotation are not supported: " + inputFormat.getClass().getSimpleName());
             }
 
             JobConf jobConf = toJobConf(configuration);
@@ -495,7 +495,7 @@ public class BackgroundHiveSplitLoader
                         : (directory.getCurrentDirectories().size() > 0 ? directory.getCurrentDirectories().get(0).getPath() : null);
 
                 if (baseOrDeltaPath != null && AcidUtils.OrcAcidVersion.getAcidVersionFromMetaFile(baseOrDeltaPath, fs) < 2) {
-                    throw new PrestoException(NOT_SUPPORTED, "Hive transactional tables are supported with Hive 3.0 and only after a major compaction has been run");
+                    throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables are supported with Hive 3.0 and only after a major compaction has been run");
                 }
             }
 
@@ -548,7 +548,7 @@ public class BackgroundHiveSplitLoader
                 }
                 catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
                     // Fail here to be on the safe side. This seems to be the same as what Hive does
-                    throw new PrestoException(
+                    throw new TrinoException(
                             HIVE_INVALID_BUCKET_FILES,
                             format("Hive table '%s' is corrupt. Found sub-directory '%s' in bucket directory for partition: %s",
                                     table.getSchemaTableName(),
@@ -767,7 +767,7 @@ public class BackgroundHiveSplitLoader
 
             // legacy mode requires exactly one file per bucket
             if (files.size() != partitionBucketCount) {
-                throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+                throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
                         "Hive table '%s' is corrupt. File '%s' does not match the standard naming pattern, and the number " +
                                 "of files in the directory (%s) does not match the declared bucket count (%s) for partition: %s",
                         table.getSchemaTableName(),
@@ -811,7 +811,7 @@ public class BackgroundHiveSplitLoader
             }
 
             if (containsEligibleTableBucket && containsIneligibleTableBucket) {
-                throw new PrestoException(
+                throw new TrinoException(
                         NOT_SUPPORTED,
                         "The bucket filter cannot be satisfied. There are restrictions on the bucket filter when all the following is true: " +
                                 "1. a table has a different buckets count as at least one of its partitions that is read in this query; " +
@@ -843,7 +843,7 @@ public class BackgroundHiveSplitLoader
         // validate the bucket number detected from files, fail the query if the highest bucket number detected from file
         // exceeds the allowed highest number
         if (highestBucketNumber >= partitionBucketCount) {
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+            throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
                     "Hive table '%s' is corrupt. The highest bucket number in the directory (%s) exceeds the bucket number range " +
                             "defined by the declared bucket count (%s) for partition: %s",
                     tableName,
@@ -893,7 +893,7 @@ public class BackgroundHiveSplitLoader
             return targets;
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_BAD_DATA, "Error parsing symlinks from: " + symlinkDir, e);
+            throw new TrinoException(HIVE_BAD_DATA, "Error parsing symlinks from: " + symlinkDir, e);
         }
     }
 
@@ -910,7 +910,7 @@ public class BackgroundHiveSplitLoader
             String name = keys.get(i).getName();
             HiveType hiveType = keys.get(i).getType();
             if (!hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
+                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type %s found in partition keys of table %s.%s", hiveType, table.getDatabaseName(), table.getTableName()));
             }
             String value = values.get(i);
             checkCondition(value != null, HIVE_INVALID_PARTITION_VALUE, "partition key value cannot be null for field: %s", name);
@@ -951,7 +951,7 @@ public class BackgroundHiveSplitLoader
 
             if (tableBucketCount != readBucketCount && bucketFilter.isPresent()) {
                 // TODO: remove when supported
-                throw new PrestoException(NOT_SUPPORTED, "Filter on \"$bucket\" is not supported when the table has partitions with different bucket counts");
+                throw new TrinoException(NOT_SUPPORTED, "Filter on \"$bucket\" is not supported when the table has partitions with different bucket counts");
             }
 
             List<HiveColumnHandle> bucketColumns = bucketHandle.get().getColumns();

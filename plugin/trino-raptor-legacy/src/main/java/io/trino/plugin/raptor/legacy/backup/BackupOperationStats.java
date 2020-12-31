@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.backup;
 
 import io.airlift.stats.CounterStat;
 import io.airlift.stats.TimeStat;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -75,7 +75,7 @@ public class BackupOperationStats
             successes.update(1);
             return value;
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             if (e.getErrorCode().equals(RAPTOR_BACKUP_NOT_FOUND.toErrorCode())) {
                 successes.update(1);
             }

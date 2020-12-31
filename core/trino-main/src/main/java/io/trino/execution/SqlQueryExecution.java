@@ -41,8 +41,8 @@ import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.DynamicFilterService;
 import io.trino.server.protocol.Slug;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.TypeOperators;
 import io.trino.split.SplitManager;
@@ -430,7 +430,7 @@ public class SqlQueryExecution
             return doPlanQuery();
         }
         catch (StackOverflowError e) {
-            throw new PrestoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
+            throw new TrinoException(NOT_SUPPORTED, "statement is too large (stack overflow during analysis)", e);
         }
     }
 

@@ -32,7 +32,7 @@ import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.model.TabletSplitMetadata;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -180,12 +180,12 @@ public class AccumuloClient
                         || Types.isMapType(Types.getValueType(column.getType()))
                         || Types.isArrayType(Types.getKeyType(column.getType()))
                         || Types.isArrayType(Types.getValueType(column.getType()))) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, "Key/value types of a MAP column must be plain types");
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, "Key/value types of a MAP column must be plain types");
                 }
             }
 
             if (column.getType() instanceof TimestampType && ((TimestampType) column.getType()).getPrecision() != 3) {
-                throw new PrestoException(NOT_SUPPORTED, format("%s type not supported", column.getType()));
+                throw new TrinoException(NOT_SUPPORTED, format("%s type not supported", column.getType()));
             }
 
             columnNameBuilder.add(column.getName().toLowerCase(Locale.ENGLISH));
@@ -193,7 +193,7 @@ public class AccumuloClient
 
         // Validate the columns are distinct
         if (columnNameBuilder.build().size() != meta.getColumns().size()) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "Duplicate column names are not supported");
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Duplicate column names are not supported");
         }
 
         Optional<Map<String, Pair<String, String>>> columnMapping = AccumuloTableProperties.getColumnMapping(meta.getProperties());
@@ -201,7 +201,7 @@ public class AccumuloClient
             // Validate there are no duplicates in the column mapping
             long distinctMappings = columnMapping.get().values().stream().distinct().count();
             if (distinctMappings != columnMapping.get().size()) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "Duplicate column family/qualifier pair detected in column mapping, check the value of " + AccumuloTableProperties.COLUMN_MAPPING);
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Duplicate column family/qualifier pair detected in column mapping, check the value of " + AccumuloTableProperties.COLUMN_MAPPING);
             }
 
             // Validate no column is mapped to the reserved entry
@@ -209,13 +209,13 @@ public class AccumuloClient
             if (columnMapping.get().values().stream()
                     .filter(pair -> pair.getKey().equals(reservedRowIdColumn) && pair.getValue().equals(reservedRowIdColumn))
                     .count() > 0) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, format("Column familiy/qualifier mapping of %s:%s is reserved", reservedRowIdColumn, reservedRowIdColumn));
+                throw new TrinoException(INVALID_TABLE_PROPERTY, format("Column familiy/qualifier mapping of %s:%s is reserved", reservedRowIdColumn, reservedRowIdColumn));
             }
         }
         else if (AccumuloTableProperties.isExternal(meta.getProperties())) {
             // Column mapping is not defined (i.e. use column generation) and table is external
             // But column generation is for internal tables only
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "Column generation for external tables is not supported, must specify " + AccumuloTableProperties.COLUMN_MAPPING);
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Column generation for external tables is not supported, must specify " + AccumuloTableProperties.COLUMN_MAPPING);
         }
     }
 
@@ -232,7 +232,7 @@ public class AccumuloClient
         // For each locality group
         for (Map.Entry<String, Set<String>> g : groups.get().entrySet()) {
             if (g.getValue().contains(rowIdColumn)) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "Row ID column cannot be in a locality group");
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Row ID column cannot be in a locality group");
             }
 
             // Validate the specified column names exist in the table definition,
@@ -253,7 +253,7 @@ public class AccumuloClient
             // then a column was specified that does not exist
             // (or there is a duplicate column in the table DDL, which is also an issue but has been checked before in validateColumns).
             if (matchingColumns != g.getValue().size()) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "Unknown Presto column defined for locality group " + g.getKey());
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Unknown Presto column defined for locality group " + g.getKey());
             }
         }
     }
@@ -265,12 +265,12 @@ public class AccumuloClient
         String metricsTable = Indexer.getMetricsTableName(meta.getTable());
 
         if (tableManager.exists(table)) {
-            throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Cannot create internal table when an Accumulo table already exists");
+            throw new TrinoException(ACCUMULO_TABLE_EXISTS, "Cannot create internal table when an Accumulo table already exists");
         }
 
         if (AccumuloTableProperties.getIndexColumns(meta.getProperties()).isPresent()) {
             if (tableManager.exists(indexTable) || tableManager.exists(metricsTable)) {
-                throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Internal table is indexed, but the index table and/or index metrics table(s) already exist");
+                throw new TrinoException(ACCUMULO_TABLE_EXISTS, "Internal table is indexed, but the index table and/or index metrics table(s) already exist");
             }
         }
     }
@@ -473,7 +473,7 @@ public class AccumuloClient
     public void renameTable(SchemaTableName oldName, SchemaTableName newName)
     {
         if (!oldName.getSchemaName().equals(newName.getSchemaName())) {
-            throw new PrestoException(NOT_SUPPORTED, "Accumulo does not support renaming tables to different namespaces (schemas)");
+            throw new TrinoException(NOT_SUPPORTED, "Accumulo does not support renaming tables to different namespaces (schemas)");
         }
 
         AccumuloTable oldTable = getTable(oldName);
@@ -492,11 +492,11 @@ public class AccumuloClient
 
         // Validate table existence
         if (!tableManager.exists(oldTable.getFullTableName())) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, format("Table '%s' does not exist", oldTable.getFullTableName()));
+            throw new TrinoException(ACCUMULO_TABLE_DNE, format("Table '%s' does not exist", oldTable.getFullTableName()));
         }
 
         if (tableManager.exists(newTable.getFullTableName())) {
-            throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Table '%s' already exists", newTable.getFullTableName()));
+            throw new TrinoException(ACCUMULO_TABLE_EXISTS, format("Table '%s' already exists", newTable.getFullTableName()));
         }
 
         // Rename index tables (which will also validate table existence)
@@ -523,19 +523,19 @@ public class AccumuloClient
         }
 
         if (!tableManager.exists(oldTable.getIndexTableName())) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, format("Table '%s' does not exist", oldTable.getIndexTableName()));
+            throw new TrinoException(ACCUMULO_TABLE_DNE, format("Table '%s' does not exist", oldTable.getIndexTableName()));
         }
 
         if (tableManager.exists(newTable.getIndexTableName())) {
-            throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Table '%s' already exists", newTable.getIndexTableName()));
+            throw new TrinoException(ACCUMULO_TABLE_EXISTS, format("Table '%s' already exists", newTable.getIndexTableName()));
         }
 
         if (!tableManager.exists(oldTable.getMetricsTableName())) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, format("Table '%s' does not exist", oldTable.getMetricsTableName()));
+            throw new TrinoException(ACCUMULO_TABLE_DNE, format("Table '%s' does not exist", oldTable.getMetricsTableName()));
         }
 
         if (tableManager.exists(newTable.getMetricsTableName())) {
-            throw new PrestoException(ACCUMULO_TABLE_EXISTS, format("Table '%s' already exists", newTable.getMetricsTableName()));
+            throw new TrinoException(ACCUMULO_TABLE_EXISTS, format("Table '%s' already exists", newTable.getMetricsTableName()));
         }
 
         tableManager.renameAccumuloTable(oldTable.getIndexTableName(), newTable.getIndexTableName());
@@ -546,11 +546,11 @@ public class AccumuloClient
     {
         if (getSchemaNames().contains(viewName.getSchemaName())) {
             if (getViewNames(viewName.getSchemaName()).contains(viewName.getTableName())) {
-                throw new PrestoException(ALREADY_EXISTS, "View already exists");
+                throw new TrinoException(ALREADY_EXISTS, "View already exists");
             }
 
             if (getTableNames(viewName.getSchemaName()).contains(viewName.getTableName())) {
-                throw new PrestoException(ALREADY_EXISTS, "View already exists as data table");
+                throw new TrinoException(ALREADY_EXISTS, "View already exists as data table");
             }
         }
 
@@ -574,7 +574,7 @@ public class AccumuloClient
     public void renameColumn(AccumuloTable table, String source, String target)
     {
         if (table.getColumns().stream().noneMatch(columnHandle -> columnHandle.getName().equalsIgnoreCase(source))) {
-            throw new PrestoException(NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
+            throw new TrinoException(NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
         }
 
         // Copy existing column list, replacing the old column name with the new
@@ -714,7 +714,7 @@ public class AccumuloClient
             return tabletSplits;
         }
         catch (Exception e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get splits from Accumulo", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get splits from Accumulo", e);
         }
     }
 
@@ -871,7 +871,7 @@ public class AccumuloClient
             Optional<String> location = Optional.empty();
             for (Entry<Key, Value> entry : scan) {
                 if (location.isPresent()) {
-                    throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Scan for default tablet returned more than one entry");
+                    throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Scan for default tablet returned more than one entry");
                 }
 
                 location = Optional.of(entry.getValue().toString());

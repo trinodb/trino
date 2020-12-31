@@ -15,7 +15,7 @@ package io.trino.sql.relational;
 
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static java.util.Objects.requireNonNull;
 
@@ -72,7 +72,7 @@ public class DeterminismEvaluator
             try {
                 return metadata.getFunctionMetadata(resolvedFunction).isDeterministic();
             }
-            catch (PrestoException ignored) {
+            catch (TrinoException ignored) {
                 // unknown functions are typically special forms and are deterministic
                 return true;
             }

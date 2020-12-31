@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
@@ -100,7 +100,7 @@ public final class ArrayCombinationsFunction
             return combinations;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Number of combinations too large for array of size %s and combination length %s", arrayLength, combinationLength));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Number of combinations too large for array of size %s and combination length %s", arrayLength, combinationLength));
         }
     }
 

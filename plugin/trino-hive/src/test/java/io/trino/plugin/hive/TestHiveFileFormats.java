@@ -29,7 +29,7 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
@@ -1297,9 +1297,9 @@ public class TestHiveFileFormats
                 assertRead(pageSourceFactory, cursorProvider, withRecordPageSource);
                 fail("failure is expected");
             }
-            catch (PrestoException prestoException) {
-                assertEquals(prestoException.getErrorCode(), expectedErrorCode.toErrorCode());
-                assertEquals(prestoException.getMessage(), expectedMessage);
+            catch (TrinoException trinoException) {
+                assertEquals(trinoException.getErrorCode(), expectedErrorCode.toErrorCode());
+                assertEquals(trinoException.getMessage(), expectedMessage);
             }
         }
     }

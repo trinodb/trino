@@ -15,7 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.trino.client.IntervalYearMonth;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -62,7 +62,7 @@ public final class IntervalYearMonthOperators
     public static long multiplyByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         if (Double.isNaN(right)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
         }
         return (long) (left * right);
     }
@@ -79,7 +79,7 @@ public final class IntervalYearMonthOperators
     public static long doubleMultiply(@SqlType(StandardTypes.DOUBLE) double left, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long right)
     {
         if (Double.isNaN(left)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot multiply by double NaN");
         }
         return (long) (left * right);
     }
@@ -89,7 +89,7 @@ public final class IntervalYearMonthOperators
     public static long divideByDouble(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long left, @SqlType(StandardTypes.DOUBLE) double right)
     {
         if (Double.isNaN(right) || right == 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot divide by double %s", right));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Cannot divide by double %s", right));
         }
         return (long) (left / right);
     }

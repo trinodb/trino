@@ -13,8 +13,8 @@
  */
 package io.trino.util;
 
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -34,7 +34,7 @@ public final class Reflection
             return clazz.getField(name);
         }
         catch (NoSuchFieldException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -44,7 +44,7 @@ public final class Reflection
             return clazz.getMethod(name, parameterTypes);
         }
         catch (NoSuchMethodException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -62,7 +62,7 @@ public final class Reflection
             return MethodHandles.lookup().unreflect(clazz.getMethod(name, parameterTypes));
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -80,7 +80,7 @@ public final class Reflection
             return MethodHandles.lookup().unreflect(method);
         }
         catch (IllegalAccessException e) {
-            throw new PrestoException(errorCode, e);
+            throw new TrinoException(errorCode, e);
         }
     }
 
@@ -124,7 +124,7 @@ public final class Reflection
             return MethodHandles.lookup().unreflectConstructor(clazz.getConstructor(parameterTypes));
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
-            throw new PrestoException(errorCode, e);
+            throw new TrinoException(errorCode, e);
         }
     }
 
@@ -142,7 +142,7 @@ public final class Reflection
             return MethodHandles.lookup().unreflectConstructor(constructor);
         }
         catch (IllegalAccessException e) {
-            throw new PrestoException(errorCode, e);
+            throw new TrinoException(errorCode, e);
         }
     }
 }

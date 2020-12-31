@@ -14,7 +14,7 @@
 package io.trino.type;
 
 import io.trino.operator.scalar.AbstractTestFunctions;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
@@ -73,8 +73,8 @@ public class TestConventionDependencies
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -97,8 +97,8 @@ public class TestConventionDependencies
                 }
                 catch (Throwable t) {
                     throwIfInstanceOf(t, Error.class);
-                    throwIfInstanceOf(t, PrestoException.class);
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                    throwIfInstanceOf(t, TrinoException.class);
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
                 }
             }
             return sum;

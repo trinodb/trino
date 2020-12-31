@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -138,8 +138,8 @@ public class IcebergPageSource
         }
         catch (RuntimeException e) {
             closeWithSuppression(e);
-            throwIfInstanceOf(e, PrestoException.class);
-            throw new PrestoException(ICEBERG_BAD_DATA, e);
+            throwIfInstanceOf(e, TrinoException.class);
+            throw new TrinoException(ICEBERG_BAD_DATA, e);
         }
     }
 
@@ -243,13 +243,13 @@ public class IcebergPageSource
             }
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(ICEBERG_INVALID_PARTITION_VALUE, format(
+            throw new TrinoException(ICEBERG_INVALID_PARTITION_VALUE, format(
                     "Invalid partition value '%s' for %s partition key: %s",
                     valueString,
                     type.getDisplayName(),
                     name));
         }
         // Iceberg tables don't partition by non-primitive-type columns.
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid partition type " + type.toString());
     }
 }

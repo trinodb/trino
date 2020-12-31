@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -128,7 +128,7 @@ public class DefaultJsonFieldDecoder
             if (value.isValueNode()) {
                 return value.asBoolean();
             }
-            throw new PrestoException(
+            throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
                     format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
         }
@@ -154,7 +154,7 @@ public class DefaultJsonFieldDecoder
             catch (NumberFormatException ignore) {
                 // ignore
             }
-            throw new PrestoException(
+            throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
                     format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
         }
@@ -173,7 +173,7 @@ public class DefaultJsonFieldDecoder
             catch (NumberFormatException ignore) {
                 // ignore
             }
-            throw new PrestoException(
+            throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
                     format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
         }

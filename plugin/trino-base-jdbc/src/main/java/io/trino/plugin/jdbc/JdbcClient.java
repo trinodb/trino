@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -91,7 +91,7 @@ public interface JdbcClient
 
     default void setColumnComment(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Optional<String> comment)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
     }
 
     void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);

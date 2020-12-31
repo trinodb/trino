@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -250,7 +250,7 @@ public class TestScalarFunctionAdapter
                     assertTrue(result);
                 }
             }
-            catch (PrestoException prestoException) {
+            catch (TrinoException trinoException) {
                 if (nullAdaptationPolicy == UNSUPPORTED) {
                     // never null is allowed to be converted to block and position, but will throw if value is null
                     assertTrue(hasNullBlockAndPositionToNeverNullArgument(actualConvention, expectedConvention, nullArguments));
@@ -258,7 +258,7 @@ public class TestScalarFunctionAdapter
                 else {
                     assertTrue(nullAdaptationPolicy == THROW_ON_NULL || nullAdaptationPolicy == RETURN_NULL_ON_NULL);
                 }
-                assertEquals(prestoException.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
+                assertEquals(trinoException.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
             }
             target.verify(actualConvention, nullArguments, nullAdaptationPolicy, argumentTypes);
         }

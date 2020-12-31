@@ -16,7 +16,7 @@ package io.trino.plugin.hive.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.trino.plugin.hive.HiveErrorCode;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.NamedTypeSignature;
@@ -122,7 +122,7 @@ public final class HiveTypeTranslator
             if (varcharType.getBoundedLength() <= HiveVarchar.MAX_VARCHAR_LENGTH) {
                 return getVarcharTypeInfo(varcharType.getBoundedLength());
             }
-            throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, HiveVarchar.MAX_VARCHAR_LENGTH));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported VARCHAR types: VARCHAR(<=%d), VARCHAR.", type, HiveVarchar.MAX_VARCHAR_LENGTH));
         }
         if (type instanceof CharType) {
             CharType charType = (CharType) type;
@@ -130,7 +130,7 @@ public final class HiveTypeTranslator
             if (charLength <= HiveChar.MAX_CHAR_LENGTH) {
                 return getCharTypeInfo(charLength);
             }
-            throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).",
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s. Supported CHAR types: CHAR(<=%d).",
                     type, HiveChar.MAX_CHAR_LENGTH));
         }
         if (VARBINARY.equals(type)) {
@@ -163,7 +163,7 @@ public final class HiveTypeTranslator
                 }
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 if (namedTypeSignature.getName().isEmpty()) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type));
+                    throw new TrinoException(NOT_SUPPORTED, format("Anonymous row type is not supported in Hive. Please give each field a name: %s", type));
                 }
                 fieldNames.add(namedTypeSignature.getName().get());
             }
@@ -173,7 +173,7 @@ public final class HiveTypeTranslator
                             .map(HiveTypeTranslator::toTypeInfo)
                             .collect(toImmutableList()));
         }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
     }
 
     public static TypeSignature toTypeSignature(TypeInfo typeInfo)
@@ -199,7 +199,7 @@ public final class HiveTypeTranslator
                 List<TypeInfo> fieldTypes = structTypeInfo.getAllStructFieldTypeInfos();
                 List<String> fieldNames = structTypeInfo.getAllStructFieldNames();
                 if (fieldTypes.size() != fieldNames.size()) {
-                    throw new PrestoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
+                    throw new TrinoException(HiveErrorCode.HIVE_INVALID_METADATA, format("Invalid Hive struct type: %s", typeInfo));
                 }
                 return rowType(Streams.zip(
                         // We lower case the struct field names.
@@ -222,7 +222,7 @@ public final class HiveTypeTranslator
                 }
                 return rowType(typeSignatures.build());
         }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", typeInfo));
     }
 
     @Nullable

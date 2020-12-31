@@ -20,7 +20,7 @@ import io.trino.execution.ManagedQueryExecution;
 import io.trino.execution.resourcegroups.WeightedFairQueue.Usage;
 import io.trino.server.QueryStateInfo;
 import io.trino.server.ResourceGroupInfo;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroup;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.ResourceGroupState;
@@ -590,7 +590,7 @@ public class InternalResourceGroup
     {
         synchronized (root) {
             if (!subGroups.isEmpty()) {
-                throw new PrestoException(INVALID_RESOURCE_GROUP, format("Cannot add queries to %s. It is not a leaf group.", id));
+                throw new TrinoException(INVALID_RESOURCE_GROUP, format("Cannot add queries to %s. It is not a leaf group.", id));
             }
             // Check all ancestors for capacity
             InternalResourceGroup group = this;

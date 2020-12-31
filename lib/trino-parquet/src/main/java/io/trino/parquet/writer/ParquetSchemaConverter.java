@@ -14,7 +14,7 @@
 package io.trino.parquet.writer;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -149,7 +149,7 @@ public class ParquetSchemaConverter
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.BINARY, OPTIONAL).named(name);
         }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported primitive type: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported primitive type: %s", type));
     }
 
     private org.apache.parquet.schema.Type getArrayType(ArrayType type, String name, List<String> parent)

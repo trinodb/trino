@@ -18,7 +18,7 @@ import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
 import io.trino.plugin.hive.util.ForwardingRecordCursor;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
@@ -129,7 +129,7 @@ public class HiveBucketValidationRecordCursor
 
         int bucket = getHiveBucket(bucketingVersion, bucketCount, typeInfoList, scratch);
         if (bucket != expectedBucket) {
-            throw new PrestoException(HIVE_INVALID_BUCKET_FILES,
+            throw new TrinoException(HIVE_INVALID_BUCKET_FILES,
                     format("Hive table is corrupt. File '%s' is for bucket %s, but contains a row for bucket %s.", path, expectedBucket, bucket));
         }
 

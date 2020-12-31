@@ -45,7 +45,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -111,7 +111,7 @@ public class CassandraSession
         ResultSet result = executeWithSession(session -> session.execute("select release_version from system.local"));
         Row versionRow = result.one();
         if (versionRow == null) {
-            throw new PrestoException(CASSANDRA_VERSION_ERROR, "The cluster version is not available. " +
+            throw new TrinoException(CASSANDRA_VERSION_ERROR, "The cluster version is not available. " +
                     "Please make sure that the Cassandra cluster is up and running, " +
                     "and that the contact points are specified correctly.");
         }
@@ -223,7 +223,7 @@ public class CassandraSession
             primaryKeySet.add(columnMeta.getName());
             boolean hidden = hiddenColumns.contains(columnMeta.getName());
             CassandraColumnHandle columnHandle = buildColumnHandle(tableMeta, columnMeta, true, false, columnNames.indexOf(columnMeta.getName()), hidden)
-                    .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, "Unsupported partition key type: " + columnMeta.getType().getName()));
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Unsupported partition key type: " + columnMeta.getType().getName()));
             columnHandles.add(columnHandle);
         }
 
@@ -262,7 +262,7 @@ public class CassandraSession
         for (KeyspaceMetadata keyspace : sortedKeyspaces) {
             if (keyspace.getName().equalsIgnoreCase(caseInsensitiveSchemaName)) {
                 if (result != null) {
-                    throw new PrestoException(
+                    throw new TrinoException(
                             NOT_SUPPORTED,
                             format("More than one keyspace has been found for the case insensitive schema name: %s -> (%s, %s)",
                                     caseInsensitiveSchemaName, result.getName(), keyspace.getName()));
@@ -293,7 +293,7 @@ public class CassandraSession
                 .map(AbstractTableMetadata::getName)
                 .sorted()
                 .collect(joining(", "));
-        throw new PrestoException(
+        throw new TrinoException(
                 NOT_SUPPORTED,
                 format("More than one table has been found for the case insensitive table name: %s -> (%s)",
                         caseInsensitiveTableName, tableNames));
@@ -311,7 +311,7 @@ public class CassandraSession
         for (ColumnMetadata column : columns) {
             String lowercaseName = column.getName().toLowerCase(ENGLISH);
             if (lowercaseNameToColumnMap.containsKey(lowercaseName)) {
-                throw new PrestoException(
+                throw new TrinoException(
                         NOT_SUPPORTED,
                         format("More than one column has been found for the case insensitive column name: %s -> (%s, %s)",
                                 lowercaseName, lowercaseNameToColumnMap.get(lowercaseName).getName(), column.getName()));
@@ -524,7 +524,7 @@ public class CassandraSession
         checkState(keyspaceMetadata != null, "system keyspace metadata must not be null");
         TableMetadata table = keyspaceMetadata.getTable(SIZE_ESTIMATES);
         if (table == null) {
-            throw new PrestoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Cassandra versions prior to 2.1.5 are not supported");
         }
     }
 

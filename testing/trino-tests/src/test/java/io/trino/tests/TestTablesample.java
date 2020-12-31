@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTablesample
@@ -83,22 +83,22 @@ public class TestTablesample
     public void testNullRatio()
     {
         // NULL
-        assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (NULL)"))
+        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (NULL)"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL integer
-        assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS integer))"))
+        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS integer))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL double
-        assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS double))"))
+        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS double))"))
                 .hasErrorCode(INVALID_ARGUMENTS)
                 .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL varchar
-        assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS varchar))"))
+        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS varchar))"))
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:62: Sample percentage should be a numeric expression");
     }
@@ -106,7 +106,7 @@ public class TestTablesample
     @Test
     public void testInvalidRatioType()
     {
-        assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.sf1.orders TABLESAMPLE BERNOULLI (DATE '1970-01-02')"))
+        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.sf1.orders TABLESAMPLE BERNOULLI (DATE '1970-01-02')"))
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:61: Sample percentage should be a numeric expression");
     }

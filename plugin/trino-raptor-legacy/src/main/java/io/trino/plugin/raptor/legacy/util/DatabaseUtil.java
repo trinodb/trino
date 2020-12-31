@@ -14,7 +14,7 @@
 package io.trino.plugin.raptor.legacy.util;
 
 import com.google.common.base.Throwables;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.skife.jdbi.v2.Handle;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.TransactionCallback;
@@ -66,7 +66,7 @@ public final class DatabaseUtil
         }
         catch (DBIException e) {
             if (e.getCause() != null) {
-                throwIfInstanceOf(e.getCause(), PrestoException.class);
+                throwIfInstanceOf(e.getCause(), TrinoException.class);
             }
             throw metadataError(e);
         }
@@ -80,12 +80,12 @@ public final class DatabaseUtil
         });
     }
 
-    public static PrestoException metadataError(Throwable cause, String message)
+    public static TrinoException metadataError(Throwable cause, String message)
     {
-        return new PrestoException(RAPTOR_METADATA_ERROR, message, cause);
+        return new TrinoException(RAPTOR_METADATA_ERROR, message, cause);
     }
 
-    public static PrestoException metadataError(Throwable cause)
+    public static TrinoException metadataError(Throwable cause)
     {
         return metadataError(cause, "Failed to perform metadata operation");
     }

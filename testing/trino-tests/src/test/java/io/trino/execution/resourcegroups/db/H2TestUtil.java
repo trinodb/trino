@@ -27,7 +27,7 @@ import io.trino.plugin.resourcegroups.db.H2DaoProvider;
 import io.trino.plugin.resourcegroups.db.H2ResourceGroupsDao;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.testing.DistributedQueryRunner;
 
 import java.util.List;
@@ -189,7 +189,7 @@ final class H2TestUtil
         try {
             return ((DbResourceGroupConfigurationManager) queryRunner.getCoordinator().getResourceGroupManager().get().getConfigurationManager()).getSelectors();
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             if (e.getErrorCode() == CONFIGURATION_INVALID.toErrorCode()) {
                 return ImmutableList.of();
             }

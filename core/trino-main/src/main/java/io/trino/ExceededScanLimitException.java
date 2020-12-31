@@ -14,12 +14,12 @@
 package io.trino;
 
 import io.airlift.units.DataSize;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.EXCEEDED_SCAN_LIMIT;
 
 public class ExceededScanLimitException
-        extends PrestoException
+        extends TrinoException
 {
     public ExceededScanLimitException(DataSize limit)
     {

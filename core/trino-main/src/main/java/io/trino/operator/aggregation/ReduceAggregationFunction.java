@@ -26,7 +26,7 @@ import io.trino.operator.aggregation.state.NullableBooleanState;
 import io.trino.operator.aggregation.state.NullableDoubleState;
 import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.operator.aggregation.state.StateCompiler;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -147,7 +147,7 @@ public class ReduceAggregationFunction
             // State with Slice or Block as native container type is intentionally not supported yet,
             // as it may result in excessive JVM memory usage of remembered set.
             // See JDK-8017163.
-            throw new PrestoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
+            throw new TrinoException(NOT_SUPPORTED, format("State type not supported for %s: %s", NAME, stateType.getDisplayName()));
         }
 
         String name = getFunctionMetadata().getSignature().getName();

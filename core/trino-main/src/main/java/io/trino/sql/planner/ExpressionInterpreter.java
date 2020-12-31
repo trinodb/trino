@@ -27,7 +27,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.ArraySubscriptOperator;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
@@ -1282,7 +1282,7 @@ public class ExpressionInterpreter
                 SingleRowBlock row = (SingleRowBlock) base;
                 int position = toIntExact((long) index - 1);
                 if (position < 0 || position >= row.getPositionCount()) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));
                 }
                 Type returnType = type(node.getBase()).getTypeParameters().get(position);
                 return readNativeValue(returnType, row, position);
@@ -1304,7 +1304,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitExpression(Expression node, Object context)
         {
-            throw new PrestoException(NOT_SUPPORTED, "not yet implemented: " + node.getClass().getName());
+            throw new TrinoException(NOT_SUPPORTED, "not yet implemented: " + node.getClass().getName());
         }
 
         @Override

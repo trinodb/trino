@@ -20,7 +20,7 @@ import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.HostAddress;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -319,7 +319,7 @@ public class LocalFileRecordCursor
                 return magic == GZIP_MAGIC;
             }
             catch (IOException e) {
-                throw new PrestoException(LOCAL_FILE_READ_ERROR, "Error reading file: " + file.getName(), e);
+                throw new TrinoException(LOCAL_FILE_READ_ERROR, "Error reading file: " + file.getName(), e);
             }
         }
 

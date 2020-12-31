@@ -15,7 +15,7 @@ package io.trino.plugin.teradata.functions;
 
 import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
@@ -72,8 +72,8 @@ public final class TeradataDateFunctions
         }
         catch (Throwable t) {
             throwIfInstanceOf(t, Error.class);
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throwIfInstanceOf(t, TrinoException.class);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 
@@ -103,7 +103,7 @@ public final class TeradataDateFunctions
             return formatter.parseMillis(dateTime.toString(UTF_8));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 

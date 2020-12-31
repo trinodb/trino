@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 
@@ -116,7 +116,7 @@ public class HiveAnalyzeProperties
     private static void throwIfNull(Object object, String propertyName)
     {
         if (object == null) {
-            throw new PrestoException(INVALID_ANALYZE_PROPERTY, format("Invalid null value in analyze %s property", propertyName));
+            throw new TrinoException(INVALID_ANALYZE_PROPERTY, format("Invalid null value in analyze %s property", propertyName));
         }
     }
 }

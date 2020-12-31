@@ -14,7 +14,7 @@
 package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
@@ -80,7 +80,7 @@ public interface ConnectorMetadata
     @Nullable
     default ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support analyze");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support analyze");
     }
 
     /**
@@ -135,7 +135,7 @@ public interface ConnectorMetadata
     @Deprecated
     default ConnectorTableLayoutHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableLayoutHandle tableLayoutHandle, ConnectorPartitioningHandle partitioningHandle)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without makeCompatiblePartitioning()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without makeCompatiblePartitioning()");
     }
 
     /**
@@ -147,7 +147,7 @@ public interface ConnectorMetadata
      */
     default ConnectorTableHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorPartitioningHandle partitioningHandle)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without makeCompatiblePartitioning()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getCommonPartitioningHandle() is implemented without makeCompatiblePartitioning()");
     }
 
     /**
@@ -168,7 +168,7 @@ public interface ConnectorMetadata
      */
     default ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getTableMetadata()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getTableMetadata()");
     }
 
     /**
@@ -202,7 +202,7 @@ public interface ConnectorMetadata
      */
     default Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumnHandles()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumnHandles()");
     }
 
     /**
@@ -212,7 +212,7 @@ public interface ConnectorMetadata
      */
     default ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumnMetadata()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumnMetadata()");
     }
 
     /**
@@ -236,17 +236,17 @@ public interface ConnectorMetadata
      */
     default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
 
     /**
      * Drops the specified schema.
      *
-     * @throws PrestoException with {@code SCHEMA_NOT_EMPTY} if the schema is not empty
+     * @throws TrinoException with {@code SCHEMA_NOT_EMPTY} if the schema is not empty
      */
     default void dropSchema(ConnectorSession session, String schemaName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
     /**
@@ -254,7 +254,7 @@ public interface ConnectorMetadata
      */
     default void renameSchema(ConnectorSession session, String source, String target)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");
     }
 
     /**
@@ -262,17 +262,17 @@ public interface ConnectorMetadata
      */
     default void setSchemaAuthorization(ConnectorSession session, String source, PrestoPrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a schema");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a schema");
     }
 
     /**
      * Creates a table using the specified table metadata.
      *
-     * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
      */
     default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     /**
@@ -282,7 +282,7 @@ public interface ConnectorMetadata
      */
     default void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
     }
 
     /**
@@ -290,7 +290,7 @@ public interface ConnectorMetadata
      */
     default void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
     }
 
     /**
@@ -298,7 +298,7 @@ public interface ConnectorMetadata
      */
     default void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting table comments");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting table comments");
     }
 
     /**
@@ -306,7 +306,7 @@ public interface ConnectorMetadata
      */
     default void setColumnComment(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column, Optional<String> comment)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting column comments");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column comments");
     }
 
     /**
@@ -314,7 +314,7 @@ public interface ConnectorMetadata
      */
     default void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support adding columns");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support adding columns");
     }
 
     /**
@@ -322,7 +322,7 @@ public interface ConnectorMetadata
      */
     default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, PrestoPrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a table");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a table");
     }
 
     /**
@@ -330,7 +330,7 @@ public interface ConnectorMetadata
      */
     default void renameColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle source, String target)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
     }
 
     /**
@@ -338,7 +338,7 @@ public interface ConnectorMetadata
      */
     default void dropColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping columns");
     }
 
     /**
@@ -380,7 +380,7 @@ public interface ConnectorMetadata
      */
     default TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForStatisticsCollection() is implemented without getStatisticsCollectionMetadata()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForStatisticsCollection() is implemented without getStatisticsCollectionMetadata()");
     }
 
     /**
@@ -388,7 +388,7 @@ public interface ConnectorMetadata
      */
     default ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getStatisticsCollectionMetadata() is implemented without beginStatisticsCollection()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getStatisticsCollectionMetadata() is implemented without beginStatisticsCollection()");
     }
 
     /**
@@ -396,7 +396,7 @@ public interface ConnectorMetadata
      */
     default void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginStatisticsCollection() is implemented without finishStatisticsCollection()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginStatisticsCollection() is implemented without finishStatisticsCollection()");
     }
 
     /**
@@ -404,7 +404,7 @@ public interface ConnectorMetadata
      */
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
 
     /**
@@ -412,7 +412,7 @@ public interface ConnectorMetadata
      */
     default Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginCreateTable() is implemented without finishCreateTable()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginCreateTable() is implemented without finishCreateTable()");
     }
 
     /**
@@ -432,7 +432,7 @@ public interface ConnectorMetadata
     @Deprecated
     default ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     /**
@@ -456,7 +456,7 @@ public interface ConnectorMetadata
      */
     default Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginInsert() is implemented without finishInsert()");
     }
 
     /**
@@ -464,7 +464,7 @@ public interface ConnectorMetadata
      */
     default ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support materialized views");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 
     /**
@@ -478,7 +478,7 @@ public interface ConnectorMetadata
             Collection<ComputedStatistics> computedStatistics,
             List<ConnectorTableHandle> sourceTableHandles)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
     }
 
     /**
@@ -488,7 +488,7 @@ public interface ConnectorMetadata
      */
     default ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support updates or deletes");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates or deletes");
     }
 
     /**
@@ -496,7 +496,7 @@ public interface ConnectorMetadata
      */
     default ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
     /**
@@ -506,7 +506,7 @@ public interface ConnectorMetadata
      */
     default void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
     /**
@@ -515,7 +515,7 @@ public interface ConnectorMetadata
      */
     default void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating views");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating views");
     }
 
     /**
@@ -523,7 +523,7 @@ public interface ConnectorMetadata
      */
     default void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming views");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming views");
     }
 
     /**
@@ -531,7 +531,7 @@ public interface ConnectorMetadata
      */
     default void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, PrestoPrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support setting an owner on a view");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a view");
     }
 
     /**
@@ -539,7 +539,7 @@ public interface ConnectorMetadata
      */
     default void dropView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping views");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping views");
     }
 
     default List<SchemaTableName> listViews(ConnectorSession session, Optional<String> schemaName)
@@ -574,7 +574,7 @@ public interface ConnectorMetadata
      */
     default Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support schema properties");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema properties");
     }
 
     /**
@@ -582,7 +582,7 @@ public interface ConnectorMetadata
      */
     default Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support schema ownership");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema ownership");
     }
 
     /**
@@ -590,7 +590,7 @@ public interface ConnectorMetadata
      */
     default boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
     /**
@@ -600,7 +600,7 @@ public interface ConnectorMetadata
      */
     default OptionalLong metadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support deletes");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support deletes");
     }
 
     /**
@@ -619,7 +619,7 @@ public interface ConnectorMetadata
      */
     default OptionalLong executeDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata applyDelete() is implemented without executeDelete()");
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata applyDelete() is implemented without executeDelete()");
     }
 
     /**
@@ -637,7 +637,7 @@ public interface ConnectorMetadata
      */
     default void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support create role");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support create role");
     }
 
     /**
@@ -645,7 +645,7 @@ public interface ConnectorMetadata
      */
     default void dropRole(ConnectorSession session, String role)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support drop role");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support drop role");
     }
 
     /**
@@ -653,7 +653,7 @@ public interface ConnectorMetadata
      */
     default Set<String> listRoles(ConnectorSession session)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -661,7 +661,7 @@ public interface ConnectorMetadata
      */
     default Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -670,7 +670,7 @@ public interface ConnectorMetadata
      */
     default Set<RoleGrant> listAllRoleGrants(ConnectorSession session, Optional<Set<String>> roles, Optional<Set<String>> grantees, OptionalLong limit)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -680,7 +680,7 @@ public interface ConnectorMetadata
      */
     default void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -690,7 +690,7 @@ public interface ConnectorMetadata
      */
     default void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -698,7 +698,7 @@ public interface ConnectorMetadata
      */
     default Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -706,7 +706,7 @@ public interface ConnectorMetadata
      */
     default Set<String> listEnabledRoles(ConnectorSession session)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support roles");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
 
     /**
@@ -714,7 +714,7 @@ public interface ConnectorMetadata
      */
     default void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
     }
 
     /**
@@ -722,7 +722,7 @@ public interface ConnectorMetadata
      */
     default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
     }
 
     /**
@@ -730,7 +730,7 @@ public interface ConnectorMetadata
      */
     default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants on tables");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on tables");
     }
 
     /**
@@ -738,7 +738,7 @@ public interface ConnectorMetadata
      */
     default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes on tables");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on tables");
     }
 
     /**
@@ -772,7 +772,7 @@ public interface ConnectorMetadata
         List<ConnectorTableLayoutResult> layouts = getTableLayouts(session, table, Constraint.alwaysTrue(), Optional.empty());
 
         if (layouts.size() != 1) {
-            throw new PrestoException(NOT_SUPPORTED, format("Connector must return a single layout for table %s, but got %s", table, layouts.size()));
+            throw new TrinoException(NOT_SUPPORTED, format("Connector must return a single layout for table %s, but got %s", table, layouts.size()));
         }
 
         return new ConnectorTableProperties(layouts.get(0).getTableLayout());
@@ -1023,12 +1023,12 @@ public interface ConnectorMetadata
     /**
      * Create the specified materialized view. The view definition is intended to
      * be serialized by the connector for permanent storage.
-     * @throws PrestoException with {@code ALREADY_EXISTS} if the object already exists and {@param ignoreExisting} is not set
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the object already exists and {@param ignoreExisting} is not set
      *
      */
     default void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating materialized views");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating materialized views");
     }
 
     /**
@@ -1036,7 +1036,7 @@ public interface ConnectorMetadata
      */
     default void dropMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping materialized views");
     }
 
     /**

@@ -15,7 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -50,14 +50,14 @@ public class QueryPreparer
     }
 
     public PreparedQuery prepareQuery(Session session, String query)
-            throws ParsingException, PrestoException
+            throws ParsingException, TrinoException
     {
         Statement wrappedStatement = sqlParser.createStatement(query, createParsingOptions(session));
         return prepareQuery(session, wrappedStatement);
     }
 
     public PreparedQuery prepareQuery(Session session, Statement wrappedStatement)
-            throws ParsingException, PrestoException
+            throws ParsingException, TrinoException
     {
         Statement statement = wrappedStatement;
         Optional<String> prepareSql = Optional.empty();
@@ -70,7 +70,7 @@ public class QueryPreparer
             Statement innerStatement = ((Explain) statement).getStatement();
             Optional<QueryType> innerQueryType = StatementUtils.getQueryType(innerStatement.getClass());
             if (innerQueryType.isEmpty() || innerQueryType.get() == QueryType.DATA_DEFINITION) {
-                throw new PrestoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
+                throw new TrinoException(NOT_SUPPORTED, "EXPLAIN ANALYZE doesn't support statement type: " + innerStatement.getClass().getSimpleName());
             }
         }
         List<Expression> parameters = ImmutableList.of();

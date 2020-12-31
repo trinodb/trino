@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.backup;
 import com.google.common.io.Files;
 import io.trino.plugin.raptor.legacy.storage.BackupStats;
 import io.trino.plugin.raptor.legacy.storage.FileStorageService;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -120,7 +120,7 @@ public class TestBackupManager
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
-            PrestoException e = (PrestoException) wrapper.getCause();
+            TrinoException e = (TrinoException) wrapper.getCause();
             assertEquals(e.getErrorCode(), RAPTOR_BACKUP_ERROR.toErrorCode());
             assertEquals(e.getMessage(), "Backup failed for testing");
         }
@@ -144,7 +144,7 @@ public class TestBackupManager
             fail("expected exception");
         }
         catch (ExecutionException wrapper) {
-            PrestoException e = (PrestoException) wrapper.getCause();
+            TrinoException e = (TrinoException) wrapper.getCause();
             assertEquals(e.getErrorCode(), RAPTOR_BACKUP_CORRUPTION.toErrorCode());
             assertEquals(e.getMessage(), "Backup is corrupt after write: " + CORRUPTION_UUID);
         }
@@ -185,7 +185,7 @@ public class TestBackupManager
         public void backupShard(UUID uuid, File source)
         {
             if (uuid.equals(FAILURE_UUID)) {
-                throw new PrestoException(RAPTOR_BACKUP_ERROR, "Backup failed for testing");
+                throw new TrinoException(RAPTOR_BACKUP_ERROR, "Backup failed for testing");
             }
             delegate.backupShard(uuid, source);
         }

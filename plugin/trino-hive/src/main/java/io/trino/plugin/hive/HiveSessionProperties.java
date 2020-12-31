@@ -21,7 +21,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
@@ -212,7 +212,7 @@ public final class HiveSessionProperties
                         value -> {
                             double doubleValue = (double) value;
                             if (doubleValue < 0.0 || doubleValue > 100.0) {
-                                throw new PrestoException(
+                                throw new TrinoException(
                                         INVALID_SESSION_PROPERTY,
                                         format("%s must be between 0.0 and 100.0 inclusive: %s", ORC_OPTIMIZED_WRITER_VALIDATE_PERCENTAGE, doubleValue));
                             }
@@ -521,7 +521,7 @@ public final class HiveSessionProperties
     {
         Boolean useOrcColumnNames = session.getProperty(ORC_USE_COLUMN_NAME, Boolean.class);
         if (isPartitionUseColumnNames(session) && !useOrcColumnNames) {
-            throw new PrestoException(
+            throw new TrinoException(
                     INVALID_SESSION_PROPERTY,
                     format("%s must be set when %s is set", ORC_USE_COLUMN_NAME, PARTITION_USE_COLUMN_NAMES));
         }
@@ -558,7 +558,7 @@ public final class HiveSessionProperties
         boolean useParquetColumnNames = session.getProperty(PARQUET_USE_COLUMN_NAME, Boolean.class);
         boolean partitionUseColumnNames = isPartitionUseColumnNames(session);
         if (partitionUseColumnNames && !useParquetColumnNames) {
-            throw new PrestoException(
+            throw new TrinoException(
                     INVALID_SESSION_PROPERTY,
                     format("%s must be set when %s is set", PARQUET_USE_COLUMN_NAME, PARTITION_USE_COLUMN_NAMES));
         }
@@ -619,7 +619,7 @@ public final class HiveSessionProperties
     {
         int size = session.getProperty(PARTITION_STATISTICS_SAMPLE_SIZE, Integer.class);
         if (size < 1) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", PARTITION_STATISTICS_SAMPLE_SIZE, size));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than 0: %s", PARTITION_STATISTICS_SAMPLE_SIZE, size));
         }
         return size;
     }

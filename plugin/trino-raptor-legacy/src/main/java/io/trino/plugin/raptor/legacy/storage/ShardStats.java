@@ -21,7 +21,7 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcRecordReader;
 import io.trino.plugin.raptor.legacy.metadata.ColumnStats;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -79,7 +79,7 @@ public final class ShardStats
                 UTC,
                 newSimpleAggregatedMemoryContext(),
                 INITIAL_BATCH_SIZE,
-                exception -> new PrestoException(RAPTOR_ERROR, "Error reading column: " + columnId, exception));
+                exception -> new TrinoException(RAPTOR_ERROR, "Error reading column: " + columnId, exception));
 
         if (type.equals(BooleanType.BOOLEAN)) {
             return indexBoolean(reader, columnId);
@@ -104,7 +104,7 @@ public final class ShardStats
         return columnNames.stream()
                 .filter(column -> column.getColumnName().equals(columnName))
                 .findFirst()
-                .orElseThrow(() -> new PrestoException(RAPTOR_ERROR, "Missing column ID: " + columnId));
+                .orElseThrow(() -> new TrinoException(RAPTOR_ERROR, "Missing column ID: " + columnId));
     }
 
     private static ColumnStats indexBoolean(OrcRecordReader reader, long columnId)

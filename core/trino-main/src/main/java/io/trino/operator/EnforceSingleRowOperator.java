@@ -14,7 +14,7 @@
 package io.trino.operator;
 
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ByteArrayBlock;
 import io.trino.sql.planner.plan.PlanNodeId;
 
@@ -108,7 +108,7 @@ public class EnforceSingleRowOperator
             return;
         }
         if (this.page != null || page.getPositionCount() > 1) {
-            throw new PrestoException(SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows");
+            throw new TrinoException(SUBQUERY_MULTIPLE_ROWS, "Scalar sub-query has returned multiple rows");
         }
         this.page = page;
     }

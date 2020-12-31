@@ -21,7 +21,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.security.CatalogAccessControlRule.AccessMode;
 import io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -219,9 +219,9 @@ public class FileBasedSystemAccessControl
             return create(configFileName);
         }
 
-        private static PrestoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
+        private static TrinoException invalidRefreshPeriodException(Map<String, String> config, String configFileName)
         {
-            return new PrestoException(
+            return new TrinoException(
                     CONFIGURATION_INVALID,
                     format("Invalid duration value '%s' for property '%s' in '%s'", config.get(SECURITY_REFRESH_PERIOD), SECURITY_REFRESH_PERIOD, configFileName));
         }

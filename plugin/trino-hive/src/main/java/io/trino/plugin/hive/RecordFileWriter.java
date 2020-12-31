@@ -20,7 +20,7 @@ import io.trino.plugin.hive.parquet.ParquetRecordWriter;
 import io.trino.plugin.hive.util.FieldSetterFactory;
 import io.trino.plugin.hive.util.FieldSetterFactory.FieldSetter;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
@@ -176,7 +176,7 @@ public class RecordFileWriter
             recordWriter.write(serializer.serialize(row, tableInspector));
         }
         catch (SerDeException | IOException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
+            throw new TrinoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 
@@ -188,7 +188,7 @@ public class RecordFileWriter
             committed = true;
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
     }
 
@@ -205,7 +205,7 @@ public class RecordFileWriter
             }
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", e);
         }
     }
 

@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.MappingJsonFactory;
 import com.google.common.primitives.Doubles;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.util.JsonTypeUtil;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -92,26 +92,26 @@ public final class JsonFunctions
         try (JsonParser parser = createJsonParser(JSON_FACTORY, json)) {
             JsonToken nextToken = parser.nextToken();
             if (nextToken == null) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
             }
 
             if (nextToken == START_ARRAY || nextToken == START_OBJECT) {
                 parser.skipChildren();
                 if (parser.nextToken() != null) {
                     // extra trailing token after json array/object
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
                 }
                 return false;
             }
 
             if (parser.nextToken() != null) {
                 // extra trailing token after json scalar
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
             }
             return true;
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid JSON value: " + truncateIfNecessaryForErrorMessage(json));
         }
     }
 

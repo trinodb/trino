@@ -18,8 +18,8 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryTracker.TrackedQuery;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -122,7 +122,7 @@ public class QueryTracker<T extends TrackedQuery>
             }
 
             log.info("Server shutting down. Query %s has been cancelled", trackedQuery.getQueryId());
-            trackedQuery.fail(new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down. Query " + trackedQuery.getQueryId() + " has been cancelled"));
+            trackedQuery.fail(new TrinoException(SERVER_SHUTTING_DOWN, "Server is shutting down. Query " + trackedQuery.getQueryId() + " has been cancelled"));
             queryCancelled = true;
         }
         if (queryCancelled) {
@@ -181,10 +181,10 @@ public class QueryTracker<T extends TrackedQuery>
             Optional<DateTime> executionStartTime = query.getExecutionStartTime();
             DateTime createTime = query.getCreateTime();
             if (executionStartTime.isPresent() && executionStartTime.get().plus(queryMaxExecutionTime.toMillis()).isBeforeNow()) {
-                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
+                query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded the maximum execution time limit of " + queryMaxExecutionTime));
             }
             if (createTime.plus(queryMaxRunTime.toMillis()).isBeforeNow()) {
-                query.fail(new PrestoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
+                query.fail(new TrinoException(EXCEEDED_TIME_LIMIT, "Query exceeded maximum time limit of " + queryMaxRunTime));
             }
         }
     }
@@ -254,7 +254,7 @@ public class QueryTracker<T extends TrackedQuery>
 
                 if (isAbandoned(query)) {
                     log.info("Failing abandoned query %s", query.getQueryId());
-                    query.fail(new PrestoException(
+                    query.fail(new TrinoException(
                             ABANDONED_QUERY,
                             format("Query %s has not been accessed since %s: currentTime %s",
                                     query.getQueryId(),

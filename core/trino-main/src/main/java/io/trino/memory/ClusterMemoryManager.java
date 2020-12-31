@@ -34,8 +34,8 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.ServerConfig;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.memory.MemoryPoolInfo;
@@ -223,7 +223,7 @@ public class ClusterMemoryManager
             if (resourceOvercommit && outOfMemory) {
                 // If a query has requested resource overcommit, only kill it if the cluster has run out of memory
                 DataSize memory = succinctBytes(getQueryMemoryReservation(query));
-                query.fail(new PrestoException(CLUSTER_OUT_OF_MEMORY,
+                query.fail(new TrinoException(CLUSTER_OUT_OF_MEMORY,
                         format("The cluster is out of memory and %s=true, so this query was killed. It was using %s of memory", RESOURCE_OVERCOMMIT, memory)));
                 queryKilled = true;
             }
@@ -299,7 +299,7 @@ public class ClusterMemoryManager
             Optional<QueryExecution> chosenQuery = Streams.stream(runningQueries).filter(query -> chosenQueryId.get().equals(query.getQueryId())).collect(toOptional());
             if (chosenQuery.isPresent()) {
                 // See comments in  isLastKilledQueryGone for why chosenQuery might be absent.
-                chosenQuery.get().fail(new PrestoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
+                chosenQuery.get().fail(new TrinoException(CLUSTER_OUT_OF_MEMORY, "Query killed because the cluster is out of memory. Please try again in a few minutes."));
                 queriesKilledDueToOutOfMemory.incrementAndGet();
                 lastKilledQuery = chosenQueryId.get();
                 logQueryKill(chosenQueryId.get(), nodeMemoryInfos);

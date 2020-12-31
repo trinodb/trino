@@ -20,7 +20,7 @@ import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -212,22 +212,22 @@ public class TestQueryResultRows
                 .hasSize(4);
 
         assertThat(exceptions.get(0))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Could not serialize column '_col1' of type 'Bogus' at position 1:2")
                 .hasRootCauseMessage("This is bogus exception");
 
         assertThat(exceptions.get(1))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Could not serialize column '_col1' of type 'Bogus' at position 3:2")
                 .hasRootCauseMessage("This is bogus exception");
 
         assertThat(exceptions.get(2))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Could not serialize column '_col0' of type 'Bogus' at position 4:1")
                 .hasRootCauseMessage("This is bogus exception");
 
         assertThat(exceptions.get(3))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Could not serialize column '_col1' of type 'Bogus' at position 5:2")
                 .hasRootCauseMessage("This is bogus exception");
     }

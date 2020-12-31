@@ -17,7 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Use;
@@ -51,14 +51,14 @@ public class UseTask
                         semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified when session catalog is not set")));
 
         if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
-            throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
+            throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 
         String schema = statement.getSchema().getValue().toLowerCase(ENGLISH);
 
         CatalogSchemaName name = new CatalogSchemaName(catalog, schema);
         if (!metadata.schemaExists(session, name)) {
-            throw new PrestoException(NOT_FOUND, "Schema does not exist: " + name);
+            throw new TrinoException(NOT_FOUND, "Schema does not exist: " + name);
         }
 
         if (statement.getCatalog().isPresent()) {

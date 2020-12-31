@@ -43,7 +43,7 @@ import io.trino.orc.metadata.statistics.StringStatisticsBuilder;
 import io.trino.orc.metadata.statistics.StripeStatistics;
 import io.trino.orc.metadata.statistics.TimestampStatisticsBuilder;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.ColumnarRow;
@@ -693,7 +693,7 @@ public class OrcWriteValidation
                         .collect(toImmutableList());
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
+                throw new TrinoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
             }
         }
 

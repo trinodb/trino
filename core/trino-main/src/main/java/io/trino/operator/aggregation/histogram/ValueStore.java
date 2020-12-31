@@ -16,7 +16,7 @@ package io.trino.operator.aggregation.histogram;
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.array.IntBigArray;
 import io.trino.array.LongBigArray;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -123,7 +123,7 @@ public class ValueStore
         long newBucketCountLong = bucketCount * 2L;
 
         if (newBucketCountLong > Integer.MAX_VALUE) {
-            throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed " + Integer.MAX_VALUE + " entries (" + newBucketCountLong + ")");
+            throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of hash table cannot exceed " + Integer.MAX_VALUE + " entries (" + newBucketCountLong + ")");
         }
 
         int newBucketCount = (int) newBucketCountLong;

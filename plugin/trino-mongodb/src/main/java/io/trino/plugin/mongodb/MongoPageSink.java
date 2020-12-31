@@ -20,8 +20,8 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.InsertManyOptions;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.SchemaTableName;
@@ -212,7 +212,7 @@ public class MongoPageSink
 
             List<Type> fieldTypes = type.getTypeParameters();
             if (fieldTypes.size() != rowBlock.getPositionCount()) {
-                throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
+                throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
             }
 
             if (isImplicitRowType(type)) {
@@ -233,7 +233,7 @@ public class MongoPageSink
             return unmodifiableMap(rowValue);
         }
 
-        throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 
     private boolean isImplicitRowType(Type type)

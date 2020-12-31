@@ -16,7 +16,7 @@ package io.trino;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TimeZoneKey;
@@ -118,7 +118,7 @@ public class FullConnectorSession
     public <T> T getProperty(String propertyName, Class<T> type)
     {
         if (properties == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalog, propertyName));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("Unknown session property: %s.%s", catalog, propertyName));
         }
 
         return sessionPropertyManager.decodeCatalogPropertyValue(catalogName, catalog, propertyName, properties.get(propertyName), type);

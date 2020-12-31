@@ -38,7 +38,7 @@ import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidSchema;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.EmptyPageSource;
@@ -242,9 +242,9 @@ public class OrcPageSourceFactory
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
                     e instanceof FileNotFoundException) {
-                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
+                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
         }
 
         AggregatedMemoryContext systemMemoryUsage = newSimpleAggregatedMemoryContext();
@@ -415,14 +415,14 @@ public class OrcPageSourceFactory
             }
             catch (IOException ignored) {
             }
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
+            if (e instanceof TrinoException) {
+                throw (TrinoException) e;
             }
             String message = splitError(e, path, start, length);
             if (e instanceof BlockMissingException) {
-                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+                throw new TrinoException(HIVE_MISSING_DATA, message, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
     }
 
@@ -439,7 +439,7 @@ public class OrcPageSourceFactory
     private static void verifyFileHasColumnNames(List<OrcColumn> columns, Path path)
     {
         if (!columns.isEmpty() && columns.stream().map(OrcColumn::getColumnName).allMatch(physicalColumnName -> DEFAULT_HIVE_COLUMN_NAME_PATTERN.matcher(physicalColumnName).matches())) {
-            throw new PrestoException(
+            throw new TrinoException(
                     HIVE_FILE_MISSING_COLUMN_NAMES,
                     "ORC file does not contain column names in the footer: " + path);
         }
@@ -450,7 +450,7 @@ public class OrcPageSourceFactory
         OrcColumn rootColumn = orcReader.getRootColumn();
         List<OrcColumn> nestedColumns = rootColumn.getNestedColumns();
         if (nestedColumns.size() != 6) {
-            throw new PrestoException(
+            throw new TrinoException(
                     HIVE_BAD_DATA,
                     format(
                             "ORC ACID file should have 6 columns, found %s %s in %s",
@@ -472,10 +472,10 @@ public class OrcPageSourceFactory
     {
         OrcColumn column = orcReader.getRootColumn().getNestedColumns().get(columnIndex);
         if (!column.getColumnName().toLowerCase(ENGLISH).equals(columnName.toLowerCase(ENGLISH))) {
-            throw new PrestoException(HIVE_BAD_DATA, format("ORC ACID file column %s should be named %s: %s", columnIndex, columnName, path));
+            throw new TrinoException(HIVE_BAD_DATA, format("ORC ACID file column %s should be named %s: %s", columnIndex, columnName, path));
         }
         if (column.getColumnType() != columnType) {
-            throw new PrestoException(HIVE_BAD_DATA, format("ORC ACID file %s column should be type %s: %s", columnName, columnType, path));
+            throw new TrinoException(HIVE_BAD_DATA, format("ORC ACID file %s column should be type %s: %s", columnName, columnType, path));
         }
     }
 

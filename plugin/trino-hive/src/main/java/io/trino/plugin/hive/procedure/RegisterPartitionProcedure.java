@@ -28,7 +28,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveWriteUtils;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -110,7 +110,7 @@ public class RegisterPartitionProcedure
     private void doRegisterPartition(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, List<String> partitionColumn, List<String> partitionValues, String location)
     {
         if (!allowRegisterPartition) {
-            throw new PrestoException(PERMISSION_DENIED, "register_partition procedure is disabled");
+            throw new TrinoException(PERMISSION_DENIED, "register_partition procedure is disabled");
         }
 
         HiveIdentity identity = new HiveIdentity(session);
@@ -128,7 +128,7 @@ public class RegisterPartitionProcedure
         Optional<Partition> partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues);
         if (partition.isPresent()) {
             String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
-            throw new PrestoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
+            throw new TrinoException(ALREADY_EXISTS, format("Partition [%s] is already registered with location %s", partitionName, partition.get().getStorage().getLocation()));
         }
 
         Path partitionLocation;
@@ -141,7 +141,7 @@ public class RegisterPartitionProcedure
         }
 
         if (!HiveWriteUtils.pathExists(hdfsContext, hdfsEnvironment, partitionLocation)) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Partition location does not exist: " + partitionLocation);
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Partition location does not exist: " + partitionLocation);
         }
 
         SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create()).getMetastore();

@@ -23,7 +23,7 @@ import io.trino.geospatial.Rectangle;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.SortOrder;
@@ -232,7 +232,7 @@ public class PagesIndex
 
             // this uses a long[] internally, so cap size to a nice round number for safety
             if (valueAddresses.size() >= 2_000_000_000) {
-                throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
+                throw new TrinoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
             }
             valueAddresses.add(sliceAddress);
         }

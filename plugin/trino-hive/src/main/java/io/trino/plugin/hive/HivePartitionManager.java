@@ -21,7 +21,7 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.trino.plugin.hive.util.Optionals;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.Constraint;
@@ -165,7 +165,7 @@ public class HivePartitionManager
         while (iterator.hasNext()) {
             HivePartition partition = iterator.next();
             if (count == maxPartitions) {
-                throw new PrestoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
+                throw new TrinoException(HIVE_EXCEEDED_PARTITION_LIMIT, format(
                         "Query over table '%s' can potentially read more than %s partitions",
                         partition.getTableName(),
                         maxPartitions));

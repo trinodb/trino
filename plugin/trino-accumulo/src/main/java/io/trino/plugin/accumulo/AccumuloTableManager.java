@@ -14,7 +14,7 @@
 package io.trino.plugin.accumulo;
 
 import io.airlift.log.Logger;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
@@ -66,7 +66,7 @@ public class AccumuloTableManager
             }
         }
         catch (AccumuloException | AccumuloSecurityException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to check for existence or create Accumulo namespace", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to check for existence or create Accumulo namespace", e);
         }
         catch (NamespaceExistsException e) {
             // Suppress race condition between test for existence and creation
@@ -85,10 +85,10 @@ public class AccumuloTableManager
             connector.tableOperations().create(table);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to create Accumulo table", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to create Accumulo table", e);
         }
         catch (TableExistsException e) {
-            throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Accumulo table already exists", e);
+            throw new TrinoException(ACCUMULO_TABLE_EXISTS, "Accumulo table already exists", e);
         }
     }
 
@@ -103,10 +103,10 @@ public class AccumuloTableManager
             LOG.debug("Set locality groups for %s to %s", tableName, groups);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set locality groups", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set locality groups", e);
         }
         catch (TableNotFoundException e) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, "Failed to set locality groups, table does not exist", e);
+            throw new TrinoException(ACCUMULO_TABLE_DNE, "Failed to set locality groups, table does not exist", e);
         }
     }
 
@@ -122,10 +122,10 @@ public class AccumuloTableManager
             connector.tableOperations().attachIterator(table, setting);
         }
         catch (AccumuloSecurityException | AccumuloException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set iterator on table " + table, e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to set iterator on table " + table, e);
         }
         catch (TableNotFoundException e) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, "Failed to set iterator, table does not exist", e);
+            throw new TrinoException(ACCUMULO_TABLE_DNE, "Failed to set iterator, table does not exist", e);
         }
     }
 
@@ -135,10 +135,10 @@ public class AccumuloTableManager
             connector.tableOperations().delete(tableName);
         }
         catch (AccumuloException | AccumuloSecurityException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to delete Accumulo table", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to delete Accumulo table", e);
         }
         catch (TableNotFoundException e) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, "Failed to delete Accumulo table, does not exist", e);
+            throw new TrinoException(ACCUMULO_TABLE_DNE, "Failed to delete Accumulo table, does not exist", e);
         }
     }
 
@@ -148,13 +148,13 @@ public class AccumuloTableManager
             connector.tableOperations().rename(oldName, newName);
         }
         catch (AccumuloSecurityException | AccumuloException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to rename table", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to rename table", e);
         }
         catch (TableNotFoundException e) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, "Failed to rename table, old table does not exist", e);
+            throw new TrinoException(ACCUMULO_TABLE_DNE, "Failed to rename table, old table does not exist", e);
         }
         catch (TableExistsException e) {
-            throw new PrestoException(ACCUMULO_TABLE_EXISTS, "Failed to rename table, new table already exists", e);
+            throw new TrinoException(ACCUMULO_TABLE_EXISTS, "Failed to rename table, new table already exists", e);
         }
     }
 }

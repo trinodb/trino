@@ -16,7 +16,7 @@ package io.trino.plugin.elasticsearch.decoders;
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.elasticsearch.search.SearchHit;
@@ -56,7 +56,7 @@ public class IpAddressDecoder
             ipAddressType.writeSlice(output, slice);
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type IP: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type IP: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 
@@ -68,7 +68,7 @@ public class IpAddressDecoder
             address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
         }
 
         byte[] bytes;
@@ -82,7 +82,7 @@ public class IpAddressDecoder
             bytes = address;
         }
         else {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
         }
 
         return wrappedBuffer(bytes);

@@ -14,7 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -137,10 +137,10 @@ public final class SmallintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Short.MAX_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT", value));
         }
         if (value < Short.MIN_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_SHORT", value));
         }
 
         blockBuilder.writeShort((int) value).closeEntry();

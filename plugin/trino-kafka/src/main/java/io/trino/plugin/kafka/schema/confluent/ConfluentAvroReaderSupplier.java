@@ -19,7 +19,7 @@ import com.google.common.cache.LoadingCache;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.decoder.avro.AvroReaderSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.io.DatumReader;
@@ -57,7 +57,7 @@ public class ConfluentAvroReaderSupplier<T>
             return new GenericDatumReader<>(sourceSchema, targetSchema);
         }
         catch (IOException | RestClientException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Looking up schemaId '%s'from confluent schema registry failed", id), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Looking up schemaId '%s'from confluent schema registry failed", id), e);
         }
     }
 

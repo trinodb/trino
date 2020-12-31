@@ -14,7 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -114,7 +114,7 @@ public final class DecimalConversions
     private static Slice internalDoubleToLongDecimal(double value, long precision, long scale)
     {
         if (Double.isInfinite(value) || Double.isNaN(value)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
 
         try {
@@ -122,12 +122,12 @@ public final class DecimalConversions
             BigDecimal bigDecimal = BigDecimal.valueOf(value).setScale(intScale(scale), HALF_UP);
             Slice decimal = Decimals.encodeScaledValue(bigDecimal);
             if (UnscaledDecimal128Arithmetic.overflows(decimal, intScale(precision))) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast DOUBLE '%s' to DECIMAL(%s, %s)", value, precision, scale));
         }
     }
 
@@ -153,7 +153,7 @@ public final class DecimalConversions
     {
         float floatValue = intBitsToFloat(intScale(value));
         if (Float.isInfinite(floatValue) || Float.isNaN(floatValue)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
         }
 
         try {
@@ -161,12 +161,12 @@ public final class DecimalConversions
             BigDecimal bigDecimal = new BigDecimal(String.valueOf(floatValue)).setScale(intScale(scale), HALF_UP);
             Slice decimal = Decimals.encodeScaledValue(bigDecimal);
             if (UnscaledDecimal128Arithmetic.overflows(decimal, intScale(precision))) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+                throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
             }
             return decimal;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast REAL '%s' to DECIMAL(%s, %s)", floatValue, precision, scale));
         }
     }
 
@@ -245,9 +245,9 @@ public final class DecimalConversions
         }
     }
 
-    private static PrestoException throwCastException(long value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
+    private static TrinoException throwCastException(long value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
     {
-        return new PrestoException(INVALID_CAST_ARGUMENT,
+        return new TrinoException(INVALID_CAST_ARGUMENT,
                 format("Cannot cast DECIMAL(%d, %d) '%s' to DECIMAL(%d, %d)",
                         sourcePrecision,
                         sourceScale,
@@ -256,9 +256,9 @@ public final class DecimalConversions
                         resultScale));
     }
 
-    private static PrestoException throwCastException(BigInteger value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
+    private static TrinoException throwCastException(BigInteger value, long sourcePrecision, long sourceScale, long resultPrecision, long resultScale)
     {
-        return new PrestoException(INVALID_CAST_ARGUMENT,
+        return new TrinoException(INVALID_CAST_ARGUMENT,
                 format("Cannot cast DECIMAL(%d, %d) '%s' to DECIMAL(%d, %d)",
                         sourcePrecision,
                         sourceScale,

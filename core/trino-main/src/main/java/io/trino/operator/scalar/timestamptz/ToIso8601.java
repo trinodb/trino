@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -78,7 +78,7 @@ public final class ToIso8601
 
         ZoneOffset offset = zoneId.getRules().getValidOffsets(dateTime).get(0);
         if (offset.getTotalSeconds() % 60 != 0) {
-            throw new PrestoException(INVALID_ARGUMENTS, "Timezone with non-zero seconds offset cannot be rendered as ISO8601: " + offset.getId());
+            throw new TrinoException(INVALID_ARGUMENTS, "Timezone with non-zero seconds offset cannot be rendered as ISO8601: " + offset.getId());
         }
 
         return DateTimes.formatTimestamp(precision, dateTime, picoFraction, ISO8601_FORMATTER, builder -> builder.append(offset));

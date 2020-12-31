@@ -21,7 +21,7 @@ import io.trino.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SignatureBuilder;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -144,7 +144,7 @@ public final class DecimalOperators
             return left;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -168,7 +168,7 @@ public final class DecimalOperators
             return left;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -245,7 +245,7 @@ public final class DecimalOperators
             return tmp;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -287,7 +287,7 @@ public final class DecimalOperators
             return result;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -300,7 +300,7 @@ public final class DecimalOperators
             return result;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -319,7 +319,7 @@ public final class DecimalOperators
             return result;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -365,7 +365,7 @@ public final class DecimalOperators
     public static long divideShortShortShort(long dividend, long divisor, int rescaleFactor)
     {
         if (divisor == 0) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
 
         if (dividend == 0) {
@@ -392,13 +392,13 @@ public final class DecimalOperators
     public static long divideShortLongShort(long dividend, Slice divisor, int rescaleFactor)
     {
         if (isZero(divisor)) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return unscaledDecimalToUnscaledLong(divideRoundUp(dividend, rescaleFactor, divisor));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -406,13 +406,13 @@ public final class DecimalOperators
     public static long divideLongShortShort(Slice dividend, long divisor, int rescaleFactor)
     {
         if (divisor == 0) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return unscaledDecimalToUnscaledLong(divideRoundUp(dividend, rescaleFactor, divisor));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -420,13 +420,13 @@ public final class DecimalOperators
     public static Slice divideShortShortLong(long dividend, long divisor, int rescaleFactor)
     {
         if (divisor == 0) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return divideRoundUp(dividend, rescaleFactor, divisor);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -434,13 +434,13 @@ public final class DecimalOperators
     public static Slice divideLongLongLong(Slice dividend, Slice divisor, int rescaleFactor)
     {
         if (isZero(divisor)) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return divideRoundUp(dividend, rescaleFactor, divisor);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -448,13 +448,13 @@ public final class DecimalOperators
     public static Slice divideShortLongLong(long dividend, Slice divisor, int rescaleFactor)
     {
         if (isZero(divisor)) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return divideRoundUp(dividend, rescaleFactor, divisor);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -462,13 +462,13 @@ public final class DecimalOperators
     public static Slice divideLongShortLong(Slice dividend, long divisor, int rescaleFactor)
     {
         if (divisor == 0) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return divideRoundUp(dividend, rescaleFactor, divisor);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -554,13 +554,13 @@ public final class DecimalOperators
     public static long modulusShortShortShort(long dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor == 0) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return unscaledDecimalToUnscaledLong(remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -568,13 +568,13 @@ public final class DecimalOperators
     public static long modulusShortLongShort(long dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (isZero(divisor)) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return unscaledDecimalToUnscaledLong(remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -582,13 +582,13 @@ public final class DecimalOperators
     public static long modulusLongShortShort(Slice dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor == 0) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return unscaledDecimalToUnscaledLong(remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -596,13 +596,13 @@ public final class DecimalOperators
     public static Slice modulusShortLongLong(long dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (isZero(divisor)) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -610,13 +610,13 @@ public final class DecimalOperators
     public static Slice modulusLongShortLong(Slice dividend, long divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (divisor == 0) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 
@@ -624,13 +624,13 @@ public final class DecimalOperators
     public static Slice modulusLongLongLong(Slice dividend, Slice divisor, int dividendRescaleFactor, int divisorRescaleFactor)
     {
         if (isZero(divisor)) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero");
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero");
         }
         try {
             return remainder(dividend, dividendRescaleFactor, divisor, divisorRescaleFactor);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
         }
     }
 

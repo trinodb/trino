@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
@@ -85,7 +85,7 @@ public class SheetsClient
             this.sheetsService = new Sheets.Builder(newTrustedTransport(), JSON_FACTORY, getCredentials()).setApplicationName(APPLICATION_NAME).build();
         }
         catch (GeneralSecurityException | IOException e) {
-            throw new PrestoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
+            throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
         }
         long expiresAfterWriteMillis = config.getSheetsDataExpireAfterWrite().toMillis();
         long maxCacheSize = config.getSheetsDataMaxCacheSize();
@@ -146,8 +146,8 @@ public class SheetsClient
             return tables.build();
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw new PrestoException(SHEETS_METASTORE_ERROR, e);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw new TrinoException(SHEETS_METASTORE_ERROR, e);
         }
     }
 
@@ -156,13 +156,13 @@ public class SheetsClient
         try {
             Optional<String> sheetExpression = tableSheetMappingCache.getUnchecked(tableName);
             if (sheetExpression.isEmpty()) {
-                throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName);
+                throw new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Sheet expression not found for table " + tableName);
             }
             return sheetDataCache.getUnchecked(sheetExpression.get());
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
-            throw new PrestoException(SHEETS_TABLE_LOAD_ERROR, "Error loading data for table: " + tableName, e);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
+            throw new TrinoException(SHEETS_TABLE_LOAD_ERROR, "Error loading data for table: " + tableName, e);
         }
     }
 
@@ -196,7 +196,7 @@ public class SheetsClient
             return GoogleCredential.fromStream(in).createScoped(SCOPES);
         }
         catch (IOException e) {
-            throw new PrestoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
+            throw new TrinoException(SHEETS_BAD_CREDENTIALS_ERROR, e);
         }
     }
 
@@ -214,7 +214,7 @@ public class SheetsClient
             return sheetsService.spreadsheets().values().get(sheetId, defaultRange).execute().getValues();
         }
         catch (IOException e) {
-            throw new PrestoException(SHEETS_UNKNOWN_TABLE_ERROR, "Failed reading data from sheet: " + sheetExpression, e);
+            throw new TrinoException(SHEETS_UNKNOWN_TABLE_ERROR, "Failed reading data from sheet: " + sheetExpression, e);
         }
     }
 

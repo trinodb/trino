@@ -13,7 +13,7 @@
  */
 package io.trino.rcfile;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -123,6 +123,6 @@ public interface RcFileEncoding
                             .map(this::getEncoding)
                             .collect(toList()));
         }
-        throw new PrestoException(NOT_SUPPORTED, "unsupported type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
 }

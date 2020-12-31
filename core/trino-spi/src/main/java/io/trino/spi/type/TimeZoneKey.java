@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -185,7 +185,7 @@ public final class TimeZoneKey
         }
 
         if (!(offsetMinutes >= OFFSET_TIME_ZONE_MIN && offsetMinutes <= OFFSET_TIME_ZONE_MAX)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid offset minutes " + offsetMinutes);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid offset minutes " + offsetMinutes);
         }
         TimeZoneKey timeZoneKey = OFFSET_TIME_ZONE_KEYS[((int) offsetMinutes) - OFFSET_TIME_ZONE_MIN];
         if (timeZoneKey == null) {

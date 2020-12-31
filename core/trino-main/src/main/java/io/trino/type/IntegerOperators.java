@@ -16,7 +16,7 @@ package io.trino.type;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -48,7 +48,7 @@ public final class IntegerOperators
             return Math.addExact((int) left, (int) right);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer addition overflow: %s + %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer addition overflow: %s + %s", left, right), e);
         }
     }
 
@@ -60,7 +60,7 @@ public final class IntegerOperators
             return Math.subtractExact((int) left, (int) right);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer subtraction overflow: %s - %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer subtraction overflow: %s - %s", left, right), e);
         }
     }
 
@@ -72,7 +72,7 @@ public final class IntegerOperators
             return Math.multiplyExact((int) left, (int) right);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer multiplication overflow: %s * %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("integer multiplication overflow: %s * %s", left, right), e);
         }
     }
 
@@ -84,7 +84,7 @@ public final class IntegerOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -96,7 +96,7 @@ public final class IntegerOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -108,7 +108,7 @@ public final class IntegerOperators
             return Math.negateExact((int) value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "integer negation overflow: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "integer negation overflow: " + value, e);
         }
     }
 
@@ -127,7 +127,7 @@ public final class IntegerOperators
             return Shorts.checkedCast(value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + value, e);
         }
     }
 
@@ -139,7 +139,7 @@ public final class IntegerOperators
             return SignedBytes.checkedCast(value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
         }
     }
 

@@ -21,7 +21,7 @@ import io.trino.execution.DataDefinitionTask;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.parser.SqlParser;
@@ -178,7 +178,7 @@ public class QueryExplainer
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
                 return textIoPlan(plan, metadata, typeOperators, session);
             default:
-                throw new PrestoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
+                throw new TrinoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
         }
     }
 

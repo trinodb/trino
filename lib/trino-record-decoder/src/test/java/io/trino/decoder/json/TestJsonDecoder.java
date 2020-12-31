@@ -20,7 +20,7 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.Test;
@@ -197,7 +197,7 @@ public class TestJsonDecoder
     private void assertUnsupportedColumnTypeException(ThrowingCallable callable)
     {
         assertThatThrownBy(callable)
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("unsupported column type .* for column .*");
     }
 
@@ -206,7 +206,7 @@ public class TestJsonDecoder
     {
         for (Type type : asList(TIMESTAMP_MILLIS, DOUBLE)) {
             assertThatThrownBy(() -> singleColumnDecoder(type, "wrong_format"))
-                    .isInstanceOf(PrestoException.class)
+                    .isInstanceOf(TrinoException.class)
                     .hasMessage("unknown data format 'wrong_format' used for column 'some_column'");
         }
     }

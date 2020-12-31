@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.StandardErrorCode.COMPILER_ERROR;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.Collections.nCopies;
 
 public class TestLocalExecutionPlanner
@@ -48,7 +48,7 @@ public class TestLocalExecutionPlanner
         String inner = "(" + Joiner.on(" + ").join(nCopies(100, "rand()")) + ")";
         String outer = Joiner.on(" + ").join(nCopies(100, inner));
 
-        assertPrestoExceptionThrownBy(() -> runner.execute("SELECT " + outer))
+        assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer))
                 .hasErrorCode(COMPILER_ERROR)
                 .hasMessageStartingWith("Query exceeded maximum columns");
     }
@@ -62,7 +62,7 @@ public class TestLocalExecutionPlanner
                 + " OR " + Joiner.on(" AND ").join(nCopies(200, " c2 = rand()"))
                 + " OR " + Joiner.on(" AND ").join(nCopies(200, " c3 = rand()"));
 
-        assertPrestoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
+        assertTrinoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
                 .hasErrorCode(COMPILER_ERROR)
                 .hasMessageStartingWith("Query exceeded maximum filters");
     }

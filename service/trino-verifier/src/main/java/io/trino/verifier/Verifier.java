@@ -19,7 +19,7 @@ import io.airlift.event.client.EventClient;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.spi.ErrorCode;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -251,8 +251,8 @@ public class Verifier
 
     private static boolean shouldAddStackTrace(Exception e)
     {
-        if (e instanceof PrestoException) {
-            ErrorCode errorCode = ((PrestoException) e).getErrorCode();
+        if (e instanceof TrinoException) {
+            ErrorCode errorCode = ((TrinoException) e).getErrorCode();
             if (EXPECTED_ERRORS.contains(errorCode)) {
                 return false;
             }

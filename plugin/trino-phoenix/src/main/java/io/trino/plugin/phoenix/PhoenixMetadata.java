@@ -18,7 +18,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcMetadata;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
@@ -103,7 +103,7 @@ public class PhoenixMetadata
     {
         checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
         if (DEFAULT_SCHEMA.equalsIgnoreCase(schemaName)) {
-            throw new PrestoException(NOT_SUPPORTED, "Can't create 'default' schema which maps to Phoenix empty schema");
+            throw new TrinoException(NOT_SUPPORTED, "Can't create 'default' schema which maps to Phoenix empty schema");
         }
         phoenixClient.execute(session, format("CREATE SCHEMA %s", getEscapedArgument(toMetadataCasing(session, schemaName))));
     }
@@ -112,7 +112,7 @@ public class PhoenixMetadata
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         if (DEFAULT_SCHEMA.equalsIgnoreCase(schemaName)) {
-            throw new PrestoException(NOT_SUPPORTED, "Can't drop 'default' schema which maps to Phoenix empty schema");
+            throw new TrinoException(NOT_SUPPORTED, "Can't drop 'default' schema which maps to Phoenix empty schema");
         }
         phoenixClient.execute(session, format("DROP SCHEMA %s", getEscapedArgument(toMetadataCasing(session, schemaName))));
     }
@@ -126,7 +126,7 @@ public class PhoenixMetadata
             }
         }
         catch (SQLException e) {
-            throw new PrestoException(PHOENIX_METADATA_ERROR, "Couldn't get casing for the schema name", e);
+            throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get casing for the schema name", e);
         }
         return schemaName;
     }

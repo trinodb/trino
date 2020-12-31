@@ -21,7 +21,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -99,7 +99,7 @@ public class MemoryMetadata
     public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
         if (schemas.contains(schemaName)) {
-            throw new PrestoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
+            throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
         }
         schemas.add(schemaName);
     }
@@ -108,14 +108,14 @@ public class MemoryMetadata
     public synchronized void dropSchema(ConnectorSession session, String schemaName)
     {
         if (!schemas.contains(schemaName)) {
-            throw new PrestoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
+            throw new TrinoException(NOT_FOUND, format("Schema [%s] does not exist", schemaName));
         }
 
         boolean tablesExist = tables.values().stream()
                 .anyMatch(table -> table.getSchemaName().equals(schemaName));
 
         if (tablesExist) {
-            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
 
         verify(schemas.remove(schemaName));
@@ -263,10 +263,10 @@ public class MemoryMetadata
     private void checkTableNotExists(SchemaTableName tableName)
     {
         if (tableIds.containsKey(tableName)) {
-            throw new PrestoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName.toString()));
+            throw new TrinoException(ALREADY_EXISTS, format("Table [%s] already exists", tableName.toString()));
         }
         if (views.containsKey(tableName)) {
-            throw new PrestoException(ALREADY_EXISTS, format("View [%s] already exists", tableName.toString()));
+            throw new TrinoException(ALREADY_EXISTS, format("View [%s] already exists", tableName.toString()));
         }
     }
 
@@ -302,14 +302,14 @@ public class MemoryMetadata
     {
         checkSchemaExists(viewName.getSchemaName());
         if (tableIds.containsKey(viewName)) {
-            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + viewName);
+            throw new TrinoException(ALREADY_EXISTS, "Table already exists: " + viewName);
         }
 
         if (replace) {
             views.put(viewName, definition);
         }
         else if (views.putIfAbsent(viewName, definition) != null) {
-            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
     }
 
@@ -318,11 +318,11 @@ public class MemoryMetadata
     {
         checkSchemaExists(newViewName.getSchemaName());
         if (tableIds.containsKey(newViewName)) {
-            throw new PrestoException(ALREADY_EXISTS, "Table already exists: " + newViewName);
+            throw new TrinoException(ALREADY_EXISTS, "Table already exists: " + newViewName);
         }
 
         if (views.containsKey(newViewName)) {
-            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + newViewName);
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + newViewName);
         }
 
         views.put(newViewName, views.remove(viewName));

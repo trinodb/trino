@@ -13,7 +13,7 @@
  */
 package io.trino.spi.transaction;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_ISOLATION_LEVEL;
 import static java.lang.String.format;
@@ -56,7 +56,7 @@ public enum IsolationLevel
     public static void checkConnectorSupports(IsolationLevel supportedLevel, IsolationLevel requestedLevel)
     {
         if (!supportedLevel.meetsRequirementOf(requestedLevel)) {
-            throw new PrestoException(UNSUPPORTED_ISOLATION_LEVEL, format("Connector supported isolation level %s does not meet requested isolation level %s", supportedLevel, requestedLevel));
+            throw new TrinoException(UNSUPPORTED_ISOLATION_LEVEL, format("Connector supported isolation level %s does not meet requested isolation level %s", supportedLevel, requestedLevel));
         }
     }
 }

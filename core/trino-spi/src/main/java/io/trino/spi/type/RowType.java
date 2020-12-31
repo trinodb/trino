@@ -13,8 +13,8 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -685,7 +685,7 @@ public class RowType
     private static void checkElementNotNull(boolean isNull)
     {
         if (isNull) {
-            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
+            throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "ROW comparison not supported for fields with null elements");
         }
     }
 }

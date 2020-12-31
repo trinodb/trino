@@ -13,7 +13,7 @@
  */
 package io.trino.execution.resourcegroups;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 
 import static io.trino.spi.StandardErrorCode.QUERY_QUEUE_FULL;
@@ -21,7 +21,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class QueryQueueFullException
-        extends PrestoException
+        extends TrinoException
 {
     private final ResourceGroupId resourceGroup;
 

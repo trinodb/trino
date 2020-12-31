@@ -16,7 +16,7 @@ package io.trino.plugin.teradata.functions;
 import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.FunctionDependency;
@@ -53,8 +53,8 @@ public final class TeradataStringFunctions
         }
         catch (Throwable t) {
             throwIfInstanceOf(t, Error.class);
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+            throwIfInstanceOf(t, TrinoException.class);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
         }
     }
 

@@ -19,7 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping;
 import io.trino.plugin.hive.util.ForwardingRecordCursor;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.RecordCursor;
@@ -287,7 +287,7 @@ public class HiveCoercionRecordCursor
             return new StructCoercer(typeManager, fromHiveType, toHiveType, bridgingRecordCursor);
         }
 
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
     }
 
     private static class IntegerNumberUpscaleCoercer
@@ -345,7 +345,7 @@ public class HiveCoercionRecordCursor
                 maxValue = Long.MAX_VALUE;
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format("Could not create Coercer from varchar to %s", type));
+                throw new TrinoException(NOT_SUPPORTED, format("Could not create Coercer from varchar to %s", type));
             }
         }
 
@@ -595,7 +595,7 @@ public class HiveCoercionRecordCursor
             toType.writeObject(blockBuilder, coercer.getObject(bridgingRecordCursor, 0));
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromType.getDisplayName(), toType.getDisplayName()));
+            throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromType.getDisplayName(), toType.getDisplayName()));
         }
         coercer.reset();
         bridgingRecordCursor.close();

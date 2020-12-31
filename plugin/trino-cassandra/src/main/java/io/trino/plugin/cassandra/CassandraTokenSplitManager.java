@@ -17,7 +17,7 @@ import com.datastax.driver.core.Host;
 import com.datastax.driver.core.TokenRange;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.inject.Inject;
 
@@ -64,7 +64,7 @@ public class CassandraTokenSplitManager
         Set<TokenRange> tokenRanges = session.getTokenRanges();
 
         if (tokenRanges.isEmpty()) {
-            throw new PrestoException(CASSANDRA_METADATA_ERROR, "The cluster metadata is not available. " +
+            throw new TrinoException(CASSANDRA_METADATA_ERROR, "The cluster metadata is not available. " +
                     "Please make sure that the Cassandra cluster is up and running, " +
                     "and that the contact points are specified correctly.");
         }

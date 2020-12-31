@@ -45,7 +45,7 @@ import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreAuthenticationConfig.ThriftMetastoreAuthenticationType;
 import io.trino.plugin.hive.util.RetryDriver;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -262,7 +262,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -286,7 +286,7 @@ public class ThriftHiveMetastore
             return Optional.empty();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -310,7 +310,7 @@ public class ThriftHiveMetastore
             return ImmutableList.of();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -331,7 +331,7 @@ public class ThriftHiveMetastore
             return ImmutableList.of();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -354,7 +354,7 @@ public class ThriftHiveMetastore
             return Optional.empty();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -405,7 +405,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -462,7 +462,7 @@ public class ThriftHiveMetastore
             return Optional.empty();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -500,7 +500,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -571,7 +571,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -595,7 +595,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -607,7 +607,7 @@ public class ThriftHiveMetastore
     {
         List<Partition> partitions = getPartitionsByNames(identity, table.getDbName(), table.getTableName(), ImmutableList.of(partitionName));
         if (partitions.size() != 1) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Metastore returned multiple partitions for name: " + partitionName);
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Metastore returned multiple partitions for name: " + partitionName);
         }
         Partition originalPartition = getOnlyElement(partitions);
 
@@ -665,7 +665,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -689,7 +689,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -761,7 +761,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -783,7 +783,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -804,7 +804,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -839,7 +839,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -873,7 +873,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -894,7 +894,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -915,7 +915,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -946,7 +946,7 @@ public class ThriftHiveMetastore
             return ImmutableList.of();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -999,7 +999,7 @@ public class ThriftHiveMetastore
             throw new SchemaAlreadyExistsException(database.getName());
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1024,7 +1024,7 @@ public class ThriftHiveMetastore
             throw new SchemaNotFoundException(databaseName);
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1049,7 +1049,7 @@ public class ThriftHiveMetastore
             throw new SchemaNotFoundException(databaseName);
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1077,7 +1077,7 @@ public class ThriftHiveMetastore
             throw new SchemaNotFoundException(table.getDbName());
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1107,7 +1107,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1153,7 +1153,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1178,7 +1178,7 @@ public class ThriftHiveMetastore
             throw new TableNotFoundException(new SchemaTableName(table.getDbName(), table.getTableName()));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1218,7 +1218,7 @@ public class ThriftHiveMetastore
             return Optional.empty();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1244,13 +1244,13 @@ public class ThriftHiveMetastore
         }
         try {
             retry()
-                    .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class, PrestoException.class)
+                    .stopOn(AlreadyExistsException.class, InvalidObjectException.class, MetaException.class, NoSuchObjectException.class, TrinoException.class)
                     .stopOnIllegalExceptions()
                     .run("addPartitions", stats.getAddPartitions().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             int partitionsAdded = client.addPartitions(partitions);
                             if (partitionsAdded != partitions.size()) {
-                                throw new PrestoException(HIVE_METASTORE_ERROR,
+                                throw new TrinoException(HIVE_METASTORE_ERROR,
                                         format("Hive metastore only added %s of %s partitions", partitionsAdded, partitions.size()));
                             }
                             return null;
@@ -1258,13 +1258,13 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (AlreadyExistsException e) {
-            throw new PrestoException(ALREADY_EXISTS, format("One or more partitions already exist for table '%s.%s'", databaseName, tableName), e);
+            throw new TrinoException(ALREADY_EXISTS, format("One or more partitions already exist for table '%s.%s'", databaseName, tableName), e);
         }
         catch (NoSuchObjectException e) {
             throw new TableNotFoundException(new SchemaTableName(databaseName, tableName));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1289,7 +1289,7 @@ public class ThriftHiveMetastore
             throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), parts);
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1321,7 +1321,7 @@ public class ThriftHiveMetastore
             throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getValues());
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1401,7 +1401,7 @@ public class ThriftHiveMetastore
             return Optional.empty();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1429,7 +1429,7 @@ public class ThriftHiveMetastore
             return ImmutableList.of();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1461,7 +1461,7 @@ public class ThriftHiveMetastore
                                         iterator.remove();
                                     }
                                     else if (existingPrivilege.isContainedIn(requestedPrivilege)) {
-                                        throw new PrestoException(NOT_SUPPORTED, format(
+                                        throw new TrinoException(NOT_SUPPORTED, format(
                                                 "Granting %s WITH GRANT OPTION is not supported while %s possesses %s",
                                                 requestedPrivilege.getHivePrivilege().name(),
                                                 grantee,
@@ -1480,7 +1480,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1518,7 +1518,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1561,7 +1561,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1582,7 +1582,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1603,7 +1603,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1624,7 +1624,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1681,7 +1681,7 @@ public class ThriftHiveMetastore
 
                 if (Duration.nanosSince(waitStart).compareTo(maxWaitForLock) > 0) {
                     // timed out
-                    throw new PrestoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, format("Timed out waiting for lock %d in hive transaction %s for query %s", lockId, transactionId, queryId));
+                    throw new TrinoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, format("Timed out waiting for lock %d in hive transaction %s for query %s", lockId, transactionId, queryId));
                 }
 
                 log.debug("Waiting for lock %d in hive transaction %s for query %s", lockId, transactionId, queryId);
@@ -1696,11 +1696,11 @@ public class ThriftHiveMetastore
             }
 
             if (response.getState() != LockState.ACQUIRED) {
-                throw new PrestoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, "Could not acquire lock. Lock in state " + response.getState());
+                throw new TrinoException(HIVE_TABLE_LOCK_NOT_ACQUIRED, "Could not acquire lock. Lock in state " + response.getState());
             }
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1745,7 +1745,7 @@ public class ThriftHiveMetastore
         catch (TException e) {
             // When calling Hive metastore < 3, the call fails with
             // Required field 'open_txns' is unset! Struct:GetOpenTxnsResponse(txn_high_water_mark:4, open_txns:null, min_open_txn:4, abortedBits:null)
-            throw new PrestoException(HIVE_METASTORE_ERROR, "Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0", e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, "Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0", e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1769,7 +1769,7 @@ public class ThriftHiveMetastore
             return Optional.empty();
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1790,7 +1790,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1815,7 +1815,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1837,7 +1837,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1861,7 +1861,7 @@ public class ThriftHiveMetastore
                     }));
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
         catch (Exception e) {
             throw propagate(e);
@@ -1991,7 +1991,7 @@ public class ThriftHiveMetastore
                 delegationToken = delegationTokenCache.getUnchecked(username);
             }
             catch (UncheckedExecutionException e) {
-                throwIfInstanceOf(e.getCause(), PrestoException.class);
+                throwIfInstanceOf(e.getCause(), TrinoException.class);
                 throw e;
             }
             return clientProvider.createMetastoreClient(Optional.of(delegationToken));
@@ -2008,7 +2008,7 @@ public class ThriftHiveMetastore
             return client.getDelegationToken(username);
         }
         catch (TException e) {
-            throw new PrestoException(HIVE_METASTORE_ERROR, e);
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
         }
     }
 
@@ -2034,7 +2034,7 @@ public class ThriftHiveMetastore
         return RetryDriver.retry()
                 .exponentialBackoff(minBackoffDelay, maxBackoffDelay, maxRetryTime, backoffScaleFactor)
                 .maxAttempts(maxRetries + 1)
-                .stopOn(PrestoException.class);
+                .stopOn(TrinoException.class);
     }
 
     private static RuntimeException propagate(Throwable throwable)

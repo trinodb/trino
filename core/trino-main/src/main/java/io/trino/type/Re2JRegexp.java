@@ -18,7 +18,7 @@ import com.google.re2j.Options;
 import com.google.re2j.Pattern;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
@@ -99,7 +99,7 @@ public final class Re2JRegexp
             return matcher.replaceAll(replacement);
         }
         catch (IndexOutOfBoundsException | IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
         }
     }
 
@@ -157,10 +157,10 @@ public final class Re2JRegexp
     private static void validateGroup(int group, int groupCount)
     {
         if (group < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
         }
         if (group > groupCount) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", groupCount, group));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", groupCount, group));
         }
     }
 

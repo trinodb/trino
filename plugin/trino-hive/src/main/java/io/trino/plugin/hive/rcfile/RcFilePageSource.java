@@ -20,7 +20,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.rcfile.RcFileCorruptionException;
 import io.trino.rcfile.RcFileReader;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LazyBlock;
@@ -137,17 +137,17 @@ public class RcFilePageSource
 
             return new Page(currentPageSize, blocks);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             closeWithSuppression(e);
             throw e;
         }
         catch (RcFileCorruptionException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
+            throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
         }
         catch (IOException | RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
+            throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
         }
     }
 
@@ -224,10 +224,10 @@ public class RcFilePageSource
                 block = rcFileReader.readBlock(columnIndex);
             }
             catch (RcFileCorruptionException e) {
-                throw new PrestoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
+                throw new TrinoException(HIVE_BAD_DATA, format("Corrupted RC file: %s", rcFileReader.getId()), e);
             }
             catch (IOException | RuntimeException e) {
-                throw new PrestoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
+                throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed to read RC file: %s", rcFileReader.getId()), e);
             }
 
             loaded = true;

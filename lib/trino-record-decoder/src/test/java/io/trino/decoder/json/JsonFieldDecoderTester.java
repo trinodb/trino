@@ -20,7 +20,7 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 
 import java.util.Map;
@@ -111,7 +111,7 @@ public class JsonFieldDecoderTester
     public void assertInvalidInput(String jsonValue, Type type, String exceptionRegex)
     {
         assertThatThrownBy(() -> decode(Optional.of(jsonValue), type).getLong())
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching(exceptionRegex);
     }
 

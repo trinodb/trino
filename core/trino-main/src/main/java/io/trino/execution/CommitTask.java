@@ -17,7 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionId;
@@ -41,7 +41,7 @@ public class CommitTask
     {
         Session session = stateMachine.getSession();
         if (session.getTransactionId().isEmpty()) {
-            throw new PrestoException(NOT_IN_TRANSACTION, "No transaction in progress");
+            throw new TrinoException(NOT_IN_TRANSACTION, "No transaction in progress");
         }
         TransactionId transactionId = session.getTransactionId().get();
 

@@ -36,7 +36,7 @@ import static io.trino.sql.relational.Expressions.call;
 import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertSame;
@@ -65,7 +65,7 @@ public class TestPageFunctionCompiler
 
         // addition will throw due to integer overflow
         Page badPage = createLongBlockPage(0, 1, 2, 3, 4, Long.MAX_VALUE);
-        assertPrestoExceptionThrownBy(() -> project(projection, badPage, SelectedPositions.positionsRange(0, 100)))
+        assertTrinoExceptionThrownBy(() -> project(projection, badPage, SelectedPositions.positionsRange(0, 100)))
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
 
         // running the good page should still work

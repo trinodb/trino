@@ -47,7 +47,7 @@ import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
 import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SingleMapBlock;
@@ -248,7 +248,7 @@ public class PostgreSqlClient
         }
         catch (SQLException e) {
             boolean exists = DUPLICATE_TABLE_SQLSTATE.equals(e.getSQLState());
-            throw new PrestoException(exists ? ALREADY_EXISTS : JDBC_ERROR, e);
+            throw new TrinoException(exists ? ALREADY_EXISTS : JDBC_ERROR, e);
         }
     }
 
@@ -256,7 +256,7 @@ public class PostgreSqlClient
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
-            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported in PostgreSQL");
+            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported in PostgreSQL");
         }
 
         String sql = format(
@@ -342,7 +342,7 @@ public class PostgreSqlClient
             }
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -376,7 +376,7 @@ public class PostgreSqlClient
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         String jdbcTypeName = typeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
@@ -492,7 +492,7 @@ public class PostgreSqlClient
         // resolve and map base array element type
         JdbcTypeHandle baseElementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
         String baseElementTypeName = baseElementTypeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + baseElementTypeHandle));
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Element type name is missing: " + baseElementTypeHandle));
         if (baseElementTypeHandle.getJdbcType() == Types.BINARY) {
             // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
             // https://github.com/pgjdbc/pgjdbc/pull/1184
@@ -624,7 +624,7 @@ public class PostgreSqlClient
             return WriteMapping.objectMapping(elementDataType + "[]", arrayWriteFunction(session, elementType, getArrayElementPgTypeName(session, this, elementType)));
         }
 
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override
@@ -814,7 +814,7 @@ public class PostgreSqlClient
             BlockBuilder valueBlockBuilder = varcharMapType.getValueType().createBlockBuilder(null, map.size());
             for (Map.Entry<String, String> entry : map.entrySet()) {
                 if (entry.getKey() == null) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "hstore key is null");
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "hstore key is null");
                 }
                 varcharMapType.getKeyType().writeSlice(keyBlockBuilder, utf8Slice(entry.getKey()));
                 if (entry.getValue() == null) {
@@ -924,7 +924,7 @@ public class PostgreSqlClient
                 return toJsonValue(value);
             }
             catch (IOException e) {
-                throw new PrestoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
+                throw new TrinoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
             }
         };
     }
@@ -932,7 +932,7 @@ public class PostgreSqlClient
     private static JdbcTypeHandle getArrayElementTypeHandle(Connection connection, JdbcTypeHandle arrayTypeHandle)
     {
         String jdbcTypeName = arrayTypeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + arrayTypeHandle));
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + arrayTypeHandle));
         try {
             TypeInfo typeInfo = connection.unwrap(PgConnection.class).getTypeInfo();
             int pgElementOid = typeInfo.getPGArrayElement(typeInfo.getPGType(jdbcTypeName));
@@ -946,7 +946,7 @@ public class PostgreSqlClient
                     Optional.empty());
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -1020,7 +1020,7 @@ public class PostgreSqlClient
                         return utf8Slice(resultSet.getString(columnIndex));
                     }
                 },
-                (statement, index, value) -> { throw new PrestoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
+                (statement, index, value) -> { throw new TrinoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
                 DISABLE_PUSHDOWN);
     }
 

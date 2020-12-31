@@ -14,7 +14,7 @@
 package io.trino.type;
 
 import com.google.common.base.Joiner;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.FixedWidthType;
@@ -66,7 +66,7 @@ public final class TypeUtils
     public static void checkElementNotNull(boolean isNull, String errorMsg)
     {
         if (isNull) {
-            throw new PrestoException(NOT_SUPPORTED, errorMsg);
+            throw new TrinoException(NOT_SUPPORTED, errorMsg);
         }
     }
 

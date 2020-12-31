@@ -13,7 +13,7 @@
  */
 package io.trino.spiller;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.Test;
 
@@ -75,7 +75,7 @@ public class TestAesSpillCipher
 
     private static void assertFailure(ThrowingRunnable runnable, String expectedErrorMessage)
     {
-        PrestoException exception = expectThrows(PrestoException.class, runnable);
+        TrinoException exception = expectThrows(TrinoException.class, runnable);
         assertEquals(exception.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertEquals(exception.getMessage(), expectedErrorMessage);
     }

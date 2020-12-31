@@ -27,8 +27,8 @@ import io.trino.execution.StateMachine.StateChangeListener;
 import io.trino.memory.ClusterMemoryManager;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.protocol.Slug;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.sql.planner.Plan;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -226,7 +226,7 @@ public class SqlQueryManager
         requireNonNull(queryExecution, "queryExecution is null");
 
         if (!queryTracker.addQuery(queryExecution)) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Query %s already registered", queryExecution.getQueryId()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Query %s already registered", queryExecution.getQueryId()));
         }
 
         queryExecution.addFinalQueryInfoListener(finalQueryInfo -> {

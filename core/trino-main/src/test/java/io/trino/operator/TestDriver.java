@@ -28,7 +28,7 @@ import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.DynamicFilter;
@@ -312,8 +312,8 @@ public class TestDriver
 
     private void assertDriverInterrupted(Throwable cause)
     {
-        checkArgument(cause instanceof PrestoException, "Expected root cause exception to be an instance of PrestoException");
-        assertEquals(((PrestoException) cause).getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
+        checkArgument(cause instanceof TrinoException, "Expected root cause exception to be an instance of TrinoException");
+        assertEquals(((TrinoException) cause).getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertEquals(cause.getMessage(), "Driver was interrupted");
     }
 

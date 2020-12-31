@@ -29,7 +29,7 @@ import com.google.cloud.bigquery.storage.v1beta1.TableReferenceProto;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.airlift.log.Logger;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.util.List;
 import java.util.Optional;
@@ -122,7 +122,7 @@ public class ReadSessionCreator
         }
         if (TableDefinition.Type.VIEW == tableType) {
             if (!config.viewsEnabled) {
-                throw new PrestoException(NOT_SUPPORTED, format(
+                throw new TrinoException(NOT_SUPPORTED, format(
                         "Views are not enabled. You can enable views by setting '%s' to true. Notice additional cost may occur.",
                         BigQueryConfig.VIEWS_ENABLED));
             }
@@ -133,12 +133,12 @@ public class ReadSessionCreator
                 return destinationTableCache.get(query, new DestinationTableBuilder(bigQueryClient, config, query, table.getTableId()));
             }
             catch (ExecutionException e) {
-                throw new PrestoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
+                throw new TrinoException(BIGQUERY_VIEW_DESTINATION_TABLE_CREATION_FAILED, "Error creating destination table", e);
             }
         }
         else {
             // not regular table or a view
-            throw new PrestoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
+            throw new TrinoException(NOT_SUPPORTED, format("Table type '%s' of table '%s.%s' is not supported",
                     tableType, table.getTableId().getDataset(), table.getTableId().getTable()));
         }
     }

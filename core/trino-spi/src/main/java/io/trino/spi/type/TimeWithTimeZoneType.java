@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
@@ -43,7 +43,7 @@ public abstract class TimeWithTimeZoneType
         }
 
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME WITH TIME ZONE precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
         }
 
         if (precision <= MAX_SHORT_PRECISION) {

@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import org.joda.time.chrono.ISOChronology;
@@ -70,7 +70,7 @@ public class CustomDateTimeJsonFieldDecoder
                     .withOffsetParsed();
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(
+            throw new TrinoException(
                     GENERIC_USER_ERROR,
                     format("invalid Joda Time pattern '%s' passed as format hint for column '%s'", columnHandle.getFormatHint(), columnHandle.getName()));
         }
@@ -97,7 +97,7 @@ public class CustomDateTimeJsonFieldDecoder
         protected long getMillis()
         {
             if (!value.isValueNode()) {
-                throw new PrestoException(
+                throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
                         format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
             }
@@ -105,7 +105,7 @@ public class CustomDateTimeJsonFieldDecoder
                 return formatter.parseMillis(value.asText());
             }
             catch (IllegalArgumentException e) {
-                throw new PrestoException(
+                throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
                         format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
             }
@@ -119,12 +119,12 @@ public class CustomDateTimeJsonFieldDecoder
                     return getTimeZoneKey(formatter.parseDateTime(value.asText()).getZone().getID());
                 }
                 catch (IllegalArgumentException e) {
-                    throw new PrestoException(
+                    throw new TrinoException(
                             DECODER_CONVERSION_NOT_SUPPORTED,
                             format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
                 }
             }
-            throw new PrestoException(
+            throw new TrinoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
                     format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
         }

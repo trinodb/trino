@@ -16,7 +16,7 @@ package io.trino.spi.type;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -63,7 +63,7 @@ public final class CharType
                 Slice.class);
 
         if (length < 0 || length > MAX_LENGTH) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("CHAR length scale must be in range [0, %s]", MAX_LENGTH));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("CHAR length scale must be in range [0, %s]", MAX_LENGTH));
         }
         this.length = (int) length;
     }

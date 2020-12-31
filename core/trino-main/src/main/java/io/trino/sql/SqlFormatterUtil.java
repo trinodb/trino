@@ -13,7 +13,7 @@
  */
 package io.trino.sql;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
@@ -49,9 +49,9 @@ public final class SqlFormatterUtil
         return sql;
     }
 
-    private static PrestoException formattingFailure(@Nullable Throwable cause, String message, Statement statement, String sql)
+    private static TrinoException formattingFailure(@Nullable Throwable cause, String message, Statement statement, String sql)
     {
-        PrestoException exception = new PrestoException(GENERIC_INTERNAL_ERROR, message, cause);
+        TrinoException exception = new TrinoException(GENERIC_INTERNAL_ERROR, message, cause);
         exception.addSuppressed(new RuntimeException("Statement: " + statement));
         exception.addSuppressed(new RuntimeException(format("Formatted: [%s]", sql)));
         return exception;

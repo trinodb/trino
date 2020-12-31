@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.Type;
 
@@ -54,7 +54,7 @@ public class DisabledGlueColumnStatisticsProvider
     public void updateTableColumnStatistics(TableInput table, Map<String, HiveColumnStatistics> columnStatistics)
     {
         if (!columnStatistics.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore column level statistics are disabled");
+            throw new TrinoException(NOT_SUPPORTED, "Glue metastore column level statistics are disabled");
         }
     }
 
@@ -62,7 +62,7 @@ public class DisabledGlueColumnStatisticsProvider
     public void updatePartitionStatistics(PartitionInput partition, Map<String, HiveColumnStatistics> columnStatistics)
     {
         if (!columnStatistics.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "Glue metastore column level statistics are disabled");
+            throw new TrinoException(NOT_SUPPORTED, "Glue metastore column level statistics are disabled");
         }
     }
 }

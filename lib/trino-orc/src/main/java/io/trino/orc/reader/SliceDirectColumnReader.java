@@ -25,7 +25,7 @@ import io.trino.orc.stream.ByteArrayInputStream;
 import io.trino.orc.stream.InputStreamSource;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.orc.stream.LongInputStream;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.VariableWidthBlock;
@@ -182,7 +182,7 @@ public class SliceDirectColumnReader
             return new VariableWidthBlock(currentBatchSize, EMPTY_SLICE, offsetVector, Optional.ofNullable(isNullVector));
         }
         if (totalLength > ONE_GIGABYTE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR,
+            throw new TrinoException(GENERIC_INTERNAL_ERROR,
                     format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", column.getPath(), nextBatchSize, column.getOrcDataSourceId()));
         }
         if (dataStream == null) {

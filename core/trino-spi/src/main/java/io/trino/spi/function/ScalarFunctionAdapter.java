@@ -15,8 +15,8 @@ package io.trino.spi.function;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
@@ -598,14 +598,14 @@ public final class ScalarFunctionAdapter
 
     private static MethodHandle throwPrestoNullArgumentException(MethodType type)
     {
-        MethodHandle throwException = collectArguments(throwException(type.returnType(), PrestoException.class), 0, prestoNullArgumentException());
+        MethodHandle throwException = collectArguments(throwException(type.returnType(), TrinoException.class), 0, prestoNullArgumentException());
         return permuteArguments(throwException, type);
     }
 
     private static MethodHandle prestoNullArgumentException()
     {
         try {
-            return publicLookup().findConstructor(PrestoException.class, methodType(void.class, ErrorCodeSupplier.class, String.class))
+            return publicLookup().findConstructor(TrinoException.class, methodType(void.class, ErrorCodeSupplier.class, String.class))
                     .bindTo(StandardErrorCode.INVALID_FUNCTION_ARGUMENT)
                     .bindTo("A never null argument is null");
         }

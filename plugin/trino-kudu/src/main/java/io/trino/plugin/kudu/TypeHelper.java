@@ -15,7 +15,7 @@ package io.trino.plugin.kudu;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.CharType;
@@ -89,7 +89,7 @@ public final class TypeHelper
         if (type instanceof CharType) {
             return org.apache.kudu.Type.STRING;
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type: " + type);
     }
 
     public static Type fromKuduColumn(ColumnSchema column)

@@ -15,7 +15,7 @@ package io.trino.plugin.kafka.schema.file;
 
 import com.google.common.io.CharStreams;
 import io.trino.plugin.kafka.schema.AbstractContentSchemaReader;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -45,7 +45,7 @@ public class FileContentSchemaReader
             return Optional.of(CharStreams.toString(new InputStreamReader(inputStream, UTF_8)));
         }
         catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Could not parse the Avro schema at: " + dataSchemaLocation, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Could not parse the Avro schema at: " + dataSchemaLocation, e);
         }
     }
 

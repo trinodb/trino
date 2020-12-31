@@ -15,7 +15,7 @@ package io.trino.plugin.geospatial;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.util.Objects;
 
@@ -103,7 +103,7 @@ public final class BingTile
                     tileY |= mask;
                     break;
                 default:
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid QuadKey digit sequence: " + quadKey);
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid QuadKey digit sequence: " + quadKey);
             }
         }
 

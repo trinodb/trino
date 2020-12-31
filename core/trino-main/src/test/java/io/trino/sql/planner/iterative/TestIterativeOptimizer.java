@@ -21,7 +21,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -84,7 +84,7 @@ public class TestIterativeOptimizer
                 return null;
             });
         }
-        catch (PrestoException ex) {
+        catch (TrinoException ex) {
             assertEquals(ex.getErrorCode(), OPTIMIZER_TIMEOUT.toErrorCode());
         }
     }

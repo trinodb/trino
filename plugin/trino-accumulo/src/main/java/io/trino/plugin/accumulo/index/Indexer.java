@@ -25,7 +25,7 @@ import io.trino.plugin.accumulo.iterators.MinByteArrayCombiner;
 import io.trino.plugin.accumulo.metadata.AccumuloTable;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import org.apache.accumulo.core.client.BatchWriter;
@@ -177,7 +177,7 @@ public class Indexer
 
         // If there are no indexed columns, throw an exception
         if (indexColumns.isEmpty()) {
-            throw new PrestoException(NOT_SUPPORTED, "No indexed columns in table metadata. Refusing to index a table with no indexed columns");
+            throw new TrinoException(NOT_SUPPORTED, "No indexed columns in table metadata. Refusing to index a table with no indexed columns");
         }
 
         // Initialize metrics map
@@ -264,7 +264,7 @@ public class Indexer
             indexWriter.addMutation(indexMutation);
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Index mutation rejected by server", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Index mutation rejected by server", e);
         }
 
         // Increment the cardinality metrics for this value of index
@@ -299,10 +299,10 @@ public class Indexer
             metrics.put(METRICS_TABLE_ROW_COUNT, new AtomicLong(0));
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Index mutation was rejected by server on flush", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Index mutation was rejected by server on flush", e);
         }
         catch (TableNotFoundException e) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, "Accumulo table does not exist", e);
+            throw new TrinoException(ACCUMULO_TABLE_DNE, "Accumulo table does not exist", e);
         }
     }
 
@@ -317,7 +317,7 @@ public class Indexer
             indexWriter.close();
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation was rejected by server on close", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation was rejected by server on close", e);
         }
     }
 

@@ -24,7 +24,7 @@ import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclara
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.CharType;
@@ -176,7 +176,7 @@ public final class FormatFunction
         }
         catch (IllegalFormatException e) {
             String message = e.toString().replaceFirst("^java\\.util\\.(\\w+)Exception", "$1");
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid format string: %s (%s)", format, message), e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid format string: %s (%s)", format, message), e);
         }
     }
 

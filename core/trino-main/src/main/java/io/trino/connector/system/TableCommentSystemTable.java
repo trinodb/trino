@@ -21,7 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -99,7 +99,7 @@ public class TableCommentSystemTable
             try {
                 names = listTables(session, metadata, accessControl, prefix);
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 // listTables throws an exception if cannot connect the database
                 LOG.debug(e, "Failed to get tables for catalog: %s", catalog);
             }
@@ -113,7 +113,7 @@ public class TableCommentSystemTable
                             .map(metadata -> metadata.getMetadata().getComment())
                             .get();
                 }
-                catch (PrestoException e) {
+                catch (TrinoException e) {
                     // getTableHandle may throw an exception (e.g. Cassandra connector doesn't allow case insensitive column names)
                     LOG.debug(e, "Failed to get metadata for table: %s", name);
                 }

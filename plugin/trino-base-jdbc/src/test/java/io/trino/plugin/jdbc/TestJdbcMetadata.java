@@ -16,7 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
@@ -231,7 +231,7 @@ public class TestJdbcMetadata
             metadata.dropTable(SESSION, tableHandle);
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
         }
 
@@ -242,7 +242,7 @@ public class TestJdbcMetadata
             metadata.getTableMetadata(SESSION, tableHandle);
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
         }
     }

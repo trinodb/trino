@@ -14,7 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -137,10 +137,10 @@ public final class TinyintType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Byte.MAX_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_BYTE", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_BYTE", value));
         }
         if (value < Byte.MIN_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_BYTE", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_BYTE", value));
         }
 
         blockBuilder.writeByte((int) value).closeEntry();

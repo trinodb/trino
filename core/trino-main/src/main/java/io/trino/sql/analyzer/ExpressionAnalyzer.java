@@ -32,8 +32,8 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.PrestoException;
 import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.CharType;
@@ -911,8 +911,8 @@ public class ExpressionAnalyzer
                     parseTime(node.getValue());
                 }
             }
-            catch (PrestoException e) {
-                throw new PrestoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            catch (TrinoException e) {
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             catch (IllegalArgumentException e) {
                 throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid time literal", node.getValue());
@@ -937,8 +937,8 @@ public class ExpressionAnalyzer
                     parseTimestamp(precision, node.getValue());
                 }
             }
-            catch (PrestoException e) {
-                throw new PrestoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+            catch (TrinoException e) {
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
             catch (Exception e) {
                 throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid timestamp literal", node.getValue());
@@ -1062,7 +1062,7 @@ public class ExpressionAnalyzer
             try {
                 function = metadata.resolveFunction(node.getName(), argumentTypes);
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 if (e.getLocation().isPresent()) {
                     // If analysis of any of the argument types (which is done lazily to deal with lambda
                     // expressions) fails, we want to report the original reason for the failure
@@ -1072,7 +1072,7 @@ public class ExpressionAnalyzer
                 // otherwise, it must have failed due to a missing function or other reason, so we report an error at the
                 // current location
 
-                throw new PrestoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
+                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
             }
 
             if (function.getSignature().getName().equalsIgnoreCase(ARRAY_CONSTRUCTOR)) {
@@ -1169,7 +1169,7 @@ public class ExpressionAnalyzer
             try {
                 function = metadata.resolveOperator(operatorType, ImmutableList.of(sortKeyType, offsetValueType));
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 ErrorCode errorCode = e.getErrorCode();
                 if (errorCode.equals(OPERATOR_NOT_FOUND.toErrorCode())) {
                     throw semanticException(TYPE_MISMATCH, offsetValue, "Window frame RANGE value type (%s) not compatible with sort item type (%s)", offsetValueType, sortKeyType);
@@ -1278,7 +1278,7 @@ public class ExpressionAnalyzer
                 try {
                     metadata.resolveFunction(QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
-                catch (PrestoException e) {
+                catch (TrinoException e) {
                     ErrorCode errorCode = e.getErrorCode();
                     if (errorCode.equals(NOT_SUPPORTED.toErrorCode()) || errorCode.equals(OPERATOR_NOT_FOUND.toErrorCode())) {
                         throw semanticException(NOT_SUPPORTED, node.getArguments().get(i), "Type not supported for formatting: %s", arguments.get(i));

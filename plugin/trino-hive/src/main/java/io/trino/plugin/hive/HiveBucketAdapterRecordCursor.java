@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.hive.util.ForwardingRecordCursor;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
@@ -88,7 +88,7 @@ public class HiveBucketAdapterRecordCursor
             if (Thread.interrupted()) {
                 // Stop processing if the query has been destroyed.
                 Thread.currentThread().interrupt();
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "RecordCursor was interrupted");
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "RecordCursor was interrupted");
             }
 
             boolean hasNextPosition = delegate.advanceNextPosition();
@@ -123,7 +123,7 @@ public class HiveBucketAdapterRecordCursor
             }
             int bucket = HiveBucketing.getHiveBucket(bucketingVersion, tableBucketCount, typeInfoList, scratch);
             if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
-                throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+                throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
                         "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
                         bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
             }

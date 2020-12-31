@@ -22,7 +22,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -136,7 +136,7 @@ public class TestApplyTableScanRedirection
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
                         assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
-                                .isInstanceOf(PrestoException.class)
+                                .isInstanceOf(TrinoException.class)
                                 .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_c has type bigint, different from source column .*MockConnectorTableHandle.*source_col_a.* type: varchar");
                     });
         }

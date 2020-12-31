@@ -26,7 +26,7 @@ import io.trino.plugin.raptor.legacy.RaptorSplitManager;
 import io.trino.plugin.raptor.legacy.RaptorTableHandle;
 import io.trino.plugin.raptor.legacy.RaptorTransactionHandle;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -152,7 +152,7 @@ public class TestRaptorSplitManager
         assertEquals(splitCount, 4);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No host for shard .* found: \\[\\]")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "No host for shard .* found: \\[\\]")
     public void testNoHostForShard()
     {
         deleteShardNodes();
@@ -179,7 +179,7 @@ public class TestRaptorSplitManager
         assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "No nodes available to run query")
     public void testNoNodes()
     {
         deleteShardNodes();

@@ -14,7 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -73,7 +73,7 @@ public final class RealType
             floatValue = toIntExact(value);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value (%sb) is not a valid single-precision float", Long.toBinaryString(value)));
         }
         blockBuilder.writeInt(floatValue).closeEntry();
     }

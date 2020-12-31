@@ -29,7 +29,7 @@ import io.trino.plugin.jdbc.ObjectWriteFunction;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
@@ -234,7 +234,7 @@ public class PhoenixClient
             return schemaNames.build();
         }
         catch (SQLException e) {
-            throw new PrestoException(PHOENIX_METADATA_ERROR, e);
+            throw new TrinoException(PHOENIX_METADATA_ERROR, e);
         }
     }
 
@@ -379,7 +379,7 @@ public class PhoenixClient
                         .map(elementMapping -> {
                             ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
                             String jdbcTypeName = elementTypeHandle.getJdbcTypeName()
-                                    .orElseThrow(() -> new PrestoException(
+                                    .orElseThrow(() -> new TrinoException(
                                             PHOENIX_METADATA_ERROR,
                                             "Type name is missing for jdbc type: " + JDBCType.valueOf(elementTypeHandle.getJdbcType())));
                             return arrayColumnMapping(session, prestoArrayType, jdbcTypeName);
@@ -449,7 +449,7 @@ public class PhoenixClient
         }
         // Phoenix doesn't support _WITH_TIME_ZONE
         if (TIME_WITH_TIME_ZONE.equals(type) || TIMESTAMP_TZ_MILLIS.equals(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
@@ -549,9 +549,9 @@ public class PhoenixClient
         }
         catch (SQLException e) {
             if (e.getErrorCode() == SQLExceptionCode.TABLE_ALREADY_EXIST.getErrorCode()) {
-                throw new PrestoException(ALREADY_EXISTS, "Phoenix table already exists", e);
+                throw new TrinoException(ALREADY_EXISTS, "Phoenix table already exists", e);
             }
-            throw new PrestoException(PHOENIX_METADATA_ERROR, "Error creating Phoenix table", e);
+            throw new TrinoException(PHOENIX_METADATA_ERROR, "Error creating Phoenix table", e);
         }
     }
 
@@ -617,7 +617,7 @@ public class PhoenixClient
             }
         }
         catch (IOException | SQLException e) {
-            throw new PrestoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);
+            throw new TrinoException(PHOENIX_METADATA_ERROR, "Couldn't get Phoenix table properties", e);
         }
         return properties.build();
     }
@@ -649,7 +649,7 @@ public class PhoenixClient
     private JdbcTypeHandle getArrayElementTypeHandle(JdbcTypeHandle arrayTypeHandle)
     {
         String arrayTypeName = arrayTypeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new PrestoException(PHOENIX_METADATA_ERROR, "Type name is missing for jdbc type: " + JDBCType.valueOf(arrayTypeHandle.getJdbcType())));
+                .orElseThrow(() -> new TrinoException(PHOENIX_METADATA_ERROR, "Type name is missing for jdbc type: " + JDBCType.valueOf(arrayTypeHandle.getJdbcType())));
         checkArgument(arrayTypeName.endsWith(" ARRAY"), "array type must end with ' ARRAY'");
         arrayTypeName = arrayTypeName.substring(0, arrayTypeName.length() - " ARRAY".length());
         verify(arrayTypeHandle.getCaseSensitivity().isEmpty(), "Case sensitivity not supported");
@@ -672,7 +672,7 @@ public class PhoenixClient
             return queryPlan;
         }
         catch (SQLException e) {
-            throw new PrestoException(PHOENIX_QUERY_ERROR, "Failed to get the Phoenix query plan", e);
+            throw new TrinoException(PHOENIX_QUERY_ERROR, "Failed to get the Phoenix query plan", e);
         }
     }
 
@@ -717,10 +717,10 @@ public class PhoenixClient
             return new PhoenixResultSet(iterator, queryPlan.getProjector().cloneIfNecessary(), context);
         }
         catch (SQLException e) {
-            throw new PrestoException(PHOENIX_QUERY_ERROR, "Error while setting up Phoenix ResultSet", e);
+            throw new TrinoException(PHOENIX_QUERY_ERROR, "Error while setting up Phoenix ResultSet", e);
         }
         catch (IOException e) {
-            throw new PrestoException(PhoenixErrorCode.PHOENIX_INTERNAL_ERROR, "Error while copying scan", e);
+            throw new TrinoException(PhoenixErrorCode.PHOENIX_INTERNAL_ERROR, "Error while copying scan", e);
         }
     }
 }

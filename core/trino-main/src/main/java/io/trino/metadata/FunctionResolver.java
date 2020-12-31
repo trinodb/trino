@@ -16,7 +16,7 @@ package io.trino.metadata;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.QualifiedName;
@@ -71,7 +71,7 @@ public class FunctionResolver
             }
         }
 
-        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+        throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
     }
 
     private boolean canBindSignature(Signature declaredSignature, Signature actualSignature)
@@ -111,7 +111,7 @@ public class FunctionResolver
     FunctionBinding resolveFunction(Collection<FunctionMetadata> allCandidates, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         if (allCandidates.isEmpty()) {
-            throw new PrestoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
+            throw new TrinoException(FUNCTION_NOT_FOUND, format("Function '%s' not registered", name));
         }
 
         List<FunctionMetadata> exactCandidates = allCandidates.stream()
@@ -148,7 +148,7 @@ public class FunctionResolver
         String parameters = Joiner.on(", ").join(parameterTypes);
         String expected = Joiner.on(", ").join(expectedParameters);
         String message = format("Unexpected parameters (%s) for function %s. Expected: %s", parameters, name, expected);
-        throw new PrestoException(FUNCTION_NOT_FOUND, message);
+        throw new TrinoException(FUNCTION_NOT_FOUND, message);
     }
 
     private Optional<FunctionBinding> matchFunctionExact(List<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
@@ -186,7 +186,7 @@ public class FunctionResolver
             errorMessageBuilder.append(function.getBoundSignature());
             errorMessageBuilder.append("\n");
         }
-        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
+        throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, errorMessageBuilder.toString());
     }
 
     private List<ApplicableFunction> identifyApplicableFunctions(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters, boolean allowCoercion)

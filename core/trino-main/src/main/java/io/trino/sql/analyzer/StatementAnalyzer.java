@@ -35,8 +35,8 @@ import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.ViewAccessControl;
-import io.trino.spi.PrestoException;
 import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -413,7 +413,7 @@ class StatementAnalyzer
             Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
             newTableLayout.ifPresent(layout -> {
                 if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
-                    throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                    throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
                 }
             });
 
@@ -643,7 +643,7 @@ class StatementAnalyzer
 
             validateProperties(node.getProperties(), scope);
             CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
+                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
 
             Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
                     catalogName,
@@ -726,7 +726,7 @@ class StatementAnalyzer
 
             // create target table metadata
             CatalogName catalogName = metadata.getCatalogHandle(session, targetTable.getCatalogName())
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + targetTable.getCatalogName()));
+                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + targetTable.getCatalogName()));
 
             Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                     catalogName,
@@ -750,7 +750,7 @@ class StatementAnalyzer
                 NewTableLayout layout = newTableLayout.get();
                 if (!columnNames.containsAll(layout.getPartitionColumns())) {
                     if (layout.getLayout().getPartitioning().isPresent()) {
-                        throw new PrestoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                        throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
                     }
                     else {
                         // created table does not contain all columns required by preferred layout
@@ -1126,7 +1126,7 @@ class StatementAnalyzer
                     expressionOutputs.add(Field.newUnqualified(Optional.empty(), ((MapType) expressionType).getValueType()));
                 }
                 else {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot unnest type: " + expressionType);
                 }
 
                 outputFields.addAll(expressionOutputs);
@@ -2706,7 +2706,7 @@ class StatementAnalyzer
         private void analyzeRowFilter(String currentIdentity, Table table, QualifiedObjectName name, Scope scope, ViewExpression filter)
         {
             if (analysis.hasRowFilter(name, currentIdentity)) {
-                throw new PrestoException(INVALID_ROW_FILTER, extractLocation(table), format("Row filter for '%s' is recursive", name), null);
+                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Row filter for '%s' is recursive", name), null);
             }
 
             Expression expression;
@@ -2714,7 +2714,7 @@ class StatementAnalyzer
                 expression = sqlParser.createExpression(filter.getExpression(), createParsingOptions(session));
             }
             catch (ParsingException e) {
-                throw new PrestoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getErrorMessage()), e);
+                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getErrorMessage()), e);
             }
 
             analysis.registerTableForRowFiltering(name, currentIdentity);
@@ -2732,8 +2732,8 @@ class StatementAnalyzer
                         warningCollector,
                         correlationSupport);
             }
-            catch (PrestoException e) {
-                throw new PrestoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
+            catch (TrinoException e) {
+                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid row filter for '%s': %s", name, e.getRawMessage()), e);
             }
             finally {
                 analysis.unregisterTableForRowFiltering(name, currentIdentity);
@@ -2748,7 +2748,7 @@ class StatementAnalyzer
                 TypeCoercion coercion = new TypeCoercion(metadata::getType);
 
                 if (!coercion.canCoerce(actualType, BOOLEAN)) {
-                    throw new PrestoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected row filter for '%s' to be of type BOOLEAN, but was %s", name, actualType), null);
                 }
 
                 analysis.addCoercion(expression, BOOLEAN, coercion.isTypeOnlyCoercion(actualType, BOOLEAN));
@@ -2761,7 +2761,7 @@ class StatementAnalyzer
         {
             String column = field.getName().get();
             if (analysis.hasColumnMask(tableName, column, currentIdentity)) {
-                throw new PrestoException(INVALID_ROW_FILTER, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
+                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Column mask for '%s.%s' is recursive", tableName, column), null);
             }
 
             Expression expression;
@@ -2769,7 +2769,7 @@ class StatementAnalyzer
                 expression = sqlParser.createExpression(mask.getExpression(), createParsingOptions(session));
             }
             catch (ParsingException e) {
-                throw new PrestoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
+                throw new TrinoException(INVALID_ROW_FILTER, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getErrorMessage()), e);
             }
 
             ExpressionAnalysis expressionAnalysis;
@@ -2787,8 +2787,8 @@ class StatementAnalyzer
                         warningCollector,
                         correlationSupport);
             }
-            catch (PrestoException e) {
-                throw new PrestoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);
+            catch (TrinoException e) {
+                throw new TrinoException(e::getErrorCode, extractLocation(table), format("Invalid column mask for '%s.%s': %s", tableName, column, e.getRawMessage()), e);
             }
             finally {
                 analysis.unregisterTableForColumnMasking(tableName, column, currentIdentity);
@@ -2804,7 +2804,7 @@ class StatementAnalyzer
                 TypeCoercion coercion = new TypeCoercion(metadata::getType);
 
                 if (!coercion.canCoerce(actualType, field.getType())) {
-                    throw new PrestoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
+                    throw new TrinoException(TYPE_MISMATCH, extractLocation(table), format("Expected column mask for '%s.%s' to be of type %s, but was %s", tableName, column, field.getType(), actualType), null);
                 }
 
                 // TODO: this should be "coercion.isTypeOnlyCoercion(actualType, expectedType)", but type-only coercions are broken

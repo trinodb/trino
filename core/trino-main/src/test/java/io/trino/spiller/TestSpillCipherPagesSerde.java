@@ -18,7 +18,7 @@ import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.execution.buffer.TestingPagesSerdeFactory;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import org.testng.Assert.ThrowingRunnable;
@@ -64,7 +64,7 @@ public class TestSpillCipherPagesSerde
 
     private static void assertFailure(ThrowingRunnable runnable, String expectedErrorMessage)
     {
-        PrestoException exception = expectThrows(PrestoException.class, runnable);
+        TrinoException exception = expectThrows(TrinoException.class, runnable);
         assertEquals(exception.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
         assertEquals(exception.getMessage(), expectedErrorMessage);
     }
