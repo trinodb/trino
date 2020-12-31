@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -41,11 +41,11 @@ public final class BitwiseFunctions
             return Long.bitCount(num);
         }
         if (bits <= 1 || bits > 64) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bits specified in bit_count must be between 2 and 64, got " + bits);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Bits specified in bit_count must be between 2 and 64, got " + bits);
         }
         long lowBitsMask = (1L << (bits - 1)) - 1; // set the least (bits - 1) bits
         if (num > lowBitsMask || num < ~lowBitsMask) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Number must be representable with the bits specified. " + num + " cannot be represented with " + bits + " bits");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Number must be representable with the bits specified. " + num + " cannot be represented with " + bits + " bits");
         }
         long mask = (1L << bits) - 1;
         return Long.bitCount(num & mask);

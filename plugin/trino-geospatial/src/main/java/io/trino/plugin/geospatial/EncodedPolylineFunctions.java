@@ -23,7 +23,7 @@ import com.google.common.base.Joiner;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.trino.geospatial.GeometryType;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -114,7 +114,7 @@ public final class EncodedPolylineFunctions
             case MULTI_POINT:
                 return encodePolyline((MultiVertexGeometry) geometry.getEsriGeometry());
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
         }
     }
 
@@ -157,7 +157,7 @@ public final class EncodedPolylineFunctions
     {
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         if (!validTypes.contains(type)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, Joiner.on(" or ").join(validTypes), type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, Joiner.on(" or ").join(validTypes), type));
         }
     }
 }

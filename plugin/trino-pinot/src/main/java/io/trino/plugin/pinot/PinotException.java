@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.pinot;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public class PinotException
-        extends PrestoException
+        extends TrinoException
 {
     private final Optional<String> query;
     private final boolean retriable;

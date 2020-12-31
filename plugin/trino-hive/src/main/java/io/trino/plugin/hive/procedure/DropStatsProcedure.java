@@ -22,7 +22,7 @@ import io.trino.plugin.hive.TransactionalMetadata;
 import io.trino.plugin.hive.TransactionalMetadataFactory;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -101,7 +101,7 @@ public class DropStatsProcedure
         TransactionalMetadata hiveMetadata = hiveMetadataFactory.create();
         HiveTableHandle handle = (HiveTableHandle) hiveMetadata.getTableHandle(session, new SchemaTableName(schema, table));
         if (handle == null) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schema, table)));
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, format("Table '%s' does not exist", new SchemaTableName(schema, table)));
         }
 
         accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schema, table));
@@ -156,7 +156,7 @@ public class DropStatsProcedure
     private static List<String> validateParameterType(Object param)
     {
         if (param == null) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Null partition value");
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Null partition value");
         }
 
         if (param instanceof List) {
@@ -166,22 +166,22 @@ public class DropStatsProcedure
                     .collect(toImmutableList());
         }
 
-        throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Partition value must be an array");
+        throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Partition value must be an array");
     }
 
     private static void validatePartitions(List<List<String>> partitionValues, List<String> partitionColumns)
     {
         if (partitionValues.isEmpty()) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "No partitions provided");
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "No partitions provided");
         }
 
         if (partitionColumns.isEmpty()) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Cannot specify partition values for an unpartitioned table");
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Cannot specify partition values for an unpartitioned table");
         }
 
         partitionValues.forEach(value -> {
             if (value.size() != partitionColumns.size()) {
-                throw new PrestoException(
+                throw new TrinoException(
                         INVALID_PROCEDURE_ARGUMENT,
                         format("Partition values %s don't match the number of partition columns (%s)", value, partitionColumns.size()));
             }

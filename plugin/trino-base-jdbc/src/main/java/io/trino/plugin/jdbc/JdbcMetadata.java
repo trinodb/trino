@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -386,7 +386,7 @@ public class JdbcMetadata
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         if (!allowDropTable) {
-            throw new PrestoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
+            throw new TrinoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
         }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         verify(!handle.isSynthetic(), "Not a table reference: %s", handle);

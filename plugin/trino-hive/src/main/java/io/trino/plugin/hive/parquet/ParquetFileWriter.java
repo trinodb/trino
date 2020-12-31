@@ -18,7 +18,7 @@ import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileWriter;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
@@ -110,7 +110,7 @@ public class ParquetFileWriter
             parquetWriter.write(page);
         }
         catch (IOException | UncheckedIOException e) {
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, e);
+            throw new TrinoException(HIVE_WRITER_DATA_ERROR, e);
         }
     }
 
@@ -127,7 +127,7 @@ public class ParquetFileWriter
             catch (Exception ignored) {
                 // ignore
             }
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write parquet to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write parquet to Hive", e);
         }
     }
 
@@ -143,7 +143,7 @@ public class ParquetFileWriter
             }
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write parquet to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write parquet to Hive", e);
         }
     }
 

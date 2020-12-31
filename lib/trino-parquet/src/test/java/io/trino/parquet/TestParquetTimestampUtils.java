@@ -14,7 +14,7 @@
 package io.trino.parquet;
 
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
@@ -44,7 +44,7 @@ public class TestParquetTimestampUtils
             byte[] invalidLengthBinaryTimestamp = new byte[8];
             decode(Binary.fromByteArray(invalidLengthBinaryTimestamp));
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
             assertEquals(e.getMessage(), "Parquet timestamp must be 12 bytes, actual 8");
         }

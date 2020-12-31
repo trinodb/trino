@@ -15,7 +15,7 @@ package io.trino.util;
 
 import io.trino.client.IntervalDayTime;
 import io.trino.client.IntervalYearMonth;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.tree.IntervalLiteral.IntervalField;
 import org.joda.time.DateTime;
@@ -329,7 +329,7 @@ public final class DateTimeUtils
         return period;
     }
 
-    private static PrestoException invalidInterval(Throwable throwable, String value, IntervalField startField, IntervalField endField)
+    private static TrinoException invalidInterval(Throwable throwable, String value, IntervalField startField, IntervalField endField)
     {
         String message;
         if (startField == endField) {
@@ -338,7 +338,7 @@ public final class DateTimeUtils
         else {
             message = format("Invalid INTERVAL %s TO %s value: %s", startField, endField, value);
         }
-        return new PrestoException(INVALID_FUNCTION_ARGUMENT, message, throwable);
+        return new TrinoException(INVALID_FUNCTION_ARGUMENT, message, throwable);
     }
 
     private static PeriodFormatter cretePeriodFormatter(IntervalField startField, IntervalField endField)

@@ -15,7 +15,7 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.AbstractTestFunctions;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.CastDependency;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.OperatorDependency;
@@ -76,8 +76,8 @@ public class TestCastDependencies
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -100,8 +100,8 @@ public class TestCastDependencies
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -131,8 +131,8 @@ public class TestCastDependencies
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }

@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -92,7 +92,7 @@ public final class WordStemFunction
     {
         Supplier<SnowballProgram> stemmer = STEMMERS.get(language);
         if (stemmer == null) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unknown stemmer language: " + language.toStringUtf8());
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unknown stemmer language: " + language.toStringUtf8());
         }
         return wordStem(slice, stemmer.get());
     }

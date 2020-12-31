@@ -21,7 +21,7 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
@@ -74,7 +74,7 @@ public final class ArrayConcatFunction
     protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         if (functionBinding.getArity() < 2) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to " + FUNCTION_NAME);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to " + FUNCTION_NAME);
         }
 
         Type elementType = functionBinding.getTypeVariable("E");

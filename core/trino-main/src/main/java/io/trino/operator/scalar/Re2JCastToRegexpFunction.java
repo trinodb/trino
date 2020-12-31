@@ -19,7 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.SqlOperator;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.type.Re2JRegexp;
 
 import java.lang.invoke.MethodHandle;
@@ -82,7 +82,7 @@ public class Re2JCastToRegexpFunction
             return new Re2JRegexp(dfaStatesLimit, dfaRetries, pattern);
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 }

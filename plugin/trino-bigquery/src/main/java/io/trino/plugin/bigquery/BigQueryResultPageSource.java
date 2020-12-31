@@ -20,7 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -172,7 +172,7 @@ public class BigQueryResultPageSource
                     type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
                 }
                 else {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
                 }
             }
             else if (javaType == double.class) {
@@ -185,7 +185,7 @@ public class BigQueryResultPageSource
                 writeBlock(output, type, value);
             }
             else {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
             }
         }
         catch (ClassCastException ignore) {
@@ -212,7 +212,7 @@ public class BigQueryResultPageSource
             }
         }
         else {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
     }
 
@@ -244,7 +244,7 @@ public class BigQueryResultPageSource
             output.closeEntry();
             return;
         }
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
     }
 
     @Override

@@ -25,8 +25,8 @@ otherwise performance sensitive sections.
 
 #### Categorize errors when throwing exceptions.
 
-Categorize errors when throwing exceptions. For example, PrestoException takes
-an error code as an argument, `PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`.
+Categorize errors when throwing exceptions. For example, `TrinoException` takes
+an error code as an argument, `TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`.
 This categorization lets you generate reports so you can monitor the frequency
 of various failures.
 

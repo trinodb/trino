@@ -49,7 +49,7 @@ import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -94,7 +94,7 @@ public class TestPrepareTask
     {
         Statement statement = new Execute(identifier("foo"), emptyList());
         String sqlString = "PREPARE my_query FROM EXECUTE foo";
-        assertPrestoExceptionThrownBy(() -> executePrepare("my_query", statement, sqlString, TEST_SESSION))
+        assertTrinoExceptionThrownBy(() -> executePrepare("my_query", statement, sqlString, TEST_SESSION))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("Invalid statement type for prepared statement: EXECUTE");
     }

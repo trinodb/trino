@@ -21,7 +21,7 @@ import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
@@ -73,11 +73,11 @@ public final class ConcatFunction
         int arity = functionBinding.getArity();
 
         if (arity < 2) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more concatenation arguments");
         }
 
         if (arity > MAX_INPUT_VALUES) {
-            throw new PrestoException(NOT_SUPPORTED, "Too many arguments for string concatenation");
+            throw new TrinoException(NOT_SUPPORTED, "Too many arguments for string concatenation");
         }
 
         MethodHandle arrayMethodHandle = methodHandle(ConcatFunction.class, "concat", Slice[].class);
@@ -97,7 +97,7 @@ public final class ConcatFunction
         for (Slice value : values) {
             length = addExact(length, value.length());
             if (length > MAX_OUTPUT_LENGTH) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Concatenated string is too large");
             }
         }
 

@@ -41,7 +41,7 @@ import static io.trino.spi.StandardErrorCode.NOT_IN_TRANSACTION;
 import static io.trino.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -89,7 +89,7 @@ public class TestCommitTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
-        assertPrestoExceptionThrownBy(
+        assertTrinoExceptionThrownBy(
                 () -> getFutureValue(new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList())))
                 .hasErrorCode(NOT_IN_TRANSACTION);
 
@@ -110,7 +110,7 @@ public class TestCommitTask
         QueryStateMachine stateMachine = createQueryStateMachine("COMMIT", session, transactionManager);
 
         Future<?> future = new CommitTask().execute(new Commit(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
-        assertPrestoExceptionThrownBy(() -> getFutureValue(future))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(future))
                 .hasErrorCode(UNKNOWN_TRANSACTION);
 
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal

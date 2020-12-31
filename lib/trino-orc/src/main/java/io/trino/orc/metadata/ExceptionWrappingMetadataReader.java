@@ -17,7 +17,7 @@ import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.metadata.PostScript.HiveWriterVersion;
 import io.trino.orc.metadata.statistics.BloomFilter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -115,7 +115,7 @@ public class ExceptionWrappingMetadataReader
 
     private OrcCorruptionException propagate(Throwable throwable, String message)
     {
-        propagateIfPossible(throwable, PrestoException.class);
+        propagateIfPossible(throwable, TrinoException.class);
         return new OrcCorruptionException(throwable, orcDataSourceId, message);
     }
 }

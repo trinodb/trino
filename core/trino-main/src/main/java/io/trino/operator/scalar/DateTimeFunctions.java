@@ -17,7 +17,7 @@ import io.airlift.concurrent.ThreadLocalCache;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
 import io.trino.operator.scalar.timestamptz.CurrentTimestamp;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameter;
@@ -140,7 +140,7 @@ public final class DateTimeFunctions
             timeZoneKey = getTimeZoneKeyForOffset(toIntExact(hoursOffset * 60 + minutesOffset));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
         return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
     }
@@ -230,7 +230,7 @@ public final class DateTimeFunctions
             parsedDatetime = formatter.parseBest(datetimeString, ZonedDateTime::from, LocalDateTime::from);
         }
         catch (DateTimeParseException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
 
         ZonedDateTime zonedDatetime;
@@ -301,7 +301,7 @@ public final class DateTimeFunctions
             case "year":
                 return chronology.year();
         }
-        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid DATE field");
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid DATE field");
     }
 
     private static DateTimeField getTimeField(ISOChronology chronology, Slice unit)
@@ -317,7 +317,7 @@ public final class DateTimeFunctions
             case "hour":
                 return chronology.hourOfDay();
         }
-        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
     }
 
     public static DateTimeField getTimestampField(ISOChronology chronology, Slice unit)
@@ -343,7 +343,7 @@ public final class DateTimeFunctions
             case "year":
                 return chronology.year();
         }
-        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Timestamp field");
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Timestamp field");
     }
 
     @Description("Parses the specified date/time by the given format")
@@ -361,7 +361,7 @@ public final class DateTimeFunctions
                     datetime.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -371,7 +371,7 @@ public final class DateTimeFunctions
             return formatter.parseDateTime(datetimeString);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -397,7 +397,7 @@ public final class DateTimeFunctions
             return scaleEpochMillisToMicros(formatter.parseMillis(dateTime.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -629,7 +629,7 @@ public final class DateTimeFunctions
                     case 'V': // %V Week (01..53), where Sunday is the first day of the week; used with %X
                     case 'X': // %X Year for the week where Sunday is the first day of the week, numeric, four digits; used with %V
                     case 'D': // %D Day of the month with English suffix (0th, 1st, 2nd, 3rd, …)
-                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%%%s not supported in date format string", character));
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%%%s not supported in date format string", character));
                     case '%': // %% A literal “%” character
                         builder.appendLiteral('%');
                         break;
@@ -651,7 +651,7 @@ public final class DateTimeFunctions
             return builder.toFormatter();
         }
         catch (UnsupportedOperationException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -665,7 +665,7 @@ public final class DateTimeFunctions
             return Duration.valueOf(duration.toStringUtf8()).toMillis();
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 

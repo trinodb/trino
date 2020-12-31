@@ -18,7 +18,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
@@ -117,7 +117,7 @@ public class Field
             this.value = field.getVarchar();
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + type);
         }
     }
 
@@ -352,6 +352,6 @@ public class Field
             return ((Slice) value).toStringUtf8();
         }
 
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
     }
 }

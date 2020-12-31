@@ -21,7 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.SpookyHashV2;
 import io.airlift.slice.XxHash64;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -72,7 +72,7 @@ public final class VarbinaryFunctions
             return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -88,7 +88,7 @@ public final class VarbinaryFunctions
             return Slices.wrappedBuffer(Base64.getDecoder().decode(slice.getBytes()));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -116,7 +116,7 @@ public final class VarbinaryFunctions
             return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -132,7 +132,7 @@ public final class VarbinaryFunctions
             return Slices.wrappedBuffer(Base64.getUrlDecoder().decode(slice.getBytes()));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
     }
 
@@ -158,7 +158,7 @@ public final class VarbinaryFunctions
     public static Slice fromHexVarchar(@SqlType("varchar(x)") Slice slice)
     {
         if (slice.length() % 2 != 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid input length " + slice.length());
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "invalid input length " + slice.length());
         }
 
         byte[] result = new byte[slice.length() / 2];
@@ -184,7 +184,7 @@ public final class VarbinaryFunctions
     public static long fromBigEndian64(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         if (slice.length() != Long.BYTES) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "expected 8-byte input, but got instead: " + slice.length());
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "expected 8-byte input, but got instead: " + slice.length());
         }
         return Long.reverseBytes(slice.getLong(0));
     }
@@ -205,7 +205,7 @@ public final class VarbinaryFunctions
     public static long fromBigEndian32(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         if (slice.length() != Integer.BYTES) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "expected 4-byte input, but got instead: " + slice.length());
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "expected 4-byte input, but got instead: " + slice.length());
         }
         return Integer.reverseBytes(slice.getInt(0));
     }
@@ -299,7 +299,7 @@ public final class VarbinaryFunctions
         if (b >= 'A' && b <= 'F') {
             return b - 'A' + 10;
         }
-        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "invalid hex character: " + (char) b);
+        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "invalid hex character: " + (char) b);
     }
 
     @Description("Compute xxhash64 hash")

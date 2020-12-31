@@ -16,7 +16,7 @@ package io.trino.plugin.blackhole;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -81,7 +81,7 @@ public class TestBlackHoleMetadata
             metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty());
             fail("Should fail because schema does not exist");
         }
-        catch (PrestoException ex) {
+        catch (TrinoException ex) {
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema schema1 not found");
         }

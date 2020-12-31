@@ -18,7 +18,7 @@ import com.google.common.base.Joiner;
 import io.airlift.slice.Slice;
 import io.trino.geospatial.GeometryType;
 import io.trino.geospatial.serde.GeometrySerde;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
@@ -87,7 +87,7 @@ public final class ConvexHullAggregation
     {
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         if (!validTypes.contains(type)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
     }
 }

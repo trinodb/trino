@@ -18,7 +18,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import org.testng.annotations.DataProvider;
@@ -275,7 +275,7 @@ public class TestHiveQlTranslation
             translateHiveViewToPresto(badHiveQl);
             fail("Expected Hive translation to throw an exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), HIVE_VIEW_TRANSLATION_ERROR.toErrorCode());
             assertTrue(e.getRawMessage().contains(expectMessage));
         }

@@ -26,7 +26,7 @@ import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
 import io.trino.spi.PageIndexer;
 import io.trino.spi.PageIndexerFactory;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -243,7 +243,7 @@ public class HivePageSink
             }
         }
         if (rollbackException.isPresent()) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error rolling back write to Hive", rollbackException.get());
         }
     }
 
@@ -328,7 +328,7 @@ public class HivePageSink
         Block bucketBlock = buildBucketBlock(page);
         int[] writerIndexes = pagePartitioner.partitionPage(partitionColumns, bucketBlock);
         if (pagePartitioner.getMaxIndex() >= maxOpenWriters) {
-            throw new PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
+            throw new TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
         }
 
         // expand writers list to new size

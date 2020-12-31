@@ -18,7 +18,7 @@ import io.airlift.joni.Option;
 import io.airlift.joni.Regex;
 import io.airlift.joni.Syntax;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.OperatorType;
@@ -58,7 +58,7 @@ public final class JoniRegexpCasts
             regex = new Regex(pattern.getBytes(), 0, pattern.length(), Option.DEFAULT, NonStrictUTF8Encoding.INSTANCE, Syntax.Java);
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
         return new JoniRegexp(pattern, regex);
     }

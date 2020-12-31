@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
@@ -49,11 +49,11 @@ public class BigintDecoder
                 BIGINT.writeLong(output, Long.parseLong((String) value));
             }
             catch (NumberFormatException e) {
-                throw new PrestoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BIGINT: %s", path, value));
+                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BIGINT: %s", path, value));
             }
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type BIGINT: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type BIGINT: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }

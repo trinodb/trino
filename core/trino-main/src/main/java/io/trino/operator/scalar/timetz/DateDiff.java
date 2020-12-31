@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.timetz;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
@@ -60,7 +60,7 @@ public class DateDiff
             case "hour":
                 return nanos / NANOSECONDS_PER_HOUR;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
         }
     }
 
@@ -84,7 +84,7 @@ public class DateDiff
             case "hour":
                 return picos / PICOSECONDS_PER_HOUR;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'" + unitString + "' is not a valid Time field");
         }
     }
 }

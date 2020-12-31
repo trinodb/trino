@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.accumulo.index.Indexer;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -177,7 +177,7 @@ public class AccumuloTable
             return (AccumuloRowSerializer) Class.forName(serializerClassName).getConstructor().newInstance();
         }
         catch (ClassNotFoundException | InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new PrestoException(NOT_FOUND, "Configured serializer class not found", e);
+            throw new TrinoException(NOT_FOUND, "Configured serializer class not found", e);
         }
     }
 

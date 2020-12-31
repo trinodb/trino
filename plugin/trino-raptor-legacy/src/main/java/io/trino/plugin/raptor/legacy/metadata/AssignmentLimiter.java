@@ -18,7 +18,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.spi.Node;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -108,7 +108,7 @@ public class AssignmentLimiter
         Duration delay = new Duration(now - start, NANOSECONDS);
 
         if (delay.compareTo(reassignmentDelay) < 0) {
-            throw new PrestoException(RAPTOR_REASSIGNMENT_DELAY, format(
+            throw new TrinoException(RAPTOR_REASSIGNMENT_DELAY, format(
                     "Reassignment delay is in effect for node %s (elapsed: %s)",
                     nodeIdentifier,
                     delay.convertToMostSuccinctTimeUnit()));
@@ -117,7 +117,7 @@ public class AssignmentLimiter
         if (lastOfflined.isPresent()) {
             delay = new Duration(now - lastOfflined.getAsLong(), NANOSECONDS);
             if (delay.compareTo(reassignmentInterval) < 0) {
-                throw new PrestoException(RAPTOR_REASSIGNMENT_THROTTLE, format(
+                throw new TrinoException(RAPTOR_REASSIGNMENT_THROTTLE, format(
                         "Reassignment throttle is in effect for node %s (elapsed: %s)",
                         nodeIdentifier,
                         delay.convertToMostSuccinctTimeUnit()));

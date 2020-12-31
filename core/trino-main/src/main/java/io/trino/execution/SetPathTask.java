@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.client.ClientCapabilities;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.SqlPath;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.tree.Expression;
@@ -56,7 +56,7 @@ public class SetPathTask
         Session session = stateMachine.getSession();
 
         if (!session.getClientCapabilities().contains(ClientCapabilities.PATH.toString())) {
-            throw new PrestoException(NOT_SUPPORTED, "SET PATH not supported by client");
+            throw new TrinoException(NOT_SUPPORTED, "SET PATH not supported by client");
         }
 
         // convert to IR before setting HTTP headers - ensures that the representations of all path objects outside the parser remain consistent
@@ -70,7 +70,7 @@ public class SetPathTask
             element.getCatalog().ifPresent(catalog -> {
                 String catalogName = catalog.getValue().toLowerCase(ENGLISH);
                 if (metadata.getCatalogHandle(session, catalogName).isEmpty()) {
-                    throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName);
+                    throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName);
                 }
             });
         }

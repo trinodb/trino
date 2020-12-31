@@ -22,7 +22,7 @@ import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.model.AccumuloSplit;
 import io.trino.plugin.accumulo.model.AccumuloTableHandle;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
@@ -89,7 +89,7 @@ public class AccumuloRecordSet
             scanner.setRanges(split.getRanges());
         }
         catch (Exception e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, format("Failed to create batch scanner for table %s", table.getFullTableName()), e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, format("Failed to create batch scanner for table %s", table.getFullTableName()), e);
         }
     }
 

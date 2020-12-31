@@ -30,7 +30,7 @@ import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.SimpleLocalMemoryContext;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -300,11 +300,11 @@ public class TestExchangeClient
 
         assertFalse(exchangeClient.isClosed());
         assertThatThrownBy(() -> getNextPage(exchangeClient))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xf91cfe5d2bc6e1c2, calculated checksum: 0x3c51297c7b78052f");
 
         assertThatThrownBy(exchangeClient::isFinished)
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("Checksum verification failure on localhost when reading from http://localhost:8080/0: Data corruption, read checksum: 0xf91cfe5d2bc6e1c2, calculated checksum: 0x3c51297c7b78052f");
 
         exchangeClient.close();

@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import io.airlift.json.JsonCodec;
 import io.trino.client.FailureInfo;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.util.Failures;
 import org.testng.annotations.Test;
@@ -34,7 +34,7 @@ public class TestFailureFunction
         assertFunction("fail(json_parse('" + FAILURE_INFO + "'))", UNKNOWN, null);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Division by zero")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Division by zero")
     public void testQuery()
     {
         // The other test does not exercise this function during execution (i.e. inside a page processor).

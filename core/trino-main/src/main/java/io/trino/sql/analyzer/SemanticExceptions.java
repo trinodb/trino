@@ -14,7 +14,7 @@
 package io.trino.sql.analyzer;
 
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.QualifiedName;
@@ -28,23 +28,23 @@ public final class SemanticExceptions
 {
     private SemanticExceptions() {}
 
-    public static PrestoException missingAttributeException(Expression node, QualifiedName name)
+    public static TrinoException missingAttributeException(Expression node, QualifiedName name)
     {
         throw semanticException(COLUMN_NOT_FOUND, node, "Column '%s' cannot be resolved", name);
     }
 
-    public static PrestoException ambiguousAttributeException(Expression node, QualifiedName name)
+    public static TrinoException ambiguousAttributeException(Expression node, QualifiedName name)
     {
         throw semanticException(AMBIGUOUS_NAME, node, "Column '%s' is ambiguous", name);
     }
 
-    public static PrestoException semanticException(ErrorCodeSupplier code, Node node, String format, Object... args)
+    public static TrinoException semanticException(ErrorCodeSupplier code, Node node, String format, Object... args)
     {
         return semanticException(code, node, null, format, args);
     }
 
-    public static PrestoException semanticException(ErrorCodeSupplier code, Node node, Throwable cause, String format, Object... args)
+    public static TrinoException semanticException(ErrorCodeSupplier code, Node node, Throwable cause, String format, Object... args)
     {
-        throw new PrestoException(code, extractLocation(node), format(format, args), cause);
+        throw new TrinoException(code, extractLocation(node), format(format, args), cause);
     }
 }

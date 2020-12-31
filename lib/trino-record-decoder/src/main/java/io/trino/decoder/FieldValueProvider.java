@@ -14,7 +14,7 @@
 package io.trino.decoder;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 
 /**
@@ -24,27 +24,27 @@ public abstract class FieldValueProvider
 {
     public boolean getBoolean()
     {
-        throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to boolean not supported");
+        throw new TrinoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to boolean not supported");
     }
 
     public long getLong()
     {
-        throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to long not supported");
+        throw new TrinoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to long not supported");
     }
 
     public double getDouble()
     {
-        throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to double not supported");
+        throw new TrinoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to double not supported");
     }
 
     public Slice getSlice()
     {
-        throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to Slice not supported");
+        throw new TrinoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to Slice not supported");
     }
 
     public Block getBlock()
     {
-        throw new PrestoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to Block not supported");
+        throw new TrinoException(DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED, "conversion to Block not supported");
     }
 
     public abstract boolean isNull();

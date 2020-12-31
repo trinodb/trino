@@ -13,12 +13,12 @@
  */
 package io.trino.operator;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.PAGE_TOO_LARGE;
 
 public class PageTooLargeException
-        extends PrestoException
+        extends TrinoException
 {
     public PageTooLargeException()
     {

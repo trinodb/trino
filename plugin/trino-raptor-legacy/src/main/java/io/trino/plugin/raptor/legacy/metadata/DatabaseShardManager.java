@@ -30,7 +30,7 @@ import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.plugin.raptor.legacy.storage.organization.ShardOrganizerDao;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
 import io.trino.spi.Node;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.h2.jdbc.JdbcConnection;
@@ -288,7 +288,7 @@ public class DatabaseShardManager
     {
         // attempt to fail up front with a proper exception
         if (externalBatchId.isPresent() && dao.externalBatchExists(externalBatchId.get())) {
-            throw new PrestoException(RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS, "External batch already exists: " + externalBatchId.get());
+            throw new TrinoException(RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS, "External batch already exists: " + externalBatchId.get());
         }
 
         Map<String, Integer> nodeIds = toNodeIdMap(shards);
@@ -314,7 +314,7 @@ public class DatabaseShardManager
             lockTable(handle, tableId);
 
             if (updateTime.isEmpty() && handle.attach(MetadataDao.class).isMaintenanceBlockedLocked(tableId)) {
-                throw new PrestoException(TRANSACTION_CONFLICT, "Maintenance is blocked for table");
+                throw new TrinoException(TRANSACTION_CONFLICT, "Maintenance is blocked for table");
             }
 
             ShardStats newStats = shardStats(newShards);
@@ -363,7 +363,7 @@ public class DatabaseShardManager
                 }
 
                 if (e.getCause() != null) {
-                    throwIfInstanceOf(e.getCause(), PrestoException.class);
+                    throwIfInstanceOf(e.getCause(), TrinoException.class);
                 }
 
                 if (attempt == maxAttempts) {
@@ -386,7 +386,7 @@ public class DatabaseShardManager
             if (TRUE.equals(dao.transactionSuccessful(transactionId))) {
                 return false;
             }
-            throw new PrestoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
+            throw new TrinoException(TRANSACTION_CONFLICT, "Transaction commit failed. Please retry the operation.");
         }
         return true;
     }
@@ -552,7 +552,7 @@ public class DatabaseShardManager
     public void replaceShardAssignment(long tableId, UUID shardUuid, String nodeIdentifier, boolean gracePeriod)
     {
         if (gracePeriod && (nanosSince(startTime).compareTo(startupGracePeriod) < 0)) {
-            throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign shards while server is starting");
+            throw new TrinoException(SERVER_STARTING_UP, "Cannot reassign shards while server is starting");
         }
 
         int nodeId = getOrCreateNodeId(nodeIdentifier);
@@ -610,7 +610,7 @@ public class DatabaseShardManager
             return bucketAssignmentsCache.getUnchecked(distributionId);
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
     }
@@ -676,7 +676,7 @@ public class DatabaseShardManager
         BucketReassigner reassigner = new BucketReassigner(nodeIds, bucketNodes);
 
         List<String> assignments = new ArrayList<>(nCopies(bucketNodes.size(), null));
-        PrestoException limiterException = null;
+        TrinoException limiterException = null;
         Set<String> offlineNodes = new HashSet<>();
 
         for (BucketNode bucketNode : bucketNodes) {
@@ -685,7 +685,7 @@ public class DatabaseShardManager
 
             if (!nodeIds.contains(nodeId)) {
                 if (nanosSince(startTime).compareTo(startupGracePeriod) < 0) {
-                    throw new PrestoException(SERVER_STARTING_UP, "Cannot reassign buckets while server is starting");
+                    throw new TrinoException(SERVER_STARTING_UP, "Cannot reassign buckets while server is starting");
                 }
 
                 try {
@@ -693,7 +693,7 @@ public class DatabaseShardManager
                         assignmentLimiter.checkAssignFrom(nodeId);
                     }
                 }
-                catch (PrestoException e) {
+                catch (TrinoException e) {
                     if (limiterException == null) {
                         limiterException = e;
                     }
@@ -722,7 +722,7 @@ public class DatabaseShardManager
                 .map(Node::getNodeIdentifier)
                 .collect(toSet());
         if (nodeIds.isEmpty()) {
-            throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available for bucket assignments");
+            throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available for bucket assignments");
         }
         return nodeIds;
     }
@@ -733,7 +733,7 @@ public class DatabaseShardManager
             return nodeIdCache.getUnchecked(nodeIdentifier);
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
     }
@@ -750,7 +750,7 @@ public class DatabaseShardManager
 
         id = dao.getNodeId(nodeIdentifier);
         if (id == null) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "node does not exist after insert");
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "node does not exist after insert");
         }
         return id;
     }
@@ -789,7 +789,7 @@ public class DatabaseShardManager
             List<Long> shardIds = builder.build();
 
             if (shardIds.size() != shards.size()) {
-                throw new PrestoException(RAPTOR_ERROR, "Wrong number of generated keys for inserted shards");
+                throw new TrinoException(RAPTOR_ERROR, "Wrong number of generated keys for inserted shards");
             }
             return shardIds;
         }
@@ -842,9 +842,9 @@ public class DatabaseShardManager
         }
     }
 
-    private static PrestoException transactionConflict()
+    private static TrinoException transactionConflict()
     {
-        return new PrestoException(TRANSACTION_CONFLICT, "Table was updated by a different transaction. Please retry the operation.");
+        return new TrinoException(TRANSACTION_CONFLICT, "Table was updated by a different transaction. Please retry the operation.");
     }
 
     public static String shardIndexTable(long tableId)

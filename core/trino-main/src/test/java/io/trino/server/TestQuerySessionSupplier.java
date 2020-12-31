@@ -23,8 +23,8 @@ import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
 import io.trino.Session;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.sql.SqlEnvironmentConfig;
 import io.trino.sql.SqlPath;
 import io.trino.sql.SqlPathElement;
@@ -138,7 +138,7 @@ public class TestQuerySessionSupplier
         assertEquals(context2.getClientCapabilities(), ImmutableSet.of());
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testInvalidTimeZone()
     {
         MultivaluedMap<String, String> headers = new GuavaMultivaluedMap<>(ImmutableListMultimap.<String, String>builder()

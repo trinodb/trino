@@ -17,8 +17,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.Isolation;
@@ -48,10 +48,10 @@ public class StartTransactionTask
     {
         Session session = stateMachine.getSession();
         if (!session.isClientTransactionSupport()) {
-            throw new PrestoException(StandardErrorCode.INCOMPATIBLE_CLIENT, "Client does not support transactions");
+            throw new TrinoException(StandardErrorCode.INCOMPATIBLE_CLIENT, "Client does not support transactions");
         }
         if (session.getTransactionId().isPresent()) {
-            throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Nested transactions not supported");
+            throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Nested transactions not supported");
         }
 
         Optional<IsolationLevel> isolationLevel = extractIsolationLevel(statement);

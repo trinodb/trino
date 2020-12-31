@@ -16,7 +16,7 @@ package io.trino.plugin.resourcegroups;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
@@ -172,7 +172,7 @@ public abstract class AbstractResourceConfigurationManager
             for (ResourceGroupSpec candidate : candidates) {
                 if (candidate.getName().equals(segment)) {
                     if (match != null) {
-                        throw new PrestoException(INVALID_RESOURCE_GROUP, format(
+                        throw new TrinoException(INVALID_RESOURCE_GROUP, format(
                                 "Ambiguous configuration for [%s] using [%s]. Matches [%s] and [%s]",
                                 group.getId(),
                                 groupIdTemplate,

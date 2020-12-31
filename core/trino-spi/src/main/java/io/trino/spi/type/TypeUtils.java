@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 
@@ -113,7 +113,7 @@ public final class TypeUtils
     static void checkElementNotNull(boolean isNull, String errorMsg)
     {
         if (isNull) {
-            throw new PrestoException(NOT_SUPPORTED, errorMsg);
+            throw new TrinoException(NOT_SUPPORTED, errorMsg);
         }
     }
 }

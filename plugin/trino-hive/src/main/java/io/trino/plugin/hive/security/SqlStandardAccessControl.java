@@ -21,7 +21,7 @@ import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaRoutineName;
@@ -352,13 +352,13 @@ public class SqlStandardAccessControl
     @Override
     public void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal grantee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
     }
 
     @Override
     public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal revokee, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
     }
 
     @Override

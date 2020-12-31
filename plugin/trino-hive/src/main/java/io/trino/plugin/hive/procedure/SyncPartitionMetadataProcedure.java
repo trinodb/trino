@@ -25,7 +25,7 @@ import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -122,7 +122,7 @@ public class SyncPartitionMetadataProcedure
         Table table = metastore.getTable(identity, schemaName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         if (table.getPartitionColumns().isEmpty()) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Table is not partitioned: " + schemaTableName);
         }
 
         if (syncMode == SyncMode.ADD || syncMode == SyncMode.FULL) {
@@ -152,7 +152,7 @@ public class SyncPartitionMetadataProcedure
             partitionsToDrop = difference(partitionsInMetastore, partitionsInFileSystem);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, e);
         }
 
         syncPartitions(partitionsToAdd, partitionsToDrop, syncMode, metastore, session, table);
@@ -171,7 +171,7 @@ public class SyncPartitionMetadataProcedure
                     .collect(toImmutableList());
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, e);
         }
     }
 
@@ -263,7 +263,7 @@ public class SyncPartitionMetadataProcedure
             return SyncMode.valueOf(mode.toUpperCase(ENGLISH));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Invalid partition metadata sync mode: " + mode);
+            throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Invalid partition metadata sync mode: " + mode);
         }
     }
 }

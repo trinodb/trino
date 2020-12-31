@@ -26,7 +26,7 @@ import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
 import io.trino.operator.project.PageProjection;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.relational.RowExpression;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -134,7 +134,7 @@ public class ExpressionCompiler
             return compileProcessor(filter.orElse(constant(true, BOOLEAN)), projections, bodyCompiler, superType);
         }
         catch (CompilationException e) {
-            throw new PrestoException(COMPILER_ERROR, e.getCause());
+            throw new TrinoException(COMPILER_ERROR, e.getCause());
         }
     }
 

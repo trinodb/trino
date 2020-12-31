@@ -30,7 +30,7 @@ import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import io.trino.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.operator.annotations.ImplementationDependency;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
@@ -192,7 +192,7 @@ public class ParametricAggregation
             for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
                 if (candidate.areTypesAssignable(boundSignature)) {
                     if (foundImplementation.isPresent()) {
-                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
+                        throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
                     }
                     foundImplementation = Optional.of(candidate);
                 }
@@ -200,7 +200,7 @@ public class ParametricAggregation
         }
 
         if (foundImplementation.isEmpty()) {
-            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
+            throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
         }
         return foundImplementation.get();
     }

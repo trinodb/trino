@@ -21,7 +21,7 @@ import io.airlift.slice.Slice;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.aggregation.TypedSet;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
@@ -744,7 +744,7 @@ public final class MathFunctions
             return SignedBytes.checkedCast(rounded);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + rounded, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + rounded, e);
         }
     }
 
@@ -758,7 +758,7 @@ public final class MathFunctions
             return Shorts.checkedCast(rounded);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + rounded, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + rounded, e);
         }
     }
 
@@ -772,7 +772,7 @@ public final class MathFunctions
             return toIntExact(rounded);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + rounded, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + rounded, e);
         }
     }
 
@@ -795,7 +795,7 @@ public final class MathFunctions
             return Math.multiplyExact(LongMath.divide(num, factor, RoundingMode.HALF_UP), factor);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "numerical overflow: " + num, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "numerical overflow: " + num, e);
         }
     }
 
@@ -949,7 +949,7 @@ public final class MathFunctions
                 return result;
             }
             catch (ArithmeticException e) {
-                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "decimal overflow: " + num, e);
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "decimal overflow: " + num, e);
             }
         }
 
@@ -1219,7 +1219,7 @@ public final class MathFunctions
             return Long.parseLong(value.toStringUtf8(), (int) radix);
         }
         catch (NumberFormatException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Not a valid base-%d number: %s", radix, value.toStringUtf8()), e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Not a valid base-%d number: %s", radix, value.toStringUtf8()), e);
         }
     }
 
@@ -1253,7 +1253,7 @@ public final class MathFunctions
                 result = Math.addExact(bucketCount, 1);
             }
             catch (ArithmeticException e) {
-                throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Bucket for value %s is out of range", operand));
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Bucket for value %s is out of range", operand));
             }
         }
         else {
@@ -1285,14 +1285,14 @@ public final class MathFunctions
 
         while (lower < upper) {
             if (DOUBLE.getDouble(bins, lower) > DOUBLE.getDouble(bins, upper - 1)) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin values are not sorted in ascending order");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Bin values are not sorted in ascending order");
             }
 
             index = (lower + upper) / 2;
             bin = DOUBLE.getDouble(bins, index);
 
             if (!isFinite(bin)) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Bin value must be finite, got " + bin);
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Bin value must be finite, got " + bin);
             }
 
             if (operand < bin) {

@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -76,7 +76,7 @@ public final class ColorFunctions
                     return color;
                 }
             }
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid color index: " + index);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid color index: " + index);
         }
     }
 
@@ -100,7 +100,7 @@ public final class ColorFunctions
             return -(index + 1);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid color: '%s'", color.toStringUtf8()), e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid color: '%s'", color.toStringUtf8()), e);
         }
     }
 

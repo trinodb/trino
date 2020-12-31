@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
@@ -57,7 +57,7 @@ public class RowDecoder
             output.closeEntry();
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, format("Expected object for field '%s' of type ROW: %s [%s]", path, data, data.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, format("Expected object for field '%s' of type ROW: %s [%s]", path, data, data.getClass().getSimpleName()));
         }
     }
 }

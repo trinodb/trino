@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -191,9 +191,9 @@ public class JsonPathTokenizer
         return path.charAt(index);
     }
 
-    private PrestoException invalidJsonPath()
+    private TrinoException invalidJsonPath()
     {
-        return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid JSON path: '%s'", path));
+        return new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid JSON path: '%s'", path));
     }
 
     @Override

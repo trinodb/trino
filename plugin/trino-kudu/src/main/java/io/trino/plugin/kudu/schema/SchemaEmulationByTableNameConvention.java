@@ -14,7 +14,7 @@
 package io.trino.plugin.kudu.schema;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.kudu.ColumnSchema;
@@ -75,7 +75,7 @@ public class SchemaEmulationByTableNameConvention
                 }
             }
             catch (KuduException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
             }
         }
     }
@@ -96,7 +96,7 @@ public class SchemaEmulationByTableNameConvention
     public void dropSchema(KuduClient client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
-            throw new PrestoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
+            throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
         }
         else {
             try {
@@ -117,7 +117,7 @@ public class SchemaEmulationByTableNameConvention
                 }
             }
             catch (KuduException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
             }
         }
     }
@@ -145,7 +145,7 @@ public class SchemaEmulationByTableNameConvention
             return result;
         }
         catch (KuduException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 
@@ -204,13 +204,13 @@ public class SchemaEmulationByTableNameConvention
             if (commonPrefix.isEmpty()) {
                 if (schemaTableName.getTableName().indexOf('.') != -1) {
                     // in default schema table name must not contain dots if common prefix is empty
-                    throw new PrestoException(GENERIC_USER_ERROR, "Table name conflicts with schema emulation settings. No '.' allowed for tables in schema 'default'.");
+                    throw new TrinoException(GENERIC_USER_ERROR, "Table name conflicts with schema emulation settings. No '.' allowed for tables in schema 'default'.");
                 }
             }
             else {
                 if (schemaTableName.getTableName().startsWith(commonPrefix)) {
                     // in default schema table name must not start with common prefix
-                    throw new PrestoException(GENERIC_USER_ERROR, "Table name conflicts with schema emulation settings. Table name must not start with '" + commonPrefix + "'.");
+                    throw new TrinoException(GENERIC_USER_ERROR, "Table name conflicts with schema emulation settings. Table name must not start with '" + commonPrefix + "'.");
                 }
             }
         }

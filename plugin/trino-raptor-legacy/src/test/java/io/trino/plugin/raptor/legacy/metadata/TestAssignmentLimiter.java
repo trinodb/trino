@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_REASSIGNMENT_DELAY;
@@ -87,7 +87,7 @@ public class TestAssignmentLimiter
             limiter.checkAssignFrom(node);
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), expected.toErrorCode());
         }
     }

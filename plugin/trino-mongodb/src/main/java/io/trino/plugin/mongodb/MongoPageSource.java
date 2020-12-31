@@ -19,7 +19,7 @@ import com.mongodb.client.MongoCursor;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -197,7 +197,7 @@ public class MongoPageSource
                     type.writeLong(output, packDateTimeWithZone(((Date) value).getTime(), UTC_KEY));
                 }
                 else {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
                 }
             }
             else if (javaType == double.class) {
@@ -210,7 +210,7 @@ public class MongoPageSource
                 writeBlock(output, type, value);
             }
             else {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for " + javaType.getSimpleName() + ":" + type.getTypeSignature());
             }
         }
         catch (ClassCastException ignore) {
@@ -254,7 +254,7 @@ public class MongoPageSource
             type.writeSlice(output, encodeScaledValue(((Decimal128) value).bigDecimalValue(), ((DecimalType) type).getScale()));
         }
         else {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
         }
     }
 
@@ -333,7 +333,7 @@ public class MongoPageSource
             }
         }
         else {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
         }
 
         // not a convertible value

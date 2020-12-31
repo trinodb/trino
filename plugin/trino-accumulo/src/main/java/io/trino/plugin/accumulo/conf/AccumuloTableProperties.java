@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.trino.plugin.accumulo.serializers.LexicoderRowSerializer;
 import io.trino.plugin.accumulo.serializers.StringRowSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.VarcharType;
 import org.apache.commons.lang3.StringUtils;
@@ -190,7 +190,7 @@ public final class AccumuloTableProperties
             String[] locGroups = Iterables.toArray(COLON_SPLITTER.split(group), String.class);
 
             if (locGroups.length != 2) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "Locality groups string is malformed. See documentation for proper format.");
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Locality groups string is malformed. See documentation for proper format.");
             }
 
             String grpName = locGroups[0];

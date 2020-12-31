@@ -16,7 +16,7 @@ package io.trino.plugin.prometheus;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.units.Duration;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -104,7 +104,7 @@ public class PrometheusSplitManager
                                 queryChunkSizeDuration));
                     }
                     catch (URISyntaxException e) {
-                        throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
+                        throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
                     }
                 }).collect(Collectors.toList());
         return new FixedSplitSource(splits);

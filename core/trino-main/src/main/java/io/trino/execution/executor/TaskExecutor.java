@@ -27,7 +27,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.SplitRunner;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskManagerConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.version.EmbedVersion;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -510,8 +510,8 @@ public class TaskExecutor
                     catch (Throwable t) {
                         // ignore random errors due to driver thread interruption
                         if (!split.isDestroyed()) {
-                            if (t instanceof PrestoException) {
-                                PrestoException e = (PrestoException) t;
+                            if (t instanceof TrinoException) {
+                                TrinoException e = (TrinoException) t;
                                 log.error(t, "Error processing %s: %s: %s", split.getInfo(), e.getErrorCode().getName(), e.getMessage());
                             }
                             else {

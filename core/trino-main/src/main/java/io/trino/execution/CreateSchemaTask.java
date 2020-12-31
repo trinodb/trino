@@ -19,7 +19,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
@@ -81,7 +81,7 @@ public class CreateSchemaTask
         }
 
         CatalogName catalogName = metadata.getCatalogHandle(session, schema.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + schema.getCatalogName()));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + schema.getCatalogName()));
 
         Map<String, Object> properties = metadata.getSchemaPropertyManager().getProperties(
                 catalogName,
@@ -96,7 +96,7 @@ public class CreateSchemaTask
         try {
             metadata.createSchema(session, schema, properties, principal);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             // connectors are not required to handle the ignoreExisting flag
             if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || !statement.isNotExists()) {
                 throw e;

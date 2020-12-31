@@ -39,7 +39,7 @@ import io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
@@ -116,7 +116,7 @@ public class PhoenixClientModule
             checkArgument(driver.acceptsURL(connectionUrl), "Invalid JDBC URL for Phoenix connector");
         }
         catch (SQLException e) {
-            throw new PrestoException(PHOENIX_CONFIG_ERROR, e);
+            throw new TrinoException(PHOENIX_CONFIG_ERROR, e);
         }
     }
 

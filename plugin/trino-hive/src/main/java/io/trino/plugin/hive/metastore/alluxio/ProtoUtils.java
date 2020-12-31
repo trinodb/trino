@@ -39,7 +39,7 @@ import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.Nullable;
 
@@ -87,11 +87,11 @@ public final class ProtoUtils
     public static Table fromProto(alluxio.grpc.table.TableInfo table)
     {
         if (!table.hasLayout()) {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported table metadata. missing layout.: " + table.getTableName());
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported table metadata. missing layout.: " + table.getTableName());
         }
         Layout layout = table.getLayout();
         if (!alluxio.table.ProtoUtils.isHiveLayout(layout)) {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported table layout: " + layout + " for table: " + table.getTableName());
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported table layout: " + layout + " for table: " + table.getTableName());
         }
         try {
             PartitionInfo partitionInfo = alluxio.table.ProtoUtils.toHiveLayout(layout);
@@ -249,7 +249,7 @@ public final class ProtoUtils
                     nullsCount);
         }
         else {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
+            throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
         }
     }
 

@@ -14,7 +14,7 @@
 
 package io.trino.spi.block;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
@@ -112,7 +112,7 @@ public final class MethodHandleUtil
             return MethodHandles.lookup().unreflect(clazz.getMethod(name, parameterTypes));
         }
         catch (IllegalAccessException | NoSuchMethodException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
     }
 

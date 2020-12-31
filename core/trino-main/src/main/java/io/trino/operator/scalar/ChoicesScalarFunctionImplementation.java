@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionInvoker;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -111,7 +111,7 @@ public final class ChoicesScalarFunctionImplementation
             }
         }
         if (choices.isEmpty()) {
-            throw new PrestoException(FUNCTION_NOT_FOUND,
+            throw new TrinoException(FUNCTION_NOT_FOUND,
                     format("Function implementation for (%s) cannot be adapted to convention (%s)", functionBinding.getBoundSignature(), invocationConvention));
         }
 

@@ -19,7 +19,7 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.tree.Expression;
@@ -51,7 +51,7 @@ public class SetViewAuthorizationTask
         Session session = stateMachine.getSession();
         QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
         CatalogName catalogName = metadata.getCatalogHandle(session, viewName.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + viewName.getCatalogName()));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + viewName.getCatalogName()));
         metadata.getView(session, viewName)
                 .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName));
 

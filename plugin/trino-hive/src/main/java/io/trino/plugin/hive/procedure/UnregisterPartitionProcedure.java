@@ -22,7 +22,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -106,7 +106,7 @@ public class UnregisterPartitionProcedure
         String partitionName = FileUtils.makePartName(partitionColumn, partitionValues);
 
         Partition partition = metastore.getPartition(new HiveIdentity(session), schemaName, tableName, partitionValues)
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Partition '%s' does not exist", partitionName)));
 
         SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create()).getMetastore();
 

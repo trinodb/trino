@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.type.TypeId;
 
@@ -33,7 +33,7 @@ public class LegacyHiveViewReader
     public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
     {
         String viewText = table.getViewExpandedText()
-                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view expanded text: " + table.getSchemaTableName()));
+                .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view expanded text: " + table.getSchemaTableName()));
         return new ConnectorViewDefinition(
                 translateHiveViewToPresto(viewText),
                 Optional.of(catalogName.toString()),

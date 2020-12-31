@@ -17,7 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
@@ -155,7 +155,7 @@ public class MergingPageIterator
             }
             catch (Throwable throwable) {
                 throwIfUnchecked(throwable);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
             }
         }
     }

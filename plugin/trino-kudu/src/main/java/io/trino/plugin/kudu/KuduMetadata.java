@@ -20,7 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.plugin.kudu.properties.PartitionDesign;
 import io.trino.plugin.kudu.schema.KuduRangePartition;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -252,7 +252,7 @@ public class KuduMetadata
             return table.getRangePartitions(fetchTabletsTimeoutInMillis);
         }
         catch (Exception e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unable to get list of tablets for table " + table.getName(), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unable to get list of tablets for table " + table.getName(), e);
         }
     }
 

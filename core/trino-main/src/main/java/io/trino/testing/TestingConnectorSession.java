@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.execution.QueryIdGenerator;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.session.PropertyMetadata;
@@ -119,7 +119,7 @@ public class TestingConnectorSession
     {
         PropertyMetadata<?> metadata = properties.get(name);
         if (metadata == null) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
         }
         Object value = propertyValues.get(name);
         if (value == null) {

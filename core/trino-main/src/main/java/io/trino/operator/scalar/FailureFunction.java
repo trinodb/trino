@@ -16,8 +16,8 @@ package io.trino.operator.scalar;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.client.FailureInfo;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -37,7 +37,7 @@ public final class FailureFunction
     {
         FailureInfo failureInfo = JSON_CODEC.fromJson(failureInfoSlice.getBytes());
         // wrap the failure in a new exception to append the current stack trace
-        throw new PrestoException(StandardErrorCode.GENERIC_USER_ERROR, failureInfo.toException());
+        throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, failureInfo.toException());
     }
 
     @Description("Throws an exception with a given message")
@@ -45,7 +45,7 @@ public final class FailureFunction
     @SqlType("unknown")
     public static boolean fail(@SqlType(StandardTypes.VARCHAR) Slice message)
     {
-        throw new PrestoException(StandardErrorCode.GENERIC_USER_ERROR, message.toStringUtf8());
+        throw new TrinoException(StandardErrorCode.GENERIC_USER_ERROR, message.toStringUtf8());
     }
 
     @Description("Throws an exception with a given error code and message")
@@ -57,9 +57,9 @@ public final class FailureFunction
     {
         for (StandardErrorCode standardErrorCode : StandardErrorCode.values()) {
             if (standardErrorCode.toErrorCode().getCode() == errorCode) {
-                throw new PrestoException(standardErrorCode, message.toStringUtf8());
+                throw new TrinoException(standardErrorCode, message.toStringUtf8());
             }
         }
-        throw new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Unable to find error for code: " + errorCode);
+        throw new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, "Unable to find error for code: " + errorCode);
     }
 }

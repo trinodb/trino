@@ -55,7 +55,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingMetadata;
-import io.trino.testing.assertions.PrestoExceptionAssert;
+import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
@@ -133,7 +133,7 @@ import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECI
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -2928,12 +2928,12 @@ public class TestAnalyzer
                 });
     }
 
-    private PrestoExceptionAssert assertFails(Session session, @Language("SQL") String query)
+    private TrinoExceptionAssert assertFails(Session session, @Language("SQL") String query)
     {
-        return assertPrestoExceptionThrownBy(() -> analyze(session, query));
+        return assertTrinoExceptionThrownBy(() -> analyze(session, query));
     }
 
-    private PrestoExceptionAssert assertFails(@Language("SQL") String query)
+    private TrinoExceptionAssert assertFails(@Language("SQL") String query)
     {
         return assertFails(CLIENT_SESSION, query);
     }

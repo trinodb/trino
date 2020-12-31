@@ -14,12 +14,12 @@
 package io.trino.operator;
 
 import io.trino.spi.HostAddress;
-import io.trino.spi.PrestoTransportException;
+import io.trino.spi.TrinoTransportException;
 
 import static io.trino.spi.StandardErrorCode.PAGE_TRANSPORT_ERROR;
 
 public class PageTransportErrorException
-        extends PrestoTransportException
+        extends TrinoTransportException
 {
     public PageTransportErrorException(HostAddress remoteHost, String message)
     {

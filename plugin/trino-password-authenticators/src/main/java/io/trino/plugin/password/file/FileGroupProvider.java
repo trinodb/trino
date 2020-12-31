@@ -17,7 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.GroupProvider;
 
 import javax.inject.Inject;
@@ -95,7 +95,7 @@ public class FileGroupProvider
 
     private static RuntimeException invalidFile(int lineNumber, String message, Throwable cause)
     {
-        return new PrestoException(CONFIGURATION_INVALID, format("Error in group file line %s: %s", lineNumber, message), cause);
+        return new TrinoException(CONFIGURATION_INVALID, format("Error in group file line %s: %s", lineNumber, message), cause);
     }
 
     private static List<String> readGroupFile(File file)
@@ -104,7 +104,7 @@ public class FileGroupProvider
             return Files.readAllLines(file.toPath());
         }
         catch (IOException e) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Failed to read group file: " + file, e);
+            throw new TrinoException(CONFIGURATION_UNAVAILABLE, "Failed to read group file: " + file, e);
         }
     }
 }

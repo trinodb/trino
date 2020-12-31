@@ -17,7 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimaps;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.Path;
 
 import java.util.Collection;
@@ -179,7 +179,7 @@ public class PartitionUpdate
                 if (partition.getUpdateMode() != firstPartition.getUpdateMode() ||
                         !partition.getWritePath().equals(firstPartition.getWritePath()) ||
                         !partition.getTargetPath().equals(firstPartition.getTargetPath())) {
-                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, format("Partition %s was added or modified during INSERT", firstPartition.getName()));
+                    throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, format("Partition %s was added or modified during INSERT", firstPartition.getName()));
                 }
                 allFileNames.addAll(partition.getFileNames());
                 totalRowCount += partition.getRowCount();

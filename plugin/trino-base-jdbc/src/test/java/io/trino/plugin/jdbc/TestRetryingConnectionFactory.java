@@ -13,8 +13,8 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
@@ -58,12 +58,12 @@ public class TestRetryingConnectionFactory
     }
 
     @Test
-    public void testRetryAndStopOnPrestoException()
+    public void testRetryAndStopOnTrinoException()
     {
         MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_PRESTO_EXCEPTION);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
         assertThatThrownBy(() -> factory.openConnection(SESSION))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Testing presto exception");
         assertEquals(mock.getCallCount(), 2);
     }
@@ -139,7 +139,7 @@ public class TestRetryingConnectionFactory
                 case THROW_NPE:
                     throw new NullPointerException("Testing NPE");
                 case THROW_PRESTO_EXCEPTION:
-                    throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Testing presto exception");
+                    throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Testing presto exception");
                 case THROW_SQL_EXCEPTION:
                     throw new SQLException("Testing sql exception");
                 case THROW_SQL_RECOVERABLE_EXCEPTION:

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 import org.apache.kudu.client.KeyEncoderAccessor;
@@ -137,7 +137,7 @@ public class KuduRecordCursor
                 return (org.apache.kudu.util.Slice) ROW_DATA_FIELD.get(currentRow);
             }
             catch (IllegalAccessException e) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
             }
         }
         return null;

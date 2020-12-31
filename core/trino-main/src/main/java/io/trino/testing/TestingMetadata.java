@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -181,7 +181,7 @@ public class TestingMetadata
             views.put(viewName, definition);
         }
         else if (views.putIfAbsent(viewName, definition) != null) {
-            throw new PrestoException(ALREADY_EXISTS, "View already exists: " + viewName);
+            throw new TrinoException(ALREADY_EXISTS, "View already exists: " + viewName);
         }
     }
 

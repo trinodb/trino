@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.util.List;
 
@@ -33,11 +33,11 @@ public abstract class DecimalType
     public static DecimalType createDecimalType(int precision, int scale)
     {
         if (precision <= 0 || precision > MAX_PRECISION) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("DECIMAL precision must be in range [1, %d]: %s", MAX_PRECISION, precision));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("DECIMAL precision must be in range [1, %d]: %s", MAX_PRECISION, precision));
         }
 
         if (scale < 0 || scale > precision) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("DECIMAL scale must be in range [0, precision (%s)]: %s", precision, scale));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("DECIMAL scale must be in range [0, precision (%s)]: %s", precision, scale));
         }
 
         if (precision <= MAX_SHORT_PRECISION) {

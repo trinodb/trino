@@ -43,7 +43,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.trino.plugin.hive.metastore.UserTableKey;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -259,7 +259,7 @@ public class CachingHiveMetastore
             return cache.getUnchecked(key);
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
     }
@@ -270,7 +270,7 @@ public class CachingHiveMetastore
             return cache.getAll(keys);
         }
         catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throwIfUnchecked(e);
             throw new UncheckedExecutionException(e);
         }

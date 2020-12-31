@@ -25,7 +25,7 @@ import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.Nullable;
 
@@ -125,7 +125,7 @@ public class TopologyAwareNodeSelector
                 List<InternalNode> candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
                 if (candidateNodes.isEmpty()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
-                    throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+                    throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
                 InternalNode chosenNode = bestNodeSplitCount(candidateNodes.iterator(), minCandidates, maxPendingSplitsPerTask, assignmentStats);
                 if (chosenNode != null) {

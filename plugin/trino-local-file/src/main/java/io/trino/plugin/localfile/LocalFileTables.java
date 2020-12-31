@@ -19,7 +19,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 
@@ -105,7 +105,7 @@ public class LocalFileTables
             return cachedFiles.getUnchecked(table);
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
     }

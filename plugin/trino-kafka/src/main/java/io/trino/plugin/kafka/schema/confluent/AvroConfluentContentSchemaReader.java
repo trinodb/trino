@@ -16,7 +16,7 @@ package io.trino.plugin.kafka.schema.confluent;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.plugin.kafka.schema.AbstractContentSchemaReader;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.inject.Inject;
 
@@ -50,7 +50,7 @@ public class AvroConfluentContentSchemaReader
             return Optional.of(schemaRegistryClient.getLatestSchemaMetadata(subject.get()).getSchema());
         }
         catch (IOException | RestClientException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Could not resolve schema for the '%s' subject", subject.get()), e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Could not resolve schema for the '%s' subject", subject.get()), e);
         }
     }
 }

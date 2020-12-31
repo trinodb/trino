@@ -22,7 +22,7 @@ import io.trino.plugin.raptor.legacy.metadata.ForMetadata;
 import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
 import io.trino.plugin.raptor.legacy.metadata.TableMetadataRow;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -154,7 +154,7 @@ public class TableMetadataSystemTable
             // temporal_column
             if (temporalColumnId.isPresent()) {
                 if (temporalColumnName == null) {
-                    throw new PrestoException(RAPTOR_CORRUPT_METADATA, format("Table ID %s has corrupt metadata (invalid temporal column ID)", tableRow.getTableId()));
+                    throw new TrinoException(RAPTOR_CORRUPT_METADATA, format("Table ID %s has corrupt metadata (invalid temporal column ID)", tableRow.getTableId()));
                 }
                 VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(temporalColumnName));
             }

@@ -21,7 +21,7 @@ import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
@@ -319,7 +319,7 @@ public final class SystemSessionProperties
                         value -> {
                             int intValue = (int) value;
                             if (intValue < 2) {
-                                throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
                             }
                             return intValue;
                         },
@@ -887,7 +887,7 @@ public final class SystemSessionProperties
     {
         int intValue = (int) value;
         if (Integer.bitCount(intValue) != 1) {
-            throw new PrestoException(
+            throw new TrinoException(
                     INVALID_SESSION_PROPERTY,
                     format("%s must be a power of 2: %s", property, intValue));
         }
@@ -901,7 +901,7 @@ public final class SystemSessionProperties
     private static Integer validateIntegerValue(Object value, String property, int lowerBoundIncluded, boolean allowNull)
     {
         if (value == null && !allowNull) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be non-null", property));
         }
 
         if (value == null) {
@@ -910,7 +910,7 @@ public final class SystemSessionProperties
 
         int intValue = (int) value;
         if (intValue < lowerBoundIncluded) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
+            throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
         }
         return intValue;
     }

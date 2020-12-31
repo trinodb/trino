@@ -19,7 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.plugin.hive.orc.OrcFileWriter;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -236,7 +236,7 @@ public class HiveUpdatablePageSource
             hivePageSource.close();
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, e);
         }
     }
 }

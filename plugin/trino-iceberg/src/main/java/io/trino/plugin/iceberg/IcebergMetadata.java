@@ -33,7 +33,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -249,12 +249,12 @@ public class IcebergMetadata
         switch (name.getTableType()) {
             case HISTORY:
                 if (name.getSnapshotId().isPresent()) {
-                    throw new PrestoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
+                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);
                 }
                 return Optional.of(new HistoryTable(systemTableName, table));
             case SNAPSHOTS:
                 if (name.getSnapshotId().isPresent()) {
-                    throw new PrestoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
+                    throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for snapshots table: " + systemTableName);
                 }
                 return Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
             case PARTITIONS:
@@ -349,7 +349,7 @@ public class IcebergMetadata
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(uri));
             }
             catch (IOException | IllegalArgumentException e) {
-                throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + uri, e);
+                throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + uri, e);
             }
             return uri;
         });
@@ -370,7 +370,7 @@ public class IcebergMetadata
         // basic sanity check to provide a better error message
         if (!listTables(session, Optional.of(schemaName)).isEmpty() ||
                 !listViews(session, Optional.of(schemaName)).isEmpty()) {
-            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
         metastore.dropDatabase(new HiveIdentity(session), schemaName);
     }
@@ -634,7 +634,7 @@ public class IcebergMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        throw new TrinoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
     }
 
     @Override
@@ -736,7 +736,7 @@ public class IcebergMetadata
             if (ignoreExisting) {
                 return;
             }
-            throw new PrestoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
+            throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists: " + viewName);
         }
 
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
@@ -806,7 +806,7 @@ public class IcebergMetadata
             try {
                 metastore.dropTable(identity, viewName.getSchemaName(), storageTableName, true);
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 log.warn(e, "Failed to drop storage table '%s' for materialized view '%s'", storageTableName, viewName);
             }
         }
@@ -921,7 +921,7 @@ public class IcebergMetadata
         Table materializedView = materializedViewOptional.get();
 
         ConnectorMaterializedViewDefinition definition = decodeMaterializedViewData(materializedView.getViewOriginalText()
-                .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
+                .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
 
         String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");
         return Optional.of(new ConnectorMaterializedViewDefinition(
@@ -969,7 +969,7 @@ public class IcebergMetadata
                 strings = strings.subList(1, 3);
             }
             else if (strings.size() != 2) {
-                throw new PrestoException(ICEBERG_INVALID_METADATA, String.format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
+                throw new TrinoException(ICEBERG_INVALID_METADATA, String.format("Invalid table name in '%s' property: %s'", DEPENDS_ON_TABLES, strings));
             }
             String schema = strings.get(0);
             String name = strings.get(1);

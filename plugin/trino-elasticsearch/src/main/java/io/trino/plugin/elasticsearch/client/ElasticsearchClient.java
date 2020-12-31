@@ -33,7 +33,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -322,7 +322,7 @@ public class ElasticsearchClient
             return Optional.of(result);
         }
         catch (GeneralSecurityException | IOException e) {
-            throw new PrestoException(ELASTICSEARCH_SSL_INITIALIZATION_FAILURE, e);
+            throw new TrinoException(ELASTICSEARCH_SSL_INITIALIZATION_FAILURE, e);
         }
     }
 
@@ -459,10 +459,10 @@ public class ElasticsearchClient
             if (e.getResponse().getStatusLine().getStatusCode() == 404) {
                 return false;
             }
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
         catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
     }
 
@@ -488,7 +488,7 @@ public class ElasticsearchClient
                 return result.build();
             }
             catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
     }
@@ -512,7 +512,7 @@ public class ElasticsearchClient
                 return result.build();
             }
             catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
     }
@@ -546,7 +546,7 @@ public class ElasticsearchClient
                 return new IndexMetadata(parseType(mappings.get("properties"), nullSafeNode(metaNode, "presto")));
             }
             catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         });
     }
@@ -621,7 +621,7 @@ public class ElasticsearchClient
                             new BasicHeader("Accept-Encoding", "application/json"));
         }
         catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
 
         String body;
@@ -629,7 +629,7 @@ public class ElasticsearchClient
             body = EntityUtils.toString(response.getEntity());
         }
         catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
 
         return body;
@@ -673,7 +673,7 @@ public class ElasticsearchClient
             return client.search(request);
         }
         catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
         catch (ElasticsearchStatusException e) {
             Throwable[] suppressed = e.getSuppressed();
@@ -684,7 +684,7 @@ public class ElasticsearchClient
                 }
             }
 
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
         finally {
             searchStats.add(Duration.nanosSince(start));
@@ -703,7 +703,7 @@ public class ElasticsearchClient
             return client.searchScroll(request);
         }
         catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
         finally {
             nextPageStats.add(Duration.nanosSince(start));
@@ -733,7 +733,7 @@ public class ElasticsearchClient
                 throw propagate(e);
             }
             catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+                throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
             }
 
             try {
@@ -741,7 +741,7 @@ public class ElasticsearchClient
                         .getCount();
             }
             catch (IOException e) {
-                throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
             }
         }
         finally {
@@ -757,7 +757,7 @@ public class ElasticsearchClient
             client.clearScroll(request);
         }
         catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
     }
 
@@ -792,7 +792,7 @@ public class ElasticsearchClient
                     .performRequest("GET", path);
         }
         catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
         }
 
         String body;
@@ -800,13 +800,13 @@ public class ElasticsearchClient
             body = EntityUtils.toString(response.getEntity());
         }
         catch (IOException e) {
-            throw new PrestoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
         }
 
         return handler.process(body);
     }
 
-    private static PrestoException propagate(ResponseException exception)
+    private static TrinoException propagate(ResponseException exception)
     {
         HttpEntity entity = exception.getResponse().getEntity();
 
@@ -818,17 +818,17 @@ public class ElasticsearchClient
                         .path("reason");
 
                 if (!reason.isMissingNode()) {
-                    throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
+                    throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
                 }
             }
             catch (IOException e) {
-                PrestoException result = new PrestoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+                TrinoException result = new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
                 result.addSuppressed(e);
                 throw result;
             }
         }
 
-        throw new PrestoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+        throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
     }
 
     @VisibleForTesting

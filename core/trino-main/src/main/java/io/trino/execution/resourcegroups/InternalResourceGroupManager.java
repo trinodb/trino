@@ -19,7 +19,7 @@ import io.airlift.log.Logger;
 import io.airlift.node.NodeInfo;
 import io.trino.execution.ManagedQueryExecution;
 import io.trino.server.ResourceGroupInfo;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManager;
 import io.trino.spi.resourcegroups.ResourceGroupConfigurationManagerContext;
@@ -118,7 +118,7 @@ public final class InternalResourceGroupManager<C>
     public SelectionContext<C> selectGroup(SelectionCriteria criteria)
     {
         return configurationManager.get().match(criteria)
-                .orElseThrow(() -> new PrestoException(QUERY_REJECTED, "Query did not match any selection rule"));
+                .orElseThrow(() -> new TrinoException(QUERY_REJECTED, "Query did not match any selection rule"));
     }
 
     @Override

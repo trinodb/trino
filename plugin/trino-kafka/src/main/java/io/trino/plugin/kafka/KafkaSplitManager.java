@@ -16,7 +16,7 @@ package io.trino.plugin.kafka;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
 import io.trino.spi.HostAddress;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -103,10 +103,10 @@ public class KafkaSplitManager
             return new FixedSplitSource(splits.build());
         }
         catch (Exception e) { // Catch all exceptions because Kafka library is written in scala and checked exceptions are not declared in method signature.
-            if (e instanceof PrestoException) {
+            if (e instanceof TrinoException) {
                 throw e;
             }
-            throw new PrestoException(KAFKA_SPLIT_ERROR, format("Cannot list splits for table '%s' reading topic '%s'", kafkaTableHandle.getTableName(), kafkaTableHandle.getTopicName()), e);
+            throw new TrinoException(KAFKA_SPLIT_ERROR, format("Cannot list splits for table '%s' reading topic '%s'", kafkaTableHandle.getTableName(), kafkaTableHandle.getTopicName()), e);
         }
     }
 

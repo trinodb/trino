@@ -18,7 +18,7 @@ import io.trino.FullConnectorSession;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
@@ -75,7 +75,7 @@ public class CoordinatorSystemTablesProvider
 
         // dynamic tables require access to the transaction and thus can only run on the current coordinator
         if (systemTable.isPresent() && systemTable.get().getDistribution() != SINGLE_COORDINATOR) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Distribution for dynamic system table must be " + SINGLE_COORDINATOR);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Distribution for dynamic system table must be " + SINGLE_COORDINATOR);
         }
 
         return systemTable;

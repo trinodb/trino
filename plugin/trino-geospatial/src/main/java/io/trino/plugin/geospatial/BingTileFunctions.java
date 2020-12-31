@@ -19,7 +19,7 @@ import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
@@ -709,7 +709,7 @@ public final class BingTileFunctions
     private static void checkCondition(boolean condition, String formatString, Object... args)
     {
         if (!condition) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format(formatString, args));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format(formatString, args));
         }
     }
 

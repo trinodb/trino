@@ -23,7 +23,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
@@ -140,7 +140,7 @@ public final class JoniRegexpFunctions
             if (nextByte == '$') {
                 idx++;
                 if (idx == replacement.length()) { // not using checkArgument because `.toStringUtf8` is expensive
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
                 }
                 nextByte = replacement.getByte(idx);
                 int backref;
@@ -159,17 +159,17 @@ public final class JoniRegexpFunctions
                         backref = pattern.nameToBackrefNumber(groupName, 0, groupName.length, region);
                     }
                     catch (ValueException e) {
-                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: unknown group { " + new String(groupName, StandardCharsets.UTF_8) + " }");
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: unknown group { " + new String(groupName, StandardCharsets.UTF_8) + " }");
                     }
                     idx++;
                 }
                 else { // case 2 in the above comment
                     backref = nextByte - '0';
                     if (backref < 0 || backref > 9) { // not using checkArgument because `.toStringUtf8` is expensive
-                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
                     }
                     if (region.numRegs <= backref) {
-                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: unknown group " + backref);
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: unknown group " + backref);
                     }
                     idx++;
                     while (idx < replacement.length()) { // Adaptive group number: find largest group num that is not greater than actual number of groups
@@ -195,7 +195,7 @@ public final class JoniRegexpFunctions
                 if (nextByte == '\\') {
                     idx++;
                     if (idx == replacement.length()) { // not using checkArgument because `.toStringUtf8` is expensive
-                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Illegal replacement sequence: " + replacement.toStringUtf8());
                     }
                     nextByte = replacement.getByte(idx);
                 }
@@ -312,10 +312,10 @@ public final class JoniRegexpFunctions
     private static void validateGroup(long group, Region region)
     {
         if (group < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Group cannot be negative");
         }
         if (group > region.numRegs - 1) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", region.numRegs - 1, group));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Pattern has %d groups. Cannot access group %d", region.numRegs - 1, group));
         }
     }
 
@@ -352,11 +352,11 @@ public final class JoniRegexpFunctions
     {
         // start position cannot be smaller than 1
         if (start < 1) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "start position cannot be smaller than 1");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "start position cannot be smaller than 1");
         }
         // occurrence cannot be smaller than 1
         if (occurrence < 1) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "occurrence cannot be smaller than 1");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "occurrence cannot be smaller than 1");
         }
         // returns -1 if start is greater than the length of source
         if (start > SliceUtf8.countCodePoints(source)) {

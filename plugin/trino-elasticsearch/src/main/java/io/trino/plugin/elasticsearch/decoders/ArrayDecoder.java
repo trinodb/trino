@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
@@ -50,7 +50,7 @@ public class ArrayDecoder
             output.closeEntry();
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, format("Expected list of elements for field '%s' of type ARRAY: %s [%s]", path, data, data.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, format("Expected list of elements for field '%s' of type ARRAY: %s [%s]", path, data, data.getClass().getSimpleName()));
         }
     }
 }

@@ -16,7 +16,7 @@ package io.trino.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.hive.HiveStorageFormat;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -46,7 +46,7 @@ public class StorageFormat
     public String getSerDe()
     {
         if (serDe == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "SerDe is not present in StorageFormat");
+            throw new TrinoException(HIVE_INVALID_METADATA, "SerDe is not present in StorageFormat");
         }
         return serDe;
     }
@@ -54,7 +54,7 @@ public class StorageFormat
     public String getInputFormat()
     {
         if (inputFormat == null) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "InputFormat is not present in StorageFormat");
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "InputFormat is not present in StorageFormat");
         }
         return inputFormat;
     }
@@ -62,7 +62,7 @@ public class StorageFormat
     public String getOutputFormat()
     {
         if (outputFormat == null) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "OutputFormat is not present in StorageFormat");
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "OutputFormat is not present in StorageFormat");
         }
         return outputFormat;
     }

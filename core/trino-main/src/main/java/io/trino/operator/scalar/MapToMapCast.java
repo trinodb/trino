@@ -22,7 +22,7 @@ import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.SqlOperator;
 import io.trino.operator.aggregation.TypedSet;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -190,7 +190,7 @@ public final class MapToMapCast
     public static long checkLongIsNotNull(Long value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "map key is null");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "map key is null");
         }
         return value;
     }
@@ -199,7 +199,7 @@ public final class MapToMapCast
     public static double checkDoubleIsNotNull(Double value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "map key is null");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "map key is null");
         }
         return value;
     }
@@ -208,7 +208,7 @@ public final class MapToMapCast
     public static boolean checkBooleanIsNotNull(Boolean value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "map key is null");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "map key is null");
         }
         return value;
     }
@@ -217,7 +217,7 @@ public final class MapToMapCast
     public static Slice checkSliceIsNotNull(Slice value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "map key is null");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "map key is null");
         }
         return value;
     }
@@ -226,7 +226,7 @@ public final class MapToMapCast
     public static Block checkBlockIsNotNull(Block value)
     {
         if (value == null) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "map key is null");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "map key is null");
         }
         return value;
     }
@@ -275,7 +275,7 @@ public final class MapToMapCast
             }
             else {
                 // if there are duplicated keys, fail it!
-                throw new PrestoException(INVALID_CAST_ARGUMENT, "duplicate keys");
+                throw new TrinoException(INVALID_CAST_ARGUMENT, "duplicate keys");
             }
         }
 

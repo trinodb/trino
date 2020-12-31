@@ -25,8 +25,8 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
-import io.trino.spi.PrestoException;
 import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
@@ -130,7 +130,7 @@ public class PlanFragmenter
         subPlan.sanityCheck();
         int fragmentCount = subPlan.getAllFragments().size();
         if (fragmentCount > maxStageCount) {
-            throw new PrestoException(QUERY_HAS_TOO_MANY_STAGES, format(
+            throw new TrinoException(QUERY_HAS_TOO_MANY_STAGES, format(
                     "Number of stages in the query (%s) exceeds the allowed maximum (%s). %s",
                     fragmentCount,
                     maxStageCount,

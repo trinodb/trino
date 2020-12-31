@@ -35,7 +35,7 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
@@ -403,7 +403,7 @@ public final class ThriftMetastoreUtil
     {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
         return fromMetastoreApiTable(table, storageDescriptor.getCols());
     }
@@ -412,7 +412,7 @@ public final class ThriftMetastoreUtil
     {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table is missing storage descriptor");
         }
 
         Table.Builder tableBuilder = Table.builder()
@@ -465,11 +465,11 @@ public final class ThriftMetastoreUtil
     {
         StorageDescriptor storageDescriptor = table.getSd();
         if (storageDescriptor == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table does not contain a storage descriptor: " + table);
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table does not contain a storage descriptor: " + table);
         }
         SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
         if (serdeInfo == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
         }
 
         return serdeInfo;
@@ -479,7 +479,7 @@ public final class ThriftMetastoreUtil
     {
         StorageDescriptor storageDescriptor = partition.getSd();
         if (storageDescriptor == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
         }
 
         return fromMetastoreApiPartition(partition, storageDescriptor.getCols());
@@ -489,7 +489,7 @@ public final class ThriftMetastoreUtil
     {
         StorageDescriptor storageDescriptor = partition.getSd();
         if (storageDescriptor == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
+            throw new TrinoException(HIVE_INVALID_METADATA, "Partition does not contain a storage descriptor: " + partition);
         }
 
         Partition.Builder partitionBuilder = Partition.builder()
@@ -582,7 +582,7 @@ public final class ThriftMetastoreUtil
                     nullsCount);
         }
         else {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
+            throw new TrinoException(HIVE_INVALID_METADATA, "Invalid column statistics data: " + columnStatistics);
         }
     }
 
@@ -713,7 +713,7 @@ public final class ThriftMetastoreUtil
     {
         SerDeInfo serdeInfo = storageDescriptor.getSerdeInfo();
         if (serdeInfo == null) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table storage descriptor is missing SerDe info");
         }
 
         builder.setStorageFormat(StorageFormat.createNullable(serdeInfo.getSerializationLib(), storageDescriptor.getInputFormat(), storageDescriptor.getOutputFormat()))

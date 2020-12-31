@@ -25,7 +25,7 @@ import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
@@ -51,13 +51,13 @@ public class TestProtoUtils
         assertEquals(Optional.empty(), ProtoUtils.fromProto(alluxioDb.build()).getLocation());
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testTableMissingLayout()
     {
         ProtoUtils.fromProto(TestingAlluxioMetastoreObjects.getTestingTableInfo().clearLayout().build());
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testTableNonHiveLayout()
     {
         alluxio.grpc.table.TableInfo.Builder alluxioTable = alluxio.grpc.table.TableInfo.newBuilder()

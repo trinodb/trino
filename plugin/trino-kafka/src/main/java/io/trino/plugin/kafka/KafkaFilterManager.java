@@ -15,7 +15,7 @@ package io.trino.plugin.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
@@ -163,7 +163,7 @@ public class KafkaFilterManager
             }
         }
         catch (Exception e) {
-            throw new PrestoException(KAFKA_SPLIT_ERROR, format("Failed to get configuration for topic '%s'", topic), e);
+            throw new TrinoException(KAFKA_SPLIT_ERROR, format("Failed to get configuration for topic '%s'", topic), e);
         }
         return KafkaSessionProperties.isTimestampUpperBoundPushdownEnabled(session);
     }

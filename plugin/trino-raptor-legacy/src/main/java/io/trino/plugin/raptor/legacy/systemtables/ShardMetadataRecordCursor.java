@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.raptor.legacy.metadata.MetadataDao;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RecordCursor;
@@ -282,7 +282,7 @@ public class ShardMetadataRecordCursor
                 columnNames = getMappedColumnNames(minColumn(columnId), maxColumn(columnId), "null", "null");
             }
             else {
-                throw new PrestoException(RAPTOR_CORRUPT_METADATA, "Temporal column should be of type date or timestamp, not " + temporalType.getDisplayName());
+                throw new TrinoException(RAPTOR_CORRUPT_METADATA, "Temporal column should be of type date or timestamp, not " + temporalType.getDisplayName());
             }
         }
 

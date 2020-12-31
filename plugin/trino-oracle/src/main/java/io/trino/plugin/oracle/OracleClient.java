@@ -26,7 +26,7 @@ import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
@@ -213,7 +213,7 @@ public class OracleClient
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equalsIgnoreCase(newTable.getSchemaName())) {
-            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported in Oracle");
+            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported in Oracle");
         }
 
         String newTableName = newTable.getTableName().toUpperCase(ENGLISH);
@@ -226,7 +226,7 @@ public class OracleClient
             execute(connection, sql);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -234,7 +234,7 @@ public class OracleClient
     public void createSchema(ConnectorSession session, String schemaName)
     {
         // ORA-02420: missing schema authorization clause
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
 
     @Override
@@ -462,7 +462,7 @@ public class OracleClient
         if (writeMapping != null) {
             return writeMapping;
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override

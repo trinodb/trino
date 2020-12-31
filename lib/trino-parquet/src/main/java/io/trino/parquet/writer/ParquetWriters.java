@@ -27,7 +27,7 @@ import io.trino.parquet.writer.valuewriter.TimeMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampMillisValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
 import io.trino.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -206,7 +206,7 @@ final class ParquetWriters
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             return new CharValueWriter(valuesWriter, type, parquetType);
         }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
     }
 
     private static void verifyParquetType(Type type, PrimitiveType parquetType, OriginalType originalType)

@@ -26,7 +26,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.operator.OperationTimer.OperationTiming;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -362,15 +362,15 @@ public class OperatorContext
         operatorMemoryContext.close();
 
         if (operatorMemoryContext.getSystemMemory() != 0) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero system memory (%d bytes) after destroy()", this, operatorMemoryContext.getSystemMemory()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero system memory (%d bytes) after destroy()", this, operatorMemoryContext.getSystemMemory()));
         }
 
         if (operatorMemoryContext.getUserMemory() != 0) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero user memory (%d bytes) after destroy()", this, operatorMemoryContext.getUserMemory()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero user memory (%d bytes) after destroy()", this, operatorMemoryContext.getUserMemory()));
         }
 
         if (operatorMemoryContext.getRevocableMemory() != 0) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero revocable memory (%d bytes) after destroy()", this, operatorMemoryContext.getRevocableMemory()));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Operator %s has non-zero revocable memory (%d bytes) after destroy()", this, operatorMemoryContext.getRevocableMemory()));
         }
     }
 
@@ -437,7 +437,7 @@ public class OperatorContext
             listener.run();
         }
         catch (RuntimeException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Exception while running the listener", e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Exception while running the listener", e);
         }
     }
 

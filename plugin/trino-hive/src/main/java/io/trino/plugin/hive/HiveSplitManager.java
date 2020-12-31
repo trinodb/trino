@@ -27,7 +27,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -210,7 +210,7 @@ public class HiveSplitManager
         // validate bucket bucketed execution
         Optional<HiveBucketHandle> bucketHandle = hiveTable.getBucketHandle();
         if ((splitSchedulingStrategy == GROUPED_SCHEDULING) && bucketHandle.isEmpty()) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "SchedulingPolicy is bucketed, but BucketHandle is not present");
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "SchedulingPolicy is bucketed, but BucketHandle is not present");
         }
 
         // sort partitions
@@ -307,20 +307,20 @@ public class HiveSplitManager
             ImmutableMap.Builder<String, Partition> partitionBuilder = ImmutableMap.builder();
             for (Map.Entry<String, Optional<Partition>> entry : batch.entrySet()) {
                 if (entry.getValue().isEmpty()) {
-                    throw new PrestoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
+                    throw new TrinoException(HIVE_PARTITION_DROPPED_DURING_QUERY, "Partition no longer exists: " + entry.getKey());
                 }
                 partitionBuilder.put(entry.getKey(), entry.getValue().get());
             }
             Map<String, Partition> partitions = partitionBuilder.build();
             if (partitionBatch.size() != partitions.size()) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Expected %s partitions but found %s", partitionBatch.size(), partitions.size()));
             }
 
             ImmutableList.Builder<HivePartitionMetadata> results = ImmutableList.builder();
             for (HivePartition hivePartition : partitionBatch) {
                 Partition partition = partitions.get(hivePartition.getPartitionId());
                 if (partition == null) {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Partition not loaded: " + hivePartition);
                 }
                 String partName = makePartitionName(table, partition);
 
@@ -341,14 +341,14 @@ public class HiveSplitManager
                 List<Column> tableColumns = table.getDataColumns();
                 List<Column> partitionColumns = partition.getColumns();
                 if ((tableColumns == null) || (partitionColumns == null)) {
-                    throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
+                    throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
                 }
                 TableToPartitionMapping tableToPartitionMapping = getTableToPartitionMapping(session, tableName, partName, tableColumns, partitionColumns);
 
                 if (bucketProperty.isPresent()) {
                     Optional<HiveBucketProperty> partitionBucketProperty = partition.getStorage().getBucketProperty();
                     if (partitionBucketProperty.isEmpty()) {
-                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                        throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                                 "Hive table (%s) is bucketed but partition (%s) is not bucketed",
                                 hivePartition.getTableName(),
                                 hivePartition.getPartitionId()));
@@ -358,7 +358,7 @@ public class HiveSplitManager
                     List<String> tableBucketColumns = bucketProperty.get().getBucketedBy();
                     List<String> partitionBucketColumns = partitionBucketProperty.get().getBucketedBy();
                     if (!tableBucketColumns.equals(partitionBucketColumns) || !isBucketCountCompatible(tableBucketCount, partitionBucketCount)) {
-                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                        throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                                 "Hive table (%s) bucketing (columns=%s, buckets=%s) is not compatible with partition (%s) bucketing (columns=%s, buckets=%s)",
                                 hivePartition.getTableName(),
                                 tableBucketColumns,
@@ -427,9 +427,9 @@ public class HiveSplitManager
         return new TableToPartitionMapping(Optional.of(tableToPartitionColumns.build()), columnCoercions.build());
     }
 
-    private PrestoException tablePartitionColumnMismatchException(SchemaTableName tableName, String partName, String tableColumnName, HiveType tableType, String partitionColumnName, HiveType partitionType)
+    private TrinoException tablePartitionColumnMismatchException(SchemaTableName tableName, String partName, String tableColumnName, HiveType tableType, String partitionColumnName, HiveType partitionType)
     {
-        return new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+        return new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
                         "There is a mismatch between the table and partition schemas. " +
                         "The types are incompatible and cannot be coerced. " +
                         "The column '%s' in table '%s' is declared as type '%s', " +
@@ -502,7 +502,7 @@ public class HiveSplitManager
                 delegate.execute(command);
             }
             catch (RejectedExecutionException e) {
-                throw new PrestoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
+                throw new TrinoException(SERVER_SHUTTING_DOWN, "Server is shutting down", e);
             }
         }
     }

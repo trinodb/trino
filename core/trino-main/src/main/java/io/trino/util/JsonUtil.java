@@ -23,7 +23,7 @@ import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
@@ -242,7 +242,7 @@ public final class JsonUtil
                 return (block, position) -> type.getSlice(block, position).toStringUtf8();
             }
 
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
         }
     }
 
@@ -310,7 +310,7 @@ public final class JsonUtil
                 return new RowJsonGeneratorWriter((RowType) type, fieldWriters);
             }
 
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
         }
     }
 
@@ -877,7 +877,7 @@ public final class JsonUtil
 
         if (result.precision() > precision) {
             // TODO: Should we use NUMERIC_VALUE_OUT_OF_RANGE instead?
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast input json to DECIMAL(%s,%s)", precision, scale));
         }
         return result;
     }
@@ -947,7 +947,7 @@ public final class JsonUtil
                 return new RowBlockBuilderAppender(fieldAppenders, getFieldNameToIndex(rowFields));
             }
 
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Unsupported type: %s", type));
         }
     }
 

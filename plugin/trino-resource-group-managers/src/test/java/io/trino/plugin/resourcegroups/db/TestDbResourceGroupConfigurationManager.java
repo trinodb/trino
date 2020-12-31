@@ -20,7 +20,7 @@ import io.trino.plugin.resourcegroups.ResourceGroupIdTemplate;
 import io.trino.plugin.resourcegroups.ResourceGroupSelector;
 import io.trino.plugin.resourcegroups.ResourceGroupSpec;
 import io.trino.plugin.resourcegroups.StaticSelector;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SchedulingPolicy;
 import io.trino.spi.resourcegroups.SelectionContext;
@@ -305,7 +305,7 @@ public class TestDbResourceGroupConfigurationManager
                 ENVIRONMENT);
 
         assertThatThrownBy(manager::getSelectors)
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("No selectors are configured");
     }
 

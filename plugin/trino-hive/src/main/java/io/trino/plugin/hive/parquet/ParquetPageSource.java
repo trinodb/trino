@@ -18,7 +18,7 @@ import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.reader.ParquetReader;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
@@ -101,13 +101,13 @@ public class ParquetPageSource
             }
             return new Page(batchSize, blocks);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             closeWithSuppression(e);
             throw e;
         }
         catch (RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            throw new TrinoException(HIVE_CURSOR_ERROR, e);
         }
     }
 
@@ -164,10 +164,10 @@ public class ParquetPageSource
                 block = parquetReader.readBlock(field);
             }
             catch (ParquetCorruptionException e) {
-                throw new PrestoException(HIVE_BAD_DATA, e);
+                throw new TrinoException(HIVE_BAD_DATA, e);
             }
             catch (IOException e) {
-                throw new PrestoException(HIVE_CURSOR_ERROR, e);
+                throw new TrinoException(HIVE_CURSOR_ERROR, e);
             }
 
             loaded = true;

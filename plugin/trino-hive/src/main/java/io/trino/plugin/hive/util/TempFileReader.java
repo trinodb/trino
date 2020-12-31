@@ -20,7 +20,7 @@ import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 
 import java.io.IOException;
@@ -44,7 +44,7 @@ public class TempFileReader
 
         try {
             OrcReader orcReader = OrcReader.createOrcReader(dataSource, new OrcReaderOptions())
-                    .orElseThrow(() -> new PrestoException(HIVE_WRITER_DATA_ERROR, "Temporary data file is empty"));
+                    .orElseThrow(() -> new TrinoException(HIVE_WRITER_DATA_ERROR, "Temporary data file is empty"));
             reader = orcReader.createRecordReader(
                     orcReader.getRootColumn().getNestedColumns(),
                     types,
@@ -80,8 +80,8 @@ public class TempFileReader
         }
     }
 
-    private static PrestoException handleException(Exception e)
+    private static TrinoException handleException(Exception e)
     {
-        return new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data", e);
+        return new TrinoException(HIVE_WRITER_DATA_ERROR, "Failed to read temporary data", e);
     }
 }

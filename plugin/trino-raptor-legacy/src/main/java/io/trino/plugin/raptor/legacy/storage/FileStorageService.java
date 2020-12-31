@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.storage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -126,7 +126,7 @@ public class FileStorageService
     {
         File dir = file.getParentFile();
         if (!dir.mkdirs() && !dir.isDirectory()) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed creating directories: " + dir);
+            throw new TrinoException(RAPTOR_ERROR, "Failed creating directories: " + dir);
         }
     }
 

@@ -14,7 +14,7 @@
 package io.trino.type;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -50,7 +50,7 @@ public final class DateOperators
             return parseDate(trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException | ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
         }
     }
 }

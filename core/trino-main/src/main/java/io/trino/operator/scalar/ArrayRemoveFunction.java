@@ -15,7 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Convention;
@@ -118,7 +118,7 @@ public final class ArrayRemoveFunction
                 }
                 Boolean result = (Boolean) equalsFunction.invoke(element, value);
                 if (result == null) {
-                    throw new PrestoException(NOT_SUPPORTED, "array_remove does not support arrays with elements that are null or contain null");
+                    throw new TrinoException(NOT_SUPPORTED, "array_remove does not support arrays with elements that are null or contain null");
                 }
                 if (!result) {
                     positions.add(i);

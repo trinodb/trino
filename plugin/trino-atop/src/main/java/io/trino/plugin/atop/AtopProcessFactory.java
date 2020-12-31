@@ -18,7 +18,7 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
 import io.trino.plugin.base.CatalogName;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.PreDestroy;
 import javax.inject.Inject;
@@ -75,7 +75,7 @@ public class AtopProcessFactory
             process = processBuilder.start();
         }
         catch (IOException e) {
-            throw new PrestoException(ATOP_CANNOT_START_PROCESS_ERROR, format("Cannot start %s", processBuilder.command()), e);
+            throw new TrinoException(ATOP_CANNOT_START_PROCESS_ERROR, format("Cannot start %s", processBuilder.command()), e);
         }
         return new AtopProcess(process, readTimeout, executor);
     }
@@ -111,7 +111,7 @@ public class AtopProcessFactory
                 line = null;
             }
             catch (UncheckedTimeoutException e) {
-                throw new PrestoException(ATOP_READ_TIMEOUT, "Timeout reading from atop process");
+                throw new TrinoException(ATOP_READ_TIMEOUT, "Timeout reading from atop process");
             }
         }
 
@@ -135,7 +135,7 @@ public class AtopProcessFactory
                 line = null;
             }
             catch (UncheckedTimeoutException e) {
-                throw new PrestoException(ATOP_READ_TIMEOUT, "Timeout reading from atop process");
+                throw new TrinoException(ATOP_READ_TIMEOUT, "Timeout reading from atop process");
             }
 
             return currentLine;

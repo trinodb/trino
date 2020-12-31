@@ -15,7 +15,7 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SortOrder;
 
 import javax.annotation.concurrent.Immutable;
@@ -62,7 +62,7 @@ public class SortingColumn
                     return order;
                 }
             }
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table/partition metadata has invalid sorting order: " + tablePartitionName);
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table/partition metadata has invalid sorting order: " + tablePartitionName);
         }
     }
 

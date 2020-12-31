@@ -30,7 +30,7 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveUtil;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -179,7 +179,7 @@ public class BridgingHiveMetastore
 
         delegate.getDatabase(databaseName).ifPresent(newDatabase -> {
             if (newDatabase.getName().equals(databaseName)) {
-                throw new PrestoException(NOT_SUPPORTED, "Hive metastore does not support renaming schemas");
+                throw new TrinoException(NOT_SUPPORTED, "Hive metastore does not support renaming schemas");
             }
         });
     }
@@ -252,7 +252,7 @@ public class BridgingHiveMetastore
     {
         // TODO Add role support https://github.com/trinodb/trino/issues/5706
         if (principal.getType() != USER) {
-            throw new PrestoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Setting table owner type as a role is not supported");
         }
 
         Table table = fromMetastoreApiTable(delegate.getTable(identity, databaseName, tableName)
@@ -311,7 +311,7 @@ public class BridgingHiveMetastore
         org.apache.hadoop.hive.metastore.api.Table table = source.get();
         for (FieldSchema fieldSchema : table.getPartitionKeys()) {
             if (fieldSchema.getName().equals(oldColumnName)) {
-                throw new PrestoException(NOT_SUPPORTED, "Renaming partition columns is not supported");
+                throw new TrinoException(NOT_SUPPORTED, "Renaming partition columns is not supported");
             }
         }
         for (FieldSchema fieldSchema : table.getSd().getCols()) {

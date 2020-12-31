@@ -22,7 +22,7 @@ import com.fasterxml.jackson.core.io.SerializedString;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -244,7 +244,7 @@ public final class JsonExtract
                 if (token == END_ARRAY) {
                     // Index out of bounds
                     if (exceptionOnOutOfBounds) {
-                        throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
+                        throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Index out of bounds");
                     }
                     return null;
                 }

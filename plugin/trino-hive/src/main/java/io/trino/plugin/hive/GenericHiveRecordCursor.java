@@ -18,7 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.hadoop.TextLineLengthLimitExceededException;
 import io.trino.plugin.base.type.DecodedTimestamp;
 import io.trino.plugin.base.type.PrestoTimestampEncoder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.CharType;
@@ -228,9 +228,9 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         catch (IOException | SerDeException | RuntimeException e) {
             closeWithSuppression(this, e);
             if (e instanceof TextLineLengthLimitExceededException) {
-                throw new PrestoException(HIVE_BAD_DATA, "Line too long in text file: " + path, e);
+                throw new TrinoException(HIVE_BAD_DATA, "Line too long in text file: " + path, e);
             }
-            throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            throw new TrinoException(HIVE_CURSOR_ERROR, e);
         }
     }
 

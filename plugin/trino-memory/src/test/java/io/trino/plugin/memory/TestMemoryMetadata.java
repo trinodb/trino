@@ -16,7 +16,7 @@ package io.trino.plugin.memory;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -90,7 +90,7 @@ public class TestMemoryMetadata
             metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
             fail("Should fail because table already exists");
         }
-        catch (PrestoException ex) {
+        catch (TrinoException ex) {
             assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
             assertEquals(ex.getMessage(), "Table [default.test1] already exists");
         }
@@ -102,7 +102,7 @@ public class TestMemoryMetadata
             metadata.renameTable(SESSION, test1TableHandle, test2Table);
             fail("Should fail because table already exists");
         }
-        catch (PrestoException ex) {
+        catch (TrinoException ex) {
             assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
             assertEquals(ex.getMessage(), "Table [default.test2] already exists");
         }
@@ -172,7 +172,7 @@ public class TestMemoryMetadata
         assertEquals(metadata.listTables(SESSION, Optional.of("default")), ImmutableList.of());
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
@@ -287,7 +287,7 @@ public class TestMemoryMetadata
             metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()), Optional.empty());
             fail("Should fail because schema does not exist");
         }
-        catch (PrestoException ex) {
+        catch (TrinoException ex) {
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test1 not found");
         }
@@ -298,7 +298,7 @@ public class TestMemoryMetadata
             metadata.createView(SESSION, view2, testingViewDefinition("aaa"), false);
             fail("Should fail because schema does not exist");
         }
-        catch (PrestoException ex) {
+        catch (TrinoException ex) {
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test2 not found");
         }
@@ -309,7 +309,7 @@ public class TestMemoryMetadata
             metadata.createView(SESSION, view3, testingViewDefinition("bbb"), true);
             fail("Should fail because schema does not exist");
         }
-        catch (PrestoException ex) {
+        catch (TrinoException ex) {
             assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
             assertEquals(ex.getMessage(), "Schema test3 not found");
         }

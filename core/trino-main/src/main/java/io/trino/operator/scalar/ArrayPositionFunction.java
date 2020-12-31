@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
@@ -162,7 +162,7 @@ public final class ArrayPositionFunction
     private static void checkNotIndeterminate(Boolean equalsResult)
     {
         if (equalsResult == null) {
-            throw new PrestoException(NOT_SUPPORTED, "array_position does not support arrays with elements that are null or contain null");
+            throw new TrinoException(NOT_SUPPORTED, "array_position does not support arrays with elements that are null or contain null");
         }
     }
 }

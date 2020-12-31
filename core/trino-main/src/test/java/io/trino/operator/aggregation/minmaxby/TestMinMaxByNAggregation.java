@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.sql.tree.QualifiedName;
 import org.testng.annotations.Test;
@@ -495,7 +495,7 @@ public class TestMinMaxByNAggregation
         try {
             groupedAggregation(function, new Page(createStringsBlock("z"), createLongsBlock(0), createLongsBlock(10001)));
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getMessage(), "third argument of max_by/min_by must be less than or equal to 10000; found 10001");
         }
     }

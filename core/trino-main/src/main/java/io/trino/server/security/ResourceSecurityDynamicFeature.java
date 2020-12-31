@@ -17,7 +17,7 @@ import io.trino.security.AccessControl;
 import io.trino.server.InternalAuthenticationManager;
 import io.trino.server.security.ResourceSecurity.AccessType;
 import io.trino.server.ui.WebUiAuthenticationFilter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.Identity;
@@ -172,7 +172,7 @@ public class ResourceSecurityDynamicFeature
             catch (AccessDeniedException e) {
                 throw new ForbiddenException("Management only resource");
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 if (SERVER_STARTING_UP.toErrorCode().equals(e.getErrorCode())) {
                     throw new ServiceUnavailableException(e.getMessage());
                 }

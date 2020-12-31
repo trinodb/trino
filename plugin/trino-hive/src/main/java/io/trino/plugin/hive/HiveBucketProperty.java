@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 
 import java.util.List;
@@ -61,7 +61,7 @@ public class HiveBucketProperty
             return Optional.empty();
         }
         if (!bucketColsSet) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
+            throw new TrinoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set: " + tablePartitionName);
         }
         List<SortingColumn> sortedBy = ImmutableList.of();
         if (storageDescriptor.isSetSortCols()) {

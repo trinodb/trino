@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -64,7 +64,7 @@ public class CsvColumnDecoder
             checkArgument(isSupportedType(columnType), "Unsupported column type '%s' for column '%s'", columnType.getDisplayName(), columnName);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(GENERIC_USER_ERROR, e);
+            throw new TrinoException(GENERIC_USER_ERROR, e);
         }
     }
 
@@ -101,7 +101,7 @@ public class CsvColumnDecoder
                         return Boolean.parseBoolean(tokens[columnIndex].trim());
                     }
                     catch (NumberFormatException e) {
-                        throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
                     }
                 }
 
@@ -112,7 +112,7 @@ public class CsvColumnDecoder
                         return Long.parseLong(tokens[columnIndex].trim());
                     }
                     catch (NumberFormatException e) {
-                        throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
                     }
                 }
 
@@ -123,7 +123,7 @@ public class CsvColumnDecoder
                         return Double.parseDouble(tokens[columnIndex].trim());
                     }
                     catch (NumberFormatException e) {
-                        throw new PrestoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
+                        throw new TrinoException(DECODER_CONVERSION_NOT_SUPPORTED, format("could not parse value '%s' as '%s' for column '%s'", tokens[columnIndex].trim(), columnType, columnName));
                     }
                 }
 

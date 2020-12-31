@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.InvocationConvention;
@@ -207,7 +207,7 @@ public class TypeOperators
                 }
             }
 
-            throw new PrestoException(FUNCTION_NOT_FOUND, format(
+            throw new TrinoException(FUNCTION_NOT_FOUND, format(
                     "%s %s operator can not be adapted to convention (%s). Available implementations: %s",
                     operatorConvention.getType(),
                     operatorConvention.getOperatorType(),

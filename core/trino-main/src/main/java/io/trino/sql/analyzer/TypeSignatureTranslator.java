@@ -14,7 +14,7 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.RowFieldName;
 import io.trino.spi.type.StandardTypes;
@@ -160,7 +160,7 @@ public class TypeSignatureTranslator
             return INTERVAL_DAY_TIME.getTypeSignature();
         }
 
-        throw new PrestoException(NOT_SUPPORTED, format("INTERVAL %s TO %s type not supported", type.getFrom(), type.getTo()));
+        throw new TrinoException(NOT_SUPPORTED, format("INTERVAL %s TO %s type not supported", type.getFrom(), type.getTo()));
     }
 
     private static TypeSignature toTypeSignature(DateTimeDataType type, Set<String> typeVariables)

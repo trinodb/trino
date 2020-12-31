@@ -14,7 +14,7 @@
 package io.trino.operator.scalar;
 
 import com.google.common.base.CaseFormat;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.Extract;
 import org.testng.annotations.AfterClass;
@@ -161,7 +161,7 @@ public abstract class AbstractTestExtract
             String expression = format("EXTRACT(%s FROM CAST(NULL AS %s))", extractField, type);
             assertThatThrownBy(() -> assertions.expression(expression), expression)
                     .as(expression)
-                    .isInstanceOf(PrestoException.class)
+                    .isInstanceOf(TrinoException.class)
                     .hasMessageMatching(format("line 1:\\d+:\\Q Cannot extract %s from %s", extractField, type));
         });
     }

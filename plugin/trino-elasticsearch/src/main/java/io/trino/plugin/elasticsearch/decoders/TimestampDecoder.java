@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
@@ -51,7 +51,7 @@ public class TimestampDecoder
 
         if (documentField != null) {
             if (documentField.getValues().size() > 1) {
-                throw new PrestoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
+                throw new TrinoException(TYPE_MISMATCH, format("Expected single value for column '%s', found: %s", path, documentField.getValues().size()));
             }
             value = documentField.getValue();
         }
@@ -71,7 +71,7 @@ public class TimestampDecoder
                 timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Number) value).longValue()), ZULU);
             }
             else {
-                throw new PrestoException(NOT_SUPPORTED, format(
+                throw new TrinoException(NOT_SUPPORTED, format(
                         "Unsupported representation for field '%s' of type TIMESTAMP: %s [%s]",
                         path,
                         value,

@@ -33,7 +33,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.server.remotetask.Backoff;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import org.joda.time.DateTime;
 
@@ -346,7 +346,7 @@ public final class HttpPageBufferClient
                         }
 
                         if (!isNullOrEmpty(taskInstanceId) && !result.getTaskInstanceId().equals(taskInstanceId)) {
-                            throw new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
+                            throw new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s). Expected taskInstanceId: %s, received taskInstanceId: %s",
                                     REMOTE_TASK_MISMATCH_ERROR,
                                     fromUri(uri),
                                     taskInstanceId,
@@ -402,7 +402,7 @@ public final class HttpPageBufferClient
                         rowsRejected.addAndGet(pages.stream().mapToLong(SerializedPage::getPositionCount).sum());
                     }
                 }
-                catch (PrestoException e) {
+                catch (TrinoException e) {
                     handleFailure(e, resultFuture);
                     return;
                 }
@@ -432,8 +432,8 @@ public final class HttpPageBufferClient
                         case NONE:
                             // In case of NONE, failure is possible in case of inconsistent cluster configuration, so we should not retry.
                         case ABORT:
-                            // PrestoException will not be retried
-                            t = new PrestoException(GENERIC_INTERNAL_ERROR, format("Checksum verification failure on %s when reading from %s: %s", selfAddress, uri, t.getMessage()), t);
+                            // TrinoException will not be retried
+                            t = new TrinoException(GENERIC_INTERNAL_ERROR, format("Checksum verification failure on %s when reading from %s: %s", selfAddress, uri, t.getMessage()), t);
                             break;
                         case RETRY:
                             log.warn("Checksum verification failure on %s when reading from %s, may be retried: %s", selfAddress, uri, t.getMessage());
@@ -444,7 +444,7 @@ public final class HttpPageBufferClient
                 }
 
                 t = rewriteException(t);
-                if (!(t instanceof PrestoException) && backoff.failure()) {
+                if (!(t instanceof TrinoException) && backoff.failure()) {
                     String message = format("%s (%s - %s failures, failure duration %s, total failed request time %s)",
                             WORKER_NODE_ERROR,
                             uri,
@@ -486,13 +486,13 @@ public final class HttpPageBufferClient
                 checkNotHoldsLock(this);
 
                 log.error("Request to delete %s failed %s", location, t);
-                if (!(t instanceof PrestoException) && backoff.failure()) {
+                if (!(t instanceof TrinoException) && backoff.failure()) {
                     String message = format("Error closing remote buffer (%s - %s failures, failure duration %s, total failed request time %s)",
                             location,
                             backoff.getFailureCount(),
                             backoff.getFailureDuration().convertTo(SECONDS),
                             backoff.getFailureRequestTimeTotal().convertTo(SECONDS));
-                    t = new PrestoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
+                    t = new TrinoException(REMOTE_BUFFER_CLOSE_FAILED, message, t);
                 }
                 handleFailure(t, resultFuture);
             }
@@ -512,7 +512,7 @@ public final class HttpPageBufferClient
         requestsFailed.incrementAndGet();
         requestsCompleted.incrementAndGet();
 
-        if (t instanceof PrestoException) {
+        if (t instanceof TrinoException) {
             clientCallback.clientFailed(HttpPageBufferClient.this, t);
         }
 

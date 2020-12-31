@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar.timestamp;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.LiteralParameter;
 import io.trino.spi.function.LiteralParameters;
@@ -119,7 +119,7 @@ public final class TimestampToTimestampWithTimeZoneCast
             return packDateTimeWithZone(epochMillis, session.getTimeZoneKey());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp with time zone: " + epochMillis, e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Out of range for timestamp with time zone: " + epochMillis, e);
         }
     }
 

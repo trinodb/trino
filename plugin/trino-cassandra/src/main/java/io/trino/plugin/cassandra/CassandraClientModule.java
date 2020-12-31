@@ -30,7 +30,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.json.JsonCodec;
 import io.airlift.security.pem.PemReader;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.inject.Singleton;
 import javax.net.ssl.KeyManager;
@@ -226,7 +226,7 @@ public class CassandraClientModule
             return Optional.of(result);
         }
         catch (GeneralSecurityException | IOException e) {
-            throw new PrestoException(CASSANDRA_SSL_INITIALIZATION_FAILURE, e);
+            throw new TrinoException(CASSANDRA_SSL_INITIALIZATION_FAILURE, e);
         }
     }
 

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import org.testng.annotations.Test;
@@ -250,7 +250,7 @@ public class TestHiveSplitSource
             hiveSplitSource.addToQueue(new TestSplit(0));
             fail("expect failure");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertContains(e.getMessage(), "Split buffering for database.table exceeded memory limit");
         }
     }

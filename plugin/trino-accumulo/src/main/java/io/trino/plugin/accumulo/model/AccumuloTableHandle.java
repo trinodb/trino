@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.accumulo.metadata.AccumuloTable;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -105,7 +105,7 @@ public final class AccumuloTableHandle
             return (AccumuloRowSerializer) Class.forName(serializerClassName).getConstructor().newInstance();
         }
         catch (Exception e) {
-            throw new PrestoException(NOT_FOUND, "Configured serializer class not found", e);
+            throw new TrinoException(NOT_FOUND, "Configured serializer class not found", e);
         }
     }
 

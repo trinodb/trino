@@ -18,28 +18,28 @@ import java.util.Optional;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoException
+public class TrinoException
         extends RuntimeException
 {
     private final ErrorCode errorCode;
     private final Optional<Location> location;
 
-    public PrestoException(ErrorCodeSupplier errorCode, String message)
+    public TrinoException(ErrorCodeSupplier errorCode, String message)
     {
         this(errorCode, message, null);
     }
 
-    public PrestoException(ErrorCodeSupplier errorCode, Throwable throwable)
+    public TrinoException(ErrorCodeSupplier errorCode, Throwable throwable)
     {
         this(errorCode, null, throwable);
     }
 
-    public PrestoException(ErrorCodeSupplier errorCode, String message, Throwable cause)
+    public TrinoException(ErrorCodeSupplier errorCode, String message, Throwable cause)
     {
         this(errorCode, Optional.empty(), message, cause);
     }
 
-    public PrestoException(ErrorCodeSupplier errorCodeSupplier, Optional<Location> location, String message, Throwable cause)
+    public TrinoException(ErrorCodeSupplier errorCodeSupplier, Optional<Location> location, String message, Throwable cause)
     {
         super(message, cause);
         this.errorCode = errorCodeSupplier.toErrorCode();

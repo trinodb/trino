@@ -16,7 +16,7 @@ package io.trino.type;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -48,7 +48,7 @@ public final class SmallintOperators
             return Shorts.checkedCast(left + right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint addition overflow: %s + %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint addition overflow: %s + %s", left, right), e);
         }
     }
 
@@ -60,7 +60,7 @@ public final class SmallintOperators
             return Shorts.checkedCast(left - right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint subtraction overflow: %s - %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint subtraction overflow: %s - %s", left, right), e);
         }
     }
 
@@ -72,7 +72,7 @@ public final class SmallintOperators
             return Shorts.checkedCast(left * right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint multiplication overflow: %s * %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("smallint multiplication overflow: %s * %s", left, right), e);
         }
     }
 
@@ -84,7 +84,7 @@ public final class SmallintOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -96,7 +96,7 @@ public final class SmallintOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -108,7 +108,7 @@ public final class SmallintOperators
             return Shorts.checkedCast(-value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "smallint negation overflow: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "smallint negation overflow: " + value, e);
         }
     }
 
@@ -134,7 +134,7 @@ public final class SmallintOperators
             return SignedBytes.checkedCast(value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + value, e);
         }
     }
 

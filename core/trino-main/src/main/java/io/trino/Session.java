@@ -23,8 +23,8 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -314,7 +314,7 @@ public final class Session
                 continue;
             }
             CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
+                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Session property catalog does not exist: " + catalogName))
                     .getCatalogName();
 
             for (Entry<String, String> property : catalogProperties.entrySet()) {
@@ -332,7 +332,7 @@ public final class Session
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
             CatalogName catalog = transactionManager.getOptionalCatalogMetadata(transactionId, catalogName)
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
+                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName))
                     .getCatalogName();
             if (role.getType() == SelectedRole.Type.ROLE) {
                 accessControl.checkCanSetRole(new SecurityContext(transactionId, identity, queryId), role.getRole().get(), catalogName);

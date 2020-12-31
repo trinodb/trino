@@ -19,7 +19,7 @@ import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -128,7 +128,7 @@ public class PinotSplitManager
     }
 
     public static class QueryNotAdequatelyPushedDownException
-            extends PrestoException
+            extends TrinoException
     {
         private final String connectorId;
         private final ConnectorTableHandle connectorTableHandle;
@@ -159,7 +159,7 @@ public class PinotSplitManager
             DynamicFilter dynamicFilter)
     {
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        Supplier<PrestoException> errorSupplier = () -> new QueryNotAdequatelyPushedDownException(QueryNotAdequatelyPushedDownErrorCode.PQL_NOT_PRESENT, pinotTableHandle, "");
+        Supplier<TrinoException> errorSupplier = () -> new QueryNotAdequatelyPushedDownException(QueryNotAdequatelyPushedDownErrorCode.PQL_NOT_PRESENT, pinotTableHandle, "");
         if (!isBrokerQuery(session, pinotTableHandle)) {
             if (PinotSessionProperties.isForbidSegmentQueries(session)) {
                 throw errorSupplier.get();

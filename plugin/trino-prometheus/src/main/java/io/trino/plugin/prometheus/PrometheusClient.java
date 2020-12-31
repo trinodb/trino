@@ -17,7 +17,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -100,7 +100,7 @@ public class PrometheusClient
                 return ImmutableSet.copyOf(tableNames);
             }
         }
-        throw new PrestoException(PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR, "Prometheus did no return metrics list (table names): " + status);
+        throw new TrinoException(PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR, "Prometheus did no return metrics list (table names): " + status);
     }
 
     public PrometheusTable getTable(String schema, String tableName)
@@ -144,10 +144,10 @@ public class PrometheusClient
             }
         }
         catch (IOException e) {
-            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Error reading metrics", e);
+            throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Error reading metrics", e);
         }
 
-        throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + response.message());
+        throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + response.message());
     }
 
     private Optional<String> getBearerAuthInfoFromFile()
@@ -157,7 +157,7 @@ public class PrometheusClient
                 return readString(tokenFileName.toPath(), UTF_8);
             }
             catch (IOException e) {
-                throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Failed to read bearer token file: " + tokenFileName, e);
+                throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "Failed to read bearer token file: " + tokenFileName, e);
             }
         });
     }

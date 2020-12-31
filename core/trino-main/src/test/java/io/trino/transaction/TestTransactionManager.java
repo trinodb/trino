@@ -45,7 +45,7 @@ import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_ALREADY_ABORTED;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -154,7 +154,7 @@ public class TestTransactionManager
             transactionManager.fail(transactionId);
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-            assertPrestoExceptionThrownBy(() -> transactionManager.getCatalogMetadata(transactionId, CATALOG_NAME))
+            assertTrinoExceptionThrownBy(() -> transactionManager.getCatalogMetadata(transactionId, CATALOG_NAME))
                     .hasErrorCode(TRANSACTION_ALREADY_ABORTED);
 
             assertEquals(transactionManager.getAllTransactionInfos().size(), 1);

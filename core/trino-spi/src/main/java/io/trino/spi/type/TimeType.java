@@ -14,7 +14,7 @@
 package io.trino.spi.type;
 
 import io.airlift.slice.XxHash64;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.ScalarOperator;
@@ -72,7 +72,7 @@ public final class TimeType
     public static TimeType createTimeType(int precision)
     {
         if (precision < 0 || precision > MAX_PRECISION) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME precision must be in range [0, %s]: %s", MAX_PRECISION, precision));
         }
         return TYPES[precision];
     }

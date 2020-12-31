@@ -25,7 +25,7 @@ import io.trino.plugin.raptor.legacy.RaptorSessionProperties;
 import io.trino.plugin.raptor.legacy.RaptorTableHandle;
 import io.trino.plugin.raptor.legacy.storage.StorageManagerConfig;
 import io.trino.spi.NodeManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -219,22 +219,22 @@ public class TestRaptorMetadata
         // disallow dropping bucket, sort, temporal and highest-id columns
         ColumnHandle bucketColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderkey");
         assertThatThrownBy(() -> metadata.dropColumn(SESSION, ordersTableHandle, bucketColumn))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Cannot drop bucket columns");
 
         ColumnHandle sortColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("totalprice");
         assertThatThrownBy(() -> metadata.dropColumn(SESSION, ordersTableHandle, sortColumn))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Cannot drop sort columns");
 
         ColumnHandle temporalColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("orderdate");
         assertThatThrownBy(() -> metadata.dropColumn(SESSION, ordersTableHandle, temporalColumn))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Cannot drop the temporal column");
 
         ColumnHandle highestColumn = metadata.getColumnHandles(SESSION, ordersRaptorTableHandle).get("highestid");
         assertThatThrownBy(() -> metadata.dropColumn(SESSION, ordersTableHandle, highestColumn))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Cannot drop the column which has the largest column ID in the table");
     }
 
@@ -468,7 +468,7 @@ public class TestRaptorMetadata
         assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Ordering column does not exist: orderdatefoo")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Ordering column does not exist: orderdatefoo")
     public void testInvalidOrderingColumns()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
@@ -478,7 +478,7 @@ public class TestRaptorMetadata
         fail("Expected createTable to fail");
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Temporal column does not exist: foo")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Temporal column does not exist: foo")
     public void testInvalidTemporalColumn()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
@@ -488,14 +488,14 @@ public class TestRaptorMetadata
         fail("Expected createTable to fail");
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Temporal column must be of type timestamp or date: orderkey")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Temporal column must be of type timestamp or date: orderkey")
     public void testInvalidTemporalColumnType()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
         metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderkey")), false);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Table with temporal columns cannot be organized")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Table with temporal columns cannot be organized")
     public void testInvalidTemporalOrganization()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
@@ -505,7 +505,7 @@ public class TestRaptorMetadata
                 false);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Table organization requires an ordering")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Table organization requires an ordering")
     public void testInvalidOrderingOrganization()
     {
         assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
@@ -629,7 +629,7 @@ public class TestRaptorMetadata
                 .isEmpty();
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
@@ -770,7 +770,7 @@ public class TestRaptorMetadata
             metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
         }
     }

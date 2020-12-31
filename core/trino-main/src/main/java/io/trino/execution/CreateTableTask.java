@@ -24,7 +24,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.AccessDeniedException;
@@ -107,7 +107,7 @@ public class CreateTableTask
         }
 
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
 
         LinkedHashMap<String, ColumnMetadata> columns = new LinkedHashMap<>();
         Map<String, Object> inheritedProperties = ImmutableMap.of();
@@ -204,7 +204,7 @@ public class CreateTableTask
                         });
             }
             else {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid TableElement: " + element.getClass().getName());
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid TableElement: " + element.getClass().getName());
             }
         }
 
@@ -226,7 +226,7 @@ public class CreateTableTask
         try {
             metadata.createTable(session, tableName.getCatalogName(), tableMetadata, statement.isNotExists());
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             // connectors are not required to handle the ignoreExisting flag
             if (!e.getErrorCode().equals(ALREADY_EXISTS.toErrorCode()) || !statement.isNotExists()) {
                 throw e;

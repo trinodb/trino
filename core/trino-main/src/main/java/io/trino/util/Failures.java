@@ -20,9 +20,9 @@ import io.trino.execution.Failure;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.HostAddress;
-import io.trino.spi.PrestoException;
-import io.trino.spi.PrestoTransportException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoTransportException;
 import io.trino.sql.parser.ParsingException;
 
 import javax.annotation.Nullable;
@@ -61,7 +61,7 @@ public final class Failures
     public static void checkCondition(boolean condition, ErrorCodeSupplier errorCode, String formatString, Object... args)
     {
         if (!condition) {
-            throw new PrestoException(errorCode, format(formatString, args));
+            throw new TrinoException(errorCode, format(formatString, args));
         }
     }
 
@@ -87,8 +87,8 @@ public final class Failures
             Class<?> clazz = throwable.getClass();
             type = firstNonNull(clazz.getCanonicalName(), clazz.getName());
         }
-        if (throwable instanceof PrestoTransportException) {
-            remoteHost = ((PrestoTransportException) throwable).getRemoteHost();
+        if (throwable instanceof TrinoTransportException) {
+            remoteHost = ((TrinoTransportException) throwable).getRemoteHost();
         }
 
         if (seenFailures.contains(throwable)) {
@@ -138,8 +138,8 @@ public final class Failures
             ParsingException e = (ParsingException) throwable;
             return new ErrorLocation(e.getLineNumber(), e.getColumnNumber());
         }
-        if (throwable instanceof PrestoException) {
-            return ((PrestoException) throwable).getLocation()
+        if (throwable instanceof TrinoException) {
+            return ((TrinoException) throwable).getLocation()
                     .map(location -> new ErrorLocation(location.getLineNumber(), location.getColumnNumber()))
                     .orElse(null);
         }
@@ -151,8 +151,8 @@ public final class Failures
     {
         requireNonNull(throwable);
 
-        if (throwable instanceof PrestoException) {
-            return ((PrestoException) throwable).getErrorCode();
+        if (throwable instanceof TrinoException) {
+            return ((TrinoException) throwable).getErrorCode();
         }
         if (throwable instanceof Failure && ((Failure) throwable).getErrorCode() != null) {
             return ((Failure) throwable).getErrorCode();
@@ -163,10 +163,10 @@ public final class Failures
         return null;
     }
 
-    public static PrestoException internalError(Throwable t)
+    public static TrinoException internalError(Throwable t)
     {
         throwIfInstanceOf(t, Error.class);
-        throwIfInstanceOf(t, PrestoException.class);
-        return new PrestoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
+        throwIfInstanceOf(t, TrinoException.class);
+        return new TrinoException(StandardErrorCode.GENERIC_INTERNAL_ERROR, t);
     }
 }

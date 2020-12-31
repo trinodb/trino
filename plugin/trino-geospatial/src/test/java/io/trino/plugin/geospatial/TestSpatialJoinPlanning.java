@@ -24,7 +24,7 @@ import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
 import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.sql.planner.assertions.BasePlanTest;
@@ -250,7 +250,7 @@ public class TestSpatialJoinPlanning
             });
             fail(format("Expected query to fail: %s", sql));
         }
-        catch (PrestoException ex) {
+        catch (TrinoException ex) {
             assertEquals(ex.getErrorCode(), INVALID_SPATIAL_PARTITIONING.toErrorCode());
             if (!nullToEmpty(ex.getMessage()).matches(expectedMessageRegExp)) {
                 fail(format("Expected exception message '%s' to match '%s' for query: %s", ex.getMessage(), expectedMessageRegExp, sql), ex);

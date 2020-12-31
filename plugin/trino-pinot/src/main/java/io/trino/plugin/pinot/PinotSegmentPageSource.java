@@ -20,7 +20,7 @@ import io.airlift.slice.Slices;
 import io.trino.plugin.pinot.client.PinotQueryClient;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -267,7 +267,7 @@ public class PinotSegmentPageSource
             writeArrayBlock(blockBuilder, columnType, columnIdx);
         }
         else {
-            throw new PrestoException(
+            throw new TrinoException(
                     PINOT_UNSUPPORTED_COLUMN_TYPE,
                     format(
                             "Failed to write column %s. pinotColumnType %s, javaType %s",

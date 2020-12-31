@@ -41,7 +41,7 @@ import io.trino.execution.buffer.OutputBuffers.OutputBufferId;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.server.DynamicFilterService;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.split.SplitSource;
 import io.trino.sql.planner.NodePartitionMap;
@@ -248,7 +248,7 @@ public class SqlQueryScheduler
                 }
                 else if (state == ABORTED) {
                     // this should never happen, since abort can only be triggered in query clean up after the query is finished
-                    queryStateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
+                    queryStateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "Query stage was aborted"));
                 }
                 else if (queryStateMachine.getQueryState() == QueryState.STARTING) {
                     // if the stage has at least one task, we are running
@@ -602,7 +602,7 @@ public class SqlQueryScheduler
             for (SqlStageExecution stage : stages.values()) {
                 StageState state = stage.getState();
                 if (state != SCHEDULED && state != RUNNING && state != FLUSHING && !state.isDone()) {
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
                 }
             }
         }

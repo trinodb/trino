@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -171,7 +171,7 @@ public interface Metadata
     /**
      * Creates a table using the specified table metadata.
      *
-     * @throws PrestoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
      */
     void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting);
 

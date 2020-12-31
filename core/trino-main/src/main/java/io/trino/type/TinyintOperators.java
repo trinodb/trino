@@ -15,7 +15,7 @@ package io.trino.type;
 
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -46,7 +46,7 @@ public final class TinyintOperators
             return SignedBytes.checkedCast(left + right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint addition overflow: %s + %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint addition overflow: %s + %s", left, right), e);
         }
     }
 
@@ -58,7 +58,7 @@ public final class TinyintOperators
             return SignedBytes.checkedCast(left - right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint subtraction overflow: %s - %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint subtraction overflow: %s - %s", left, right), e);
         }
     }
 
@@ -70,7 +70,7 @@ public final class TinyintOperators
             return SignedBytes.checkedCast(left * right);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint multiplication overflow: %s * %s", left, right), e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("tinyint multiplication overflow: %s * %s", left, right), e);
         }
     }
 
@@ -82,7 +82,7 @@ public final class TinyintOperators
             return left / right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -94,7 +94,7 @@ public final class TinyintOperators
             return left % right;
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(DIVISION_BY_ZERO, "Division by zero", e);
+            throw new TrinoException(DIVISION_BY_ZERO, "Division by zero", e);
         }
     }
 
@@ -106,7 +106,7 @@ public final class TinyintOperators
             return SignedBytes.checkedCast(-value);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "tinyint negation overflow: " + value, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "tinyint negation overflow: " + value, e);
         }
     }
 

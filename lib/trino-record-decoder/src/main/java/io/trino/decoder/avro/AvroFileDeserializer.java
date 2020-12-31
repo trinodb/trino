@@ -13,7 +13,7 @@
  */
 package io.trino.decoder.avro;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.file.DataFileStream;
 import org.apache.avro.io.DatumReader;
@@ -44,16 +44,16 @@ public class AvroFileDeserializer<T>
         DatumReader<T> avroReader = avroReaderSupplier.get(buffer);
         try (DataFileStream<T> dataFileReader = new DataFileStream<>(new ByteArrayInputStream(data, buffer.position(), data.length - buffer.position()), avroReader)) {
             if (!dataFileReader.hasNext()) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "No avro record found");
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "No avro record found");
             }
             T avroValue = dataFileReader.next();
             if (dataFileReader.hasNext()) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unexpected extra record found");
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected extra record found");
             }
             return avroValue;
         }
         catch (AvroRuntimeException | IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Decoding Avro record failed.", e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Decoding Avro record failed.", e);
         }
     }
 

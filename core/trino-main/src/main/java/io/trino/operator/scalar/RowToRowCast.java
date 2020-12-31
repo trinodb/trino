@@ -34,8 +34,8 @@ import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.SqlOperator;
 import io.trino.metadata.TypeVariableConstraint;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -112,7 +112,7 @@ public class RowToRowCast
         Type fromType = functionBinding.getTypeVariable("F");
         Type toType = functionBinding.getTypeVariable("T");
         if (fromType.getTypeParameters().size() != toType.getTypeParameters().size()) {
-            throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
+            throw new TrinoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
         Class<?> castOperatorClass = generateRowCast(fromType, toType, functionDependencies);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, Block.class);

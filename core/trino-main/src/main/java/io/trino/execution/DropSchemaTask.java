@@ -17,7 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.Expression;
@@ -51,7 +51,7 @@ public class DropSchemaTask
     public ListenableFuture<?> execute(DropSchema statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         if (statement.isCascade()) {
-            throw new PrestoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
+            throw new TrinoException(NOT_SUPPORTED, "CASCADE is not yet supported for DROP SCHEMA");
         }
 
         Session session = stateMachine.getSession();

@@ -13,14 +13,14 @@
  */
 package io.trino;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.transaction.TransactionId;
 
 import static io.trino.spi.StandardErrorCode.UNKNOWN_TRANSACTION;
 import static java.lang.String.format;
 
 public class NotInTransactionException
-        extends PrestoException
+        extends TrinoException
 {
     public NotInTransactionException()
     {

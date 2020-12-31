@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -166,7 +166,7 @@ public class JmxMetadata
 
             return new JmxTableHandle(tableName, objectNames.stream().map(ObjectName::toString).collect(toImmutableList()), columns, true, TupleDomain.all());
         }
-        catch (JMException | PrestoException e) {
+        catch (JMException | TrinoException e) {
             return null;
         }
     }
@@ -183,7 +183,7 @@ public class JmxMetadata
         }
         catch (MalformedObjectNameException exception) {
             LOGGER.debug(exception, "Invalid ObjectName");
-            throw new PrestoException(JMX_INVALID_TABLE_NAME, "Not a valid ObjectName " + tableName);
+            throw new TrinoException(JMX_INVALID_TABLE_NAME, "Not a valid ObjectName " + tableName);
         }
     }
 

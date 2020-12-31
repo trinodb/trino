@@ -26,7 +26,7 @@ import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.memory.MemoryPoolId;
 import io.trino.spi.resourcegroups.QueryType;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -311,7 +311,7 @@ public class TestQueryStateMachine
     {
         QueryStateMachine stateMachine = createQueryStateMachine();
         assertTrue(stateMachine.transitionToCanceled());
-        assertFinalState(stateMachine, FAILED, new PrestoException(USER_CANCELED, "canceled"));
+        assertFinalState(stateMachine, FAILED, new TrinoException(USER_CANCELED, "canceled"));
     }
 
     @Test
@@ -487,8 +487,8 @@ public class TestQueryStateMachine
             FailureInfo failure = queryInfo.getFailureInfo().toFailureInfo();
             assertNotNull(failure);
             assertEquals(failure.getType(), expectedException.getClass().getName());
-            if (expectedException instanceof PrestoException) {
-                assertEquals(queryInfo.getErrorCode(), ((PrestoException) expectedException).getErrorCode());
+            if (expectedException instanceof TrinoException) {
+                assertEquals(queryInfo.getErrorCode(), ((TrinoException) expectedException).getErrorCode());
             }
             else {
                 assertEquals(queryInfo.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());

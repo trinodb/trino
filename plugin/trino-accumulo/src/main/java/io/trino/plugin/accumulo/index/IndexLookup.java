@@ -23,7 +23,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
 import io.trino.plugin.accumulo.model.TabletSplitMetadata;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
@@ -305,7 +305,7 @@ public class IndexLookup
         long numRows = -1;
         for (Entry<Key, Value> entry : scanner) {
             if (numRows > 0) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Should have received only one entry when scanning for number of rows in metrics table");
+                throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Should have received only one entry when scanning for number of rows in metrics table");
             }
             numRows = Long.parseLong(entry.getValue().toString());
         }
@@ -363,7 +363,7 @@ public class IndexLookup
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                 }
-                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Exception when getting index ranges", e.getCause());
+                throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Exception when getting index ranges", e.getCause());
             }
         });
         return ImmutableList.copyOf(finalRanges);

@@ -13,7 +13,7 @@
  */
 package io.trino.util;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.booleans.BooleanOpenHashSet;
@@ -105,8 +105,8 @@ public final class FastutilSetHelper
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -121,8 +121,8 @@ public final class FastutilSetHelper
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -147,8 +147,8 @@ public final class FastutilSetHelper
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -163,8 +163,8 @@ public final class FastutilSetHelper
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }
@@ -192,8 +192,8 @@ public final class FastutilSetHelper
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
 
@@ -211,8 +211,8 @@ public final class FastutilSetHelper
             }
             catch (Throwable t) {
                 throwIfInstanceOf(t, Error.class);
-                throwIfInstanceOf(t, PrestoException.class);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, t);
+                throwIfInstanceOf(t, TrinoException.class);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, t);
             }
         }
     }

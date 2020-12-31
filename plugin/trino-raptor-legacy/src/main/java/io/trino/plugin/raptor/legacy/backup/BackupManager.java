@@ -19,7 +19,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.storage.BackupStats;
 import io.trino.plugin.raptor.legacy.storage.StorageService;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -129,7 +129,7 @@ public class BackupManager
                         log.warn("Quarantine of corrupt backup shard failed: %s", uuid);
                     }
 
-                    throw new PrestoException(RAPTOR_BACKUP_CORRUPTION, "Backup is corrupt after write: " + uuid);
+                    throw new TrinoException(RAPTOR_BACKUP_CORRUPTION, "Backup is corrupt after write: " + uuid);
                 }
 
                 if (!restored.delete()) {

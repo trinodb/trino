@@ -16,7 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
@@ -54,7 +54,7 @@ public class JdbcPageSink
             connection = jdbcClient.getConnection(session, handle);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
 
         try {
@@ -62,7 +62,7 @@ public class JdbcPageSink
         }
         catch (SQLException e) {
             closeWithSuppression(connection, e);
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
 
         columnTypes = handle.getColumnTypes();
@@ -86,7 +86,7 @@ public class JdbcPageSink
         else {
             columnWriters = handle.getJdbcColumnTypes().get().stream()
                     .map(typeHandle -> jdbcClient.toPrestoType(session, connection, typeHandle)
-                            .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, "Underlying type is not supported for INSERT: " + typeHandle)))
+                            .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Underlying type is not supported for INSERT: " + typeHandle)))
                     .map(ColumnMapping::getWriteFunction)
                     .collect(toImmutableList());
         }
@@ -96,7 +96,7 @@ public class JdbcPageSink
         }
         catch (SQLException e) {
             closeWithSuppression(connection, e);
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -121,7 +121,7 @@ public class JdbcPageSink
             }
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
         return NOT_BLOCKED;
     }
@@ -169,7 +169,7 @@ public class JdbcPageSink
             }
         }
         catch (SQLNonTransientException e) {
-            throw new PrestoException(JDBC_NON_TRANSIENT_ERROR, e);
+            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, e);
         }
         catch (SQLException e) {
             // Convert chained SQLExceptions to suppressed exceptions so they are visible in the stack trace
@@ -180,7 +180,7 @@ public class JdbcPageSink
                 }
                 nextException = nextException.getNextException();
             }
-            throw new PrestoException(JDBC_ERROR, "Failed to insert data: " + firstNonNull(e.getMessage(), e), e);
+            throw new TrinoException(JDBC_ERROR, "Failed to insert data: " + firstNonNull(e.getMessage(), e), e);
         }
         // the committer does not need any additional info
         return completedFuture(ImmutableList.of());
@@ -199,7 +199,7 @@ public class JdbcPageSink
             }
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 

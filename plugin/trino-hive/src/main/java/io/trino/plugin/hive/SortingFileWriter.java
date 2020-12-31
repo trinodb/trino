@@ -28,7 +28,7 @@ import io.trino.plugin.hive.util.TempFileReader;
 import io.trino.plugin.hive.util.TempFileWriter;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -144,7 +144,7 @@ public class SortingFileWriter
             outputWriter.commit();
         }
         catch (UncheckedIOException e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error committing write to Hive", e);
         }
     }
 
@@ -248,7 +248,7 @@ public class SortingFileWriter
         }
         catch (IOException | UncheckedIOException e) {
             cleanupFile(tempFile);
-            throw new PrestoException(HIVE_WRITER_DATA_ERROR, "Failed to write temporary file: " + tempFile, e);
+            throw new TrinoException(HIVE_WRITER_DATA_ERROR, "Failed to write temporary file: " + tempFile, e);
         }
     }
 

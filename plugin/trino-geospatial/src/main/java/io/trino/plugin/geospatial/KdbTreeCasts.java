@@ -15,7 +15,7 @@ package io.trino.plugin.geospatial;
 
 import io.airlift.slice.Slice;
 import io.trino.geospatial.KdbTreeUtils;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -36,7 +36,7 @@ public final class KdbTreeCasts
             return KdbTreeUtils.fromJson(json.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid JSON string for KDB tree", e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid JSON string for KDB tree", e);
         }
     }
 }

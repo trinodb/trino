@@ -21,7 +21,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
 import io.trino.plugin.raptor.legacy.util.SyncingFileSystem;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
@@ -167,7 +167,7 @@ public class OrcFileWriter
             recordWriter.write(serializer.serialize(orcRow, tableInspector));
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to write record", e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to write record", e);
         }
         rowCount++;
         uncompressedSize += row.getSizeInBytes();
@@ -185,7 +185,7 @@ public class OrcFileWriter
             recordWriter.close(false);
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to close writer", e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to close writer", e);
         }
     }
 
@@ -221,7 +221,7 @@ public class OrcFileWriter
             return WRITER_CONSTRUCTOR.newInstance(target, options);
         }
         catch (ReflectiveOperationException | IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to create writer", e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to create writer", e);
         }
     }
 
@@ -286,7 +286,7 @@ public class OrcFileWriter
                     getJavaObjectInspector(mapTypeInfo.getMapKeyTypeInfo()),
                     getJavaObjectInspector(mapTypeInfo.getMapValueTypeInfo()));
         }
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled storage type: " + category);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled storage type: " + category);
     }
 
     private static <T> boolean isUnique(Collection<T> items)
@@ -329,6 +329,6 @@ public class OrcFileWriter
         if (isMapType(type)) {
             return mapOf(toStorageType(type.getTypeParameters().get(0)), toStorageType(type.getTypeParameters().get(1)));
         }
-        throw new PrestoException(NOT_SUPPORTED, "No storage type for type: " + type);
+        throw new TrinoException(NOT_SUPPORTED, "No storage type for type: " + type);
     }
 }

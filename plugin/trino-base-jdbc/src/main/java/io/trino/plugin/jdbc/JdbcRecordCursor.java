@@ -16,7 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.base.VerifyException;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
@@ -247,6 +247,6 @@ public class JdbcRecordCursor
                 e.addSuppressed(closeException);
             }
         }
-        return new PrestoException(JDBC_ERROR, e);
+        return new TrinoException(JDBC_ERROR, e);
     }
 }

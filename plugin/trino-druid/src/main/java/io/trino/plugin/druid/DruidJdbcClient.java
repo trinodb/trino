@@ -27,7 +27,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -109,7 +109,7 @@ public class DruidJdbcClient
             }
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -211,66 +211,66 @@ public class DruidJdbcClient
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the presto-druid connector");
     }
 
     @Override
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 
     @Override
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 
     @Override
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the presto-druid connector");
     }
 
     @Override
     public void createSchema(ConnectorSession session, String schemaName)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        throw new PrestoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
+        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the presto-druid connector");
     }
 }

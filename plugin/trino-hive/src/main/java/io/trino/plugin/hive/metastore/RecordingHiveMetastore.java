@@ -26,7 +26,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.RecordingMetastoreConfig;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -207,7 +207,7 @@ public class RecordingHiveMetastore
     public List<String> getAllDatabases()
     {
         if (replay) {
-            return allDatabases.orElseThrow(() -> new PrestoException(NOT_FOUND, "Missing entry for all databases"));
+            return allDatabases.orElseThrow(() -> new TrinoException(NOT_FOUND, "Missing entry for all databases"));
         }
 
         List<String> result = delegate.getAllDatabases();
@@ -469,7 +469,7 @@ public class RecordingHiveMetastore
     public Set<String> listRoles()
     {
         if (replay) {
-            return allRoles.orElseThrow(() -> new PrestoException(NOT_FOUND, "Missing entry for roles"));
+            return allRoles.orElseThrow(() -> new TrinoException(NOT_FOUND, "Missing entry for roles"));
         }
 
         Set<String> result = delegate.listRoles();
@@ -519,7 +519,7 @@ public class RecordingHiveMetastore
     {
         if (replay) {
             return Optional.ofNullable(cache.getIfPresent(key))
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Missing entry found for key: " + key));
+                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Missing entry found for key: " + key));
         }
 
         V value = valueSupplier.get();

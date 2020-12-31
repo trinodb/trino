@@ -14,7 +14,7 @@
 package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -69,7 +69,7 @@ public class SystemPageSourceProvider
         SchemaTableName tableName = ((SystemTableHandle) table).getSchemaTableName();
         SystemTable systemTable = tables.getSystemTable(session, tableName)
                 // table might disappear in the meantime
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table '%s' not found", tableName)));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", tableName)));
 
         List<ColumnMetadata> tableColumns = systemTable.getTableMetadata().getColumns();
 
@@ -77,7 +77,7 @@ public class SystemPageSourceProvider
         for (int i = 0; i < tableColumns.size(); i++) {
             ColumnMetadata column = tableColumns.get(i);
             if (columnsByName.put(column.getName(), i) != null) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Duplicate column name: " + column.getName());
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Duplicate column name: " + column.getName());
             }
         }
 
@@ -87,7 +87,7 @@ public class SystemPageSourceProvider
 
             Integer index = columnsByName.get(columnName);
             if (index == null) {
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Column does not exist: %s.%s", tableName, columnName));
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Column does not exist: %s.%s", tableName, columnName));
             }
 
             userToSystemFieldIndex.add(index);

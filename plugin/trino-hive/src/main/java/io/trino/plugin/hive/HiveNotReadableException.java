@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.hive;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.Optional;
@@ -24,7 +24,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HiveNotReadableException
-        extends PrestoException
+        extends TrinoException
 {
     private final SchemaTableName tableName;
     private final Optional<String> partition;

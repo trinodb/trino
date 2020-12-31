@@ -21,7 +21,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
@@ -128,7 +128,7 @@ public final class IcebergSessionProperties
                         orcWriterConfig.getValidationPercentage(),
                         doubleValue -> {
                             if (doubleValue < 0.0 || doubleValue > 100.0) {
-                                throw new PrestoException(INVALID_SESSION_PROPERTY, format(
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format(
                                         "%s must be between 0.0 and 100.0 inclusive: %s",
                                         ORC_WRITER_VALIDATE_PERCENTAGE,
                                         doubleValue));

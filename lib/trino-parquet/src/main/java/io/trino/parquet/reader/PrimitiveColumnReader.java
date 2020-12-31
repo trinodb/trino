@@ -23,7 +23,7 @@ import io.trino.parquet.ParquetEncoding;
 import io.trino.parquet.ParquetTypeUtils;
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.parquet.dictionary.Dictionary;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
@@ -106,9 +106,9 @@ public abstract class PrimitiveColumnReader
                 return createDecimalColumnReader(descriptor).orElse(new BinaryColumnReader(descriptor));
             case FIXED_LEN_BYTE_ARRAY:
                 return createDecimalColumnReader(descriptor)
-                        .orElseThrow(() -> new PrestoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
+                        .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, " type FIXED_LEN_BYTE_ARRAY supported as DECIMAL; got " + descriptor.getPrimitiveType().getOriginalType()));
             default:
-                throw new PrestoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
+                throw new TrinoException(NOT_SUPPORTED, "Unsupported parquet type: " + descriptor.getPrimitiveType().getPrimitiveTypeName());
         }
     }
 

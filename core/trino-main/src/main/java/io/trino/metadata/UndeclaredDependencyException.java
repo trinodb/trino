@@ -13,12 +13,12 @@
  */
 package io.trino.metadata;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 
 public class UndeclaredDependencyException
-        extends PrestoException
+        extends TrinoException
 {
     public UndeclaredDependencyException(String dependency)
     {

@@ -24,7 +24,7 @@ import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescrip
 import io.trino.operator.aggregation.state.MinMaxNState;
 import io.trino.operator.aggregation.state.MinMaxNStateFactory;
 import io.trino.operator.aggregation.state.MinMaxNStateSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -141,7 +141,7 @@ public abstract class AbstractMinMaxNAggregationFunction
         TypedHeap heap = state.getTypedHeap();
         if (heap == null) {
             if (n <= 0) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "second argument of max_n/min_n must be positive");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "second argument of max_n/min_n must be positive");
             }
             checkCondition(n <= MAX_NUMBER_OF_VALUES, INVALID_FUNCTION_ARGUMENT, "second argument of max_n/min_n must be less than or equal to %s; found %s", MAX_NUMBER_OF_VALUES, n);
             heap = new TypedHeap(comparison, type, toIntExact(n));

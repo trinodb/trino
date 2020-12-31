@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.Node;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -58,7 +58,7 @@ public class RaptorNodePartitioningProvider
         for (String nodeIdentifier : handle.getBucketToNode()) {
             Node node = nodesById.get(nodeIdentifier);
             if (node == null) {
-                throw new PrestoException(NO_NODES_AVAILABLE, "Node for bucket is offline: " + nodeIdentifier);
+                throw new TrinoException(NO_NODES_AVAILABLE, "Node for bucket is offline: " + nodeIdentifier);
             }
             bucketToNode.add(node);
         }

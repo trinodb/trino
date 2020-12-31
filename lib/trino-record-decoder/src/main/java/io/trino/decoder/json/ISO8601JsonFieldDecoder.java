@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableSet;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 
 import java.time.ZoneId;
@@ -101,7 +101,7 @@ public class ISO8601JsonFieldDecoder
         {
             Type columnType = columnHandle.getType();
             if (!value.isValueNode()) {
-                throw new PrestoException(
+                throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
                         format("could not parse non-value node as '%s' for column '%s'", columnType, columnHandle.getName()));
             }
@@ -139,7 +139,7 @@ public class ISO8601JsonFieldDecoder
                 throw new IllegalArgumentException("unsupported type " + columnType);
             }
             catch (DateTimeParseException e) {
-                throw new PrestoException(
+                throw new TrinoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
                         format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnType, columnHandle.getName()));
             }

@@ -22,7 +22,7 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.SqlOperator;
 import io.trino.metadata.TypeVariableConstraint;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -102,11 +102,11 @@ public class JsonToRowCast
             }
             return rowType.getObject(rowBlockBuilder, 0);
         }
-        catch (PrestoException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+        catch (TrinoException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", rowType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", rowType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }

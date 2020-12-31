@@ -21,7 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNodeManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.weakref.jmx.Managed;
 
 import javax.annotation.PostConstruct;
@@ -111,7 +111,7 @@ public class ClusterSizeMonitor
         ScheduledFuture<?> timeoutTask = executor.schedule(
                 () -> {
                     synchronized (this) {
-                        future.setException(new PrestoException(
+                        future.setException(new TrinoException(
                                 GENERIC_INSUFFICIENT_RESOURCES,
                                 format("Insufficient active worker nodes. Waited %s for at least %s workers, but only %s workers are active", executionMaxWait, executionMinCount, currentCount)));
                     }

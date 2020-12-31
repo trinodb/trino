@@ -23,7 +23,7 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -665,7 +665,7 @@ public abstract class AbstractMockMetadata
             BoundSignature boundSignature = new BoundSignature(nameSuffix, DOUBLE, ImmutableList.of());
             return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()), ImmutableMap.of(), ImmutableSet.of());
         }
-        throw new PrestoException(FUNCTION_NOT_FOUND, name + "(" + Joiner.on(", ").join(parameterTypes) + ")");
+        throw new TrinoException(FUNCTION_NOT_FOUND, name + "(" + Joiner.on(", ").join(parameterTypes) + ")");
     }
 
     @Override
@@ -700,7 +700,7 @@ public abstract class AbstractMockMetadata
         if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
             return new FunctionMetadata(signature.toSignature(), false, ImmutableList.of(), false, false, "", SCALAR);
         }
-        throw new PrestoException(FUNCTION_NOT_FOUND, signature.toString());
+        throw new TrinoException(FUNCTION_NOT_FOUND, signature.toString());
     }
 
     @Override

@@ -18,7 +18,7 @@ import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.airlift.slice.Slice;
 import io.trino.operator.scalar.MathFunctions;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -108,7 +108,7 @@ public final class RealOperators
     {
         float floatValue = intBitsToFloat((int) value);
         if (Float.isNaN(floatValue)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to bigint");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to bigint");
         }
         return (long) MathFunctions.round((double) floatValue);
     }
@@ -119,13 +119,13 @@ public final class RealOperators
     {
         float floatValue = intBitsToFloat((int) value);
         if (Float.isNaN(floatValue)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to integer");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to integer");
         }
         try {
             return toIntExact((long) MathFunctions.round((double) floatValue));
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + floatValue, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + floatValue, e);
         }
     }
 
@@ -135,13 +135,13 @@ public final class RealOperators
     {
         float floatValue = intBitsToFloat((int) value);
         if (Float.isNaN(floatValue)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to smallint");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to smallint");
         }
         try {
             return Shorts.checkedCast((long) MathFunctions.round((double) floatValue));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + floatValue, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + floatValue, e);
         }
     }
 
@@ -151,13 +151,13 @@ public final class RealOperators
     {
         float floatValue = intBitsToFloat((int) value);
         if (Float.isNaN(floatValue)) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to tinyint");
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to tinyint");
         }
         try {
             return SignedBytes.checkedCast((long) MathFunctions.round((double) floatValue));
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + floatValue, e);
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + floatValue, e);
         }
     }
 
@@ -202,7 +202,7 @@ public final class RealOperators
             return DoubleMath.roundToLong(value, FLOOR);
         }
         catch (ArithmeticException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Unable to cast real %s to %s", value, targetType), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Unable to cast real %s to %s", value, targetType), e);
         }
     }
 }

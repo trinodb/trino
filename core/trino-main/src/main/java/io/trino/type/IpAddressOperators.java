@@ -15,7 +15,7 @@ package io.trino.type;
 
 import com.google.common.net.InetAddresses;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarOperator;
 import io.trino.spi.function.SqlType;
@@ -45,7 +45,7 @@ public final class IpAddressOperators
             address = InetAddresses.forString(slice.toStringUtf8()).getAddress();
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast value to IPADDRESS: " + slice.toStringUtf8());
         }
 
         byte[] bytes;
@@ -59,7 +59,7 @@ public final class IpAddressOperators
             bytes = address;
         }
         else {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Invalid InetAddress length: " + address.length);
         }
 
         return wrappedBuffer(bytes);
@@ -73,7 +73,7 @@ public final class IpAddressOperators
             return utf8Slice(InetAddresses.toAddrString(InetAddress.getByAddress(slice.getBytes())));
         }
         catch (UnknownHostException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length(), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length(), e);
         }
     }
 
@@ -92,7 +92,7 @@ public final class IpAddressOperators
         if (slice.length() == 16) {
             return slice;
         }
-        throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length());
+        throw new TrinoException(INVALID_CAST_ARGUMENT, "Invalid IP address binary length: " + slice.length());
     }
 
     @ScalarOperator(CAST)

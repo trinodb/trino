@@ -21,7 +21,7 @@ import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -224,7 +224,7 @@ public class TestTableScanRedirectionWithPushdown
             transaction(queryRunner.getTransactionManager(), queryRunner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
                         assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", WarningCollector.NOOP))
-                                .isInstanceOf(PrestoException.class)
+                                .isInstanceOf(TrinoException.class)
                                 .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_a has type integer, different from source column .*MockConnectorTableHandle.*source_col_c.* type: varchar");
                     });
         }

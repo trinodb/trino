@@ -16,7 +16,7 @@ package io.trino.plugin.hive.util;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -164,7 +164,7 @@ public class TestFSDataInputStreamTail
             FSDataInputStreamTail.readTail(tempFile.toString(), 128, is, 16);
             fail("Expected failure to find end of stream");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), HIVE_FILESYSTEM_ERROR.toErrorCode());
             throw e;
         }

@@ -14,12 +14,12 @@
 package io.trino;
 
 import io.airlift.units.Duration;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.EXCEEDED_CPU_LIMIT;
 
 public class ExceededCpuLimitException
-        extends PrestoException
+        extends TrinoException
 {
     public ExceededCpuLimitException(Duration duration)
     {

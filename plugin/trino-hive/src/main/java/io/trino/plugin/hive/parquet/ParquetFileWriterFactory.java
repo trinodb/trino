@@ -21,7 +21,7 @@ import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveSessionProperties;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.StorageFormat;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
@@ -120,7 +120,7 @@ public class ParquetFileWriterFactory
                     compressionCodecName));
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
+            throw new TrinoException(HIVE_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
         }
     }
 

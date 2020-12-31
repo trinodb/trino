@@ -43,7 +43,7 @@ import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToLo
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.fail;
@@ -150,7 +150,7 @@ public abstract class AbstractTestFunctions
 
     protected void assertNotSupported(String projection, String message)
     {
-        assertPrestoExceptionThrownBy(() -> functionAssertions.executeProjectionWithFullEngine(projection))
+        assertTrinoExceptionThrownBy(() -> functionAssertions.executeProjectionWithFullEngine(projection))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage(message);
     }

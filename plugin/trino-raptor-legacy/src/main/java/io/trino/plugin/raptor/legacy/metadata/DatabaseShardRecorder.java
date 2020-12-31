@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import io.airlift.log.Logger;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.inject.Inject;
 
@@ -48,7 +48,7 @@ public class DatabaseShardRecorder
                 runIgnoringConstraintViolation(() -> dao.insertCreatedShard(shardUuid, transactionId));
                 return;
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 if (attempt == maxAttempts) {
                     throw e;
                 }

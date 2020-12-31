@@ -27,7 +27,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.accumulo.conf.AccumuloConfig;
 import io.trino.plugin.accumulo.model.AccumuloColumnConstraint;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.TableNotFoundException;
@@ -166,7 +166,7 @@ public class ColumnCardinalityCache
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Exception when getting cardinality", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Exception when getting cardinality", e);
         }
 
         // Create a copy of the cardinalities
@@ -374,7 +374,7 @@ public class ColumnCardinalityCache
             // This is asserted with the below implementation error just to make sure
             CacheKey anyKey = stream(keys).findAny().get();
             if (stream(keys).anyMatch(k -> !k.getSchema().equals(anyKey.getSchema()) || !k.getTable().equals(anyKey.getTable()) || !k.getFamily().equals(anyKey.getFamily()) || !k.getQualifier().equals(anyKey.getQualifier()))) {
-                throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "loadAll called with a non-homogeneous collection of cache keys");
+                throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "loadAll called with a non-homogeneous collection of cache keys");
             }
 
             Map<Range, CacheKey> rangeToKey = stream(keys).collect(Collectors.toMap(CacheKey::getRange, Function.identity()));

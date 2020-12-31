@@ -18,7 +18,7 @@ import io.airlift.drift.TApplicationException;
 import io.airlift.drift.TException;
 import io.airlift.drift.protocol.TTransportException;
 import io.trino.plugin.thrift.api.PrestoThriftServiceException;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static com.google.common.util.concurrent.Futures.catchingAsync;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
@@ -32,22 +32,22 @@ public final class ThriftExceptions
 {
     private ThriftExceptions() {}
 
-    public static PrestoException toPrestoException(Exception e)
+    public static TrinoException toTrinoException(Exception e)
     {
         if ((e instanceof TTransportException) && "No hosts available".equals(e.getMessage())) {
-            throw new PrestoException(THRIFT_SERVICE_NO_AVAILABLE_HOSTS, e);
+            throw new TrinoException(THRIFT_SERVICE_NO_AVAILABLE_HOSTS, e);
         }
         if ((e instanceof TApplicationException) || (e instanceof PrestoThriftServiceException)) {
-            return new PrestoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by remote Thrift server: " + e.getMessage(), e);
+            return new TrinoException(THRIFT_SERVICE_GENERIC_REMOTE_ERROR, "Exception raised by remote Thrift server: " + e.getMessage(), e);
         }
         if (e instanceof TException) {
-            return new PrestoException(THRIFT_SERVICE_CONNECTION_ERROR, "Error communicating with remote Thrift server", e);
+            return new TrinoException(THRIFT_SERVICE_CONNECTION_ERROR, "Error communicating with remote Thrift server", e);
         }
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, e);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
     }
 
     public static <T> ListenableFuture<T> catchingThriftException(ListenableFuture<T> future)
     {
-        return catchingAsync(future, Exception.class, e -> immediateFailedFuture(toPrestoException(e)), directExecutor());
+        return catchingAsync(future, Exception.class, e -> immediateFailedFuture(toTrinoException(e)), directExecutor());
     }
 }

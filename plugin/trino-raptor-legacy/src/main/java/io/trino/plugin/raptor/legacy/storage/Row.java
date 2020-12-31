@@ -15,7 +15,7 @@ package io.trino.plugin.raptor.legacy.storage;
 
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
@@ -175,7 +175,7 @@ public class Row
             }
             return map;
         }
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unimplemented type: " + type);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unimplemented type: " + type);
     }
 
     private static class RowBuilder

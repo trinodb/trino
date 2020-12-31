@@ -26,7 +26,7 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Metadata;
 import io.trino.operator.SpillContext;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.FeaturesConfig;
@@ -191,9 +191,9 @@ public class FileSingleStreamSpillerFactory
             }
         }
         if (spillPaths.isEmpty()) {
-            throw new PrestoException(OUT_OF_SPILL_SPACE, "No spill paths configured");
+            throw new TrinoException(OUT_OF_SPILL_SPACE, "No spill paths configured");
         }
-        throw new PrestoException(OUT_OF_SPILL_SPACE, "No free or healthy space available for spill");
+        throw new TrinoException(OUT_OF_SPILL_SPACE, "No free or healthy space available for spill");
     }
 
     private boolean hasEnoughDiskSpace(Path path)
@@ -203,7 +203,7 @@ public class FileSingleStreamSpillerFactory
             return fileStore.getUsableSpace() > fileStore.getTotalSpace() * (1.0 - maxUsedSpaceThreshold);
         }
         catch (IOException e) {
-            throw new PrestoException(OUT_OF_SPILL_SPACE, "Cannot determine free space for spill", e);
+            throw new TrinoException(OUT_OF_SPILL_SPACE, "Cannot determine free space for spill", e);
         }
     }
 

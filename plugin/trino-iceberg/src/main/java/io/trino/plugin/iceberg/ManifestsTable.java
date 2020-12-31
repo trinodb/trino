@@ -16,7 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.iceberg.util.PageListBuilder;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -105,7 +105,7 @@ public class ManifestsTable
 
         Snapshot snapshot = icebergTable.snapshot(snapshotId);
         if (snapshot == null) {
-            throw new PrestoException(ICEBERG_INVALID_METADATA, format("Snapshot ID [%s] does not exist for table: %s", snapshotId, icebergTable));
+            throw new TrinoException(ICEBERG_INVALID_METADATA, format("Snapshot ID [%s] does not exist for table: %s", snapshotId, icebergTable));
         }
 
         Map<Integer, PartitionSpec> partitionSpecsById = icebergTable.specs();

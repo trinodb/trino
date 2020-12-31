@@ -14,13 +14,13 @@
 package io.trino;
 
 import io.airlift.units.DataSize;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.EXCEEDED_SPILL_LIMIT;
 import static java.lang.String.format;
 
 public class ExceededSpillLimitException
-        extends PrestoException
+        extends TrinoException
 {
     public static ExceededSpillLimitException exceededLocalLimit(DataSize maxSpill)
     {

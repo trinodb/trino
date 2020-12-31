@@ -18,7 +18,7 @@ import io.airlift.slice.Slices;
 import io.trino.plugin.accumulo.Types;
 import io.trino.plugin.accumulo.model.AccumuloColumnHandle;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -169,7 +169,7 @@ public class AccumuloRecordCursor
             return false;
         }
         catch (IOException e) {
-            throw new PrestoException(IO_ERROR, "Caught IO error from serializer on read", e);
+            throw new TrinoException(IO_ERROR, "Caught IO error from serializer on read", e);
         }
     }
 
@@ -223,7 +223,7 @@ public class AccumuloRecordCursor
         if (type.equals(TINYINT)) {
             return serializer.getByte(fieldToColumnName[field]);
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
     }
 
     @Override
@@ -249,7 +249,7 @@ public class AccumuloRecordCursor
         if (type instanceof VarcharType) {
             return Slices.utf8Slice(serializer.getVarchar(fieldToColumnName[field]));
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + type);
     }
 
     @Override

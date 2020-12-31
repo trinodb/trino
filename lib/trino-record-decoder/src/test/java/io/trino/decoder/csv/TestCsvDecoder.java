@@ -18,7 +18,7 @@ import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.DecoderTestColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DecimalType;
@@ -166,19 +166,19 @@ public class TestCsvDecoder
     public void testWrongMappingDefined()
     {
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, null, null, null, false, false, false))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("mapping not defined for column 'column'");
 
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "x", null, null, false, false, false))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("invalid mapping 'x' for column 'column'");
 
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "-1", null, null, false, false, false))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("invalid mapping '-1' for column 'column'");
 
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "1:1", null, null, false, false, false))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("invalid mapping '1:1' for column 'column'");
     }
 
@@ -186,15 +186,15 @@ public class TestCsvDecoder
     public void testInvalidExtraneousParameters()
     {
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", "format", null, false, false, false))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("unexpected data format 'format' defined for column 'column'");
 
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", null, "hint", false, false, false))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("unexpected format hint 'hint' defined for column 'column'");
 
         assertThatThrownBy(() -> singleColumnDecoder(BigintType.BIGINT, "0", null, null, false, false, true))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("unexpected internal column 'column'");
     }
 
@@ -220,7 +220,7 @@ public class TestCsvDecoder
     private void assertUnsupportedColumnTypeException(ThrowableAssert.ThrowingCallable callable)
     {
         assertThatThrownBy(callable)
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("Unsupported column type .* for column .*");
     }
 
@@ -253,7 +253,7 @@ public class TestCsvDecoder
     private void assertRuntimeDecodingFailure(ThrowableAssert.ThrowingCallable callable)
     {
         assertThatThrownBy(callable)
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("could not parse value .* as .* for column .*");
     }
 }

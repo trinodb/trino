@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
 import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
 import io.trino.plugin.kafka.encoder.RowEncoder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -102,7 +102,7 @@ public class KafkaPageSinkProvider
                 return Files.readString(Paths.get(location));
             }
             catch (IOException e) {
-                throw new PrestoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", dataSchemaLocation.get()), e);
+                throw new TrinoException(KAFKA_SCHEMA_ERROR, format("Unable to read data schema at '%s'", dataSchemaLocation.get()), e);
             }
         });
     }

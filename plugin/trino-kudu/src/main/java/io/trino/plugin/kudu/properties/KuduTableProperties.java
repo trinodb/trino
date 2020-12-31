@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 import org.apache.kudu.ColumnSchema;
@@ -190,7 +190,7 @@ public final class KuduTableProperties
             design.setHash(hashPartitions);
         }
         else if (!hashColumns2.isEmpty()) {
-            throw new PrestoException(GENERIC_USER_ERROR, "Table property " + PARTITION_BY_HASH_COLUMNS_2 + " is only allowed if there is also " + PARTITION_BY_HASH_COLUMNS);
+            throw new TrinoException(GENERIC_USER_ERROR, "Table property " + PARTITION_BY_HASH_COLUMNS_2 + " is only allowed if there is also " + PARTITION_BY_HASH_COLUMNS);
         }
 
         @SuppressWarnings("unchecked")
@@ -238,7 +238,7 @@ public final class KuduTableProperties
     {
         Integer hashBuckets = (Integer) tableProperties.get(bucketPropertyName);
         if (hashBuckets == null) {
-            throw new PrestoException(GENERIC_USER_ERROR, "Missing table property " + bucketPropertyName);
+            throw new TrinoException(GENERIC_USER_ERROR, "Missing table property " + bucketPropertyName);
         }
         HashPartitionDefinition definition = new HashPartitionDefinition();
         definition.setColumns(columns);

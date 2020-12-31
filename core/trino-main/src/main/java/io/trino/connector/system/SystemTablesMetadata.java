@@ -15,7 +15,7 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.system.jdbc.JdbcTable;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -112,7 +112,7 @@ public class SystemTablesMetadata
         SystemTableHandle systemTableHandle = (SystemTableHandle) tableHandle;
         return tables.getSystemTable(session, systemTableHandle.getSchemaTableName())
                 // table might disappear in the meantime
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.getSchemaTableName())));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, format("Table '%s' not found", systemTableHandle.getSchemaTableName())));
     }
 
     @Override

@@ -15,7 +15,7 @@ package io.trino.operator.scalar.timestamp;
 
 import com.google.common.base.Strings;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
@@ -49,7 +49,7 @@ public final class HumanReadableSeconds
     public static Slice humanReadableSeconds(@SqlType(StandardTypes.DOUBLE) double inputSeconds)
     {
         if (Double.isNaN(inputSeconds) || Double.isInfinite(inputSeconds)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid argument found: %s", inputSeconds));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid argument found: %s", inputSeconds));
         }
 
         long seconds = Math.round(Math.abs(inputSeconds));

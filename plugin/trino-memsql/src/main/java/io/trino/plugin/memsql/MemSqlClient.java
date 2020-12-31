@@ -23,7 +23,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -127,7 +127,7 @@ public class MemSqlClient
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         String jdbcTypeName = typeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
         if (mapping.isPresent()) {
@@ -171,7 +171,7 @@ public class MemSqlClient
                 .filter(s -> s.contains(";"))
                 .findAny()
                 .ifPresent(illegalColumnName -> {
-                    throw new PrestoException(JDBC_ERROR, format("Incorrect column name '%s'", illegalColumnName));
+                    throw new TrinoException(JDBC_ERROR, format("Incorrect column name '%s'", illegalColumnName));
                 });
 
         super.createTable(session, tableMetadata);
@@ -185,7 +185,7 @@ public class MemSqlClient
                 .filter(s -> s.contains(";"))
                 .findAny()
                 .ifPresent(illegalColumnName -> {
-                    throw new PrestoException(JDBC_ERROR, format("Incorrect column name '%s'", illegalColumnName));
+                    throw new TrinoException(JDBC_ERROR, format("Incorrect column name '%s'", illegalColumnName));
                 });
 
         super.copyTableSchema(connection, catalogName, schemaName, tableName, newTableName, columnNames);
@@ -230,7 +230,7 @@ public class MemSqlClient
             execute(connection, sql);
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 

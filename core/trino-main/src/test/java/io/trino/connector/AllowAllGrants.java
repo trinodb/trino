@@ -13,7 +13,7 @@
  */
 package io.trino.connector;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
 
@@ -27,13 +27,13 @@ public class AllowAllGrants<T>
     @Override
     public void grant(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Grant operation is not supported");
+        throw new TrinoException(NOT_SUPPORTED, "Grant operation is not supported");
     }
 
     @Override
     public void revoke(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Revoke operation is not supported");
+        throw new TrinoException(NOT_SUPPORTED, "Revoke operation is not supported");
     }
 
     @Override

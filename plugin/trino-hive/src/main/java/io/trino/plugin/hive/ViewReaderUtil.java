@@ -24,7 +24,7 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -180,7 +180,7 @@ public final class ViewReaderUtil
                         false);
             }
             catch (RuntimeException e) {
-                throw new PrestoException(HIVE_VIEW_TRANSLATION_ERROR,
+                throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,
                         format("Failed to translate Hive view '%s': %s",
                                 table.getSchemaTableName(),
                                 e.getMessage()),

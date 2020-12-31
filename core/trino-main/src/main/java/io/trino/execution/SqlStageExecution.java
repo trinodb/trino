@@ -28,7 +28,7 @@ import io.trino.failuredetector.FailureDetector;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.server.DynamicFilterService;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.split.RemoteSplit;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -509,12 +509,12 @@ public final class SqlStageExecution
                         .findFirst()
                         .map(this::rewriteTransportFailure)
                         .map(ExecutionFailureInfo::toException)
-                        .orElse(new PrestoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+                        .orElse(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
                 stateMachine.transitionToFailed(failure);
             }
             else if (taskState == TaskState.ABORTED) {
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                stateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
             }
             else if (taskState == TaskState.FLUSHING) {
                 flushingTasks.add(taskStatus.getTaskId());

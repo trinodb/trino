@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.trino.Session;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -106,7 +106,7 @@ public final class MetadataUtil
                 semanticException(MISSING_CATALOG_NAME, node, "Session catalog must be set"));
 
         if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
-            throw new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog);
+            throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalog);
         }
 
         return catalog;
@@ -143,7 +143,7 @@ public final class MetadataUtil
         requireNonNull(session, "session is null");
         requireNonNull(name, "name is null");
         if (name.getParts().size() > 3) {
-            throw new PrestoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
+            throw new TrinoException(SYNTAX_ERROR, format("Too many dots in table name: %s", name));
         }
 
         List<String> parts = Lists.reverse(name.getParts());

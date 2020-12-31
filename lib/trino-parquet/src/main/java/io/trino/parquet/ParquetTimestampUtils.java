@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.parquet.io.api.Binary;
 
 import static com.google.common.base.Verify.verify;
@@ -45,7 +45,7 @@ public final class ParquetTimestampUtils
     public static DecodedTimestamp decode(Binary timestampBinary)
     {
         if (timestampBinary.length() != 12) {
-            throw new PrestoException(NOT_SUPPORTED, "Parquet timestamp must be 12 bytes, actual " + timestampBinary.length());
+            throw new TrinoException(NOT_SUPPORTED, "Parquet timestamp must be 12 bytes, actual " + timestampBinary.length());
         }
         byte[] bytes = timestampBinary.getBytes();
 

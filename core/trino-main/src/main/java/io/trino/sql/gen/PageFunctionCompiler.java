@@ -43,7 +43,7 @@ import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProjection;
 import io.trino.operator.project.SelectedPositions;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -198,10 +198,10 @@ public class PageFunctionCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new PrestoException(COMPILER_ERROR,
+                throw new TrinoException(COMPILER_ERROR,
                         "Query exceeded maximum columns. Please reduce the number of columns referenced and re-run the query.", e);
             }
-            throw new PrestoException(COMPILER_ERROR, e);
+            throw new TrinoException(COMPILER_ERROR, e);
         }
 
         return () -> new GeneratedPageProjection(
@@ -387,10 +387,10 @@ public class PageFunctionCompiler
         }
         catch (Exception e) {
             if (Throwables.getRootCause(e) instanceof MethodTooLargeException) {
-                throw new PrestoException(COMPILER_ERROR,
+                throw new TrinoException(COMPILER_ERROR,
                         "Query exceeded maximum filters. Please reduce the number of filters referenced and re-run the query.", e);
             }
-            throw new PrestoException(COMPILER_ERROR, filter.toString(), e.getCause());
+            throw new TrinoException(COMPILER_ERROR, filter.toString(), e.getCause());
         }
 
         return () -> {
@@ -398,7 +398,7 @@ public class PageFunctionCompiler
                 return functionClass.getConstructor().newInstance();
             }
             catch (ReflectiveOperationException e) {
-                throw new PrestoException(COMPILER_ERROR, e);
+                throw new TrinoException(COMPILER_ERROR, e);
             }
         };
     }

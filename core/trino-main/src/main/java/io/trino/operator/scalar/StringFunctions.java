@@ -19,7 +19,7 @@ import io.airlift.slice.InvalidUtf8Exception;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
@@ -76,7 +76,7 @@ public final class StringFunctions
             return SliceUtf8.codePointToUtf8(Ints.saturatedCast(codepoint));
         }
         catch (InvalidCodePointException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Not a valid Unicode code point: " + codepoint, e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Not a valid Unicode code point: " + codepoint, e);
         }
     }
 
@@ -225,7 +225,7 @@ public final class StringFunctions
     private static long stringPositionFromStart(Slice string, Slice substring, long instance)
     {
         if (instance <= 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'instance' must be a positive or negative number.");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'instance' must be a positive or negative number.");
         }
         if (substring.length() == 0) {
             return 1;
@@ -249,7 +249,7 @@ public final class StringFunctions
     private static long stringPositionFromEnd(Slice string, Slice substring, long instance)
     {
         if (instance <= 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "'instance' must be a positive or negative number.");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "'instance' must be a positive or negative number.");
         }
         if (substring.length() == 0) {
             return 1;
@@ -439,7 +439,7 @@ public final class StringFunctions
             }
             int length = lengthOfCodePoint(string, indexStart);
             if (indexStart + length > string.length()) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding");
             }
             return string.slice(indexStart, length);
         }
@@ -611,7 +611,7 @@ public final class StringFunctions
         for (int position = 0; position < slice.length(); ) {
             int codePoint = tryGetCodePointAt(slice, position);
             if (codePoint < 0) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding in characters: " + slice.toStringUtf8());
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid UTF-8 encoding in characters: " + slice.toStringUtf8());
             }
             position += lengthOfCodePoint(codePoint);
             codePoints++;
@@ -820,7 +820,7 @@ public final class StringFunctions
             targetForm = Normalizer.Form.valueOf(form.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Normalization form must be one of [NFD, NFC, NFKD, NFKC]");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Normalization form must be one of [NFD, NFC, NFKD, NFKC]");
         }
         return utf8Slice(Normalizer.normalize(slice.toStringUtf8(), targetForm));
     }
@@ -841,7 +841,7 @@ public final class StringFunctions
     {
         int count = countCodePoints(replacementCharacter);
         if (count > 1) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Replacement character string must empty or a single character");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Replacement character string must empty or a single character");
         }
 
         OptionalInt replacementCodePoint;
@@ -850,7 +850,7 @@ public final class StringFunctions
                 replacementCodePoint = OptionalInt.of(getCodePointAt(replacementCharacter, 0));
             }
             catch (InvalidUtf8Exception e) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");
             }
         }
         else {
@@ -865,7 +865,7 @@ public final class StringFunctions
     public static Slice fromUtf8(@SqlType(StandardTypes.VARBINARY) Slice slice, @SqlType(StandardTypes.BIGINT) long replacementCodePoint)
     {
         if (replacementCodePoint > MAX_CODE_POINT || Character.getType((int) replacementCodePoint) == SURROGATE) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid replacement character");
         }
         return SliceUtf8.fixInvalidUtf8(slice, OptionalInt.of((int) replacementCodePoint));
     }

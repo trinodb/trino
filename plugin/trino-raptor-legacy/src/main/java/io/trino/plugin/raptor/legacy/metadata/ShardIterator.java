@@ -17,7 +17,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 import org.skife.jdbi.v2.IDBI;
 import org.skife.jdbi.v2.ResultIterator;
@@ -190,7 +190,7 @@ final class ShardIterator
     {
         String node = bucketToNode.get(bucket);
         if (node == null) {
-            throw new PrestoException(RAPTOR_ERROR, "No node mapping for bucket: " + bucket);
+            throw new TrinoException(RAPTOR_ERROR, "No node mapping for bucket: " + bucket);
         }
         return node;
     }
@@ -207,7 +207,7 @@ final class ShardIterator
     {
         String node = dao.getNodeIdentifier(id);
         if (node == null) {
-            throw new PrestoException(RAPTOR_ERROR, format("Missing node ID [%s] for shard: %s", id, shardUuid));
+            throw new TrinoException(RAPTOR_ERROR, format("Missing node ID [%s] for shard: %s", id, shardUuid));
         }
         return node;
     }

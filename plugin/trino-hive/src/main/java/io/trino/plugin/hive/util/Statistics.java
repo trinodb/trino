@@ -24,7 +24,7 @@ import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
@@ -286,7 +286,7 @@ public final class Statistics
                     setMinMaxForEmptyPartition(columnType, result);
                     break;
                 default:
-                    throw new PrestoException(HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE, "Unknown column statistics type: " + columnStatisticType.name());
+                    throw new TrinoException(HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE, "Unknown column statistics type: " + columnStatisticType.name());
             }
         }
         return result.build();

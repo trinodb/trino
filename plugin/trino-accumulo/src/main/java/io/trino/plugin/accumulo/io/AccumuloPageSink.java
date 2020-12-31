@@ -23,7 +23,7 @@ import io.trino.plugin.accumulo.model.Field;
 import io.trino.plugin.accumulo.model.Row;
 import io.trino.plugin.accumulo.serializers.AccumuloRowSerializer;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeUtils;
@@ -98,7 +98,7 @@ public class AccumuloPageSink
                 .findAny();
 
         if (ordinal.isEmpty()) {
-            throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found");
+            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "Row ID ordinal not found");
         }
 
         this.rowIdOrdinal = ordinal.get();
@@ -123,10 +123,10 @@ public class AccumuloPageSink
             }
         }
         catch (AccumuloException | AccumuloSecurityException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Accumulo error when creating BatchWriter and/or Indexer", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Accumulo error when creating BatchWriter and/or Indexer", e);
         }
         catch (TableNotFoundException e) {
-            throw new PrestoException(ACCUMULO_TABLE_DNE, "Accumulo error when creating BatchWriter and/or Indexer, table does not exist", e);
+            throw new TrinoException(ACCUMULO_TABLE_DNE, "Accumulo error when creating BatchWriter and/or Indexer, table does not exist", e);
         }
     }
 
@@ -145,7 +145,7 @@ public class AccumuloPageSink
         Text value = new Text();
         Field rowField = row.getField(rowIdOrdinal);
         if (rowField.isNull()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Column mapped as the Accumulo row ID cannot be null");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Column mapped as the Accumulo row ID cannot be null");
         }
 
         setText(rowField, value, serializer);
@@ -251,7 +251,7 @@ public class AccumuloPageSink
                 ++numRows;
             }
             catch (MutationsRejectedException e) {
-                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server", e);
+                throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server", e);
             }
 
             // TODO Fix arbitrary flush every 100k rows
@@ -275,7 +275,7 @@ public class AccumuloPageSink
             }
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server on flush", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server on flush", e);
         }
 
         // TODO Look into any use of the metadata for writing out the rows
@@ -298,7 +298,7 @@ public class AccumuloPageSink
             writer.flush();
         }
         catch (MutationsRejectedException e) {
-            throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server on flush", e);
+            throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Mutation rejected by server on flush", e);
         }
     }
 }

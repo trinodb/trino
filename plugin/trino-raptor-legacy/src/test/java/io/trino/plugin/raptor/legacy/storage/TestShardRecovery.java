@@ -19,7 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.raptor.legacy.backup.BackupStore;
 import io.trino.plugin.raptor.legacy.backup.FileBackupStore;
 import io.trino.plugin.raptor.legacy.metadata.ShardManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.testing.TestingNodeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -227,7 +227,7 @@ public class TestShardRecovery
             recoveryManager.restoreFromBackup(shardUuid, size, OptionalLong.of(xxhash64));
             fail("expected exception");
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             assertEquals(e.getErrorCode(), RAPTOR_BACKUP_CORRUPTION.toErrorCode());
             assertEquals(e.getMessage(), "Backup is corrupt after read: " + shardUuid);
         }
@@ -238,7 +238,7 @@ public class TestShardRecovery
         assertTrue(getOnlyElement(quarantined).startsWith(shardUuid + ".orc.corrupt"));
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "No backup file found for shard: .*")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "No backup file found for shard: .*")
     public void testNoBackupException()
     {
         recoveryManager.restoreFromBackup(UUID.randomUUID(), 0, OptionalLong.empty());

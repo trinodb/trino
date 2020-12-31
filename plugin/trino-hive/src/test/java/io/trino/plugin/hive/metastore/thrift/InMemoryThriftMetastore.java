@@ -24,7 +24,7 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -136,7 +136,7 @@ public class InMemoryThriftMetastore
             throw new SchemaNotFoundException(databaseName);
         }
         if (!getAllTables(databaseName).isEmpty()) {
-            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
+            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
         }
         databases.remove(databaseName);
     }

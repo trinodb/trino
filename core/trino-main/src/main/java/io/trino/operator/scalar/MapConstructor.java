@@ -23,7 +23,7 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DuplicateMapKeyException;
@@ -141,12 +141,12 @@ public final class MapConstructor
                 // close block builder before throwing as we may be in a TRY() call
                 // so that subsequent calls do not find it in an inconsistent state
                 mapBlockBuilder.closeEntry();
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
             Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
             try {
                 if ((boolean) keyIndeterminate.invoke(keyObject)) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
                 }
             }
             catch (Throwable t) {

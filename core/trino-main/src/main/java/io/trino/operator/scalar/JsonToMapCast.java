@@ -20,7 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.SqlOperator;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -99,11 +99,11 @@ public class JsonToMapCast
             }
             return mapType.getObject(blockBuilder, blockBuilder.getPositionCount() - 1);
         }
-        catch (PrestoException | JsonCastException e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
+        catch (TrinoException | JsonCastException e) {
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s. %s\n%s", mapType, e.getMessage(), truncateIfNecessaryForErrorMessage(json)), e);
         }
         catch (Exception e) {
-            throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", mapType, truncateIfNecessaryForErrorMessage(json)), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, format("Cannot cast to %s.\n%s", mapType, truncateIfNecessaryForErrorMessage(json)), e);
         }
     }
 }

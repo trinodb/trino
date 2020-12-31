@@ -37,7 +37,7 @@ import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
 import io.trino.plugin.jdbc.expression.ImplementSum;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -147,7 +147,7 @@ public class SqlServerClient
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
-            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
         }
 
         String sql = format(
@@ -203,7 +203,7 @@ public class SqlServerClient
         // TODO (https://github.com/trinodb/trino/issues/4593) implement proper type mapping
 
         String jdbcTypeName = typeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+                .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         switch (jdbcTypeName) {
             case "varbinary":
@@ -380,7 +380,7 @@ public class SqlServerClient
                     .orElseGet(ImmutableMap::of);
         }
         catch (SQLException exception) {
-            throw new PrestoException(JDBC_ERROR, exception);
+            throw new TrinoException(JDBC_ERROR, exception);
         }
     }
 

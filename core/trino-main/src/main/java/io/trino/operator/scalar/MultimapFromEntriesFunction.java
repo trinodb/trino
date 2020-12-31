@@ -16,7 +16,7 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.operator.aggregation.TypedSet;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Convention;
@@ -95,13 +95,13 @@ public final class MultimapFromEntriesFunction
         for (int i = 0; i < entryCount; i++) {
             if (block.isNull(i)) {
                 clearEntryIndices(keySet.size());
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map entry cannot be null");
             }
             Block rowBlock = rowType.getObject(block, i);
 
             if (rowBlock.isNull(0)) {
                 clearEntryIndices(keySet.size());
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be null");
             }
 
             if (keySet.contains(rowBlock, 0)) {

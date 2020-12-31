@@ -31,7 +31,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
@@ -456,7 +456,7 @@ public class ExtractSpatialJoins
     {
         QualifiedObjectName name = toQualifiedObjectName(tableName, session.getCatalog().get(), session.getSchema().get());
         TableHandle tableHandle = metadata.getTableHandle(session, name)
-                .orElseThrow(() -> new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Table not found: %s", name)));
+                .orElseThrow(() -> new TrinoException(INVALID_SPATIAL_PARTITIONING, format("Table not found: %s", name)));
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         List<ColumnHandle> visibleColumnHandles = columnHandles.values().stream()
                 .filter(handle -> !metadata.getColumnMetadata(session, tableHandle, handle).isHidden())
@@ -508,7 +508,7 @@ public class ExtractSpatialJoins
     private static void checkSpatialPartitioningTable(boolean condition, String message, Object... arguments)
     {
         if (!condition) {
-            throw new PrestoException(INVALID_SPATIAL_PARTITIONING, format(message, arguments));
+            throw new TrinoException(INVALID_SPATIAL_PARTITIONING, format(message, arguments));
         }
     }
 
@@ -527,7 +527,7 @@ public class ExtractSpatialJoins
             return new QualifiedObjectName(catalog, schema, ids.get(0));
         }
 
-        throw new PrestoException(INVALID_SPATIAL_PARTITIONING, format("Invalid name: %s", name));
+        throw new TrinoException(INVALID_SPATIAL_PARTITIONING, format("Invalid name: %s", name));
     }
 
     private static int checkAlignment(JoinNode joinNode, Set<Symbol> maybeLeftSymbols, Set<Symbol> maybeRightSymbols)

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.elasticsearch.decoders;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import org.elasticsearch.search.SearchHit;
 
@@ -52,11 +52,11 @@ public class RealDecoder
                 decoded = Float.parseFloat((String) value);
             }
             catch (NumberFormatException e) {
-                throw new PrestoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as REAL: %s", path, value));
+                throw new TrinoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as REAL: %s", path, value));
             }
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field %s of type REAL: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new TrinoException(TYPE_MISMATCH, format("Expected a numeric value for field %s of type REAL: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
 
         REAL.writeLong(output, Float.floatToRawIntBits(decoded));

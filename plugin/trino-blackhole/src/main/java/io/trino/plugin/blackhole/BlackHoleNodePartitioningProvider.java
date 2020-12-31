@@ -14,7 +14,7 @@
 package io.trino.plugin.blackhole;
 
 import io.trino.spi.NodeManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -64,7 +64,7 @@ public class BlackHoleNodePartitioningProvider
             ConnectorPartitioningHandle partitioningHandle)
     {
         return value -> {
-            throw new PrestoException(NOT_SUPPORTED, "Black hole connector does not supported distributed reads");
+            throw new TrinoException(NOT_SUPPORTED, "Black hole connector does not supported distributed reads");
         };
     }
 

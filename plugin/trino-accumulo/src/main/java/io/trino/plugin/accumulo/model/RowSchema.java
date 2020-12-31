@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.accumulo.model;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -67,7 +67,7 @@ public class RowSchema
             }
         }
 
-        throw new PrestoException(NOT_FOUND, "No column with name " + name);
+        throw new TrinoException(NOT_FOUND, "No column with name " + name);
     }
 
     public List<AccumuloColumnHandle> getColumns()

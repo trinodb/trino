@@ -29,7 +29,7 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.PrincipalType;
 
 import java.util.List;
@@ -191,7 +191,7 @@ public final class GlueToPrestoConverter
         {
             if (sd.getNumberOfBuckets() > 0) {
                 if (isNullOrEmpty(sd.getBucketColumns())) {
-                    throw new PrestoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set");
+                    throw new TrinoException(HIVE_INVALID_METADATA, "Table/partition metadata has 'numBuckets' set, but 'bucketCols' is not set");
                 }
                 List<String> bucketColumns = this.bucketColumns.apply(sd.getBucketColumns());
                 List<SortingColumn> sortedBy = this.sortColumns.apply(sd.getSortColumns());

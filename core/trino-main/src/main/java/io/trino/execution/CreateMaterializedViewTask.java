@@ -20,7 +20,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.security.GroupProvider;
 import io.trino.sql.analyzer.Analysis;
@@ -100,7 +100,7 @@ public class CreateMaterializedViewTask
         Optional<String> owner = Optional.of(session.getUser());
 
         CatalogName catalogName = metadata.getCatalogHandle(session, name.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + name.getCatalogName()));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + name.getCatalogName()));
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
         Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(

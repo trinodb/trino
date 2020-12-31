@@ -13,14 +13,14 @@
  */
 package io.trino.plugin.iceberg;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE;
 import static java.util.Objects.requireNonNull;
 
 public class UnknownTableTypeException
-        extends PrestoException
+        extends TrinoException
 {
     private final SchemaTableName tableName;
 

@@ -29,7 +29,7 @@ import io.trino.execution.buffer.SerializedPage;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.SpillContext;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -108,7 +108,7 @@ public class FileSingleStreamSpiller
         }
         catch (IOException e) {
             this.fileSystemErrorHandler.run();
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to create spill file", e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to create spill file", e);
         }
     }
 
@@ -157,7 +157,7 @@ public class FileSingleStreamSpiller
         }
         catch (UncheckedIOException | IOException e) {
             fileSystemErrorHandler.run();
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to spill pages", e);
         }
     }
 
@@ -173,7 +173,7 @@ public class FileSingleStreamSpiller
         }
         catch (IOException e) {
             fileSystemErrorHandler.run();
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to read spilled pages", e);
         }
     }
 
@@ -187,7 +187,7 @@ public class FileSingleStreamSpiller
         }
         catch (IOException e) {
             fileSystemErrorHandler.run();
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Failed to close spiller", e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to close spiller", e);
         }
     }
 

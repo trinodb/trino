@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
@@ -58,7 +58,7 @@ public class HdfsFileIo
             environment.doAs(context.getIdentity().getUser(), () -> environment.getFileSystem(context, path).delete(path, false));
         }
         catch (IOException e) {
-            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete file: " + path, e);
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete file: " + path, e);
         }
     }
 }

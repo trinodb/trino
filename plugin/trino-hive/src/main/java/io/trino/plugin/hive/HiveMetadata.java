@@ -51,8 +51,8 @@ import io.trino.plugin.hive.util.HiveBucketing;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.ErrorType;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -375,12 +375,12 @@ public class HiveMetadata
         }
 
         if (isDeltaLakeTable(table.get())) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Cannot query Delta Lake table");
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Cannot query Delta Lake table");
         }
 
         // we must not allow system tables due to how permissions are checked in SystemTableAwareAccessControl
         if (getSourceTableNameFromSystemTable(tableName).isPresent()) {
-            throw new PrestoException(HIVE_INVALID_METADATA, "Unexpected table present in Hive metastore: " + tableName);
+            throw new TrinoException(HIVE_INVALID_METADATA, "Unexpected table present in Hive metastore: " + tableName);
         }
 
         verifyOnline(tableName, Optional.empty(), getProtectMode(table.get()), table.get().getParameters());
@@ -411,11 +411,11 @@ public class HiveMetadata
             List<List<String>> list = partitionValuesList.get();
 
             if (partitionedBy.isEmpty()) {
-                throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Partition list provided but table is not partitioned");
+                throw new TrinoException(INVALID_ANALYZE_PROPERTY, "Partition list provided but table is not partitioned");
             }
             for (List<String> values : list) {
                 if (values.size() != partitionedBy.size()) {
-                    throw new PrestoException(INVALID_ANALYZE_PROPERTY, "Partition value count does not match partition column count");
+                    throw new TrinoException(INVALID_ANALYZE_PROPERTY, "Partition value count does not match partition column count");
                 }
             }
 
@@ -430,7 +430,7 @@ public class HiveMetadata
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableSet());
             if (!allColumnNames.containsAll(columnNames)) {
-                throw new PrestoException(
+                throw new TrinoException(
                         INVALID_ANALYZE_PROPERTY,
                         format("Invalid columns specified for analysis: %s", Sets.difference(columnNames, allColumnNames)));
             }
@@ -545,11 +545,11 @@ public class HiveMetadata
         try {
             return doGetTableMetadata(session, tableName);
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             throw e;
         }
         catch (RuntimeException e) {
-            // Errors related to invalid or unsupported information in the Metastore should be handled explicitly (eg. as PrestoException(HIVE_INVALID_METADATA)).
+            // Errors related to invalid or unsupported information in the Metastore should be handled explicitly (eg. as TrinoException(HIVE_INVALID_METADATA)).
             // This is just a catch-all solution so that we have any actionable information when eg. SELECT * FROM information_schema.columns fails.
             throw new RuntimeException("Failed to construct table metadata for table " + tableName, e);
         }
@@ -581,7 +581,7 @@ public class HiveMetadata
             HiveStorageFormat format = extractHiveStorageFormat(table);
             properties.put(STORAGE_FORMAT_PROPERTY, format);
         }
-        catch (PrestoException ignored) {
+        catch (TrinoException ignored) {
             // todo fail if format is not known
         }
 
@@ -663,7 +663,7 @@ public class HiveMetadata
         String tablePropertyValue = table.getParameters().get(key);
         if (serdePropertyValue != null && tablePropertyValue != null && !tablePropertyValue.equals(serdePropertyValue)) {
             // in Hive one can set conflicting values for the same property, in such case it looks like table properties are used
-            throw new PrestoException(
+            throw new TrinoException(
                     HIVE_INVALID_METADATA,
                     format("Different values for '%s' set in serde properties and table properties: '%s' and '%s'", key, serdePropertyValue, tablePropertyValue));
         }
@@ -730,7 +730,7 @@ public class HiveMetadata
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
             }
-            catch (PrestoException e) {
+            catch (TrinoException e) {
                 // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
                 if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
                     throw e;
@@ -798,7 +798,7 @@ public class HiveMetadata
                 hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(locationUri));
             }
             catch (IOException e) {
-                throw new PrestoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
+                throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
             }
             return locationUri;
         });
@@ -819,7 +819,7 @@ public class HiveMetadata
         // basic sanity check to provide a better error message
         if (!listTables(session, Optional.of(schemaName)).isEmpty() ||
                 !listViews(session, Optional.of(schemaName)).isEmpty()) {
-            throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
+            throw new TrinoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + schemaName);
         }
         metastore.dropDatabase(new HiveIdentity(session), schemaName);
     }
@@ -846,7 +846,7 @@ public class HiveMetadata
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
 
         if ((bucketProperty.isPresent() || !partitionedBy.isEmpty()) && getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
-            throw new PrestoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
+            throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
         }
 
         validateTimestampColumns(tableMetadata.getColumns(), getTimestampPrecision(session));
@@ -868,7 +868,7 @@ public class HiveMetadata
         String externalLocation = getExternalLocation(tableMetadata.getProperties());
         if (externalLocation != null) {
             if (!createsOfNonManagedTablesEnabled) {
-                throw new PrestoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
+                throw new TrinoException(NOT_SUPPORTED, "Cannot create non-managed Hive table");
             }
 
             external = true;
@@ -943,7 +943,7 @@ public class HiveMetadata
                 tableProperties.put(SKIP_HEADER_COUNT_KEY, String.valueOf(headerSkipCount));
             }
             if (headerSkipCount < 0) {
-                throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_HEADER_LINE_COUNT, headerSkipCount));
+                throw new TrinoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_HEADER_LINE_COUNT, headerSkipCount));
             }
         });
 
@@ -953,7 +953,7 @@ public class HiveMetadata
                 tableProperties.put(SKIP_FOOTER_COUNT_KEY, String.valueOf(footerSkipCount));
             }
             if (footerSkipCount < 0) {
-                throw new PrestoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_FOOTER_LINE_COUNT, footerSkipCount));
+                throw new TrinoException(HIVE_INVALID_METADATA, format("Invalid value for %s property: %s", SKIP_FOOTER_LINE_COUNT, footerSkipCount));
             }
         });
 
@@ -1011,14 +1011,14 @@ public class HiveMetadata
     private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, HiveStorageFormat expectedStorageFormat, String propertyName)
     {
         if (actualStorageFormat != expectedStorageFormat) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
         }
     }
 
     private static void checkFormatForProperty(HiveStorageFormat actualStorageFormat, Set<HiveStorageFormat> expectedStorageFormats, String propertyName)
     {
         if (!expectedStorageFormats.contains(actualStorageFormat)) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Cannot specify %s table property for storage format: %s", propertyName, actualStorageFormat));
         }
     }
 
@@ -1037,16 +1037,16 @@ public class HiveMetadata
             // try hdfs
             try {
                 if (!hdfsEnvironment.getFileSystem(context, new Path(url)).exists(new Path(url))) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, "Cannot locate Avro schema file: " + url);
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot locate Avro schema file: " + url);
                 }
                 return url;
             }
             catch (IOException ex) {
-                throw new PrestoException(INVALID_TABLE_PROPERTY, "Avro schema file is not a valid file system URI: " + url, ex);
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Avro schema file is not a valid file system URI: " + url, ex);
             }
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "Cannot open Avro schema file: " + url, e);
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot open Avro schema file: " + url, e);
         }
     }
 
@@ -1056,7 +1056,7 @@ public class HiveMetadata
             return new Path(location);
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + location, e);
         }
     }
 
@@ -1065,12 +1065,12 @@ public class HiveMetadata
         try {
             if (!isS3FileSystem(context, hdfsEnvironment, path)) {
                 if (!hdfsEnvironment.getFileSystem(context, path).isDirectory(path)) {
-                    throw new PrestoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + path);
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, "External location must be a directory: " + path);
                 }
             }
         }
         catch (IOException e) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + path, e);
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "External location is not a valid file system URI: " + path, e);
         }
     }
 
@@ -1183,7 +1183,7 @@ public class HiveMetadata
         Table table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
         if (table.getParameters().containsKey(AVRO_SCHEMA_URL_KEY) || table.getStorage().getSerdeParameters().containsKey(AVRO_SCHEMA_URL_KEY)) {
-            throw new PrestoException(NOT_SUPPORTED, "ALTER TABLE not supported when Avro schema url is set");
+            throw new TrinoException(NOT_SUPPORTED, "ALTER TABLE not supported when Avro schema url is set");
         }
     }
 
@@ -1296,15 +1296,15 @@ public class HiveMetadata
         Optional<Path> externalLocation = Optional.ofNullable(getExternalLocation(tableMetadata.getProperties()))
                 .map(HiveMetadata::getExternalLocationAsPath);
         if (!createsOfNonManagedTablesEnabled && externalLocation.isPresent()) {
-            throw new PrestoException(NOT_SUPPORTED, "Creating non-managed Hive tables is disabled");
+            throw new TrinoException(NOT_SUPPORTED, "Creating non-managed Hive tables is disabled");
         }
 
         if (!writesToNonManagedTablesEnabled && externalLocation.isPresent()) {
-            throw new PrestoException(NOT_SUPPORTED, "Writes to non-managed Hive tables is disabled");
+            throw new TrinoException(NOT_SUPPORTED, "Writes to non-managed Hive tables is disabled");
         }
 
         if (getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
-            throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE AS not supported when Avro schema url is set");
+            throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS not supported when Avro schema url is set");
         }
 
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
@@ -1553,7 +1553,7 @@ public class HiveMetadata
             recordWriter.close(false);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_WRITER_CLOSE_ERROR, "Error write empty file to Hive", e);
+            throw new TrinoException(HIVE_WRITER_CLOSE_ERROR, "Error write empty file to Hive", e);
         }
     }
 
@@ -1569,7 +1569,7 @@ public class HiveMetadata
 
         for (Column column : table.getDataColumns()) {
             if (!isWritableType(column.getType())) {
-                throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table %s with column type %s not supported", tableName, column.getType()));
+                throw new TrinoException(NOT_SUPPORTED, format("Inserting into Hive table %s with column type %s not supported", tableName, column.getType()));
             }
         }
 
@@ -1579,10 +1579,10 @@ public class HiveMetadata
 
         HiveStorageFormat tableStorageFormat = extractHiveStorageFormat(table);
         if (table.getParameters().containsKey(SKIP_HEADER_COUNT_KEY)) {
-            throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_HEADER_COUNT_KEY));
+            throw new TrinoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_HEADER_COUNT_KEY));
         }
         if (table.getParameters().containsKey(SKIP_FOOTER_COUNT_KEY)) {
-            throw new PrestoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
+            throw new TrinoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
 
@@ -1620,7 +1620,7 @@ public class HiveMetadata
         Table table = metastore.getTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(handle.getSchemaTableName()));
         if (!table.getStorage().getStorageFormat().getInputFormat().equals(tableStorageFormat.getInputFormat()) && isRespectTableFormat(session)) {
-            throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
+            throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
         }
 
         if (handle.getBucketProperty().isPresent() && isCreateEmptyBucketFiles(session)) {
@@ -1648,7 +1648,7 @@ public class HiveMetadata
             if (partitionUpdate.getName().isEmpty()) {
                 // insert into unpartitioned table
                 if (!table.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
-                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
+                    throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Table format changed during insert");
                 }
 
                 PartitionStatistics partitionStatistics = createPartitionStatistics(
@@ -1700,7 +1700,7 @@ public class HiveMetadata
                 // insert into new partition or overwrite existing partition
                 Partition partition = buildPartitionObject(session, table, partitionUpdate);
                 if (!partition.getStorage().getStorageFormat().getInputFormat().equals(handle.getPartitionStorageFormat().getInputFormat()) && isRespectTableFormat(session)) {
-                    throw new PrestoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
+                    throw new TrinoException(HIVE_CONCURRENT_MODIFICATION_DETECTED, "Partition format changed during insert");
                 }
                 if (partitionUpdate.getUpdateMode() == OVERWRITE) {
                     metastore.dropPartition(session, handle.getSchemaName(), handle.getTableName(), partition.getValues(), true);
@@ -1738,7 +1738,7 @@ public class HiveMetadata
             writeVersionFile(deltaDirectory, fs);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Exception writing _orc_acid_version file for deltaDirectory " + deltaDirectory, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Exception writing _orc_acid_version file for deltaDirectory " + deltaDirectory, e);
         }
     }
 
@@ -2014,7 +2014,7 @@ public class HiveMetadata
     private void ensureTableSupportsDelete(Table table)
     {
         if (table.getParameters().isEmpty() || !isFullAcidTable(table.getParameters())) {
-            throw new PrestoException(NOT_SUPPORTED, "Deletes must match whole partitions for non-transactional tables");
+            throw new TrinoException(NOT_SUPPORTED, "Deletes must match whole partitions for non-transactional tables");
         }
     }
 
@@ -2137,7 +2137,7 @@ public class HiveMetadata
                     String partitionColumnNames = partitionColumns.stream()
                             .map(HiveColumnHandle::getName)
                             .collect(Collectors.joining(","));
-                    throw new PrestoException(
+                    throw new TrinoException(
                             StandardErrorCode.QUERY_REJECTED,
                             format("Filter required on %s.%s for at least one partition column: %s ", handle.getSchemaName(), handle.getTableName(), partitionColumnNames));
                 }
@@ -2364,7 +2364,7 @@ public class HiveMetadata
         for (HivePartition partition : partitions) {
             NullableValue value = partition.getKeys().get(column);
             if (value == null) {
-                throw new PrestoException(HIVE_UNKNOWN_ERROR, format("Partition %s does not have a value for partition column %s", partition, column));
+                throw new TrinoException(HIVE_UNKNOWN_ERROR, format("Partition %s does not have a value for partition column %s", partition, column));
             }
 
             if (value.isNull()) {
@@ -2406,7 +2406,7 @@ public class HiveMetadata
 
         if (table.getStorage().getBucketProperty().isPresent()) {
             if (bucketedOnTimestamp(table.getStorage().getBucketProperty().get(), table)) {
-                throw new PrestoException(NOT_SUPPORTED, "Writing to tables bucketed on timestamp not supported");
+                throw new TrinoException(NOT_SUPPORTED, "Writing to tables bucketed on timestamp not supported");
             }
         }
         // treat un-bucketed transactional table as having a single bucket on no columns
@@ -2433,7 +2433,7 @@ public class HiveMetadata
         HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty()
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
         if (!bucketProperty.getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
-            throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
+            throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
         HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
@@ -2467,7 +2467,7 @@ public class HiveMetadata
             return Optional.of(new ConnectorNewTableLayout(partitionedBy));
         }
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
-            throw new PrestoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
+            throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
@@ -2614,7 +2614,7 @@ public class HiveMetadata
                 return format;
             }
         }
-        throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serde));
+        throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, format("Output format %s with SerDe %s is not supported", outputFormat, serde));
     }
 
     private static void validateBucketColumns(ConnectorTableMetadata tableMetadata)
@@ -2629,14 +2629,14 @@ public class HiveMetadata
 
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         if (!allColumns.containsAll(bucketedBy)) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(bucketedBy), ImmutableSet.copyOf(allColumns))));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(bucketedBy), ImmutableSet.copyOf(allColumns))));
         }
 
         List<String> sortedBy = bucketProperty.get().getSortedBy().stream()
                 .map(SortingColumn::getColumnName)
                 .collect(toImmutableList());
         if (!allColumns.containsAll(sortedBy)) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), ImmutableSet.copyOf(allColumns))));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), ImmutableSet.copyOf(allColumns))));
         }
     }
 
@@ -2655,15 +2655,15 @@ public class HiveMetadata
                 .collect(toList());
 
         if (!allColumns.containsAll(partitionedBy)) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, format("Partition columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(partitionedBy), ImmutableSet.copyOf(allColumns))));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Partition columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(partitionedBy), ImmutableSet.copyOf(allColumns))));
         }
 
         if (allColumns.size() == partitionedBy.size()) {
-            throw new PrestoException(INVALID_TABLE_PROPERTY, "Table contains only partition columns");
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Table contains only partition columns");
         }
 
         if (!allColumns.subList(allColumns.size() - partitionedBy.size(), allColumns.size()).equals(partitionedBy)) {
-            throw new PrestoException(HIVE_COLUMN_ORDER_MISMATCH, "Partition keys must be the last columns in the table and in the same order as the table properties: " + partitionedBy);
+            throw new TrinoException(HIVE_COLUMN_ORDER_MISMATCH, "Partition keys must be the last columns in the table and in the same order as the table properties: " + partitionedBy);
         }
     }
 
@@ -2720,7 +2720,7 @@ public class HiveMetadata
             String joinedUnsupportedColumns = unsupportedColumns.stream()
                     .map(columnMetadata -> format("%s %s", columnMetadata.getName(), columnMetadata.getType()))
                     .collect(joining(", "));
-            throw new PrestoException(NOT_SUPPORTED, "Hive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: " + joinedUnsupportedColumns);
+            throw new TrinoException(NOT_SUPPORTED, "Hive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: " + joinedUnsupportedColumns);
         }
     }
 
@@ -2731,7 +2731,7 @@ public class HiveMetadata
             Type type = column.getType();
             if (type instanceof TimestampType) {
                 if (((TimestampType) type).getPrecision() != timestampPrecision.getPrecision()) {
-                    throw new PrestoException(NOT_SUPPORTED, format("Incorrect timestamp precision for %s; the configured precision is %s", type, timestampPrecision));
+                    throw new TrinoException(NOT_SUPPORTED, format("Incorrect timestamp precision for %s; the configured precision is %s", type, timestampPrecision));
                 }
             }
         }
@@ -2744,7 +2744,7 @@ public class HiveMetadata
         table.getDataColumns().stream().map(Column::getName).forEach(columnNames::add);
         List<String> allColumnNames = columnNames.build();
         if (allColumnNames.size() > Sets.newHashSet(allColumnNames).size()) {
-            throw new PrestoException(HIVE_INVALID_METADATA,
+            throw new TrinoException(HIVE_INVALID_METADATA,
                     format("Hive metadata for table %s is invalid: Table descriptor contains duplicate columns", table.getTableName()));
         }
 

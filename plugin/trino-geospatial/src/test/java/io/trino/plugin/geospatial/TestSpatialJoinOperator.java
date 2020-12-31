@@ -38,7 +38,7 @@ import io.trino.operator.StandardJoinFilterFunction;
 import io.trino.operator.TaskContext;
 import io.trino.operator.ValuesOperator;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.gen.JoinFilterFunctionCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SpatialJoinNode.Type;
@@ -514,7 +514,7 @@ public class TestSpatialJoinOperator
                 try {
                     driver.process();
                 }
-                catch (PrestoException e) {
+                catch (TrinoException e) {
                     driver.getDriverContext().failed(e);
                     throw e;
                 }

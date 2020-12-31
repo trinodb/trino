@@ -27,7 +27,7 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.CatalogMetadata;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -214,7 +214,7 @@ public class InMemoryTransactionManager
 
         // there is no need to ask for a connector specific id since the overlay connectors are read only
         CatalogName catalog = transactionMetadata.getConnectorId(catalogName)
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
 
         return getCatalogMetadataForWrite(transactionId, catalog);
     }
@@ -357,7 +357,7 @@ public class InMemoryTransactionManager
                     throw new IllegalStateException("Current transaction already committed");
                 }
                 else {
-                    throw new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
+                    throw new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction is aborted, commands ignored until end of transaction block");
                 }
             }
         }
@@ -454,13 +454,13 @@ public class InMemoryTransactionManager
             ConnectorTransactionMetadata transactionMetadata = connectorIdToMetadata.get(catalogName);
             checkArgument(transactionMetadata != null, "Cannot record write for connector not part of transaction");
             if (readOnly) {
-                throw new PrestoException(READ_ONLY_VIOLATION, "Cannot execute write in a read-only transaction");
+                throw new TrinoException(READ_ONLY_VIOLATION, "Cannot execute write in a read-only transaction");
             }
             if (!writtenConnectorId.compareAndSet(null, catalogName) && !writtenConnectorId.get().equals(catalogName)) {
-                throw new PrestoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenConnectorId.get());
+                throw new TrinoException(MULTI_CATALOG_WRITE_CONFLICT, "Multi-catalog writes not supported in a single transaction. Already wrote to catalog " + writtenConnectorId.get());
             }
             if (transactionMetadata.isSingleStatementWritesOnly() && !autoCommitContext) {
-                throw new PrestoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog " + catalogName + " only supports writes using autocommit");
+                throw new TrinoException(AUTOCOMMIT_WRITE_CONFLICT, "Catalog " + catalogName + " only supports writes using autocommit");
             }
         }
 
@@ -472,7 +472,7 @@ public class InMemoryTransactionManager
                     return immediateFuture(null);
                 }
                 // Transaction already aborted
-                return immediateFailedFuture(new PrestoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
+                return immediateFailedFuture(new TrinoException(TRANSACTION_ALREADY_ABORTED, "Current transaction has already been aborted"));
             }
 
             CatalogName writeCatalogName = this.writtenConnectorId.get();

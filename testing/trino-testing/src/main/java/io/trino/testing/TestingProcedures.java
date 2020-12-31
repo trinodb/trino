@@ -15,7 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -93,7 +93,7 @@ public final class TestingProcedures
     public void exception()
     {
         tester.recordCalled("exception");
-        throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "test exception from procedure");
+        throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "test exception from procedure");
     }
 
     @UsedByGeneratedCode

@@ -14,7 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import com.google.common.io.Resources;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -70,7 +70,7 @@ public class TestPrometheusQueryMatrixResponseParse
     public void verifyOnErrorResponse()
     {
         assertThatThrownBy(() -> new PrometheusQueryResponseParse(promErrorResponse))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Unable to parse Prometheus response: error bad_data invalid parameter 'query': parse error at char 4: bad duration syntax");
     }
 

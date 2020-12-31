@@ -36,8 +36,8 @@ import io.trino.security.AccessControl;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
 import io.trino.spi.ErrorCode;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.spi.eventlistener.TableInfo;
@@ -757,7 +757,7 @@ public class QueryStateMachine
         requireNonNull(key, "key is null");
 
         if (!session.getPreparedStatements().containsKey(key)) {
-            throw new PrestoException(NOT_FOUND, "Prepared statement not found: " + key);
+            throw new TrinoException(NOT_FOUND, "Prepared statement not found: " + key);
         }
         deallocatedPreparedStatements.add(key);
     }
@@ -917,7 +917,7 @@ public class QueryStateMachine
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause
         // can only be observed if the transition to FAILED is successful.
-        failureCause.compareAndSet(null, toFailure(new PrestoException(USER_CANCELED, "Query was canceled")));
+        failureCause.compareAndSet(null, toFailure(new TrinoException(USER_CANCELED, "Query was canceled")));
 
         boolean canceled = queryState.setIf(FAILED, currentState -> !currentState.isDone());
         if (canceled) {

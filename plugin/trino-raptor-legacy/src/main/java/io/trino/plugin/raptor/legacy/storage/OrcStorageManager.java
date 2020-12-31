@@ -48,7 +48,7 @@ import io.trino.plugin.raptor.legacy.storage.OrcFileRewriter.OrcFileInfo;
 import io.trino.plugin.raptor.legacy.storage.OrcPageSource.ColumnAdaptation;
 import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
@@ -244,7 +244,7 @@ public class OrcStorageManager
 
         try {
             OrcReader reader = OrcReader.createOrcReader(dataSource, orcReaderOptions)
-                    .orElseThrow(() -> new PrestoException(RAPTOR_ERROR, "Data file is empty for shard " + shardUuid));
+                    .orElseThrow(() -> new TrinoException(RAPTOR_ERROR, "Data file is empty for shard " + shardUuid));
 
             Map<Long, OrcColumn> indexMap = columnIdIndex(reader.getRootColumn().getNestedColumns());
             List<OrcColumn> fileReadColumn = new ArrayList<>(columnIds.size());
@@ -291,7 +291,7 @@ public class OrcStorageManager
         }
         catch (IOException | RuntimeException e) {
             closeQuietly(dataSource);
-            throw new PrestoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to create page source for shard " + shardUuid, e);
         }
         catch (Throwable t) {
             closeQuietly(dataSource);
@@ -310,14 +310,14 @@ public class OrcStorageManager
         if (isBucketNumberColumn(columnId)) {
             return ColumnAdaptation.bucketNumberColumn(bucketNumber);
         }
-        throw new PrestoException(RAPTOR_ERROR, "Invalid column ID: " + columnId);
+        throw new TrinoException(RAPTOR_ERROR, "Invalid column ID: " + columnId);
     }
 
     @Override
     public StoragePageSink createStoragePageSink(long transactionId, OptionalInt bucketNumber, List<Long> columnIds, List<Type> columnTypes, boolean checkSpace)
     {
         if (checkSpace && storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {
-            throw new PrestoException(RAPTOR_LOCAL_DISK_FULL, "Local disk is full on node " + nodeId);
+            throw new TrinoException(RAPTOR_LOCAL_DISK_FULL, "Local disk is full on node " + nodeId);
         }
         return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
     }
@@ -335,7 +335,7 @@ public class OrcStorageManager
     private void writeShard(UUID shardUuid)
     {
         if (backupStore.isPresent() && !backupStore.get().shardExists(shardUuid)) {
-            throw new PrestoException(RAPTOR_ERROR, "Backup does not exist after write");
+            throw new TrinoException(RAPTOR_ERROR, "Backup does not exist after write");
         }
 
         File stagingFile = storageService.getStagingFile(shardUuid);
@@ -347,7 +347,7 @@ public class OrcStorageManager
             Files.move(stagingFile.toPath(), storageFile.toPath(), ATOMIC_MOVE);
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to move shard file", e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to move shard file", e);
         }
     }
 
@@ -367,12 +367,12 @@ public class OrcStorageManager
             }
             catch (ExecutionException e) {
                 if (e.getCause() != null) {
-                    throwIfInstanceOf(e.getCause(), PrestoException.class);
+                    throwIfInstanceOf(e.getCause(), TrinoException.class);
                 }
-                throw new PrestoException(RAPTOR_RECOVERY_ERROR, "Error recovering shard " + shardUuid, e.getCause());
+                throw new TrinoException(RAPTOR_RECOVERY_ERROR, "Error recovering shard " + shardUuid, e.getCause());
             }
             catch (TimeoutException e) {
-                throw new PrestoException(RAPTOR_RECOVERY_TIMEOUT, "Shard is being recovered from backup. Please retry in a few minutes: " + shardUuid);
+                throw new TrinoException(RAPTOR_RECOVERY_TIMEOUT, "Shard is being recovered from backup. Please retry in a few minutes: " + shardUuid);
             }
         }
 
@@ -380,7 +380,7 @@ public class OrcStorageManager
             return fileOrcDataSource(orcReaderOptions, file);
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to open shard file: " + file, e);
         }
     }
 
@@ -399,7 +399,7 @@ public class OrcStorageManager
     {
         try (OrcDataSource dataSource = fileOrcDataSource(orcReaderOptions, file)) {
             OrcReader reader = OrcReader.createOrcReader(dataSource, orcReaderOptions)
-                    .orElseThrow(() -> new PrestoException(RAPTOR_ERROR, "Data file is empty: " + file));
+                    .orElseThrow(() -> new TrinoException(RAPTOR_ERROR, "Data file is empty: " + file));
 
             ImmutableList.Builder<ColumnStats> list = ImmutableList.builder();
             for (ColumnInfo info : getColumnInfo(reader)) {
@@ -408,7 +408,7 @@ public class OrcStorageManager
             return list.build();
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
         }
     }
 
@@ -458,7 +458,7 @@ public class OrcStorageManager
             return OrcFileRewriter.rewrite(input, output, rowsToDelete);
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to rewrite shard file: " + input, e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to rewrite shard file: " + input, e);
         }
     }
 
@@ -477,7 +477,7 @@ public class OrcStorageManager
     {
         Type rowType = getType(orcColumnTypes, ROOT_COLUMN);
         if (orcColumnNames.size() != rowType.getTypeParameters().size()) {
-            throw new PrestoException(RAPTOR_ERROR, "Column names and types do not match");
+            throw new TrinoException(RAPTOR_ERROR, "Column names and types do not match");
         }
 
         ImmutableList.Builder<ColumnInfo> list = ImmutableList.builder();
@@ -493,7 +493,7 @@ public class OrcStorageManager
             return XxHash64.hash(in);
         }
         catch (IOException e) {
-            throw new PrestoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
+            throw new TrinoException(RAPTOR_ERROR, "Failed to read file: " + file, e);
         }
     }
 
@@ -549,7 +549,7 @@ public class OrcStorageManager
                 }
                 return typeManager.getParameterizedType(StandardTypes.ROW, fieldTypes.build());
         }
-        throw new PrestoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
+        throw new TrinoException(RAPTOR_ERROR, "Unhandled ORC type: " + type);
     }
 
     static Type toOrcFileType(Type raptorType, TypeManager typeManager)

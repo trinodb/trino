@@ -24,7 +24,7 @@ import io.trino.plugin.hive.coercions.VarcharCoercer;
 import io.trino.plugin.hive.coercions.VarcharToIntegerNumberCoercer;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
@@ -235,7 +235,7 @@ public class HivePageSource
                     prefilledValue = utf8Slice(columnValue);
                 }
                 else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
+                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported column type %s for prefilled column: %s", type.getDisplayName(), name));
                 }
 
                 prefilledValues[columnIndex] = prefilledValue;
@@ -322,13 +322,13 @@ public class HivePageSource
 
             return page;
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             closeWithSuppression(e);
             throw e;
         }
         catch (RuntimeException e) {
             closeWithSuppression(e);
-            throw new PrestoException(HIVE_CURSOR_ERROR, e);
+            throw new TrinoException(HIVE_CURSOR_ERROR, e);
         }
     }
 
@@ -439,7 +439,7 @@ public class HivePageSource
             return Optional.of(new StructCoercer(typeManager, fromHiveType, toHiveType));
         }
 
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
+        throw new TrinoException(NOT_SUPPORTED, format("Unsupported coercion from %s to %s", fromHiveType, toHiveType));
     }
 
     public static boolean narrowerThan(VarcharType first, VarcharType second)
@@ -628,7 +628,7 @@ public class HivePageSource
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int bucket = getHiveBucket(bucketingVersion, tableBucketCount, typeInfoList, bucketColumnsPage, position);
                 if ((bucket - bucketToKeep) % partitionBucketCount != 0) {
-                    throw new PrestoException(HIVE_INVALID_BUCKET_FILES, format(
+                    throw new TrinoException(HIVE_INVALID_BUCKET_FILES, format(
                             "A row that is supposed to be in bucket %s is encountered. Only rows in bucket %s (modulo %s) are expected",
                             bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
                 }
@@ -682,7 +682,7 @@ public class HivePageSource
             for (int position = 0; position < page.getPositionCount(); position += VALIDATION_STRIDE) {
                 int bucket = getHiveBucket(bucketingVersion, bucketCount, bucketColumnTypes, bucketColumnsPage, position);
                 if (bucket != expectedBucket) {
-                    throw new PrestoException(HIVE_INVALID_BUCKET_FILES,
+                    throw new TrinoException(HIVE_INVALID_BUCKET_FILES,
                             format("Hive table is corrupt. File '%s' is for bucket %s, but contains a row for bucket %s.", path, expectedBucket, bucket));
                 }
             }

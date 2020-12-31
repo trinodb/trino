@@ -14,7 +14,7 @@
 package io.trino.plugin.kudu.schema;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.kudu.client.KuduClient;
@@ -34,7 +34,7 @@ public class NoSchemaEmulation
             throw new SchemaAlreadyExistsException(schemaName);
         }
         else {
-            throw new PrestoException(GENERIC_USER_ERROR, "Creating schema in Kudu connector not allowed if schema emulation is disabled.");
+            throw new TrinoException(GENERIC_USER_ERROR, "Creating schema in Kudu connector not allowed if schema emulation is disabled.");
         }
     }
 
@@ -42,7 +42,7 @@ public class NoSchemaEmulation
     public void dropSchema(KuduClient client, String schemaName)
     {
         if (DEFAULT_SCHEMA.equals(schemaName)) {
-            throw new PrestoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
+            throw new TrinoException(GENERIC_USER_ERROR, "Deleting default schema not allowed.");
         }
         else {
             throw new SchemaNotFoundException(schemaName);

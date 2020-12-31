@@ -36,7 +36,7 @@ import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.PageSorter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.session.PropertyMetadata;
@@ -238,7 +238,7 @@ public class HiveWriterFactory
         else {
             Optional<Table> table = pageSinkMetadataProvider.getTable();
             if (table.isEmpty()) {
-                throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName));
+                throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' was dropped during insert", schemaName, tableName));
             }
             this.table = table.get();
             writePath = locationService.getQueryWriteInfo(locationHandle).getWritePath();
@@ -269,7 +269,7 @@ public class HiveWriterFactory
             hdfsEnvironment.getFileSystem(session.getUser(), writePath, conf);
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed getting FileSystem: " + writePath, e);
         }
 
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
@@ -332,7 +332,7 @@ public class HiveWriterFactory
                         // When target path is different from write path,
                         // verify that the target directory for the partition does not already exist
                         if (HiveWriteUtils.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
-                            throw new PrestoException(HIVE_PATH_ALREADY_EXISTS, format(
+                            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(
                                     "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                     partitionName,
                                     schemaName,
@@ -361,7 +361,7 @@ public class HiveWriterFactory
                             writeInfo = locationService.getTableWriteInfo(locationHandle, true);
                             break;
                         case ERROR:
-                            throw new PrestoException(HIVE_TABLE_READ_ONLY, "Unpartitioned Hive tables are immutable");
+                            throw new TrinoException(HIVE_TABLE_READ_ONLY, "Unpartitioned Hive tables are immutable");
                         default:
                             throw new IllegalArgumentException("Unsupported insert existing table behavior: " + insertExistingPartitionsBehavior);
                     }
@@ -391,7 +391,7 @@ public class HiveWriterFactory
                     HiveType tableType = tableColumns.get(i).getType();
                     HiveType partitionType = existingPartitionColumns.get(i).getType();
                     if (!tableType.equals(partitionType)) {
-                        throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
+                        throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format("" +
                                         "You are trying to write into an existing partition in a table. " +
                                         "The table schema has changed since the creation of the partition. " +
                                         "Inserting rows into such partition is not supported. " +
@@ -428,7 +428,7 @@ public class HiveWriterFactory
                 checkState(writeInfo.getWriteMode() != DIRECT_TO_TARGET_EXISTING_DIRECTORY, "Overwriting existing partition doesn't support DIRECT_TO_TARGET_EXISTING_DIRECTORY write mode");
             }
             else if (insertExistingPartitionsBehavior == InsertExistingPartitionsBehavior.ERROR) {
-                throw new PrestoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
+                throw new TrinoException(HIVE_PARTITION_READ_ONLY, "Cannot insert into an existing partition of Hive table: " + partitionName.get());
             }
             else {
                 throw new IllegalArgumentException(format("Unsupported insert existing partitions behavior: %s", insertExistingPartitionsBehavior));
@@ -541,7 +541,7 @@ public class HiveWriterFactory
                 fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), tempFilePath, configuration);
             }
             catch (IOException e) {
-                throw new PrestoException(HIVE_WRITER_OPEN_ERROR, e);
+                throw new TrinoException(HIVE_WRITER_OPEN_ERROR, e);
             }
 
             List<Type> types = dataColumns.stream()
@@ -558,7 +558,7 @@ public class HiveWriterFactory
             for (SortingColumn column : sortedBy) {
                 Integer index = columnIndexes.get(column.getColumnName());
                 if (index == null) {
-                    throw new PrestoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.getColumnName(), schemaName, tableName));
+                    throw new TrinoException(HIVE_INVALID_METADATA, format("Sorting column '%s' does exist in table '%s.%s'", column.getColumnName(), schemaName, tableName));
                 }
                 sortFields.add(index);
                 sortOrders.add(column.getOrder().getSortOrder());
@@ -606,10 +606,10 @@ public class HiveWriterFactory
                 .collect(toMap(DataColumn::getName, identity()));
         Set<String> missingColumns = Sets.difference(inputColumnMap.keySet(), new HashSet<>(fileColumnNames));
         if (!missingColumns.isEmpty()) {
-            throw new PrestoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
+            throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s.%s' does not have columns %s", schemaName, tableName, missingColumns));
         }
         if (fileColumnNames.size() != fileColumnHiveTypes.size()) {
-            throw new PrestoException(HIVE_INVALID_METADATA, format(
+            throw new TrinoException(HIVE_INVALID_METADATA, format(
                     "Partition '%s' in table '%s.%s' has mismatched metadata for column names and types",
                     partitionName.orElse(""), // TODO: this should exist
                     schemaName,
@@ -625,7 +625,7 @@ public class HiveWriterFactory
 
             if (!fileColumnHiveType.equals(inputHiveType)) {
                 // todo this should be moved to a helper
-                throw new PrestoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
                         "" +
                                 "There is a mismatch between the table and partition schemas. " +
                                 "The column '%s' in table '%s.%s' is declared as type '%s', " +
@@ -707,10 +707,10 @@ public class HiveWriterFactory
             return ReflectionUtil.newInstance(codecClass, conf).getDefaultExtension();
         }
         catch (ClassNotFoundException e) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec not found: " + compressionCodecClass, e);
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec not found: " + compressionCodecClass, e);
         }
         catch (RuntimeException e) {
-            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Failed to load compression codec: " + compressionCodecClass, e);
+            throw new TrinoException(HIVE_UNSUPPORTED_FORMAT, "Failed to load compression codec: " + compressionCodecClass, e);
         }
     }
 

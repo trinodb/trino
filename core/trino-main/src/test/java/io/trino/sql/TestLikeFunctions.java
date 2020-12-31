@@ -16,7 +16,7 @@ package io.trino.sql;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.operator.scalar.AbstractTestFunctions;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import org.testng.annotations.Test;
@@ -147,13 +147,13 @@ public class TestLikeFunctions
     public void testInvalidLikePattern()
     {
         assertThatThrownBy(() -> likePattern(utf8Slice("#"), utf8Slice("#")))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
         assertThatThrownBy(() -> likePattern(utf8Slice("abc#abc"), utf8Slice("#")))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
         assertThatThrownBy(() -> likePattern(utf8Slice("abc#"), utf8Slice("#")))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 
@@ -169,13 +169,13 @@ public class TestLikeFunctions
         assertTrue(isLikePattern(utf8Slice("abcdef##_"), Optional.of(utf8Slice("#"))));
         assertTrue(isLikePattern(utf8Slice("%abcdef#_"), Optional.of(utf8Slice("#"))));
         assertThatThrownBy(() -> isLikePattern(utf8Slice("#"), Optional.of(utf8Slice("#"))))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
         assertThatThrownBy(() -> isLikePattern(utf8Slice("abc#abc"), Optional.of(utf8Slice("#"))))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
         assertThatThrownBy(() -> isLikePattern(utf8Slice("abc#"), Optional.of(utf8Slice("#"))))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 
@@ -191,13 +191,13 @@ public class TestLikeFunctions
         assertEquals(patternConstantPrefixBytes(utf8Slice("abcdef##_"), Optional.of(utf8Slice("#"))), 8);
         assertEquals(patternConstantPrefixBytes(utf8Slice("%abcdef#_"), Optional.of(utf8Slice("#"))), 0);
         assertThatThrownBy(() -> patternConstantPrefixBytes(utf8Slice("#"), Optional.of(utf8Slice("#"))))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
         assertThatThrownBy(() -> patternConstantPrefixBytes(utf8Slice("abc#abc"), Optional.of(utf8Slice("#"))))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
         assertThatThrownBy(() -> patternConstantPrefixBytes(utf8Slice("abc#"), Optional.of(utf8Slice("#"))))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 

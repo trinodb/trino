@@ -20,7 +20,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.password.Credential;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.io.File;
 import java.io.IOException;
@@ -98,7 +98,7 @@ public class PasswordStore
 
     private static RuntimeException invalidFile(int lineNumber, String message, Throwable cause)
     {
-        return new PrestoException(CONFIGURATION_INVALID, format("Error in password file line %s: %s", lineNumber, message), cause);
+        return new TrinoException(CONFIGURATION_INVALID, format("Error in password file line %s: %s", lineNumber, message), cause);
     }
 
     private static List<String> readPasswordFile(File file)
@@ -107,7 +107,7 @@ public class PasswordStore
             return Files.readAllLines(file.toPath());
         }
         catch (IOException e) {
-            throw new PrestoException(CONFIGURATION_UNAVAILABLE, "Failed to read password file: " + file, e);
+            throw new TrinoException(CONFIGURATION_UNAVAILABLE, "Failed to read password file: " + file, e);
         }
     }
 

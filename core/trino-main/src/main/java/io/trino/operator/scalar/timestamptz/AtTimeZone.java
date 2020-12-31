@@ -14,7 +14,7 @@
 package io.trino.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.LiteralParameters;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -40,7 +40,7 @@ public class AtTimeZone
             return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis), zoneId.toStringUtf8());
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
         }
     }
 
@@ -52,7 +52,7 @@ public class AtTimeZone
             return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(zoneId.toStringUtf8()));
         }
         catch (TimeZoneNotSupportedException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
         }
     }
 }

@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
@@ -229,6 +229,6 @@ class ShardPredicate
                 statement.setBytes(index, truncateIndexValue((Slice) value).getBytes());
                 return;
         }
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, "Unhandled type: " + type);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type: " + type);
     }
 }

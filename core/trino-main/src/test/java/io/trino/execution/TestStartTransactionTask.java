@@ -52,7 +52,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -83,7 +83,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        assertPrestoExceptionThrownBy(
+        assertTrinoExceptionThrownBy(
                 () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList())))
                 .hasErrorCode(INCOMPATIBLE_CLIENT);
 
@@ -103,7 +103,7 @@ public class TestStartTransactionTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
 
-        assertPrestoExceptionThrownBy(
+        assertTrinoExceptionThrownBy(
                 () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList())))
                 .hasErrorCode(NOT_SUPPORTED);
 
@@ -169,7 +169,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        assertPrestoExceptionThrownBy(() ->
+        assertTrinoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask().execute(
                         new StartTransaction(ImmutableList.of(new Isolation(Isolation.Level.READ_COMMITTED), new Isolation(Isolation.Level.READ_COMMITTED))),
                         transactionManager,
@@ -195,7 +195,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        assertPrestoExceptionThrownBy(() ->
+        assertTrinoExceptionThrownBy(() ->
                 getFutureValue(new StartTransactionTask().execute(
                         new StartTransaction(ImmutableList.of(new TransactionAccessMode(true), new TransactionAccessMode(true))),
                         transactionManager,

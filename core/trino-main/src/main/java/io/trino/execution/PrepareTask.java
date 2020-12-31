@@ -16,7 +16,7 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Deallocate;
 import io.trino.sql.tree.Execute;
@@ -64,7 +64,7 @@ public class PrepareTask
         Statement statement = prepare.getStatement();
         if ((statement instanceof Prepare) || (statement instanceof Execute) || (statement instanceof Deallocate)) {
             String type = statement.getClass().getSimpleName().toUpperCase(ENGLISH);
-            throw new PrestoException(NOT_SUPPORTED, "Invalid statement type for prepared statement: " + type);
+            throw new TrinoException(NOT_SUPPORTED, "Invalid statement type for prepared statement: " + type);
         }
 
         String sql = getFormattedSql(statement, sqlParser);

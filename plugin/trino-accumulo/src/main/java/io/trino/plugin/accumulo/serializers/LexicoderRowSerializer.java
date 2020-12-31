@@ -15,7 +15,7 @@ package io.trino.plugin.accumulo.serializers;
 
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
@@ -392,7 +392,7 @@ public class LexicoderRowSerializer
         else {
             Lexicoder lexicoder = LEXICODER_MAP.get(type);
             if (lexicoder == null) {
-                throw new PrestoException(NOT_SUPPORTED, "No lexicoder for type " + type);
+                throw new TrinoException(NOT_SUPPORTED, "No lexicoder for type " + type);
             }
             return lexicoder;
         }

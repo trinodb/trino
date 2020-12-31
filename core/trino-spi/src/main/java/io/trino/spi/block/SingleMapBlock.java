@@ -14,7 +14,7 @@
 
 package io.trino.spi.block;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -413,16 +413,16 @@ public class SingleMapBlock
         if (throwable instanceof Error) {
             throw (Error) throwable;
         }
-        if (throwable instanceof PrestoException) {
-            throw (PrestoException) throwable;
+        if (throwable instanceof TrinoException) {
+            throw (TrinoException) throwable;
         }
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
     }
 
     private static void checkNotIndeterminate(Boolean equalResult)
     {
         if (equalResult == null) {
-            throw new PrestoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
+            throw new TrinoException(NOT_SUPPORTED, "map key cannot be null or contain nulls");
         }
     }
 }

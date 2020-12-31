@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.Throwables;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.FailsafeException;
@@ -36,7 +36,7 @@ public class RetryingConnectionFactory
             .withMaxAttempts(5)
             .withBackoff(50, 5_000, MILLIS, 4)
             .handleIf(RetryingConnectionFactory::isSqlRecoverableException)
-            .abortOn(PrestoException.class);
+            .abortOn(TrinoException.class);
 
     private final ConnectionFactory delegate;
 

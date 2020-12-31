@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
@@ -75,14 +75,14 @@ public class SplitToMultimapFunction
 
             int keyEnd = keyValuePair.indexOf(keyValueDelimiter);
             if (keyEnd < 0) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: " + keyValuePair.toStringUtf8());
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: " + keyValuePair.toStringUtf8());
             }
 
             int valueStart = keyEnd + keyValueDelimiter.length();
             Slice key = keyValuePair.slice(0, keyEnd);
             Slice value = keyValuePair.slice(valueStart, keyValuePair.length() - valueStart);
             if (value.indexOf(keyValueDelimiter) >= 0) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: " + keyValuePair.toStringUtf8());
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Key-value delimiter must appear exactly once in each entry. Bad input: " + keyValuePair.toStringUtf8());
             }
 
             multimap.put(key, value);

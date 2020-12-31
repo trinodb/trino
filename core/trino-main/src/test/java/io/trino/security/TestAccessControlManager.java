@@ -29,8 +29,8 @@ import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.plugin.base.security.ReadOnlySystemAccessControl;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.Connector;
@@ -85,7 +85,7 @@ public class TestAccessControlManager
     private static final String USER_NAME = "user_name";
     private static final QueryId queryId = new QueryId("query_id");
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
     public void testInitializing()
     {
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
@@ -171,7 +171,7 @@ public class TestAccessControlManager
                 });
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from columns \\[column\\] in table or view schema.table")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from columns \\[column\\] in table or view schema.table")
     public void testDenyCatalogAccessControl()
     {
         CatalogManager catalogManager = new CatalogManager();
@@ -255,7 +255,7 @@ public class TestAccessControlManager
         return new SecurityContext(transactionId, identity, queryId);
     }
 
-    @Test(expectedExceptions = PrestoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Access Denied: Cannot select from table secured_catalog.schema.table")
     public void testDenySystemAccessControl()
     {
         CatalogManager catalogManager = new CatalogManager();

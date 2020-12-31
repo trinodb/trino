@@ -14,7 +14,7 @@
 package io.trino.util;
 
 import io.trino.execution.ExecutionFailureInfo;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -29,7 +29,7 @@ public class TestFailures
     @Test
     public void testToFailureLoop()
     {
-        Throwable exception1 = new PrestoException(TOO_MANY_REQUESTS_FAILED, "fake exception 1");
+        Throwable exception1 = new TrinoException(TOO_MANY_REQUESTS_FAILED, "fake exception 1");
         Throwable exception2 = new RuntimeException("fake exception 2", exception1);
         exception1.addSuppressed(exception2);
 
@@ -50,7 +50,7 @@ public class TestFailures
         assertEquals(failure.getErrorCode(), TOO_MANY_REQUESTS_FAILED.toErrorCode());
 
         // add exception 1 --> add suppress (exception 2) --> add suppress (exception 1)
-        exception1 = new PrestoException(TOO_MANY_REQUESTS_FAILED, "fake exception 1");
+        exception1 = new TrinoException(TOO_MANY_REQUESTS_FAILED, "fake exception 1");
         exception2 = new RuntimeException("fake exception 2");
         exception1.addSuppressed(exception2);
         exception2.addSuppressed(exception1);

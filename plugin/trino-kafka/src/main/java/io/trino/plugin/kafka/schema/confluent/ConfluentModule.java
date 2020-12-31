@@ -38,7 +38,7 @@ import io.trino.plugin.kafka.encoder.avro.AvroRowEncoder;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.HostAddress;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.inject.Singleton;
 
@@ -100,7 +100,7 @@ public class ConfluentModule
         {
             MapBinder<String, RowEncoderFactory> encoderFactoriesByName = encoderFactory(binder);
             encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).toInstance((session, dataSchema, columnHandles) -> {
-                throw new PrestoException(NOT_SUPPORTED, "Insert not supported");
+                throw new TrinoException(NOT_SUPPORTED, "Insert not supported");
             });
         }
     }

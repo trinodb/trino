@@ -21,7 +21,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.security.InjectedConnectorAccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
@@ -76,7 +76,7 @@ public class CallTask
     public ListenableFuture<?> execute(Call call, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         if (!transactionManager.isAutoCommit(stateMachine.getSession().getRequiredTransactionId())) {
-            throw new PrestoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
+            throw new TrinoException(NOT_SUPPORTED, "Procedures cannot be called within a transaction (use autocommit mode)");
         }
 
         Session session = stateMachine.getSession();
@@ -160,7 +160,7 @@ public class CallTask
         for (int i = 0; i < procedure.getArguments().size(); i++) {
             if ((values[i] == null) && methodType.parameterType(i).isPrimitive()) {
                 String name = procedure.getArguments().get(i).getName();
-                throw new PrestoException(INVALID_PROCEDURE_ARGUMENT, "Procedure argument cannot be null: " + name);
+                throw new TrinoException(INVALID_PROCEDURE_ARGUMENT, "Procedure argument cannot be null: " + name);
             }
         }
 
@@ -189,8 +189,8 @@ public class CallTask
             if (t instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            throwIfInstanceOf(t, PrestoException.class);
-            throw new PrestoException(PROCEDURE_CALL_FAILED, t);
+            throwIfInstanceOf(t, TrinoException.class);
+            throw new TrinoException(PROCEDURE_CALL_FAILED, t);
         }
 
         return immediateFuture(null);

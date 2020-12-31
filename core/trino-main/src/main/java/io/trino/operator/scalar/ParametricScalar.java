@@ -25,7 +25,7 @@ import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -125,6 +125,6 @@ public class ParametricScalar
             return selectedImplementation;
         }
 
-        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported binding %s for signature %s", functionBinding.getBoundSignature(), getFunctionMetadata().getSignature()));
+        throw new TrinoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported binding %s for signature %s", functionBinding.getBoundSignature(), getFunctionMetadata().getSignature()));
     }
 }

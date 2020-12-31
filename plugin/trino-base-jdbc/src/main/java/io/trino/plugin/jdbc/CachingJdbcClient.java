@@ -20,7 +20,7 @@ import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.units.Duration;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -535,11 +535,11 @@ public class CachingJdbcClient
             return cache.get(key, loader);
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
         catch (ExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new UncheckedExecutionException(e);
         }
     }

@@ -33,7 +33,7 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.result.DeleteResult;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -167,7 +167,7 @@ public class MongoSession
             return tableCache.getUnchecked(tableName);
         }
         catch (UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), PrestoException.class);
+            throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw e;
         }
     }

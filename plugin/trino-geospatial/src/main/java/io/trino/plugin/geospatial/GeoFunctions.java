@@ -47,7 +47,7 @@ import io.trino.geospatial.Rectangle;
 import io.trino.geospatial.serde.GeometrySerde;
 import io.trino.geospatial.serde.GeometrySerializationType;
 import io.trino.geospatial.serde.JtsGeometrySerde;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.Description;
@@ -191,17 +191,17 @@ public final class GeoFunctions
             Slice slice = GEOMETRY.getSlice(input, i);
 
             if (slice.getInput().available() == 0) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: null point at index %s", i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: null point at index %s", i + 1));
             }
 
             OGCGeometry geometry = deserialize(slice);
             if (!(geometry instanceof OGCPoint)) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.geometryType()));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("ST_LineString takes only an array of valid points, %s was passed", geometry.geometryType()));
             }
             OGCPoint point = (OGCPoint) geometry;
 
             if (point.isEmpty()) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: empty point at index %s", i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_LineString: empty point at index %s", i + 1));
             }
 
             if (previousPoint == null) {
@@ -209,7 +209,7 @@ public final class GeoFunctions
             }
             else {
                 if (point.Equals(previousPoint)) {
-                    throw new PrestoException(INVALID_FUNCTION_ARGUMENT,
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
                             format("Invalid input to ST_LineString: consecutive duplicate points at index %s", i + 1));
                 }
                 multipath.lineTo(point.X(), point.Y());
@@ -238,17 +238,17 @@ public final class GeoFunctions
         MultiPoint multipoint = new MultiPoint();
         for (int i = 0; i < input.getPositionCount(); i++) {
             if (input.isNull(i)) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: null at index %s", i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: null at index %s", i + 1));
             }
 
             Slice slice = GEOMETRY.getSlice(input, i);
             OGCGeometry geometry = deserialize(slice);
             if (!(geometry instanceof OGCPoint)) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: geometry is not a point: %s at index %s", geometry.geometryType(), i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: geometry is not a point: %s at index %s", geometry.geometryType(), i + 1));
             }
             OGCPoint point = (OGCPoint) geometry;
             if (point.isEmpty()) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: empty point at index %s", i + 1));
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Invalid input to ST_MultiPoint: empty point at index %s", i + 1));
             }
 
             multipoint.add(point.X(), point.Y());
@@ -323,7 +323,7 @@ public final class GeoFunctions
             return serialize(OGCGeometry.fromText(wkt));
         }
         catch (IndexOutOfBoundsException | UnsupportedOperationException | IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape", e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape", e);
         }
     }
 
@@ -342,7 +342,7 @@ public final class GeoFunctions
         }
         OGCGeometry geometry = deserialize(input);
         if (geometry.is3D()) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert 3D geometry to a spherical geography");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert 3D geometry to a spherical geography");
         }
 
         GeometryCursor cursor = geometry.getEsriGeometryCursor();
@@ -353,7 +353,7 @@ public final class GeoFunctions
             }
 
             if (!GEOMETRY_TYPES_FOR_SPHERICAL_GEOGRAPHY.contains(subGeometry.getType())) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert geometry of this type to spherical geography: " + subGeometry.getType());
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Cannot convert geometry of this type to spherical geography: " + subGeometry.getType());
             }
         }
 
@@ -392,11 +392,11 @@ public final class GeoFunctions
     public static Slice stBuffer(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(DOUBLE) double distance)
     {
         if (isNaN(distance)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
         }
 
         if (distance < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is negative");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "distance is negative");
         }
 
         if (distance == 0) {
@@ -443,7 +443,7 @@ public final class GeoFunctions
                 centroid = computeMultiPolygonCentroid((OGCMultiPolygon) geometry);
                 break;
             default:
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Unexpected geometry type: " + geometryType);
         }
         return serialize(createFromEsriGeometry(centroid, geometry.getEsriSpatialReference()));
     }
@@ -633,12 +633,12 @@ public final class GeoFunctions
 
         GeometryType lineType = GeometryType.getForJtsGeometryType(line.getGeometryType());
         if (lineType != GeometryType.LINE_STRING && lineType != GeometryType.MULTI_LINE_STRING) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("First argument to line_locate_point must be a LineString or a MultiLineString. Got: %s", line.getGeometryType()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("First argument to line_locate_point must be a LineString or a MultiLineString. Got: %s", line.getGeometryType()));
         }
 
         GeometryType pointType = GeometryType.getForJtsGeometryType(point.getGeometryType());
         if (pointType != GeometryType.POINT) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Second argument to line_locate_point must be a Point. Got: %s", point.getGeometryType()));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Second argument to line_locate_point must be a Point. Got: %s", point.getGeometryType()));
         }
 
         return new LengthIndexedLine(line).indexOf(point.getCoordinate()) / line.getLength();
@@ -686,7 +686,7 @@ public final class GeoFunctions
     {
         validateType("line_interpolate_point", geometry, EnumSet.of(LINE_STRING));
         if (fractionStep < 0 || fractionStep > 1) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "fraction must be between 0 and 1");
         }
 
         MultiPath path = (MultiPath) geometry.getEsriGeometry();
@@ -1019,11 +1019,11 @@ public final class GeoFunctions
     public static Slice simplifyGeometry(@SqlType(GEOMETRY_TYPE_NAME) Slice input, @SqlType(DOUBLE) double distanceTolerance)
     {
         if (isNaN(distanceTolerance)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distanceTolerance is NaN");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "distanceTolerance is NaN");
         }
 
         if (distanceTolerance < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distanceTolerance is negative");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "distanceTolerance is negative");
         }
 
         if (distanceTolerance == 0) {
@@ -1403,15 +1403,15 @@ public final class GeoFunctions
     public static Block spatialPartitions(@SqlType(KdbTreeType.NAME) Object kdbTree, @SqlType(GEOMETRY_TYPE_NAME) Slice geometry, @SqlType(DOUBLE) double distance)
     {
         if (isNaN(distance)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "distance is NaN");
         }
 
         if (isInfinite(distance)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is infinite");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "distance is infinite");
         }
 
         if (distance < 0) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "distance is negative");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "distance is negative");
         }
 
         Envelope envelope = deserializeEnvelope(geometry);
@@ -1488,14 +1488,14 @@ public final class GeoFunctions
     private static void checkLatitude(double latitude)
     {
         if (Double.isNaN(latitude) || Double.isInfinite(latitude) || latitude < MIN_LATITUDE || latitude > MAX_LATITUDE) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Latitude must be between -90 and 90");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Latitude must be between -90 and 90");
         }
     }
 
     private static void checkLongitude(double longitude)
     {
         if (Double.isNaN(longitude) || Double.isInfinite(longitude) || longitude < MIN_LONGITUDE || longitude > MAX_LONGITUDE) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Longitude must be between -180 and 180");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Longitude must be between -180 and 180");
         }
     }
 
@@ -1506,7 +1506,7 @@ public final class GeoFunctions
             geometry = OGCGeometry.fromText(input.toStringUtf8());
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + input.toStringUtf8(), e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKT: " + input.toStringUtf8(), e);
         }
         geometry.setSpatialReference(null);
         return geometry;
@@ -1520,7 +1520,7 @@ public final class GeoFunctions
             geometry = OGCGeometry.fromBinary(input.toByteBuffer().slice());
         }
         catch (IllegalArgumentException | IndexOutOfBoundsException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid WKB", e);
         }
         geometry.setSpatialReference(null);
         return geometry;
@@ -1530,7 +1530,7 @@ public final class GeoFunctions
     {
         int offset = HADOOP_SHAPE_SIZE_WKID + HADOOP_SHAPE_SIZE_TYPE;
         if (input.length() <= offset) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Hadoop shape input is too short");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Hadoop shape input is too short");
         }
         return input.toByteBuffer(offset, input.length() - offset).slice().order(ByteOrder.LITTLE_ENDIAN);
     }
@@ -1539,7 +1539,7 @@ public final class GeoFunctions
     {
         byte hadoopShapeType = input.getByte(HADOOP_SHAPE_SIZE_WKID);
         if (hadoopShapeType < 0 || hadoopShapeType >= HADOOP_SHAPE_TYPES.length) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape type: " + hadoopShapeType);
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Invalid Hadoop shape type: " + hadoopShapeType);
         }
         return HADOOP_SHAPE_TYPES[hadoopShapeType];
     }
@@ -1548,7 +1548,7 @@ public final class GeoFunctions
     {
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         if (!validTypes.contains(type)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
     }
 
@@ -1556,7 +1556,7 @@ public final class GeoFunctions
     {
         GeometryType type = GeometryType.getForJtsGeometryType(geometry.getGeometryType());
         if (!validTypes.contains(type)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("%s only applies to %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
     }
 
@@ -1719,7 +1719,7 @@ public final class GeoFunctions
     {
         GeometryType type = GeometryType.getForEsriGeometryType(geometry.geometryType());
         if (!validTypes.contains(type)) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("When applied to SphericalGeography inputs, %s only supports %s. Input type is: %s", function, OR_JOINER.join(validTypes), type));
         }
     }
 
@@ -1765,7 +1765,7 @@ public final class GeoFunctions
 
         if (end - start < 3) {
             // A path with less than 3 distinct points is not valid for calculating an area
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Polygon is not valid: a loop contains less then 3 vertices.");
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Polygon is not valid: a loop contains less then 3 vertices.");
         }
 
         Point point = new Point();
@@ -1792,7 +1792,7 @@ public final class GeoFunctions
             // We need to check for that specifically
             // Otherwise calculating the bearing is not deterministic
             if (longitude == previousLongitude && phi == previousPhi) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Polygon is not valid: it has two identical consecutive vertices");
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Polygon is not valid: it has two identical consecutive vertices");
             }
 
             double deltaLongitude = longitude - previousLongitude;

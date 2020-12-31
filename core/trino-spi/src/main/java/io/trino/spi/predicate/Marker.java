@@ -15,7 +15,7 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
@@ -277,7 +277,7 @@ public final class Marker
             throw e;
         }
         catch (Throwable throwable) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
         }
     }
 

@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.PeekingIterator;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static com.google.common.collect.Iterators.peekingIterator;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
@@ -132,8 +132,8 @@ public final class HiveQlToPrestoTranslator
         throw hiveViewParseError("unexpected end of input in identifier");
     }
 
-    private static PrestoException hiveViewParseError(String message)
+    private static TrinoException hiveViewParseError(String message)
     {
-        return new PrestoException(HIVE_VIEW_TRANSLATION_ERROR, "Error translating Hive view to Presto: " + message);
+        return new TrinoException(HIVE_VIEW_TRANSLATION_ERROR, "Error translating Hive view to Presto: " + message);
     }
 }

@@ -15,7 +15,7 @@ package io.trino.plugin.accumulo.serializers;
 
 import io.airlift.slice.Slice;
 import io.trino.plugin.accumulo.Types;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import org.apache.accumulo.core.data.Key;
@@ -127,13 +127,13 @@ public class StringRowSerializer
     @Override
     public Block getArray(String name, Type type)
     {
-        throw new PrestoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
+        throw new TrinoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
     }
 
     @Override
     public void setArray(Text text, Type type, Block block)
     {
-        throw new PrestoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
+        throw new TrinoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
     }
 
     @Override
@@ -223,13 +223,13 @@ public class StringRowSerializer
     @Override
     public Block getMap(String name, Type type)
     {
-        throw new PrestoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
+        throw new TrinoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
     }
 
     @Override
     public void setMap(Text text, Type type, Block block)
     {
-        throw new PrestoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
+        throw new TrinoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
     }
 
     @Override
@@ -302,10 +302,10 @@ public class StringRowSerializer
     {
         Text text = new Text();
         if (Types.isArrayType(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
+            throw new TrinoException(NOT_SUPPORTED, "arrays are not (yet?) supported for StringRowSerializer");
         }
         if (Types.isMapType(type)) {
-            throw new PrestoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
+            throw new TrinoException(NOT_SUPPORTED, "maps are not (yet?) supported for StringRowSerializer");
         }
         if (type.equals(BIGINT) && value instanceof Integer) {
             setLong(text, ((Integer) value).longValue());
@@ -356,7 +356,7 @@ public class StringRowSerializer
             setVarchar(text, ((Slice) value).toStringUtf8());
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, format("StringLexicoder does not support encoding type %s, object class is %s", type, value.getClass()));
+            throw new TrinoException(NOT_SUPPORTED, format("StringLexicoder does not support encoding type %s, object class is %s", type, value.getClass()));
         }
 
         return text.copyBytes();
@@ -403,6 +403,6 @@ public class StringRowSerializer
         if (type.equals(VARCHAR)) {
             return (T) strValue;
         }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + type);
     }
 }

@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.RowDecoder;
 import io.trino.decoder.RowDecoderFactory;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.inject.Inject;
 
@@ -81,7 +81,7 @@ public class JsonRowDecoderFactory
             }
         }
         catch (IllegalArgumentException e) {
-            throw new PrestoException(GENERIC_USER_ERROR, e);
+            throw new TrinoException(GENERIC_USER_ERROR, e);
         }
     }
 

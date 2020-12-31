@@ -25,7 +25,7 @@ import io.trino.plugin.hive.metastore.DecimalStatistics;
 import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.statistics.ColumnStatistics;
@@ -728,7 +728,7 @@ public class TestMetastoreHiveStatisticsProvider
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of(partition(partitionName))))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasFieldOrPropertyWithValue("errorCode", HIVE_CORRUPTED_COLUMN_STATISTICS.toErrorCode());
         assertEquals(
                 statisticsProvider.getTableStatistics(
@@ -743,7 +743,7 @@ public class TestMetastoreHiveStatisticsProvider
     private static void assertInvalidStatistics(PartitionStatistics partitionStatistics, String expectedMessage)
     {
         assertThatThrownBy(() -> validatePartitionStatistics(TABLE, ImmutableMap.of(PARTITION, partitionStatistics)))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasFieldOrPropertyWithValue("errorCode", HIVE_CORRUPTED_COLUMN_STATISTICS.toErrorCode())
                 .hasMessage(expectedMessage);
     }

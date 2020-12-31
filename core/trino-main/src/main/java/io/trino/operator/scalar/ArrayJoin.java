@@ -24,7 +24,7 @@ import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
@@ -199,8 +199,8 @@ public final class ArrayJoin
                         target,
                         Optional.of(STATE_FACTORY));
             }
-            catch (PrestoException e) {
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);
+            catch (TrinoException e) {
+                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Input type %s not supported", type), e);
             }
         }
     }
@@ -243,7 +243,7 @@ public final class ArrayJoin
                     // Restore pageBuilder into a consistent state
                     blockBuilder.closeEntry();
                     pageBuilder.declarePosition();
-                    throw new PrestoException(GENERIC_INTERNAL_ERROR, "Error casting array element to VARCHAR", throwable);
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error casting array element to VARCHAR", throwable);
                 }
             }
 

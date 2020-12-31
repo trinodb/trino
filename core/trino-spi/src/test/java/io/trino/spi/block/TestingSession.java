@@ -13,7 +13,7 @@
  */
 package io.trino.spi.block;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.TimeZoneKey;
@@ -75,7 +75,7 @@ public final class TestingSession
         @Override
         public <T> T getProperty(String name, Class<T> type)
         {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
+            throw new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
         }
     };
 

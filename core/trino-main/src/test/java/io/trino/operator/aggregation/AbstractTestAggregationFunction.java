@@ -40,7 +40,7 @@ import static io.trino.operator.aggregation.AggregationTestUtils.getFinalBlock;
 import static io.trino.operator.aggregation.AggregationTestUtils.makeValidityAssertion;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -216,7 +216,7 @@ public abstract class AbstractTestAggregationFunction
 
     protected void assertInvalidAggregation(Runnable runnable)
     {
-        assertPrestoExceptionThrownBy(runnable::run)
+        assertTrinoExceptionThrownBy(runnable::run)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

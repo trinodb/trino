@@ -13,7 +13,7 @@
  */
 package io.trino.spi.block;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
@@ -23,7 +23,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 public class DuplicateMapKeyException
-        extends PrestoException
+        extends TrinoException
 {
     private final Block block;
     private final int position;

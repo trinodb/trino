@@ -27,7 +27,7 @@ import io.trino.plugin.thrift.api.PrestoThriftNullableTableMetadata;
 import io.trino.plugin.thrift.api.PrestoThriftSchemaTableName;
 import io.trino.plugin.thrift.api.PrestoThriftService;
 import io.trino.plugin.thrift.api.PrestoThriftServiceException;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -60,7 +60,7 @@ import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.thrift.ThriftErrorCode.THRIFT_SERVICE_INVALID_RESPONSE;
-import static io.trino.plugin.thrift.util.ThriftExceptions.toPrestoException;
+import static io.trino.plugin.thrift.util.ThriftExceptions.toTrinoException;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -100,7 +100,7 @@ public class ThriftMetadata
             return client.get(thriftHeaderProvider.getHeaders(session)).listSchemaNames();
         }
         catch (PrestoThriftServiceException | TException e) {
-            throw toPrestoException(e);
+            throw toTrinoException(e);
         }
     }
 
@@ -129,7 +129,7 @@ public class ThriftMetadata
                     .collect(toImmutableList());
         }
         catch (PrestoThriftServiceException | TException e) {
-            throw toPrestoException(e);
+            throw toTrinoException(e);
         }
     }
 
@@ -242,7 +242,7 @@ public class ThriftMetadata
         }
         ThriftTableMetadata tableMetadata = new ThriftTableMetadata(thriftTableMetadata.getTableMetadata(), typeManager);
         if (!Objects.equals(schemaTableName, tableMetadata.getSchemaTableName())) {
-            throw new PrestoException(THRIFT_SERVICE_INVALID_RESPONSE, "Requested and actual table names are different");
+            throw new TrinoException(THRIFT_SERVICE_INVALID_RESPONSE, "Requested and actual table names are different");
         }
         return Optional.of(tableMetadata);
     }
@@ -262,7 +262,7 @@ public class ThriftMetadata
             return client.get().getTableMetadata(name);
         }
         catch (PrestoThriftServiceException | TException e) {
-            throw toPrestoException(e);
+            throw toTrinoException(e);
         }
     }
 }

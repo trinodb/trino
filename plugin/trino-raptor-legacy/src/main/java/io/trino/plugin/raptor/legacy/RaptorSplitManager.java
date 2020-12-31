@@ -21,7 +21,7 @@ import io.trino.plugin.raptor.legacy.metadata.ShardNodes;
 import io.trino.plugin.raptor.legacy.util.SynchronizedResultIterator;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -214,14 +214,14 @@ public class RaptorSplitManager
             List<HostAddress> addresses = getAddressesForNodes(nodesById, nodeIds);
             if (addresses.isEmpty()) {
                 if (!backupAvailable) {
-                    throw new PrestoException(RAPTOR_NO_HOST_FOR_SHARD, format("No host for shard %s found: %s", shardId, nodeIds));
+                    throw new TrinoException(RAPTOR_NO_HOST_FOR_SHARD, format("No host for shard %s found: %s", shardId, nodeIds));
                 }
 
                 // Pick a random node and optimistically assign the shard to it.
                 // That node will restore the shard from the backup location.
                 Set<Node> availableNodes = nodeSupplier.getWorkerNodes();
                 if (availableNodes.isEmpty()) {
-                    throw new PrestoException(NO_NODES_AVAILABLE, "No nodes available to run query");
+                    throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
                 Node node = selectRandom(availableNodes);
                 shardManager.replaceShardAssignment(tableId, shardId, node.getNodeIdentifier(), true);
@@ -239,7 +239,7 @@ public class RaptorSplitManager
             String nodeId = bucketToNode.get().get(bucketNumber);
             Node node = nodesById.get(nodeId);
             if (node == null) {
-                throw new PrestoException(NO_NODES_AVAILABLE, "Node for bucket is offline: " + nodeId);
+                throw new TrinoException(NO_NODES_AVAILABLE, "Node for bucket is offline: " + nodeId);
             }
 
             Set<UUID> shardUuids = shards.stream()

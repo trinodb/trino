@@ -13,12 +13,12 @@
  */
 package io.trino.plugin.password.file;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 
 public class HashedPasswordException
-        extends PrestoException
+        extends TrinoException
 {
     public HashedPasswordException(String message)
     {

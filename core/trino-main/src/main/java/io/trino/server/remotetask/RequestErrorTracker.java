@@ -21,8 +21,8 @@ import io.airlift.event.client.ServiceUnavailableException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.execution.TaskId;
-import io.trino.spi.PrestoException;
-import io.trino.spi.PrestoTransportException;
+import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoTransportException;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -98,7 +98,7 @@ class RequestErrorTracker
     }
 
     public void requestFailed(Throwable reason)
-            throws PrestoException
+            throws TrinoException
     {
         // cancellation is not a failure
         if (reason instanceof CancellationException) {
@@ -106,7 +106,7 @@ class RequestErrorTracker
         }
 
         if (reason instanceof RejectedExecutionException) {
-            throw new PrestoException(REMOTE_TASK_ERROR, reason);
+            throw new TrinoException(REMOTE_TASK_ERROR, reason);
         }
 
         // log failure message
@@ -126,7 +126,7 @@ class RequestErrorTracker
         // fail the task, if we have more than X failures in a row and more than Y seconds have passed since the last request
         if (backoff.failure()) {
             // it is weird to mark the task failed locally and then cancel the remote task, but there is no way to tell a remote task that it is failed
-            PrestoException exception = new PrestoTransportException(TOO_MANY_REQUESTS_FAILED,
+            TrinoException exception = new TrinoTransportException(TOO_MANY_REQUESTS_FAILED,
                     fromUri(taskUri),
                     format("%s (%s %s - %s failures, failure duration %s, total failed request time %s)",
                             WORKER_NODE_ERROR,

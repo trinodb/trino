@@ -29,7 +29,7 @@ import io.trino.plugin.accumulo.io.AccumuloPageSinkProvider;
 import io.trino.plugin.accumulo.io.AccumuloRecordSetProvider;
 import io.trino.plugin.accumulo.metadata.AccumuloTable;
 import io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
@@ -151,7 +151,7 @@ public class AccumuloModule
                 return connector;
             }
             catch (AccumuloException | AccumuloSecurityException e) {
-                throw new PrestoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
+                throw new TrinoException(UNEXPECTED_ACCUMULO_ERROR, "Failed to get connector to Accumulo", e);
             }
         }
     }

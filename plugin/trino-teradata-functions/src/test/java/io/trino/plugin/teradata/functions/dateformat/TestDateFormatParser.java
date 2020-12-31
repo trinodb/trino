@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.teradata.functions.dateformat;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.antlr.v4.runtime.Token;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormatter;
@@ -50,13 +50,13 @@ public class TestDateFormatParser
                 asList(DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED, DateFormat.UNRECOGNIZED));
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testInvalidTokenCreate1()
     {
         DateFormatParser.createDateTimeFormatter("ala");
     }
 
-    @Test(expectedExceptions = PrestoException.class)
+    @Test(expectedExceptions = TrinoException.class)
     public void testInvalidTokenCreate2()
     {
         DateFormatParser.createDateTimeFormatter("yyym/mm/dd");

@@ -14,7 +14,7 @@
 package io.trino.testing.assertions;
 
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.assertj.core.util.CheckReturnValue;
@@ -23,26 +23,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 
-public final class PrestoExceptionAssert
-        extends AbstractThrowableAssert<PrestoExceptionAssert, PrestoException>
+public final class TrinoExceptionAssert
+        extends AbstractThrowableAssert<TrinoExceptionAssert, TrinoException>
 {
     @CheckReturnValue
-    public static PrestoExceptionAssert assertPrestoExceptionThrownBy(ThrowingCallable throwingCallable)
+    public static TrinoExceptionAssert assertTrinoExceptionThrownBy(ThrowingCallable throwingCallable)
     {
         Throwable throwable = catchThrowable(throwingCallable);
         if (throwable == null) {
-            failBecauseExceptionWasNotThrown(PrestoException.class);
+            failBecauseExceptionWasNotThrown(TrinoException.class);
         }
-        assertThat(throwable).isInstanceOf(PrestoException.class);
-        return new PrestoExceptionAssert((PrestoException) throwable);
+        assertThat(throwable).isInstanceOf(TrinoException.class);
+        return new TrinoExceptionAssert((TrinoException) throwable);
     }
 
-    private PrestoExceptionAssert(PrestoException actual)
+    private TrinoExceptionAssert(TrinoException actual)
     {
-        super(actual, PrestoExceptionAssert.class);
+        super(actual, TrinoExceptionAssert.class);
     }
 
-    public PrestoExceptionAssert hasErrorCode(ErrorCodeSupplier errorCodeSupplier)
+    public TrinoExceptionAssert hasErrorCode(ErrorCodeSupplier errorCodeSupplier)
     {
         try {
             assertThat(actual.getErrorCode()).isEqualTo(errorCodeSupplier.toErrorCode());
@@ -54,7 +54,7 @@ public final class PrestoExceptionAssert
         return myself;
     }
 
-    public PrestoExceptionAssert hasLocation(int lineNumber, int columnNumber)
+    public TrinoExceptionAssert hasLocation(int lineNumber, int columnNumber)
     {
         try {
             assertThat(actual.getLocation()).isPresent();

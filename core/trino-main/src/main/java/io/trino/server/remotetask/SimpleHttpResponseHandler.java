@@ -16,7 +16,7 @@ package io.trino.server.remotetask;
 import com.google.common.util.concurrent.FutureCallback;
 import io.airlift.http.client.FullJsonResponseHandler;
 import io.airlift.http.client.HttpStatus;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.net.URI;
 
@@ -56,10 +56,10 @@ public class SimpleHttpResponseHandler<T>
                 Exception cause = response.getException();
                 if (cause == null) {
                     if (response.getStatusCode() == HttpStatus.OK.code()) {
-                        cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
+                        cause = new TrinoException(REMOTE_TASK_ERROR, format("Expected response from %s is empty", uri));
                     }
                     else {
-                        cause = new PrestoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s%n%s",
+                        cause = new TrinoException(REMOTE_TASK_ERROR, format("Expected response code from %s to be %s, but was %s%n%s",
                                 uri,
                                 HttpStatus.OK.code(),
                                 response.getStatusCode(),
@@ -67,7 +67,7 @@ public class SimpleHttpResponseHandler<T>
                     }
                 }
                 else {
-                    cause = new PrestoException(REMOTE_TASK_ERROR, format("Unexpected response from %s", uri), cause);
+                    cause = new TrinoException(REMOTE_TASK_ERROR, format("Unexpected response from %s", uri), cause);
                 }
                 callback.fatal(cause);
             }

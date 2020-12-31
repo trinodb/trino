@@ -21,7 +21,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.analyzer.FeaturesConfig;
@@ -120,7 +120,7 @@ public class TestSetSessionTask
     {
         int intValue = ((Number) value).intValue();
         if (intValue < 0) {
-            throw new PrestoException(INVALID_SESSION_PROPERTY, MUST_BE_POSITIVE);
+            throw new TrinoException(INVALID_SESSION_PROPERTY, MUST_BE_POSITIVE);
         }
     }
 
@@ -153,7 +153,7 @@ public class TestSetSessionTask
         testSetSession("positive_property", new LongLiteral("2"), "2");
 
         assertThatThrownBy(() -> testSetSession("positive_property", new LongLiteral("-1"), "-1"))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage(MUST_BE_POSITIVE);
     }
 
@@ -161,9 +161,9 @@ public class TestSetSessionTask
     public void testSetSessionWithInvalidEnum()
     {
         assertThatThrownBy(() -> testSetSession("size_property", new StringLiteral("XL"), "XL"))
-                .isInstanceOf(PrestoException.class)
+                .isInstanceOf(TrinoException.class)
                 .hasMessage("Invalid value [XL]. Valid values: [SMALL, MEDIUM, LARGE]")
-                .matches(throwable -> ((PrestoException) throwable).getErrorCode() == INVALID_SESSION_PROPERTY.toErrorCode());
+                .matches(throwable -> ((TrinoException) throwable).getErrorCode() == INVALID_SESSION_PROPERTY.toErrorCode());
     }
 
     @Test

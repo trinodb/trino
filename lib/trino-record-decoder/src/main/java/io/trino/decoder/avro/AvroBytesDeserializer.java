@@ -13,7 +13,7 @@
  */
 package io.trino.decoder.avro;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DecoderFactory;
@@ -50,7 +50,7 @@ public class AvroBytesDeserializer<T>
             return avroReader.read(null, decoder);
         }
         catch (IOException e) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, "Decoding Avro record failed.", e);
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Decoding Avro record failed.", e);
         }
     }
 

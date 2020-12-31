@@ -26,7 +26,7 @@ import io.trino.execution.StateMachine;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStatus;
 import io.trino.spi.HostAddress;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -238,7 +238,7 @@ class ContinuousTaskStatusFetcher
             // This will also set the task status to FAILED state directly.
             // Additionally, this will issue a DELETE for the task to the worker.
             // While sending the DELETE is not required, it is preferred because a task was created by the previous request.
-            onFail.accept(new PrestoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
+            onFail.accept(new TrinoException(REMOTE_TASK_MISMATCH, format("%s (%s)", REMOTE_TASK_MISMATCH_ERROR, HostAddress.fromUri(getTaskStatus().getSelf()))));
         }
 
         dynamicFiltersFetcher.updateDynamicFiltersVersion(newValue.getDynamicFiltersVersion());

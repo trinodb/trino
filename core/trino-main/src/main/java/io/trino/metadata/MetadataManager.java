@@ -26,8 +26,8 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockEncoding;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncoding;
@@ -412,7 +412,7 @@ public final class MetadataManager
         }
 
         if (layouts.size() > 1) {
-            throw new PrestoException(NOT_SUPPORTED, format("Connector returned multiple layouts for table %s", table));
+            throw new TrinoException(NOT_SUPPORTED, format("Connector returned multiple layouts for table %s", table));
         }
 
         ConnectorTableLayout tableLayout = layouts.get(0).getTableLayout();
@@ -613,7 +613,7 @@ public final class MetadataManager
                             columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
                         }
                         catch (TypeNotFoundException e) {
-                            throw new PrestoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
+                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
                         }
                     }
                     tableColumns.put(entry.getKey(), columns.build());
@@ -675,7 +675,7 @@ public final class MetadataManager
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogName);
         CatalogName catalog = catalogMetadata.getCatalogName();
         if (!tableHandle.getCatalogName().equals(catalog)) {
-            throw new PrestoException(SYNTAX_ERROR, "Cannot rename tables across catalogs");
+            throw new TrinoException(SYNTAX_ERROR, "Cannot rename tables across catalogs");
         }
 
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
@@ -874,7 +874,7 @@ public final class MetadataManager
                 .map(Object::getClass)
                 .distinct()
                 .count() > 1) {
-            throw new PrestoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Cross connector materialized views are not supported");
         }
 
         ConnectorInsertTableHandle handle = metadata.beginRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), sourceConnectorHandles);
@@ -1057,7 +1057,7 @@ public final class MetadataManager
     public Map<String, Object> getSchemaProperties(Session session, CatalogSchemaName schemaName)
     {
         if (!schemaExists(session, schemaName)) {
-            throw new PrestoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
         }
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1071,7 +1071,7 @@ public final class MetadataManager
     public Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
     {
         if (!schemaExists(session, schemaName)) {
-            throw new PrestoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
+            throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
         }
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, new CatalogName(schemaName.getCatalogName()));
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1118,7 +1118,7 @@ public final class MetadataManager
         CatalogName catalogName = catalogMetadata.getCatalogName();
         ConnectorMetadata metadata = catalogMetadata.getMetadata();
         if (!source.getCatalogName().equals(catalogName.getCatalogName())) {
-            throw new PrestoException(SYNTAX_ERROR, "Cannot rename views across catalogs");
+            throw new TrinoException(SYNTAX_ERROR, "Cannot rename views across catalogs");
         }
 
         metadata.renameView(session.toConnectorSession(catalogName), source.asSchemaTableName(), target.asSchemaTableName());
@@ -1781,7 +1781,7 @@ public final class MetadataManager
         try {
             return resolveFunction(QualifiedName.of(mangleOperatorName(operatorType)), fromTypes(argumentTypes));
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
                 OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, argumentTypes);
                 operatorNotFound.addSuppressed(e);
@@ -1801,7 +1801,7 @@ public final class MetadataManager
             String name = mangleOperatorName(operatorType);
             return resolve(functionResolver.resolveCoercion(functions.get(QualifiedName.of(name)), new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()))));
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
                 OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
                 operatorNotFound.addSuppressed(e);
@@ -1837,7 +1837,7 @@ public final class MetadataManager
                         List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding);
                         return resolveFunction(functionDependency.getName(), fromTypeSignatures(argumentTypes));
                     }
-                    catch (PrestoException e) {
+                    catch (TrinoException e) {
                         if (functionDependency.isOptional()) {
                             return null;
                         }
@@ -1853,7 +1853,7 @@ public final class MetadataManager
                         List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding);
                         return resolveFunction(QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
                     }
-                    catch (PrestoException e) {
+                    catch (TrinoException e) {
                         if (operatorDependency.isOptional()) {
                             return null;
                         }
@@ -1870,7 +1870,7 @@ public final class MetadataManager
                         Type toType = getType(applyBoundVariables(castDependency.getToType(), functionBinding));
                         return getCoercion(fromType, toType);
                     }
-                    catch (PrestoException e) {
+                    catch (TrinoException e) {
                         if (castDependency.isOptional()) {
                             return null;
                         }
@@ -2040,7 +2040,7 @@ public final class MetadataManager
     private static void verifyFunctionSignature(boolean check, String message, Object... args)
     {
         if (!check) {
-            throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format(message, args));
+            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format(message, args));
         }
     }
 

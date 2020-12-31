@@ -23,7 +23,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
@@ -842,7 +842,7 @@ public final class DomainTranslator
             }
             catch (Throwable throwable) {
                 Throwables.throwIfUnchecked(throwable);
-                throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, throwable);
             }
         }
 

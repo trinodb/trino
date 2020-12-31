@@ -26,7 +26,7 @@ import io.trino.orc.OrcRecordReader;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -92,9 +92,9 @@ public class OrcDeleteDeltaPageSource
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
                     e instanceof FileNotFoundException) {
-                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, e);
+                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, openError(e, path), e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, openError(e, path), e);
         }
 
         try {
@@ -111,14 +111,14 @@ public class OrcDeleteDeltaPageSource
             catch (IOException ex) {
                 e.addSuppressed(ex);
             }
-            if (e instanceof PrestoException) {
-                throw (PrestoException) e;
+            if (e instanceof TrinoException) {
+                throw (TrinoException) e;
             }
             String message = openError(e, path);
             if (e instanceof BlockMissingException) {
-                throw new PrestoException(HIVE_MISSING_DATA, message, e);
+                throw new TrinoException(HIVE_MISSING_DATA, message, e);
             }
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
     }
 

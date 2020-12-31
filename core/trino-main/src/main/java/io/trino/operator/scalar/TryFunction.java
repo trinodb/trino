@@ -13,7 +13,7 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlNullable;
@@ -47,7 +47,7 @@ public final class TryFunction
         try {
             return function.apply();
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             propagateIfUnhandled(e);
             return null;
         }
@@ -62,7 +62,7 @@ public final class TryFunction
         try {
             return function.apply();
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             propagateIfUnhandled(e);
             return null;
         }
@@ -77,7 +77,7 @@ public final class TryFunction
         try {
             return function.apply();
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             propagateIfUnhandled(e);
             return null;
         }
@@ -92,7 +92,7 @@ public final class TryFunction
         try {
             return function.apply();
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             propagateIfUnhandled(e);
             return null;
         }
@@ -131,14 +131,14 @@ public final class TryFunction
         try {
             return supplier.get();
         }
-        catch (PrestoException e) {
+        catch (TrinoException e) {
             propagateIfUnhandled(e);
             return defaultValue;
         }
     }
 
-    private static void propagateIfUnhandled(PrestoException e)
-            throws PrestoException
+    private static void propagateIfUnhandled(TrinoException e)
+            throws TrinoException
     {
         int errorCode = e.getErrorCode().getCode();
         if (errorCode == DIVISION_BY_ZERO.toErrorCode().getCode()

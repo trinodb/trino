@@ -19,7 +19,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.CountingInputStream;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.RecordCursor;
@@ -145,7 +145,7 @@ public class PrometheusRecordCursor
             return packDateTimeWithZone(dateTime.toEpochMilli(), offsetMinutes);
         }
         else {
-            throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
+            throw new TrinoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
         }
     }
 

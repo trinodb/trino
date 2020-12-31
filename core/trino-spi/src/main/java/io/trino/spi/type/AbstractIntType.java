@@ -15,7 +15,7 @@ package io.trino.spi.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
@@ -85,10 +85,10 @@ public abstract class AbstractIntType
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         if (value > Integer.MAX_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_INT", value));
         }
         if (value < Integer.MIN_VALUE) {
-            throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT", value));
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d is less than MIN_INT", value));
         }
 
         blockBuilder.writeInt((int) value).closeEntry();

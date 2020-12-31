@@ -15,7 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -28,7 +28,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OperatorNotFoundException
-        extends PrestoException
+        extends TrinoException
 {
     private final OperatorType operatorType;
     private final TypeSignature returnType;
