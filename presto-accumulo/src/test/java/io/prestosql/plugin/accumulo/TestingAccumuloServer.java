@@ -24,12 +24,16 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.time.Duration;
 
 import static java.lang.String.format;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 
 public class TestingAccumuloServer
 {
     private static final int ACCUMULO_MASTER_PORT = 9999;
     private static final int ACCUMULO_TSERVER_PORT = 9997;
     private static final int ZOOKEEPER_PORT = 2181;
+
+    private static final String ACCUMULO_EXT_PATH = "/usr/local/lib/accumulo/lib/ext";
+    private static final String ITERATORS_JAR = "presto-accumulo-iterators.jar";
 
     private static final TestingAccumuloServer instance = new TestingAccumuloServer();
 
@@ -42,11 +46,12 @@ public class TestingAccumuloServer
 
     private TestingAccumuloServer()
     {
-        accumuloContainer = new FixedHostPortGenericContainer<>("prestodev/accumulo:35");
+        accumuloContainer = new FixedHostPortGenericContainer<>("prestodev/accumulo:6a23bfe");
         accumuloContainer.withFixedExposedPort(ACCUMULO_MASTER_PORT, ACCUMULO_MASTER_PORT);
         accumuloContainer.withFixedExposedPort(ACCUMULO_TSERVER_PORT, ACCUMULO_TSERVER_PORT);
         accumuloContainer.withExposedPorts(ZOOKEEPER_PORT);
         accumuloContainer.waitingFor(Wait.forHealthcheck().withStartupTimeout(Duration.ofMinutes(10)));
+        accumuloContainer.withCopyFileToContainer(forClasspathResource(ITERATORS_JAR), ACCUMULO_EXT_PATH + "/" + ITERATORS_JAR);
 
         // No need for an explicit stop since this server is a singleton
         // and the container will be stopped by TestContainers on shutdown
