@@ -31,8 +31,8 @@ Note that the ``ImmutableSet`` class is a utility class from Guava.
 The ``getFunctions()`` method contains all of the classes for the functions
 that we will implement below in this tutorial.
 
-For a full example in the codebase, see either the ``presto-ml`` module for machine
-learning functions or the ``presto-teradata-functions`` module for Teradata-compatible
+For a full example in the codebase, see either the ``trino-ml`` module for machine
+learning functions or the ``trino-teradata-functions`` module for Teradata-compatible
 functions, both in the root of the Trino source.
 
 Scalar Function Implementation
