@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorSecurityContext;
 import io.prestosql.spi.connector.SchemaRoutineName;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.ConnectorIdentity;
+import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
@@ -491,7 +492,7 @@ public class FileBasedAccessControl
         ConnectorIdentity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), tableName))
-                .map(rule -> rule.getFilter(identity.getUser(), catalogName, tableName.getSchemaName()))
+                .map(rule -> rule.getFilter(Identity.ofUser(identity.getUser()), catalogName, tableName.getSchemaName()))
                 .findFirst()
                 .flatMap(Function.identity());
     }
@@ -506,7 +507,7 @@ public class FileBasedAccessControl
         ConnectorIdentity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), tableName))
-                .map(rule -> rule.getColumnMask(identity.getUser(), catalogName, tableName.getSchemaName(), columnName))
+                .map(rule -> rule.getColumnMask(Identity.ofUser(identity.getUser()), catalogName, tableName.getSchemaName(), columnName))
                 .findFirst()
                 .flatMap(Function.identity());
     }

@@ -807,7 +807,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
-                .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
+                .map(rule -> rule.getFilter(identity, table.getCatalogName(), tableName.getSchemaName()))
                 .findFirst()
                 .flatMap(Function.identity());
     }
@@ -823,7 +823,7 @@ public class FileBasedSystemAccessControl
         Identity identity = context.getIdentity();
         return tableRules.stream()
                 .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
-                .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
+                .map(rule -> rule.getColumnMask(identity, table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
                 .findFirst()
                 .flatMap(Function.identity());
     }
