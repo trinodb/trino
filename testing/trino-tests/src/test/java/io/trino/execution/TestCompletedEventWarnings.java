@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session.SessionBuilder;
 import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import io.trino.execution.warnings.WarningCollectorConfig;
-import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -78,7 +78,7 @@ public class TestCompletedEventWarnings
                 "select 1",
                 ImmutableMap.of(),
                 testingWarningCollector.getWarnings().stream()
-                        .map(PrestoWarning::getWarningCode)
+                        .map(TrinoWarning::getWarningCode)
                         .collect(toImmutableList()));
     }
 
@@ -95,7 +95,7 @@ public class TestCompletedEventWarnings
         Set<WarningCode> warnings = getOnlyElement(generatedEvents.getQueryCompletedEvents())
                 .getWarnings()
                 .stream()
-                .map(PrestoWarning::getWarningCode)
+                .map(TrinoWarning::getWarningCode)
                 .collect(toImmutableSet());
         for (WarningCode warningCode : expectedWarnings) {
             if (!warnings.contains(warningCode)) {

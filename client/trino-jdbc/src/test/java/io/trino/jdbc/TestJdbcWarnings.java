@@ -20,7 +20,7 @@ import io.trino.client.Warning;
 import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.server.testing.TestingPrestoServer;
-import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.TestingWarningCollector;
 import io.trino.testing.TestingWarningCollectorConfig;
@@ -130,8 +130,8 @@ public class TestJdbcWarnings
         assertNotNull(warning);
         TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS);
         TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
-        List<PrestoWarning> expectedWarnings = warningCollector.getWarnings();
-        assertStartsWithExpectedWarnings(warning, fromPrestoWarnings(expectedWarnings));
+        List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
+        assertStartsWithExpectedWarnings(warning, fromTrinoWarnings(expectedWarnings));
         statement.clearWarnings();
         assertNull(statement.getWarnings());
     }
@@ -176,9 +176,9 @@ public class TestJdbcWarnings
 
             TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS).setAddWarnings(true);
             TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
-            List<PrestoWarning> expectedWarnings = warningCollector.getWarnings();
-            for (PrestoWarning prestoWarning : expectedWarnings) {
-                assertTrue(currentWarnings.contains(new WarningEntry(toPrestoSqlWarning(prestoWarning))));
+            List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
+            for (TrinoWarning trinoWarning : expectedWarnings) {
+                assertTrue(currentWarnings.contains(new WarningEntry(toPrestoSqlWarning(trinoWarning))));
             }
         }
     }
@@ -186,12 +186,12 @@ public class TestJdbcWarnings
     @Test
     public void testSqlWarning()
     {
-        ImmutableList.Builder<PrestoWarning> builder = ImmutableList.builder();
+        ImmutableList.Builder<TrinoWarning> builder = ImmutableList.builder();
         for (int i = 0; i < 3; i++) {
-            builder.add(new PrestoWarning(new WarningCode(i, "CODE_" + i), "warning message " + i));
+            builder.add(new TrinoWarning(new WarningCode(i, "CODE_" + i), "warning message " + i));
         }
-        List<PrestoWarning> warnings = builder.build();
-        SQLWarning warning = fromPrestoWarnings(warnings);
+        List<TrinoWarning> warnings = builder.build();
+        SQLWarning warning = fromTrinoWarnings(warnings);
         assertEquals(Iterators.size(warning.iterator()), warnings.size());
         assertWarningsEqual(warning, toPrestoSqlWarning(warnings.get(0)));
         assertWarningsEqual(warning.getNextWarning(), toPrestoSqlWarning(warnings.get(1)));
@@ -235,11 +235,11 @@ public class TestJdbcWarnings
         future.get();
     }
 
-    private static SQLWarning fromPrestoWarnings(List<PrestoWarning> warnings)
+    private static SQLWarning fromTrinoWarnings(List<TrinoWarning> warnings)
     {
         requireNonNull(warnings, "warnings is null");
         assertFalse(warnings.isEmpty());
-        Iterator<PrestoWarning> iterator = warnings.iterator();
+        Iterator<TrinoWarning> iterator = warnings.iterator();
         PrestoSqlWarning first = toPrestoSqlWarning(iterator.next());
         SQLWarning current = first;
         while (iterator.hasNext()) {
@@ -249,12 +249,12 @@ public class TestJdbcWarnings
         return first;
     }
 
-    private static PrestoSqlWarning toPrestoSqlWarning(PrestoWarning warning)
+    private static PrestoSqlWarning toPrestoSqlWarning(TrinoWarning warning)
     {
         return new PrestoSqlWarning(toClientWarning(warning));
     }
 
-    private static Warning toClientWarning(PrestoWarning warning)
+    private static Warning toClientWarning(TrinoWarning warning)
     {
         WarningCode code = warning.getWarningCode();
         return new Warning(new Warning.Code(code.getCode(), code.getName()), warning.getMessage());

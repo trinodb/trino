@@ -50,8 +50,8 @@ import io.trino.execution.buffer.SerializedPage;
 import io.trino.operator.ExchangeClient;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.Page;
-import io.trino.spi.PrestoWarning;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.security.SelectedRole;
@@ -851,7 +851,7 @@ class Query
                 failure);
     }
 
-    private static Warning toClientWarning(PrestoWarning warning)
+    private static Warning toClientWarning(TrinoWarning warning)
     {
         WarningCode code = warning.getWarningCode();
         return new Warning(new Warning.Code(code.getCode(), code.getName()), warning.getMessage());

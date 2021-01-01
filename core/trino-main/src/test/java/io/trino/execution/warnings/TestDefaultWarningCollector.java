@@ -13,7 +13,7 @@
  */
 package io.trino.execution.warnings;
 
-import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import org.testng.annotations.Test;
 
@@ -25,7 +25,7 @@ public class TestDefaultWarningCollector
     public void testNoWarnings()
     {
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig().setMaxWarnings(0));
-        warningCollector.add(new PrestoWarning(new WarningCode(1, "1"), "warning 1"));
+        warningCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
         assertEquals(warningCollector.getWarnings().size(), 0);
     }
 
@@ -33,9 +33,9 @@ public class TestDefaultWarningCollector
     public void testMaxWarnings()
     {
         WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig().setMaxWarnings(2));
-        warningCollector.add(new PrestoWarning(new WarningCode(1, "1"), "warning 1"));
-        warningCollector.add(new PrestoWarning(new WarningCode(2, "2"), "warning 2"));
-        warningCollector.add(new PrestoWarning(new WarningCode(3, "3"), "warning 3"));
+        warningCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
+        warningCollector.add(new TrinoWarning(new WarningCode(2, "2"), "warning 2"));
+        warningCollector.add(new TrinoWarning(new WarningCode(3, "3"), "warning 3"));
         assertEquals(warningCollector.getWarnings().size(), 2);
     }
 }

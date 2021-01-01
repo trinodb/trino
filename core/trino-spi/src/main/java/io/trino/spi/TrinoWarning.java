@@ -21,13 +21,13 @@ import java.util.Objects;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class PrestoWarning
+public final class TrinoWarning
 {
     private final WarningCode warningCode;
     private final String message;
 
     @JsonCreator
-    public PrestoWarning(
+    public TrinoWarning(
             @JsonProperty("warningCode") WarningCode warningCode,
             @JsonProperty("message") String message)
     {
@@ -35,7 +35,7 @@ public final class PrestoWarning
         this.message = requireNonNull(message, "message is null");
     }
 
-    public PrestoWarning(WarningCodeSupplier warningCodeSupplier, String message)
+    public TrinoWarning(WarningCodeSupplier warningCodeSupplier, String message)
     {
         this(requireNonNull(warningCodeSupplier, "warningCodeSupplier is null").toWarningCode(), message);
     }
@@ -61,7 +61,7 @@ public final class PrestoWarning
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        PrestoWarning that = (PrestoWarning) o;
+        TrinoWarning that = (TrinoWarning) o;
         return Objects.equals(warningCode, that.warningCode) && Objects.equals(message, that.message);
     }
 

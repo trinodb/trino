@@ -14,7 +14,7 @@
 package io.trino.execution.warnings;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoWarning;
 
 import java.util.List;
 
@@ -24,16 +24,16 @@ public interface WarningCollector
             new WarningCollector()
             {
                 @Override
-                public void add(PrestoWarning warning) {}
+                public void add(TrinoWarning warning) {}
 
                 @Override
-                public List<PrestoWarning> getWarnings()
+                public List<TrinoWarning> getWarnings()
                 {
                     return ImmutableList.of();
                 }
             };
 
-    void add(PrestoWarning warning);
+    void add(TrinoWarning warning);
 
-    List<PrestoWarning> getWarnings();
+    List<TrinoWarning> getWarnings();
 }

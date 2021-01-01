@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.SessionRepresentation;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorType;
-import io.trino.spi.PrestoWarning;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.memory.MemoryPoolId;
@@ -75,7 +75,7 @@ public class QueryInfo
     private final ExecutionFailureInfo failureInfo;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
-    private final List<PrestoWarning> warnings;
+    private final List<TrinoWarning> warnings;
     private final Set<Input> inputs;
     private final Optional<Output> output;
     private final boolean completeInfo;
@@ -108,7 +108,7 @@ public class QueryInfo
             @JsonProperty("outputStage") Optional<StageInfo> outputStage,
             @JsonProperty("failureInfo") ExecutionFailureInfo failureInfo,
             @JsonProperty("errorCode") ErrorCode errorCode,
-            @JsonProperty("warnings") List<PrestoWarning> warnings,
+            @JsonProperty("warnings") List<TrinoWarning> warnings,
             @JsonProperty("inputs") Set<Input> inputs,
             @JsonProperty("output") Optional<Output> output,
             @JsonProperty("referencedTables") List<TableInfo> referencedTables,
@@ -332,7 +332,7 @@ public class QueryInfo
     }
 
     @JsonProperty
-    public List<PrestoWarning> getWarnings()
+    public List<TrinoWarning> getWarnings()
     {
         return warnings;
     }
