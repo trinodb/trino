@@ -34,7 +34,7 @@ import io.trino.metadata.SqlFunction;
 import io.trino.plugin.thrift.ThriftPlugin;
 import io.trino.plugin.thrift.server.ThriftIndexedTpchService;
 import io.trino.plugin.thrift.server.ThriftTpchService;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -161,7 +161,7 @@ public final class ThriftQueryRunner
             this.thriftServers = ImmutableList.copyOf(requireNonNull(thriftServers, "thriftServers is null"));
         }
 
-        public TestingPrestoServer getCoordinator()
+        public TestingTrinoServer getCoordinator()
         {
             return source.getCoordinator();
         }

@@ -18,11 +18,11 @@ import io.trino.Session;
 import io.trino.client.Column;
 import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.testing.AbstractTestingPrestoClient;
+import io.trino.testing.AbstractTestingTrinoClient;
 import io.trino.testing.ResultsSession;
 import io.trino.util.DateTimeUtils;
 import org.joda.time.format.DateTimeFormatter;
@@ -52,7 +52,7 @@ import static io.trino.util.DateTimeUtils.parseLegacyTime;
 import static java.util.Objects.requireNonNull;
 
 public class RedisLoader
-        extends AbstractTestingPrestoClient<Void>
+        extends AbstractTestingTrinoClient<Void>
 {
     private static final DateTimeFormatter ISO8601_FORMATTER = ISODateTimeFormat.dateTime();
 
@@ -63,13 +63,13 @@ public class RedisLoader
     private final JsonEncoder jsonEncoder;
 
     public RedisLoader(
-            TestingPrestoServer prestoServer,
+            TestingTrinoServer trinoServer,
             Session defaultSession,
             JedisPool jedisPool,
             String tableName,
             String dataFormat)
     {
-        super(prestoServer, defaultSession);
+        super(trinoServer, defaultSession);
         this.jedisPool = jedisPool;
         this.tableName = tableName;
         this.dataFormat = dataFormat;

@@ -16,7 +16,7 @@ package io.trino;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.jdbc.TestJdbcResultSet;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -58,8 +58,8 @@ public class TestJdbcResultSetCompatibilityOldDriver
         Logging.initialize();
 
         // Instantiate server and set it via reflection.
-        // This is required due to TestingPrestoServer API changes.
-        setTestingServer(this, TestingPrestoServer
+        // This is required due to TestingTrinoServer API changes.
+        setTestingServer(this, TestingTrinoServer
                 .builder()
                 .setProperties(ImmutableMap.of("deprecated.omit-datetime-type-precision", "true"))
                 .build());

@@ -26,7 +26,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControlManager;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.SystemSecurityContext;
@@ -117,7 +117,7 @@ public class TestResourceSecurity
     public void testInsecureAuthenticatorHttp()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .build())
@@ -132,7 +132,7 @@ public class TestResourceSecurity
     public void testInsecureAuthenticatorHttps()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(SECURE_PROPERTIES)
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
@@ -146,7 +146,7 @@ public class TestResourceSecurity
     public void testInsecureAuthenticatorHttpsOnly()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.allow-insecure-over-http", "false")
@@ -163,7 +163,7 @@ public class TestResourceSecurity
     public void testPasswordAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
@@ -182,7 +182,7 @@ public class TestResourceSecurity
     public void testPasswordAuthenticatorWithInsecureHttp()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
@@ -202,7 +202,7 @@ public class TestResourceSecurity
     public void testFixedManagerAuthenticatorHttpInsecureEnabledOnly()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
@@ -224,7 +224,7 @@ public class TestResourceSecurity
     public void testFixedManagerAuthenticatorHttpInsecureDisabledOnly()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
@@ -250,7 +250,7 @@ public class TestResourceSecurity
     public void testFixedManagerAuthenticatorHttps()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
@@ -272,7 +272,7 @@ public class TestResourceSecurity
     public void testCertAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "certificate")
@@ -303,7 +303,7 @@ public class TestResourceSecurity
     public void testJwtAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "jwt")
@@ -337,7 +337,7 @@ public class TestResourceSecurity
     {
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "jwt")

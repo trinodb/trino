@@ -19,7 +19,7 @@ import com.google.common.collect.Iterators;
 import io.trino.client.Warning;
 import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.plugin.blackhole.BlackHolePlugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.TestingWarningCollector;
@@ -62,7 +62,7 @@ public class TestJdbcWarnings
     // Number of warnings preloaded to the testing warning collector before a query runs
     private static final int PRELOADED_WARNINGS = 5;
 
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private Connection connection;
     private Statement statement;
     private ExecutorService executor;
@@ -71,7 +71,7 @@ public class TestJdbcWarnings
     public void setupServer()
             throws Exception
     {
-        server = TestingPrestoServer.builder()
+        server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("testing-warning-collector.add-warnings", "true")
                         .put("testing-warning-collector.preloaded-warnings", String.valueOf(PRELOADED_WARNINGS))

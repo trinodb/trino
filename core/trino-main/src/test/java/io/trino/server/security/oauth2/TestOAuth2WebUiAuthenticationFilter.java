@@ -27,7 +27,7 @@ import io.jsonwebtoken.impl.DefaultClaims;
 import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
 import io.trino.server.security.jwt.JwtAuthenticatorConfig;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.WebUiModule;
 import io.trino.testng.services.Flaky;
 import okhttp3.CookieJar;
@@ -79,7 +79,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     private final TestingHydraService testingHydraService = new TestingHydraService();
     private final OkHttpClient httpClient;
 
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private URI serverUri;
 
     public TestOAuth2WebUiAuthenticationFilter()
@@ -100,7 +100,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         testingHydraService.start();
         testingHydraService.createConsumer(format("https://host.testcontainers.internal:%d/oauth2/callback", HTTPS_PORT));
 
-        server = TestingPrestoServer.builder()
+        server = TestingTrinoServer.builder()
                 .setCoordinator(true)
                 .setAdditionalModule(new WebUiModule())
                 .setProperties(ImmutableMap.<String, String>builder()

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import oracle.jdbc.OracleType;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -75,7 +75,7 @@ public class TestJdbcVendorCompatibility
     private static final String OTHER_TIMEZONE = "Asia/Kathmandu";
 
     private Logger log;
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private List<ReferenceDriver> referenceDrivers;
 
     private Connection connection;
@@ -87,7 +87,7 @@ public class TestJdbcVendorCompatibility
         assertNotEquals(OTHER_TIMEZONE, TimeZone.getDefault().getID(), "We need a timezone different from the default JVM one");
         Logging.initialize();
         log = Logger.get(TestJdbcVendorCompatibility.class);
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
         referenceDrivers = ImmutableList.of(new PostgresqlReferenceDriver(), new OracleReferenceDriver());
     }
 

@@ -22,7 +22,7 @@ import io.trino.plugin.hive.HiveHadoop2Plugin;
 import io.trino.plugin.tpch.TpchMetadata;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.BasicQueryInfo;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
@@ -97,7 +97,7 @@ public class TestTrinoDatabaseMetaData
     private static final String COUNTING_CATALOG = "mock_catalog";
 
     private CountingMockConnector countingMockConnector;
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
 
     private Connection connection;
 
@@ -106,7 +106,7 @@ public class TestTrinoDatabaseMetaData
             throws Exception
     {
         Logging.initialize();
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
 
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");

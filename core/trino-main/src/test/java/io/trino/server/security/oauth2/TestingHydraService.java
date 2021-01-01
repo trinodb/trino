@@ -15,7 +15,7 @@ package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.WebUiModule;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
@@ -152,7 +152,7 @@ public class TestingHydraService
                     .withEnv("TTL_ACCESS_TOKEN", "30m");
             service.start();
             service.createConsumer("https://localhost:8443/oauth2/callback");
-            try (TestingPrestoServer ignored = TestingPrestoServer.builder()
+            try (TestingTrinoServer ignored = TestingTrinoServer.builder()
                     .setCoordinator(true)
                     .setAdditionalModule(new WebUiModule())
                     .setProperties(

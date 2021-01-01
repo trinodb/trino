@@ -16,7 +16,7 @@ package io.trino.tests;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.ProcedureRegistry;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.ProcedureTester;
 import io.trino.testing.QueryRunner;
@@ -55,7 +55,7 @@ public class TestProcedureCall
     @BeforeClass
     public void setUp()
     {
-        TestingPrestoServer coordinator = getDistributedQueryRunner().getCoordinator();
+        TestingTrinoServer coordinator = getDistributedQueryRunner().getCoordinator();
         tester = coordinator.getProcedureTester();
 
         // register procedures in the bogus testing catalog

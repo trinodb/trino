@@ -27,7 +27,7 @@ import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
 import org.testng.annotations.AfterClass;
@@ -86,13 +86,13 @@ import static org.testng.Assert.assertNull;
 public class TestServer
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private HttpClient client;
 
     @BeforeClass
     public void setup()
     {
-        server = TestingPrestoServer.builder()
+        server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.process-forwarded", "true")
                         .build())

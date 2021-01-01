@@ -22,7 +22,7 @@ import com.google.inject.Scopes;
 import io.airlift.log.Logging;
 import io.trino.client.ClientSelectedRole;
 import io.trino.plugin.hive.HiveHadoop2Plugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -59,7 +59,7 @@ import static org.testng.Assert.fail;
 
 public class TestJdbcConnection
 {
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
 
     @BeforeClass
     public void setupServer()
@@ -68,7 +68,7 @@ public class TestJdbcConnection
         Logging.initialize();
         Module systemTables = binder -> newSetBinder(binder, SystemTable.class)
                 .addBinding().to(ExtraCredentialsSystemTable.class).in(Scopes.SINGLETON);
-        server = TestingPrestoServer.builder()
+        server = TestingTrinoServer.builder()
                 .setAdditionalModule(systemTables)
                 .build();
         server.installPlugin(new HiveHadoop2Plugin());

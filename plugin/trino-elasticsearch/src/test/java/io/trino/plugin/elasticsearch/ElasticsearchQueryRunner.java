@@ -22,7 +22,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingPrestoClient;
+import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
@@ -66,7 +66,7 @@ public final class ElasticsearchQueryRunner
 
             installElasticsearchPlugin(address, queryRunner, testFactory, extraConnectorProperties);
 
-            TestingPrestoClient prestoClient = queryRunner.getClient();
+            TestingTrinoClient prestoClient = queryRunner.getClient();
 
             LOG.info("Loading data...");
 
@@ -104,7 +104,7 @@ public final class ElasticsearchQueryRunner
         queryRunner.createCatalog("elasticsearch", "elasticsearch", config);
     }
 
-    private static void loadTpchTopic(RestHighLevelClient client, TestingPrestoClient prestoClient, TpchTable<?> table)
+    private static void loadTpchTopic(RestHighLevelClient client, TestingTrinoClient prestoClient, TpchTable<?> table)
     {
         long start = System.nanoTime();
         LOG.info("Running import for %s", table.getTableName());

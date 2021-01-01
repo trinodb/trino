@@ -22,7 +22,7 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.client.QueryResults;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorCode;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -58,14 +58,14 @@ public class TestQueryStateInfoResource
     private static final String LONG_LASTING_QUERY = "SELECT * FROM tpch.sf1.lineitem";
     private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = jsonCodec(QueryResults.class);
 
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private HttpClient client;
     private QueryResults queryResults;
 
     @BeforeClass
     public void setUp()
     {
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         client = new JettyHttpClient();

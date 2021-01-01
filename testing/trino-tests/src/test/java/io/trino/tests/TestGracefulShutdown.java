@@ -21,8 +21,8 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.trino.Session;
 import io.trino.execution.TaskManager;
 import io.trino.server.BasicQueryInfo;
-import io.trino.server.testing.TestingPrestoServer;
-import io.trino.server.testing.TestingPrestoServer.TestShutdownAction;
+import io.trino.server.testing.TestingTrinoServer;
+import io.trino.server.testing.TestingTrinoServer.TestShutdownAction;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -78,7 +78,7 @@ public class TestGracefulShutdown
                 queryFutures.add(executor.submit(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk")));
             }
 
-            TestingPrestoServer worker = queryRunner.getServers()
+            TestingTrinoServer worker = queryRunner.getServers()
                     .stream()
                     .filter(server -> !server.isCoordinator())
                     .findFirst()
@@ -111,9 +111,9 @@ public class TestGracefulShutdown
             throws Exception
     {
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, ImmutableMap.of())) {
-            TestingPrestoServer coordinator = queryRunner.getServers()
+            TestingTrinoServer coordinator = queryRunner.getServers()
                     .stream()
-                    .filter(TestingPrestoServer::isCoordinator)
+                    .filter(TestingTrinoServer::isCoordinator)
                     .findFirst()
                     .get();
 

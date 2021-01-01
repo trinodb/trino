@@ -14,7 +14,7 @@
 package io.trino.plugin.memory;
 
 import io.airlift.units.Duration;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -55,7 +55,7 @@ public class TestMemoryWorkerCrash
             throws Exception
     {
         int nodeCount = getNodeCount();
-        TestingPrestoServer worker = getDistributedQueryRunner().getServers().stream()
+        TestingTrinoServer worker = getDistributedQueryRunner().getServers().stream()
                 .filter(server -> !server.isCoordinator())
                 .findAny()
                 .orElseThrow(() -> new IllegalStateException("No worker nodes"));
