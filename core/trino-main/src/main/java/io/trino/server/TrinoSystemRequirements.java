@@ -32,12 +32,12 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
-final class PrestoSystemRequirements
+final class TrinoSystemRequirements
 {
     private static final int MIN_FILE_DESCRIPTORS = 4096;
     private static final int RECOMMENDED_FILE_DESCRIPTORS = 8192;
 
-    private PrestoSystemRequirements() {}
+    private TrinoSystemRequirements() {}
 
     public static void verifyJvmRequirements()
     {
@@ -54,7 +54,7 @@ final class PrestoSystemRequirements
     {
         String dataModel = System.getProperty("sun.arch.data.model");
         if (!"64".equals(dataModel)) {
-            failRequirement("Presto requires a 64-bit JVM (found %s)", dataModel);
+            failRequirement("Trino requires a 64-bit JVM (found %s)", dataModel);
         }
     }
 
@@ -62,7 +62,7 @@ final class PrestoSystemRequirements
     {
         ByteOrder order = ByteOrder.nativeOrder();
         if (!order.equals(ByteOrder.LITTLE_ENDIAN)) {
-            failRequirement("Presto requires a little endian platform (found %s)", order);
+            failRequirement("Trino requires a little endian platform (found %s)", order);
         }
     }
 
@@ -72,7 +72,7 @@ final class PrestoSystemRequirements
         String osArch = StandardSystemProperty.OS_ARCH.value();
         if ("Linux".equals(osName)) {
             if (!ImmutableSet.of("amd64", "aarch64", "ppc64le").contains(osArch)) {
-                failRequirement("Presto requires amd64, aarch64, or ppc64le on Linux (found %s)", osArch);
+                failRequirement("Trino requires amd64, aarch64, or ppc64le on Linux (found %s)", osArch);
             }
             if ("aarch64".equals(osArch)) {
                 warnRequirement("Support for the ARM architecture is experimental");
@@ -83,11 +83,11 @@ final class PrestoSystemRequirements
         }
         else if ("Mac OS X".equals(osName)) {
             if (!"x86_64".equals(osArch)) {
-                failRequirement("Presto requires x86_64 on Mac OS X (found %s)", osArch);
+                failRequirement("Trino requires x86_64 on Mac OS X (found %s)", osArch);
             }
         }
         else {
-            failRequirement("Presto requires Linux or Mac OS X (found %s)", osName);
+            failRequirement("Trino requires Linux or Mac OS X (found %s)", osName);
         }
     }
 
@@ -95,7 +95,7 @@ final class PrestoSystemRequirements
     {
         Version required = Version.parse("11.0.7");
         if (Runtime.version().compareTo(required) < 0) {
-            failRequirement("Presto requires Java %s at minimum (found %s)", required, Runtime.version());
+            failRequirement("Trino requires Java %s at minimum (found %s)", required, Runtime.version());
         }
     }
 
@@ -107,7 +107,7 @@ final class PrestoSystemRequirements
                     .collect(toImmutableList());
 
             if (garbageCollectors.stream().noneMatch(name -> name.toUpperCase(Locale.US).startsWith("G1 "))) {
-                warnRequirement("Current garbage collectors are %s. Presto recommends the G1 garbage collector.", garbageCollectors);
+                warnRequirement("Current garbage collectors are %s. Trino recommends the G1 garbage collector.", garbageCollectors);
             }
         }
         catch (RuntimeException e) {
@@ -124,10 +124,10 @@ final class PrestoSystemRequirements
             failRequirement("Cannot read OS file descriptor limit");
         }
         if (maxFileDescriptorCount.getAsLong() < MIN_FILE_DESCRIPTORS) {
-            failRequirement("Presto requires at least %s file descriptors (found %s)", MIN_FILE_DESCRIPTORS, maxFileDescriptorCount.getAsLong());
+            failRequirement("Trino requires at least %s file descriptors (found %s)", MIN_FILE_DESCRIPTORS, maxFileDescriptorCount.getAsLong());
         }
         if (maxFileDescriptorCount.getAsLong() < RECOMMENDED_FILE_DESCRIPTORS) {
-            warnRequirement("Current OS file descriptor limit is %s. Presto recommends at least %s", maxFileDescriptorCount.getAsLong(), RECOMMENDED_FILE_DESCRIPTORS);
+            warnRequirement("Current OS file descriptor limit is %s. Trino recommends at least %s", maxFileDescriptorCount.getAsLong(), RECOMMENDED_FILE_DESCRIPTORS);
         }
     }
 
@@ -159,8 +159,8 @@ final class PrestoSystemRequirements
     public static void verifySystemTimeIsReasonable()
     {
         int currentYear = DateTime.now().year().get();
-        if (currentYear < 2019) {
-            failRequirement("Presto requires the system time to be current (found year %s)", currentYear);
+        if (currentYear < 2021) {
+            failRequirement("Trino requires the system time to be current (found year %s)", currentYear);
         }
     }
 

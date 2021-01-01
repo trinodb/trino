@@ -61,8 +61,8 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.discovery.client.ServiceAnnouncement.ServiceAnnouncementBuilder;
 import static io.airlift.discovery.client.ServiceAnnouncement.serviceAnnouncement;
-import static io.trino.server.PrestoSystemRequirements.verifyJvmRequirements;
-import static io.trino.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
+import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
 import static java.lang.String.format;
 import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
