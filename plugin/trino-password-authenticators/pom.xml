@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-password-authenticators</artifactId>
-    <description>Presto - Password Authenticators</description>
+    <description>Trino - Password Authenticators</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -74,7 +74,7 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

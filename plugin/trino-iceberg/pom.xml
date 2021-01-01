@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-iceberg</artifactId>
-    <description>Presto - Iceberg Connector</description>
+    <description>Trino - Iceberg Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -174,7 +174,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

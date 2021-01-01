@@ -44,7 +44,7 @@
         <value>*</value>
     </property>
 
-    <!-- Presto impersonation -->
+    <!-- Trino impersonation -->
     <property>
         <name>hadoop.proxyuser.presto-server.groups</name>
         <value>*</value>

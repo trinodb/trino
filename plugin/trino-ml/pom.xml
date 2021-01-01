@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-ml</artifactId>
-    <description>Presto - Machine Learning Plugin</description>
+    <description>Trino - Machine Learning Plugin</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -57,7 +57,7 @@
             <artifactId>fastutil</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

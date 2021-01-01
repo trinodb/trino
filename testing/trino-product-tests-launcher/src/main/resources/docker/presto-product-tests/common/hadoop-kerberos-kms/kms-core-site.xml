@@ -15,7 +15,7 @@
         <value>*</value>
     </property>
 
-    <!-- Presto impersonation in KMS -->
+    <!-- Trino impersonation in KMS -->
     <property>
         <name>hadoop.kms.proxyuser.presto-server.hosts</name>
         <value>*</value>

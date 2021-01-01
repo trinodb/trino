@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-redshift</artifactId>
-    <description>Presto - Redshift Connector</description>
+    <description>Trino - Redshift Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -45,7 +45,7 @@
             <version>9.3-1102-jdbc41</version>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

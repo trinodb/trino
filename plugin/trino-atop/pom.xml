@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-atop</artifactId>
-    <description>Presto - Atop Connector</description>
+    <description>Trino - Atop Connector</description>
 
     <packaging>trino-plugin</packaging>
 
@@ -87,7 +87,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

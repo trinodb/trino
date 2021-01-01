@@ -13,7 +13,7 @@
     <version>351-SNAPSHOT</version>
 
     <name>trino-root</name>
-    <description>Presto</description>
+    <description>Trino</description>
     <packaging>pom</packaging>
     <url>https://trino.io</url>
 

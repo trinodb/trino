@@ -11,7 +11,7 @@
 
     <artifactId>trino-thrift-testing-server</artifactId>
     <name>trino-thrift-testing-server</name>
-    <description>Presto - Thrift Testing Server</description>
+    <description>Trino - Thrift Testing Server</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

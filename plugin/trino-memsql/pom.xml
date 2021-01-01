@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-memsql</artifactId>
-    <description>Presto - MemSQL Connector</description>
+    <description>Trino - MemSQL Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -64,7 +64,7 @@
             <version>2.4.0</version>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

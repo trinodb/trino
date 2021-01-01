@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-thrift-api</artifactId>
-    <description>Presto - Thrift Connector API</description>
+    <description>Trino - Thrift Connector API</description>
     <packaging>jar</packaging>
 
     <properties>

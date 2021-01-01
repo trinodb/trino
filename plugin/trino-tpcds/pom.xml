@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-tpcds</artifactId>
-    <description>Presto - TPC-DS Connector</description>
+    <description>Trino - TPC-DS Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -42,7 +42,7 @@
             <artifactId>joda-time</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

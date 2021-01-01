@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-druid</artifactId>
-    <description>Presto - Druid Jdbc Connector</description>
+    <description>Trino - Druid Jdbc Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -72,7 +72,7 @@
             </exclusions>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

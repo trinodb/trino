@@ -11,7 +11,7 @@
 
     <artifactId>trino-memory-context</artifactId>
     <name>trino-memory-context</name>
-    <description>Presto - Memory Tracking Framework</description>
+    <description>Trino - Memory Tracking Framework</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

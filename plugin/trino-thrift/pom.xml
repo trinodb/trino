@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-thrift</artifactId>
-    <description>Presto - Thrift Connector</description>
+    <description>Trino - Thrift Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -121,7 +121,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

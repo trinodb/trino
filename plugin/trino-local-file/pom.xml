@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-local-file</artifactId>
-    <description>Presto - Local File Connector</description>
+    <description>Trino - Local File Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -53,7 +53,7 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

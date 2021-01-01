@@ -11,7 +11,7 @@
 
     <artifactId>trino-hive</artifactId>
     <name>trino-hive</name>
-    <description>Presto - Hive Connector</description>
+    <description>Trino - Hive Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -254,7 +254,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

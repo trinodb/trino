@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-postgresql</artifactId>
-    <description>Presto - PostgreSQL Connector</description>
+    <description>Trino - PostgreSQL Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -94,7 +94,7 @@
             <version>3.5.0</version>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
