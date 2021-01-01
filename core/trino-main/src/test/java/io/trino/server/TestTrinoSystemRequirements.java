@@ -15,10 +15,10 @@ package io.trino.server;
 
 import org.testng.annotations.Test;
 
-import static io.trino.server.PrestoSystemRequirements.verifyJvmRequirements;
-import static io.trino.server.PrestoSystemRequirements.verifySystemTimeIsReasonable;
+import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
+import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;
 
-public class TestPrestoSystemRequirements
+public class TestTrinoSystemRequirements
 {
     @Test
     public void testVerifyJvmRequirements()
