@@ -29,8 +29,8 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createResourceDataSource;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.HIVE_PARTITIONING;
-import static io.trino.tests.TestGroups.PRESTO_JDBC;
 import static io.trino.tests.TestGroups.SMOKE;
+import static io.trino.tests.TestGroups.TRINO_JDBC;
 import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static java.lang.String.format;
@@ -49,7 +49,7 @@ public class TestSyncPartitionMetadata
     @Inject
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE, PRESTO_JDBC})
+    @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testAddPartition()
     {
@@ -91,7 +91,7 @@ public class TestSyncPartitionMetadata
         cleanup(tableName);
     }
 
-    @Test(groups = {HIVE_PARTITIONING, SMOKE, PRESTO_JDBC})
+    @Test(groups = {HIVE_PARTITIONING, SMOKE, TRINO_JDBC})
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInvalidSyncMode()
     {

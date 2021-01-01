@@ -111,9 +111,9 @@ public class TestProgressMonitor
 
         try (Connection connection = createConnection()) {
             try (Statement statement = connection.createStatement()) {
-                PrestoStatement prestoStatement = statement.unwrap(PrestoStatement.class);
+                TrinoStatement trinoStatement = statement.unwrap(TrinoStatement.class);
                 RecordingProgressMonitor progressMonitor = new RecordingProgressMonitor();
-                prestoStatement.setProgressMonitor(progressMonitor);
+                trinoStatement.setProgressMonitor(progressMonitor);
                 try (ResultSet rs = statement.executeQuery("bogus query for testing")) {
                     ResultSetMetaData metadata = rs.getMetaData();
                     assertEquals(metadata.getColumnCount(), 1);
@@ -125,7 +125,7 @@ public class TestProgressMonitor
 
                     assertFalse(rs.next());
                 }
-                prestoStatement.clearProgressMonitor();
+                trinoStatement.clearProgressMonitor();
 
                 List<QueryStats> queryStatsList = progressMonitor.finish();
                 assertGreaterThanOrEqual(queryStatsList.size(), 5); // duplicate stats is possible
@@ -138,7 +138,7 @@ public class TestProgressMonitor
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s", server.url("/").uri().getAuthority());
+        String url = format("jdbc:trino://%s", server.url("/").uri().getAuthority());
         return DriverManager.getConnection(url, "test", null);
     }
 

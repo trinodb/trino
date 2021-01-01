@@ -33,11 +33,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static io.trino.jdbc.AbstractPrestoResultSet.resultsException;
+import static io.trino.jdbc.AbstractTrinoResultSet.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoStatement
+public class TrinoStatement
         implements Statement
 {
     private final AtomicLong maxRows = new AtomicLong();
@@ -45,16 +45,16 @@ public class PrestoStatement
     private final AtomicInteger fetchSize = new AtomicInteger();
     private final AtomicBoolean escapeProcessing = new AtomicBoolean(true);
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
-    private final AtomicReference<PrestoConnection> connection;
+    private final AtomicReference<TrinoConnection> connection;
     private final AtomicReference<StatementClient> executingClient = new AtomicReference<>();
-    private final AtomicReference<PrestoResultSet> currentResult = new AtomicReference<>();
+    private final AtomicReference<TrinoResultSet> currentResult = new AtomicReference<>();
     private final AtomicReference<Optional<WarningsManager>> currentWarningsManager = new AtomicReference<>(Optional.empty());
     private final AtomicLong currentUpdateCount = new AtomicLong(-1);
     private final AtomicReference<String> currentUpdateType = new AtomicReference<>();
     private final AtomicReference<Optional<Consumer<QueryStats>>> progressCallback = new AtomicReference<>(Optional.empty());
     private final Consumer<QueryStats> progressConsumer = value -> progressCallback.get().ifPresent(callback -> callback.accept(value));
 
-    PrestoStatement(PrestoConnection connection)
+    TrinoStatement(TrinoConnection connection)
     {
         this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
     }
@@ -234,7 +234,7 @@ public class PrestoStatement
         checkOpen();
 
         StatementClient client = null;
-        PrestoResultSet resultSet = null;
+        TrinoResultSet resultSet = null;
         try {
             client = connection().startQuery(sql, getStatementSessionProperties());
             if (client.isFinished()) {
@@ -246,7 +246,7 @@ public class PrestoStatement
             executingClient.set(client);
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(Optional.of(warningsManager));
-            resultSet = PrestoResultSet.create(this, client, maxRows.get(), progressConsumer, warningsManager);
+            resultSet = TrinoResultSet.create(this, client, maxRows.get(), progressConsumer, warningsManager);
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {
@@ -598,7 +598,7 @@ public class PrestoStatement
             client.cancelLeafStage();
         }
         else {
-            PrestoResultSet resultSet = currentResult.get();
+            TrinoResultSet resultSet = currentResult.get();
             if (resultSet != null) {
                 resultSet.partialCancel();
             }
@@ -611,10 +611,10 @@ public class PrestoStatement
         connection();
     }
 
-    protected final PrestoConnection connection()
+    protected final TrinoConnection connection()
             throws SQLException
     {
-        PrestoConnection connection = this.connection.get();
+        TrinoConnection connection = this.connection.get();
         if (connection == null) {
             throw new SQLException("Statement is closed");
         }

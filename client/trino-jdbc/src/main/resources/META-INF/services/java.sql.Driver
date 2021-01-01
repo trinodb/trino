@@ -1,1 +1,1 @@
-io.trino.jdbc.PrestoDriver
+io.trino.jdbc.TrinoDriver

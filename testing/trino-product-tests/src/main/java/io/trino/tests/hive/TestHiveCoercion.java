@@ -16,7 +16,7 @@ package io.trino.tests.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.jdbc.PrestoArray;
+import io.trino.jdbc.TrinoArray;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
 import io.trino.tempto.Requires;
@@ -745,10 +745,10 @@ public class TestHiveCoercion
                 .collect(toList()); // to allow nulls
     }
 
-    private static List<List<?>> extract(List<PrestoArray> arrays)
+    private static List<List<?>> extract(List<TrinoArray> arrays)
     {
         return arrays.stream()
-                .map(prestoArray -> Arrays.asList((Object[]) prestoArray.getArray()))
+                .map(trinoArray -> Arrays.asList((Object[]) trinoArray.getArray()))
                 .collect(toImmutableList());
     }
 

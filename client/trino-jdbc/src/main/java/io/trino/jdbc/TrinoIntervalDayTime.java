@@ -18,17 +18,17 @@ import java.util.Objects;
 import static io.trino.client.IntervalDayTime.formatMillis;
 import static io.trino.client.IntervalDayTime.toMillis;
 
-public class PrestoIntervalDayTime
-        implements Comparable<PrestoIntervalDayTime>
+public class TrinoIntervalDayTime
+        implements Comparable<TrinoIntervalDayTime>
 {
     private final long milliSeconds;
 
-    public PrestoIntervalDayTime(long milliSeconds)
+    public TrinoIntervalDayTime(long milliSeconds)
     {
         this.milliSeconds = milliSeconds;
     }
 
-    public PrestoIntervalDayTime(int day, int hour, int minute, int second, int millis)
+    public TrinoIntervalDayTime(int day, int hour, int minute, int second, int millis)
     {
         milliSeconds = toMillis(day, hour, minute, second, millis);
     }
@@ -53,12 +53,12 @@ public class PrestoIntervalDayTime
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        PrestoIntervalDayTime other = (PrestoIntervalDayTime) obj;
+        TrinoIntervalDayTime other = (TrinoIntervalDayTime) obj;
         return this.milliSeconds == other.milliSeconds;
     }
 
     @Override
-    public int compareTo(PrestoIntervalDayTime o)
+    public int compareTo(TrinoIntervalDayTime o)
     {
         return Long.compare(milliSeconds, o.milliSeconds);
     }

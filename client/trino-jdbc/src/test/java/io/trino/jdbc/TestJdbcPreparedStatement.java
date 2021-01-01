@@ -182,41 +182,41 @@ public class TestJdbcPreparedStatement
     @Test
     public void testGetClientTypeSignatureFromTypeString()
     {
-        ClientTypeSignature actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("boolean");
+        ClientTypeSignature actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("boolean");
         ClientTypeSignature expectedClientTypeSignature = new ClientTypeSignature("boolean", ImmutableList.of());
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
 
-        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("decimal(10,3)");
+        actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("decimal(10,3)");
         expectedClientTypeSignature = new ClientTypeSignature("decimal", ImmutableList.of(
                 ClientTypeSignatureParameter.ofLong(10),
                 ClientTypeSignatureParameter.ofLong(3)));
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
 
-        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("varchar");
+        actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("varchar");
         expectedClientTypeSignature = new ClientTypeSignature("varchar", ImmutableList.of(ClientTypeSignatureParameter.ofLong(VARCHAR_UNBOUNDED_LENGTH)));
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
 
-        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("varchar(10)");
+        actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("varchar(10)");
         expectedClientTypeSignature = new ClientTypeSignature("varchar", ImmutableList.of(ClientTypeSignatureParameter.ofLong(10)));
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
 
-        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("row(x integer, y array(integer))");
+        actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("row(x integer, y array(integer))");
         expectedClientTypeSignature = new ClientTypeSignature("row", ImmutableList.of());
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
 
-        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("array(integer)");
+        actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("array(integer)");
         expectedClientTypeSignature = new ClientTypeSignature("array", ImmutableList.of());
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
 
-        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("map(integer, integer)");
+        actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("map(integer, integer)");
         expectedClientTypeSignature = new ClientTypeSignature("map", ImmutableList.of());
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
 
-        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("timestamp(12) with time zone");
+        actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("timestamp(12) with time zone");
         expectedClientTypeSignature = new ClientTypeSignature("timestamp with time zone", ImmutableList.of(ClientTypeSignatureParameter.ofLong(12)));
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
 
-        actualClientTypeSignature = PrestoPreparedStatement.getClientTypeSignatureFromTypeString("time(13) with time zone");
+        actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("time(13) with time zone");
         expectedClientTypeSignature = new ClientTypeSignature("time with time zone", ImmutableList.of(ClientTypeSignatureParameter.ofLong(13)));
         assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
     }
@@ -736,7 +736,7 @@ public class TestJdbcPreparedStatement
         assertThatThrownBy(() -> assertion.roundTripsAs(Types.DATE, Date.valueOf(jvmGapDate)))
                 // TODO (https://github.com/trinodb/trino/issues/6242) this currently fails
                 .isInstanceOf(SQLException.class)
-                .hasStackTraceContaining("io.trino.jdbc.PrestoResultSet.getObject")
+                .hasStackTraceContaining("io.trino.jdbc.TrinoResultSet.getObject")
                 .hasMessage("Expected value to be a date but is: 1970-01-01");
 
         assertBind((ps, i) -> ps.setObject(i, jvmGapDate, Types.DATE))
@@ -980,14 +980,14 @@ public class TestJdbcPreparedStatement
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s", server.getAddress());
+        String url = format("jdbc:trino://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 
     private Connection createConnection(String catalog, String schema)
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
+        String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
     }
 

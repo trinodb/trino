@@ -13,7 +13,7 @@
  */
 package io.trino.tests.utils;
 
-import io.trino.jdbc.PrestoConnection;
+import io.trino.jdbc.TrinoConnection;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -60,8 +60,8 @@ public final class JdbcDriverUtils
             throws SQLException
     {
         @SuppressWarnings("resource")
-        PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
-        prestoConnection.setSessionProperty(key, value);
+        TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
+        trinoConnection.setSessionProperty(key, value);
     }
 
     public static void resetSessionProperty(Connection connection, String key)

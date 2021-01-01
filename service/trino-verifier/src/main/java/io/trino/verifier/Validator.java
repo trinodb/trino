@@ -29,9 +29,9 @@ import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.jdbc.PrestoConnection;
-import io.trino.jdbc.PrestoStatement;
 import io.trino.jdbc.QueryStats;
+import io.trino.jdbc.TrinoConnection;
+import io.trino.jdbc.TrinoStatement;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.verifier.Validator.ChangedRow.Changed;
 
@@ -478,7 +478,7 @@ public class Validator
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             trySetConnectionProperties(query, connection);
             for (Map.Entry<String, String> entry : sessionProperties.entrySet()) {
-                connection.unwrap(PrestoConnection.class).setSessionProperty(entry.getKey(), entry.getValue());
+                connection.unwrap(TrinoConnection.class).setSessionProperty(entry.getKey(), entry.getValue());
             }
 
             try (Statement statement = connection.createStatement()) {
@@ -489,9 +489,9 @@ public class Validator
                 }
 
                 long start = System.nanoTime();
-                PrestoStatement prestoStatement = limitedStatement.unwrap(PrestoStatement.class);
+                TrinoStatement trinoStatement = limitedStatement.unwrap(TrinoStatement.class);
                 ProgressMonitor progressMonitor = new ProgressMonitor();
-                prestoStatement.setProgressMonitor(progressMonitor);
+                trinoStatement.setProgressMonitor(progressMonitor);
                 boolean isSelectQuery = limitedStatement.execute(sql);
 
                 List<List<Object>> results;
@@ -507,7 +507,7 @@ public class Validator
                     results = ImmutableList.of(ImmutableList.of(limitedStatement.getLargeUpdateCount()));
                 }
 
-                prestoStatement.clearProgressMonitor();
+                trinoStatement.clearProgressMonitor();
                 QueryStats queryStats = progressMonitor.getFinalQueryStats();
                 if (queryStats == null) {
                     throw new VerifierException("Cannot fetch query stats");

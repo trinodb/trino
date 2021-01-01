@@ -70,7 +70,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-public class PrestoConnection
+public class TrinoConnection
         implements Connection
 {
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -100,7 +100,7 @@ public class PrestoConnection
     private final AtomicReference<String> transactionId = new AtomicReference<>();
     private final QueryExecutor queryExecutor;
 
-    PrestoConnection(PrestoDriverUri uri, QueryExecutor queryExecutor)
+    TrinoConnection(TrinoDriverUri uri, QueryExecutor queryExecutor)
             throws SQLException
     {
         requireNonNull(uri, "uri is null");
@@ -129,7 +129,7 @@ public class PrestoConnection
             throws SQLException
     {
         checkOpen();
-        return new PrestoStatement(this);
+        return new TrinoStatement(this);
     }
 
     @Override
@@ -138,7 +138,7 @@ public class PrestoConnection
     {
         checkOpen();
         String name = "statement" + nextStatementId.getAndIncrement();
-        return new PrestoPreparedStatement(this, name, sql);
+        return new TrinoPreparedStatement(this, name, sql);
     }
 
     @Override
@@ -187,7 +187,7 @@ public class PrestoConnection
             // empty transaction
             return;
         }
-        try (PrestoStatement statement = new PrestoStatement(this)) {
+        try (TrinoStatement statement = new TrinoStatement(this)) {
             statement.internalExecute("COMMIT");
         }
     }
@@ -204,7 +204,7 @@ public class PrestoConnection
             // empty transaction
             return;
         }
-        try (PrestoStatement statement = new PrestoStatement(this)) {
+        try (TrinoStatement statement = new TrinoStatement(this)) {
             statement.internalExecute("ROLLBACK");
         }
     }
@@ -215,7 +215,7 @@ public class PrestoConnection
     {
         try {
             if (!closed.get() && (transactionId.get() != null)) {
-                try (PrestoStatement statement = new PrestoStatement(this)) {
+                try (TrinoStatement statement = new TrinoStatement(this)) {
                     statement.internalExecute("ROLLBACK");
                 }
             }
@@ -236,7 +236,7 @@ public class PrestoConnection
     public DatabaseMetaData getMetaData()
             throws SQLException
     {
-        return new PrestoDatabaseMetaData(this);
+        return new TrinoDatabaseMetaData(this);
     }
 
     @Override
@@ -798,7 +798,7 @@ public class PrestoConnection
         if (source.isPresent()) {
             return source.get();
         }
-        String source = "presto-jdbc";
+        String source = "trino-jdbc";
         String applicationName = clientInfo.get(APPLICATION_NAME);
         if (applicationNamePrefix.isPresent()) {
             source = applicationNamePrefix.get();

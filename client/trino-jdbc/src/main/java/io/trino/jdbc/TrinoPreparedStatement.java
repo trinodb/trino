@@ -62,9 +62,9 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
-import static io.trino.jdbc.AbstractPrestoResultSet.DATE_FORMATTER;
-import static io.trino.jdbc.AbstractPrestoResultSet.TIMESTAMP_FORMATTER;
-import static io.trino.jdbc.AbstractPrestoResultSet.TIME_FORMATTER;
+import static io.trino.jdbc.AbstractTrinoResultSet.DATE_FORMATTER;
+import static io.trino.jdbc.AbstractTrinoResultSet.TIMESTAMP_FORMATTER;
+import static io.trino.jdbc.AbstractTrinoResultSet.TIME_FORMATTER;
 import static io.trino.jdbc.ColumnInfo.setTypeInfo;
 import static io.trino.jdbc.ObjectCasts.castToBigDecimal;
 import static io.trino.jdbc.ObjectCasts.castToBinary;
@@ -82,8 +82,8 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoPreparedStatement
-        extends PrestoStatement
+public class TrinoPreparedStatement
+        extends TrinoStatement
         implements PreparedStatement
 {
     private static final DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
@@ -109,7 +109,7 @@ public class PrestoPreparedStatement
     private final String originalSql;
     private boolean isBatch;
 
-    PrestoPreparedStatement(PrestoConnection connection, String statementName, String sql)
+    TrinoPreparedStatement(TrinoConnection connection, String statementName, String sql)
             throws SQLException
     {
         super(connection);
@@ -683,7 +683,7 @@ public class PrestoPreparedStatement
             throws SQLException
     {
         try (Statement statement = connection().createStatement(); ResultSet resultSet = statement.executeQuery("DESCRIBE OUTPUT " + statementName)) {
-            return new PrestoResultSetMetaData(getDescribeOutputColumnInfoList(resultSet));
+            return new TrinoResultSetMetaData(getDescribeOutputColumnInfoList(resultSet));
         }
     }
 
@@ -1066,9 +1066,9 @@ public class PrestoPreparedStatement
         throw new SQLException("Unsupported target SQL type: " + targetSqlType);
     }
 
-    private static String typedNull(String prestoType)
+    private static String typedNull(String type)
     {
-        return format("CAST(NULL AS %s)", prestoType);
+        return format("CAST(NULL AS %s)", type);
     }
 
     private static List<ColumnInfo> getDescribeOutputColumnInfoList(ResultSet resultSet)

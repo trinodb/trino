@@ -178,7 +178,7 @@ public class TestJdbcWarnings
             TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
             List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
             for (TrinoWarning trinoWarning : expectedWarnings) {
-                assertTrue(currentWarnings.contains(new WarningEntry(toPrestoSqlWarning(trinoWarning))));
+                assertTrue(currentWarnings.contains(new WarningEntry(toTrinoSqlWarning(trinoWarning))));
             }
         }
     }
@@ -193,9 +193,9 @@ public class TestJdbcWarnings
         List<TrinoWarning> warnings = builder.build();
         SQLWarning warning = fromTrinoWarnings(warnings);
         assertEquals(Iterators.size(warning.iterator()), warnings.size());
-        assertWarningsEqual(warning, toPrestoSqlWarning(warnings.get(0)));
-        assertWarningsEqual(warning.getNextWarning(), toPrestoSqlWarning(warnings.get(1)));
-        assertWarningsEqual(warning.getNextWarning().getNextWarning(), toPrestoSqlWarning(warnings.get(2)));
+        assertWarningsEqual(warning, toTrinoSqlWarning(warnings.get(0)));
+        assertWarningsEqual(warning.getNextWarning(), toTrinoSqlWarning(warnings.get(1)));
+        assertWarningsEqual(warning.getNextWarning().getNextWarning(), toTrinoSqlWarning(warnings.get(2)));
     }
 
     private static void assertStatementWarnings(Statement statement, Future<?> future)
@@ -240,18 +240,18 @@ public class TestJdbcWarnings
         requireNonNull(warnings, "warnings is null");
         assertFalse(warnings.isEmpty());
         Iterator<TrinoWarning> iterator = warnings.iterator();
-        PrestoSqlWarning first = toPrestoSqlWarning(iterator.next());
+        TrinoSqlWarning first = toTrinoSqlWarning(iterator.next());
         SQLWarning current = first;
         while (iterator.hasNext()) {
-            current.setNextWarning(toPrestoSqlWarning(iterator.next()));
+            current.setNextWarning(toTrinoSqlWarning(iterator.next()));
             current = current.getNextWarning();
         }
         return first;
     }
 
-    private static PrestoSqlWarning toPrestoSqlWarning(TrinoWarning warning)
+    private static TrinoSqlWarning toTrinoSqlWarning(TrinoWarning warning)
     {
-        return new PrestoSqlWarning(toClientWarning(warning));
+        return new TrinoSqlWarning(toClientWarning(warning));
     }
 
     private static Warning toClientWarning(TrinoWarning warning)
@@ -281,7 +281,7 @@ public class TestJdbcWarnings
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/blackhole/blackhole", server.getAddress());
+        String url = format("jdbc:trino://%s/blackhole/blackhole", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 

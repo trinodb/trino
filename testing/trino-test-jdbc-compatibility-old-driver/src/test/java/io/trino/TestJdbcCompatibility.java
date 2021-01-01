@@ -94,7 +94,7 @@ public class TestJdbcCompatibility
 
         server.installPlugin(new MongoPlugin());
 
-        serverUrl = format("jdbc:presto://%s", server.getAddress());
+        serverUrl = format("jdbc:trino://%s", server.getAddress());
     }
 
     @AfterClass(alwaysRun = true)

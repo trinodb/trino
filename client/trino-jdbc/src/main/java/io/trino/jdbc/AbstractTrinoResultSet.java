@@ -85,7 +85,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
-abstract class AbstractPrestoResultSet
+abstract class AbstractTrinoResultSet
         implements ResultSet
 {
     private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
@@ -137,8 +137,8 @@ abstract class AbstractPrestoResultSet
             .put("time with time zone", java.sql.Time.class)
             .put("timestamp", java.sql.Timestamp.class)
             .put("timestamp with time zone", java.sql.Timestamp.class)
-            .put("interval year to month", PrestoIntervalYearMonth.class)
-            .put("interval day to second", PrestoIntervalDayTime.class)
+            .put("interval year to month", TrinoIntervalYearMonth.class)
+            .put("interval day to second", TrinoIntervalDayTime.class)
             .put("map", Map.class)
             .put("row", Row.class)
             .build();
@@ -146,7 +146,7 @@ abstract class AbstractPrestoResultSet
     @VisibleForTesting
     static final TypeConversions TYPE_CONVERSIONS =
             TypeConversions.builder()
-                    .add("decimal", String.class, BigDecimal.class, AbstractPrestoResultSet::parseBigDecimal)
+                    .add("decimal", String.class, BigDecimal.class, AbstractTrinoResultSet::parseBigDecimal)
                     .add("varbinary", byte[].class, String.class, value -> "0x" + BaseEncoding.base16().encode(value))
                     .add("date", String.class, Date.class, string -> {
                         try {
@@ -158,12 +158,12 @@ abstract class AbstractPrestoResultSet
                         }
                     })
                     .add("time", String.class, Time.class, string -> parseTime(string, ZoneId.systemDefault()))
-                    .add("time with time zone", String.class, Time.class, AbstractPrestoResultSet::parseTimeWithTimeZone)
+                    .add("time with time zone", String.class, Time.class, AbstractTrinoResultSet::parseTimeWithTimeZone)
                     .add("timestamp", String.class, Timestamp.class, string -> parseTimestampAsSqlTimestamp(string, ZoneId.systemDefault()))
-                    .add("timestamp with time zone", String.class, Timestamp.class, AbstractPrestoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
-                    .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractPrestoResultSet::parseTimestampWithTimeZone)
-                    .add("interval year to month", String.class, PrestoIntervalYearMonth.class, AbstractPrestoResultSet::parseIntervalYearMonth)
-                    .add("interval day to second", String.class, PrestoIntervalDayTime.class, AbstractPrestoResultSet::parseIntervalDayTime)
+                    .add("timestamp with time zone", String.class, Timestamp.class, AbstractTrinoResultSet::parseTimestampWithTimeZoneAsSqlTimestamp)
+                    .add("timestamp with time zone", String.class, ZonedDateTime.class, AbstractTrinoResultSet::parseTimestampWithTimeZone)
+                    .add("interval year to month", String.class, TrinoIntervalYearMonth.class, AbstractTrinoResultSet::parseIntervalYearMonth)
+                    .add("interval day to second", String.class, TrinoIntervalDayTime.class, AbstractTrinoResultSet::parseIntervalDayTime)
                     .add("array", List.class, List.class, (type, list) -> (List<?>) convertFromClientRepresentation(type, list))
                     .add("map", Map.class, Map.class, (type, map) -> (Map<?, ?>) convertFromClientRepresentation(type, map))
                     .add("row", io.trino.client.Row.class, Row.class, (type, clientRow) -> (Row) convertFromClientRepresentation(type, clientRow))
@@ -193,7 +193,7 @@ abstract class AbstractPrestoResultSet
     protected final AtomicBoolean closed = new AtomicBoolean();
     private final Optional<Statement> statement;
 
-    AbstractPrestoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
+    AbstractTrinoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
         this.resultTimeZone = DateTimeZone.forID(ZoneId.systemDefault().getId());
@@ -201,7 +201,7 @@ abstract class AbstractPrestoResultSet
         requireNonNull(columns, "columns is null");
         this.fieldMap = getFieldMap(columns);
         this.columnInfoList = getColumnInfo(columns);
-        this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
+        this.resultSetMetaData = new TrinoResultSetMetaData(columnInfoList);
 
         this.results = requireNonNull(results, "results is null");
     }
@@ -683,14 +683,14 @@ abstract class AbstractPrestoResultSet
         return value;
     }
 
-    private static PrestoIntervalYearMonth parseIntervalYearMonth(String value)
+    private static TrinoIntervalYearMonth parseIntervalYearMonth(String value)
     {
-        return new PrestoIntervalYearMonth(IntervalYearMonth.parseMonths(value));
+        return new TrinoIntervalYearMonth(IntervalYearMonth.parseMonths(value));
     }
 
-    private static PrestoIntervalDayTime parseIntervalDayTime(String value)
+    private static TrinoIntervalDayTime parseIntervalDayTime(String value)
     {
-        return new PrestoIntervalDayTime(IntervalDayTime.parseMillis(value));
+        return new TrinoIntervalDayTime(IntervalDayTime.parseMillis(value));
     }
 
     @Override
@@ -1281,7 +1281,7 @@ abstract class AbstractPrestoResultSet
         ClientTypeSignature columnTypeSignature = columnInfo.getColumnTypeSignature();
         String elementTypeName = getOnlyElement(columnTypeSignature.getArguments()).toString();
         int elementType = getOnlyElement(columnInfo.getColumnParameterTypes());
-        return new PrestoArray(elementTypeName, elementType, (List<?>) convertFromClientRepresentation(columnTypeSignature, value));
+        return new TrinoArray(elementTypeName, elementType, (List<?>) convertFromClientRepresentation(columnTypeSignature, value));
     }
 
     @Override

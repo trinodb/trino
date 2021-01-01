@@ -40,21 +40,21 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
-public class PrestoResultSet
-        extends AbstractPrestoResultSet
+public class TrinoResultSet
+        extends AbstractTrinoResultSet
 {
     private final StatementClient client;
     private final String queryId;
 
-    static PrestoResultSet create(Statement statement, StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    static TrinoResultSet create(Statement statement, StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         requireNonNull(client, "client is null");
         List<Column> columns = getColumns(client, progressCallback);
-        return new PrestoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
+        return new TrinoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
     }
 
-    private PrestoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    private TrinoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         super(
@@ -106,7 +106,7 @@ public class PrestoResultSet
             extends AbstractIterator<T>
     {
         private static final int MAX_QUEUED_ROWS = 50_000;
-        private static final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("Presto JDBC worker-%d"));
+        private static final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("Trino JDBC worker-%d"));
 
         private final StatementClient client;
         private final BlockingQueue<T> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);

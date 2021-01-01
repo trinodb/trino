@@ -50,7 +50,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestPrestoDriverAuth
+public class TestTrinoDriverAuth
 {
     private static final String TEST_CATALOG = "test_catalog";
     private TestingPrestoServer server;
@@ -323,7 +323,7 @@ public class TestPrestoDriverAuth
     private Connection createConnection(Map<String, String> additionalProperties)
             throws SQLException
     {
-        String url = format("jdbc:presto://localhost:%s", server.getHttpsAddress().getPort());
+        String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
         properties.setProperty("user", "test");
         properties.setProperty("SSL", "true");
@@ -336,7 +336,7 @@ public class TestPrestoDriverAuth
     private Connection createBasicConnection(Map<String, String> additionalProperties)
             throws SQLException
     {
-        String url = format("jdbc:presto://localhost:%s", server.getHttpsAddress().getPort());
+        String url = format("jdbc:trino://localhost:%s", server.getHttpsAddress().getPort());
         Properties properties = new Properties();
         properties.setProperty("user", "test");
         additionalProperties.forEach(properties::setProperty);

@@ -91,7 +91,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
-public class TestPrestoDatabaseMetaData
+public class TestTrinoDatabaseMetaData
 {
     private static final String TEST_CATALOG = "test_catalog";
     private static final String COUNTING_CATALOG = "mock_catalog";
@@ -246,7 +246,7 @@ public class TestPrestoDatabaseMetaData
             throws Exception
     {
         DatabaseMetaData metaData = connection.getMetaData();
-        assertEquals(metaData.getURL(), "jdbc:presto://" + server.getAddress());
+        assertEquals(metaData.getURL(), "jdbc:trino://" + server.getAddress());
     }
 
     @Test
@@ -255,7 +255,7 @@ public class TestPrestoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            assertEquals(metaData.getDatabaseProductName(), "Presto");
+            assertEquals(metaData.getDatabaseProductName(), "Trino");
             assertEquals(metaData.getDatabaseProductVersion(), "testversion");
             assertEquals(metaData.getDatabaseMajorVersion(), 0);
             assertEquals(metaData.getDatabaseMinorVersion(), 0);
@@ -330,7 +330,7 @@ public class TestPrestoDatabaseMetaData
             }
 
             try (ResultSet rs = connection.getMetaData().getSchemas("", null)) {
-                // all schemas in presto have a catalog name
+                // all schemas in Trino have a catalog name
                 assertGetSchemasResult(rs, list());
             }
 
@@ -1448,14 +1448,14 @@ public class TestPrestoDatabaseMetaData
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s", server.getAddress());
+        String url = format("jdbc:trino://%s", server.getAddress());
         return DriverManager.getConnection(url, "admin", null);
     }
 
     private Connection createConnection(String catalog, String schema)
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
+        String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "admin", null);
     }
 

@@ -27,59 +27,59 @@ import static io.trino.tests.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
 import static io.trino.tests.TestGroups.LDAP;
-import static io.trino.tests.TestGroups.PRESTO_JDBC;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.TestGroups.TRINO_JDBC;
 import static io.trino.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static java.lang.String.format;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
-public class TestLdapPrestoJdbc
+public class TestLdapTrinoJdbc
         extends BaseLdapJdbcTest
 {
     @Override
     protected String getLdapUrlFormat()
     {
-        return "jdbc:presto://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s";
+        return "jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s";
     }
 
     @Requires(ImmutableNationTable.class)
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldRunQueryWithLdap()
             throws SQLException
     {
         assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, ldapUserPassword)).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInChildGroup()
     {
         String name = CHILD_GROUP_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapUserInParentGroup()
     {
         String name = PARENT_GROUP_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForOrphanLdapUser()
     {
         String name = ORPHAN_USER.getAttributes().get("cn");
         expectQueryToFailForUserNotInGroup(name);
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForWrongLdapPassword()
     {
         expectQueryToFail(ldapUserName, "wrong_password", "Authentication failed: Access Denied: Invalid credentials");
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForWrongLdapUser()
     {
         assertThatThrownBy(() -> executeLdapQuery(NATION_SELECT_ALL_QUERY, "invalid_user", ldapUserPassword))
@@ -87,23 +87,23 @@ public class TestLdapPrestoJdbc
                 .hasMessageStartingWith("Authentication failed");
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForEmptyUser()
     {
         expectQueryToFail("", ldapUserPassword, "Connection property 'user' value is empty");
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapWithoutPassword()
     {
         expectQueryToFail(ldapUserName, null, "Authentication failed: Unauthorized");
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapWithoutSsl()
     {
         try {
-            DriverManager.getConnection("jdbc:presto://" + prestoServer(), ldapUserName, ldapUserPassword);
+            DriverManager.getConnection("jdbc:trino://" + prestoServer(), ldapUserName, ldapUserPassword);
             fail();
         }
         catch (SQLException exception) {
@@ -111,11 +111,11 @@ public class TestLdapPrestoJdbc
         }
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForIncorrectTrustStore()
     {
         try {
-            String url = format("jdbc:presto://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", prestoServer(), ldapTruststorePath, "wrong_password");
+            String url = format("jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", prestoServer(), ldapTruststorePath, "wrong_password");
             Connection connection = DriverManager.getConnection(url, ldapUserName, ldapUserPassword);
             Statement statement = connection.createStatement();
             statement.executeQuery(NATION_SELECT_ALL_QUERY);
@@ -126,7 +126,7 @@ public class TestLdapPrestoJdbc
         }
     }
 
-    @Test(groups = {LDAP, PRESTO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForUserWithColon()
     {
         expectQueryToFail("UserWith:Colon", ldapUserPassword, "Illegal character ':' found in username");

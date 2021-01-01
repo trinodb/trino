@@ -76,7 +76,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
-public class TestPrestoDriver
+public class TestTrinoDriver
 {
     private static final DateTimeZone ASIA_ORAL_ZONE = DateTimeZone.forID("Asia/Oral");
     private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(TimeZone.getTimeZone(ZoneId.of(ASIA_ORAL_ZONE.getID())));
@@ -323,10 +323,10 @@ public class TestPrestoDriver
                     assertEquals(rs.getDate("g", ASIA_ORAL_CALENDAR), new Date(new DateTime(2013, 3, 22, 0, 0, ASIA_ORAL_ZONE).getMillis()));
                     assertEquals(rs.getObject("g"), new Date(new DateTime(2013, 3, 22, 0, 0).getMillis()));
 
-                    assertEquals(rs.getObject(8), new PrestoIntervalYearMonth(123, 11));
-                    assertEquals(rs.getObject("h"), new PrestoIntervalYearMonth(123, 11));
-                    assertEquals(rs.getObject(9), new PrestoIntervalDayTime(11, 22, 33, 44, 555));
-                    assertEquals(rs.getObject("i"), new PrestoIntervalDayTime(11, 22, 33, 44, 555));
+                    assertEquals(rs.getObject(8), new TrinoIntervalYearMonth(123, 11));
+                    assertEquals(rs.getObject("h"), new TrinoIntervalYearMonth(123, 11));
+                    assertEquals(rs.getObject(9), new TrinoIntervalDayTime(11, 22, 33, 44, 555));
+                    assertEquals(rs.getObject("i"), new TrinoIntervalDayTime(11, 22, 33, 44, 555));
 
                     assertEquals(rs.getFloat(10), 123.45f);
                     assertEquals(rs.getObject(10), 123.45f);
@@ -347,13 +347,13 @@ public class TestPrestoDriver
     public void testGetDriverVersion()
             throws Exception
     {
-        Driver driver = DriverManager.getDriver("jdbc:presto:");
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
         assertEquals(driver.getMajorVersion(), 0);
         assertEquals(driver.getMajorVersion(), 0);
 
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            assertEquals(metaData.getDriverName(), PrestoDriver.DRIVER_NAME);
+            assertEquals(metaData.getDriverName(), TrinoDriver.DRIVER_NAME);
             assertEquals(metaData.getDriverVersion(), "unknown");
             assertEquals(metaData.getDriverMajorVersion(), 0);
             assertEquals(metaData.getDriverMinorVersion(), 0);
@@ -557,7 +557,7 @@ public class TestPrestoDriver
             throws Exception
     {
         try (Connection connection = createConnection("blackhole", "default")) {
-            try (PrestoStatement statement = connection.createStatement().unwrap(PrestoStatement.class)) {
+            try (TrinoStatement statement = connection.createStatement().unwrap(TrinoStatement.class)) {
                 assertFalse(statement.execute("CREATE TABLE test_more_results_clears_update_count (id bigint)"));
                 assertEquals(statement.getUpdateCount(), 0);
                 assertEquals(statement.getUpdateType(), "CREATE TABLE");
@@ -589,7 +589,7 @@ public class TestPrestoDriver
                 assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
             }
 
-            connection.unwrap(PrestoConnection.class).setTimeZoneId("UTC");
+            connection.unwrap(TrinoConnection.class).setTimeZoneId("UTC");
             try (Statement statement = connection.createStatement();
                     ResultSet rs = statement.executeQuery(sql)) {
                 assertTrue(rs.next());
@@ -604,7 +604,7 @@ public class TestPrestoDriver
     public void testConnectionStringWithCatalogAndSchema()
             throws Exception
     {
-        String prefix = format("jdbc:presto://%s", server.getAddress());
+        String prefix = format("jdbc:trino://%s", server.getAddress());
 
         Connection connection;
         connection = DriverManager.getConnection(prefix + "/a/b/", "test", null);
@@ -714,7 +714,7 @@ public class TestPrestoDriver
     public void testUserIsRequired()
             throws Exception
     {
-        try (Connection ignored = DriverManager.getConnection(format("jdbc:presto://%s", server.getAddress()))) {
+        try (Connection ignored = DriverManager.getConnection(format("jdbc:trino://%s", server.getAddress()))) {
             fail("expected exception");
         }
     }
@@ -723,7 +723,7 @@ public class TestPrestoDriver
     public void testSetRole()
             throws Exception
     {
-        try (PrestoConnection connection = createConnection(TEST_CATALOG, "tiny").unwrap(PrestoConnection.class)) {
+        try (TrinoConnection connection = createConnection(TEST_CATALOG, "tiny").unwrap(TrinoConnection.class)) {
             try (Statement statement = connection.createStatement()) {
                 statement.executeUpdate("SET ROLE ALL");
             }
@@ -752,7 +752,7 @@ public class TestPrestoDriver
             try (Connection connection = createConnection("blackhole", "blackhole");
                     Statement statement = connection.createStatement();
                     ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_test_table")) {
-                queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
+                queryId.set(resultSet.unwrap(TrinoResultSet.class).getQueryId());
                 queryStarted.countDown();
                 try {
                     resultSet.next();
@@ -797,7 +797,7 @@ public class TestPrestoDriver
             // execute the slow query on another thread
             executorService.execute(() -> {
                 try (ResultSet resultSet = statement.executeQuery("SELECT * FROM slow_test_table")) {
-                    queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
+                    queryId.set(resultSet.unwrap(TrinoResultSet.class).getQueryId());
                     queryStarted.countDown();
                     resultSet.next();
                 }
@@ -922,7 +922,7 @@ public class TestPrestoDriver
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("SELECT count(*) FROM slow_test_table")) {
-            statement.unwrap(PrestoStatement.class).partialCancel();
+            statement.unwrap(TrinoStatement.class).partialCancel();
             assertTrue(resultSet.next());
             assertEquals(resultSet.getLong(1), 0);
         }
@@ -941,7 +941,7 @@ public class TestPrestoDriver
                     statement.executeUpdate("INSERT INTO test_table SELECT count(*) x FROM slow_test_table"));
 
             // wait for query to start running
-            statement.unwrap(PrestoStatement.class).setProgressMonitor(stats -> {
+            statement.unwrap(TrinoStatement.class).setProgressMonitor(stats -> {
                 if (stats.getState().equals(RUNNING.toString())) {
                     queryRunning.countDown();
                 }
@@ -949,7 +949,7 @@ public class TestPrestoDriver
             queryRunning.await(10, SECONDS);
 
             // perform partial cancel from this test thread
-            statement.unwrap(PrestoStatement.class).partialCancel();
+            statement.unwrap(TrinoStatement.class).partialCancel();
 
             // make sure query completes
             assertEquals(future.get(10, SECONDS), (Integer) 1);
@@ -987,21 +987,21 @@ public class TestPrestoDriver
     private Connection createConnection()
             throws SQLException
     {
-        String url = format("jdbc:presto://%s", server.getAddress());
+        String url = format("jdbc:trino://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
 
     private Connection createConnection(String catalog)
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/%s", server.getAddress(), catalog);
+        String url = format("jdbc:trino://%s/%s", server.getAddress(), catalog);
         return DriverManager.getConnection(url, "test", null);
     }
 
     private Connection createConnection(String catalog, String schema)
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
+        String url = format("jdbc:trino://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
     }
 }
