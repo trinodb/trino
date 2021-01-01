@@ -20,9 +20,9 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 
-public final class PrestoServer
+public final class TrinoServer
 {
-    private PrestoServer() {}
+    private TrinoServer() {}
 
     public static void main(String[] args)
     {
@@ -34,7 +34,7 @@ public final class PrestoServer
             System.exit(100);
         }
 
-        String version = PrestoServer.class.getPackage().getImplementationVersion();
+        String version = TrinoServer.class.getPackage().getImplementationVersion();
         new Server().start(firstNonNull(version, "unknown"));
     }
 }

@@ -543,7 +543,7 @@ public class TestingTrinoServer
     private static void updateConnectorIdAnnouncement(Announcer announcer, CatalogName catalogName, InternalNodeManager nodeManager)
     {
         //
-        // This code was copied from PrestoServer, and is a hack that should be removed when the connectorId property is removed
+        // This code was copied from TrinoServer, and is a hack that should be removed when the connectorId property is removed
         //
 
         // get existing announcement
