@@ -27,7 +27,7 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.server.security.oauth2.OAuth2Client;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
 import okhttp3.FormBody;
@@ -129,7 +129,7 @@ public class TestWebUi
     public void testInsecureAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(SECURE_PROPERTIES)
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -142,7 +142,7 @@ public class TestWebUi
     public void testPasswordAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
@@ -154,7 +154,7 @@ public class TestWebUi
         }
     }
 
-    private void testFormAuthentication(TestingPrestoServer server, HttpServerInfo httpServerInfo, boolean sendPasswordForHttps)
+    private void testFormAuthentication(TestingTrinoServer server, HttpServerInfo httpServerInfo, boolean sendPasswordForHttps)
             throws Exception
     {
         testRootRedirect(httpServerInfo.getHttpUri(), client);
@@ -310,7 +310,7 @@ public class TestWebUi
     public void testDisabled()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("web-ui.enabled", "false")
@@ -346,7 +346,7 @@ public class TestWebUi
     public void testNoPasswordAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
@@ -367,7 +367,7 @@ public class TestWebUi
     public void testFixedAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("web-ui.authentication.type", "fixed")
@@ -401,7 +401,7 @@ public class TestWebUi
     public void testCertAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "certificate")
@@ -434,7 +434,7 @@ public class TestWebUi
     public void testJwtAuthenticator()
             throws Exception
     {
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "jwt")
@@ -470,7 +470,7 @@ public class TestWebUi
     {
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "jwt")
@@ -528,7 +528,7 @@ public class TestWebUi
 
         TestingHttpServer jwkServer = createTestingJwkServer();
         jwkServer.start();
-        try (TestingPrestoServer server = TestingPrestoServer.builder()
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("web-ui.authentication.type", "oauth2")

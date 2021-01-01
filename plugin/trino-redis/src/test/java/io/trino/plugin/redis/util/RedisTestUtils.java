@@ -22,7 +22,7 @@ import io.trino.plugin.redis.RedisTableDescription;
 import io.trino.plugin.redis.TestingRedisPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingPrestoClient;
+import io.trino.testing.TestingTrinoClient;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,7 +48,7 @@ public final class RedisTestUtils
         queryRunner.createCatalog("redis", "redis", redisConfig);
     }
 
-    public static void loadTpchTable(RedisServer redisServer, TestingPrestoClient prestoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
+    public static void loadTpchTable(RedisServer redisServer, TestingTrinoClient prestoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
     {
         RedisLoader tpchLoader = new RedisLoader(prestoClient.getServer(), prestoClient.getDefaultSession(), redisServer.getJedisPool(), tableName, dataFormat);
         tpchLoader.execute(format("SELECT * from %s", tpchTableName));

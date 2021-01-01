@@ -13,7 +13,7 @@
  */
 package io.trino;
 
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 
 import java.lang.reflect.Field;
 
@@ -21,10 +21,10 @@ public class TestingServerUtils
 {
     private TestingServerUtils() {}
 
-    public static void setTestingServer(Object target, TestingPrestoServer server)
+    public static void setTestingServer(Object target, TestingTrinoServer server)
     {
         try {
-            // Use reflection to inject TestingPrestoServer into private server field in target object.
+            // Use reflection to inject TestingTrinoServer into private server field in target object.
             Field serverField = target.getClass().getSuperclass().getDeclaredField("server");
             serverField.setAccessible(true);
             serverField.set(target, server);

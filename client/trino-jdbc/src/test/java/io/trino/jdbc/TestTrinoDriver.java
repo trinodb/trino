@@ -19,7 +19,7 @@ import io.trino.client.ClientSelectedRole;
 import io.trino.execution.QueryState;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -82,7 +82,7 @@ public class TestTrinoDriver
     private static final GregorianCalendar ASIA_ORAL_CALENDAR = new GregorianCalendar(TimeZone.getTimeZone(ZoneId.of(ASIA_ORAL_ZONE.getID())));
     private static final String TEST_CATALOG = "test_catalog";
 
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private ExecutorService executorService;
 
     @BeforeClass
@@ -90,7 +90,7 @@ public class TestTrinoDriver
             throws Exception
     {
         Logging.initialize();
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");
         server.installPlugin(new BlackHolePlugin());

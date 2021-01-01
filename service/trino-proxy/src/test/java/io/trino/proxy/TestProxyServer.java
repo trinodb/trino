@@ -28,7 +28,7 @@ import io.trino.jdbc.TrinoResultSet;
 import io.trino.jdbc.TrinoStatement;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -64,7 +64,7 @@ import static org.testng.Assert.assertTrue;
 public class TestProxyServer
 {
     private Path sharedSecretFile;
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private LifeCycleManager lifeCycleManager;
     private HttpServerInfo httpServerInfo;
     private ExecutorService executorService;
@@ -78,7 +78,7 @@ public class TestProxyServer
         Files.write(sharedSecretFile, sharedSecret);
 
         Logging.initialize();
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
         server.installPlugin(new BlackHolePlugin());

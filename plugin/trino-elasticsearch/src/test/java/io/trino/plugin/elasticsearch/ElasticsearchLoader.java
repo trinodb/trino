@@ -17,10 +17,10 @@ import io.trino.Session;
 import io.trino.client.Column;
 import io.trino.client.QueryData;
 import io.trino.client.QueryStatusInfo;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.testing.AbstractTestingPrestoClient;
+import io.trino.testing.AbstractTestingTrinoClient;
 import io.trino.testing.ResultsSession;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
@@ -45,7 +45,7 @@ import static java.util.Objects.requireNonNull;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchLoader
-        extends AbstractTestingPrestoClient<Void>
+        extends AbstractTestingTrinoClient<Void>
 {
     private final String tableName;
     private final RestHighLevelClient client;
@@ -53,10 +53,10 @@ public class ElasticsearchLoader
     public ElasticsearchLoader(
             RestHighLevelClient client,
             String tableName,
-            TestingPrestoServer prestoServer,
+            TestingTrinoServer trinoServer,
             Session defaultSession)
     {
-        super(prestoServer, defaultSession);
+        super(trinoServer, defaultSession);
 
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.client = requireNonNull(client, "client is null");

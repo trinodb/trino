@@ -19,7 +19,7 @@ import io.trino.client.ClientTypeSignature;
 import io.trino.client.ClientTypeSignatureParameter;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.memory.MemoryPlugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -68,14 +68,14 @@ import static org.testng.Assert.assertTrue;
 
 public class TestJdbcPreparedStatement
 {
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
 
     @BeforeClass
     public void setup()
             throws Exception
     {
         Logging.initialize();
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
         server.installPlugin(new BlackHolePlugin());
         server.installPlugin(new MemoryPlugin());
         server.createCatalog("blackhole", "blackhole");

@@ -26,7 +26,7 @@ import io.trino.connector.CatalogName;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.session.ResourceEstimates;
 import io.trino.spi.type.Type;
@@ -52,17 +52,17 @@ import static io.trino.spi.session.ResourceEstimates.PEAK_MEMORY;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
-public abstract class AbstractTestingPrestoClient<T>
+public abstract class AbstractTestingTrinoClient<T>
         implements Closeable
 {
-    private final TestingPrestoServer prestoServer;
+    private final TestingTrinoServer trinoServer;
     private final Session defaultSession;
 
     private final OkHttpClient httpClient = new OkHttpClient();
 
-    protected AbstractTestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
+    protected AbstractTestingTrinoClient(TestingTrinoServer trinoServer, Session defaultSession)
     {
-        this.prestoServer = requireNonNull(prestoServer, "prestoServer is null");
+        this.trinoServer = requireNonNull(trinoServer, "trinoServer is null");
         this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
     }
 
@@ -84,7 +84,7 @@ public abstract class AbstractTestingPrestoClient<T>
     {
         ResultsSession<T> resultsSession = getResultSession(session);
 
-        ClientSession clientSession = toClientSession(session, prestoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
+        ClientSession clientSession = toClientSession(session, trinoServer.getBaseUrl(), new Duration(2, TimeUnit.MINUTES));
 
         try (StatementClient client = newStatementClient(httpClient, clientSession, sql)) {
             while (client.isRunning()) {
@@ -171,19 +171,19 @@ public abstract class AbstractTestingPrestoClient<T>
 
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
-        return transaction(prestoServer.getTransactionManager(), prestoServer.getAccessControl())
+        return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    return prestoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
+                    return trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
                 });
     }
 
     public boolean tableExists(Session session, String table)
     {
-        return transaction(prestoServer.getTransactionManager(), prestoServer.getAccessControl())
+        return transaction(trinoServer.getTransactionManager(), trinoServer.getAccessControl())
                 .readOnly()
                 .execute(session, transactionSession -> {
-                    return MetadataUtil.tableExists(prestoServer.getMetadata(), transactionSession, table);
+                    return MetadataUtil.tableExists(trinoServer.getMetadata(), transactionSession, table);
                 });
     }
 
@@ -192,16 +192,16 @@ public abstract class AbstractTestingPrestoClient<T>
         return defaultSession;
     }
 
-    public TestingPrestoServer getServer()
+    public TestingTrinoServer getServer()
     {
-        return prestoServer;
+        return trinoServer;
     }
 
     protected List<Type> getTypes(List<Column> columns)
     {
         return columns.stream()
                 .map(Column::getType)
-                .map(prestoServer.getMetadata()::fromSqlType)
+                .map(trinoServer.getMetadata()::fromSqlType)
                 .collect(toImmutableList());
     }
 }

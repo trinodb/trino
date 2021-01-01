@@ -14,7 +14,7 @@
 package io.trino.jdbc;
 
 import io.airlift.log.Logging;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -27,13 +27,13 @@ import static java.lang.String.format;
 public class TestJdbcResultSet
         extends BaseTestJdbcResultSet
 {
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
 
     @BeforeClass
     public void setupServer()
     {
         Logging.initialize();
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
     }
 
     @AfterClass(alwaysRun = true)

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.trino.plugin.mongodb.MongoPlugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -70,7 +70,7 @@ public class TestJdbcCompatibility
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();
     private static final int TIMESTAMP_DEFAULT_PRECISION = 3;
 
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private String serverUrl;
 
     @Test
@@ -89,7 +89,7 @@ public class TestJdbcCompatibility
     {
         Logging.initialize();
 
-        server = TestingPrestoServer.builder()
+        server = TestingTrinoServer.builder()
                 .build();
 
         server.installPlugin(new MongoPlugin());

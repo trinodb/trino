@@ -115,10 +115,10 @@ import static java.nio.file.Files.isDirectory;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class TestingPrestoServer
+public class TestingTrinoServer
         implements Closeable
 {
-    public static TestingPrestoServer create()
+    public static TestingTrinoServer create()
     {
         return builder().build();
     }
@@ -187,7 +187,7 @@ public class TestingPrestoServer
         }
     }
 
-    private TestingPrestoServer(
+    private TestingTrinoServer(
             boolean coordinator,
             Map<String, String> properties,
             Optional<String> environment,
@@ -198,7 +198,7 @@ public class TestingPrestoServer
     {
         this.coordinator = coordinator;
 
-        this.baseDataDir = baseDataDir.orElseGet(TestingPrestoServer::tempDirectory);
+        this.baseDataDir = baseDataDir.orElseGet(TestingTrinoServer::tempDirectory);
         this.preserveData = baseDataDir.isPresent();
 
         properties = new HashMap<>(properties);
@@ -636,9 +636,9 @@ public class TestingPrestoServer
             return this;
         }
 
-        public TestingPrestoServer build()
+        public TestingTrinoServer build()
         {
-            return new TestingPrestoServer(
+            return new TestingTrinoServer(
                     coordinator,
                     properties,
                     environment,

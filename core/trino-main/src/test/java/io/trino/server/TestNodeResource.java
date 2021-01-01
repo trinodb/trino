@@ -15,7 +15,7 @@ package io.trino.server;
 
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.jetty.JettyHttpClient;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -32,13 +32,13 @@ import static org.testng.Assert.assertTrue;
 
 public class TestNodeResource
 {
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private HttpClient client;
 
     @BeforeClass
     public void setup()
     {
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
         client = new JettyHttpClient();
     }
 

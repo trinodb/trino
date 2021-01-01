@@ -35,7 +35,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.server.BasicQueryInfo;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.SystemAccessControl;
@@ -80,12 +80,12 @@ public class DistributedQueryRunner
     private static final String ENVIRONMENT = "testing";
 
     private final TestingDiscoveryServer discoveryServer;
-    private final TestingPrestoServer coordinator;
-    private List<TestingPrestoServer> servers;
+    private final TestingTrinoServer coordinator;
+    private List<TestingTrinoServer> servers;
 
     private final Closer closer = Closer.create();
 
-    private final TestingPrestoClient prestoClient;
+    private final TestingTrinoClient prestoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -113,10 +113,10 @@ public class DistributedQueryRunner
             closer.register(() -> closeUnchecked(discoveryServer));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
-            ImmutableList.Builder<TestingPrestoServer> servers = ImmutableList.builder();
+            ImmutableList.Builder<TestingTrinoServer> servers = ImmutableList.builder();
 
             for (int i = 1; i < nodeCount; i++) {
-                TestingPrestoServer worker = closer.register(createTestingPrestoServer(
+                TestingTrinoServer worker = closer.register(createTestingTrinoServer(
                         discoveryServer.getBaseUrl(),
                         false,
                         extraProperties,
@@ -138,7 +138,7 @@ public class DistributedQueryRunner
                 extraCoordinatorProperties.put("web-ui.user", "admin");
             }
 
-            coordinator = closer.register(createTestingPrestoServer(
+            coordinator = closer.register(createTestingTrinoServer(
                     discoveryServer.getBaseUrl(),
                     true,
                     extraCoordinatorProperties,
@@ -161,23 +161,23 @@ public class DistributedQueryRunner
 
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials());
-        this.prestoClient = closer.register(new TestingPrestoClient(coordinator, defaultSession));
+        this.prestoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
 
         waitForAllNodesGloballyVisible();
 
         long start = System.nanoTime();
-        for (TestingPrestoServer server : servers) {
+        for (TestingTrinoServer server : servers) {
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
 
-        for (TestingPrestoServer server : servers) {
+        for (TestingTrinoServer server : servers) {
             // add bogus catalog for testing procedures and session properties
             addTestingCatalog(server);
         }
     }
 
-    private static TestingPrestoServer createTestingPrestoServer(
+    private static TestingTrinoServer createTestingTrinoServer(
             URI discoveryUri,
             boolean coordinator,
             Map<String, String> extraProperties,
@@ -211,7 +211,7 @@ public class DistributedQueryRunner
         HashMap<String, String> properties = new HashMap<>(propertiesBuilder.build());
         properties.putAll(extraProperties);
 
-        TestingPrestoServer server = TestingPrestoServer.builder()
+        TestingTrinoServer server = TestingTrinoServer.builder()
                 .setCoordinator(coordinator)
                 .setProperties(properties)
                 .setEnvironment(environment)
@@ -222,7 +222,7 @@ public class DistributedQueryRunner
                 .build();
 
         String nodeRole = coordinator ? "coordinator" : "worker";
-        log.info("Created %s TestingPrestoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
+        log.info("Created %s TestingTrinoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
 
         return server;
     }
@@ -230,10 +230,10 @@ public class DistributedQueryRunner
     public void addServers(int nodeCount)
             throws Exception
     {
-        ImmutableList.Builder<TestingPrestoServer> serverBuilder = new ImmutableList.Builder<TestingPrestoServer>()
+        ImmutableList.Builder<TestingTrinoServer> serverBuilder = new ImmutableList.Builder<TestingTrinoServer>()
                 .addAll(servers);
         for (int i = 0; i < nodeCount; i++) {
-            TestingPrestoServer server = closer.register(createTestingPrestoServer(
+            TestingTrinoServer server = closer.register(createTestingTrinoServer(
                     discoveryServer.getBaseUrl(),
                     false,
                     ImmutableMap.of(),
@@ -261,7 +261,7 @@ public class DistributedQueryRunner
         log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
-    private void addTestingCatalog(TestingPrestoServer server)
+    private void addTestingCatalog(TestingTrinoServer server)
     {
         // add bogus catalog for testing procedures and session properties
         Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
@@ -274,7 +274,7 @@ public class DistributedQueryRunner
 
     private boolean allNodesGloballyVisible()
     {
-        for (TestingPrestoServer server : servers) {
+        for (TestingTrinoServer server : servers) {
             AllNodes allNodes = server.refreshNodes();
             if (!allNodes.getInactiveNodes().isEmpty() ||
                     (allNodes.getActiveNodes().size() != servers.size())) {
@@ -284,7 +284,7 @@ public class DistributedQueryRunner
         return true;
     }
 
-    public TestingPrestoClient getClient()
+    public TestingTrinoClient getClient()
     {
         return prestoClient;
     }
@@ -349,12 +349,12 @@ public class DistributedQueryRunner
         return coordinator.getGroupProvider();
     }
 
-    public TestingPrestoServer getCoordinator()
+    public TestingTrinoServer getCoordinator()
     {
         return coordinator;
     }
 
-    public List<TestingPrestoServer> getServers()
+    public List<TestingTrinoServer> getServers()
     {
         return ImmutableList.copyOf(servers);
     }
@@ -363,7 +363,7 @@ public class DistributedQueryRunner
     public void installPlugin(Plugin plugin)
     {
         long start = System.nanoTime();
-        for (TestingPrestoServer server : servers) {
+        for (TestingTrinoServer server : servers) {
             server.installPlugin(plugin);
         }
         log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
@@ -385,7 +385,7 @@ public class DistributedQueryRunner
     {
         long start = System.nanoTime();
         Set<CatalogName> catalogNames = new HashSet<>();
-        for (TestingPrestoServer server : servers) {
+        for (TestingTrinoServer server : servers) {
             catalogNames.add(server.createCatalog(catalogName, connectorName, properties));
         }
         CatalogName catalog = getOnlyElement(catalogNames);
@@ -408,7 +408,7 @@ public class DistributedQueryRunner
 
     private boolean isConnectionVisibleToAllNodes(CatalogName catalogName)
     {
-        for (TestingPrestoServer server : servers) {
+        for (TestingTrinoServer server : servers) {
             server.refreshNodes();
             Set<InternalNode> activeNodesWithConnector = server.getActiveNodesWithConnector(catalogName);
             if (activeNodesWithConnector.size() != servers.size()) {

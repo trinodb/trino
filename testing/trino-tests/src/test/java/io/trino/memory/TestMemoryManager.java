@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.BasicQueryStats;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -122,7 +122,7 @@ public class TestMemoryManager
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
-            for (TestingPrestoServer server : queryRunner.getServers()) {
+            for (TestingTrinoServer server : queryRunner.getServers()) {
                 for (MemoryPool pool : server.getLocalMemoryManager().getPools()) {
                     assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
                 }
@@ -137,7 +137,7 @@ public class TestMemoryManager
             waitForQueryToBeKilled(queryRunner);
 
             // Release the memory in the reserved pool
-            for (TestingPrestoServer server : queryRunner.getServers()) {
+            for (TestingTrinoServer server : queryRunner.getServers()) {
                 Optional<MemoryPool> reserved = server.getLocalMemoryManager().getReservedPool();
                 assertTrue(reserved.isPresent());
                 // Free up the entire pool
@@ -179,7 +179,7 @@ public class TestMemoryManager
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
-            for (TestingPrestoServer server : queryRunner.getServers()) {
+            for (TestingTrinoServer server : queryRunner.getServers()) {
                 List<MemoryPool> memoryPools = server.getLocalMemoryManager().getPools();
                 assertEquals(memoryPools.size(), 1, "Only general pool should exist");
                 assertTrue(memoryPools.get(0).tryReserve(fakeQueryId, "test", memoryPools.get(0).getMaxBytes()));
@@ -194,7 +194,7 @@ public class TestMemoryManager
             waitForQueryToBeKilled(queryRunner);
 
             // Reserved pool shouldn't exist on the workers and allocation should have been done in the general pool
-            for (TestingPrestoServer server : queryRunner.getServers()) {
+            for (TestingTrinoServer server : queryRunner.getServers()) {
                 Optional<MemoryPool> reserved = server.getLocalMemoryManager().getReservedPool();
                 MemoryPool general = server.getLocalMemoryManager().getGeneralPool();
                 assertFalse(reserved.isPresent());
@@ -234,7 +234,7 @@ public class TestMemoryManager
             }
 
             // Make sure we didn't leak any memory on the workers
-            for (TestingPrestoServer worker : queryRunner.getServers()) {
+            for (TestingTrinoServer worker : queryRunner.getServers()) {
                 Optional<MemoryPool> reserved = worker.getLocalMemoryManager().getReservedPool();
                 assertTrue(reserved.isPresent());
                 assertEquals(reserved.get().getMaxBytes(), reserved.get().getFreeBytes());
@@ -256,7 +256,7 @@ public class TestMemoryManager
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             // Reserve all the memory
             QueryId fakeQueryId = new QueryId("fake");
-            for (TestingPrestoServer server : queryRunner.getServers()) {
+            for (TestingTrinoServer server : queryRunner.getServers()) {
                 for (MemoryPool pool : server.getLocalMemoryManager().getPools()) {
                     assertTrue(pool.tryReserve(fakeQueryId, "test", pool.getMaxBytes()));
                 }
@@ -299,7 +299,7 @@ public class TestMemoryManager
             }
 
             // Release the memory in the reserved pool
-            for (TestingPrestoServer server : queryRunner.getServers()) {
+            for (TestingTrinoServer server : queryRunner.getServers()) {
                 Optional<MemoryPool> reserved = server.getLocalMemoryManager().getReservedPool();
                 assertTrue(reserved.isPresent());
                 // Free up the entire pool
@@ -318,7 +318,7 @@ public class TestMemoryManager
             }
 
             // Make sure we didn't leak any memory on the workers
-            for (TestingPrestoServer worker : queryRunner.getServers()) {
+            for (TestingTrinoServer worker : queryRunner.getServers()) {
                 Optional<MemoryPool> reserved = worker.getLocalMemoryManager().getReservedPool();
                 assertTrue(reserved.isPresent());
                 assertEquals(reserved.get().getMaxBytes(), reserved.get().getFreeBytes());

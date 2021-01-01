@@ -23,7 +23,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -48,9 +48,9 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public final class StandaloneQueryRunner
         implements QueryRunner
 {
-    private final TestingPrestoServer server;
+    private final TestingTrinoServer server;
 
-    private final TestingPrestoClient prestoClient;
+    private final TestingTrinoClient prestoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -58,8 +58,8 @@ public final class StandaloneQueryRunner
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
-        this.server = createTestingPrestoServer();
-        this.prestoClient = new TestingPrestoClient(server, defaultSession);
+        this.server = createTestingTrinoServer();
+        this.prestoClient = new TestingTrinoClient(server, defaultSession);
 
         refreshNodes();
 
@@ -165,7 +165,7 @@ public final class StandaloneQueryRunner
         return server.getAccessControl();
     }
 
-    public TestingPrestoServer getServer()
+    public TestingTrinoServer getServer()
     {
         return server;
     }
@@ -259,9 +259,9 @@ public final class StandaloneQueryRunner
         return lock.writeLock();
     }
 
-    private static TestingPrestoServer createTestingPrestoServer()
+    private static TestingTrinoServer createTestingTrinoServer()
     {
-        return TestingPrestoServer.builder()
+        return TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("query.client.timeout", "10m")
                         .put("exchange.http-client.idle-timeout", "1h")

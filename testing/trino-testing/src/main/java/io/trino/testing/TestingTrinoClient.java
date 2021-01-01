@@ -22,7 +22,7 @@ import io.trino.client.QueryStatusInfo;
 import io.trino.client.Row;
 import io.trino.client.RowField;
 import io.trino.client.Warning;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
@@ -76,8 +76,8 @@ import static io.trino.util.MoreLists.mappedCopy;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.stream.Collectors.toList;
 
-public class TestingPrestoClient
-        extends AbstractTestingPrestoClient<MaterializedResult>
+public class TestingTrinoClient
+        extends AbstractTestingTrinoClient<MaterializedResult>
 {
     private static final DateTimeFormatter timeWithZoneOffsetFormat = new DateTimeFormatterBuilder()
             .appendPattern("HH:mm:ss")
@@ -99,9 +99,9 @@ public class TestingPrestoClient
             .appendPattern(" VV")
             .toFormatter();
 
-    public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
+    public TestingTrinoClient(TestingTrinoServer trinoServer, Session defaultSession)
     {
-        super(prestoServer, defaultSession);
+        super(trinoServer, defaultSession);
     }
 
     @Override

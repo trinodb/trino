@@ -27,7 +27,7 @@ import io.trino.plugin.redis.util.RedisTestUtils;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.TestingPrestoClient;
+import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
 
 import java.util.Map;
@@ -74,7 +74,7 @@ public final class RedisQueryRunner
 
             installRedisPlugin(redisServer, queryRunner, tableDescriptions);
 
-            TestingPrestoClient prestoClient = queryRunner.getClient();
+            TestingTrinoClient prestoClient = queryRunner.getClient();
 
             log.info("Loading data...");
             long startTime = System.nanoTime();
@@ -91,7 +91,7 @@ public final class RedisQueryRunner
         }
     }
 
-    private static void loadTpchTable(RedisServer redisServer, TestingPrestoClient prestoClient, TpchTable<?> table, String dataFormat)
+    private static void loadTpchTable(RedisServer redisServer, TestingTrinoClient prestoClient, TpchTable<?> table, String dataFormat)
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());

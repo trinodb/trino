@@ -22,7 +22,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.trino.server.security.ResourceSecurity;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -53,13 +53,13 @@ import static org.testng.Assert.assertEquals;
 public class TestGenerateTokenFilter
 {
     private JettyHttpClient httpClient;
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private GenerateTraceTokenRequestFilter filter;
 
     @BeforeClass
     public void setup()
     {
-        server = TestingPrestoServer.builder()
+        server = TestingTrinoServer.builder()
                 .setAdditionalModule(new TestGenerateTokenFilterModule())
                 .build();
         httpClient = (JettyHttpClient) server.getInstance(Key.get(HttpClient.class, GenerateTokenFilterTest.class));

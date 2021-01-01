@@ -19,7 +19,7 @@ import io.airlift.security.pem.PemReader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -53,7 +53,7 @@ import static org.testng.Assert.assertTrue;
 public class TestTrinoDriverAuth
 {
     private static final String TEST_CATALOG = "test_catalog";
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
     private byte[] defaultKey;
     private byte[] hmac222;
     private PrivateKey privateKey33;
@@ -72,7 +72,7 @@ public class TestTrinoDriverAuth
         hmac222 = getMimeDecoder().decode(asCharSource(new File(keyDir, "222.key"), US_ASCII).read().getBytes(US_ASCII));
         privateKey33 = PemReader.loadPrivateKey(new File(keyDir, "33.privateKey"), Optional.empty());
 
-        server = TestingPrestoServer.builder()
+        server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("http-server.authentication.type", "JWT")
                         .put("http.authentication.jwt.key-file", new File(keyDir, "${KID}.key").getPath())

@@ -23,7 +23,7 @@ import io.airlift.json.JsonCodec;
 import io.trino.client.QueryResults;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.server.testing.TestingPrestoServer;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -66,13 +66,13 @@ import static org.testng.Assert.fail;
 public class TestQueryResource
 {
     private HttpClient client;
-    private TestingPrestoServer server;
+    private TestingTrinoServer server;
 
     @BeforeMethod
     public void setup()
     {
         client = new JettyHttpClient();
-        server = TestingPrestoServer.create();
+        server = TestingTrinoServer.create();
         server.installPlugin(new TpchPlugin());
         server.createCatalog("tpch", "tpch");
     }

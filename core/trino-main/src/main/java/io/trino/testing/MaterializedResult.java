@@ -344,7 +344,7 @@ public class MaterializedResult
     }
 
     /**
-     * Converts this {@link MaterializedResult} to a new one, representing the data using the same type domain as returned by {@code TestingPrestoClient}.
+     * Converts this {@link MaterializedResult} to a new one, representing the data using the same type domain as returned by {@code TestingTrinoClient}.
      */
     public MaterializedResult toTestTypes()
     {
