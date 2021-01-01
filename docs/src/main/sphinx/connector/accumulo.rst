@@ -14,13 +14,13 @@ Installing the Iterator Dependency
 The Accumulo connector uses custom Accumulo iterators in
 order to push various information in a SQL predicate clause to Accumulo for
 server-side filtering, known as *predicate pushdown*. In order
-for the server-side iterators to work, you need to add the ``presto-accumulo-iterators``
+for the server-side iterators to work, you need to add the ``trino-accumulo-iterators``
 JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 
 .. code-block:: bash
 
     # For each TabletServer node:
-    scp $PRESTO_HOME/plugins/accumulo/presto-accumulo-iterators-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
+    scp $PRESTO_HOME/plugins/accumulo/trino-accumulo-iterators-*.jar [tabletserver_address]:$ACCUMULO_HOME/lib/ext
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
 
@@ -627,7 +627,7 @@ table properties.
 
 If you have a need to programmatically manipulate the ZooKeeper metadata
 for Accumulo, take a look at
-``io.prestosql.plugin.accumulo.metadata.ZooKeeperMetadataManager`` for some
+``io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager`` for some
 Java code to simplify the process.
 
 Converting Table from Internal to External

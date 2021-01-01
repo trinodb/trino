@@ -720,7 +720,7 @@ Example Avro schema definition for the above table definition:
     {
       "type" : "record",
       "name" : "example_avro_message",
-      "namespace" : "io.prestosql.plugin.kafka",
+      "namespace" : "io.trino.plugin.kafka",
       "fields" :
       [
         {

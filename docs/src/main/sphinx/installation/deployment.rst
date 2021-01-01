@@ -35,7 +35,7 @@ versions such as Java 12 or 13 are not supported -- they may work, but are not t
 We recommend using `Azul Zulu <https://www.azul.com/downloads/zulu-community/>`_
 as the JDK for Trino, as Trino is tested against that distribution.
 Zulu is also the JDK used by the
-`Trino Docker image <https://hub.docker.com/r/prestosql/presto>`_.
+`Trino Docker image <https://hub.docker.com/r/trinodb/trino>`_.
 
 Python
 ^^^^^^
@@ -48,7 +48,7 @@ Installing Trino
 
 Download the Trino server tarball, :maven_download:`server`, and unpack it.
 The tarball contains a single top-level directory,
-|presto_server_release|, which we call the *installation* directory.
+|trino_server_release|, which we call the *installation* directory.
 
 Trino needs a *data* directory for storing logs, etc.
 We recommend creating a data directory outside of the installation directory,
@@ -64,8 +64,6 @@ This holds the following configuration:
 * JVM Config: command line options for the Java Virtual Machine
 * Config Properties: configuration for the Trino server
 * Catalog Properties: configuration for :doc:`/connector` (data sources)
-
-.. _presto_node_properties:
 
 Node Properties
 ^^^^^^^^^^^^^^^
@@ -249,10 +247,10 @@ For example, consider the following log levels file:
 
 .. code-block:: text
 
-    io.prestosql=INFO
+    io.trino=INFO
 
 This would set the minimum level to ``INFO`` for both
-``io.prestosql.server`` and ``io.prestosql.plugin.hive``.
+``io.trino.server`` and ``io.trino.plugin.hive``.
 The default minimum level is ``INFO``,
 thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
