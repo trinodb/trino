@@ -25,8 +25,8 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
-import io.trino.spi.PrestoWarning;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
@@ -137,7 +137,7 @@ public class PlanFragmenter
                     TOO_MANY_STAGES_MESSAGE));
         }
         if (fragmentCount > stageCountSoftLimit) {
-            warningCollector.add(new PrestoWarning(TOO_MANY_STAGES, format(
+            warningCollector.add(new TrinoWarning(TOO_MANY_STAGES, format(
                     "Number of stages in the query (%s) exceeds the soft limit (%s). %s",
                     fragmentCount,
                     stageCountSoftLimit,

@@ -14,7 +14,7 @@
 package io.trino.execution.warnings;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -31,7 +31,7 @@ public class DefaultWarningCollector
         implements WarningCollector
 {
     @GuardedBy("this")
-    private final Map<WarningCode, PrestoWarning> warnings = new LinkedHashMap<>();
+    private final Map<WarningCode, TrinoWarning> warnings = new LinkedHashMap<>();
     private final WarningCollectorConfig config;
 
     public DefaultWarningCollector(WarningCollectorConfig config)
@@ -40,7 +40,7 @@ public class DefaultWarningCollector
     }
 
     @Override
-    public synchronized void add(PrestoWarning warning)
+    public synchronized void add(TrinoWarning warning)
     {
         requireNonNull(warning, "warning is null");
         if (warnings.size() < config.getMaxWarnings()) {
@@ -49,7 +49,7 @@ public class DefaultWarningCollector
     }
 
     @Override
-    public synchronized List<PrestoWarning> getWarnings()
+    public synchronized List<TrinoWarning> getWarnings()
     {
         return ImmutableList.copyOf(warnings.values());
     }

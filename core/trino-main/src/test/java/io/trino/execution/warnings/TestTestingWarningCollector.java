@@ -14,7 +14,7 @@
 package io.trino.execution.warnings;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoWarning;
 import io.trino.testing.TestingWarningCollector;
 import io.trino.testing.TestingWarningCollectorConfig;
 import org.testng.annotations.Test;
@@ -28,7 +28,7 @@ public class TestTestingWarningCollector
     public void testAddWarnings()
     {
         TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
-        ImmutableList.Builder<PrestoWarning> expectedWarningsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<TrinoWarning> expectedWarningsBuilder = ImmutableList.builder();
         expectedWarningsBuilder.add(createTestWarning(1));
         assertEquals(collector.getWarnings(), expectedWarningsBuilder.build());
     }

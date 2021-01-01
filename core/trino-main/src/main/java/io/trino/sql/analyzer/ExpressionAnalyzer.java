@@ -32,8 +32,8 @@ import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
-import io.trino.spi.PrestoWarning;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.type.CharType;
@@ -1118,7 +1118,7 @@ public class ExpressionAnalyzer
 
             FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
             if (functionMetadata.isDeprecated()) {
-                warningCollector.add(new PrestoWarning(DEPRECATED_FUNCTION,
+                warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
                         format("Use of deprecated function: %s: %s",
                                 functionMetadata.getSignature().getName(),
                                 functionMetadata.getDescription())));

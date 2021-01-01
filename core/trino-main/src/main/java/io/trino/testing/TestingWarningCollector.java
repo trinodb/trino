@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.execution.warnings.WarningCollectorConfig;
-import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -36,7 +36,7 @@ public class TestingWarningCollector
         implements WarningCollector
 {
     @GuardedBy("this")
-    private final Map<WarningCode, PrestoWarning> warnings = new LinkedHashMap<>();
+    private final Map<WarningCode, TrinoWarning> warnings = new LinkedHashMap<>();
     private final WarningCollectorConfig config;
 
     private final boolean addWarnings;
@@ -55,7 +55,7 @@ public class TestingWarningCollector
     }
 
     @Override
-    public synchronized void add(PrestoWarning warning)
+    public synchronized void add(TrinoWarning warning)
     {
         requireNonNull(warning, "warning is null");
         if (warnings.size() < config.getMaxWarnings()) {
@@ -64,7 +64,7 @@ public class TestingWarningCollector
     }
 
     @Override
-    public synchronized List<PrestoWarning> getWarnings()
+    public synchronized List<TrinoWarning> getWarnings()
     {
         if (addWarnings) {
             add(createTestWarning(warningCode.incrementAndGet()));
@@ -73,11 +73,11 @@ public class TestingWarningCollector
     }
 
     @VisibleForTesting
-    public static PrestoWarning createTestWarning(int code)
+    public static TrinoWarning createTestWarning(int code)
     {
         // format string below is a hack to construct a vendor specific SQLState value
         // 01 is the class of warning code and 5 is the first allowed vendor defined prefix character
         // See the SQL Standard ISO_IEC_9075-2E_2016 24.1: SQLState for more information
-        return new PrestoWarning(new WarningCode(code, format("015%02d", code % 100)), "Test warning " + code);
+        return new TrinoWarning(new WarningCode(code, format("015%02d", code % 100)), "Test warning " + code);
     }
 }

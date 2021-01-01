@@ -13,7 +13,7 @@
  */
 package io.trino.spi.eventlistener;
 
-import io.trino.spi.PrestoWarning;
+import io.trino.spi.TrinoWarning;
 
 import java.time.Instant;
 import java.util.List;
@@ -29,7 +29,7 @@ public class QueryCompletedEvent
     private final QueryContext context;
     private final QueryIOMetadata ioMetadata;
     private final Optional<QueryFailureInfo> failureInfo;
-    private final List<PrestoWarning> warnings;
+    private final List<TrinoWarning> warnings;
 
     private final Instant createTime;
     private final Instant executionStartTime;
@@ -41,7 +41,7 @@ public class QueryCompletedEvent
             QueryContext context,
             QueryIOMetadata ioMetadata,
             Optional<QueryFailureInfo> failureInfo,
-            List<PrestoWarning> warnings,
+            List<TrinoWarning> warnings,
             Instant createTime,
             Instant executionStartTime,
             Instant endTime)
@@ -82,7 +82,7 @@ public class QueryCompletedEvent
         return failureInfo;
     }
 
-    public List<PrestoWarning> getWarnings()
+    public List<TrinoWarning> getWarnings()
     {
         return warnings;
     }

@@ -23,8 +23,8 @@ import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.spi.PrestoWarning;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -81,9 +81,9 @@ public class TestPlannerWarnings
     @Test
     public void testWarning()
     {
-        List<PrestoWarning> warnings = createTestWarnings(3);
+        List<TrinoWarning> warnings = createTestWarnings(3);
         List<WarningCode> warningCodes = warnings.stream()
-                .map(PrestoWarning::getWarningCode)
+                .map(TrinoWarning::getWarningCode)
                 .collect(toImmutableList());
         assertPlannerWarnings(queryRunner, "SELECT * FROM NATION", ImmutableMap.of(), warningCodes, Optional.of(ImmutableList.of(new TestWarningsRule(warnings))));
     }
@@ -110,7 +110,7 @@ public class TestPlannerWarnings
             // ignore
         }
         Set<WarningCode> warnings = warningCollector.getWarnings().stream()
-                .map(PrestoWarning::getWarningCode)
+                .map(TrinoWarning::getWarningCode)
                 .collect(toImmutableSet());
         for (WarningCode expectedWarning : expectedWarnings) {
             if (!warnings.contains(expectedWarning)) {
@@ -131,12 +131,12 @@ public class TestPlannerWarnings
         return queryRunner.createPlan(session, sql, ImmutableList.of(optimizer), OPTIMIZED_AND_VALIDATED, warningCollector);
     }
 
-    public static List<PrestoWarning> createTestWarnings(int numberOfWarnings)
+    public static List<TrinoWarning> createTestWarnings(int numberOfWarnings)
     {
         checkArgument(numberOfWarnings > 0, "numberOfWarnings must be > 0");
-        ImmutableList.Builder<PrestoWarning> builder = ImmutableList.builder();
+        ImmutableList.Builder<TrinoWarning> builder = ImmutableList.builder();
         range(1, numberOfWarnings)
-                .mapToObj(code -> new PrestoWarning(new WarningCode(code, "testWarning"), "Test warning " + code))
+                .mapToObj(code -> new TrinoWarning(new WarningCode(code, "testWarning"), "Test warning " + code))
                 .forEach(builder::add);
         return builder.build();
     }
@@ -144,9 +144,9 @@ public class TestPlannerWarnings
     public static class TestWarningsRule
             implements Rule<ProjectNode>
     {
-        private final List<PrestoWarning> warnings;
+        private final List<TrinoWarning> warnings;
 
-        public TestWarningsRule(List<PrestoWarning> warnings)
+        public TestWarningsRule(List<TrinoWarning> warnings)
         {
             this.warnings = ImmutableList.copyOf(requireNonNull(warnings, "warnings is null"));
         }
