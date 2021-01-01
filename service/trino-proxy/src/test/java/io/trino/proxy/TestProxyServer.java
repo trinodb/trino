@@ -24,8 +24,8 @@ import io.airlift.json.JsonModule;
 import io.airlift.log.Logging;
 import io.airlift.node.testing.TestingNodeModule;
 import io.trino.execution.QueryState;
-import io.trino.jdbc.PrestoResultSet;
-import io.trino.jdbc.PrestoStatement;
+import io.trino.jdbc.TrinoResultSet;
+import io.trino.jdbc.TrinoStatement;
 import io.trino.plugin.blackhole.BlackHolePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingPrestoServer;
@@ -180,7 +180,7 @@ public class TestProxyServer
             // execute the slow query on another thread
             executorService.execute(() -> {
                 try (ResultSet resultSet = statement.executeQuery("SELECT * FROM blackhole.test.slow")) {
-                    queryId.set(resultSet.unwrap(PrestoResultSet.class).getQueryId());
+                    queryId.set(resultSet.unwrap(TrinoResultSet.class).getQueryId());
                     queryStarted.countDown();
                     resultSet.next();
                 }
@@ -214,7 +214,7 @@ public class TestProxyServer
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("SELECT count(*) FROM blackhole.test.slow")) {
-            statement.unwrap(PrestoStatement.class).partialCancel();
+            statement.unwrap(TrinoStatement.class).partialCancel();
             assertTrue(resultSet.next());
             assertEquals(resultSet.getLong(1), 0);
         }
@@ -252,7 +252,7 @@ public class TestProxyServer
             throws SQLException
     {
         URI uri = httpServerInfo.getHttpUri();
-        String url = format("jdbc:presto://%s:%s", uri.getHost(), uri.getPort());
+        String url = format("jdbc:trino://%s:%s", uri.getHost(), uri.getPort());
         return DriverManager.getConnection(url, "test", null);
     }
 }

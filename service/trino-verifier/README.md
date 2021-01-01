@@ -37,8 +37,8 @@ Next, create a properties file to configure the verifier:
 ```
 suite=my_suite
 query-database=jdbc:mysql://localhost:3306/my_database?user=my_username&password=my_password
-control.gateway=jdbc:presto://localhost:8080
-test.gateway=jdbc:presto://localhost:8081
+control.gateway=jdbc:trino://localhost:8080
+test.gateway=jdbc:trino://localhost:8081
 thread-count=1
 ```
 

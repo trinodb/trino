@@ -13,7 +13,7 @@
  */
 package io.trino;
 
-import io.trino.jdbc.PrestoDriver;
+import io.trino.jdbc.TrinoDriver;
 
 import java.util.Optional;
 
@@ -30,7 +30,7 @@ public final class JdbcDriverCapabilities
 
     public static int driverVersion()
     {
-        try (PrestoDriver driver = new PrestoDriver()) {
+        try (TrinoDriver driver = new TrinoDriver()) {
             return driver.getMajorVersion();
         }
     }

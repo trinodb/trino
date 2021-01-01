@@ -42,10 +42,10 @@ final class WarningsManager
     {
         requireNonNull(warning, "warning is null");
         if (lastWarning == null) {
-            lastWarning = new PrestoSqlWarning(warning);
+            lastWarning = new TrinoSqlWarning(warning);
         }
         else {
-            lastWarning.setNextWarning(new PrestoSqlWarning(warning));
+            lastWarning.setNextWarning(new TrinoSqlWarning(warning));
         }
         if (firstWarning == null) {
             firstWarning = lastWarning;

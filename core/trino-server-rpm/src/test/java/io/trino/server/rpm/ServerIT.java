@@ -144,7 +144,7 @@ public class ServerIT
 
         public Set<List<String>> execute(String sql)
         {
-            try (Connection connection = getConnection(format("jdbc:presto://%s:%s", host, port), "test", null);
+            try (Connection connection = getConnection(format("jdbc:trino://%s:%s", host, port), "test", null);
                     Statement statement = connection.createStatement()) {
                 try (ResultSet resultSet = statement.executeQuery(sql)) {
                     ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();

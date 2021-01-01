@@ -13,7 +13,7 @@
  */
 package io.trino.tests.jdbc;
 
-import io.trino.jdbc.PrestoConnection;
+import io.trino.jdbc.TrinoConnection;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.Requirement;
 import io.trino.tempto.RequirementsProvider;
@@ -108,7 +108,7 @@ public class TestJdbc
             throws SQLException
     {
         String timeZoneId = "Indian/Kerguelen";
-        ((PrestoConnection) connection()).setTimeZoneId(timeZoneId); // TODO uew new connection rather than modifying a shared one
+        ((TrinoConnection) connection()).setTimeZoneId(timeZoneId); // TODO uew new connection rather than modifying a shared one
         assertConnectionTimezone(connection(), timeZoneId);
     }
 
@@ -125,7 +125,7 @@ public class TestJdbc
     public void shouldSetLocale()
             throws SQLException
     {
-        ((PrestoConnection) connection()).setLocale(CHINESE); // TODO uew new connection rather than modifying a shared one
+        ((TrinoConnection) connection()).setLocale(CHINESE); // TODO uew new connection rather than modifying a shared one
         try (Statement statement = connection().createStatement()) {
             QueryResult result = queryResult(statement, "SELECT date_format(TIMESTAMP '2001-01-09 09:04', '%M')");
             assertThat(result).contains(row("一月"));

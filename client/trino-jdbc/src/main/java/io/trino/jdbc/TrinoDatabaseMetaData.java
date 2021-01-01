@@ -36,14 +36,14 @@ import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoDatabaseMetaData
+public class TrinoDatabaseMetaData
         implements DatabaseMetaData
 {
     private static final String SEARCH_STRING_ESCAPE = "\\";
 
-    private final PrestoConnection connection;
+    private final TrinoConnection connection;
 
-    PrestoDatabaseMetaData(PrestoConnection connection)
+    TrinoDatabaseMetaData(TrinoConnection connection)
     {
         this.connection = requireNonNull(connection, "connection is null");
     }
@@ -115,7 +115,7 @@ public class PrestoDatabaseMetaData
     public String getDatabaseProductName()
             throws SQLException
     {
-        return "Presto";
+        return "Trino";
     }
 
     @Override
@@ -129,26 +129,26 @@ public class PrestoDatabaseMetaData
     public String getDriverName()
             throws SQLException
     {
-        return PrestoDriver.DRIVER_NAME;
+        return TrinoDriver.DRIVER_NAME;
     }
 
     @Override
     public String getDriverVersion()
             throws SQLException
     {
-        return PrestoDriver.DRIVER_VERSION;
+        return TrinoDriver.DRIVER_VERSION;
     }
 
     @Override
     public int getDriverMajorVersion()
     {
-        return PrestoDriver.DRIVER_VERSION_MAJOR;
+        return TrinoDriver.DRIVER_VERSION_MAJOR;
     }
 
     @Override
     public int getDriverMinorVersion()
     {
-        return PrestoDriver.DRIVER_VERSION_MINOR;
+        return TrinoDriver.DRIVER_VERSION_MINOR;
     }
 
     @Override
@@ -1380,7 +1380,7 @@ public class PrestoDatabaseMetaData
                             null));
                 });
 
-        return new InMemoryPrestoResultSet(columns.build(), results.build());
+        return new InMemoryTrinoResultSet(columns.build(), results.build());
     }
 
     @Override

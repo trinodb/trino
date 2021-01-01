@@ -124,7 +124,7 @@ public class TestJdbcResultSetCompatibilityOldServer
     }
 
     @Override
-    protected int getTestedPrestoServerVersion()
+    protected int getTestedServerVersion()
     {
         assertTrue(testedPrestoVersion.isPresent());
         return Integer.parseInt(testedPrestoVersion.get());

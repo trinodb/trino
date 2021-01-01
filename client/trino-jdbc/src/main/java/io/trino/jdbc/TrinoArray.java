@@ -25,14 +25,14 @@ import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrestoArray
+public class TrinoArray
         implements Array
 {
     private final String elementTypeName;
     private final int elementType;
     private final Object[] array;
 
-    PrestoArray(String elementTypeName, int elementType, List<?> array)
+    TrinoArray(String elementTypeName, int elementType, List<?> array)
     {
         this.elementTypeName = requireNonNull(elementTypeName, "elementType is null");
         this.elementType = elementType;

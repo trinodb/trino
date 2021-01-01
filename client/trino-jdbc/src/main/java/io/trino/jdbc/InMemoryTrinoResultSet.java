@@ -11,13 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.jdbc;
+package io.trino.jdbc;
 
-import io.trino.jdbc.TrinoDriver;
+import io.trino.client.Column;
 
-/**
- * @deprecated Use {@link TrinoDriver} instead.
- */
-@Deprecated
-public class PrestoDriver
-        extends TrinoDriver {}
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Optional;
+
+import static java.util.Objects.requireNonNull;
+
+class InMemoryTrinoResultSet
+        extends AbstractTrinoResultSet
+{
+    public InMemoryTrinoResultSet(List<Column> columns, List<List<Object>> results)
+    {
+        super(Optional.empty(), columns, requireNonNull(results, "results is null").iterator());
+    }
+
+    @Override
+    public void close()
+            throws SQLException
+    {}
+}

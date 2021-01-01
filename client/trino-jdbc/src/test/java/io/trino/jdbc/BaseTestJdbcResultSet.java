@@ -61,7 +61,7 @@ public abstract class BaseTestJdbcResultSet
     protected abstract Connection createConnection()
             throws SQLException;
 
-    protected abstract int getTestedPrestoServerVersion();
+    protected abstract int getTestedServerVersion();
 
     @Test
     public void testDuplicateColumnLabels()
@@ -872,10 +872,10 @@ public abstract class BaseTestJdbcResultSet
             });
 
             // array of row
-            checkRepresentation(connectedStatement.getStatement(), "ARRAY[CAST(ROW(42, 'Presto') AS row(a_bigint bigint, a_varchar varchar(17)))]", Types.ARRAY, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "ARRAY[CAST(ROW(42, 'Trino') AS row(a_bigint bigint, a_varchar varchar(17)))]", Types.ARRAY, (rs, column) -> {
                 Row element = Row.builder()
                         .addField("a_bigint", 42L)
-                        .addField("a_varchar", "Presto")
+                        .addField("a_varchar", "Trino")
                         .build();
 
                 Array array = rs.getArray(column);
@@ -948,37 +948,37 @@ public abstract class BaseTestJdbcResultSet
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
             // named row
-            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(42, 'Presto') AS row(a_bigint bigint, a_varchar varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(42, 'Trino') AS row(a_bigint bigint, a_varchar varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
                 assertEquals(rs.getObject(column), Row.builder()
                         .addField("a_bigint", 42L)
-                        .addField("a_varchar", "Presto")
+                        .addField("a_varchar", "Trino")
                         .build());
-                assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("a_bigint", 42L, "a_varchar", "Presto"));
+                assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("a_bigint", 42L, "a_varchar", "Trino"));
             });
 
             // partially named row
-            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(42, 'Presto') AS row(a_bigint bigint, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(42, 'Trino') AS row(a_bigint bigint, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
                 assertEquals(rs.getObject(column), Row.builder()
                         .addField("a_bigint", 42L)
-                        .addUnnamedField("Presto")
+                        .addUnnamedField("Trino")
                         .build());
-                assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("a_bigint", 42L, "field1", "Presto"));
+                assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("a_bigint", 42L, "field1", "Trino"));
             });
 
             // anonymous row
-            checkRepresentation(connectedStatement.getStatement(), "ROW(42, 'Presto')", Types.JAVA_OBJECT, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "ROW(42, 'Trino')", Types.JAVA_OBJECT, (rs, column) -> {
                 assertEquals(rs.getObject(column), Row.builder()
                         .addUnnamedField(42)
-                        .addUnnamedField("Presto")
+                        .addUnnamedField("Trino")
                         .build());
-                assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("field0", 42, "field1", "Presto"));
+                assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("field0", 42, "field1", "Trino"));
             });
 
             // name collision
-            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(42, 'Presto') AS row(field1 integer, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            checkRepresentation(connectedStatement.getStatement(), "CAST(ROW(42, 'Trino') AS row(field1 integer, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
                 assertEquals(rs.getObject(column), Row.builder()
                         .addField("field1", 42)
-                        .addUnnamedField("Presto")
+                        .addUnnamedField("Trino")
                         .build());
                 assertThatThrownBy(() -> rs.getObject(column, Map.class))
                         .isInstanceOf(SQLException.class)
@@ -1079,7 +1079,7 @@ public abstract class BaseTestJdbcResultSet
             throws Exception
     {
         try (ConnectedStatement connectedStatement = newStatement()) {
-            try (PrestoResultSet rs = (PrestoResultSet) connectedStatement.getStatement().executeQuery("SELECT 123 x, 456 x")) {
+            try (TrinoResultSet rs = (TrinoResultSet) connectedStatement.getStatement().executeQuery("SELECT 123 x, 456 x")) {
                 assertNotNull(rs.getStats());
                 assertTrue(rs.next());
                 assertNotNull(rs.getStats());
@@ -1300,21 +1300,21 @@ public abstract class BaseTestJdbcResultSet
 
     private boolean serverSupportsVariablePrecisionTime()
     {
-        return getTestedPrestoServerVersion() >= 341;
+        return getTestedServerVersion() >= 341;
     }
 
     private boolean serverSupportsVariablePrecisionTimeWithTimeZone()
     {
-        return getTestedPrestoServerVersion() >= 341;
+        return getTestedServerVersion() >= 341;
     }
 
     private boolean serverSupportsVariablePrecisionTimestamp()
     {
-        return getTestedPrestoServerVersion() >= 335;
+        return getTestedServerVersion() >= 335;
     }
 
     private boolean serverSupportsVariablePrecisionTimestampWithTimeZone()
     {
-        return getTestedPrestoServerVersion() >= 337;
+        return getTestedServerVersion() >= 337;
     }
 }

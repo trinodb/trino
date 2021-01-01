@@ -20,7 +20,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-// A public facade for RowField from presto-client
+// A public facade for RowField from trino-client
 public final class RowField
 {
     private final io.trino.client.RowField rowField;

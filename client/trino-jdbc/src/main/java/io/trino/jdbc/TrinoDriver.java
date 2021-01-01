@@ -32,10 +32,10 @@ import static io.trino.client.OkHttpUtil.setupChannelSocket;
 import static io.trino.client.OkHttpUtil.userAgent;
 import static java.lang.Integer.parseInt;
 
-public class PrestoDriver
+public class TrinoDriver
         implements Driver, Closeable
 {
-    static final String DRIVER_NAME = "Presto JDBC Driver";
+    static final String DRIVER_NAME = "Trino JDBC Driver";
     static final String DRIVER_VERSION;
     static final int DRIVER_VERSION_MAJOR;
     static final int DRIVER_VERSION_MINOR;
@@ -43,7 +43,7 @@ public class PrestoDriver
     private final OkHttpClient httpClient = newHttpClient();
 
     static {
-        String implementationVersion = PrestoDriver.class.getPackage().getImplementationVersion();
+        String implementationVersion = TrinoDriver.class.getPackage().getImplementationVersion();
         DRIVER_VERSION = implementationVersion == null ? "unknown" : implementationVersion;
         Matcher matcher = Pattern.compile("^(\\d+)(\\.(\\d+))?($|[.-])").matcher(DRIVER_VERSION);
         if (!matcher.find()) {
@@ -56,7 +56,7 @@ public class PrestoDriver
         }
 
         try {
-            DriverManager.registerDriver(new PrestoDriver());
+            DriverManager.registerDriver(new TrinoDriver());
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
@@ -78,27 +78,27 @@ public class PrestoDriver
             return null;
         }
 
-        PrestoDriverUri uri = PrestoDriverUri.create(url, info);
+        TrinoDriverUri uri = TrinoDriverUri.create(url, info);
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);
         QueryExecutor executor = new QueryExecutor(builder.build());
 
-        return new PrestoConnection(uri, executor);
+        return new TrinoConnection(uri, executor);
     }
 
     @Override
     public boolean acceptsURL(String url)
             throws SQLException
     {
-        return PrestoDriverUri.acceptsURL(url);
+        return TrinoDriverUri.acceptsURL(url);
     }
 
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
             throws SQLException
     {
-        Properties properties = PrestoDriverUri.create(url, info).getProperties();
+        Properties properties = TrinoDriverUri.create(url, info).getProperties();
 
         return ConnectionProperties.allProperties().stream()
                 .map(property -> property.getDriverPropertyInfo(properties))

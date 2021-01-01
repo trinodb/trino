@@ -11,26 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.jdbc;
+package io.prestosql.jdbc;
 
-import io.trino.client.Column;
+import io.trino.jdbc.TrinoDriver;
 
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Optional;
-
-import static java.util.Objects.requireNonNull;
-
-class InMemoryPrestoResultSet
-        extends AbstractPrestoResultSet
-{
-    public InMemoryPrestoResultSet(List<Column> columns, List<List<Object>> results)
-    {
-        super(Optional.empty(), columns, requireNonNull(results, "results is null").iterator());
-    }
-
-    @Override
-    public void close()
-            throws SQLException
-    {}
-}
+/**
+ * @deprecated Use {@link TrinoDriver} instead.
+ */
+@Deprecated
+public class PrestoDriver
+        extends TrinoDriver {}

@@ -271,7 +271,7 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection()) {
-            assertConnectionSource(connection, "presto-jdbc");
+            assertConnectionSource(connection, "trino-jdbc");
         }
 
         try (Connection connection = createConnection()) {
@@ -312,7 +312,7 @@ public class TestJdbcConnection
         }
 
         try (Connection connection = createConnection()) {
-            assertConnectionSource(connection, "presto-jdbc");
+            assertConnectionSource(connection, "trino-jdbc");
         }
     }
 
@@ -326,8 +326,8 @@ public class TestJdbcConnection
                     .put("test.token.abc", "xyz")
                     .put("colon", "-::-")
                     .build();
-            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
-            assertEquals(prestoConnection.getExtraCredentials(), expectedCredentials);
+            TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
+            assertEquals(trinoConnection.getExtraCredentials(), expectedCredentials);
             assertEquals(listExtraCredentials(connection), expectedCredentials);
         }
     }
@@ -384,8 +384,8 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection("roles=hive:" + roleParameterValue)) {
-            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
-            assertEquals(prestoConnection.getRoles(), ImmutableMap.of("hive", clientSelectedRole));
+            TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
+            assertEquals(trinoConnection.getRoles(), ImmutableMap.of("hive", clientSelectedRole));
             assertEquals(listCurrentRoles(connection), currentRoles);
         }
     }
@@ -395,8 +395,8 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection("roles=hive:admin&sessionProperties=hive.temporary_staging_directory_path:/tmp;execution_policy:phased")) {
-            PrestoConnection prestoConnection = connection.unwrap(PrestoConnection.class);
-            assertThat(prestoConnection.getSessionProperties())
+            TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
+            assertThat(trinoConnection.getSessionProperties())
                     .extractingByKeys("hive.temporary_staging_directory_path", "execution_policy")
                     .containsExactly("/tmp", "phased");
             assertThat(listSession(connection)).containsAll(ImmutableSet.of(
@@ -414,7 +414,7 @@ public class TestJdbcConnection
     private Connection createConnection(String extra)
             throws SQLException
     {
-        String url = format("jdbc:presto://%s/hive/default?%s", server.getAddress(), extra);
+        String url = format("jdbc:trino://%s/hive/default?%s", server.getAddress(), extra);
         return DriverManager.getConnection(url, "admin", null);
     }
 
@@ -479,7 +479,7 @@ public class TestJdbcConnection
         String queryId;
         try (Statement statement = connection.createStatement();
                 ResultSet rs = statement.executeQuery("SELECT 123")) {
-            queryId = rs.unwrap(PrestoResultSet.class).getQueryId();
+            queryId = rs.unwrap(TrinoResultSet.class).getQueryId();
         }
 
         try (PreparedStatement statement = connection.prepareStatement(

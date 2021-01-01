@@ -29,12 +29,12 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrestoResultSetMetaData
+public class TrinoResultSetMetaData
         implements ResultSetMetaData
 {
     private final List<ColumnInfo> columnInfo;
 
-    PrestoResultSetMetaData(List<ColumnInfo> columnInfo)
+    TrinoResultSetMetaData(List<ColumnInfo> columnInfo)
     {
         this.columnInfo = ImmutableList.copyOf(requireNonNull(columnInfo, "columnInfo is null"));
     }

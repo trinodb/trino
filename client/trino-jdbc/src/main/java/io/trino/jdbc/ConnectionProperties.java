@@ -165,7 +165,7 @@ final class ConnectionProperties
         }
 
         // Roles consists of a list of catalog role pairs.
-        // E.g., `jdbc:presto://example.net:8080/?roles=catalog1:none;catalog2:all;catalog3:role` will set following roles:
+        // E.g., `jdbc:trino://example.net:8080/?roles=catalog1:none;catalog2:all;catalog3:role` will set following roles:
         //  - `none` in `catalog1`
         //  - `all` in `catalog2`
         //  - `role` in `catalog3`
@@ -433,7 +433,7 @@ final class ConnectionProperties
         }
 
         // Extra credentials consists of a list of credential name value pairs.
-        // E.g., `jdbc:presto://example.net:8080/?extraCredentials=abc:xyz;foo:bar` will create credentials `abc=xyz` and `foo=bar`
+        // E.g., `jdbc:trino://example.net:8080/?extraCredentials=abc:xyz;foo:bar` will create credentials `abc=xyz` and `foo=bar`
         public static Map<String, String> parseExtraCredentials(String extraCredentialString)
         {
             return new MapPropertyParser("extraCredentials").parse(extraCredentialString);
@@ -451,7 +451,7 @@ final class ConnectionProperties
         }
 
         // Session properties consists of a list of session property name value pairs.
-        // E.g., `jdbc:presto://example.net:8080/?sessionProperties=abc:xyz;catalog.foo:bar` will create session properties `abc=xyz` and `catalog.foo=bar`
+        // E.g., `jdbc:trino://example.net:8080/?sessionProperties=abc:xyz;catalog.foo:bar` will create session properties `abc=xyz` and `catalog.foo=bar`
         public static Map<String, String> parseSessionProperties(String sessionPropertiesString)
         {
             Map<String, String> sessionProperties = new MapPropertyParser("sessionProperties").parse(sessionPropertiesString);

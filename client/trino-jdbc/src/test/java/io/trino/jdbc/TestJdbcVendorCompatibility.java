@@ -107,7 +107,7 @@ public class TestJdbcVendorCompatibility
             throws Exception
     {
         // recreate connection since tests modify connection state
-        connection = DriverManager.getConnection("jdbc:presto://" + server.getAddress(), "test", null);
+        connection = DriverManager.getConnection("jdbc:trino://" + server.getAddress(), "test", null);
         statement = connection.createStatement();
         referenceDrivers.forEach(ReferenceDriver::setUp);
     }
@@ -157,7 +157,7 @@ public class TestJdbcVendorCompatibility
                     assertThat(rs.getBytes(column)).isEqualTo(reference.getBytes(column));
                     assertThat(rs.getObject(column)).isEqualTo(reference.getObject(column));
 
-                    // Presto returns "0x<hex>"
+                    // Trino returns "0x<hex>"
                     // PostgreSQL returns "\x<hex>"
                     // Oracle returns "<hex>"
                     assertThat(rs.getString(column).replaceFirst("^0x", ""))
@@ -202,7 +202,7 @@ public class TestJdbcVendorCompatibility
             throws Exception
     {
         checkRepresentation(
-                "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Presto
+                "TIMESTAMP '1970-01-01 00:00:00.000 +00:00'", // Trino
                 ImmutableList.of(
                         "TIMESTAMP WITH TIME ZONE '1970-01-01 00:00:00.000 +00:00'", // PostgreSQL
                         "from_tz(TIMESTAMP '1970-01-01 00:00:00.000', '+00:00')"), // Oracle
@@ -328,7 +328,7 @@ public class TestJdbcVendorCompatibility
             throws SQLException
     {
         // connection is recreated before each test invocation
-        sessionTimezoneId.ifPresent(connection.unwrap(PrestoConnection.class)::setTimeZoneId);
+        sessionTimezoneId.ifPresent(connection.unwrap(TrinoConnection.class)::setTimeZoneId);
         try (PreparedStatement statement = connection.prepareStatement("SELECT ?")) {
             binder.bind(statement, 1);
 
@@ -349,7 +349,7 @@ public class TestJdbcVendorCompatibility
         checkRepresentation(expression, referenceDriversExpressions, type, sessionTimezoneId, assertion);
     }
 
-    private void checkRepresentation(String prestoExpression, List<String> referenceDriversExpressions, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
+    private void checkRepresentation(String trinoExpression, List<String> referenceDriversExpressions, JDBCType type, Optional<String> sessionTimezoneId, ResultAssertion assertion)
             throws Exception
     {
         verify(referenceDriversExpressions.size() == referenceDrivers.size(), "Wrong referenceDriversExpressions list size");
@@ -367,7 +367,7 @@ public class TestJdbcVendorCompatibility
                 log.info("Checking behavior against %s using expression: %s", driver, referenceExpression);
                 try {
                     verify(!referenceExpression.isEmpty(), "referenceExpression is empty");
-                    checkRepresentation(prestoExpression, referenceExpression, type, sessionTimezoneId, driver, assertion);
+                    checkRepresentation(trinoExpression, referenceExpression, type, sessionTimezoneId, driver, assertion);
                 }
                 catch (RuntimeException | AssertionError e) {
                     String message = format("Failure when checking behavior against %s", driver);
@@ -392,31 +392,31 @@ public class TestJdbcVendorCompatibility
         }
     }
 
-    private void checkRepresentation(String prestoExpression, String referenceExpression, JDBCType type, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
+    private void checkRepresentation(String trinoExpression, String referenceExpression, JDBCType type, Optional<String> sessionTimezoneId, ReferenceDriver reference, ResultAssertion assertion)
             throws Exception
     {
-        try (ResultSet prestoResultSet = prestoQuery(prestoExpression, sessionTimezoneId);
+        try (ResultSet trinoResultSet = trinoQuery(trinoExpression, sessionTimezoneId);
                 ResultSet referenceResultSet = reference.query(referenceExpression, sessionTimezoneId)) {
-            assertTrue(prestoResultSet.next());
+            assertTrue(trinoResultSet.next());
             assertTrue(referenceResultSet.next());
-            assertion.accept(prestoResultSet, referenceResultSet, 1);
+            assertion.accept(trinoResultSet, referenceResultSet, 1);
 
-            assertThat(prestoResultSet.getMetaData().getColumnType(1)).as("Presto declared SQL type")
+            assertThat(trinoResultSet.getMetaData().getColumnType(1)).as("Trino declared SQL type")
                     .isEqualTo(type.getVendorTypeNumber());
 
             assertThat(referenceResultSet.getMetaData().getColumnType(1)).as("Reference driver's declared SQL type for " + type)
                     .isEqualTo(reference.expectedDeclaredJdbcType(type));
 
-            assertFalse(prestoResultSet.next());
+            assertFalse(trinoResultSet.next());
             assertFalse(referenceResultSet.next());
         }
     }
 
-    private ResultSet prestoQuery(String expression, Optional<String> sessionTimezoneId)
+    private ResultSet trinoQuery(String expression, Optional<String> sessionTimezoneId)
             throws Exception
     {
         // connection is recreated before each test invocation
-        sessionTimezoneId.ifPresent(connection.unwrap(PrestoConnection.class)::setTimeZoneId);
+        sessionTimezoneId.ifPresent(connection.unwrap(TrinoConnection.class)::setTimeZoneId);
         return statement.executeQuery("SELECT " + expression);
     }
 

@@ -42,7 +42,7 @@ databases:
     cli_kerberos_use_canonical_hostname: false
     configured_hdfs_user: hdfs
 
-    jdbc_url: "jdbc:presto://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?\
+    jdbc_url: "jdbc:trino://${databases.presto.host}:${databases.presto.port}/hive/${databases.hive.schema}?\
       SSL=true&\
       SSLTrustStorePath=${databases.presto.https_keystore_path}&\
       SSLTrustStorePassword=${databases.presto.https_keystore_password}&\

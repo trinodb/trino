@@ -18,17 +18,17 @@ import java.util.Objects;
 import static io.trino.client.IntervalYearMonth.formatMonths;
 import static io.trino.client.IntervalYearMonth.toMonths;
 
-public class PrestoIntervalYearMonth
-        implements Comparable<PrestoIntervalYearMonth>
+public class TrinoIntervalYearMonth
+        implements Comparable<TrinoIntervalYearMonth>
 {
     private final int months;
 
-    public PrestoIntervalYearMonth(int months)
+    public TrinoIntervalYearMonth(int months)
     {
         this.months = months;
     }
 
-    public PrestoIntervalYearMonth(int year, int months)
+    public TrinoIntervalYearMonth(int year, int months)
     {
         this.months = toMonths(year, months);
     }
@@ -53,12 +53,12 @@ public class PrestoIntervalYearMonth
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        PrestoIntervalYearMonth other = (PrestoIntervalYearMonth) obj;
+        TrinoIntervalYearMonth other = (TrinoIntervalYearMonth) obj;
         return this.months == other.months;
     }
 
     @Override
-    public int compareTo(PrestoIntervalYearMonth o)
+    public int compareTo(TrinoIntervalYearMonth o)
     {
         return Integer.compare(months, o.months);
     }

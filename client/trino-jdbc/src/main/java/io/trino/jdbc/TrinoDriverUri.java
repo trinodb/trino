@@ -79,12 +79,13 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Parses and extracts parameters from a Presto JDBC URL.
+ * Parses and extracts parameters from a Trino JDBC URL.
  */
-public final class PrestoDriverUri
+public final class TrinoDriverUri
 {
     private static final String JDBC_URL_PREFIX = "jdbc:";
-    private static final String JDBC_URL_START = JDBC_URL_PREFIX + "presto:";
+    private static final String JDBC_URL_START = JDBC_URL_PREFIX + "trino:";
+    private static final String LEGACY_JDBC_URL_START = JDBC_URL_PREFIX + "presto:";
 
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
@@ -99,13 +100,13 @@ public final class PrestoDriverUri
 
     private final boolean useSecureConnection;
 
-    private PrestoDriverUri(String url, Properties driverProperties)
+    private TrinoDriverUri(String url, Properties driverProperties)
             throws SQLException
     {
         this(parseDriverUrl(url), driverProperties);
     }
 
-    private PrestoDriverUri(URI uri, Properties driverProperties)
+    private TrinoDriverUri(URI uri, Properties driverProperties)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
@@ -120,15 +121,15 @@ public final class PrestoDriverUri
         initCatalogAndSchema();
     }
 
-    public static PrestoDriverUri create(String url, Properties properties)
+    public static TrinoDriverUri create(String url, Properties properties)
             throws SQLException
     {
-        return new PrestoDriverUri(url, properties);
+        return new TrinoDriverUri(url, properties);
     }
 
     public static boolean acceptsURL(String url)
     {
-        return url.startsWith(JDBC_URL_START);
+        return url.startsWith(JDBC_URL_START) || url.startsWith(LEGACY_JDBC_URL_START);
     }
 
     public URI getJdbcUri()
@@ -310,11 +311,11 @@ public final class PrestoDriverUri
     private static URI parseDriverUrl(String url)
             throws SQLException
     {
-        if (!url.startsWith(JDBC_URL_START)) {
+        if (!url.startsWith(JDBC_URL_START) && !url.startsWith(LEGACY_JDBC_URL_START)) {
             throw new SQLException("Invalid JDBC URL: " + url);
         }
 
-        if (url.length() == JDBC_URL_START.length()) {
+        if (url.equals(JDBC_URL_START) || url.equals(LEGACY_JDBC_URL_START)) {
             throw new SQLException("Empty JDBC URL: " + url);
         }
 

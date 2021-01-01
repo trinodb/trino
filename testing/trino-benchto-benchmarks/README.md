@@ -39,21 +39,21 @@ benchmark-service:
   url: http://localhost:8081
 
 data-sources:
-  presto:
-    url: jdbc:presto://localhost:8080
+  trino:
+    url: jdbc:trino://localhost:8080
     username: na
     password: na
-    driver-class-name: io.prestosql.jdbc.PrestoDriver
+    driver-class-name: io.trino.jdbc.TrinoDriver
 
 environment:
-  name: PRESTO-DEVENV
+  name: TRINO-DEV
 
 presto:
   url: http://localhost:8080
 
 benchmark:
   feature:
-    presto:
+    trino:
       metrics.collection.enabled: true
 
 macros:

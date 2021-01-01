@@ -62,15 +62,15 @@ to Trino from your application. The following JDBC URL formats are supported:
 
 .. code-block:: text
 
-    jdbc:presto://host:port
-    jdbc:presto://host:port/catalog
-    jdbc:presto://host:port/catalog/schema
+    jdbc:trino://host:port
+    jdbc:trino://host:port/catalog
+    jdbc:trino://host:port/catalog/schema
 
 The following is an example of a JDBC URL used to create a connection:
 
 .. code-block:: text
 
-    jdbc:presto://example.net:8080/hive/sales
+    jdbc:trino://example.net:8080/hive/sales
 
 This example JDBC URL locates a Trino instance running on port ``8080`` on
 ``example.net``, with the catalog ``hive`` and the schema ``sales`` defined.
@@ -85,7 +85,7 @@ examples are equivalent:
 .. code-block:: java
 
     // URL parameters
-    String url = "jdbc:presto://example.net:8080/hive/sales";
+    String url = "jdbc:trino://example.net:8080/hive/sales";
     Properties properties = new Properties();
     properties.setProperty("user", "test");
     properties.setProperty("password", "secret");
@@ -93,7 +93,7 @@ examples are equivalent:
     Connection connection = DriverManager.getConnection(url, properties);
 
     // properties
-    String url = "jdbc:presto://example.net:8080/hive/sales?user=test&password=secret&SSL=true";
+    String url = "jdbc:trino://example.net:8080/hive/sales?user=test&password=secret&SSL=true";
     Connection connection = DriverManager.getConnection(url);
 
 These methods may be mixed; some parameters may be specified in the URL,
@@ -120,7 +120,7 @@ Name                                   Description
                                        property, which is used to set the source name for the Trino query
                                        if the ``source`` parameter has not been set. If neither this
                                        property nor ``ApplicationName`` or ``source`` are set, the source
-                                       name for the query is ``presto-jdbc``.
+                                       name for the query is ``trino-jdbc``.
 ``accessToken``                        Access token for token based authentication.
 ``SSL``                                Use HTTPS for connections
 ``SSLVerification``                    The method of SSL verification. There are three modes: ``FULL``
