@@ -23,15 +23,15 @@ The driver is also available from Maven Central:
 .. parsed-literal::
 
     <dependency>
-        <groupId>io.prestosql</groupId>
-        <artifactId>presto-jdbc</artifactId>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-jdbc</artifactId>
         <version>\ |version|\ </version>
     </dependency>
 
 We recommend using the latest version of the JDBC driver. A list of all
 available versions can be found in the `Maven Central Repository
-<https://repo1.maven.org/maven2/io/prestosql/presto-jdbc/>`_. Navigate to the
-directory for the desired version, and select the ``presto-jdbc-xxx.jar`` file
+<https://repo1.maven.org/maven2/io/trino/trino-jdbc/>`_. Navigate to the
+directory for the desired version, and select the ``trino-jdbc-xxx.jar`` file
 to download, where ``xxx`` is the version number.
 
 Once downloaded, you must add the JAR file to a directory in the classpath

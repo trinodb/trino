@@ -82,7 +82,7 @@ highlight_language = 'sql'
 default_role = 'backquote'
 
 rst_epilog = """
-.. |presto_server_release| replace:: ``presto-server-{release}``
+.. |trino_server_release| replace:: ``trino-server-{release}``
 """.replace('{release}', release)
 
 # -- Options for HTML output ---------------------------------------------------

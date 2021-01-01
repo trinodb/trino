@@ -317,7 +317,7 @@ you can change the :ref:`log level <log-levels>` for the LDAP authenticator:
 
 .. code-block:: none
 
-    io.prestosql.plugin.password=DEBUG
+    io.trino.plugin.password=DEBUG
 
 SSL Debugging for Trino CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

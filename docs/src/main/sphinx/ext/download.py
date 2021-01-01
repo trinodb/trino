@@ -17,13 +17,11 @@ from docutils import nodes, utils
 # noinspection PyUnresolvedReferences
 from sphinx.errors import SphinxError
 
-GROUP_ID = 'io.prestosql'
+GROUP_ID = 'io.trino'
 ARTIFACTS = {
-    'server': ('presto-server', 'tar.gz', None),
-    'cli': ('presto-cli', 'jar', 'executable'),
-    'jdbc': ('presto-jdbc', 'jar', None),
-    'verifier': ('presto-verifier', 'jar', 'executable'),
-    'benchmark-driver': ('presto-benchmark-driver', 'jar', 'executable'),
+    'server': ('trino-server', 'tar.gz', None),
+    'cli': ('trino-cli', 'jar', 'executable'),
+    'jdbc': ('trino-jdbc', 'jar', None),
 }
 
 
