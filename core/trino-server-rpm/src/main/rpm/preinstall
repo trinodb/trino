@@ -24,7 +24,7 @@ check_if_correct_java_version() {
   JAVA_UPDATE=$(echo $JAVA_VERSION | cut -d'_' -f2)
   JAVA_MAJOR=$(echo $JAVA_VERSION | cut -d'.' -f1)
   if [[ ("$JAVA_MAJOR" -ge "11") ]]; then
-    echo "JAVA_HOME=$1" > /tmp/presto_env.sh
+    echo "JAVA_HOME=$1" > /tmp/trino_env.sh
     return 0
   else
     return 1
@@ -68,5 +68,5 @@ EOF
   exit 1
 fi
 
-getent group presto >/dev/null || /usr/sbin/groupadd -r presto
-getent passwd presto >/dev/null || /usr/sbin/useradd --comment "Presto" -s /sbin/nologin -g presto -r -d /var/lib/presto presto
+getent group trino >/dev/null || /usr/sbin/groupadd -r trino
+getent passwd trino >/dev/null || /usr/sbin/useradd --comment "Trino" -s /sbin/nologin -g trino -r -d /var/lib/trino trino

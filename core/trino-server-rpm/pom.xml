@@ -151,7 +151,7 @@
                             <release>1</release>
 
                             <group>Applications/Databases</group>
-                            <description>Presto Server RPM Package.</description>
+                            <description>Trino Server RPM Package.</description>
                             <architecture>x86_64</architecture>
                             <preInstallScriptFile>src/main/rpm/preinstall</preInstallScriptFile>
                             <postInstallScriptFile>src/main/rpm/postinstall</postInstallScriptFile>
@@ -181,14 +181,14 @@
 
                             <links>
                                 <link>
-                                    <path>/usr/lib/presto/etc</path>
-                                    <target>/etc/presto</target>
+                                    <path>/usr/lib/trino/etc</path>
+                                    <target>/etc/trino</target>
                                 </link>
                             </links>
 
                             <rules>
                                 <rule>
-                                    <destination>/usr/lib/presto/bin</destination>
+                                    <destination>/usr/lib/trino/bin</destination>
                                     <base>${server.tar.package}/bin</base>
                                     <!-- make sure launcher scripts are executable -->
                                     <fileMode>0755</fileMode>
@@ -198,7 +198,7 @@
                                 </rule>
 
                                 <rule>
-                                    <destination>/usr/lib/presto/bin</destination>
+                                    <destination>/usr/lib/trino/bin</destination>
                                     <base>${server.tar.package}/bin</base>
                                     <!-- copy sub folders -->
                                     <includes>
@@ -217,7 +217,7 @@
                                 </rule>
 
                                 <rule>
-                                    <destination>/usr/lib/presto/shared</destination>
+                                    <destination>/usr/lib/trino/shared</destination>
                                     <base>${server.tar.package}/shared</base>
                                     <includes>
                                         <include>*</include>
@@ -225,9 +225,9 @@
                                 </rule>
 
                                 <rule>
-                                    <!-- This should go to just /usr/lib/presto eventually. But that needs modifying
+                                    <!-- This should go to just /usr/lib/trino eventually. But that needs modifying
                                     launcher.py in airlift, to have a configurable option for install_path -->
-                                    <destination>/usr/lib/presto/lib</destination>
+                                    <destination>/usr/lib/trino/lib</destination>
                                     <base>${server.tar.package}/lib</base>
                                     <includes>
                                         <include>*</include>
@@ -235,7 +235,7 @@
                                 </rule>
 
                                 <rule>
-                                    <destination>/usr/lib/presto/plugin</destination>
+                                    <destination>/usr/lib/trino/plugin</destination>
                                     <base>${server.tar.package}/plugin</base>
                                     <includes>
                                         <include>*/*</include>
@@ -243,7 +243,7 @@
                                 </rule>
 
                                 <rule>
-                                    <destination>/etc/presto</destination>
+                                    <destination>/etc/trino</destination>
                                     <base>dist/config</base>
                                     <includes>
                                         <include>*</include>
@@ -255,7 +255,7 @@
                                 </rule>
 
                                 <rule>
-                                    <destination>/usr/shared/doc/presto</destination>
+                                    <destination>/usr/shared/doc/trino</destination>
                                     <base>${server.tar.package}</base>
                                     <includes>
                                         <include>README.txt</include>
@@ -264,10 +264,10 @@
 
                                 <!-- Add these rules so that .spec knows these dirs are to be removed too on rpm -e -->
                                 <rule>
-                                    <destination>/usr/lib/presto</destination>
+                                    <destination>/usr/lib/trino</destination>
                                 </rule>
                                 <rule>
-                                    <destination>/usr/lib/presto/lib</destination>
+                                    <destination>/usr/lib/trino/lib</destination>
                                 </rule>
                             </rules>
                         </package>
