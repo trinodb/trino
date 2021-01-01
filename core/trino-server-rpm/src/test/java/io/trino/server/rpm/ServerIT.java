@@ -57,28 +57,28 @@ public class ServerIT
             throws Exception
     {
         String rpm = "/" + new File(rpmHostPath).getName();
-        String installAndStartPresto = "" +
+        String installAndStartTrino = "" +
                 "yum localinstall -q -y " + rpm + "\n" +
-                "/etc/init.d/presto start\n" +
+                "/etc/init.d/trino start\n" +
                 // allow tail to work with Docker's non-local file system
-                "tail ---disable-inotify -F /var/log/presto/server.log\n";
+                "tail ---disable-inotify -F /var/log/trino/server.log\n";
         try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
             container.withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
-                    .withCommand("sh", "-xeuc", installAndStartPresto)
+                    .withCommand("sh", "-xeuc", installAndStartTrino)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
                     .start();
-            String uninstallPresto = "" +
-                    "/etc/init.d/presto stop\n" +
+            String uninstallTrino = "" +
+                    "/etc/init.d/trino stop\n" +
                     "rpm -e trino-server-rpm\n";
-            container.execInContainer("sh", "-xeuc", uninstallPresto);
+            container.execInContainer("sh", "-xeuc", uninstallTrino);
 
             ExecResult actual = container.execInContainer("rpm", "-q", "trino-server-rpm");
             assertEquals(actual.getStdout(), "package trino-server-rpm is not installed\n");
 
-            assertPathDeleted(container, "/var/lib/presto");
-            assertPathDeleted(container, "/usr/lib/presto");
-            assertPathDeleted(container, "/etc/init.d/presto");
-            assertPathDeleted(container, "/usr/shared/doc/presto");
+            assertPathDeleted(container, "/var/lib/trino");
+            assertPathDeleted(container, "/usr/lib/trino");
+            assertPathDeleted(container, "/etc/init.d/trino");
+            assertPathDeleted(container, "/usr/shared/doc/trino");
         }
     }
 
@@ -101,19 +101,19 @@ public class ServerIT
                 // install RPM
                 "yum localinstall -q -y " + rpm + "\n" +
                 // create Hive catalog file
-                "mkdir /etc/presto/catalog\n" +
-                "cat > /etc/presto/catalog/hive.properties <<\"EOT\"\n" +
+                "mkdir /etc/trino/catalog\n" +
+                "cat > /etc/trino/catalog/hive.properties <<\"EOT\"\n" +
                 "connector.name=hive-hadoop2\n" +
                 "hive.metastore.uri=thrift://localhost:9083\n" +
                 "EOT\n" +
                 // create JMX catalog file
-                "cat > /etc/presto/catalog/jmx.properties <<\"EOT\"\n" +
+                "cat > /etc/trino/catalog/jmx.properties <<\"EOT\"\n" +
                 "connector.name=jmx\n" +
                 "EOT\n" +
                 // start server
-                "/etc/init.d/presto start\n" +
+                "/etc/init.d/trino start\n" +
                 // allow tail to work with Docker's non-local file system
-                "tail ---disable-inotify -F /var/log/presto/server.log\n";
+                "tail ---disable-inotify -F /var/log/trino/server.log\n";
 
         try (GenericContainer<?> container = new GenericContainer<>(BASE_IMAGE)) {
             container.withExposedPorts(8080)
