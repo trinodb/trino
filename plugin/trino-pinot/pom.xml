@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-pinot</artifactId>
-    <description>Presto - Pinot Connector</description>
+    <description>Trino - Pinot Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -352,7 +352,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

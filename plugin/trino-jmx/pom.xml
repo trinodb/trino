@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-jmx</artifactId>
-    <description>Presto - JMX Connector</description>
+    <description>Trino - JMX Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -82,7 +82,7 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

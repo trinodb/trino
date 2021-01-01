@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-example-http</artifactId>
-    <description>Presto - Example HTTP Connector</description>
+    <description>Trino - Example HTTP Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -57,7 +57,7 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

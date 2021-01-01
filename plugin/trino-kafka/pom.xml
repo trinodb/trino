@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-kafka</artifactId>
-    <description>Presto - Kafka Connector</description>
+    <description>Trino - Kafka Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -121,7 +121,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

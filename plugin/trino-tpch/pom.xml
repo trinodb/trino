@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-tpch</artifactId>
-    <description>Presto - TPC-H Connector</description>
+    <description>Trino - TPC-H Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -37,7 +37,7 @@
             <artifactId>guava</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

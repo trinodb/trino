@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-phoenix</artifactId>
-    <description>Presto - Phoenix Connector</description>
+    <description>Trino - Phoenix Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -122,7 +122,7 @@
             </exclusions>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

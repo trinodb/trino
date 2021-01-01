@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-resource-group-managers</artifactId>
-    <description>Presto - Resource Group Configuration Managers</description>
+    <description>Trino - Resource Group Configuration Managers</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -119,7 +119,7 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

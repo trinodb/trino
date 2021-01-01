@@ -26,7 +26,7 @@
           - instanceB.test2()
 
          With grouping by test method, test execution is very resource intensive, as each test class instance
-         starts up separate Presto server docker container -->
+         starts up separate Trino server docker container -->
     <test name="all" group-by-instances="true">
         <packages>
             <package name="io.trino"/>

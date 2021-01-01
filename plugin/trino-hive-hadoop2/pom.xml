@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-hive-hadoop2</artifactId>
-    <description>Presto - Hive Connector - Apache Hadoop 2.x</description>
+    <description>Trino - Hive Connector - Apache Hadoop 2.x</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -46,7 +46,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

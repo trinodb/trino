@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-sqlserver</artifactId>
-    <description>Presto - SQL Server Connector</description>
+    <description>Trino - SQL Server Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>

@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-accumulo</artifactId>
-    <description>Presto - Accumulo Connector</description>
+    <description>Trino - Accumulo Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -216,7 +216,7 @@
             </exclusions>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-blackhole</artifactId>
-    <description>Presto - Black Hole Connector</description>
+    <description>Trino - Black Hole Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -51,7 +51,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

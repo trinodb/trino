@@ -11,7 +11,7 @@
 
     <artifactId>trino-rcfile</artifactId>
     <name>trino-rcfile</name>
-    <description>Presto - RCFile</description>
+    <description>Trino - RCFile</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

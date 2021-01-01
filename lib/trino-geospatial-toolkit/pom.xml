@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-geospatial-toolkit</artifactId>
-    <description>Presto - Geospatial utilities</description>
+    <description>Trino - Geospatial utilities</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-oracle</artifactId>
-    <description>Presto - Oracle Connector</description>
+    <description>Trino - Oracle Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -83,7 +83,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-kinesis</artifactId>
-    <description>Presto - Kinesis Connector</description>
+    <description>Trino - Kinesis Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -128,7 +128,7 @@
             <artifactId>validation-api</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

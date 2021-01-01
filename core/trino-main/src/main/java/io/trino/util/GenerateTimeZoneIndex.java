@@ -43,7 +43,7 @@ public final class GenerateTimeZoneIndex
         System.out.println("#");
         System.out.println("# This file contain the fixed numeric id of every supported time zone id.");
         System.out.println("# Every zone id in this file must be supported by java.util.TimeZone and the");
-        System.out.println("# Joda time library.  This is because Presto uses both java.util.TimeZone and");
+        System.out.println("# Joda time library.  This is because Trino uses both java.util.TimeZone and");
         System.out.println("# the Joda time## for during execution.");
         System.out.println("#");
         System.out.println("# suppress inspection \"UnusedProperty\" for whole file");

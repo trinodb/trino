@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-cassandra</artifactId>
-    <description>Presto - Cassandra Connector</description>
+    <description>Trino - Cassandra Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -114,7 +114,7 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

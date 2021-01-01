@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-test-jdbc-compatibility-old-driver</artifactId>
-    <description>Presto - Tests whether older Presto JDBC clients are compatible with current Presto server</description>
+    <description>Trino - Tests whether older Trino JDBC clients are compatible with current Trino server</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>

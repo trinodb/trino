@@ -11,7 +11,7 @@
 
     <artifactId>trino-base-jdbc</artifactId>
     <name>trino-base-jdbc</name>
-    <description>Presto - Base JDBC Connector</description>
+    <description>Trino - Base JDBC Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
@@ -128,7 +128,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

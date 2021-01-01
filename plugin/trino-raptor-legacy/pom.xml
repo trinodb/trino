@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-raptor-legacy</artifactId>
-    <description>Presto - Raptor Legacy Connector</description>
+    <description>Trino - Raptor Legacy Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -166,7 +166,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

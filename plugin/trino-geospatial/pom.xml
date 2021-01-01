@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-geospatial</artifactId>
-    <description>Presto - Geospatial Plugin</description>
+    <description>Trino - Geospatial Plugin</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -52,7 +52,7 @@
             <artifactId>jts-core</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-mongodb</artifactId>
-    <description>Presto - mongodb Connector</description>
+    <description>Trino - mongodb Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -87,7 +87,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>

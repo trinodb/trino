@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>trino-mysql</artifactId>
-    <description>Presto - MySQL Connector</description>
+    <description>Trino - MySQL Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
@@ -78,7 +78,7 @@
             <artifactId>mysql-connector-java</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
