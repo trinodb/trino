@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
@@ -51,6 +52,7 @@ import static io.prestosql.operator.scalar.QuantileDigestFunctions.verifyAccurac
 import static io.prestosql.operator.scalar.QuantileDigestFunctions.verifyWeight;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.StandardTypes.QDIGEST;
 import static io.prestosql.spi.type.TypeSignature.parametricType;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Float.intBitsToFloat;
@@ -89,15 +91,9 @@ public final class QuantileDigestAggregationFunction
                         true,
                         "Returns a qdigest from the set of reals, bigints or doubles",
                         AGGREGATE),
-                true,
-                true);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type valueType = functionBinding.getTypeVariable("V");
-        return ImmutableList.of(new QuantileDigestType(valueType).getTypeSignature());
+                new AggregationFunctionMetadata(
+                        true,
+                        parametricType(QDIGEST, new TypeSignature("V"))));
     }
 
     @Override

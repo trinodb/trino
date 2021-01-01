@@ -15,6 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
@@ -28,7 +29,6 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -41,6 +41,8 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Float.floatToIntBits;
@@ -74,16 +76,10 @@ public class RealAverageAggregation
                         true,
                         "Returns the average value of the argument",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(
-                StateCompiler.getSerializedType(LongState.class).getTypeSignature(),
-                StateCompiler.getSerializedType(DoubleState.class).getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature(),
+                        DOUBLE.getTypeSignature()));
     }
 
     @Override

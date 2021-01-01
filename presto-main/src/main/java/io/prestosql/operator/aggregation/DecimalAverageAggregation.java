@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
@@ -55,6 +56,7 @@ import static io.prestosql.spi.type.Decimals.writeBigDecimal;
 import static io.prestosql.spi.type.Decimals.writeShortDecimal;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 
@@ -88,14 +90,9 @@ public class DecimalAverageAggregation
                         true,
                         "Calculates the average value",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(new LongDecimalWithOverflowAndLongStateSerializer().getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        VARBINARY.getTypeSignature()));
     }
 
     @Override

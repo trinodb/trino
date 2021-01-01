@@ -15,6 +15,7 @@ package io.prestosql.operator.aggregation.minmaxby;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
@@ -52,6 +53,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Math.toIntExact;
@@ -76,7 +78,7 @@ public abstract class AbstractMinMaxByNAggregationFunction
                                 name,
                                 ImmutableList.of(typeVariable("V"), orderableTypeParameter("K")),
                                 ImmutableList.of(),
-                                TypeSignature.arrayType(new TypeSignature("V")),
+                                arrayType(new TypeSignature("V")),
                                 ImmutableList.of(new TypeSignature("V"), new TypeSignature("K"), BIGINT.getTypeSignature()),
                                 false),
                         true,
@@ -88,18 +90,13 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         true,
                         description,
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature(),
+                        arrayType(new TypeSignature("K")),
+                        arrayType(new TypeSignature("V"))));
         this.name = requireNonNull(name, "name is null");
         this.typeToComparison = requireNonNull(typeToComparison, "typeToComparison is null");
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
-        return ImmutableList.of(new MinMaxByNStateSerializer(typeToComparison.apply(keyType), keyType, valueType).getSerializedType().getTypeSignature());
     }
 
     @Override

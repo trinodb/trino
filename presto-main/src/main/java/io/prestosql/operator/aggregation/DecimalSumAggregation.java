@@ -16,13 +16,13 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
@@ -53,6 +53,7 @@ import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.throwIfOverflows;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.throwOverflowException;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.util.Reflection.methodHandle;
 
 public class DecimalSumAggregation
@@ -81,14 +82,9 @@ public class DecimalSumAggregation
                         true,
                         "Calculates the sum over the input values",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(new LongDecimalWithOverflowAndLongStateSerializer().getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        VARBINARY.getTypeSignature()));
     }
 
     @Override

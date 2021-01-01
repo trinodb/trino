@@ -15,6 +15,7 @@ package io.prestosql.operator;
 
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.Signature;
 import io.prestosql.operator.annotations.ImplementationDependency;
 
 import java.lang.invoke.MethodHandle;
@@ -31,5 +32,16 @@ public final class ParametricFunctionHelpers
             handle = MethodHandles.insertArguments(handle, 0, dependency.resolve(functionBinding, functionDependencies));
         }
         return handle;
+    }
+
+    public static Signature signatureWithName(String name, Signature signature)
+    {
+        return new Signature(
+                name,
+                signature.getTypeVariableConstraints(),
+                signature.getLongVariableConstraints(),
+                signature.getReturnType(),
+                signature.getArgumentTypes(),
+                signature.isVariableArity());
     }
 }

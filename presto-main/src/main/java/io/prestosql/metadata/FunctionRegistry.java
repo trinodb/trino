@@ -34,6 +34,8 @@ import io.prestosql.operator.aggregation.BigintApproximateMostFrequent;
 import io.prestosql.operator.aggregation.BitwiseAndAggregation;
 import io.prestosql.operator.aggregation.BitwiseOrAggregation;
 import io.prestosql.operator.aggregation.BooleanAndAggregation;
+import io.prestosql.operator.aggregation.BooleanApproximateCountDistinctAggregation;
+import io.prestosql.operator.aggregation.BooleanDefaultApproximateCountDistinctAggregation;
 import io.prestosql.operator.aggregation.BooleanOrAggregation;
 import io.prestosql.operator.aggregation.CentralMomentsAggregation;
 import io.prestosql.operator.aggregation.ChecksumAggregationFunction;
@@ -51,6 +53,9 @@ import io.prestosql.operator.aggregation.IntervalDayToSecondAverageAggregation;
 import io.prestosql.operator.aggregation.IntervalDayToSecondSumAggregation;
 import io.prestosql.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import io.prestosql.operator.aggregation.IntervalYearToMonthSumAggregation;
+import io.prestosql.operator.aggregation.LegacyApproximateDoublePercentileAggregations;
+import io.prestosql.operator.aggregation.LegacyApproximateLongPercentileAggregations;
+import io.prestosql.operator.aggregation.LegacyApproximateRealPercentileAggregations;
 import io.prestosql.operator.aggregation.LongSumAggregation;
 import io.prestosql.operator.aggregation.MapAggregationFunction;
 import io.prestosql.operator.aggregation.MapUnionAggregation;
@@ -410,18 +415,23 @@ public class FunctionRegistry
                 .window(NthValueFunction.class)
                 .window(LagFunction.class)
                 .window(LeadFunction.class)
-                .aggregate(ApproximateCountDistinctAggregation.class)
-                .aggregate(DefaultApproximateCountDistinctAggregation.class)
-                .aggregate(SumDataSizeForStats.class)
-                .aggregate(MaxDataSizeForStats.class)
+                .aggregates(ApproximateCountDistinctAggregation.class)
+                .aggregates(DefaultApproximateCountDistinctAggregation.class)
+                .aggregates(BooleanApproximateCountDistinctAggregation.class)
+                .aggregates(BooleanDefaultApproximateCountDistinctAggregation.class)
+                .aggregates(SumDataSizeForStats.class)
+                .aggregates(MaxDataSizeForStats.class)
                 .aggregates(CountAggregation.class)
                 .aggregates(VarianceAggregation.class)
                 .aggregates(CentralMomentsAggregation.class)
                 .aggregates(ApproximateLongPercentileAggregations.class)
+                .aggregates(LegacyApproximateLongPercentileAggregations.class)
                 .aggregates(ApproximateLongPercentileArrayAggregations.class)
                 .aggregates(ApproximateDoublePercentileAggregations.class)
+                .aggregates(LegacyApproximateDoublePercentileAggregations.class)
                 .aggregates(ApproximateDoublePercentileArrayAggregations.class)
                 .aggregates(ApproximateRealPercentileAggregations.class)
+                .aggregates(LegacyApproximateRealPercentileAggregations.class)
                 .aggregates(ApproximateRealPercentileArrayAggregations.class)
                 .aggregates(CountIfAggregation.class)
                 .aggregates(BooleanAndAggregation.class)
@@ -598,13 +608,13 @@ public class FunctionRegistry
                 .function(new GenericComparisonOperator(typeOperators))
                 .function(new GenericLessThanOperator(typeOperators))
                 .function(new GenericLessThanOrEqualOperator(typeOperators))
-                .aggregate(MergeSetDigestAggregation.class)
-                .aggregate(BuildSetDigestAggregation.class)
+                .aggregates(MergeSetDigestAggregation.class)
+                .aggregates(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class)
-                .aggregate(BigintApproximateMostFrequent.class)
-                .aggregate(VarcharApproximateMostFrequent.class);
+                .aggregates(BigintApproximateMostFrequent.class)
+                .aggregates(VarcharApproximateMostFrequent.class);
 
         // timestamp operators and functions
         builder
@@ -789,13 +799,13 @@ public class FunctionRegistry
         return functions.get(functionId).getFunctionMetadata();
     }
 
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionBinding functionBinding)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionId functionId)
     {
-        SqlFunction function = functions.get(functionBinding.getFunctionId());
-        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", functionBinding.getBoundSignature());
+        SqlFunction function = functions.get(functionId);
+        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", function.getFunctionMetadata().getSignature());
 
         SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
-        return aggregationFunction.getAggregationMetadata(functionBinding);
+        return aggregationFunction.getAggregationMetadata();
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)

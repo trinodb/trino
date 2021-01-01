@@ -27,4 +27,6 @@ public interface ParametricImplementation
     boolean isNullable();
 
     List<FunctionArgumentDefinition> getArgumentDefinitions();
+
+    ParametricImplementation withAlias(String alias);
 }

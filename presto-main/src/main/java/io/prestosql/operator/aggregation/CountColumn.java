@@ -15,6 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
@@ -72,14 +73,9 @@ public class CountColumn
                         true,
                         "Counts the non-null values",
                         AGGREGATE),
-                true,
-                false);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(StateCompiler.getSerializedType(LongState.class).getTypeSignature());
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature()));
     }
 
     @Override

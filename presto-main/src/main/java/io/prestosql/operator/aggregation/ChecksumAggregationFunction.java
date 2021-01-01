@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
@@ -44,6 +45,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -77,15 +79,10 @@ public class ChecksumAggregationFunction
                         true,
                         "Checksum of the given values",
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        BIGINT.getTypeSignature()));
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        return ImmutableList.of(StateCompiler.getSerializedType(NullableLongState.class).getTypeSignature());
     }
 
     @Override

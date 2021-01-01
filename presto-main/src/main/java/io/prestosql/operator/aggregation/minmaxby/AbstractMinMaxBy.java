@@ -23,6 +23,7 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
@@ -112,8 +113,10 @@ public abstract class AbstractMinMaxBy
                         true,
                         description,
                         AGGREGATE),
-                true,
-                false);
+                new AggregationFunctionMetadata(
+                        false,
+                        new TypeSignature("K"),
+                        new TypeSignature("V")));
         this.min = min;
     }
 
@@ -123,21 +126,6 @@ public abstract class AbstractMinMaxBy
         return FunctionDependencyDeclaration.builder()
                 .addOperatorSignature(COMPARISON, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
                 .build();
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
-
-        Class<?> stateClass = getStateClass(keyType.getJavaType(), valueType.getJavaType());
-        if (valueType.getJavaType().isPrimitive()) {
-            Map<String, Type> stateFieldTypes = ImmutableMap.of("First", keyType, "Second", valueType);
-            return ImmutableList.of(StateCompiler.getSerializedType(stateClass, stateFieldTypes).getTypeSignature());
-        }
-
-        return ImmutableList.of(getStateSerializer(keyType, valueType).getSerializedType().getTypeSignature());
     }
 
     @Override

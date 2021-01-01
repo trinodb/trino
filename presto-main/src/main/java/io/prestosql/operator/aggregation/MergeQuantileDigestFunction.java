@@ -16,6 +16,7 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
@@ -46,6 +47,7 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
+import static io.prestosql.spi.type.StandardTypes.QDIGEST;
 import static io.prestosql.spi.type.TypeSignature.parametricType;
 import static io.prestosql.util.MoreMath.nearlyEqual;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -78,15 +80,9 @@ public final class MergeQuantileDigestFunction
                         true,
                         "Merges the input quantile digests into a single quantile digest",
                         AGGREGATE),
-                true,
-                true);
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        Type valueType = functionBinding.getTypeVariable("T");
-        return ImmutableList.of(new QuantileDigestStateSerializer(valueType).getSerializedType().getTypeSignature());
+                new AggregationFunctionMetadata(
+                        true,
+                        parametricType(QDIGEST, new TypeSignature("T"))));
     }
 
     @Override

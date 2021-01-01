@@ -13,56 +13,45 @@
  */
 package io.prestosql.operator.aggregation;
 
-import io.airlift.stats.TDigest;
-import io.prestosql.operator.aggregation.state.TDigestAndPercentileState;
+import io.airlift.stats.QuantileDigest;
+import io.prestosql.operator.aggregation.state.QuantileDigestAndPercentileState;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AggregationFunction;
 import io.prestosql.spi.function.AggregationState;
 import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.operator.scalar.TDigestFunctions.verifyWeight;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.util.Failures.checkCondition;
 
 @AggregationFunction("approx_percentile")
-public final class ApproximateDoublePercentileAggregations
+public final class LegacyApproximateLongPercentileAggregations
 {
-    private ApproximateDoublePercentileAggregations() {}
+    private LegacyApproximateLongPercentileAggregations() {}
 
+    // This function is deprecated. It uses QuantileDigest while other 'approx_percentile' functions use TDigest. TDigest does not accept the accuracy parameter.
+    @Deprecated
+    @Description("(DEPRECATED) Use approx_percentile(x, weight, percentile) instead")
     @InputFunction
-    public static void input(@AggregationState TDigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double percentile)
+    public static void weightedInput(@AggregationState QuantileDigestAndPercentileState state, @SqlType(StandardTypes.BIGINT) long value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile, @SqlType(StandardTypes.DOUBLE) double accuracy)
     {
-        TDigest digest = state.getDigest();
+        checkCondition(weight > 0, INVALID_FUNCTION_ARGUMENT, "percentile weight must be > 0");
+
+        QuantileDigest digest = state.getDigest();
 
         if (digest == null) {
-            digest = new TDigest();
-            state.setDigest(digest);
-            state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-        }
-
-        state.addMemoryUsage(-digest.estimatedInMemorySizeInBytes());
-        digest.add(value);
-        state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
-
-        // use last percentile
-        state.setPercentile(percentile);
-    }
-
-    @InputFunction
-    public static void weightedInput(@AggregationState TDigestAndPercentileState state, @SqlType(StandardTypes.DOUBLE) double value, @SqlType(StandardTypes.DOUBLE) double weight, @SqlType(StandardTypes.DOUBLE) double percentile)
-    {
-        verifyWeight(weight);
-
-        TDigest digest = state.getDigest();
-
-        if (digest == null) {
-            digest = new TDigest();
+            if (accuracy > 0 && accuracy < 1) {
+                digest = new QuantileDigest(accuracy);
+            }
+            else {
+                throw new IllegalArgumentException("Percentile accuracy must be strictly between 0 and 1");
+            }
             state.setDigest(digest);
             state.addMemoryUsage(digest.estimatedInMemorySizeInBytes());
         }
@@ -76,27 +65,27 @@ public final class ApproximateDoublePercentileAggregations
     }
 
     @CombineFunction
-    public static void combine(@AggregationState TDigestAndPercentileState state, TDigestAndPercentileState otherState)
+    public static void combine(@AggregationState QuantileDigestAndPercentileState state, QuantileDigestAndPercentileState otherState)
     {
-        TDigest input = otherState.getDigest();
+        QuantileDigest input = otherState.getDigest();
 
-        TDigest previous = state.getDigest();
+        QuantileDigest previous = state.getDigest();
         if (previous == null) {
             state.setDigest(input);
             state.addMemoryUsage(input.estimatedInMemorySizeInBytes());
         }
         else {
             state.addMemoryUsage(-previous.estimatedInMemorySizeInBytes());
-            previous.mergeWith(input);
+            previous.merge(input);
             state.addMemoryUsage(previous.estimatedInMemorySizeInBytes());
         }
         state.setPercentile(otherState.getPercentile());
     }
 
-    @OutputFunction(StandardTypes.DOUBLE)
-    public static void output(@AggregationState TDigestAndPercentileState state, BlockBuilder out)
+    @OutputFunction(StandardTypes.BIGINT)
+    public static void output(@AggregationState QuantileDigestAndPercentileState state, BlockBuilder out)
     {
-        TDigest digest = state.getDigest();
+        QuantileDigest digest = state.getDigest();
         double percentile = state.getPercentile();
         if (digest == null || digest.getCount() == 0.0) {
             out.appendNull();
@@ -104,7 +93,7 @@ public final class ApproximateDoublePercentileAggregations
         else {
             checkState(percentile != -1.0, "Percentile is missing");
             checkCondition(0 <= percentile && percentile <= 1, INVALID_FUNCTION_ARGUMENT, "Percentile must be between 0 and 1");
-            DOUBLE.writeDouble(out, digest.valueAt(percentile));
+            BIGINT.writeLong(out, digest.getQuantile(percentile));
         }
     }
 }

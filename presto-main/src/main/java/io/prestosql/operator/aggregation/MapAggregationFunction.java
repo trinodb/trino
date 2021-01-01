@@ -15,6 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
@@ -91,16 +92,10 @@ public class MapAggregationFunction
                         true,
                         "Aggregates all the rows (key/value pairs) into a single map",
                         AGGREGATE),
-                true,
-                true);
+                new AggregationFunctionMetadata(
+                        true,
+                        mapType(new TypeSignature("K"), new TypeSignature("V"))));
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
-    }
-
-    @Override
-    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
-    {
-        MapType outputType = (MapType) functionBinding.getBoundSignature().getReturnType();
-        return ImmutableList.of(outputType.getTypeSignature());
     }
 
     @Override
