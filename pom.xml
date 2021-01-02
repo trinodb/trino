@@ -156,6 +156,7 @@
         <module>presto-tpcds</module>
         <module>presto-tpch</module>
         <module>presto-verifier</module>
+        <module>presto-yugabyte</module>
     </modules>
 
     <repositories>
@@ -205,6 +206,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-blackhole</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-cassandra</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
