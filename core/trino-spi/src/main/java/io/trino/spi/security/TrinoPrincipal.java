@@ -21,13 +21,13 @@ import java.util.Objects;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoPrincipal
+public class TrinoPrincipal
 {
     private final PrincipalType type;
     private final String name;
 
     @JsonCreator
-    public PrestoPrincipal(@JsonProperty("type") PrincipalType type, @JsonProperty("name") String name)
+    public TrinoPrincipal(@JsonProperty("type") PrincipalType type, @JsonProperty("name") String name)
     {
         this.type = requireNonNull(type, "type is null");
         this.name = requireNonNull(name, "name is null").toLowerCase(ENGLISH);
@@ -54,9 +54,9 @@ public class PrestoPrincipal
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        PrestoPrincipal prestoPrincipal = (PrestoPrincipal) o;
-        return type == prestoPrincipal.type &&
-                Objects.equals(name, prestoPrincipal.name);
+        TrinoPrincipal trinoPrincipal = (TrinoPrincipal) o;
+        return type == trinoPrincipal.type &&
+                Objects.equals(name, trinoPrincipal.name);
     }
 
     @Override

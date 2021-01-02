@@ -24,8 +24,8 @@ import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.IntegerStatistics;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import org.apache.hadoop.hive.metastore.api.BinaryColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.BooleanColumnStatsData;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
@@ -405,7 +405,7 @@ public class TestThriftMetastoreUtil
     @Test
     public void testListApplicableRoles()
     {
-        PrestoPrincipal admin = new PrestoPrincipal(USER, "admin");
+        TrinoPrincipal admin = new TrinoPrincipal(USER, "admin");
 
         Multimap<String, String> inheritance = ImmutableMultimap.<String, String>builder()
                 .put("a", "b1")

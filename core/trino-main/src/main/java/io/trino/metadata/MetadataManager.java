@@ -89,9 +89,9 @@ import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
@@ -624,7 +624,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal)
+    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, TrinoPrincipal principal)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schema.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -651,7 +651,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal)
+    public void setSchemaAuthorization(Session session, CatalogSchemaName source, TrinoPrincipal principal)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, source.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -723,7 +723,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void setTableAuthorization(Session session, CatalogSchemaTableName table, PrestoPrincipal principal)
+    public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         CatalogName catalogName = new CatalogName(table.getCatalogName());
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
@@ -1068,7 +1068,7 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
+    public Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
     {
         if (!schemaExists(session, schemaName)) {
             throw new TrinoException(SCHEMA_NOT_FOUND, format("Schema '%s' does not exist", schemaName));
@@ -1125,7 +1125,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal)
+    public void setViewAuthorization(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, view.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1391,7 +1391,7 @@ public final class MetadataManager
     //
 
     @Override
-    public void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog)
+    public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1439,7 +1439,7 @@ public final class MetadataManager
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(Session session, String catalog, TrinoPrincipal principal)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
         if (catalogMetadata.isEmpty()) {
@@ -1452,7 +1452,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog)
+    public void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1462,7 +1462,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog)
+    public void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalog);
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1472,7 +1472,7 @@ public final class MetadataManager
     }
 
     @Override
-    public Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog)
+    public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, String catalog)
     {
         Optional<CatalogMetadata> catalogMetadata = getOptionalCatalogMetadata(session, catalog);
         if (catalogMetadata.isEmpty()) {
@@ -1498,7 +1498,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1508,7 +1508,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, tableName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1518,7 +1518,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();
@@ -1528,7 +1528,7 @@ public final class MetadataManager
     }
 
     @Override
-    public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, schemaName.getCatalogName());
         CatalogName catalogName = catalogMetadata.getCatalogName();

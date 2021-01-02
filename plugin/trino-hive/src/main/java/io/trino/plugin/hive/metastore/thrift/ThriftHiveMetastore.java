@@ -133,8 +133,8 @@ import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToS
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.createMetastoreColumnStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiPrincipalType;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
-import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromPrestoPrincipalType;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromRolePrincipalGrants;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromTrinoPrincipalType;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.parsePrivilege;
@@ -818,8 +818,8 @@ public class ThriftHiveMetastore
             for (String role : roles) {
                 grantRole(
                         role,
-                        grantee.getName(), fromPrestoPrincipalType(grantee.getType()),
-                        grantor.getName(), fromPrestoPrincipalType(grantor.getType()),
+                        grantee.getName(), fromTrinoPrincipalType(grantee.getType()),
+                        grantor.getName(), fromTrinoPrincipalType(grantor.getType()),
                         adminOption);
             }
         }
@@ -853,7 +853,7 @@ public class ThriftHiveMetastore
             for (String role : roles) {
                 revokeRole(
                         role,
-                        grantee.getName(), fromPrestoPrincipalType(grantee.getType()),
+                        grantee.getName(), fromTrinoPrincipalType(grantee.getType()),
                         adminOption);
             }
         }
@@ -910,7 +910,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("listRoleGrants", stats.getListRoleGrants().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return fromRolePrincipalGrants(client.listRoleGrants(principal.getName(), fromPrestoPrincipalType(principal.getType())));
+                            return fromRolePrincipalGrants(client.listRoleGrants(principal.getName(), fromTrinoPrincipalType(principal.getType())));
                         }
                     }));
         }
@@ -1549,7 +1549,7 @@ public class ThriftHiveMetastore
                                 }
                                 hiveObjectPrivilegeList = client.listPrivileges(
                                         principal.get().getName(),
-                                        fromPrestoPrincipalType(principal.get().getType()),
+                                        fromTrinoPrincipalType(principal.get().getType()),
                                         new HiveObjectRef(TABLE, databaseName, tableName, null, null));
                             }
                             for (HiveObjectPrivilege hiveObjectPrivilege : hiveObjectPrivilegeList) {
@@ -1886,7 +1886,7 @@ public class ThriftHiveMetastore
                     new HiveObjectPrivilege(
                             new HiveObjectRef(TABLE, databaseName, tableName, null, null),
                             grantee.getName(),
-                            fromPrestoPrincipalType(grantee.getType()),
+                            fromTrinoPrincipalType(grantee.getType()),
                             privilegeGrantInfo,
                             "SQL"));
         }

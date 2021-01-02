@@ -36,12 +36,12 @@ import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 import io.trino.transaction.TransactionId;
@@ -324,7 +324,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetSchemaAuthorization(SecurityContext securityContext, CatalogSchemaName schemaName, PrestoPrincipal principal)
+    public void checkCanSetSchemaAuthorization(SecurityContext securityContext, CatalogSchemaName schemaName, TrinoPrincipal principal)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(schemaName, "schemaName is null");
@@ -572,7 +572,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetTableAuthorization(SecurityContext securityContext, QualifiedObjectName tableName, PrestoPrincipal principal)
+    public void checkCanSetTableAuthorization(SecurityContext securityContext, QualifiedObjectName tableName, TrinoPrincipal principal)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
@@ -642,7 +642,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetViewAuthorization(SecurityContext securityContext, QualifiedObjectName viewName, PrestoPrincipal principal)
+    public void checkCanSetViewAuthorization(SecurityContext securityContext, QualifiedObjectName viewName, TrinoPrincipal principal)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(viewName, "tableName is null");
@@ -693,12 +693,12 @@ public class AccessControlManager
         systemAuthorizationCheck(control -> control.checkCanGrantExecuteFunctionPrivilege(
                 securityContext.toSystemSecurityContext(),
                 functionName,
-                new PrestoPrincipal(PrincipalType.USER, grantee.getUser()),
+                new TrinoPrincipal(PrincipalType.USER, grantee.getUser()),
                 grantOption));
     }
 
     @Override
-    public void checkCanGrantSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption)
+    public void checkCanGrantSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(schemaName, "schemaName is null");
@@ -715,7 +715,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanRevokeSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption)
+    public void checkCanRevokeSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(schemaName, "schemaName is null");
@@ -732,7 +732,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
+    public void checkCanGrantTablePrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
@@ -746,7 +746,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal revokee, boolean grantOption)
+    public void checkCanRevokeTablePrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, TrinoPrincipal revokee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
@@ -797,7 +797,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateRole(SecurityContext securityContext, String role, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanCreateRole(SecurityContext securityContext, String role, Optional<TrinoPrincipal> grantor, String catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(role, "role is null");
@@ -822,7 +822,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanGrantRoles(SecurityContext securityContext, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanGrantRoles(SecurityContext securityContext, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(roles, "roles is null");
@@ -836,7 +836,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanRevokeRoles(SecurityContext securityContext, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalogName)
+    public void checkCanRevokeRoles(SecurityContext securityContext, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalogName)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(roles, "roles is null");

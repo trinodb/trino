@@ -21,8 +21,8 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MutableGrants;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
@@ -53,9 +53,9 @@ public class TestRevokeOnSchema
     {
         queryRunner = DistributedQueryRunner.builder(userWithAllPrivileges).build();
         Grants<String> schemaGrants = new MutableGrants<>();
-        schemaGrants.grant(new PrestoPrincipal(USER, admin.getUser()), "default", EnumSet.allOf(Privilege.class), true);
-        schemaGrants.grant(new PrestoPrincipal(USER, userWithAllPrivileges.getUser()), "default", EnumSet.allOf(Privilege.class), true);
-        schemaGrants.grant(new PrestoPrincipal(USER, userWithSelect.getUser()), "default", ImmutableSet.of(Privilege.SELECT), true);
+        schemaGrants.grant(new TrinoPrincipal(USER, admin.getUser()), "default", EnumSet.allOf(Privilege.class), true);
+        schemaGrants.grant(new TrinoPrincipal(USER, userWithAllPrivileges.getUser()), "default", EnumSet.allOf(Privilege.class), true);
+        schemaGrants.grant(new TrinoPrincipal(USER, userWithSelect.getUser()), "default", ImmutableSet.of(Privilege.SELECT), true);
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
                 .withSchemaGrants(schemaGrants)

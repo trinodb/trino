@@ -35,8 +35,8 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockJsonSerde;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
@@ -114,7 +114,7 @@ public class TestRecordingHiveMetastore
                     OptionalLong.of(1),
                     OptionalLong.of(8))));
     private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true, new HivePrincipal(USER, "grantor"), new HivePrincipal(USER, "grantee"));
-    private static final RoleGrant ROLE_GRANT = new RoleGrant(new PrestoPrincipal(USER, "grantee"), "role", true);
+    private static final RoleGrant ROLE_GRANT = new RoleGrant(new TrinoPrincipal(USER, "grantee"), "role", true);
     private static final HiveIdentity HIVE_CONTEXT = new HiveIdentity(SESSION);
     private static final List<String> PARTITION_COLUMN_NAMES = ImmutableList.of(TABLE_COLUMN.getName());
     private static final Domain PARTITION_COLUMN_EQUAL_DOMAIN = Domain.singleValue(createUnboundedVarcharType(), Slices.utf8Slice("value1"));

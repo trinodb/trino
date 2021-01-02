@@ -22,8 +22,8 @@ import io.trino.connector.MockConnectorTableHandle;
 import io.trino.connector.MutableGrants;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
@@ -64,7 +64,7 @@ public class TestGrantOnTable
         queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
         queryRunner.createCatalog("local", "mock");
         assertions = new QueryAssertions(queryRunner);
-        tableGrants.grant(new PrestoPrincipal(USER, "admin"), table, EnumSet.allOf(Privilege.class), true);
+        tableGrants.grant(new TrinoPrincipal(USER, "admin"), table, EnumSet.allOf(Privilege.class), true);
     }
 
     @AfterClass(alwaysRun = true)
@@ -79,7 +79,7 @@ public class TestGrantOnTable
     {
         String username = randomUsername();
         Session user = sessionOf(username);
-        tableGrants.grant(new PrestoPrincipal(USER, username), table, EnumSet.allOf(Privilege.class), grantOption);
+        tableGrants.grant(new TrinoPrincipal(USER, username), table, EnumSet.allOf(Privilege.class), grantOption);
 
         assertThat(assertions.query(admin, "SHOW TABLES FROM local.default")).matches("VALUES (VARCHAR 'table_one')");
         assertThat(assertions.query(user, "SHOW TABLES FROM local.default")).matches("VALUES (VARCHAR 'table_one')");

@@ -20,7 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.TrinoPrincipal;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -48,7 +48,7 @@ public class TestBlackHoleMetadata
     public void testCreateSchema()
     {
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
-        metadata.createSchema(SESSION, "test", ImmutableMap.of(), new PrestoPrincipal(USER, SESSION.getUser()));
+        metadata.createSchema(SESSION, "test", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default", "test"));
     }
 

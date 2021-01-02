@@ -18,8 +18,8 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.List;
 import java.util.Objects;
@@ -49,7 +49,7 @@ public class CountingMockConnector
             .collect(toImmutableList());
 
     private final Set<RoleGrant> roleGrants = IntStream.range(0, 100)
-            .mapToObj(i -> new RoleGrant(new PrestoPrincipal(USER, "user" + (i == 0 ? "" : i)), "role" + i / 2, false))
+            .mapToObj(i -> new RoleGrant(new TrinoPrincipal(USER, "user" + (i == 0 ? "" : i)), "role" + i / 2, false))
             .collect(toImmutableSet());
 
     private final AtomicLong listSchemasCallsCounter = new AtomicLong();

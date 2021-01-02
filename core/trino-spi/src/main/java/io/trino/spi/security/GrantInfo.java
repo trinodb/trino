@@ -23,12 +23,12 @@ import static java.util.Objects.requireNonNull;
 public class GrantInfo
 {
     private final PrivilegeInfo privilegeInfo;
-    private final PrestoPrincipal grantee;
+    private final TrinoPrincipal grantee;
     private final SchemaTableName schemaTableName;
-    private final Optional<PrestoPrincipal> grantor;
+    private final Optional<TrinoPrincipal> grantor;
     private final Optional<Boolean> withHierarchy;
 
-    public GrantInfo(PrivilegeInfo privilegeInfo, PrestoPrincipal grantee, SchemaTableName schemaTableName, Optional<PrestoPrincipal> grantor, Optional<Boolean> withHierarchy)
+    public GrantInfo(PrivilegeInfo privilegeInfo, TrinoPrincipal grantee, SchemaTableName schemaTableName, Optional<TrinoPrincipal> grantor, Optional<Boolean> withHierarchy)
     {
         this.privilegeInfo = requireNonNull(privilegeInfo, "privilegeInfo is null");
         this.grantee = requireNonNull(grantee, "grantee is null");
@@ -42,7 +42,7 @@ public class GrantInfo
         return privilegeInfo;
     }
 
-    public PrestoPrincipal getGrantee()
+    public TrinoPrincipal getGrantee()
     {
         return grantee;
     }
@@ -52,7 +52,7 @@ public class GrantInfo
         return schemaTableName;
     }
 
-    public Optional<PrestoPrincipal> getGrantor()
+    public Optional<TrinoPrincipal> getGrantor()
     {
         return grantor;
     }

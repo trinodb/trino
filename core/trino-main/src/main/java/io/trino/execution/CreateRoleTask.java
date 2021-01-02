@@ -17,7 +17,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
-import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManager;
@@ -50,7 +50,7 @@ public class CreateRoleTask
         Session session = stateMachine.getSession();
         String catalog = getSessionCatalog(metadata, session, statement);
         String role = statement.getName().getValue().toLowerCase(ENGLISH);
-        Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
+        Optional<TrinoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         accessControl.checkCanCreateRole(session.toSecurityContext(), role, grantor, catalog);
         Set<String> existingRoles = metadata.listRoles(session, catalog);
         if (existingRoles.contains(role)) {

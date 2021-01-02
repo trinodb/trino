@@ -23,7 +23,7 @@ import io.trino.metadata.SchemaPropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
@@ -122,7 +122,7 @@ public class TestCreateSchemaTask
         }
 
         @Override
-        public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal)
+        public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, TrinoPrincipal principal)
         {
             if (schemas.contains(schema)) {
                 throw new TrinoException(ALREADY_EXISTS, "Schema already exists");

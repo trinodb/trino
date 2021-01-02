@@ -17,8 +17,8 @@ import io.trino.plugin.base.security.AllowAllAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Arrays;
 import java.util.Set;
@@ -53,7 +53,7 @@ class MockConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal grantee, boolean grantOption)
+    public void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal grantee, boolean grantOption)
     {
         if (!schemaGrants.canGrant(context.getIdentity().getUser(), schemaName, privilege)) {
             denyGrantSchemaPrivilege(privilege.toString(), schemaName);
@@ -61,7 +61,7 @@ class MockConnectorAccessControl
     }
 
     @Override
-    public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal revokee, boolean grantOption)
+    public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, TrinoPrincipal revokee, boolean grantOption)
     {
         if (!schemaGrants.canGrant(context.getIdentity().getUser(), schemaName, privilege)) {
             denyRevokeSchemaPrivilege(privilege.toString(), schemaName);
@@ -77,7 +77,7 @@ class MockConnectorAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee, boolean grantOption)
     {
         String user = context.getIdentity().getUser();
         if (!schemaGrants.canGrant(user, tableName.getSchemaName(), privilege) && !tableGrants.canGrant(user, tableName, privilege)) {
@@ -86,7 +86,7 @@ class MockConnectorAccessControl
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal revokee, boolean grantOption)
     {
         String user = context.getIdentity().getUser();
         if (!schemaGrants.canGrant(user, tableName.getSchemaName(), privilege) && !tableGrants.canGrant(user, tableName, privilege)) {
@@ -94,22 +94,22 @@ class MockConnectorAccessControl
         }
     }
 
-    public void grantSchemaPrivileges(String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void grantSchemaPrivileges(String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         schemaGrants.grant(grantee, schemaName, privileges, grantOption);
     }
 
-    public void revokeSchemaPrivileges(String schemaName, Set<Privilege> privileges, PrestoPrincipal revokee, boolean grantOption)
+    public void revokeSchemaPrivileges(String schemaName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
     {
         schemaGrants.revoke(revokee, schemaName, privileges, grantOption);
     }
 
-    public void grantTablePrivileges(SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void grantTablePrivileges(SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         tableGrants.grant(grantee, tableName, privileges, grantOption);
     }
 
-    public void revokeTablePrivileges(SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal revokee, boolean grantOption)
+    public void revokeTablePrivileges(SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
     {
         tableGrants.revoke(revokee, tableName, privileges, grantOption);
     }

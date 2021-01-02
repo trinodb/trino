@@ -41,9 +41,9 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.transaction.IsolationLevel;
 
 import java.util.List;
@@ -306,7 +306,7 @@ public class MockConnector
         }
 
         @Override
-        public Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
+        public Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
         {
             return roleGrants.apply(session, Optional.empty(), Optional.empty(), OptionalLong.empty()).stream().filter(grant -> grant.getGrantee().equals(principal)).collect(toImmutableSet());
         }
@@ -318,7 +318,7 @@ public class MockConnector
         }
 
         @Override
-        public Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
+        public Set<RoleGrant> listApplicableRoles(ConnectorSession session, TrinoPrincipal principal)
         {
             return listRoleGrants(session, principal);
         }
@@ -330,25 +330,25 @@ public class MockConnector
         }
 
         @Override
-        public void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+        public void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
         {
             accessControl.grantSchemaPrivileges(schemaName, privileges, grantee, grantOption);
         }
 
         @Override
-        public void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal revokee, boolean grantOption)
+        public void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
         {
             accessControl.revokeSchemaPrivileges(schemaName, privileges, revokee, grantOption);
         }
 
         @Override
-        public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+        public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
         {
             accessControl.grantTablePrivileges(tableName, privileges, grantee, grantOption);
         }
 
         @Override
-        public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal revokee, boolean grantOption)
+        public void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal revokee, boolean grantOption)
         {
             accessControl.revokeTablePrivileges(tableName, privileges, revokee, grantOption);
         }

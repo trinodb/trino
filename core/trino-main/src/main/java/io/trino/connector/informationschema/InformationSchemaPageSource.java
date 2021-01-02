@@ -29,8 +29,8 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayDeque;
@@ -325,7 +325,7 @@ public class InformationSchemaPageSource
         List<GrantInfo> grants = ImmutableList.copyOf(listTablePrivileges(session, metadata, accessControl, prefix));
         for (GrantInfo grant : grants) {
             addRecord(
-                    grant.getGrantor().map(PrestoPrincipal::getName).orElse(null),
+                    grant.getGrantor().map(TrinoPrincipal::getName).orElse(null),
                     grant.getGrantor().map(principal -> principal.getType().toString()).orElse(null),
                     grant.getGrantee().getName(),
                     grant.getGrantee().getType().toString(),
@@ -383,7 +383,7 @@ public class InformationSchemaPageSource
 
     private void addApplicableRolesRecords()
     {
-        for (RoleGrant grant : metadata.listApplicableRoles(session, new PrestoPrincipal(USER, session.getUser()), catalogName)) {
+        for (RoleGrant grant : metadata.listApplicableRoles(session, new TrinoPrincipal(USER, session.getUser()), catalogName)) {
             addRecord(
                     grant.getGrantee().getName(),
                     grant.getGrantee().getType().toString(),

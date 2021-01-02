@@ -1038,7 +1038,7 @@ public class GlueHiveMetastore
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         if (principal.getType() == USER) {
-            return ImmutableSet.of(new RoleGrant(principal.toPrestoPrincipal(), PUBLIC_ROLE_NAME, false));
+            return ImmutableSet.of(new RoleGrant(principal.toTrinoPrincipal(), PUBLIC_ROLE_NAME, false));
         }
         return ImmutableSet.of();
     }

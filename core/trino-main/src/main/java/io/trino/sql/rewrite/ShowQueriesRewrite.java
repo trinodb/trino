@@ -39,8 +39,8 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.GroupProvider;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.ParsingException;
@@ -312,7 +312,7 @@ final class ShowQueriesRewrite
             }
 
             String catalog = node.getCatalog().map(c -> c.getValue().toLowerCase(ENGLISH)).orElseGet(() -> session.getCatalog().get());
-            PrestoPrincipal principal = new PrestoPrincipal(PrincipalType.USER, session.getUser());
+            TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, session.getUser());
 
             accessControl.checkCanShowRoleGrants(session.toSecurityContext(), catalog);
             List<Expression> rows = metadata.listRoleGrants(session, catalog, principal).stream()

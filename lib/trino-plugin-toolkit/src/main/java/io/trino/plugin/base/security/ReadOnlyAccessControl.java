@@ -16,8 +16,8 @@ package io.trino.plugin.base.security;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSecurityContext;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Set;
 
@@ -181,13 +181,13 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal grantee, boolean grantOption)
+    public void checkCanGrantTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal grantee, boolean grantOption)
     {
         denyGrantTablePrivilege(privilege.name(), tableName.toString());
     }
 
     @Override
-    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, PrestoPrincipal revokee, boolean grantOption)
+    public void checkCanRevokeTablePrivilege(ConnectorSecurityContext context, Privilege privilege, SchemaTableName tableName, TrinoPrincipal revokee, boolean grantOption)
     {
         denyRevokeTablePrivilege(privilege.name(), tableName.toString());
     }

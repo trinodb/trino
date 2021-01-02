@@ -37,10 +37,10 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -215,7 +215,7 @@ public final class ThriftMetastoreUtil
                 privilegeInfo.getHivePrivilege().name().toLowerCase(ENGLISH),
                 0,
                 privilegeInfo.getGrantor().getName(),
-                fromPrestoPrincipalType(privilegeInfo.getGrantor().getType()),
+                fromTrinoPrincipalType(privilegeInfo.getGrantor().getType()),
                 privilegeInfo.isGrantOption());
     }
 
@@ -665,12 +665,12 @@ public final class ThriftMetastoreUtil
     private static RoleGrant fromRolePrincipalGrant(RolePrincipalGrant grant)
     {
         return new RoleGrant(
-                new PrestoPrincipal(fromMetastoreApiPrincipalType(grant.getPrincipalType()), grant.getPrincipalName()),
+                new TrinoPrincipal(fromMetastoreApiPrincipalType(grant.getPrincipalType()), grant.getPrincipalName()),
                 grant.getRoleName(),
                 grant.isGrantOption());
     }
 
-    public static org.apache.hadoop.hive.metastore.api.PrincipalType fromPrestoPrincipalType(PrincipalType principalType)
+    public static org.apache.hadoop.hive.metastore.api.PrincipalType fromTrinoPrincipalType(PrincipalType principalType)
     {
         switch (principalType) {
             case USER:

@@ -51,9 +51,9 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
@@ -196,7 +196,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal)
+    public void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -214,7 +214,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal)
+    public void setSchemaAuthorization(Session session, CatalogSchemaName source, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -262,7 +262,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void setTableAuthorization(Session session, CatalogSchemaTableName table, PrestoPrincipal principal)
+    public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -436,7 +436,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
+    public Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName)
     {
         throw new UnsupportedOperationException();
     }
@@ -454,7 +454,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal)
+    public void setViewAuthorization(Session session, CatalogSchemaTableName view, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
@@ -511,7 +511,7 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
-    public void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog)
+    public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, String catalog)
     {
         throw new UnsupportedOperationException();
     }
@@ -529,19 +529,19 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog)
+    public void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog)
+    public void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog)
+    public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, String catalog)
     {
         throw new UnsupportedOperationException();
     }
@@ -559,31 +559,31 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(Session session, String catalog, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new UnsupportedOperationException();
     }

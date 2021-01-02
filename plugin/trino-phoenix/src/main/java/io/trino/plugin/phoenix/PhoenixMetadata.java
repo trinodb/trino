@@ -31,7 +31,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 
 import javax.inject.Inject;
@@ -99,7 +99,7 @@ public class PhoenixMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         checkArgument(properties.isEmpty(), "Can't have properties for schema creation");
         if (DEFAULT_SCHEMA.equalsIgnoreCase(schemaName)) {

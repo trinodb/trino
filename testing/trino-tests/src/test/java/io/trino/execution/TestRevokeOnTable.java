@@ -23,8 +23,8 @@ import io.trino.connector.MockConnectorTableHandle;
 import io.trino.connector.MutableGrants;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
 import org.testng.annotations.AfterClass;
@@ -56,9 +56,9 @@ public class TestRevokeOnTable
         SchemaTableName table = new SchemaTableName("default", "table_one");
         queryRunner = DistributedQueryRunner.builder(userWithAllPrivileges).build();
         Grants<SchemaTableName> tableGrants = new MutableGrants<>();
-        tableGrants.grant(new PrestoPrincipal(USER, admin.getUser()), table, EnumSet.allOf(Privilege.class), true);
-        tableGrants.grant(new PrestoPrincipal(USER, userWithAllPrivileges.getUser()), table, EnumSet.allOf(Privilege.class), true);
-        tableGrants.grant(new PrestoPrincipal(USER, userWithSelect.getUser()), table, ImmutableSet.of(Privilege.SELECT), true);
+        tableGrants.grant(new TrinoPrincipal(USER, admin.getUser()), table, EnumSet.allOf(Privilege.class), true);
+        tableGrants.grant(new TrinoPrincipal(USER, userWithAllPrivileges.getUser()), table, EnumSet.allOf(Privilege.class), true);
+        tableGrants.grant(new TrinoPrincipal(USER, userWithSelect.getUser()), table, ImmutableSet.of(Privilege.SELECT), true);
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withListSchemaNames(session -> ImmutableList.of("default"))
                 .withListTables((session, schemaName) -> "default".equalsIgnoreCase(schemaName) ? ImmutableList.of(table) : ImmutableList.of())

@@ -148,7 +148,7 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename schema from %s to %s%s", schemaName, newSchemaName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denySetSchemaAuthorization(String schemaName, PrestoPrincipal principal)
+    public static void denySetSchemaAuthorization(String schemaName, TrinoPrincipal principal)
     {
         throw new AccessDeniedException(format("Cannot set authorization for schema %s to %s", schemaName, principal));
     }
@@ -263,7 +263,7 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop a column from table %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denySetTableAuthorization(String tableName, PrestoPrincipal principal)
+    public static void denySetTableAuthorization(String tableName, TrinoPrincipal principal)
     {
         throw new AccessDeniedException(format("Cannot set authorization for table %s to %s", tableName, principal));
     }
@@ -353,7 +353,7 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot rename view from %s to %s%s", viewName, newViewName, formatExtraInfo(extraInfo)));
     }
 
-    public static void denySetViewAuthorization(String tableName, PrestoPrincipal principal)
+    public static void denySetViewAuthorization(String tableName, TrinoPrincipal principal)
     {
         throw new AccessDeniedException(format("Cannot set authorization for view %s to %s", tableName, principal));
     }
@@ -483,12 +483,12 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot drop role %s", roleName));
     }
 
-    public static void denyGrantRoles(Set<String> roles, Set<PrestoPrincipal> grantees)
+    public static void denyGrantRoles(Set<String> roles, Set<TrinoPrincipal> grantees)
     {
         throw new AccessDeniedException(format("Cannot grant roles %s to %s ", roles, grantees));
     }
 
-    public static void denyRevokeRoles(Set<String> roles, Set<PrestoPrincipal> grantees)
+    public static void denyRevokeRoles(Set<String> roles, Set<TrinoPrincipal> grantees)
     {
         throw new AccessDeniedException(format("Cannot revoke roles %s from %s ", roles, grantees));
     }

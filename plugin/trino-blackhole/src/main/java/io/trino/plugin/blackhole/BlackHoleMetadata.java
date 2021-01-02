@@ -37,7 +37,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
-import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.DoubleRange;
@@ -89,7 +89,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
+    public synchronized void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         if (schemas.contains(schemaName)) {
             throw new TrinoException(ALREADY_EXISTS, format("Schema [%s] already exists", schemaName));
@@ -98,7 +98,7 @@ public class BlackHoleMetadata
     }
 
     @Override
-    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
         return Optional.empty();
     }

@@ -16,9 +16,9 @@ package io.trino.plugin.hive.metastore;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.SelectedRole;
+import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Objects;
 import java.util.Set;
@@ -53,16 +53,16 @@ public class HivePrincipal
         return new HivePrincipal(PrincipalType.ROLE, role);
     }
 
-    public static Set<HivePrincipal> from(Set<PrestoPrincipal> prestoPrincipals)
+    public static Set<HivePrincipal> from(Set<TrinoPrincipal> trinoPrincipals)
     {
-        return prestoPrincipals.stream()
+        return trinoPrincipals.stream()
                 .map(HivePrincipal::from)
                 .collect(toImmutableSet());
     }
 
-    public static HivePrincipal from(PrestoPrincipal prestoPrincipal)
+    public static HivePrincipal from(TrinoPrincipal trinoPrincipal)
     {
-        return new HivePrincipal(prestoPrincipal.getType(), prestoPrincipal.getName());
+        return new HivePrincipal(trinoPrincipal.getType(), trinoPrincipal.getName());
     }
 
     private final PrincipalType type;
@@ -124,8 +124,8 @@ public class HivePrincipal
         return type + " " + name;
     }
 
-    public PrestoPrincipal toPrestoPrincipal()
+    public TrinoPrincipal toTrinoPrincipal()
     {
-        return new PrestoPrincipal(type, name);
+        return new TrinoPrincipal(type, name);
     }
 }

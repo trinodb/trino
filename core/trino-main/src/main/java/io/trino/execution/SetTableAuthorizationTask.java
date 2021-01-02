@@ -20,8 +20,8 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetTableAuthorization;
 import io.trino.transaction.TransactionManager;
@@ -56,7 +56,7 @@ public class SetTableAuthorizationTask
         metadata.getTableHandle(session, tableName)
                 .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
 
-        PrestoPrincipal principal = createPrincipal(statement.getPrincipal());
+        TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
 
         if (principal.getType() == PrincipalType.ROLE
                 && !metadata.listRoles(session, catalogName.getCatalogName()).contains(principal.getName())) {

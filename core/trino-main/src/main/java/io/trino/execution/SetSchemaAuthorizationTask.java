@@ -18,8 +18,8 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetSchemaAuthorization;
 import io.trino.transaction.TransactionManager;
@@ -55,7 +55,7 @@ public class SetSchemaAuthorizationTask
         if (!metadata.schemaExists(session, source)) {
             throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", source);
         }
-        PrestoPrincipal principal = createPrincipal(statement.getPrincipal());
+        TrinoPrincipal principal = createPrincipal(statement.getPrincipal());
         if (principal.getType() == PrincipalType.ROLE
                 && !metadata.listRoles(session, catalog).contains(principal.getName())) {
             throw semanticException(ROLE_NOT_FOUND, statement, "Role '%s' does not exist", principal.getName());

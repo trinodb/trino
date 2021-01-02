@@ -22,8 +22,8 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.GrantorSpecification;
 import io.trino.sql.tree.Identifier;
@@ -156,14 +156,14 @@ public final class MetadataUtil
         return new QualifiedObjectName(catalogName, schemaName, objectName);
     }
 
-    public static PrestoPrincipal createPrincipal(Session session, GrantorSpecification specification)
+    public static TrinoPrincipal createPrincipal(Session session, GrantorSpecification specification)
     {
         GrantorSpecification.Type type = specification.getType();
         switch (type) {
             case PRINCIPAL:
                 return createPrincipal(specification.getPrincipal().get());
             case CURRENT_USER:
-                return new PrestoPrincipal(USER, session.getIdentity().getUser());
+                return new TrinoPrincipal(USER, session.getIdentity().getUser());
             case CURRENT_ROLE:
                 // TODO: will be implemented once the "SET ROLE" statement is introduced
                 throw new UnsupportedOperationException("CURRENT_ROLE is not yet supported");
@@ -172,21 +172,21 @@ public final class MetadataUtil
         }
     }
 
-    public static PrestoPrincipal createPrincipal(PrincipalSpecification specification)
+    public static TrinoPrincipal createPrincipal(PrincipalSpecification specification)
     {
         PrincipalSpecification.Type type = specification.getType();
         switch (type) {
             case UNSPECIFIED:
             case USER:
-                return new PrestoPrincipal(USER, specification.getName().getValue());
+                return new TrinoPrincipal(USER, specification.getName().getValue());
             case ROLE:
-                return new PrestoPrincipal(ROLE, specification.getName().getValue());
+                return new TrinoPrincipal(ROLE, specification.getName().getValue());
             default:
                 throw new IllegalArgumentException("Unsupported type: " + type);
         }
     }
 
-    public static PrincipalSpecification createPrincipal(PrestoPrincipal principal)
+    public static PrincipalSpecification createPrincipal(TrinoPrincipal principal)
     {
         PrincipalType type = principal.getType();
         switch (type) {
