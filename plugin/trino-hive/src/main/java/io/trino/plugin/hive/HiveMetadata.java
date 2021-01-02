@@ -329,7 +329,7 @@ public class HiveMetadata
             TypeManager typeManager,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            String prestoVersion,
+            String trinoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
             AccessControlMetadata accessControlMetadata)
     {
@@ -344,7 +344,7 @@ public class HiveMetadata
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.translateHiveViews = translateHiveViews;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
-        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.prestoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
     }

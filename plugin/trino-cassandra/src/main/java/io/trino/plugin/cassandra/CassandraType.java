@@ -102,16 +102,16 @@ public enum CassandraType
         private static final int IP_ADDRESS_STRING_MAX_LENGTH = 45;
     }
 
-    private final Type prestoType;
+    private final Type trinoType;
 
-    CassandraType(Type prestoType)
+    CassandraType(Type trinoType)
     {
-        this.prestoType = requireNonNull(prestoType, "prestoType is null");
+        this.trinoType = requireNonNull(trinoType, "trinoType is null");
     }
 
-    public Type getPrestoType()
+    public Type getTrinoType()
     {
-        return prestoType;
+        return trinoType;
     }
 
     public static Optional<CassandraType> toCassandraType(DataType.Name name)
@@ -171,50 +171,50 @@ public enum CassandraType
     public NullableValue getColumnValue(Row row, int position)
     {
         if (row.isNull(position)) {
-            return NullableValue.asNull(prestoType);
+            return NullableValue.asNull(trinoType);
         }
 
         switch (this) {
             case ASCII:
             case TEXT:
             case VARCHAR:
-                return NullableValue.of(prestoType, utf8Slice(row.getString(position)));
+                return NullableValue.of(trinoType, utf8Slice(row.getString(position)));
             case INT:
-                return NullableValue.of(prestoType, (long) row.getInt(position));
+                return NullableValue.of(trinoType, (long) row.getInt(position));
             case SMALLINT:
-                return NullableValue.of(prestoType, (long) row.getShort(position));
+                return NullableValue.of(trinoType, (long) row.getShort(position));
             case TINYINT:
-                return NullableValue.of(prestoType, (long) row.getByte(position));
+                return NullableValue.of(trinoType, (long) row.getByte(position));
             case BIGINT:
             case COUNTER:
-                return NullableValue.of(prestoType, row.getLong(position));
+                return NullableValue.of(trinoType, row.getLong(position));
             case BOOLEAN:
-                return NullableValue.of(prestoType, row.getBool(position));
+                return NullableValue.of(trinoType, row.getBool(position));
             case DOUBLE:
-                return NullableValue.of(prestoType, row.getDouble(position));
+                return NullableValue.of(trinoType, row.getDouble(position));
             case FLOAT:
-                return NullableValue.of(prestoType, (long) floatToRawIntBits(row.getFloat(position)));
+                return NullableValue.of(trinoType, (long) floatToRawIntBits(row.getFloat(position)));
             case DECIMAL:
-                return NullableValue.of(prestoType, row.getDecimal(position).doubleValue());
+                return NullableValue.of(trinoType, row.getDecimal(position).doubleValue());
             case UUID:
             case TIMEUUID:
-                return NullableValue.of(prestoType, utf8Slice(row.getUUID(position).toString()));
+                return NullableValue.of(trinoType, utf8Slice(row.getUUID(position).toString()));
             case TIMESTAMP:
-                return NullableValue.of(prestoType, packDateTimeWithZone(row.getTimestamp(position).getTime(), TimeZoneKey.UTC_KEY));
+                return NullableValue.of(trinoType, packDateTimeWithZone(row.getTimestamp(position).getTime(), TimeZoneKey.UTC_KEY));
             case DATE:
-                return NullableValue.of(prestoType, (long) row.getDate(position).getDaysSinceEpoch());
+                return NullableValue.of(trinoType, (long) row.getDate(position).getDaysSinceEpoch());
             case INET:
-                return NullableValue.of(prestoType, utf8Slice(toAddrString(row.getInet(position))));
+                return NullableValue.of(trinoType, utf8Slice(toAddrString(row.getInet(position))));
             case VARINT:
-                return NullableValue.of(prestoType, utf8Slice(row.getVarint(position).toString()));
+                return NullableValue.of(trinoType, utf8Slice(row.getVarint(position).toString()));
             case BLOB:
             case CUSTOM:
-                return NullableValue.of(prestoType, wrappedBuffer(row.getBytesUnsafe(position)));
+                return NullableValue.of(trinoType, wrappedBuffer(row.getBytesUnsafe(position)));
             case SET:
             case LIST:
-                return NullableValue.of(prestoType, utf8Slice(buildArrayValue(row, position)));
+                return NullableValue.of(trinoType, utf8Slice(buildArrayValue(row, position)));
             case MAP:
-                return NullableValue.of(prestoType, utf8Slice(buildMapValue(row, position)));
+                return NullableValue.of(trinoType, utf8Slice(buildMapValue(row, position)));
             default:
                 throw new IllegalStateException("Handling of type " + this + " is not implemented");
         }
@@ -316,18 +316,18 @@ public enum CassandraType
     }
 
     // TODO unify with getColumnValueForCql
-    public String toCqlLiteral(Object prestoNativeValue)
+    public String toCqlLiteral(Object trinoNativeValue)
     {
         if (this == TIMESTAMP) {
-            return String.valueOf(unpackMillisUtc((Long) prestoNativeValue));
+            return String.valueOf(unpackMillisUtc((Long) trinoNativeValue));
         }
 
         String value;
-        if (prestoNativeValue instanceof Slice) {
-            value = ((Slice) prestoNativeValue).toStringUtf8();
+        if (trinoNativeValue instanceof Slice) {
+            value = ((Slice) trinoNativeValue).toStringUtf8();
         }
         else {
-            value = prestoNativeValue.toString();
+            value = trinoNativeValue.toString();
         }
 
         switch (this) {
@@ -384,44 +384,44 @@ public enum CassandraType
         }
     }
 
-    public Object getJavaValue(Object prestoNativeValue)
+    public Object getJavaValue(Object trinoNativeValue)
     {
         switch (this) {
             case ASCII:
             case TEXT:
             case VARCHAR:
-                return ((Slice) prestoNativeValue).toStringUtf8();
+                return ((Slice) trinoNativeValue).toStringUtf8();
             case BIGINT:
             case BOOLEAN:
             case DOUBLE:
             case COUNTER:
-                return prestoNativeValue;
+                return trinoNativeValue;
             case INET:
-                return InetAddresses.forString(((Slice) prestoNativeValue).toStringUtf8());
+                return InetAddresses.forString(((Slice) trinoNativeValue).toStringUtf8());
             case INT:
             case SMALLINT:
             case TINYINT:
-                return ((Long) prestoNativeValue).intValue();
+                return ((Long) trinoNativeValue).intValue();
             case FLOAT:
                 // conversion can result in precision lost
-                return intBitsToFloat(((Long) prestoNativeValue).intValue());
+                return intBitsToFloat(((Long) trinoNativeValue).intValue());
             case DECIMAL:
                 // conversion can result in precision lost
-                // Presto uses double for decimal, so to keep the floating point precision, convert it to string.
+                // Trino uses double for decimal, so to keep the floating point precision, convert it to string.
                 // Otherwise partition id doesn't match
-                return new BigDecimal(prestoNativeValue.toString());
+                return new BigDecimal(trinoNativeValue.toString());
             case TIMESTAMP:
-                return new Date(unpackMillisUtc((Long) prestoNativeValue));
+                return new Date(unpackMillisUtc((Long) trinoNativeValue));
             case DATE:
-                return LocalDate.fromDaysSinceEpoch(((Long) prestoNativeValue).intValue());
+                return LocalDate.fromDaysSinceEpoch(((Long) trinoNativeValue).intValue());
             case UUID:
             case TIMEUUID:
-                return java.util.UUID.fromString(((Slice) prestoNativeValue).toStringUtf8());
+                return java.util.UUID.fromString(((Slice) trinoNativeValue).toStringUtf8());
             case BLOB:
             case CUSTOM:
-                return ((Slice) prestoNativeValue).toStringUtf8();
+                return ((Slice) trinoNativeValue).toStringUtf8();
             case VARINT:
-                return new BigInteger(((Slice) prestoNativeValue).toStringUtf8());
+                return new BigInteger(((Slice) trinoNativeValue).toStringUtf8());
             case SET:
             case LIST:
             case MAP:

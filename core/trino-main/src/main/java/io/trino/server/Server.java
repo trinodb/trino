@@ -68,12 +68,12 @@ import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 
 public class Server
 {
-    public final void start(String prestoVersion)
+    public final void start(String trinoVersion)
     {
-        new EmbedVersion(prestoVersion).embedVersion(() -> doStart(prestoVersion)).run();
+        new EmbedVersion(trinoVersion).embedVersion(() -> doStart(trinoVersion)).run();
     }
 
-    private void doStart(String prestoVersion)
+    private void doStart(String trinoVersion)
     {
         verifyJvmRequirements();
         verifySystemTimeIsReasonable();
@@ -99,7 +99,7 @@ public class Server
                 new ServerSecurityModule(),
                 new AccessControlModule(),
                 new EventListenerModule(),
-                new ServerMainModule(prestoVersion),
+                new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());
 
@@ -110,7 +110,7 @@ public class Server
         try {
             Injector injector = app.strictConfig().initialize();
 
-            log.info("Presto version: %s", injector.getInstance(NodeVersion.class).getVersion());
+            log.info("Trino version: %s", injector.getInstance(NodeVersion.class).getVersion());
             logLocation(log, "Working directory", Paths.get("."));
             logLocation(log, "Etc directory", Paths.get("etc"));
 
@@ -171,7 +171,7 @@ public class Server
     private static void updateConnectorIds(Announcer announcer, CatalogManager metadata)
     {
         // get existing announcement
-        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
+        ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
 
         // automatically build connectorIds if not configured
         Set<String> connectorIds = metadata.getCatalogs().stream()
@@ -189,14 +189,14 @@ public class Server
         announcer.addServiceAnnouncement(builder.build());
     }
 
-    private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
+    private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
     {
         for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("presto")) {
+            if (announcement.getType().equals("trino")) {
                 return announcement;
             }
         }
-        throw new IllegalArgumentException("Presto announcement not found: " + announcements);
+        throw new IllegalArgumentException("Trino announcement not found: " + announcements);
     }
 
     private static void logLocation(Logger log, String name, Path path)

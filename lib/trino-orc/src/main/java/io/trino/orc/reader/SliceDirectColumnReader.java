@@ -183,7 +183,7 @@ public class SliceDirectColumnReader
         }
         if (totalLength > ONE_GIGABYTE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR,
-                    format("Values in column \"%s\" are too large to process for Presto. %s column values are larger than 1GB [%s]", column.getPath(), nextBatchSize, column.getOrcDataSourceId()));
+                    format("Values in column \"%s\" are too large to process for Trino. %s column values are larger than 1GB [%s]", column.getPath(), nextBatchSize, column.getOrcDataSourceId()));
         }
         if (dataStream == null) {
             throw new OrcCorruptionException(column.getOrcDataSourceId(), "Value is not null but data stream is missing");

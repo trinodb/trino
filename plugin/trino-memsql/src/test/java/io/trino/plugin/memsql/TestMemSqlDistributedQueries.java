@@ -96,7 +96,7 @@ public class TestMemSqlDistributedQueries
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
 
         if (typeName.equals("boolean")) {
             // MemSQL does not have built-in support for boolean type. MemSQL provides BOOLEAN as the synonym of TINYINT(1)

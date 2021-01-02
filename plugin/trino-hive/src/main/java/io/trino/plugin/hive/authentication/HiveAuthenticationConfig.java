@@ -49,7 +49,7 @@ public class HiveAuthenticationConfig
     }
 
     @Config("hive.hdfs.impersonation.enabled")
-    @ConfigDescription("Should Presto user be impersonated when communicating with HDFS")
+    @ConfigDescription("Should Trino user be impersonated when communicating with HDFS")
     public HiveAuthenticationConfig setHdfsImpersonationEnabled(boolean hdfsImpersonationEnabled)
     {
         this.hdfsImpersonationEnabled = hdfsImpersonationEnabled;

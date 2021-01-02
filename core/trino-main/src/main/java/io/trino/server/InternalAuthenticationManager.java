@@ -43,7 +43,7 @@ public class InternalAuthenticationManager
 {
     private static final Logger log = Logger.get(InternalAuthenticationManager.class);
 
-    private static final String PRESTO_INTERNAL_BEARER = "X-Presto-Internal-Bearer";
+    private static final String TRINO_INTERNAL_BEARER = "X-Trino-Internal-Bearer";
 
     private final byte[] hmac;
     private final String nodeId;
@@ -78,14 +78,14 @@ public class InternalAuthenticationManager
 
     public static boolean isInternalRequest(ContainerRequestContext request)
     {
-        return request.getHeaders().getFirst(PRESTO_INTERNAL_BEARER) != null;
+        return request.getHeaders().getFirst(TRINO_INTERNAL_BEARER) != null;
     }
 
     public void handleInternalRequest(ContainerRequestContext request)
     {
         String subject;
         try {
-            subject = parseJwt(request.getHeaders().getFirst(PRESTO_INTERNAL_BEARER));
+            subject = parseJwt(request.getHeaders().getFirst(TRINO_INTERNAL_BEARER));
         }
         catch (JwtException e) {
             log.error(e, "Internal authentication failed");
@@ -108,7 +108,7 @@ public class InternalAuthenticationManager
     public Request filterRequest(Request request)
     {
         return fromRequest(request)
-                .addHeader(PRESTO_INTERNAL_BEARER, generateJwt())
+                .addHeader(TRINO_INTERNAL_BEARER, generateJwt())
                 .build();
     }
 

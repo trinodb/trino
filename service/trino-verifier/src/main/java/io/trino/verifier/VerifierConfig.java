@@ -428,7 +428,7 @@ public class VerifierConfig
         return source;
     }
 
-    @ConfigDescription("The source to pass to Presto")
+    @ConfigDescription("The source to pass to Trino")
     @Config("source")
     public VerifierConfig setSource(String source)
     {

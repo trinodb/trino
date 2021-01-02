@@ -22,14 +22,14 @@ import org.apache.hadoop.hive.serde2.avro.AvroSerdeUtils;
 import java.io.IOException;
 import java.util.Properties;
 
-public class PrestoAvroSerDe
+public class TrinoAvroSerDe
         extends AvroSerDe
 {
     @Override
     public Schema determineSchemaOrReturnErrorSchema(Configuration conf, Properties props)
     {
         // AvroSerDe does not propagate initialization exceptions. Instead, it stores just an exception's message in
-        // this.configErrors (see https://issues.apache.org/jira/browse/HIVE-7868). In Presto, such behavior is not
+        // this.configErrors (see https://issues.apache.org/jira/browse/HIVE-7868). In Trino, such behavior is not
         // at all useful, as silenced exception usually carries important information which may be otherwise unavailable.
         try {
             return AvroSerdeUtils.determineSchemaOrThrowException(conf, props);

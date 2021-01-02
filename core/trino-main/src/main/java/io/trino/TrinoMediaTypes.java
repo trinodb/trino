@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.base.type;
+package io.trino;
 
-import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.TimestampType;
+import com.google.common.net.MediaType;
 
-public interface PrestoTimestampEncoder<T>
+public final class TrinoMediaTypes
 {
-    void write(DecodedTimestamp decodedTimestamp, BlockBuilder blockBuilder);
+    public static final String TRINO_PAGES = "application/X-trino-pages";
+    public static final MediaType TRINO_PAGES_TYPE = MediaType.create("application", "X-trino-pages");
 
-    T getTimestamp(DecodedTimestamp decodedTimestamp);
-
-    TimestampType getType();
+    private TrinoMediaTypes()
+    {
+    }
 }

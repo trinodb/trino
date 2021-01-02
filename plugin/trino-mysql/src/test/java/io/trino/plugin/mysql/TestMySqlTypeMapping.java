@@ -32,9 +32,9 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
-import io.trino.testing.sql.PrestoSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -113,7 +113,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(tinyintDataType(), (byte) 125)
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
     }
 
     @Test
@@ -129,7 +129,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(stringDataType("varchar(16777216)", createUnboundedVarcharType()), "text_g")
                 .addRoundTrip(stringDataType("varchar(" + VarcharType.MAX_LENGTH + ")", createUnboundedVarcharType()), "text_h")
                 .addRoundTrip(stringDataType("varchar", createUnboundedVarcharType()), "unbounded")
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_parameterized_varchar"));
     }
 
     @Test
@@ -164,7 +164,7 @@ public class TestMySqlTypeMapping
     public void testPrestoCreatedParameterizedChar()
     {
         mysqlCharTypeTest()
-                .execute(getQueryRunner(), prestoCreateAsSelect("mysql_test_parameterized_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("mysql_test_parameterized_char"));
     }
 
     @Test
@@ -207,7 +207,7 @@ public class TestMySqlTypeMapping
     public void testPrestoCreatedDecimal()
     {
         decimalTests()
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
     }
 
     private DataTypeTest decimalTests()
@@ -419,7 +419,7 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_varbinary"));
 
         varbinaryTestCases("varbinary")
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
     }
 
     private SqlDataTypeTest varbinaryTestCases(String insertType)
@@ -479,9 +479,9 @@ public class TestMySqlTypeMapping
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
             testCases.execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
+            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
+            testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
         }
     }
 
@@ -503,7 +503,7 @@ public class TestMySqlTypeMapping
     public void testJson()
     {
         jsonTestCases(jsonDataType(value -> "JSON " + formatStringLiteral(value)))
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_json"));
         jsonTestCases(jsonDataType(value -> format("CAST(%s AS JSON)", formatStringLiteral(value))))
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_json"));
     }
@@ -527,7 +527,7 @@ public class TestMySqlTypeMapping
     public void testFloat()
     {
         singlePrecisionFloatingPointTests(realDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_float"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"));
         singlePrecisionFloatingPointTests(mysqlFloatDataType())
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_float"));
     }
@@ -536,7 +536,7 @@ public class TestMySqlTypeMapping
     public void testDouble()
     {
         doublePrecisionFloatingPointTests(doubleDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_double"));
         doublePrecisionFloatingPointTests(mysqlDoubleDataType())
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_double"));
     }
@@ -590,19 +590,19 @@ public class TestMySqlTypeMapping
         }
     }
 
-    private DataSetup prestoCreateAsSelect(String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
-        return prestoCreateAsSelect(getSession(), tableNamePrefix);
+        return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup mysqlCreateAndInsert(String tableNamePrefix)

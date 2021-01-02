@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
-import static io.trino.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
@@ -134,7 +134,7 @@ public class PartitionTable
         return fields.stream()
                 .map(field -> new ColumnMetadata(
                         field.name(),
-                        toPrestoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
+                        toTrinoType(field.transform().getResultType(schema.findType(field.sourceId())), typeManager)))
                 .collect(toImmutableList());
     }
 
@@ -142,8 +142,8 @@ public class PartitionTable
     {
         return columns.stream().map(column -> new ColumnMetadata(column.name(),
                 RowType.from(ImmutableList.of(
-                        new RowType.Field(Optional.of("min"), toPrestoType(column.type(), typeManager)),
-                        new RowType.Field(Optional.of("max"), toPrestoType(column.type(), typeManager)),
+                        new RowType.Field(Optional.of("min"), toTrinoType(column.type(), typeManager)),
+                        new RowType.Field(Optional.of("max"), toTrinoType(column.type(), typeManager)),
                         new RowType.Field(Optional.of("null_count"), BIGINT)))))
                 .collect(toImmutableList());
     }

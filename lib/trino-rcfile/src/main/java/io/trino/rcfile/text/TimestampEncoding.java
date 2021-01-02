@@ -16,7 +16,7 @@ package io.trino.rcfile.text;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.plugin.base.type.PrestoTimestampEncoder;
+import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.rcfile.ColumnData;
 import io.trino.rcfile.EncodeOutput;
 import io.trino.rcfile.TimestampHolder;
@@ -31,7 +31,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.function.BiFunction;
 
-import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeZone.UTC;
@@ -48,14 +48,14 @@ public class TimestampEncoding
 
     private final TimestampType type;
     private final Slice nullSequence;
-    private final PrestoTimestampEncoder<?> prestoTimestampEncoder;
+    private final TrinoTimestampEncoder<?> trinoTimestampEncoder;
     private final StringBuilder buffer = new StringBuilder();
 
     public TimestampEncoding(TimestampType type, Slice nullSequence)
     {
         this.type = requireNonNull(type, "type is null");
         this.nullSequence = nullSequence;
-        prestoTimestampEncoder = createTimestampEncoder(this.type, UTC);
+        trinoTimestampEncoder = createTimestampEncoder(this.type, UTC);
     }
 
     @Override
@@ -104,7 +104,7 @@ public class TimestampEncoding
             }
             else {
                 DecodedTimestamp decodedTimestamp = parseTimestamp(slice, offset, length);
-                prestoTimestampEncoder.write(decodedTimestamp, builder);
+                trinoTimestampEncoder.write(decodedTimestamp, builder);
             }
         }
         return builder.build();
@@ -114,7 +114,7 @@ public class TimestampEncoding
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
     {
         DecodedTimestamp decodedTimestamp = parseTimestamp(slice, offset, length);
-        prestoTimestampEncoder.write(decodedTimestamp, builder);
+        trinoTimestampEncoder.write(decodedTimestamp, builder);
     }
 
     private static DecodedTimestamp parseTimestamp(Slice slice, int offset, int length)

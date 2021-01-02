@@ -1149,25 +1149,25 @@ public abstract class AbstractTestDistributedQueries
         return Optional.of(columnName);
     }
 
-    protected String dataMappingTableName(String prestoTypeName)
+    protected String dataMappingTableName(String trinoTypeName)
     {
-        return "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
+        return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
     }
 
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
-        String prestoTypeName = dataMappingTestSetup.getPrestoTypeName();
+        String trinoTypeName = dataMappingTestSetup.getTrinoTypeName();
         String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
         String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
 
-        String tableName = dataMappingTableName(prestoTypeName);
+        String tableName = dataMappingTableName(trinoTypeName);
 
         Runnable setup = () -> {
             // TODO test with both CTAS *and* CREATE TABLE + INSERT, since they use different connector API methods.
             String createTable = "" +
                     "CREATE TABLE " + tableName + " AS " +
-                    "SELECT CAST(row_id AS varchar) row_id, CAST(value AS " + prestoTypeName + ") value " +
+                    "SELECT CAST(row_id AS varchar) row_id, CAST(value AS " + trinoTypeName + ") value " +
                     "FROM (VALUES " +
                     "  ('null value', NULL), " +
                     "  ('sample value', " + sampleValueLiteral + "), " +
@@ -1176,7 +1176,7 @@ public abstract class AbstractTestDistributedQueries
             assertUpdate(createTable, 3);
         };
         if (dataMappingTestSetup.isUnsupportedType()) {
-            String typeNameBase = prestoTypeName.replaceFirst("\\(.*", "");
+            String typeNameBase = trinoTypeName.replaceFirst("\\(.*", "");
             String expectedMessagePart = format("(%1$s.*not (yet )?supported)|((?i)unsupported.*%1$s)|((?i)not supported.*%1$s)", Pattern.quote(typeNameBase));
             assertThatThrownBy(setup::run)
                     .hasMessageFindingMatch(expectedMessagePart)
@@ -1249,28 +1249,28 @@ public abstract class AbstractTestDistributedQueries
 
     protected static final class DataMappingTestSetup
     {
-        private final String prestoTypeName;
+        private final String trinoTypeName;
         private final String sampleValueLiteral;
         private final String highValueLiteral;
 
         private final boolean unsupportedType;
 
-        public DataMappingTestSetup(String prestoTypeName, String sampleValueLiteral, String highValueLiteral)
+        public DataMappingTestSetup(String trinoTypeName, String sampleValueLiteral, String highValueLiteral)
         {
-            this(prestoTypeName, sampleValueLiteral, highValueLiteral, false);
+            this(trinoTypeName, sampleValueLiteral, highValueLiteral, false);
         }
 
-        private DataMappingTestSetup(String prestoTypeName, String sampleValueLiteral, String highValueLiteral, boolean unsupportedType)
+        private DataMappingTestSetup(String trinoTypeName, String sampleValueLiteral, String highValueLiteral, boolean unsupportedType)
         {
-            this.prestoTypeName = requireNonNull(prestoTypeName, "prestoTypeName is null");
+            this.trinoTypeName = requireNonNull(trinoTypeName, "trinoTypeName is null");
             this.sampleValueLiteral = requireNonNull(sampleValueLiteral, "sampleValueLiteral is null");
             this.highValueLiteral = requireNonNull(highValueLiteral, "highValueLiteral is null");
             this.unsupportedType = unsupportedType;
         }
 
-        public String getPrestoTypeName()
+        public String getTrinoTypeName()
         {
-            return prestoTypeName;
+            return trinoTypeName;
         }
 
         public String getSampleValueLiteral()
@@ -1291,7 +1291,7 @@ public abstract class AbstractTestDistributedQueries
         public DataMappingTestSetup asUnsupported()
         {
             return new DataMappingTestSetup(
-                    prestoTypeName,
+                    trinoTypeName,
                     sampleValueLiteral,
                     highValueLiteral,
                     true);
@@ -1301,7 +1301,7 @@ public abstract class AbstractTestDistributedQueries
         public String toString()
         {
             // toString is brief because it's used for test case labels in IDE
-            return prestoTypeName + (unsupportedType ? "!" : "");
+            return trinoTypeName + (unsupportedType ? "!" : "");
         }
     }
 }

@@ -85,7 +85,7 @@ public final class KinesisSessionProperties
                         false))
                 .add(PropertyMetadata.stringProperty(
                         STARTING_TIMESTAMP,
-                        "Timestamp in Presto format to start iterator",
+                        "Timestamp in Trino format to start iterator",
                         UNSET_TIMESTAMP,
                         false))
                 .build();

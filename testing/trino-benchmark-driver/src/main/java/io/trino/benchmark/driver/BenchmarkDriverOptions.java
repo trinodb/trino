@@ -46,7 +46,7 @@ public class BenchmarkDriverOptions
 
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Presto server location " + DEFAULT_VALUE)
+    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Trino server location " + DEFAULT_VALUE)
     public String server;
 
     @Option(names = "--user", paramLabel = "<user>", description = "Username " + DEFAULT_VALUE)
@@ -102,7 +102,7 @@ public class BenchmarkDriverOptions
         return new ClientSession(
                 parseServer(server),
                 user,
-                "presto-benchmark",
+                "trino-benchmark",
                 Optional.empty(),
                 ImmutableSet.of(),
                 null,

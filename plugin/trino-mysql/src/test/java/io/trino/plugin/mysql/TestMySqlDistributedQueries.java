@@ -129,7 +129,7 @@ public class TestMySqlDistributedQueries
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
                 || typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());

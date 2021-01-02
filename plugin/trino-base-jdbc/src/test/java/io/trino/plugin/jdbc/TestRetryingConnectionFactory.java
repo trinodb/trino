@@ -28,9 +28,9 @@ import java.util.stream.Stream;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.RETURN;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_NPE;
-import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_PRESTO_EXCEPTION;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_EXCEPTION;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_RECOVERABLE_EXCEPTION;
+import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_TRINO_EXCEPTION;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION;
 import static io.trino.spi.block.TestingSession.SESSION;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
@@ -60,11 +60,11 @@ public class TestRetryingConnectionFactory
     @Test
     public void testRetryAndStopOnTrinoException()
     {
-        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_PRESTO_EXCEPTION);
+        MockConnectorFactory mock = new MockConnectorFactory(THROW_SQL_RECOVERABLE_EXCEPTION, THROW_TRINO_EXCEPTION);
         ConnectionFactory factory = new RetryingConnectionFactory(mock);
         assertThatThrownBy(() -> factory.openConnection(SESSION))
                 .isInstanceOf(TrinoException.class)
-                .hasMessage("Testing presto exception");
+                .hasMessage("Testing Trino exception");
         assertEquals(mock.getCallCount(), 2);
     }
 
@@ -138,8 +138,8 @@ public class TestRetryingConnectionFactory
                     return newProxy(Connection.class, (proxy, method, args) -> null);
                 case THROW_NPE:
                     throw new NullPointerException("Testing NPE");
-                case THROW_PRESTO_EXCEPTION:
-                    throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Testing presto exception");
+                case THROW_TRINO_EXCEPTION:
+                    throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Testing Trino exception");
                 case THROW_SQL_EXCEPTION:
                     throw new SQLException("Testing sql exception");
                 case THROW_SQL_RECOVERABLE_EXCEPTION:
@@ -152,7 +152,7 @@ public class TestRetryingConnectionFactory
 
         public enum Action
         {
-            THROW_PRESTO_EXCEPTION,
+            THROW_TRINO_EXCEPTION,
             THROW_SQL_EXCEPTION,
             THROW_SQL_RECOVERABLE_EXCEPTION,
             THROW_WRAPPED_SQL_RECOVERABLE_EXCEPTION,

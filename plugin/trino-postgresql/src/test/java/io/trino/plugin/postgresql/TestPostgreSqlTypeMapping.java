@@ -29,15 +29,15 @@ import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
-import io.trino.testing.datatype.CreateAndPrestoInsertDataSetup;
+import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.JdbcSqlExecutor;
-import io.trino.testing.sql.PrestoSqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -189,7 +189,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("integer", "123456789", INTEGER)
                 .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
                 .addRoundTrip("tinyint", "5", SMALLINT, "SMALLINT '5'")
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
     }
 
     @Test
@@ -211,7 +211,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS real)")
                 .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
                 .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS real)")
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_real"));
     }
 
     @Test
@@ -231,7 +231,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("double", "nan()", DOUBLE, "nan()")
                 .addRoundTrip("double", "+infinity()", DOUBLE, "+infinity()")
                 .addRoundTrip("double", "-infinity()", DOUBLE, "-infinity()")
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_double"));
     }
 
     @Test
@@ -255,7 +255,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_decimal"))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
     }
 
     @Test
@@ -269,16 +269,16 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("char(1)", "'😂'", createCharType(1), "CAST('😂' AS char(1))")
                 .addRoundTrip("char(77)", "'Ну, погоди!'", createCharType(77), "CAST('Ну, погоди!' AS char(77))")
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
 
-        // too long for a char in Presto
+        // too long for a char in Trino
         int length = CharType.MAX_LENGTH + 1;
         String postgresqlType = format("char(%s)", length);
-        Type prestoType = createVarcharType(length);
+        Type trinoType = createVarcharType(length);
         SqlDataTypeTest.create()
-                .addRoundTrip(postgresqlType, "'test_f'", prestoType, format("'test_f%s'", " ".repeat(length - 6)))
-                .addRoundTrip(postgresqlType, format("'%s'", "a".repeat(length)), prestoType, format("'%s'", "a".repeat(length)))
-                .addRoundTrip(postgresqlType, "'\uD83D\uDE02'", prestoType, format("'\uD83D\uDE02%s'", " ".repeat(length - 1)))
+                .addRoundTrip(postgresqlType, "'test_f'", trinoType, format("'test_f%s'", " ".repeat(length - 6)))
+                .addRoundTrip(postgresqlType, format("'%s'", "a".repeat(length)), trinoType, format("'%s'", "a".repeat(length)))
+                .addRoundTrip(postgresqlType, "'\uD83D\uDE02'", trinoType, format("'\uD83D\uDE02%s'", " ".repeat(length - 1)))
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_char"));
     }
 
@@ -293,19 +293,19 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
-    public void testPrestoCreatedVarchar()
+    public void testTrinoCreatedVarchar()
     {
         varcharDataTypeTest(DataType::varcharDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
 
         varcharDataTypeTest(length -> varcharDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
     }
 
     private DataTypeTest varcharDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
     {
         return characterDataTypeTest(dataTypeFactory)
-                .addRoundTrip(dataTypeFactory.apply(10485760), "text_f"); // too long for a char in Presto
+                .addRoundTrip(dataTypeFactory.apply(10485760), "text_f"); // too long for a char in Trino
     }
 
     private DataTypeTest characterDataTypeTest(Function<Integer, DataType<String>> dataTypeFactory)
@@ -328,7 +328,7 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testVarbinary()
     {
-        // PostgreSQL's BYTEA is mapped to Presto VARBINARY. PostgreSQL does not have VARBINARY type.
+        // PostgreSQL's BYTEA is mapped to Trino VARBINARY. PostgreSQL does not have VARBINARY type.
         SqlDataTypeTest.create()
                 .addRoundTrip("bytea", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
                 .addRoundTrip("bytea", "bytea E'\\\\x'", VARBINARY, "X''")
@@ -347,7 +347,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
     }
 
     private static String utf8ByteaLiteral(String string)
@@ -676,20 +676,20 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(smallintDataType()), asList((short) 32_456))
                 .addRoundTrip(arrayDataType(doubleDataType()), asList(123.45d))
                 .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
-                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_basic"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_basic"));
 
         arrayDateTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_date"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_date"));
         arrayDateTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_date"));
 
         arrayDecimalTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_decimal"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_decimal"));
         arrayDecimalTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_decimal"));
 
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_varchar"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_varchar"));
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_varchar"));
 
@@ -700,11 +700,11 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "_bytea", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_char_unicode"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_char_unicode"));
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType, DataType::charDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_parameterized_char_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_parameterized_varchar_unicode"));
     }
@@ -728,9 +728,9 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(integerDataType()), asList(1, null, 3, null))
                 .addRoundTrip(arrayDataType(timestampDataType(3)), asList())
                 .addRoundTrip(arrayDataType(timestampDataType(3)), singletonList(null))
-                .addRoundTrip(arrayDataType(prestoTimestampWithTimeZoneDataType(3)), asList())
-                .addRoundTrip(arrayDataType(prestoTimestampWithTimeZoneDataType(3)), singletonList(null))
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
+                .addRoundTrip(arrayDataType(trinoTimestampWithTimeZoneDataType(3)), asList())
+                .addRoundTrip(arrayDataType(trinoTimestampWithTimeZoneDataType(3)), singletonList(null))
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
     }
 
     private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory)
@@ -812,7 +812,7 @@ public class TestPostgreSqlTypeMapping
                         asList(new BigDecimal("193")),
                         asList(new BigDecimal("19")),
                         asList(new BigDecimal("-193"))))
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_2d"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_2d"));
 
         DataTypeTest.create()
                 .addRoundTrip(arrayDataType(arrayDataType(arrayDataType(doubleDataType()))), asList(
@@ -823,7 +823,7 @@ public class TestPostgreSqlTypeMapping
                         asList(asList(LocalDate.of(1952, 4, 3), LocalDate.of(1970, 1, 1))),
                         asList(asList(null, LocalDate.of(1970, 1, 1))),
                         asList(asList(LocalDate.of(1970, 2, 3), LocalDate.of(2017, 7, 1)))))
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_3d"));
+                .execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_3d"));
     }
 
     @Test
@@ -922,10 +922,10 @@ public class TestPostgreSqlTypeMapping
     {
         return dataType(
                 insertType,
-                new ArrayType(elementType.getPrestoResultType()),
+                new ArrayType(elementType.getTrinoResultType()),
                 valuesList -> "ARRAY" + valuesList.stream().map(elementType::toLiteral).collect(toList()),
-                valuesList -> "ARRAY" + valuesList.stream().map(elementType::toPrestoLiteral).collect(toList()),
-                valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toPrestoQueryResult).collect(toList()));
+                valuesList -> "ARRAY" + valuesList.stream().map(elementType::toTrinoLiteral).collect(toList()),
+                valuesList -> valuesList == null ? null : valuesList.stream().map(elementType::toTrinoQueryResult).collect(toList()));
     }
 
     private static DataType<String> arrayAsJsonDataType(String insertType)
@@ -981,9 +981,9 @@ public class TestPostgreSqlTypeMapping
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
             testCases.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_date"));
-            testCases.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
+            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+            testCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
+            testCases.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_date"));
         }
     }
 
@@ -1011,7 +1011,7 @@ public class TestPostgreSqlTypeMapping
      * @see #testTimeCoercion
      */
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTime(boolean insertWithPresto, ZoneId sessionZone)
+    public void testTime(boolean insertWithTrino, ZoneId sessionZone)
     {
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
@@ -1041,10 +1041,10 @@ public class TestPostgreSqlTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        if (insertWithPresto) {
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_time"));
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_time"));
-            tests.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_time"));
+        if (insertWithTrino) {
+            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_time"));
+            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_time"));
+            tests.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_time"));
         }
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_time"));
@@ -1132,10 +1132,10 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("TIME '23:59:59.99999999999'", "TIME '00:00:00.000000'")
                 .addRoundTrip("TIME '23:59:59.999999999999'", "TIME '00:00:00.000000'")
 
-                // CTAS with Presto, where the coercion is done by the connector
-                .execute(getQueryRunner(), prestoCreateAsSelect(getSession(), "test_time_coercion"))
-                // INSERT with Presto, where the coercion is done by the engine
-                .execute(getQueryRunner(), prestoCreateAndInsert(getSession(), "test_time_coercion"));
+                // CTAS with Trino, where the coercion is done by the connector
+                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time_coercion"))
+                // INSERT with Trino, where the coercion is done by the engine
+                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_time_coercion"));
     }
 
     @Test
@@ -1188,11 +1188,11 @@ public class TestPostgreSqlTypeMapping
      * @see #testTimestampCoercion
      */
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
+    public void testTimestamp(boolean insertWithTrino, ZoneId sessionZone)
     {
         DataTypeTest tests = DataTypeTest.create(true);
 
-        // no need to test gap for multiple precisions as both Presto and PostgreSql JDBC
+        // no need to test gap for multiple precisions as both Trino and PostgreSql JDBC
         // uses same representation for all precisions 1-6
         DataType<LocalDateTime> timestampDataType = timestampDataType(3);
         tests.addRoundTrip(timestampDataType, beforeEpoch);
@@ -1222,10 +1222,10 @@ public class TestPostgreSqlTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        if (insertWithPresto) {
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_timestamp"));
-            tests.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_timestamp"));
+        if (insertWithTrino) {
+            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
+            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"));
+            tests.execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
         }
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp"));
@@ -1286,19 +1286,19 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994'", "TIMESTAMP '1969-12-31 23:59:59.999999'")
 
-                // CTAS with Presto, where the coercion is done by the connector
-                .execute(getQueryRunner(), prestoCreateAsSelect(getSession(), "test_timestamp_coercion"))
-                // INSERT with Presto, where the coercion is done by the engine
-                .execute(getQueryRunner(), prestoCreateAndInsert(getSession(), "test_timestamp_coercion"));
+                // CTAS with Trino, where the coercion is done by the connector
+                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_timestamp_coercion"))
+                // INSERT with Trino, where the coercion is done by the engine
+                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_timestamp_coercion"));
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testArrayTimestamp(boolean insertWithPresto, ZoneId sessionZone)
+    public void testArrayTimestamp(boolean insertWithTrino, ZoneId sessionZone)
     {
         DataTypeTest tests = DataTypeTest.create(true);
-        // no need to test gap for multiple precisions as both Presto and PostgreSql JDBC
+        // no need to test gap for multiple precisions as both Trino and PostgreSql JDBC
         // uses same representation for all precisions 1-6
-        DataType<List<LocalDateTime>> dataType = arrayOfTimestampDataType(3, insertWithPresto);
+        DataType<List<LocalDateTime>> dataType = arrayOfTimestampDataType(3, insertWithTrino);
         tests.addRoundTrip(dataType, asList(beforeEpoch));
         tests.addRoundTrip(dataType, asList(afterEpoch));
         tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone));
@@ -1310,28 +1310,28 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(dataType, asList(timeGapInKathmandu));
 
         // test arbitrary time for all supported precisions
-        tests.addRoundTrip(arrayOfTimestampDataType(1, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 100_000_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(2, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 120_000_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(3, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_000_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(4, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_400_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(5, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_450_000)));
-        tests.addRoundTrip(arrayOfTimestampDataType(6, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_456_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(1, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 100_000_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(2, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 120_000_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(3, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_000_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(4, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_400_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(5, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_450_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(6, insertWithTrino), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_456_000)));
 
         Session session = Session.builder(sessionWithArrayAsArray())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        if (insertWithPresto) {
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp"));
+        if (insertWithTrino) {
+            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp"));
         }
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_timestamp"));
         }
     }
 
-    private DataType<List<LocalDateTime>> arrayOfTimestampDataType(int precision, boolean insertWithPresto)
+    private DataType<List<LocalDateTime>> arrayOfTimestampDataType(int precision, boolean insertWithTrino)
     {
-        if (insertWithPresto) {
+        if (insertWithTrino) {
             return arrayDataType(timestampDataType(precision));
         }
         else {
@@ -1365,13 +1365,13 @@ public class TestPostgreSqlTypeMapping
      * @see #testTimestampWithTimeZoneCoercion
      */
     @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
-    public void testTimestampWithTimeZone(boolean insertWithPresto)
+    public void testTimestampWithTimeZone(boolean insertWithTrino)
     {
         DataTypeTest tests = DataTypeTest.create(true);
         for (int precision : List.of(3, 6)) {
             // test all standard cases with precision 3 and 6 to make sure the long and short TIMESTAMP WITH TIME ZONE
             // is gap friendly.
-            DataType<ZonedDateTime> dataType = timestampWithTimeZoneDataType(precision, insertWithPresto);
+            DataType<ZonedDateTime> dataType = timestampWithTimeZoneDataType(precision, insertWithTrino);
             tests.addRoundTrip(dataType, epoch.atZone(UTC));
             tests.addRoundTrip(dataType, epoch.atZone(kathmandu));
             tests.addRoundTrip(dataType, epoch.atZone(fixedOffsetEast));
@@ -1403,15 +1403,15 @@ public class TestPostgreSqlTypeMapping
         }
 
         // test arbitrary time for all supported precisions
-        tests.addRoundTrip(timestampWithTimeZoneDataType(1, insertWithPresto), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 100_000_000, kathmandu));
-        tests.addRoundTrip(timestampWithTimeZoneDataType(2, insertWithPresto), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 120_000_000, kathmandu));
-        tests.addRoundTrip(timestampWithTimeZoneDataType(3, insertWithPresto), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_000_000, kathmandu));
-        tests.addRoundTrip(timestampWithTimeZoneDataType(4, insertWithPresto), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_400_000, kathmandu));
-        tests.addRoundTrip(timestampWithTimeZoneDataType(5, insertWithPresto), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_450_000, kathmandu));
-        tests.addRoundTrip(timestampWithTimeZoneDataType(6, insertWithPresto), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_456_000, kathmandu));
+        tests.addRoundTrip(timestampWithTimeZoneDataType(1, insertWithTrino), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 100_000_000, kathmandu));
+        tests.addRoundTrip(timestampWithTimeZoneDataType(2, insertWithTrino), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 120_000_000, kathmandu));
+        tests.addRoundTrip(timestampWithTimeZoneDataType(3, insertWithTrino), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_000_000, kathmandu));
+        tests.addRoundTrip(timestampWithTimeZoneDataType(4, insertWithTrino), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_400_000, kathmandu));
+        tests.addRoundTrip(timestampWithTimeZoneDataType(5, insertWithTrino), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_450_000, kathmandu));
+        tests.addRoundTrip(timestampWithTimeZoneDataType(6, insertWithTrino), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_456_000, kathmandu));
 
-        if (insertWithPresto) {
-            tests.execute(getQueryRunner(), prestoCreateAsSelect("test_timestamp_with_time_zone"));
+        if (insertWithTrino) {
+            tests.execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_with_time_zone"));
         }
         else {
             tests.execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_timestamp_with_time_zone"));
@@ -1471,20 +1471,20 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999499999 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'")
                 .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.9999994 UTC'", "TIMESTAMP '1969-12-31 23:59:59.999999 UTC'")
 
-                // CTAS with Presto, where the coercion is done by the connector
-                .execute(getQueryRunner(), prestoCreateAsSelect(getSession(), "test_timestamp_tz_coercion"))
-                // INSERT with Presto, where the coercion is done by the engine
-                .execute(getQueryRunner(), prestoCreateAndInsert(getSession(), "test_timestamp_tz_coercion"));
+                // CTAS with Trino, where the coercion is done by the connector
+                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_timestamp_tz_coercion"))
+                // INSERT with Trino, where the coercion is done by the engine
+                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_timestamp_tz_coercion"));
     }
 
     @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
-    public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
+    public void testArrayTimestampWithTimeZone(boolean insertWithTrino)
     {
         DataTypeTest tests = DataTypeTest.create();
         for (int precision : List.of(3, 6)) {
             // test all standard cases with precision 3 and 6 to make sure the long and short TIMESTAMP WITH TIME ZONE
             // is gap friendly.
-            DataType<List<ZonedDateTime>> dataType = arrayOfTimestampWithTimeZoneDataType(precision, insertWithPresto);
+            DataType<List<ZonedDateTime>> dataType = arrayOfTimestampWithTimeZoneDataType(precision, insertWithTrino);
 
             tests.addRoundTrip(dataType, asList(epoch.atZone(UTC), epoch.atZone(kathmandu)));
             tests.addRoundTrip(dataType, asList(beforeEpoch.atZone(kathmandu), beforeEpoch.atZone(UTC)));
@@ -1496,7 +1496,7 @@ public class TestPostgreSqlTypeMapping
             tests.addRoundTrip(dataType, asList(timeGapInJvmZone2.atZone(UTC), timeGapInJvmZone2.atZone(kathmandu)));
             tests.addRoundTrip(dataType, asList(timeGapInVilnius.atZone(kathmandu)));
             tests.addRoundTrip(dataType, asList(timeGapInKathmandu.atZone(vilnius)));
-            if (!insertWithPresto) {
+            if (!insertWithTrino) {
                 // Postgres results with non-DST time (winter time) for timeDoubledInJvmZone.atZone(jvmZone) while Java results with DST time
                 // When writing timestamptz arrays, Postgres JDBC driver converts java.sql.Timestamp to string representing date-time in JVM zone
                 // TODO upgrade driver or find a different way to write timestamptz array elements as a point in time values with org.postgresql.jdbc.PgArray (https://github.com/pgjdbc/pgjdbc/issues/1225#issuecomment-516312324)
@@ -1505,15 +1505,15 @@ public class TestPostgreSqlTypeMapping
         }
 
         // test arbitrary time for all supported precisions
-        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(1, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 100_000_000, kathmandu)));
-        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(2, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 120_000_000, kathmandu)));
-        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(3, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_000_000, kathmandu)));
-        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(4, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_400_000, kathmandu)));
-        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(5, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_450_000, kathmandu)));
-        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(6, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_456_000, kathmandu)));
+        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(1, insertWithTrino), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 100_000_000, kathmandu)));
+        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(2, insertWithTrino), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 120_000_000, kathmandu)));
+        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(3, insertWithTrino), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_000_000, kathmandu)));
+        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(4, insertWithTrino), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_400_000, kathmandu)));
+        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(5, insertWithTrino), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_450_000, kathmandu)));
+        tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(6, insertWithTrino), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_456_000, kathmandu)));
 
-        if (insertWithPresto) {
-            tests.execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone"));
+        if (insertWithTrino) {
+            tests.execute(getQueryRunner(), sessionWithArrayAsArray(), trinoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone"));
         }
         else {
             tests.execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_timestamp_with_time_zone"));
@@ -1527,7 +1527,7 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_json"));
 
         jsonTestCases(jsonDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_json"));
     }
 
     @Test
@@ -1559,7 +1559,7 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_hstore"));
 
         hstoreTestCases(varcharMapDataType())
-                .execute(getQueryRunner(), postgresCreatePrestoInsert("tpch.postgresql_test_hstore"));
+                .execute(getQueryRunner(), postgresCreateTrinoInsert("tpch.postgresql_test_hstore"));
     }
 
     private DataTypeTest hstoreTestCases(DataType<Map<String, String>> varcharMapDataType)
@@ -1580,7 +1580,7 @@ public class TestPostgreSqlTypeMapping
                 .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_uuid"));
 
         uuidTestCases(uuidDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_uuid"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("trino__test_uuid"));
     }
 
     private DataTypeTest uuidTestCases(DataType<java.util.UUID> uuidDataType)
@@ -1598,7 +1598,7 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(moneyDataType(), 10.)
                 .addRoundTrip(moneyDataType(), 10.54)
                 .addRoundTrip(moneyDataType(), 10_000_000.42)
-                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.presto_test_money"));
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.trino_test_money"));
     }
 
     private void testUnsupportedDataTypeAsIgnored(String dataTypeName, String databaseValue)
@@ -1627,7 +1627,7 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    private void testUnsupportedDataTypeConvertedToVarchar(Session session, String dataTypeName, String internalDataTypeName, String databaseValue, String prestoValue)
+    private void testUnsupportedDataTypeConvertedToVarchar(Session session, String dataTypeName, String internalDataTypeName, String databaseValue, String trinoValue)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
         try (TestTable table = new TestTable(
@@ -1643,10 +1643,10 @@ public class TestPostgreSqlTypeMapping
             assertQuery(
                     convertToVarchar,
                     "SELECT * FROM " + table.getName(),
-                    format("VALUES ('1', NULL), ('2', %s)", prestoValue));
+                    format("VALUES ('1', NULL), ('2', %s)", trinoValue));
             assertQuery(
                     convertToVarchar,
-                    format("SELECT key FROM %s WHERE unsupported_column = %s", table.getName(), prestoValue),
+                    format("SELECT key FROM %s WHERE unsupported_column = %s", table.getName(), trinoValue),
                     "VALUES '2'");
             assertQuery(
                     convertToVarchar,
@@ -1660,7 +1660,7 @@ public class TestPostgreSqlTypeMapping
                     1);
             assertQueryFails(
                     convertToVarchar,
-                    format("INSERT INTO %s (key, unsupported_column) VALUES ('4', %s)", table.getName(), prestoValue),
+                    format("INSERT INTO %s (key, unsupported_column) VALUES ('4', %s)", table.getName(), trinoValue),
                     "\\QUnderlying type that is mapped to VARCHAR is not supported for INSERT: " + internalDataTypeName);
             assertUpdate(
                     convertToVarchar,
@@ -1669,21 +1669,21 @@ public class TestPostgreSqlTypeMapping
             assertQuery(
                     convertToVarchar,
                     "SELECT * FROM " + table.getName(),
-                    format("VALUES ('1', NULL), ('2', %s), ('3', NULL), ('5', NULL)", prestoValue));
+                    format("VALUES ('1', NULL), ('2', %s), ('3', NULL), ('5', NULL)", trinoValue));
         }
     }
 
-    public static DataType<ZonedDateTime> timestampWithTimeZoneDataType(int precision, boolean insertWithPresto)
+    public static DataType<ZonedDateTime> timestampWithTimeZoneDataType(int precision, boolean insertWithTrino)
     {
-        if (insertWithPresto) {
-            return prestoTimestampWithTimeZoneDataType(precision);
+        if (insertWithTrino) {
+            return trinoTimestampWithTimeZoneDataType(precision);
         }
         else {
             return postgreSqlTimestampWithTimeZoneDataType(precision);
         }
     }
 
-    public static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType(int precision)
+    public static DataType<ZonedDateTime> trinoTimestampWithTimeZoneDataType(int precision)
     {
         return dataType(
                 format("timestamp(%d) with time zone", precision),
@@ -1708,10 +1708,10 @@ public class TestPostgreSqlTypeMapping
                 zonedDateTime -> zonedDateTime.withZoneSameInstant(ZoneId.of("UTC")));
     }
 
-    public static DataType<List<ZonedDateTime>> arrayOfTimestampWithTimeZoneDataType(int precision, boolean insertWithPresto)
+    public static DataType<List<ZonedDateTime>> arrayOfTimestampWithTimeZoneDataType(int precision, boolean insertWithTrino)
     {
-        if (insertWithPresto) {
-            return arrayDataType(prestoTimestampWithTimeZoneDataType(precision));
+        if (insertWithTrino) {
+            return arrayDataType(trinoTimestampWithTimeZoneDataType(precision));
         }
         else {
             return arrayDataType(postgreSqlTimestampWithTimeZoneDataType(precision), format("timestamptz(%d)[]", precision));
@@ -1815,19 +1815,19 @@ public class TestPostgreSqlTypeMapping
                 .build();
     }
 
-    private DataSetup prestoCreateAsSelect(String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
-        return prestoCreateAsSelect(getSession(), tableNamePrefix);
+        return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup postgresCreateAndInsert(String tableNamePrefix)
@@ -1835,9 +1835,9 @@ public class TestPostgreSqlTypeMapping
         return new CreateAndInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), tableNamePrefix);
     }
 
-    private DataSetup postgresCreatePrestoInsert(String tableNamePrefix)
+    private DataSetup postgresCreateTrinoInsert(String tableNamePrefix)
     {
-        return new CreateAndPrestoInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), new PrestoSqlExecutor(getQueryRunner()), tableNamePrefix);
+        return new CreateAndTrinoInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)

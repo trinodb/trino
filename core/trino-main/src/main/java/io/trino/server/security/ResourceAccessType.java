@@ -50,7 +50,7 @@ public class ResourceAccessType
             // check if the resource class has an access type declared for all methods
             accessType = resourceAccessTypeLoader.getAccessType(resourceInfo.getResourceClass());
             if (accessType.isPresent()) {
-                verifyNotPrestoResource(resourceInfo);
+                verifyNotTrinoResource(resourceInfo);
                 return accessType.get();
             }
             // in some cases there the resource is a nested class, so check the parent class
@@ -58,21 +58,21 @@ public class ResourceAccessType
             if (resourceInfo.getResourceClass().getDeclaringClass() != null) {
                 accessType = resourceAccessTypeLoader.getAccessType(resourceInfo.getResourceClass().getDeclaringClass());
                 if (accessType.isPresent()) {
-                    verifyNotPrestoResource(resourceInfo);
+                    verifyNotTrinoResource(resourceInfo);
                     return accessType.get();
                 }
             }
         }
-        // Presto resources are required to have a declared access control
-        verifyNotPrestoResource(resourceInfo);
+        // Trino resources are required to have a declared access control
+        verifyNotTrinoResource(resourceInfo);
         return MANAGEMENT_READ;
     }
 
-    private static void verifyNotPrestoResource(ResourceInfo resourceInfo)
+    private static void verifyNotTrinoResource(ResourceInfo resourceInfo)
     {
         Method resourceMethod = resourceInfo.getResourceMethod();
         if (resourceMethod != null && resourceMethod.getDeclaringClass().getPackageName().startsWith("io.trino.")) {
-            throw new IllegalArgumentException("Presto resource is not annotated with @" + ResourceSecurity.class.getSimpleName() + ": " + resourceInfo.getResourceMethod());
+            throw new IllegalArgumentException("Trino resource is not annotated with @" + ResourceSecurity.class.getSimpleName() + ": " + resourceInfo.getResourceMethod());
         }
     }
 }

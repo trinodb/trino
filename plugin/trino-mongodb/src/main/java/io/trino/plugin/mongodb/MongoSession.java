@@ -382,34 +382,34 @@ public class MongoSession
                 .collect(toImmutableList())));
     }
 
-    private static Optional<Object> translateValue(Object prestoNativeValue, Type type)
+    private static Optional<Object> translateValue(Object trinoNativeValue, Type type)
     {
-        requireNonNull(prestoNativeValue, "prestoNativeValue is null");
+        requireNonNull(trinoNativeValue, "trinoNativeValue is null");
         requireNonNull(type, "type is null");
-        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(prestoNativeValue), "%s (%s) is not a valid representation for %s", prestoNativeValue, prestoNativeValue.getClass(), type);
+        checkArgument(Primitives.wrap(type.getJavaType()).isInstance(trinoNativeValue), "%s (%s) is not a valid representation for %s", trinoNativeValue, trinoNativeValue.getClass(), type);
 
         if (type == TINYINT) {
-            return Optional.of((long) SignedBytes.checkedCast(((Long) prestoNativeValue)));
+            return Optional.of((long) SignedBytes.checkedCast(((Long) trinoNativeValue)));
         }
 
         if (type == SMALLINT) {
-            return Optional.of((long) Shorts.checkedCast(((Long) prestoNativeValue)));
+            return Optional.of((long) Shorts.checkedCast(((Long) trinoNativeValue)));
         }
 
         if (type == IntegerType.INTEGER) {
-            return Optional.of((long) toIntExact(((Long) prestoNativeValue)));
+            return Optional.of((long) toIntExact(((Long) trinoNativeValue)));
         }
 
         if (type == BIGINT) {
-            return Optional.of(prestoNativeValue);
+            return Optional.of(trinoNativeValue);
         }
 
         if (type instanceof ObjectIdType) {
-            return Optional.of(new ObjectId(((Slice) prestoNativeValue).getBytes()));
+            return Optional.of(new ObjectId(((Slice) trinoNativeValue).getBytes()));
         }
 
         if (type instanceof VarcharType) {
-            return Optional.of(((Slice) prestoNativeValue).toStringUtf8());
+            return Optional.of(((Slice) trinoNativeValue).toStringUtf8());
         }
 
         return Optional.empty();

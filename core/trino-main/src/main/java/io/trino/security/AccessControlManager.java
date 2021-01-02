@@ -1093,7 +1093,7 @@ public class AccessControlManager
         @Override
         protected SystemAccessControl delegate()
         {
-            throw new TrinoException(SERVER_STARTING_UP, "Presto server is still initializing");
+            throw new TrinoException(SERVER_STARTING_UP, "Trino server is still initializing");
         }
     }
 }

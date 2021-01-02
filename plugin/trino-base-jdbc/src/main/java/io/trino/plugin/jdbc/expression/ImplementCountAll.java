@@ -40,7 +40,7 @@ public class ImplementCountAll
     private final JdbcTypeHandle bigintTypeHandle;
 
     /**
-     * @param bigintTypeHandle A {@link JdbcTypeHandle} that will be mapped to {@link BigintType} by {@link JdbcClient#toPrestoType}.
+     * @param bigintTypeHandle A {@link JdbcTypeHandle} that will be mapped to {@link BigintType} by {@link JdbcClient#toTrinoType}.
      */
     public ImplementCountAll(JdbcTypeHandle bigintTypeHandle)
     {

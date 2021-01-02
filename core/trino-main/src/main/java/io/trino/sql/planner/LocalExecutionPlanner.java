@@ -2859,7 +2859,7 @@ public class LocalExecutionPlanner
                     //
                     // This does not work here since the function call representation in final aggregation node
                     // is currently a hack: it takes intermediate type as input, and may not be a valid
-                    // function call in Presto.
+                    // function call in Trino.
                     //
                     // TODO: Once the final aggregation function call representation is fixed,
                     // the same mechanism in project and filter expression should be used here.

@@ -380,7 +380,7 @@ public class TestHiveFileFormats
     public void testAvroFileInSymlinkTable(int rowCount)
             throws Exception
     {
-        File file = File.createTempFile("presto_test", AVRO.name());
+        File file = File.createTempFile("trino_test", AVRO.name());
         //noinspection ResultOfMethodCallIgnored
         file.delete();
         try {
@@ -1093,7 +1093,7 @@ public class TestHiveFileFormats
                     ImmutableList.of(childColumn.getObjectInspector()));
 
             HiveType hiveType = (HiveType.valueOf(childColumn.getObjectInspector().getTypeName()));
-            Type prestoType = hiveType.getType(TYPE_MANAGER);
+            Type trinoType = hiveType.getType(TYPE_MANAGER);
 
             List<Object> list = new ArrayList<>();
             list.add(childColumn.getWriteValue());
@@ -1107,7 +1107,7 @@ public class TestHiveFileFormats
                     childColumn.getExpectedValue(),
                     false);
 
-            TestColumn newFullColumn = new TestColumn("new_col" + i, newObjectInspector, list, rowBlockOf(ImmutableList.of(prestoType), childColumn.getExpectedValue()));
+            TestColumn newFullColumn = new TestColumn("new_col" + i, newObjectInspector, list, rowBlockOf(ImmutableList.of(trinoType), childColumn.getExpectedValue()));
 
             testFullColumnsBuilder.add(newFullColumn);
             testDereferencedColumnsBuilder.add(newProjectedColumn);
@@ -1255,7 +1255,7 @@ public class TestHiveFileFormats
                     })
                     .orElse("");
 
-            File file = File.createTempFile("presto_test", formatName + compressionSuffix);
+            File file = File.createTempFile("trino_test", formatName + compressionSuffix);
             file.delete();
             try {
                 FileSplit split;

@@ -701,7 +701,7 @@ public final class DateTimeFunctions
     // and 1970-01-01 (same timezone). This is used to be able to avoid using fixed offset TZ for
     // places where TZ offset is explicitly accessed (namely AT TIME ZONE).
     // DateTimeFormatter does format specified instance in specified time zone calculating offset for
-    // that time zone based on provided instance. As Presto TIME type is represented as millis since
+    // that time zone based on provided instance. As Trino TIME type is represented as millis since
     // 00:00.000 of some day UTC, we always use timezone offset that was valid on 1970-01-01.
     // Best effort without changing representation of TIME WITH TIME ZONE is to use offset of the timezone
     // based on session start time.

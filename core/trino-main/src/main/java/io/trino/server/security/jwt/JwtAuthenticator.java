@@ -91,6 +91,6 @@ public class JwtAuthenticator
 
     private static AuthenticationException needAuthentication(String message)
     {
-        return new AuthenticationException(message, "Bearer realm=\"Presto\", token_type=\"JWT\"");
+        return new AuthenticationException(message, "Bearer realm=\"Trino\", token_type=\"JWT\"");
     }
 }

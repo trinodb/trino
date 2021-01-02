@@ -59,7 +59,7 @@ public class SheetsClient
 {
     private static final Logger log = Logger.get(SheetsClient.class);
 
-    private static final String APPLICATION_NAME = "presto google sheets integration";
+    private static final String APPLICATION_NAME = "trino google sheets integration";
     private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
     private static final List<String> SCOPES = ImmutableList.of(SheetsScopes.SPREADSHEETS_READONLY);

@@ -72,7 +72,8 @@ public final class AesSpillCipher
         Cipher cipher = createEncryptCipher(key);
         System.arraycopy(cipher.getIV(), 0, destination, destinationOffset, ivBytes);
         try {
-            // Do not refactor into single doFinal call, performance and allocation rate are significantly worse. See prestosql#5557
+            // Do not refactor into single doFinal call, performance and allocation rate are significantly worse
+            // See https://github.com/trinodb/trino/pull/5557
             int n = cipher.update(data, inputOffset, length, destination, destinationOffset + ivBytes);
             return ivBytes + n + cipher.doFinal(destination, destinationOffset + ivBytes + n);
         }
@@ -88,7 +89,8 @@ public final class AesSpillCipher
         checkArgument(destination.length - destinationOffset >= decryptedMaxLength(length), "destination buffer too small for decrypted output");
         Cipher cipher = createDecryptCipher(key, new IvParameterSpec(encryptedData, inputOffset, ivBytes));
         try {
-            // Do not refactor into single doFinal call, performance and allocation rate are significantly worse. See prestosql#5557
+            // Do not refactor into single doFinal call, performance and allocation rate are significantly worse
+            // See https://github.com/trinodb/trino/pull/5557
             int n = cipher.update(encryptedData, inputOffset + ivBytes, length - ivBytes, destination, destinationOffset);
             return n + cipher.doFinal(destination, destinationOffset + n);
         }

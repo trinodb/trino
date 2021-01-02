@@ -72,7 +72,7 @@ public class ParquetSchemaConverter
         for (int i = 0; i < types.size(); i++) {
             builder.addField(convert(types.get(i), columnNames.get(i), ImmutableList.of()));
         }
-        return builder.named("presto_schema");
+        return builder.named("trino_schema");
     }
 
     private org.apache.parquet.schema.Type convert(Type type, String name, List<String> parent)

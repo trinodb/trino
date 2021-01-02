@@ -27,14 +27,14 @@ import io.trino.execution.buffer.PagesSerde;
 import io.trino.execution.buffer.SerializedPage;
 import io.trino.spi.Page;
 
-import static io.trino.PrestoMediaTypes.PRESTO_PAGES;
+import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPage;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
-import static io.trino.server.InternalHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.trino.server.InternalHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static io.trino.server.InternalHeaders.PRESTO_PAGE_TOKEN;
-import static io.trino.server.InternalHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.HttpHeaders.CONTENT_TYPE;
@@ -66,15 +66,15 @@ public class TestingExchangeHttpClientHandler
         int pageToken = Integer.parseInt(parts.get(1));
 
         ImmutableListMultimap.Builder<String, String> headers = ImmutableListMultimap.builder();
-        headers.put(PRESTO_TASK_INSTANCE_ID, "task-instance-id");
-        headers.put(PRESTO_PAGE_TOKEN, String.valueOf(pageToken));
+        headers.put(TRINO_TASK_INSTANCE_ID, "task-instance-id");
+        headers.put(TRINO_PAGE_TOKEN, String.valueOf(pageToken));
 
         TestingTaskBuffer taskBuffer = taskBuffers.getUnchecked(taskId);
         Page page = taskBuffer.getPage(pageToken);
-        headers.put(CONTENT_TYPE, PRESTO_PAGES);
+        headers.put(CONTENT_TYPE, TRINO_PAGES);
         if (page != null) {
-            headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
-            headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
+            headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken + 1));
+            headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
             SerializedPage serializedPage;
             try (PagesSerde.PagesSerdeContext context = PAGES_SERDE.newContext()) {
                 serializedPage = PAGES_SERDE.serialize(context, page);
@@ -87,8 +87,8 @@ public class TestingExchangeHttpClientHandler
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
         else if (taskBuffer.isFinished()) {
-            headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
-            headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(true));
+            headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
+            headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(true));
             DynamicSliceOutput output = new DynamicSliceOutput(8);
             output.writeInt(SERIALIZED_PAGES_MAGIC);
             output.writeLong(calculateChecksum(ImmutableList.of()));
@@ -96,8 +96,8 @@ public class TestingExchangeHttpClientHandler
             return new TestingResponse(HttpStatus.OK, headers.build(), output.slice().getInput());
         }
         else {
-            headers.put(PRESTO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
-            headers.put(PRESTO_BUFFER_COMPLETE, String.valueOf(false));
+            headers.put(TRINO_PAGE_NEXT_TOKEN, String.valueOf(pageToken));
+            headers.put(TRINO_BUFFER_COMPLETE, String.valueOf(false));
             return new TestingResponse(HttpStatus.NO_CONTENT, headers.build(), new byte[0]);
         }
     }

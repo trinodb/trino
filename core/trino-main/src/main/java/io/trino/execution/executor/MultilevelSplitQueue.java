@@ -151,7 +151,7 @@ public class MultilevelSplitQueue
     }
 
     /**
-     * Presto attempts to give each level a target amount of scheduled time, which is configurable
+     * Trino attempts to give each level a target amount of scheduled time, which is configurable
      * using levelTimeMultiplier.
      * <p>
      * This function selects the level that has the the lowest ratio of actual to the target time
@@ -203,7 +203,7 @@ public class MultilevelSplitQueue
     }
 
     /**
-     * Presto 'charges' the quanta run time to the task <i>and</i> the level it belongs to in
+     * Trino 'charges' the quanta run time to the task <i>and</i> the level it belongs to in
      * an effort to maintain the target thread utilization ratios between levels and to
      * maintain fairness within a level.
      * <p>

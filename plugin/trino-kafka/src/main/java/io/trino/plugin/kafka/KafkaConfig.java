@@ -133,7 +133,7 @@ public class KafkaConfig
     }
 
     @Config("kafka.messages-per-split")
-    @ConfigDescription("Count of Kafka messages to be processed by single Presto Kafka connector split")
+    @ConfigDescription("Count of Kafka messages to be processed by single Trino Kafka connector split")
     public KafkaConfig setMessagesPerSplit(int messagesPerSplit)
     {
         this.messagesPerSplit = messagesPerSplit;

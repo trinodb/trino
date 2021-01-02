@@ -281,7 +281,7 @@ public final class BytecodeUtils
         // Index of current parameter in the MethodHandle
         int currentParameterIndex = 0;
 
-        // Index of parameter (without @IsNull) in Presto function
+        // Index of parameter (without @IsNull) in Trino function
         int realParameterIndex = 0;
 
         // Index of function argument types

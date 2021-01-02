@@ -50,7 +50,7 @@ import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.trino.plugin.iceberg.Partition.toMap;
-import static io.trino.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
@@ -114,7 +114,7 @@ public class TableStatisticsMaker
                     field,
                     idToColumnHandle.get(field.sourceId()),
                     type,
-                    toPrestoType(type, typeManager),
+                    toTrinoType(type, typeManager),
                     type.typeId().javaClass()));
         }
         Map<Integer, ColumnFieldDetails> idToDetails = idToDetailsBuilder.build();
@@ -218,7 +218,7 @@ public class TableStatisticsMaker
             if (allowedDomain != null && !allowedDomain.includesNullableValue(value)) {
                 return false;
             }
-            nullableValueBuilder.put(column, makeNullableValue(details.getPrestoType(), value));
+            nullableValueBuilder.put(column, makeNullableValue(details.getTrinoType(), value));
         }
 
         if (constraint.getPredicateColumns().isPresent()) {
@@ -249,15 +249,15 @@ public class TableStatisticsMaker
         private final PartitionField field;
         private final IcebergColumnHandle columnHandle;
         private final Type icebergType;
-        private final io.trino.spi.type.Type prestoType;
+        private final io.trino.spi.type.Type trinoType;
         private final Class<?> javaClass;
 
-        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, io.trino.spi.type.Type prestoType, Class<?> javaClass)
+        public ColumnFieldDetails(PartitionField field, IcebergColumnHandle columnHandle, Type icebergType, io.trino.spi.type.Type trinoType, Class<?> javaClass)
         {
             this.field = requireNonNull(field, "field is null");
             this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
             this.icebergType = requireNonNull(icebergType, "icebergType is null");
-            this.prestoType = requireNonNull(prestoType, "prestoType is null");
+            this.trinoType = requireNonNull(trinoType, "trinoType is null");
             this.javaClass = requireNonNull(javaClass, "javaClass is null");
         }
 
@@ -276,9 +276,9 @@ public class TableStatisticsMaker
             return icebergType;
         }
 
-        public io.trino.spi.type.Type getPrestoType()
+        public io.trino.spi.type.Type getTrinoType()
         {
-            return prestoType;
+            return trinoType;
         }
 
         public Class<?> getJavaClass()

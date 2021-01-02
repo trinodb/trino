@@ -18,18 +18,18 @@ import io.trino.testing.QueryRunner;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrestoSqlExecutor
-        implements io.trino.testing.sql.SqlExecutor
+public class TrinoSqlExecutor
+        implements SqlExecutor
 {
     private final QueryRunner queryRunner;
     private final Session session;
 
-    public PrestoSqlExecutor(QueryRunner queryRunner)
+    public TrinoSqlExecutor(QueryRunner queryRunner)
     {
         this(queryRunner, queryRunner.getDefaultSession());
     }
 
-    public PrestoSqlExecutor(QueryRunner queryRunner, Session session)
+    public TrinoSqlExecutor(QueryRunner queryRunner, Session session)
     {
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
         this.session = requireNonNull(session, "session is null");

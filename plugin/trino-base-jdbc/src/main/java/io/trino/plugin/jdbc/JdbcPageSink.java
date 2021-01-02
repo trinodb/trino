@@ -74,7 +74,7 @@ public class JdbcPageSink
                         WriteFunction writeFunction = writeMapping.getWriteFunction();
                         verify(
                                 type.getJavaType() == writeFunction.getJavaType(),
-                                "Presto type %s is not compatible with write function %s accepting %s",
+                                "Trino type %s is not compatible with write function %s accepting %s",
                                 type,
                                 writeFunction,
                                 writeFunction.getJavaType());
@@ -85,7 +85,7 @@ public class JdbcPageSink
         }
         else {
             columnWriters = handle.getJdbcColumnTypes().get().stream()
-                    .map(typeHandle -> jdbcClient.toPrestoType(session, connection, typeHandle)
+                    .map(typeHandle -> jdbcClient.toTrinoType(session, connection, typeHandle)
                             .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Underlying type is not supported for INSERT: " + typeHandle)))
                     .map(ColumnMapping::getWriteFunction)
                     .collect(toImmutableList());

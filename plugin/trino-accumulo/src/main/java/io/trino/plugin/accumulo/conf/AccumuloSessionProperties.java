@@ -74,7 +74,7 @@ public final class AccumuloSessionProperties
                         false),
                 integerProperty(
                         INDEX_ROWS_PER_SPLIT,
-                        "The number of Accumulo row IDs that are packed into a single Presto split. Default 10000",
+                        "The number of Accumulo row IDs that are packed into a single Trino split. Default 10000",
                         10000,
                         false),
                 doubleProperty(

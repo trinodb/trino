@@ -79,15 +79,15 @@ final class ParquetWriters
             extends ParquetTypeVisitor<ColumnWriter>
     {
         private final MessageType type;
-        private final Map<List<String>, Type> prestoTypes;
+        private final Map<List<String>, Type> trinoTypes;
         private final ParquetProperties parquetProperties;
         private final CompressionCodecName compressionCodecName;
         private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
 
-        WriteBuilder(MessageType messageType, Map<List<String>, Type> prestoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
+        WriteBuilder(MessageType messageType, Map<List<String>, Type> trinoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
         {
             this.type = requireNonNull(messageType, "messageType is null");
-            this.prestoTypes = requireNonNull(prestoTypes, "prestoTypes is null");
+            this.trinoTypes = requireNonNull(trinoTypes, "trinoTypes is null");
             this.parquetProperties = requireNonNull(parquetProperties, "parquetProperties is null");
             this.compressionCodecName = requireNonNull(compressionCodecName, "compressionCodecName is null");
         }
@@ -137,10 +137,10 @@ final class ParquetWriters
             int fieldDefinitionLevel = type.getMaxDefinitionLevel(path);
             int fieldRepetitionLevel = type.getMaxRepetitionLevel(path);
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(path, primitive, fieldRepetitionLevel, fieldDefinitionLevel);
-            Type prestoType = requireNonNull(prestoTypes.get(ImmutableList.copyOf(path)), " presto type is null");
+            Type trinoType = requireNonNull(trinoTypes.get(ImmutableList.copyOf(path)), "Trino type is null");
             return new PrimitiveColumnWriter(
                     columnDescriptor,
-                    getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), prestoType, columnDescriptor.getPrimitiveType()),
+                    getValueWriter(parquetProperties.newValuesWriter(columnDescriptor), trinoType, columnDescriptor.getPrimitiveType()),
                     parquetProperties.newDefinitionLevelEncoder(columnDescriptor),
                     parquetProperties.newRepetitionLevelEncoder(columnDescriptor),
                     compressionCodecName,
@@ -211,6 +211,6 @@ final class ParquetWriters
 
     private static void verifyParquetType(Type type, PrimitiveType parquetType, OriginalType originalType)
     {
-        checkArgument(parquetType.getOriginalType() == originalType, "Wrong Parquet type '%s' for Presto type '%s'", parquetType, type);
+        checkArgument(parquetType.getOriginalType() == originalType, "Wrong Parquet type '%s' for Trino type '%s'", parquetType, type);
     }
 }

@@ -22,18 +22,18 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static org.apache.hadoop.hive.ql.parse.BaseSemanticAnalyzer.unescapeSQLString;
 
 /**
- * Translate statements in Hive QL to Presto SQL.
+ * Translate statements in Hive QL to Trino SQL.
  * <p>
  * Only translation of quoted literals is currently included.
  */
-public final class HiveQlToPrestoTranslator
+public final class HiveToTrinoTranslator
 {
     // Translation methods consume data from the iterator
     private final PeekingIterator<Character> input;
     private final StringBuilder output = new StringBuilder();
 
     /**
-     * Translate a HiveQL statement to Presto SQL by fixing quoted identifiers
+     * Translate a HiveQL statement to Trino SQL by fixing quoted identifiers
      * and string literals. No other translation is performed.
      *
      * <p>Backquotes are replaced with double quotes, including SQL-style
@@ -43,13 +43,13 @@ public final class HiveQlToPrestoTranslator
      * minimal processing of escape sequences to ensure that the strings end in
      * the right place.
      */
-    public static String translateHiveViewToPresto(String hiveStatement)
+    public static String translateHiveViewToTrino(String hiveStatement)
     {
-        HiveQlToPrestoTranslator translator = new HiveQlToPrestoTranslator(hiveStatement);
+        HiveToTrinoTranslator translator = new HiveToTrinoTranslator(hiveStatement);
         return translator.translateQuotedLiterals();
     }
 
-    private HiveQlToPrestoTranslator(String hiveQl)
+    private HiveToTrinoTranslator(String hiveQl)
     {
         input = peekingIterator(Lists.charactersOf(hiveQl).iterator());
     }
@@ -134,6 +134,6 @@ public final class HiveQlToPrestoTranslator
 
     private static TrinoException hiveViewParseError(String message)
     {
-        return new TrinoException(HIVE_VIEW_TRANSLATION_ERROR, "Error translating Hive view to Presto: " + message);
+        return new TrinoException(HIVE_VIEW_TRANSLATION_ERROR, "Error translating Hive view to Trino: " + message);
     }
 }

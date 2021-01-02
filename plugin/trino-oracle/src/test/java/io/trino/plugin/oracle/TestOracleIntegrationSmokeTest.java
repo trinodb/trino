@@ -23,10 +23,12 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 
+import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 
@@ -60,7 +62,7 @@ public class TestOracleIntegrationSmokeTest
         String longInClauses = range(0, 10)
                 .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
                 .collect(joining(" OR "));
-        oracleServer.execute("SELECT count(*) FROM presto_test.orders WHERE " + longInClauses);
+        oracleServer.execute(format("SELECT count(*) FROM %s.orders WHERE %s", TEST_SCHEMA, longInClauses));
     }
 
     private String getLongInClause(int start, int length)

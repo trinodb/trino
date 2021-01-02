@@ -25,7 +25,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
 
-public class PrestoAzureConfigurationInitializer
+public class TrinoAzureConfigurationInitializer
         implements ConfigurationInitializer
 {
     private final Optional<String> wasbAccessKey;
@@ -40,7 +40,7 @@ public class PrestoAzureConfigurationInitializer
     private final Optional<String> abfsOAuthClientSecret;
 
     @Inject
-    public PrestoAzureConfigurationInitializer(HiveAzureConfig config)
+    public TrinoAzureConfigurationInitializer(HiveAzureConfig config)
     {
         this.wasbAccessKey = dropEmpty(config.getWasbAccessKey());
         this.wasbStorageAccount = dropEmpty(config.getWasbStorageAccount());

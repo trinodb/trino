@@ -51,7 +51,7 @@ import java.util.function.Function;
 
 import static io.trino.parquet.ParquetTimestampUtils.decode;
 import static io.trino.parquet.predicate.PredicateUtils.isStatisticsOverflow;
-import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;

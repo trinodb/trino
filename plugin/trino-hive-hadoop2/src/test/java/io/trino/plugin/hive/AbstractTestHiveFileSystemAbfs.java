@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.AbstractTestHive.Transaction;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
-import io.trino.plugin.hive.azure.PrestoAzureConfigurationInitializer;
+import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -68,9 +68,9 @@ public abstract class AbstractTestHiveFileSystemAbfs
     @Override
     protected void onSetupComplete()
     {
-        ensureTableExists(table, "presto_test_external_fs", ImmutableMap.of());
-        ensureTableExists(tableWithHeader, "presto_test_external_fs_with_header", ImmutableMap.of(SKIP_HEADER_LINE_COUNT, 1));
-        ensureTableExists(tableWithHeaderAndFooter, "presto_test_external_fs_with_header_and_footer", ImmutableMap.of(SKIP_HEADER_LINE_COUNT, 2, SKIP_FOOTER_LINE_COUNT, 2));
+        ensureTableExists(table, "trino_test_external_fs", ImmutableMap.of());
+        ensureTableExists(tableWithHeader, "trino_test_external_fs_with_header", ImmutableMap.of(SKIP_HEADER_LINE_COUNT, 1));
+        ensureTableExists(tableWithHeaderAndFooter, "trino_test_external_fs_with_header_and_footer", ImmutableMap.of(SKIP_HEADER_LINE_COUNT, 2, SKIP_FOOTER_LINE_COUNT, 2));
     }
 
     private void ensureTableExists(SchemaTableName table, String tableDirectoryName, Map<String, Object> tableProperties)
@@ -98,7 +98,7 @@ public abstract class AbstractTestHiveFileSystemAbfs
 
     private HdfsConfiguration createHdfsConfiguration()
     {
-        ConfigurationInitializer initializer = new PrestoAzureConfigurationInitializer(getConfig());
+        ConfigurationInitializer initializer = new TrinoAzureConfigurationInitializer(getConfig());
         return new HiveHdfsConfiguration(new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(initializer)), ImmutableSet.of());
     }
 

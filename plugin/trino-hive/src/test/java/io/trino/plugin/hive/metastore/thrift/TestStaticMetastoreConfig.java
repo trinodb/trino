@@ -40,16 +40,16 @@ public class TestStaticMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083")
-                .put("hive.metastore.username", "presto")
+                .put("hive.metastore.username", "trino")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
                 .setMetastoreUris("thrift://localhost:9083")
-                .setMetastoreUsername("presto");
+                .setMetastoreUsername("trino");
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getMetastoreUris(), ImmutableList.of(URI.create("thrift://localhost:9083")));
-        assertEquals(expected.getMetastoreUsername(), "presto");
+        assertEquals(expected.getMetastoreUsername(), "trino");
     }
 
     @Test
@@ -57,17 +57,17 @@ public class TestStaticMetastoreConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("hive.metastore.uri", "thrift://localhost:9083,thrift://192.0.2.3:8932")
-                .put("hive.metastore.username", "presto")
+                .put("hive.metastore.username", "trino")
                 .build();
 
         StaticMetastoreConfig expected = new StaticMetastoreConfig()
                 .setMetastoreUris("thrift://localhost:9083,thrift://192.0.2.3:8932")
-                .setMetastoreUsername("presto");
+                .setMetastoreUsername("trino");
 
         assertFullMapping(properties, expected);
         assertEquals(expected.getMetastoreUris(), ImmutableList.of(
                 URI.create("thrift://localhost:9083"),
                 URI.create("thrift://192.0.2.3:8932")));
-        assertEquals(expected.getMetastoreUsername(), "presto");
+        assertEquals(expected.getMetastoreUsername(), "trino");
     }
 }

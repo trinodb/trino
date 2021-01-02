@@ -60,7 +60,7 @@ public class TestDiscoveryNodeManager
     private Set<InternalNode> inactiveNodes;
     private InternalNode coordinator;
     private InternalNode currentNode;
-    private final PrestoNodeServiceSelector selector = new PrestoNodeServiceSelector();
+    private final TrinoNodeServiceSelector selector = new TrinoNodeServiceSelector();
     private HttpClient testHttpClient;
 
     @BeforeMethod
@@ -182,7 +182,7 @@ public class TestDiscoveryNodeManager
         }
     }
 
-    public static class PrestoNodeServiceSelector
+    public static class TrinoNodeServiceSelector
             implements ServiceSelector
     {
         @GuardedBy("this")
@@ -192,7 +192,7 @@ public class TestDiscoveryNodeManager
         {
             ImmutableList.Builder<ServiceDescriptor> descriptors = ImmutableList.builder();
             for (InternalNode node : Iterables.concat(activeNodes, inactiveNodes)) {
-                descriptors.add(serviceDescriptor("presto")
+                descriptors.add(serviceDescriptor("trino")
                         .setNodeId(node.getNodeIdentifier())
                         .addProperty("http", node.getInternalUri().toString())
                         .addProperty("node_version", node.getNodeVersion().toString())
@@ -206,7 +206,7 @@ public class TestDiscoveryNodeManager
         @Override
         public String getType()
         {
-            return "presto";
+            return "trino";
         }
 
         @Override

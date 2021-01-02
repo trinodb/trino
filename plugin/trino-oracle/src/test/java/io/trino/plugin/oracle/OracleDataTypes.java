@@ -342,22 +342,22 @@ public final class OracleDataTypes
 
     private static <T> DataType<T> dataType(
             String insertType,
-            Type prestoResultType,
+            Type trinoResultType,
             Function<T, String> toLiteral)
     {
-        return DataType.dataType(insertType, prestoResultType, toLiteral);
+        return DataType.dataType(insertType, trinoResultType, toLiteral);
     }
 
     /**
-     * @deprecated {@code toPrestoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
+     * @deprecated {@code toTrinoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
      */
     @Deprecated
     private static <T> DataType<T> dataType(
             String insertType,
-            Type prestoResultType,
+            Type trinoResultType,
             Function<T, String> toLiteral,
-            Function<T, ?> toPrestoQueryResult)
+            Function<T, ?> toTrinoQueryResult)
     {
-        return DataType.dataType(insertType, prestoResultType, toLiteral, toPrestoQueryResult);
+        return DataType.dataType(insertType, trinoResultType, toLiteral, toTrinoQueryResult);
     }
 }

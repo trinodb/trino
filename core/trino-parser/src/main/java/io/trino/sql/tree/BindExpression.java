@@ -41,8 +41,8 @@ import static java.util.Objects.requireNonNull;
  * <li>...
  * </ul>
  * <p>
- * Lambda capturing is implemented through desugaring in Presto. This
- * expression facilitates desugaring.
+ * Lambda capturing is implemented through desugaring in Trino.
+ * This expression facilitates desugaring.
  */
 public class BindExpression
         extends Expression

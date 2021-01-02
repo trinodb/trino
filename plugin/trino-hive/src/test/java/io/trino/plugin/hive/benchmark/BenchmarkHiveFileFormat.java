@@ -108,10 +108,10 @@ public class BenchmarkHiveFileFormat
     private HiveCompressionCodec compression;
 
     @Param({
-            "PRESTO_RCBINARY",
-            "PRESTO_RCTEXT",
-            "PRESTO_ORC",
-            "PRESTO_PARQUET",
+            "TRINO_RCBINARY",
+            "TRINO_RCTEXT",
+            "TRINO_ORC",
+            "TRINO_PARQUET",
             "HIVE_RCBINARY",
             "HIVE_RCTEXT",
             "HIVE_ORC",
@@ -121,7 +121,7 @@ public class BenchmarkHiveFileFormat
     private TestData data;
     private File dataFile;
 
-    private final File targetDir = createTempDir("presto-benchmark");
+    private final File targetDir = createTempDir("trino-benchmark");
 
     public BenchmarkHiveFileFormat()
     {

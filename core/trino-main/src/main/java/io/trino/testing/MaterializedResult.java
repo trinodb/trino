@@ -360,38 +360,38 @@ public class MaterializedResult
                 warnings);
     }
 
-    private static MaterializedRow convertToTestTypes(MaterializedRow prestoRow)
+    private static MaterializedRow convertToTestTypes(MaterializedRow trinoRow)
     {
         List<Object> convertedValues = new ArrayList<>();
-        for (int field = 0; field < prestoRow.getFieldCount(); field++) {
-            Object prestoValue = prestoRow.getField(field);
+        for (int field = 0; field < trinoRow.getFieldCount(); field++) {
+            Object trinoValue = trinoRow.getField(field);
             Object convertedValue;
-            if (prestoValue instanceof SqlDate) {
-                convertedValue = LocalDate.ofEpochDay(((SqlDate) prestoValue).getDays());
+            if (trinoValue instanceof SqlDate) {
+                convertedValue = LocalDate.ofEpochDay(((SqlDate) trinoValue).getDays());
             }
-            else if (prestoValue instanceof SqlTime) {
-                convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(prestoValue.toString(), LocalTime::from);
+            else if (trinoValue instanceof SqlTime) {
+                convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(trinoValue.toString(), LocalTime::from);
             }
-            else if (prestoValue instanceof SqlTimeWithTimeZone) {
-                long nanos = roundDiv(((SqlTimeWithTimeZone) prestoValue).getPicos(), PICOSECONDS_PER_NANOSECOND);
-                int offsetMinutes = ((SqlTimeWithTimeZone) prestoValue).getOffsetMinutes();
+            else if (trinoValue instanceof SqlTimeWithTimeZone) {
+                long nanos = roundDiv(((SqlTimeWithTimeZone) trinoValue).getPicos(), PICOSECONDS_PER_NANOSECOND);
+                int offsetMinutes = ((SqlTimeWithTimeZone) trinoValue).getOffsetMinutes();
                 convertedValue = OffsetTime.of(LocalTime.ofNanoOfDay(nanos), ZoneOffset.ofTotalSeconds(offsetMinutes * 60));
             }
-            else if (prestoValue instanceof SqlTimestamp) {
-                convertedValue = ((SqlTimestamp) prestoValue).toLocalDateTime();
+            else if (trinoValue instanceof SqlTimestamp) {
+                convertedValue = ((SqlTimestamp) trinoValue).toLocalDateTime();
             }
-            else if (prestoValue instanceof SqlTimestampWithTimeZone) {
-                convertedValue = ((SqlTimestampWithTimeZone) prestoValue).toZonedDateTime();
+            else if (trinoValue instanceof SqlTimestampWithTimeZone) {
+                convertedValue = ((SqlTimestampWithTimeZone) trinoValue).toZonedDateTime();
             }
-            else if (prestoValue instanceof SqlDecimal) {
-                convertedValue = ((SqlDecimal) prestoValue).toBigDecimal();
+            else if (trinoValue instanceof SqlDecimal) {
+                convertedValue = ((SqlDecimal) trinoValue).toBigDecimal();
             }
             else {
-                convertedValue = prestoValue;
+                convertedValue = trinoValue;
             }
             convertedValues.add(convertedValue);
         }
-        return new MaterializedRow(prestoRow.getPrecision(), convertedValues);
+        return new MaterializedRow(trinoRow.getPrecision(), convertedValues);
     }
 
     public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)

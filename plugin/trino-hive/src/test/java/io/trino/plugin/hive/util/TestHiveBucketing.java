@@ -74,6 +74,10 @@ public class TestHiveBucketing
     @Test
     public void testHashingCompare()
     {
+        assertBucketEquals("string", "Trino rocks", 1132136730, -399107423);
+        assertEquals(HiveBucketing.getBucketNumber(1132136730, 4), 2);
+        assertEquals(HiveBucketing.getBucketNumber(-399107423, 4), 1);
+
         assertBucketEquals("boolean", null, 0, 0);
         assertBucketEquals("boolean", true, 1, 1);
         assertBucketEquals("boolean", false, 0, 0);
@@ -124,12 +128,12 @@ public class TestHiveBucketing
         assertBucketEquals("varchar(15)", null, 0, 0);
         assertBucketEquals("varchar(15)", "", 1, -965378730);
         assertBucketEquals("varchar(15)", "test string", -189841218, -138301454);
-        assertBucketEquals("varchar(15)", "\u5f3a\u5927\u7684Presto\u5f15\u64ce", 2136288313, -1589827991); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
+        assertBucketEquals("varchar(15)", "\u5f3a\u5927\u7684Trino\u5f15\u64ce", 1899852420, 1784416344); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
         assertBucketEquals("varchar(15)", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", -457487557, -697348811); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
         assertBucketEquals("string", null, 0, 0);
         assertBucketEquals("string", "", 0, -965378730);
         assertBucketEquals("string", "test string", -318923937, -138301454);
-        assertBucketEquals("string", "\u5f3a\u5927\u7684Presto\u5f15\u64ce", -120622694, -1589827991); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
+        assertBucketEquals("string", "\u5f3a\u5927\u7684Trino\u5f15\u64ce", 1688501507, 1784416344); // 3-byte UTF-8 sequences (in Basic Plane, i.e. Plane 0)
         assertBucketEquals("string", "\uD843\uDFFC\uD843\uDFFD\uD843\uDFFE\uD843\uDFFF", -1810797254, -697348811); // 4 code points: 20FFC - 20FFF. 4-byte UTF-8 sequences in Supplementary Plane 2
 
         assertBucketEquals("date", null, 0, 0);

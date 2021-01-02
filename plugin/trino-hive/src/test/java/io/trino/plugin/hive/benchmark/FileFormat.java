@@ -98,7 +98,7 @@ import static org.joda.time.DateTimeZone.UTC;
 
 public enum FileFormat
 {
-    PRESTO_RCBINARY {
+    TRINO_RCBINARY {
         @Override
         public HiveStorageFormat getFormat()
         {
@@ -128,7 +128,7 @@ public enum FileFormat
         }
     },
 
-    PRESTO_RCTEXT {
+    TRINO_RCTEXT {
         @Override
         public HiveStorageFormat getFormat()
         {
@@ -158,7 +158,7 @@ public enum FileFormat
         }
     },
 
-    PRESTO_ORC {
+    TRINO_ORC {
         @Override
         public HiveStorageFormat getFormat()
         {
@@ -188,7 +188,7 @@ public enum FileFormat
         }
     },
 
-    PRESTO_PARQUET {
+    TRINO_PARQUET {
         @Override
         public HiveStorageFormat getFormat()
         {

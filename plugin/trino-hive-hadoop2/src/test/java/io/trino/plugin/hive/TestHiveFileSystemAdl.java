@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
-import io.trino.plugin.hive.azure.PrestoAzureConfigurationInitializer;
+import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.BeforeClass;
@@ -73,7 +73,7 @@ public class TestHiveFileSystemAdl
 
     private HdfsConfiguration createHdfsConfiguration()
     {
-        ConfigurationInitializer azureConfig = new PrestoAzureConfigurationInitializer(new HiveAzureConfig()
+        ConfigurationInitializer azureConfig = new TrinoAzureConfigurationInitializer(new HiveAzureConfig()
                 .setAdlClientId(clientId)
                 .setAdlCredential(credential)
                 .setAdlRefreshUrl(refreshUrl));

@@ -877,7 +877,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testParquetShortDecimalWriteToPrestoDecimalWithNonMatchingScale()
+    public void testParquetShortDecimalWriteToTrinoDecimalWithNonMatchingScale()
             throws Exception
     {
         MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
@@ -909,7 +909,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testParquetLongDecimalWriteToPrestoDecimalWithNonMatchingScale()
+    public void testParquetLongDecimalWriteToTrinoDecimalWithNonMatchingScale()
             throws Exception
     {
         tester.testRoundTrip(
@@ -920,7 +920,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testParquetShortDecimalWriteToPrestoTinyintBlock()
+    public void testParquetShortDecimalWriteToTrinoTinyintBlock()
             throws Exception
     {
         for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
@@ -935,7 +935,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testParquetShortDecimalWriteToPrestoSmallintBlock()
+    public void testParquetShortDecimalWriteToTrinoSmallintBlock()
             throws Exception
     {
         for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
@@ -950,7 +950,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testParquetShortDecimalWriteToPrestoIntegerBlock()
+    public void testParquetShortDecimalWriteToTrinoIntegerBlock()
             throws Exception
     {
         for (int precision = 1; precision <= MAX_PRECISION_INT64; precision++) {
@@ -965,7 +965,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testParquetShortDecimalWriteToPrestoBigintBlock()
+    public void testParquetShortDecimalWriteToTrinoBigintBlock()
             throws Exception
     {
         for (int precision = 4; precision <= MAX_PRECISION_INT64; precision++) {
@@ -980,12 +980,12 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    public void testParquetShortDecimalWriteToPrestoBigintBlockWithNonZeroScale()
+    public void testParquetShortDecimalWriteToTrinoBigintBlockWithNonZeroScale()
     {
         assertThatThrownBy(() -> {
             MessageType parquetSchema = parseMessageType(format("message hive_decimal { optional INT64 test (DECIMAL(%d, %d)); }", 10, 1));
             tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(1L), ImmutableList.of(1L), BIGINT, Optional.of(parquetSchema));
-        }).hasMessage("Unsupported Presto column type (bigint) for Parquet column ([test] optional int64 test (DECIMAL(10,1)))")
+        }).hasMessage("Unsupported Trino column type (bigint) for Parquet column ([test] optional int64 test (DECIMAL(10,1)))")
                 .isInstanceOf(TrinoException.class);
     }
 

@@ -21,7 +21,7 @@ import java.util.function.BiConsumer;
 import static com.google.common.collect.Sets.difference;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestPrestoAzureConfigurationInitializer
+public class TestTrinoAzureConfigurationInitializer
 {
     @Test
     public void testAdl()
@@ -105,6 +105,6 @@ public class TestPrestoAzureConfigurationInitializer
         for (var setter : setters) {
             setter.accept(config, "test value");
         }
-        new PrestoAzureConfigurationInitializer(config);
+        new TrinoAzureConfigurationInitializer(config);
     }
 }

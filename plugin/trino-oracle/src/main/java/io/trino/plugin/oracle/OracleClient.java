@@ -206,7 +206,7 @@ public class OracleClient
     @Override
     protected String generateTemporaryTableName()
     {
-        return "presto_tmp_" + System.nanoTime();
+        return "tmp_trino_" + System.nanoTime();
     }
 
     @Override
@@ -238,7 +238,7 @@ public class OracleClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         Optional<ColumnMapping> mappingToVarchar = getForcedMappingToVarchar(typeHandle);
         if (mappingToVarchar.isPresent()) {

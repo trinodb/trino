@@ -83,8 +83,8 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter;
-import io.trino.plugin.hive.metastore.glue.converter.GlueToPrestoConverter;
-import io.trino.plugin.hive.metastore.glue.converter.GlueToPrestoConverter.GluePartitionConverter;
+import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter;
+import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.GluePartitionConverter;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.plugin.hive.util.HiveWriteUtils;
 import io.trino.spi.TrinoException;
@@ -129,7 +129,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_Q
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
-import static io.trino.plugin.hive.metastore.glue.converter.GlueToPrestoConverter.mappedCopy;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
@@ -228,7 +228,7 @@ public class GlueHiveMetastore
         }
         if (config.getIamRole().isPresent()) {
             return new STSAssumeRoleSessionCredentialsProvider
-                    .Builder(config.getIamRole().get(), "presto-session")
+                    .Builder(config.getIamRole().get(), "trino-session")
                     .withExternalId(config.getExternalId().orElse(null))
                     .build();
         }
@@ -265,7 +265,7 @@ public class GlueHiveMetastore
         try {
             GetDatabaseResult result = stats.getGetDatabase().call(() ->
                     glueClient.getDatabase(new GetDatabaseRequest().withCatalogId(catalogId).withName(databaseName)));
-            return Optional.of(GlueToPrestoConverter.convertDatabase(result.getDatabase()));
+            return Optional.of(GlueToTrinoConverter.convertDatabase(result.getDatabase()));
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();
@@ -307,7 +307,7 @@ public class GlueHiveMetastore
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
                             .withName(tableName)));
-            return Optional.of(GlueToPrestoConverter.convertTable(result.getTable(), databaseName));
+            return Optional.of(GlueToTrinoConverter.convertTable(result.getTable(), databaseName));
         }
         catch (EntityNotFoundException e) {
             return Optional.empty();

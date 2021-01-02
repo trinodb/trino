@@ -109,7 +109,7 @@ public final class HiveSessionProperties
         public static InsertExistingPartitionsBehavior valueOf(String value, boolean immutablePartitions)
         {
             InsertExistingPartitionsBehavior enumValue = valueOf(value.toUpperCase(ENGLISH));
-            checkArgument(isValid(enumValue, immutablePartitions), "Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND);
+            checkArgument(isValid(enumValue, immutablePartitions), "Trino is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND);
             return enumValue;
         }
 
@@ -179,7 +179,7 @@ public final class HiveSessionProperties
                         false),
                 dataSizeProperty(
                         ORC_MAX_READ_BLOCK_SIZE,
-                        "ORC: Soft max size of Presto blocks produced by ORC reader",
+                        "ORC: Soft max size of Trino blocks produced by ORC reader",
                         orcReaderConfig.getMaxBlockSize(),
                         false),
                 booleanProperty(

@@ -80,7 +80,7 @@ public class TestTimestamp
                     false);
 
             Iterator<SqlTimestamp> expectedValues = timestamps.build().iterator();
-            try (ConnectorPageSource pageSource = FileFormat.PRESTO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(TIMESTAMP_MILLIS))) {
+            try (ConnectorPageSource pageSource = FileFormat.TRINO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, tempFile.getFile(), columnNames, ImmutableList.of(TIMESTAMP_MILLIS))) {
                 // skip a page to exercise the decoder's skip() logic
                 Page firstPage = pageSource.getNextPage();
 

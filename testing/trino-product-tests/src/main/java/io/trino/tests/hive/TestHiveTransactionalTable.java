@@ -236,7 +236,7 @@ public class TestHiveTransactionalTable
     public void testReadFullAcidWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+            throw new SkipException("Trino Hive transactional tables are supported with Hive version 3 or above");
         }
 
         String tableName = "test_full_acid_acid_converted_table_read";
@@ -278,7 +278,7 @@ public class TestHiveTransactionalTable
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     public void testUpdateFullAcidWithOriginalFilesPrestoInserting(boolean isPartitioned, BucketingType bucketingType)
     {
-        withTemporaryTable("presto_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
+        withTemporaryTable("trino_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
             onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
             verify(bucketingType.getHiveTableProperties().isEmpty()); // otherwise we would need to include that in the CREATE TABLE's TBLPROPERTIES
             onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
@@ -323,7 +323,7 @@ public class TestHiveTransactionalTable
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     public void testUpdateFullAcidWithOriginalFilesPrestoInsertingAndDeleting(boolean isPartitioned, BucketingType bucketingType)
     {
-        withTemporaryTable("presto_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
+        withTemporaryTable("trino_update_full_acid_acid_converted_table_read", true, isPartitioned, bucketingType, tableName -> {
             onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
             verify(bucketingType.getHiveTableProperties().isEmpty()); // otherwise we would need to include that in the CREATE TABLE's TBLPROPERTIES
             onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
@@ -373,7 +373,7 @@ public class TestHiveTransactionalTable
     public void testReadInsertOnlyWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+            throw new SkipException("Trino Hive transactional tables are supported with Hive version 3 or above");
         }
 
         String tableName = "test_insert_only_acid_converted_table_read";

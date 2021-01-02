@@ -281,10 +281,10 @@ public class TestHiveBucketedTables
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testBucketingVersion()
     {
-        String value = "prestosql rocks";
-        String bucketV1 = "000001_0";
-        String bucketV2Standard = "000003_0";
-        String bucketV2DirectInsert = "bucket_00003";
+        String value = "Trino rocks";
+        String bucketV1 = "000002_0";
+        String bucketV2Standard = "000001_0";
+        String bucketV2DirectInsert = "bucket_00001";
 
         List<String> bucketV1NameOptions = ImmutableList.of(bucketV1);
         List<String> bucketV2NameOptions = ImmutableList.of(bucketV2Standard, bucketV2DirectInsert);
@@ -299,9 +299,9 @@ public class TestHiveBucketedTables
         }
     }
 
-    private void testBucketingVersion(BucketingType bucketingType, String value, boolean insertWithPresto, List<String> expectedFileNameOptions)
+    private void testBucketingVersion(BucketingType bucketingType, String value, boolean insertWithTrino, List<String> expectedFileNameOptions)
     {
-        log.info("Testing with bucketingType=%s, value='%s', insertWithPresto=%s, expectedFileNamePossibilites=%s", bucketingType, value, insertWithPresto, expectedFileNameOptions);
+        log.info("Testing with bucketingType=%s, value='%s', insertWithTrino=%s, expectedFileNamePossibilites=%s", bucketingType, value, insertWithTrino, expectedFileNameOptions);
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_bucketing_version");
         onHive().executeQuery("" +
@@ -310,7 +310,7 @@ public class TestHiveBucketedTables
                 "STORED AS ORC " +
                 hiveTableProperties(bucketingType));
 
-        if (insertWithPresto) {
+        if (insertWithTrino) {
             onPresto().executeQuery("INSERT INTO test_bucketing_version(a) VALUES (?)", param(VARCHAR, value));
         }
         else {

@@ -143,7 +143,7 @@ public class CassandraRecordCursor
     @Override
     public Type getType(int i)
     {
-        return getCassandraType(i).getPrestoType();
+        return getCassandraType(i).getTrinoType();
     }
 
     @Override

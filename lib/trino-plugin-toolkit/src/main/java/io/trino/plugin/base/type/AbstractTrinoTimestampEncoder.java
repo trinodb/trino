@@ -11,25 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.spi;
+package io.trino.plugin.base.type;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executor;
+import io.trino.spi.type.TimestampType;
+import org.joda.time.DateTimeZone;
 
 import static java.util.Objects.requireNonNull;
 
-public interface VersionEmbedder
+abstract class AbstractTrinoTimestampEncoder<T extends Comparable<T>>
+        implements TrinoTimestampEncoder<T>
 {
-    /**
-     * Encodes Trino server version information in the stack
-     */
-    Runnable embedVersion(Runnable runnable);
+    protected final DateTimeZone timeZone;
+    protected final TimestampType type;
 
-    <T> Callable<T> embedVersion(Callable<T> runnable);
-
-    default Executor embedVersion(Executor delegate)
+    AbstractTrinoTimestampEncoder(TimestampType type, DateTimeZone timeZone)
     {
-        requireNonNull(delegate, "delegate is null");
-        return runnable -> delegate.execute(embedVersion(runnable));
+        this.type = requireNonNull(type, "type is null");
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+    }
+
+    @Override
+    public TimestampType getType()
+    {
+        return type;
     }
 }

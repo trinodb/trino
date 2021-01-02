@@ -104,14 +104,14 @@ public class CassandraColumnHandle
     {
         return ColumnMetadata.builder()
                 .setName(CassandraCqlUtils.cqlNameToSqlName(name))
-                .setType(cassandraType.getPrestoType())
+                .setType(cassandraType.getTrinoType())
                 .setHidden(hidden)
                 .build();
     }
 
     public Type getType()
     {
-        return cassandraType.getPrestoType();
+        return cassandraType.getTrinoType();
     }
 
     @Override

@@ -56,7 +56,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.PrestoMediaTypes.PRESTO_PAGES;
+import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_LOCAL_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.PAGE_TOO_LARGE;
@@ -255,7 +255,7 @@ public class TestHttpPageBufferClient
         assertStatus(client, location, "queued", 0, 0, 0, 0, "not scheduled");
 
         // send not found response and verify response was ignored
-        processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, PRESTO_PAGES), new byte[0]));
+        processor.setResponse(new TestingResponse(HttpStatus.NOT_FOUND, ImmutableListMultimap.of(CONTENT_TYPE, TRINO_PAGES), new byte[0]));
         client.scheduleRequest();
         requestComplete.await(10, TimeUnit.SECONDS);
         assertEquals(callback.getPages().size(), 0);
@@ -276,7 +276,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got INVALID_TYPE");
+        assertContains(callback.getFailure().getMessage(), "Expected application/x-trino-pages response from server but got INVALID_TYPE");
         assertStatus(client, location, "queued", 0, 2, 2, 2, "not scheduled");
 
         // send unexpected content type response and verify response was ignored
@@ -289,7 +289,7 @@ public class TestHttpPageBufferClient
         assertEquals(callback.getFinishedBuffers(), 0);
         assertEquals(callback.getFailedBuffers(), 1);
         assertInstanceOf(callback.getFailure(), PageTransportErrorException.class);
-        assertContains(callback.getFailure().getMessage(), "Expected application/x-presto-pages response from server but got text/plain");
+        assertContains(callback.getFailure().getMessage(), "Expected application/x-trino-pages response from server but got text/plain");
         assertStatus(client, location, "queued", 0, 3, 3, 3, "not scheduled");
 
         // close client and verify

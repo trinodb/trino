@@ -28,7 +28,7 @@ public class HiveAzureModule
     protected void setup(Binder binder)
     {
         newSetBinder(binder, ConfigurationInitializer.class).addBinding()
-                .to(PrestoAzureConfigurationInitializer.class).in(Scopes.SINGLETON);
+                .to(TrinoAzureConfigurationInitializer.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveAzureConfig.class);
     }
 }

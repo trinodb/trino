@@ -42,7 +42,7 @@ import static java.util.Objects.requireNonNull;
 
 public class OAuth2Service
 {
-    private static final String STATE_AUDIENCE = "presto_oauth";
+    private static final String STATE_AUDIENCE = "trino_oauth";
     private static final String FAILURE_REPLACEMENT_TEXT = "<!-- ERROR_MESSAGE -->";
 
     private final OAuth2Client client;
@@ -150,7 +150,7 @@ public class OAuth2Service
             case "access_denied":
                 return "OAuth2 server denied the login";
             case "unauthorized_client":
-                return "OAuth2 server does not allow request from this Presto server";
+                return "OAuth2 server does not allow request from this Trino server";
             case "server_error":
                 return "OAuth2 server had a failure";
             case "temporarily_unavailable":

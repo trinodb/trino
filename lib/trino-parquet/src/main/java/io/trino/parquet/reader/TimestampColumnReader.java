@@ -15,7 +15,7 @@ package io.trino.parquet.reader;
 
 import io.trino.parquet.RichColumnDescriptor;
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.plugin.base.type.PrestoTimestampEncoder;
+import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
@@ -23,7 +23,7 @@ import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
 import static io.trino.parquet.ParquetTimestampUtils.decode;
-import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
@@ -52,8 +52,8 @@ public class TimestampColumnReader
                 type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
             }
             else {
-                PrestoTimestampEncoder<?> prestoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
-                prestoTimestampEncoder.write(decode(valuesReader.readBytes()), blockBuilder);
+                TrinoTimestampEncoder<?> trinoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
+                trinoTimestampEncoder.write(decode(valuesReader.readBytes()), blockBuilder);
             }
         }
         else if (isValueNull()) {

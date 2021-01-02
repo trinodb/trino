@@ -63,7 +63,7 @@ public final class TypeConverter
 
     private TypeConverter() {}
 
-    public static Type toPrestoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
+    public static Type toTrinoType(org.apache.iceberg.types.Type type, TypeManager typeManager)
     {
         switch (type.typeId()) {
             case BOOLEAN:
@@ -92,19 +92,19 @@ public final class TypeConverter
                 return VarcharType.createUnboundedVarcharType();
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
-                return new ArrayType(toPrestoType(listType.elementType(), typeManager));
+                return new ArrayType(toTrinoType(listType.elementType(), typeManager));
             case MAP:
                 Types.MapType mapType = (Types.MapType) type;
-                TypeSignature keyType = toPrestoType(mapType.keyType(), typeManager).getTypeSignature();
-                TypeSignature valueType = toPrestoType(mapType.valueType(), typeManager).getTypeSignature();
+                TypeSignature keyType = toTrinoType(mapType.keyType(), typeManager).getTypeSignature();
+                TypeSignature valueType = toTrinoType(mapType.valueType(), typeManager).getTypeSignature();
                 return typeManager.getParameterizedType(StandardTypes.MAP, ImmutableList.of(TypeSignatureParameter.typeParameter(keyType), TypeSignatureParameter.typeParameter(valueType)));
             case STRUCT:
                 List<Types.NestedField> fields = ((Types.StructType) type).fields();
                 return RowType.from(fields.stream()
-                        .map(field -> new RowType.Field(Optional.of(field.name()), toPrestoType(field.type(), typeManager)))
+                        .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
             default:
-                throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Presto type", type, type.typeId()));
+                throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
         }
     }
 

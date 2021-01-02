@@ -55,7 +55,7 @@ public class HiveMetadataFactory
     private final BoundedExecutor renameExecution;
     private final BoundedExecutor dropExecutor;
     private final Executor updateExecutor;
-    private final String prestoVersion;
+    private final String trinoVersion;
     private final AccessControlMetadataFactory accessControlMetadataFactory;
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
     private final ScheduledExecutorService heartbeatService;
@@ -123,7 +123,7 @@ public class HiveMetadataFactory
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
             ScheduledExecutorService heartbeatService,
-            String prestoVersion,
+            String trinoVersion,
             AccessControlMetadataFactory accessControlMetadataFactory)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -141,7 +141,7 @@ public class HiveMetadataFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
-        this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
+        this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
         this.hiveTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
 
@@ -183,7 +183,7 @@ public class HiveMetadataFactory
                 typeManager,
                 locationService,
                 partitionUpdateCodec,
-                prestoVersion,
+                trinoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
                 accessControlMetadataFactory.create(metastore));
     }

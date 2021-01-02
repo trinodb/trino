@@ -348,7 +348,7 @@ public class TestAccumuloDistributedQueries
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.startsWith("decimal(")
                 || typeName.equals("timestamp(3) with time zone")
                 || typeName.startsWith("char(")) {

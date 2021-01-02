@@ -55,10 +55,10 @@ import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 public class DataType<T>
 {
     private final String insertType;
-    private final Type prestoResultType;
+    private final Type trinoResultType;
     private final Function<T, String> toLiteral;
-    private final Function<T, String> toPrestoLiteral;
-    private final Function<T, ?> toPrestoQueryResult;
+    private final Function<T, String> toTrinoLiteral;
+    private final Function<T, ?> toTrinoQueryResult;
 
     public static DataType<Boolean> booleanDataType()
     {
@@ -136,9 +136,9 @@ public class DataType<T>
         return stringDataType(prefix + suffix, varcharType);
     }
 
-    public static DataType<String> stringDataType(String insertType, Type prestoResultType)
+    public static DataType<String> stringDataType(String insertType, Type trinoResultType)
     {
-        return dataType(insertType, prestoResultType, DataType::formatStringLiteral);
+        return dataType(insertType, trinoResultType, DataType::formatStringLiteral);
     }
 
     public static DataType<String> charDataType(int length)
@@ -282,41 +282,41 @@ public class DataType<T>
         return "X'" + base16().encode(value) + "'";
     }
 
-    private static <T> DataType<T> dataType(String insertType, Type prestoResultType)
+    private static <T> DataType<T> dataType(String insertType, Type trinoResultType)
     {
-        return new DataType<>(insertType, prestoResultType, Object::toString, Object::toString, Function.identity());
+        return new DataType<>(insertType, trinoResultType, Object::toString, Object::toString, Function.identity());
     }
 
-    public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral)
+    public static <T> DataType<T> dataType(String insertType, Type trinoResultType, Function<T, String> toLiteral)
     {
-        return new DataType<>(insertType, prestoResultType, toLiteral, toLiteral, Function.identity());
-    }
-
-    /**
-     * @deprecated {@code toPrestoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
-     */
-    @Deprecated
-    public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, ?> toPrestoQueryResult)
-    {
-        return new DataType<>(insertType, prestoResultType, toLiteral, toLiteral, toPrestoQueryResult);
+        return new DataType<>(insertType, trinoResultType, toLiteral, toLiteral, Function.identity());
     }
 
     /**
-     * @deprecated {@code toPrestoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
+     * @deprecated {@code toTrinoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
      */
     @Deprecated
-    public static <T> DataType<T> dataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, String> toPrestoLiteral, Function<T, ?> toPrestoQueryResult)
+    public static <T> DataType<T> dataType(String insertType, Type trinoResultType, Function<T, String> toLiteral, Function<T, ?> toTrinoQueryResult)
     {
-        return new DataType<>(insertType, prestoResultType, toLiteral, toPrestoLiteral, toPrestoQueryResult);
+        return new DataType<>(insertType, trinoResultType, toLiteral, toLiteral, toTrinoQueryResult);
     }
 
-    private DataType(String insertType, Type prestoResultType, Function<T, String> toLiteral, Function<T, String> toPrestoLiteral, Function<T, ?> toPrestoQueryResult)
+    /**
+     * @deprecated {@code toTrinoQueryResult} concept is deprecated. Use {@link SqlDataTypeTest} instead.
+     */
+    @Deprecated
+    public static <T> DataType<T> dataType(String insertType, Type trinoResultType, Function<T, String> toLiteral, Function<T, String> toTrinoLiteral, Function<T, ?> toTrinoQueryResult)
+    {
+        return new DataType<>(insertType, trinoResultType, toLiteral, toTrinoLiteral, toTrinoQueryResult);
+    }
+
+    private DataType(String insertType, Type trinoResultType, Function<T, String> toLiteral, Function<T, String> toTrinoLiteral, Function<T, ?> toTrinoQueryResult)
     {
         this.insertType = insertType;
-        this.prestoResultType = prestoResultType;
+        this.trinoResultType = trinoResultType;
         this.toLiteral = toLiteral;
-        this.toPrestoLiteral = toPrestoLiteral;
-        this.toPrestoQueryResult = toPrestoQueryResult;
+        this.toTrinoLiteral = toTrinoLiteral;
+        this.toTrinoQueryResult = toTrinoQueryResult;
     }
 
     public String toLiteral(T inputValue)
@@ -327,20 +327,20 @@ public class DataType<T>
         return toLiteral.apply(inputValue);
     }
 
-    public String toPrestoLiteral(T inputValue)
+    public String toTrinoLiteral(T inputValue)
     {
         if (inputValue == null) {
             return "NULL";
         }
-        return toPrestoLiteral.apply(inputValue);
+        return toTrinoLiteral.apply(inputValue);
     }
 
-    public Object toPrestoQueryResult(T inputValue)
+    public Object toTrinoQueryResult(T inputValue)
     {
         if (inputValue == null) {
             return null;
         }
-        return toPrestoQueryResult.apply(inputValue);
+        return toTrinoQueryResult.apply(inputValue);
     }
 
     public String getInsertType()
@@ -348,8 +348,8 @@ public class DataType<T>
         return insertType;
     }
 
-    public Type getPrestoResultType()
+    public Type getTrinoResultType()
     {
-        return prestoResultType;
+        return trinoResultType;
     }
 }
