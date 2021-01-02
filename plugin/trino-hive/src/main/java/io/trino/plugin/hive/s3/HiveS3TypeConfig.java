@@ -19,7 +19,7 @@ import javax.validation.constraints.NotNull;
 
 public class HiveS3TypeConfig
 {
-    private S3FileSystemType s3FileSystemType = S3FileSystemType.PRESTO;
+    private S3FileSystemType s3FileSystemType = S3FileSystemType.TRINO;
 
     @NotNull
     public S3FileSystemType getS3FileSystemType()

@@ -26,7 +26,7 @@ import java.io.InputStream;
 import static com.amazonaws.services.s3.model.SelectObjectContentEvent.EndEvent;
 import static java.util.Objects.requireNonNull;
 
-class PrestoS3SelectClient
+class TrinoS3SelectClient
         implements Closeable
 {
     private final AmazonS3 s3Client;
@@ -34,7 +34,7 @@ class PrestoS3SelectClient
     private SelectObjectContentRequest selectObjectRequest;
     private SelectObjectContentResult selectObjectContentResult;
 
-    public PrestoS3SelectClient(Configuration configuration, PrestoS3ClientFactory s3ClientFactory)
+    public TrinoS3SelectClient(Configuration configuration, TrinoS3ClientFactory s3ClientFactory)
     {
         requireNonNull(configuration, "configuration is null");
         requireNonNull(s3ClientFactory, "s3ClientFactory is null");

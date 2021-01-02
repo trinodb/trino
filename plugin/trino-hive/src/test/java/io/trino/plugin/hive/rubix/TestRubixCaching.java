@@ -477,15 +477,15 @@ public class TestRubixCaching
         initializeRubix(new RubixConfig());
 
         try (FileSystem fileSystem = getCachingFileSystem(context, new Path("s3://bucket_name"))) {
-            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoS3FileSystem.class);
+            assertRawFileSystemInstanceOf(fileSystem, CachingTrinoS3FileSystem.class);
         }
 
         try (FileSystem fileSystem = getCachingFileSystem(context, new Path("s3a://bucket_name"))) {
-            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoS3FileSystem.class);
+            assertRawFileSystemInstanceOf(fileSystem, CachingTrinoS3FileSystem.class);
         }
 
         try (FileSystem fileSystem = getCachingFileSystem(context, new Path("s3n://bucket_name"))) {
-            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoS3FileSystem.class);
+            assertRawFileSystemInstanceOf(fileSystem, CachingTrinoS3FileSystem.class);
         }
 
         try (FileSystem fileSystem = getCachingFileSystem(context, new Path("abfs://fileanalysis@foo-bar.dfs.core.windows.net/tutorials"))) {

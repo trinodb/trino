@@ -37,15 +37,15 @@ public class HiveS3Module
     protected void setup(Binder binder)
     {
         S3FileSystemType type = buildConfigObject(HiveS3TypeConfig.class).getS3FileSystemType();
-        if (type == S3FileSystemType.PRESTO) {
+        if (type == S3FileSystemType.TRINO) {
             bindSecurityMapping(binder);
 
-            newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(PrestoS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(TrinoS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
             configBinder(binder).bindConfig(HiveS3Config.class);
 
-            binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
-            newExporter(binder).export(PrestoS3FileSystemStats.class)
-                    .as(generator -> generator.generatedNameOf(PrestoS3FileSystem.class));
+            binder.bind(TrinoS3FileSystemStats.class).toInstance(TrinoS3FileSystem.getFileSystemStats());
+            newExporter(binder).export(TrinoS3FileSystemStats.class)
+                    .as(generator -> generator.generatedNameOf(TrinoS3FileSystem.class));
         }
         else if (type == S3FileSystemType.EMRFS) {
             validateEmrFsClass();

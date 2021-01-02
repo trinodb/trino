@@ -17,7 +17,7 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 
 import static java.util.Objects.requireNonNull;
 
-public enum PrestoS3AclType
+public enum TrinoS3AclType
 {
     AUTHENTICATED_READ(CannedAccessControlList.AuthenticatedRead),
     AWS_EXEC_READ(CannedAccessControlList.AwsExecRead),
@@ -30,7 +30,7 @@ public enum PrestoS3AclType
 
     private final CannedAccessControlList cannedACL;
 
-    PrestoS3AclType(CannedAccessControlList cannedACL)
+    TrinoS3AclType(CannedAccessControlList cannedACL)
     {
         this.cannedACL = requireNonNull(cannedACL, "cannedACL is null");
     }

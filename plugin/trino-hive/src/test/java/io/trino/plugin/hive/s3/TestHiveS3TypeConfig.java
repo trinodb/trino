@@ -28,7 +28,7 @@ public class TestHiveS3TypeConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HiveS3TypeConfig.class)
-                .setS3FileSystemType(S3FileSystemType.PRESTO));
+                .setS3FileSystemType(S3FileSystemType.TRINO));
     }
 
     @Test

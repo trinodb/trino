@@ -13,24 +13,15 @@
  */
 package io.trino.plugin.hive.s3;
 
-import com.amazonaws.services.s3.model.StorageClass;
-
-import static java.util.Objects.requireNonNull;
-
-public enum PrestoS3StorageClass
+// These are the exact names used by SignerFactory in the AWS library
+// and thus cannot be renamed or use the normal naming convention.
+@SuppressWarnings("EnumeratedConstantNamingConvention")
+public enum TrinoS3SignerType
 {
-    STANDARD(StorageClass.Standard),
-    INTELLIGENT_TIERING(StorageClass.IntelligentTiering);
-
-    private StorageClass s3StorageClass;
-
-    PrestoS3StorageClass(StorageClass s3StorageClass)
-    {
-        this.s3StorageClass = requireNonNull(s3StorageClass, "s3StorageClass is null");
-    }
-
-    public StorageClass getS3StorageClass()
-    {
-        return s3StorageClass;
-    }
+    S3SignerType,
+    AWS3SignerType,
+    AWS4SignerType,
+    AWSS3V4SignerType,
+    CloudFrontSignerType,
+    QueryStringSignerType,
 }

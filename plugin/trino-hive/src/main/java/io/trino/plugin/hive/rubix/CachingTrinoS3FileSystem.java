@@ -15,10 +15,10 @@ package io.trino.plugin.hive.rubix;
 
 import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.spi.ClusterType;
-import io.trino.plugin.hive.s3.PrestoS3FileSystem;
+import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 
-public class CachingPrestoS3FileSystem
-        extends CachingFileSystem<PrestoS3FileSystem>
+public class CachingTrinoS3FileSystem
+        extends CachingFileSystem<TrinoS3FileSystem>
 {
     @Override
     public ClusterType getClusterType()

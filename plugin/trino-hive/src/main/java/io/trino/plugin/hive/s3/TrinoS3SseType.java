@@ -13,15 +13,7 @@
  */
 package io.trino.plugin.hive.s3;
 
-// These are the exact names used by SignerFactory in the AWS library
-// and thus cannot be renamed or use the normal naming convention.
-@SuppressWarnings("EnumeratedConstantNamingConvention")
-public enum PrestoS3SignerType
+public enum TrinoS3SseType
 {
-    S3SignerType,
-    AWS3SignerType,
-    AWS4SignerType,
-    AWSS3V4SignerType,
-    CloudFrontSignerType,
-    QueryStringSignerType,
+    KMS, S3
 }
