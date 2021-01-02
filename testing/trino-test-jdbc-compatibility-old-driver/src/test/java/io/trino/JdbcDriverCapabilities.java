@@ -13,8 +13,9 @@
  */
 package io.trino;
 
-import io.trino.jdbc.TrinoDriver;
-
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Optional;
 
 public final class JdbcDriverCapabilities
@@ -25,13 +26,28 @@ public final class JdbcDriverCapabilities
 
     public static Optional<Integer> testedVersion()
     {
-        return Optional.ofNullable(System.getenv("PRESTO_JDBC_VERSION_UNDER_TEST")).map(Integer::valueOf);
+        return Optional.ofNullable(System.getenv("TRINO_JDBC_VERSION_UNDER_TEST")).map(Integer::valueOf);
     }
 
     public static int driverVersion()
     {
-        try (TrinoDriver driver = new TrinoDriver()) {
-            return driver.getMajorVersion();
+        return jdbcDriver().getMajorVersion();
+    }
+
+    public static Driver jdbcDriver()
+    {
+        return getDriver("jdbc:trino:")
+                .or(() -> getDriver("jdbc:presto:"))
+                .orElseThrow(() -> new IllegalStateException("JDBC driver not available"));
+    }
+
+    private static Optional<Driver> getDriver(String url)
+    {
+        try {
+            return Optional.of(DriverManager.getDriver(url));
+        }
+        catch (SQLException ignored) {
+            return Optional.empty();
         }
     }
 
@@ -66,15 +82,5 @@ public final class JdbcDriverCapabilities
         // timestamp with time zone can be returned with given precision instead of default one (3).
         // JDBC client 335 and 336 are broken in regard to handling timestamp with time zone correctly.
         return driverVersion() == 335 || driverVersion() == 336;
-    }
-
-    public static boolean hasBrokenParametricTimeSupport()
-    {
-        return driverVersion() >= 337 && driverVersion() <= 340;
-    }
-
-    public static boolean hasBrokenTimeWithTimeZoneSupport()
-    {
-        return driverVersion() <= 340;
     }
 }

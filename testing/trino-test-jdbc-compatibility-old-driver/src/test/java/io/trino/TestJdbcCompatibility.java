@@ -44,6 +44,7 @@ import static com.google.common.base.Strings.repeat;
 import static io.trino.JdbcDriverCapabilities.correctlyReportsTimestampWithTimeZone;
 import static io.trino.JdbcDriverCapabilities.driverVersion;
 import static io.trino.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
+import static io.trino.JdbcDriverCapabilities.jdbcDriver;
 import static io.trino.JdbcDriverCapabilities.supportsParametricTimestamp;
 import static io.trino.JdbcDriverCapabilities.supportsParametricTimestampWithTimeZone;
 import static io.trino.JdbcDriverCapabilities.supportsSessionPropertiesViaConnectionUri;
@@ -82,6 +83,9 @@ public class TestJdbcCompatibility
 
         assertThat(driverVersion())
                 .isEqualTo(VERSION_UNDER_TEST.get());
+
+        assertThat(jdbcDriver().getClass().getPackage().getImplementationVersion())
+                .isEqualTo(VERSION_UNDER_TEST.get().toString());
     }
 
     @BeforeClass
@@ -102,18 +106,6 @@ public class TestJdbcCompatibility
             throws IOException
     {
         server.close();
-    }
-
-    @Test
-    public void ensureUsingProperClientVersion()
-            throws ClassNotFoundException
-    {
-        if (VERSION_UNDER_TEST.isEmpty()) {
-            throw new SkipException("Information about JDBC version under test is missing");
-        }
-
-        assertThat(Class.forName("io.trino.jdbc.$internal.client.StatementClientFactory").getPackage().getImplementationVersion())
-                .isEqualTo(VERSION_UNDER_TEST.get().toString());
     }
 
     @Test

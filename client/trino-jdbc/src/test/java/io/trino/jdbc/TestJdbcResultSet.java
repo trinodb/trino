@@ -33,7 +33,12 @@ public class TestJdbcResultSet
     public void setupServer()
     {
         Logging.initialize();
-        server = TestingTrinoServer.create();
+        server = createTestingServer();
+    }
+
+    protected TestingTrinoServer createTestingServer()
+    {
+        return TestingTrinoServer.create();
     }
 
     @AfterClass(alwaysRun = true)
