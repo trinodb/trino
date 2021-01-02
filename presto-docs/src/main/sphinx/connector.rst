@@ -33,6 +33,7 @@ from different data sources.
     Prometheus      <connector/prometheus>
     Redis           <connector/redis>
     Redshift        <connector/redshift>
+    Snowflake       <connector/snowflake>
     SQL Server      <connector/sqlserver>
     System          <connector/system>
     Thrift          <connector/thrift>
