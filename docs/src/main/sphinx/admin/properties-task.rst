@@ -40,7 +40,7 @@ or thousands of workers.
 
 Number of threads used to handle timeouts when generating HTTP responses. This value
 should be increased if all the threads are frequently in use. This can be monitored
-via the ``io.prestosql.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
+via the ``trino.server:name=AsyncHttpExecutionMBean:TimeoutExecutor``
 JMX object. If ``ActiveCount`` is always the same as ``PoolSize``, increase the
 number of threads.
 
@@ -76,7 +76,7 @@ can improve throughput, if worker CPU utilization is low and all the threads are
 but it causes increased heap space usage. Setting the value too high may cause a drop
 in performance due to a context switching. The number of active threads is available
 via the ``RunningSplits`` property of the
-``io.prestosql.execution.executor:name=TaskExecutor.RunningSplits`` JMX object.
+``trino.execution.executor:name=TaskExecutor.RunningSplits`` JMX object.
 
 ``task.min-drivers``
 ^^^^^^^^^^^^^^^^^^^^

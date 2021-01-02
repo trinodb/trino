@@ -95,6 +95,6 @@ public class TestExecutionJmxMetrics
     private long getMbeanAttribute(MBeanServer mbeanServer, String attribute)
             throws Exception
     {
-        return (Long) mbeanServer.getAttribute(new ObjectName("presto.execution:name=QueryManager"), attribute);
+        return (Long) mbeanServer.getAttribute(new ObjectName("trino.execution:name=QueryManager"), attribute);
     }
 }

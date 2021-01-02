@@ -27,7 +27,7 @@ To enable periodical dumps, define the following properties:
 .. code-block:: text
 
     connector.name=jmx
-    jmx.dump-tables=java.lang:type=Runtime,presto.execution.scheduler:name=NodeScheduler
+    jmx.dump-tables=java.lang:type=Runtime,trino.execution.scheduler:name=NodeScheduler
     jmx.dump-period=10s
     jmx.max-entries=86400
 
@@ -41,8 +41,8 @@ Commas in MBean names should be escaped in the following manner:
 .. code-block:: text
 
     connector.name=jmx
-    jmx.dump-tables=presto.memory:name=general\\,type=memorypool,\
-       presto.memory:name=reserved\\,type=memorypool
+    jmx.dump-tables=trino.memory:name=general\\,type=memorypool,\
+       trino.memory:name=reserved\\,type=memorypool
 
 Querying JMX
 ------------
@@ -86,15 +86,15 @@ This allows matching several MBean objects within a single query. The following 
 returns information from the different Trino memory pools on each node::
 
     SELECT freebytes, node, object_name
-    FROM jmx.current."presto.memory:*type=memorypool*";
+    FROM jmx.current."trino.memory:*type=memorypool*";
 
 .. code-block:: text
 
      freebytes  |  node   |                       object_name
     ------------+---------+----------------------------------------------------------
-      214748364 | example | presto.memory:type=MemoryPool,name=reserved
-     1073741825 | example | presto.memory:type=MemoryPool,name=general
-      858993459 | example | presto.memory:type=MemoryPool,name=system
+      214748364 | example | trino.memory:type=MemoryPool,name=reserved
+     1073741825 | example | trino.memory:type=MemoryPool,name=general
+      858993459 | example | trino.memory:type=MemoryPool,name=system
     (3 rows)
 
 The ``history`` schema contains the list of tables configured in the connector properties file.

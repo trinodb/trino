@@ -151,7 +151,7 @@ public class TestJmxMetadata
         NullableValue nodeColumnValue = NullableValue.of(createUnboundedVarcharType(), utf8Slice(localNode.getNodeIdentifier()));
 
         JmxColumnHandle objectNameColumnHandle = new JmxColumnHandle("object_name", createUnboundedVarcharType());
-        NullableValue objectNameColumnValue = NullableValue.of(createUnboundedVarcharType(), utf8Slice("presto.memory:type=MemoryPool,name=reserved"));
+        NullableValue objectNameColumnValue = NullableValue.of(createUnboundedVarcharType(), utf8Slice("trino.memory:type=MemoryPool,name=reserved"));
 
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.fromFixedValues(ImmutableMap.of(nodeColumnHandle, nodeColumnValue, objectNameColumnHandle, objectNameColumnValue));
 

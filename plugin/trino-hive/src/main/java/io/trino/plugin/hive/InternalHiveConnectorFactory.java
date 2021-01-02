@@ -86,7 +86,7 @@ public final class InternalHiveConnectorFactory
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
-                    new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.hive", "presto.plugin.hive"),
+                    new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
                     new HiveModule(),
                     new HiveS3Module(),

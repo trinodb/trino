@@ -14,10 +14,8 @@
 package io.trino.plugin.hive.s3;
 
 import com.google.inject.Binder;
-import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.ConfigurationInitializer;
 import io.trino.plugin.hive.DynamicConfigurationProvider;
 import io.trino.plugin.hive.HiveConfig;
@@ -46,9 +44,8 @@ public class HiveS3Module
             configBinder(binder).bindConfig(HiveS3Config.class);
 
             binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
-            Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
             newExporter(binder).export(PrestoS3FileSystemStats.class)
-                    .as(generator -> generator.generatedNameOf(PrestoS3FileSystem.class, catalogName.get().toString()));
+                    .as(generator -> generator.generatedNameOf(PrestoS3FileSystem.class));
         }
         else if (type == S3FileSystemType.EMRFS) {
             validateEmrFsClass();

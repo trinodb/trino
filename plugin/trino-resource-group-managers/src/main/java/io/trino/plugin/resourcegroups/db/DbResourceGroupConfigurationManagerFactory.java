@@ -43,7 +43,7 @@ public class DbResourceGroupConfigurationManagerFactory
                 new MBeanServerModule(),
                 new JsonModule(),
                 new DbResourceGroupsModule(),
-                new PrefixObjectNameGeneratorModule("io.trino.plugin.resourcegroups.db", "presto.plugin.resourcegroups.db"),
+                new PrefixObjectNameGeneratorModule("io.trino.plugin.resourcegroups.db", "trino.plugin.resourcegroups.db"),
                 binder -> binder.bind(String.class).annotatedWith(ForEnvironment.class).toInstance(context.getEnvironment()),
                 binder -> binder.bind(ClusterMemoryPoolManager.class).toInstance(context.getMemoryPoolManager()));
 
