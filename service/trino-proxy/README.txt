@@ -1,11 +1,11 @@
-# Proxy service for Presto
+# Proxy service for Trino
 
-This proxy server allows clients to securely access a remote Presto
+This proxy server allows clients to securely access a remote Trino
 server (or set of servers) without having direct access to the server.
-For example, if the Presto server is behind a firewall, only the proxy
+For example, if the Trino server is behind a firewall, only the proxy
 needs to be exposed to the client.
 
-The proxy natively understands the Presto protocol and rewrites the
+The proxy natively understands the Trino protocol and rewrites the
 "nextUri" in response payloads to point to the proxy rather than the
 remote server.
 

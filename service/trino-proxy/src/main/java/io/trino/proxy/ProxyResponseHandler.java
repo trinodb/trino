@@ -39,7 +39,7 @@ public class ProxyResponseHandler
     @Override
     public ProxyResponse handleException(Request request, Exception exception)
     {
-        throw new ProxyException("Request to remote Presto server failed", exception);
+        throw new ProxyException("Request to remote Trino server failed", exception);
     }
 
     @Override
@@ -50,22 +50,22 @@ public class ProxyResponseHandler
         }
 
         if (response.getStatusCode() != OK.code()) {
-            throw new ProxyException(format("Bad status code from remote Presto server: %s: %s", response.getStatusCode(), readBody(response)));
+            throw new ProxyException(format("Bad status code from remote Trino server: %s: %s", response.getStatusCode(), readBody(response)));
         }
 
         String contentType = response.getHeader(CONTENT_TYPE);
         if (contentType == null) {
-            throw new ProxyException("No Content-Type set in response from remote Presto server");
+            throw new ProxyException("No Content-Type set in response from remote Trino server");
         }
         if (!MediaType.parse(contentType).is(MEDIA_TYPE_JSON)) {
-            throw new ProxyException("Bad Content-Type from remote Presto server:" + contentType);
+            throw new ProxyException("Bad Content-Type from remote Trino server:" + contentType);
         }
 
         try {
             return new ProxyResponse(response.getHeaders(), toByteArray(response.getInputStream()));
         }
         catch (IOException e) {
-            throw new ProxyException("Failed reading response from remote Presto server", e);
+            throw new ProxyException("Failed reading response from remote Trino server", e);
         }
     }
 
