@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.trino.jdbc.BaseTestJdbcResultSet;
 import org.testcontainers.containers.PrestoContainer;
+import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -41,43 +42,48 @@ import static org.testng.Assert.assertTrue;
 public class TestJdbcResultSetCompatibilityOldServer
         extends BaseTestJdbcResultSet
 {
+    private static final int FIRST_VERSION = 351;
     private static final int NUMBER_OF_TESTED_VERSIONS = 5;
     private static final int TESTED_VERSIONS_GRANULARITY = 3;
 
     /**
-     * Empty means that we could not obtain current Presto version and tests defined here will be marked as failed.
+     * Empty means that we could not obtain current Trino version and tests defined here will be marked as failed.
      */
-    private final Optional<String> testedPrestoVersion;
-    private PrestoContainer<?> prestoContainer;
+    private final Optional<String> testedTrinoVersion;
+    private PrestoContainer<?> trinoContainer;
 
-    @Factory(dataProvider = "testedPrestoVersions")
-    public TestJdbcResultSetCompatibilityOldServer(Optional<String> testedPrestoVersion)
+    @Factory(dataProvider = "testedTrinoVersions")
+    public TestJdbcResultSetCompatibilityOldServer(Optional<String> testedTrinoVersion)
     {
-        this.testedPrestoVersion = requireNonNull(testedPrestoVersion, "testedPrestoVersion is null");
+        this.testedTrinoVersion = requireNonNull(testedTrinoVersion, "testedTrinoVersion is null");
     }
 
     @DataProvider
-    public static Object[][] testedPrestoVersions()
+    public static Object[][] testedTrinoVersions()
     {
         try {
-            String currentVersionString = Resources.toString(Resources.getResource("presto-test-jdbc-compatibility-old-server-version.txt"), UTF_8).trim();
+            String currentVersionString = Resources.toString(Resources.getResource("trino-test-jdbc-compatibility-old-server-version.txt"), UTF_8).trim();
             Matcher matcher = Pattern.compile("(\\d+)(?:-SNAPSHOT)?").matcher(currentVersionString);
             checkState(matcher.matches());
             int currentVersion = Integer.parseInt(matcher.group(1));
-            ImmutableList.Builder<String> testedPrestoVersions = ImmutableList.builder();
-            int lastReleasedVersion = currentVersion - 1;
+            ImmutableList.Builder<String> testedTrinoVersions = ImmutableList.builder();
+            int testVersion = currentVersion - 1; // last release version
             for (int i = 0; i < NUMBER_OF_TESTED_VERSIONS; i++) {
-                testedPrestoVersions.add(String.valueOf(lastReleasedVersion - TESTED_VERSIONS_GRANULARITY * i));
+                if (testVersion < FIRST_VERSION) {
+                    break;
+                }
+                testedTrinoVersions.add(String.valueOf(testVersion));
+                testVersion -= TESTED_VERSIONS_GRANULARITY;
             }
 
-            return testedPrestoVersions.build().stream()
+            return testedTrinoVersions.build().stream()
                     .map(Optional::of)
                     .collect(toDataProvider());
         }
         catch (Throwable e) {
             // We cannot throw here because TestNG does not handle exceptions coming out from @DataProvider used with @Factory well.
-            // Instead we return marker Option.empty() as only parametrization. Then we will fail test run in setupPrestoContainer().
-            System.err.println("Could not determine Presto versions to test; " + e.getMessage() + "\n" + getStackTraceAsString(e));
+            // Instead we return marker Option.empty() as only parameterization. Then we will fail test run in setupTrinoContainer().
+            System.err.println("Could not determine Trino versions to test; " + e.getMessage() + "\n" + getStackTraceAsString(e));
             return new Object[][] {
                     {Optional.empty()}
             };
@@ -85,34 +91,38 @@ public class TestJdbcResultSetCompatibilityOldServer
     }
 
     @BeforeClass
-    public void setupPrestoContainer()
+    public void setupTrinoContainer()
     {
-        if (testedPrestoVersion.isEmpty()) {
-            throw new AssertionError("Could not determine current Presto version");
+        if (testedTrinoVersion.isEmpty()) {
+            throw new AssertionError("Could not determine current Trino version");
         }
 
-        prestoContainer = new PrestoContainer<>("prestosql/presto:" + testedPrestoVersion.get());
-        prestoContainer.start();
+        // TODO: add TrinoContainer to Testcontainers
+        DockerImageName image = DockerImageName.parse("trinodb/trino")
+                .withTag(testedTrinoVersion.get())
+                .asCompatibleSubstituteFor("prestosql/presto");
+        trinoContainer = new PrestoContainer<>(image);
+        trinoContainer.start();
 
-        // verify that version reported by Presto server matches requested one.
+        // verify that version reported by Trino server matches requested one.
         try (ConnectedStatement statementWrapper = newStatement()) {
             try (ResultSet rs = statementWrapper.getStatement().executeQuery("SELECT node_version FROM system.runtime.nodes")) {
                 assertTrue(rs.next());
-                String actualPrestoVersion = rs.getString(1);
-                assertEquals(actualPrestoVersion, testedPrestoVersion.get(), "Presto server version reported by container does not match expected one");
+                String actualTrinoVersion = rs.getString(1);
+                assertEquals(actualTrinoVersion, testedTrinoVersion.get(), "Trino server version reported by container does not match expected one");
             }
         }
         catch (SQLException e) {
-            throw new RuntimeException("Could not get version from Presto server", e);
+            throw new RuntimeException("Could not get version from Trino server", e);
         }
     }
 
     @AfterClass(alwaysRun = true)
-    public void tearDownPrestoContainer()
+    public void tearDownTrinoContainer()
     {
-        if (prestoContainer != null) {
-            prestoContainer.stop();
-            prestoContainer = null;
+        if (trinoContainer != null) {
+            trinoContainer.stop();
+            trinoContainer = null;
         }
     }
 
@@ -120,21 +130,20 @@ public class TestJdbcResultSetCompatibilityOldServer
     protected Connection createConnection()
             throws SQLException
     {
-        return DriverManager.getConnection(prestoContainer.getJdbcUrl(), "test", null);
+        return DriverManager.getConnection(trinoContainer.getJdbcUrl(), "test", null);
     }
 
     @Override
     protected int getTestedServerVersion()
     {
-        assertTrue(testedPrestoVersion.isPresent());
-        return Integer.parseInt(testedPrestoVersion.get());
+        return Integer.parseInt(testedTrinoVersion.orElseThrow());
     }
 
     @Override
     public String toString()
     {
-        // This allows distinguishing tests run against different Presto server version from each other.
+        // This allows distinguishing tests run against different Trino server version from each other.
         // It is included in tests report and maven output.
-        return "TestJdbcResultSetCompatibility[" + testedPrestoVersion.orElse("unknown") + "]";
+        return "TestJdbcResultSetCompatibility[" + testedTrinoVersion.orElse("unknown") + "]";
     }
 }

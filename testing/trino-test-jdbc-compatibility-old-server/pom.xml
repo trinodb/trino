@@ -14,7 +14,6 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.presto-jdbc-under-test>342-SNAPSHOT</dep.presto-jdbc-under-test>
     </properties>
 
     <dependencies>
@@ -90,7 +89,6 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
     <build>
@@ -99,14 +97,14 @@
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
                 <includes>
-                    <include>presto-test-jdbc-compatibility-old-server-version.txt</include>
+                    <include>trino-test-jdbc-compatibility-old-server-version.txt</include>
                 </includes>
             </resource>
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>false</filtering>
                 <excludes>
-                    <exclude>presto-test-jdbc-compatibility-old-server-version.txt</exclude>
+                    <exclude>trino-test-jdbc-compatibility-old-server-version.txt</exclude>
                 </excludes>
             </resource>
         </resources>
@@ -121,7 +119,6 @@
                     </suiteXmlFiles>
                 </configuration>
             </plugin>
-
         </plugins>
     </build>
 </project>

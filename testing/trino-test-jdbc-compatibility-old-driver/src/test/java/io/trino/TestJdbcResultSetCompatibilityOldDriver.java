@@ -13,28 +13,15 @@
  */
 package io.trino;
 
-import com.google.common.collect.ImmutableMap;
-import io.airlift.log.Logging;
 import io.trino.jdbc.TestJdbcResultSet;
-import io.trino.server.testing.TestingTrinoServer;
 import org.testng.SkipException;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-import java.lang.reflect.Method;
 import java.util.Optional;
 
-import static io.trino.JdbcDriverCapabilities.hasBrokenParametricTimeSupport;
-import static io.trino.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
-import static io.trino.JdbcDriverCapabilities.hasBrokenTimeWithTimeZoneSupport;
 import static io.trino.JdbcDriverCapabilities.testedVersion;
-import static io.trino.TestingServerUtils.setTestingServer;
 import static org.assertj.core.api.Assertions.assertThat;
 
-// We need to keep @Test(singleThreaded = true) even though current version of superclass does not require it.
-// This class is compiled against older versions of TestJdbcResultSet which require single threaded execution of tests.
-@Test(singleThreaded = true)
 public class TestJdbcResultSetCompatibilityOldDriver
         extends TestJdbcResultSet
 {
@@ -50,40 +37,4 @@ public class TestJdbcResultSetCompatibilityOldDriver
         assertThat(TestJdbcResultSet.class.getPackage().getImplementationVersion())
                 .isEqualTo(VERSION_UNDER_TEST.get().toString());
     }
-
-    @BeforeClass
-    @Override
-    public void setupServer()
-    {
-        Logging.initialize();
-
-        // Instantiate server and set it via reflection.
-        // This is required due to TestingTrinoServer API changes.
-        setTestingServer(this, TestingTrinoServer
-                .builder()
-                .setProperties(ImmutableMap.of("deprecated.omit-datetime-type-precision", "true"))
-                .build());
-    }
-
-    @BeforeMethod
-    public void skipBrokenTests(Method method)
-    {
-        if (hasBrokenParametricTimestampWithTimeZoneSupport() && method.getName().equals("testObjectTypes")) {
-            throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
-        }
-
-        if (hasBrokenParametricTimeSupport() && (method.getName().equals("testTime") || method.getName().equals("testObjectTypes"))) {
-            throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
-        }
-
-        if (hasBrokenTimeWithTimeZoneSupport() && method.getName().equals("testObjectTypes")) {
-            throw new SkipException("TIME WITH TIME ZONE TYPE is not supported properly");
-        }
-    }
-
-    @Test
-    // We add the extra public method to enforce the class to be run single-thread.
-    // See TestNG bug https://github.com/cbeust/testng/issues/2361#issuecomment-688393166
-    // We need to run this class single-threaded where we compile against older version of JDBC tests.
-    public void forceTestNgToRespectSingleThreaded() {}
 }

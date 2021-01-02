@@ -10,11 +10,14 @@ maven_run_tests="${maven} clean test -Dair.check.skip-all=true -Dmaven.javadoc.s
 
 current_version=$(${maven} help:evaluate -Dexpression=project.version -q -DforceStdout)
 previous_released_version=$((${current_version%-SNAPSHOT}-1))
-first_tested_version=312
+first_tested_version=351
 # test n-th version only
 version_step=3
 
 echo "Current version: ${current_version}"
+
+(( previous_released_version >= first_tested_version )) || exit 0
+
 echo "Testing every ${version_step}. version between ${first_tested_version} and ${previous_released_version}"
 
 tested_versions=$(seq "${first_tested_version}" ${version_step} "${previous_released_version}")
@@ -27,7 +30,7 @@ exit_code=0
 failed_versions=()
 
 for version in ${tested_versions[*]}; do
-    if ! time env PRESTO_JDBC_VERSION_UNDER_TEST="${version}" ${maven_run_tests} -Ddep.presto-jdbc-under-test="${version}"; then
+    if ! time env TRINO_JDBC_VERSION_UNDER_TEST="${version}" ${maven_run_tests} -Ddep.presto-jdbc-under-test="${version}"; then
         exit_code=1
         failed_versions+=("${version}")
     fi
