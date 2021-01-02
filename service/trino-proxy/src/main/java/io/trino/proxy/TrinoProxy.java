@@ -27,9 +27,9 @@ import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import org.weakref.jmx.guice.MBeanModule;
 
-public final class PrestoProxy
+public final class TrinoProxy
 {
-    private PrestoProxy() {}
+    private TrinoProxy() {}
 
     public static void start(Module... extraModules)
     {
@@ -47,7 +47,7 @@ public final class PrestoProxy
                 .add(extraModules)
                 .build());
 
-        Logger log = Logger.get(PrestoProxy.class);
+        Logger log = Logger.get(TrinoProxy.class);
         try {
             app.strictConfig().initialize();
             log.info("======== SERVER STARTED ========");

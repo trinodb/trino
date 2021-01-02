@@ -34,7 +34,7 @@ public class ProxyConfig
     }
 
     @Config("proxy.uri")
-    @ConfigDescription("URI of the remote Presto server")
+    @ConfigDescription("URI of the remote Trino server")
     public ProxyConfig setUri(URI uri)
     {
         this.uri = uri;

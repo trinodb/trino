@@ -199,7 +199,7 @@ public class ProxyResource
             }
             else if (name.equalsIgnoreCase(USER_AGENT)) {
                 for (String value : list(servletRequest.getHeaders(name))) {
-                    requestBuilder.addHeader(name, "[Presto Proxy] " + value);
+                    requestBuilder.addHeader(name, "[Trino Proxy] " + value);
                 }
             }
         }
@@ -237,7 +237,7 @@ public class ProxyResource
                 .withTimeout(ASYNC_TIMEOUT, () -> Response
                         .status(BAD_GATEWAY)
                         .type(TEXT_PLAIN_TYPE)
-                        .entity("Request to remote Presto server timed out after" + ASYNC_TIMEOUT)
+                        .entity("Request to remote Trino server timed out after" + ASYNC_TIMEOUT)
                         .build());
     }
 
@@ -353,7 +353,7 @@ public class ProxyResource
 
     private static IOException invalidJson(String message)
     {
-        return new IOException("Invalid JSON response from remote Presto server: " + message);
+        return new IOException("Invalid JSON response from remote Trino server: " + message);
     }
 
     private static byte[] loadSharedSecret(File file)
