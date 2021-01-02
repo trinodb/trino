@@ -64,7 +64,7 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler-presto \
+          ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler-trino \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
   web-ui-checks:

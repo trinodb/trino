@@ -1755,8 +1755,8 @@
         </profile>
 
         <profile>
-            <id>errorprone-compiler-presto</id><!-- airbase defines "errorprone-compiler" profile but set up this ourselves -->
-
+            <!-- airbase defines "errorprone-compiler" profile but set up this ourselves -->
+            <id>errorprone-compiler-trino</id>
             <build>
                 <plugins>
                     <plugin>
