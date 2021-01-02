@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataUtil;
 import io.trino.security.AccessControl;
-import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.RevokeRoles;
 import io.trino.transaction.TransactionManager;
@@ -52,11 +52,11 @@ public class RevokeRolesTask
         Session session = stateMachine.getSession();
 
         Set<String> roles = statement.getRoles().stream().map(role -> role.getValue().toLowerCase(Locale.ENGLISH)).collect(toImmutableSet());
-        Set<PrestoPrincipal> grantees = statement.getGrantees().stream()
+        Set<TrinoPrincipal> grantees = statement.getGrantees().stream()
                 .map(MetadataUtil::createPrincipal)
                 .collect(toImmutableSet());
         boolean adminOption = statement.isAdminOption();
-        Optional<PrestoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
+        Optional<TrinoPrincipal> grantor = statement.getGrantor().map(specification -> createPrincipal(session, specification));
         String catalog = getSessionCatalog(metadata, session, statement);
 
         Set<String> availableRoles = metadata.listRoles(session, catalog);
@@ -64,7 +64,7 @@ public class RevokeRolesTask
         specifiedRoles.addAll(roles);
         grantees.stream()
                 .filter(principal -> principal.getType() == ROLE)
-                .map(PrestoPrincipal::getName)
+                .map(TrinoPrincipal::getName)
                 .forEach(specifiedRoles::add);
         if (grantor.isPresent() && grantor.get().getType() == ROLE) {
             specifiedRoles.add(grantor.get().getName());

@@ -14,8 +14,8 @@
 package io.trino.connector;
 
 import io.trino.spi.TrinoException;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Set;
 
@@ -25,13 +25,13 @@ public class AllowAllGrants<T>
         implements Grants<T>
 {
     @Override
-    public void grant(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
+    public void grant(TrinoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "Grant operation is not supported");
     }
 
     @Override
-    public void revoke(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
+    public void revoke(TrinoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "Revoke operation is not supported");
     }

@@ -46,9 +46,9 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
@@ -151,7 +151,7 @@ public interface Metadata
      *
      * @param principal TODO
      */
-    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, PrestoPrincipal principal);
+    void createSchema(Session session, CatalogSchemaName schema, Map<String, Object> properties, TrinoPrincipal principal);
 
     /**
      * Drops the specified schema.
@@ -166,7 +166,7 @@ public interface Metadata
     /**
      * Set the specified schema's user/role.
      */
-    void setSchemaAuthorization(Session session, CatalogSchemaName source, PrestoPrincipal principal);
+    void setSchemaAuthorization(Session session, CatalogSchemaName source, TrinoPrincipal principal);
 
     /**
      * Creates a table using the specified table metadata.
@@ -203,7 +203,7 @@ public interface Metadata
     /**
      * Set the authorization (owner) of specified table's user/role
      */
-    void setTableAuthorization(Session session, CatalogSchemaTableName table, PrestoPrincipal principal);
+    void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);
 
     /**
      * Drop the specified column.
@@ -353,7 +353,7 @@ public interface Metadata
     /**
      * Gets the schema owner for the specified schema.
      */
-    Optional<PrestoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName);
+    Optional<TrinoPrincipal> getSchemaOwner(Session session, CatalogSchemaName schemaName);
 
     /**
      * Creates the specified view with the specified view definition.
@@ -368,7 +368,7 @@ public interface Metadata
     /**
      * Set the authorization (owner) of specified view's user/role
      */
-    void setViewAuthorization(Session session, CatalogSchemaTableName view, PrestoPrincipal principal);
+    void setViewAuthorization(Session session, CatalogSchemaTableName view, TrinoPrincipal principal);
 
     /**
      * Drops the specified view.
@@ -416,7 +416,7 @@ public interface Metadata
      *
      * @param grantor represents the principal specified by WITH ADMIN statement
      */
-    void createRole(Session session, String role, Optional<PrestoPrincipal> grantor, String catalog);
+    void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, String catalog);
 
     /**
      * Drops the specified role in the specified catalog.
@@ -437,26 +437,26 @@ public interface Metadata
     /**
      * List roles grants in the specified catalog for a given principal, not recursively.
      */
-    Set<RoleGrant> listRoleGrants(Session session, String catalog, PrestoPrincipal principal);
+    Set<RoleGrant> listRoleGrants(Session session, String catalog, TrinoPrincipal principal);
 
     /**
      * Grants the specified roles to the specified grantees in the specified catalog
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void grantRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog);
+    void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog);
 
     /**
      * Revokes the specified roles from the specified grantees in the specified catalog
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    void revokeRoles(Session session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor, String catalog);
+    void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, String catalog);
 
     /**
      * List applicable roles, including the transitive grants, for the specified principal
      */
-    Set<RoleGrant> listApplicableRoles(Session session, PrestoPrincipal principal, String catalog);
+    Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, String catalog);
 
     /**
      * List applicable roles, including the transitive grants, in given session
@@ -466,22 +466,22 @@ public interface Metadata
     /**
      * Grants the specified privilege to the specified user on the specified schema.
      */
-    void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
+    void grantSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
 
     /**
      * Revokes the specified privilege on the specified schema from the specified user.
      */
-    void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
+    void revokeSchemaPrivileges(Session session, CatalogSchemaName schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
 
     /**
      * Grants the specified privilege to the specified user on the specified table
      */
-    void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
+    void grantTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
 
     /**
      * Revokes the specified privilege on the specified table from the specified user
      */
-    void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption);
+    void revokeTablePrivileges(Session session, QualifiedObjectName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption);
 
     /**
      * Gets the privileges for the specified table available to the given grantee considering the selected session role

@@ -21,8 +21,8 @@ import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaName;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.tree.CreateSchema;
 import io.trino.sql.tree.Expression;
 import io.trino.transaction.TransactionManager;
@@ -92,7 +92,7 @@ public class CreateSchemaTask
                 accessControl,
                 parameterExtractor(statement, parameters));
 
-        PrestoPrincipal principal = getCreatePrincipal(statement, session, metadata);
+        TrinoPrincipal principal = getCreatePrincipal(statement, session, metadata);
         try {
             metadata.createSchema(session, schema, properties, principal);
         }
@@ -106,10 +106,10 @@ public class CreateSchemaTask
         return immediateFuture(null);
     }
 
-    private PrestoPrincipal getCreatePrincipal(CreateSchema statement, Session session, Metadata metadata)
+    private TrinoPrincipal getCreatePrincipal(CreateSchema statement, Session session, Metadata metadata)
     {
         if (statement.getPrincipal().isPresent()) {
-            PrestoPrincipal principal = createPrincipal(statement.getPrincipal().get());
+            TrinoPrincipal principal = createPrincipal(statement.getPrincipal().get());
             String catalog = getSessionCatalog(metadata, session, statement);
             if (principal.getType() == PrincipalType.ROLE
                     && !metadata.listRoles(session, catalog).contains(principal.getName())) {
@@ -118,7 +118,7 @@ public class CreateSchemaTask
             return principal;
         }
         else {
-            return new PrestoPrincipal(PrincipalType.USER, session.getUser());
+            return new TrinoPrincipal(PrincipalType.USER, session.getUser());
         }
     }
 }

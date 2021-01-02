@@ -13,8 +13,8 @@
  */
 package io.trino.connector;
 
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,7 +30,7 @@ public class MutableGrants<T>
     private final Map<Grant, Boolean> grants = new HashMap<>();
 
     @Override
-    public void grant(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
+    public void grant(TrinoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
     {
         privileges.forEach(privilege -> {
             Grant grant = new Grant(principal, objectName, privilege);
@@ -39,7 +39,7 @@ public class MutableGrants<T>
     }
 
     @Override
-    public void revoke(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
+    public void revoke(TrinoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption)
     {
         privileges.forEach(privilege -> grants.remove(new Grant(principal, objectName, privilege)));
     }
@@ -47,22 +47,22 @@ public class MutableGrants<T>
     @Override
     public boolean isAllowed(String user, T objectName, Privilege privilege)
     {
-        return grants.containsKey(new Grant(new PrestoPrincipal(USER, user), objectName, privilege));
+        return grants.containsKey(new Grant(new TrinoPrincipal(USER, user), objectName, privilege));
     }
 
     @Override
     public boolean canGrant(String user, T objectName, Privilege privilege)
     {
-        return grants.getOrDefault(new Grant(new PrestoPrincipal(USER, user), objectName, privilege), false);
+        return grants.getOrDefault(new Grant(new TrinoPrincipal(USER, user), objectName, privilege), false);
     }
 
     class Grant
     {
-        private final PrestoPrincipal principal;
+        private final TrinoPrincipal principal;
         private final T objectName;
         private final Privilege privilege;
 
-        Grant(PrestoPrincipal principal, T objectName, Privilege privilege)
+        Grant(TrinoPrincipal principal, T objectName, Privilege privilege)
         {
             this.principal = requireNonNull(principal, "principal is null");
             this.objectName = requireNonNull(objectName, "objectName is null");

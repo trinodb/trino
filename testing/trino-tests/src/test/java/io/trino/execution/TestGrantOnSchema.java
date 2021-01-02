@@ -21,8 +21,8 @@ import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MutableGrants;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DataProviders;
 import io.trino.testing.DistributedQueryRunner;
@@ -61,7 +61,7 @@ public class TestGrantOnSchema
         queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
         queryRunner.createCatalog("local", "mock");
         assertions = new QueryAssertions(queryRunner);
-        schemaGrants.grant(new PrestoPrincipal(USER, admin.getUser()), "default", EnumSet.allOf(Privilege.class), true);
+        schemaGrants.grant(new TrinoPrincipal(USER, admin.getUser()), "default", EnumSet.allOf(Privilege.class), true);
     }
 
     @AfterClass(alwaysRun = true)
@@ -76,7 +76,7 @@ public class TestGrantOnSchema
     {
         String username = randomUsername();
         Session user = sessionOf(username);
-        schemaGrants.grant(new PrestoPrincipal(USER, user.getUser()), "default", EnumSet.allOf(Privilege.class), grantOption);
+        schemaGrants.grant(new TrinoPrincipal(USER, user.getUser()), "default", EnumSet.allOf(Privilege.class), grantOption);
 
         assertThat(assertions.query(admin, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
         assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");

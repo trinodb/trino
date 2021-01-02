@@ -21,9 +21,9 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -55,7 +55,7 @@ public class TestFileBasedAccessControl
         accessControl.checkCanCreateSchema(UNKNOWN, "unknown");
         accessControl.checkCanDropSchema(UNKNOWN, "unknown");
         accessControl.checkCanRenameSchema(UNKNOWN, "unknown", "new_unknown");
-        accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetSchemaAuthorization(UNKNOWN, "unknown", new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
         accessControl.checkCanShowCreateSchema(UNKNOWN, "unknown");
 
         accessControl.checkCanSelectFromColumns(UNKNOWN, new SchemaTableName("unknown", "unknown"), ImmutableSet.of());
@@ -78,7 +78,7 @@ public class TestFileBasedAccessControl
         assertEquals(accessControl.filterTables(UNKNOWN, tables), tables);
 
         // permissions management APIs are hard coded to deny
-        PrestoPrincipal someUser = new PrestoPrincipal(PrincipalType.USER, "some_user");
+        TrinoPrincipal someUser = new TrinoPrincipal(PrincipalType.USER, "some_user");
         assertDenied(() -> accessControl.checkCanGrantTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
         assertDenied(() -> accessControl.checkCanRevokeTablePrivilege(ADMIN, Privilege.SELECT, new SchemaTableName("any", "any"), someUser, false));
         assertDenied(() -> accessControl.checkCanCreateRole(ADMIN, "role", Optional.empty()));
@@ -157,12 +157,12 @@ public class TestFileBasedAccessControl
         accessControl.checkCanRenameSchema(CHARLIE, "authenticated", "authenticated");
         assertDenied(() -> accessControl.checkCanRenameSchema(CHARLIE, "test", "new_schema"));
 
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new PrestoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new PrestoPrincipal(PrincipalType.USER, "some_user"));
-        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
-        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new PrestoPrincipal(PrincipalType.USER, "some_user")));
+        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetSchemaAuthorization(ADMIN, "test", new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetSchemaAuthorization(BOB, "bob", new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetSchemaAuthorization(BOB, "test", new TrinoPrincipal(PrincipalType.USER, "some_user")));
 
         accessControl.checkCanShowCreateSchema(ADMIN, "bob");
         accessControl.checkCanShowCreateSchema(ADMIN, "staff");
@@ -184,7 +184,7 @@ public class TestFileBasedAccessControl
     public void testGrantSchemaPrivilege(Privilege privilege, boolean grantOption)
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
-        PrestoPrincipal grantee = new PrestoPrincipal(PrincipalType.USER, "alice");
+        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.USER, "alice");
 
         accessControl.checkCanGrantSchemaPrivilege(ADMIN, privilege, "bob", grantee, grantOption);
         accessControl.checkCanGrantSchemaPrivilege(ADMIN, privilege, "staff", grantee, grantOption);
@@ -206,7 +206,7 @@ public class TestFileBasedAccessControl
     public void testRevokeSchemaPrivilege(Privilege privilege, boolean grantOption)
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
-        PrestoPrincipal grantee = new PrestoPrincipal(PrincipalType.USER, "alice");
+        TrinoPrincipal grantee = new TrinoPrincipal(PrincipalType.USER, "alice");
 
         accessControl.checkCanRevokeSchemaPrivilege(ADMIN, privilege, "bob", grantee, grantOption);
         accessControl.checkCanRevokeSchemaPrivilege(ADMIN, privilege, "staff", grantee, grantOption);
@@ -292,19 +292,19 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanRenameView(BOB, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(ALICE, aliceTable, new SchemaTableName("bobschema", "newalicetable")));
 
-        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
-        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
-        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.USER, "some_user")));
+        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetTableAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetTableAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetTableAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
 
-        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
-        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role"));
-        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new PrestoPrincipal(PrincipalType.USER, "some_user"));
-        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.ROLE, "some_role")));
-        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new PrestoPrincipal(PrincipalType.USER, "some_user")));
+        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetViewAuthorization(ADMIN, testTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role"));
+        accessControl.checkCanSetViewAuthorization(ALICE, aliceTable, new TrinoPrincipal(PrincipalType.USER, "some_user"));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.ROLE, "some_role")));
+        assertDenied(() -> accessControl.checkCanSetViewAuthorization(ALICE, bobTable, new TrinoPrincipal(PrincipalType.USER, "some_user")));
     }
 
     @Test

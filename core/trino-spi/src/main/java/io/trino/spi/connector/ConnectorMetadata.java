@@ -20,9 +20,9 @@ import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.statistics.TableStatisticsMetadata;
@@ -234,7 +234,7 @@ public interface ConnectorMetadata
     /**
      * Creates a schema.
      */
-    default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
+    default void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
@@ -260,7 +260,7 @@ public interface ConnectorMetadata
     /**
      * Sets the user/role on the specified schema.
      */
-    default void setSchemaAuthorization(ConnectorSession session, String source, PrestoPrincipal principal)
+    default void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a schema");
     }
@@ -320,7 +320,7 @@ public interface ConnectorMetadata
     /**
      * Sets the user/role on the specified table.
      */
-    default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, PrestoPrincipal principal)
+    default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a table");
     }
@@ -529,7 +529,7 @@ public interface ConnectorMetadata
     /**
      * Sets the user/role on the specified view.
      */
-    default void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, PrestoPrincipal principal)
+    default void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting an owner on a view");
     }
@@ -580,7 +580,7 @@ public interface ConnectorMetadata
     /**
      * Get the schema properties for the specified schema.
      */
-    default Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    default Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support schema ownership");
     }
@@ -635,7 +635,7 @@ public interface ConnectorMetadata
      *
      * @param grantor represents the principal specified by WITH ADMIN statement
      */
-    default void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
+    default void createRole(ConnectorSession session, String role, Optional<TrinoPrincipal> grantor)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support create role");
     }
@@ -659,7 +659,7 @@ public interface ConnectorMetadata
     /**
      * List role grants for a given principal, not recursively.
      */
-    default Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
+    default Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -678,7 +678,7 @@ public interface ConnectorMetadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    default void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
+    default void grantRoles(ConnectorSession connectorSession, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -688,7 +688,7 @@ public interface ConnectorMetadata
      *
      * @param grantor represents the principal specified by GRANTED BY statement
      */
-    default void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
+    default void revokeRoles(ConnectorSession connectorSession, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -696,7 +696,7 @@ public interface ConnectorMetadata
     /**
      * List applicable roles, including the transitive grants, for the specified principal
      */
-    default Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
+    default Set<RoleGrant> listApplicableRoles(ConnectorSession session, TrinoPrincipal principal)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support roles");
     }
@@ -712,7 +712,7 @@ public interface ConnectorMetadata
     /**
      * Grants the specified privilege to the specified user on the specified schema
      */
-    default void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    default void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
     }
@@ -720,7 +720,7 @@ public interface ConnectorMetadata
     /**
      * Revokes the specified privilege on the specified schema from the specified user
      */
-    default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    default void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
     }
@@ -728,7 +728,7 @@ public interface ConnectorMetadata
     /**
      * Grants the specified privilege to the specified user on the specified table
      */
-    default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    default void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support grants on tables");
     }
@@ -736,7 +736,7 @@ public interface ConnectorMetadata
     /**
      * Revokes the specified privilege on the specified table from the specified user
      */
-    default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    default void revokeTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support revokes on tables");
     }

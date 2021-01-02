@@ -239,9 +239,9 @@ public class SqlStandardAccessControlMetadata
             for (PrivilegeInfo prestoPrivilege : prestoPrivileges) {
                 GrantInfo grant = new GrantInfo(
                         prestoPrivilege,
-                        hivePrivilege.getGrantee().toPrestoPrincipal(),
+                        hivePrivilege.getGrantee().toTrinoPrincipal(),
                         tableName,
-                        Optional.of(hivePrivilege.getGrantor().toPrestoPrincipal()),
+                        Optional.of(hivePrivilege.getGrantor().toTrinoPrincipal()),
                         Optional.empty());
                 result.add(grant);
             }

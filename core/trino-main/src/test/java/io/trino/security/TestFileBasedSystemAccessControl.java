@@ -22,7 +22,7 @@ import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.Identity;
-import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.Test;
 
@@ -495,8 +495,8 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceTable, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, aliceView, ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(aliceContext, "alice-catalog", "property");
-                    accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true);
-                    accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true);
+                    accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, aliceTable, new TrinoPrincipal(USER, "grantee"), true);
+                    accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, aliceTable, new TrinoPrincipal(USER, "revokee"), true);
 
                     accessControlManager.checkCanCreateView(aliceContext, staffView);
                     accessControlManager.checkCanDropView(aliceContext, staffView);
@@ -504,8 +504,8 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffTable, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(aliceContext, staffView, ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(aliceContext, "alice-catalog", "property");
-                    accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, staffTable, new PrestoPrincipal(USER, "grantee"), true);
-                    accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, staffTable, new PrestoPrincipal(USER, "revokee"), true);
+                    accessControlManager.checkCanGrantTablePrivilege(aliceContext, SELECT, staffTable, new TrinoPrincipal(USER, "grantee"), true);
+                    accessControlManager.checkCanRevokeTablePrivilege(aliceContext, SELECT, staffTable, new TrinoPrincipal(USER, "revokee"), true);
 
                     assertThatThrownBy(() -> accessControlManager.checkCanCreateView(bobContext, aliceView))
                             .isInstanceOf(AccessDeniedException.class)
@@ -525,10 +525,10 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanSetCatalogSessionProperty(bobContext, "alice-catalog", "property"))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanGrantTablePrivilege(bobContext, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true))
+                    assertThatThrownBy(() -> accessControlManager.checkCanGrantTablePrivilege(bobContext, SELECT, aliceTable, new TrinoPrincipal(USER, "grantee"), true))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanRevokeTablePrivilege(bobContext, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true))
+                    assertThatThrownBy(() -> accessControlManager.checkCanRevokeTablePrivilege(bobContext, SELECT, aliceTable, new TrinoPrincipal(USER, "revokee"), true))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
 
@@ -538,8 +538,8 @@ public class TestFileBasedSystemAccessControl
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffTable, ImmutableSet.of());
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(bobContext, staffView, ImmutableSet.of());
                     accessControlManager.checkCanSetCatalogSessionProperty(bobContext, "staff-catalog", "property");
-                    accessControlManager.checkCanGrantTablePrivilege(bobContext, SELECT, staffTable, new PrestoPrincipal(USER, "grantee"), true);
-                    accessControlManager.checkCanRevokeTablePrivilege(bobContext, SELECT, staffTable, new PrestoPrincipal(USER, "revokee"), true);
+                    accessControlManager.checkCanGrantTablePrivilege(bobContext, SELECT, staffTable, new TrinoPrincipal(USER, "grantee"), true);
+                    accessControlManager.checkCanRevokeTablePrivilege(bobContext, SELECT, staffTable, new TrinoPrincipal(USER, "revokee"), true);
 
                     assertThatThrownBy(() -> accessControlManager.checkCanCreateView(nonAsciiContext, aliceView))
                             .isInstanceOf(AccessDeniedException.class)
@@ -559,10 +559,10 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanSetCatalogSessionProperty(nonAsciiContext, "alice-catalog", "property"))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanGrantTablePrivilege(nonAsciiContext, SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true))
+                    assertThatThrownBy(() -> accessControlManager.checkCanGrantTablePrivilege(nonAsciiContext, SELECT, aliceTable, new TrinoPrincipal(USER, "grantee"), true))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanRevokeTablePrivilege(nonAsciiContext, SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true))
+                    assertThatThrownBy(() -> accessControlManager.checkCanRevokeTablePrivilege(nonAsciiContext, SELECT, aliceTable, new TrinoPrincipal(USER, "revokee"), true))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog alice-catalog");
 
@@ -584,10 +584,10 @@ public class TestFileBasedSystemAccessControl
                     assertThatThrownBy(() -> accessControlManager.checkCanSetCatalogSessionProperty(nonAsciiContext, "staff-catalog", "property"))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanGrantTablePrivilege(nonAsciiContext, SELECT, staffTable, new PrestoPrincipal(USER, "grantee"), true))
+                    assertThatThrownBy(() -> accessControlManager.checkCanGrantTablePrivilege(nonAsciiContext, SELECT, staffTable, new TrinoPrincipal(USER, "grantee"), true))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
-                    assertThatThrownBy(() -> accessControlManager.checkCanRevokeTablePrivilege(nonAsciiContext, SELECT, staffTable, new PrestoPrincipal(USER, "revokee"), true))
+                    assertThatThrownBy(() -> accessControlManager.checkCanRevokeTablePrivilege(nonAsciiContext, SELECT, staffTable, new TrinoPrincipal(USER, "revokee"), true))
                             .isInstanceOf(AccessDeniedException.class)
                             .hasMessage("Access Denied: Cannot access catalog staff-catalog");
                 });
@@ -617,12 +617,12 @@ public class TestFileBasedSystemAccessControl
                 .hasMessage("Access Denied: Cannot drop view alice-catalog.schema.view");
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanGrantTablePrivilege(new SecurityContext(transactionId, alice, queryId), SELECT, aliceTable, new PrestoPrincipal(USER, "grantee"), true);
+            accessControlManager.checkCanGrantTablePrivilege(new SecurityContext(transactionId, alice, queryId), SELECT, aliceTable, new TrinoPrincipal(USER, "grantee"), true);
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot grant privilege SELECT on table alice-catalog.schema.table");
 
         assertThatThrownBy(() -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
-            accessControlManager.checkCanRevokeTablePrivilege(new SecurityContext(transactionId, alice, queryId), SELECT, aliceTable, new PrestoPrincipal(USER, "revokee"), true);
+            accessControlManager.checkCanRevokeTablePrivilege(new SecurityContext(transactionId, alice, queryId), SELECT, aliceTable, new TrinoPrincipal(USER, "revokee"), true);
         })).isInstanceOf(AccessDeniedException.class)
                 .hasMessage("Access Denied: Cannot revoke privilege SELECT on table alice-catalog.schema.table");
 

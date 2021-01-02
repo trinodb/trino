@@ -13,16 +13,16 @@
  */
 package io.trino.connector;
 
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
+import io.trino.spi.security.TrinoPrincipal;
 
 import java.util.Set;
 
 public interface Grants<T>
 {
-    void grant(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption);
+    void grant(TrinoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption);
 
-    void revoke(PrestoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption);
+    void revoke(TrinoPrincipal principal, T objectName, Set<Privilege> privileges, boolean grantOption);
 
     boolean isAllowed(String user, T objectName, Privilege privilege);
 

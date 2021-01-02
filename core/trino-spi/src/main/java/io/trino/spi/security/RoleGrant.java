@@ -23,12 +23,12 @@ import static java.util.Objects.requireNonNull;
 
 public class RoleGrant
 {
-    private final PrestoPrincipal grantee;
+    private final TrinoPrincipal grantee;
     private final String roleName;
     private final boolean grantable;
 
     @JsonCreator
-    public RoleGrant(@JsonProperty("grantee") PrestoPrincipal grantee, @JsonProperty("roleName") String roleName, @JsonProperty("grantable") boolean grantable)
+    public RoleGrant(@JsonProperty("grantee") TrinoPrincipal grantee, @JsonProperty("roleName") String roleName, @JsonProperty("grantable") boolean grantable)
     {
         this.grantee = requireNonNull(grantee, "grantee is null");
         this.roleName = requireNonNull(roleName, "roleName is null").toLowerCase(ENGLISH);
@@ -42,7 +42,7 @@ public class RoleGrant
     }
 
     @JsonProperty
-    public PrestoPrincipal getGrantee()
+    public TrinoPrincipal getGrantee()
     {
         return grantee;
     }

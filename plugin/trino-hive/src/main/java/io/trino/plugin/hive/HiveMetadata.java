@@ -87,9 +87,9 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
-import io.trino.spi.security.PrestoPrincipal;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -791,7 +791,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
@@ -831,7 +831,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void setSchemaAuthorization(ConnectorSession session, String source, PrestoPrincipal principal)
+    public void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal)
     {
         metastore.setDatabaseOwner(new HiveIdentity(session), source, HivePrincipal.from(principal));
     }
@@ -1173,7 +1173,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void setTableAuthorization(ConnectorSession session, SchemaTableName table, PrestoPrincipal principal)
+    public void setTableAuthorization(ConnectorSession session, SchemaTableName table, TrinoPrincipal principal)
     {
         metastore.setTableOwner(new HiveIdentity(session), table.getSchemaName(), table.getTableName(), HivePrincipal.from(principal));
     }
@@ -1852,7 +1852,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, PrestoPrincipal principal)
+    public void setViewAuthorization(ConnectorSession session, SchemaTableName viewName, TrinoPrincipal principal)
     {
         setTableAuthorization(session, viewName, principal);
     }
@@ -1898,13 +1898,13 @@ public class HiveMetadata
     }
 
     @Override
-    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
         checkState(filterSchema(schemaName.getSchemaName()), "Schema is not accessible: %s", schemaName);
 
         Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
         if (database.isPresent()) {
-            return database.flatMap(db -> Optional.of(new PrestoPrincipal(db.getOwnerType(), db.getOwnerName())));
+            return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
         }
 
         throw new SchemaNotFoundException(schemaName.getSchemaName());
@@ -2532,7 +2532,7 @@ public class HiveMetadata
     }
 
     @Override
-    public void createRole(ConnectorSession session, String role, Optional<PrestoPrincipal> grantor)
+    public void createRole(ConnectorSession session, String role, Optional<TrinoPrincipal> grantor)
     {
         accessControlMetadata.createRole(session, role, grantor.map(HivePrincipal::from));
     }
@@ -2556,25 +2556,25 @@ public class HiveMetadata
     }
 
     @Override
-    public Set<RoleGrant> listRoleGrants(ConnectorSession session, PrestoPrincipal principal)
+    public Set<RoleGrant> listRoleGrants(ConnectorSession session, TrinoPrincipal principal)
     {
         return ImmutableSet.copyOf(accessControlMetadata.listRoleGrants(session, HivePrincipal.from(principal)));
     }
 
     @Override
-    public void grantRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
+    public void grantRoles(ConnectorSession session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
     {
         accessControlMetadata.grantRoles(session, roles, HivePrincipal.from(grantees), adminOption, grantor.map(HivePrincipal::from));
     }
 
     @Override
-    public void revokeRoles(ConnectorSession session, Set<String> roles, Set<PrestoPrincipal> grantees, boolean adminOption, Optional<PrestoPrincipal> grantor)
+    public void revokeRoles(ConnectorSession session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor)
     {
         accessControlMetadata.revokeRoles(session, roles, HivePrincipal.from(grantees), adminOption, grantor.map(HivePrincipal::from));
     }
 
     @Override
-    public Set<RoleGrant> listApplicableRoles(ConnectorSession session, PrestoPrincipal principal)
+    public Set<RoleGrant> listApplicableRoles(ConnectorSession session, TrinoPrincipal principal)
     {
         return accessControlMetadata.listApplicableRoles(session, HivePrincipal.from(principal));
     }
@@ -2586,13 +2586,13 @@ public class HiveMetadata
     }
 
     @Override
-    public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         accessControlMetadata.grantTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
     }
 
     @Override
-    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    public void revokeTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
         accessControlMetadata.revokeTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
     }

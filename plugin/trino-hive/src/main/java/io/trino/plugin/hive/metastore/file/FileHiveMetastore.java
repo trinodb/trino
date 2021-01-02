@@ -857,8 +857,8 @@ public class FileHiveMetastore
                     checkArgument(existingRoles.contains(grantee.getName()), "Role does not exist: %s", grantee.getName());
                 }
 
-                RoleGrant grantWithAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, true);
-                RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, false);
+                RoleGrant grantWithAdminOption = new RoleGrant(grantee.toTrinoPrincipal(), role, true);
+                RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toTrinoPrincipal(), role, false);
 
                 if (adminOption) {
                     modifiedGrants.remove(grantWithoutAdminOption);
@@ -883,8 +883,8 @@ public class FileHiveMetastore
         Set<RoleGrant> modifiedGrants = new HashSet<>(existingGrants);
         for (HivePrincipal grantee : grantees) {
             for (String role : roles) {
-                RoleGrant grantWithAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, true);
-                RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toPrestoPrincipal(), role, false);
+                RoleGrant grantWithAdminOption = new RoleGrant(grantee.toTrinoPrincipal(), role, true);
+                RoleGrant grantWithoutAdminOption = new RoleGrant(grantee.toTrinoPrincipal(), role, false);
 
                 if (modifiedGrants.contains(grantWithAdminOption) || modifiedGrants.contains(grantWithoutAdminOption)) {
                     if (adminOption) {
@@ -917,9 +917,9 @@ public class FileHiveMetastore
     {
         ImmutableSet.Builder<RoleGrant> result = ImmutableSet.builder();
         if (principal.getType() == USER) {
-            result.add(new RoleGrant(principal.toPrestoPrincipal(), PUBLIC_ROLE_NAME, false));
+            result.add(new RoleGrant(principal.toTrinoPrincipal(), PUBLIC_ROLE_NAME, false));
             if (ADMIN_USERS.contains(principal.getName())) {
-                result.add(new RoleGrant(principal.toPrestoPrincipal(), ADMIN_ROLE_NAME, true));
+                result.add(new RoleGrant(principal.toTrinoPrincipal(), ADMIN_ROLE_NAME, true));
             }
         }
         result.addAll(listRoleGrantsSanitized().stream()

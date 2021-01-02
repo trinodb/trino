@@ -58,7 +58,7 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.security.PrestoPrincipal;
+import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TypeManager;
@@ -191,11 +191,11 @@ public class IcebergMetadata
     }
 
     @Override
-    public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
+    public Optional<TrinoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
         Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
         if (database.isPresent()) {
-            return database.flatMap(db -> Optional.of(new PrestoPrincipal(db.getOwnerType(), db.getOwnerName())));
+            return database.flatMap(db -> Optional.of(new TrinoPrincipal(db.getOwnerType(), db.getOwnerName())));
         }
 
         throw new SchemaNotFoundException(schemaName.getSchemaName());
@@ -342,7 +342,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
+    public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner)
     {
         Optional<String> location = getSchemaLocation(properties).map(uri -> {
             try {
@@ -382,7 +382,7 @@ public class IcebergMetadata
     }
 
     @Override
-    public void setSchemaAuthorization(ConnectorSession session, String source, PrestoPrincipal principal)
+    public void setSchemaAuthorization(ConnectorSession session, String source, TrinoPrincipal principal)
     {
         metastore.setDatabaseOwner(new HiveIdentity(session), source, HivePrincipal.from(principal));
     }
