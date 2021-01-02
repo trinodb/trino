@@ -50,15 +50,13 @@ public class TestKafkaAvroReadsSmokeTest
         extends ProductTest
 {
     private static final String KAFKA_CATALOG = "kafka";
+    private static final String KAFKA_SCHEMA = "product_tests";
 
-    private static final String ALL_DATATYPES_AVRO_TABLE_NAME = "product_tests.read_all_datatypes_avro";
     private static final String ALL_DATATYPES_AVRO_TOPIC_NAME = "read_all_datatypes_avro";
     private static final String ALL_DATATYPE_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes_avro_schema.avsc";
 
-    private static final String ALL_NULL_AVRO_TABLE_NAME = "product_tests.read_all_null_avro";
     private static final String ALL_NULL_AVRO_TOPIC_NAME = "read_all_null_avro";
 
-    private static final String STRUCTURAL_AVRO_TABLE_NAME = "product_tests.read_structural_datatype_avro";
     private static final String STRUCTURAL_AVRO_TOPIC_NAME = "read_structural_datatype_avro";
     private static final String STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
 
@@ -109,8 +107,9 @@ public class TestKafkaAvroReadsSmokeTest
                 "a_bigint", 127L,
                 "a_double", 234.567,
                 "a_boolean", true);
-        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_DATATYPES_AVRO_TABLE_NAME, ALL_DATATYPES_AVRO_TOPIC_NAME, record);
-        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_DATATYPES_AVRO_TABLE_NAME));
+        String tableName = KAFKA_SCHEMA + "." + ALL_DATATYPES_AVRO_TOPIC_NAME;
+        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, tableName, ALL_DATATYPES_AVRO_TOPIC_NAME, record);
+        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, tableName));
         assertThat(queryResult).containsOnly(row(
                 "foobar",
                 127,
@@ -121,8 +120,9 @@ public class TestKafkaAvroReadsSmokeTest
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     public void testNullType()
     {
-        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TABLE_NAME, ALL_NULL_AVRO_TOPIC_NAME, ImmutableMap.of());
-        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, ALL_NULL_AVRO_TABLE_NAME));
+        String tableName = KAFKA_SCHEMA + "." + ALL_NULL_AVRO_TOPIC_NAME;
+        createAvroTable(ALL_DATATYPE_SCHEMA_PATH, tableName, ALL_NULL_AVRO_TOPIC_NAME, ImmutableMap.of());
+        QueryResult queryResult = query(format("select * from %s.%s", KAFKA_CATALOG, tableName));
         assertThat(queryResult).containsOnly(row(
                 null,
                 null,
@@ -136,8 +136,9 @@ public class TestKafkaAvroReadsSmokeTest
         ImmutableMap<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 102L),
                 "a_map", ImmutableMap.of("key1", "value1"));
-        createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TABLE_NAME, STRUCTURAL_AVRO_TOPIC_NAME, record);
-        QueryResult queryResult = query(format("SELECT a[1], a[2], m['key1'] FROM (SELECT c_array as a, c_map as m FROM %s.%s) t", KAFKA_CATALOG, STRUCTURAL_AVRO_TABLE_NAME));
+        String tableName = KAFKA_SCHEMA + "." + STRUCTURAL_AVRO_TOPIC_NAME;
+        createAvroTable(STRUCTURAL_SCHEMA_PATH, tableName, STRUCTURAL_AVRO_TOPIC_NAME, record);
+        QueryResult queryResult = query(format("SELECT a[1], a[2], m['key1'] FROM (SELECT c_array as a, c_map as m FROM %s.%s) t", KAFKA_CATALOG, tableName));
         assertThat(queryResult).containsOnly(row(100, 102, "value1"));
     }
 }
