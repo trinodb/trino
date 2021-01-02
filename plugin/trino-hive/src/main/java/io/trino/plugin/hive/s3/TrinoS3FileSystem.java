@@ -157,57 +157,56 @@ import static org.apache.hadoop.fs.FSExceptionMessages.CANNOT_SEEK_PAST_EOF;
 import static org.apache.hadoop.fs.FSExceptionMessages.NEGATIVE_SEEK;
 import static org.apache.hadoop.fs.FSExceptionMessages.STREAM_IS_CLOSED;
 
-public class PrestoS3FileSystem
+public class TrinoS3FileSystem
         extends FileSystem
 {
-    public static final String S3_USER_AGENT_SUFFIX = "presto";
-    public static final String S3_USER_AGENT_PREFIX = "presto.s3.user-agent-prefix";
-    public static final String S3_CREDENTIALS_PROVIDER = "presto.s3.credentials-provider";
-    public static final String S3_SSE_TYPE = "presto.s3.sse.type";
-    public static final String S3_SSE_ENABLED = "presto.s3.sse.enabled";
-    public static final String S3_SSE_KMS_KEY_ID = "presto.s3.sse.kms-key-id";
-    public static final String S3_KMS_KEY_ID = "presto.s3.kms-key-id";
-    public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "presto.s3.encryption-materials-provider";
-    public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "presto.s3.pin-client-to-current-region";
-    public static final String S3_MULTIPART_MIN_PART_SIZE = "presto.s3.multipart.min-part-size";
-    public static final String S3_MULTIPART_MIN_FILE_SIZE = "presto.s3.multipart.min-file-size";
-    public static final String S3_STAGING_DIRECTORY = "presto.s3.staging-directory";
-    public static final String S3_MAX_CONNECTIONS = "presto.s3.max-connections";
-    public static final String S3_SOCKET_TIMEOUT = "presto.s3.socket-timeout";
-    public static final String S3_CONNECT_TIMEOUT = "presto.s3.connect-timeout";
-    public static final String S3_MAX_RETRY_TIME = "presto.s3.max-retry-time";
-    public static final String S3_MAX_BACKOFF_TIME = "presto.s3.max-backoff-time";
-    public static final String S3_MAX_CLIENT_RETRIES = "presto.s3.max-client-retries";
-    public static final String S3_MAX_ERROR_RETRIES = "presto.s3.max-error-retries";
-    public static final String S3_SSL_ENABLED = "presto.s3.ssl.enabled";
-    public static final String S3_PATH_STYLE_ACCESS = "presto.s3.path-style-access";
-    public static final String S3_SIGNER_TYPE = "presto.s3.signer-type";
-    public static final String S3_SIGNER_CLASS = "presto.s3.signer-class";
-    public static final String S3_ENDPOINT = "presto.s3.endpoint";
-    public static final String S3_SECRET_KEY = "presto.s3.secret-key";
-    public static final String S3_ACCESS_KEY = "presto.s3.access-key";
-    public static final String S3_SESSION_TOKEN = "presto.s3.session-token";
-    public static final String S3_IAM_ROLE = "presto.s3.iam-role";
-    public static final String S3_EXTERNAL_ID = "presto.s3.external-id";
-    public static final String S3_ACL_TYPE = "presto.s3.upload-acl-type";
-    public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
-    public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
-    public static final String S3_STREAMING_UPLOAD_ENABLED = "presto.s3.streaming.enabled";
-    public static final String S3_STREAMING_UPLOAD_PART_SIZE = "presto.s3.streaming.part-size";
-    public static final String S3_STORAGE_CLASS = "presto.s3.storage-class";
+    public static final String S3_USER_AGENT_PREFIX = "trino.s3.user-agent-prefix";
+    public static final String S3_CREDENTIALS_PROVIDER = "trino.s3.credentials-provider";
+    public static final String S3_SSE_TYPE = "trino.s3.sse.type";
+    public static final String S3_SSE_ENABLED = "trino.s3.sse.enabled";
+    public static final String S3_SSE_KMS_KEY_ID = "trino.s3.sse.kms-key-id";
+    public static final String S3_KMS_KEY_ID = "trino.s3.kms-key-id";
+    public static final String S3_ENCRYPTION_MATERIALS_PROVIDER = "trino.s3.encryption-materials-provider";
+    public static final String S3_PIN_CLIENT_TO_CURRENT_REGION = "trino.s3.pin-client-to-current-region";
+    public static final String S3_MULTIPART_MIN_PART_SIZE = "trino.s3.multipart.min-part-size";
+    public static final String S3_MULTIPART_MIN_FILE_SIZE = "trino.s3.multipart.min-file-size";
+    public static final String S3_STAGING_DIRECTORY = "trino.s3.staging-directory";
+    public static final String S3_MAX_CONNECTIONS = "trino.s3.max-connections";
+    public static final String S3_SOCKET_TIMEOUT = "trino.s3.socket-timeout";
+    public static final String S3_CONNECT_TIMEOUT = "trino.s3.connect-timeout";
+    public static final String S3_MAX_RETRY_TIME = "trino.s3.max-retry-time";
+    public static final String S3_MAX_BACKOFF_TIME = "trino.s3.max-backoff-time";
+    public static final String S3_MAX_CLIENT_RETRIES = "trino.s3.max-client-retries";
+    public static final String S3_MAX_ERROR_RETRIES = "trino.s3.max-error-retries";
+    public static final String S3_SSL_ENABLED = "trino.s3.ssl.enabled";
+    public static final String S3_PATH_STYLE_ACCESS = "trino.s3.path-style-access";
+    public static final String S3_SIGNER_TYPE = "trino.s3.signer-type";
+    public static final String S3_SIGNER_CLASS = "trino.s3.signer-class";
+    public static final String S3_ENDPOINT = "trino.s3.endpoint";
+    public static final String S3_SECRET_KEY = "trino.s3.secret-key";
+    public static final String S3_ACCESS_KEY = "trino.s3.access-key";
+    public static final String S3_SESSION_TOKEN = "trino.s3.session-token";
+    public static final String S3_IAM_ROLE = "trino.s3.iam-role";
+    public static final String S3_EXTERNAL_ID = "trino.s3.external-id";
+    public static final String S3_ACL_TYPE = "trino.s3.upload-acl-type";
+    public static final String S3_SKIP_GLACIER_OBJECTS = "trino.s3.skip-glacier-objects";
+    public static final String S3_REQUESTER_PAYS_ENABLED = "trino.s3.requester-pays.enabled";
+    public static final String S3_STREAMING_UPLOAD_ENABLED = "trino.s3.streaming.enabled";
+    public static final String S3_STREAMING_UPLOAD_PART_SIZE = "trino.s3.streaming.part-size";
+    public static final String S3_STORAGE_CLASS = "trino.s3.storage-class";
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 
-    private static final Logger log = Logger.get(PrestoS3FileSystem.class);
-    private static final PrestoS3FileSystemStats STATS = new PrestoS3FileSystemStats();
-    private static final RequestMetricCollector METRIC_COLLECTOR = new PrestoS3FileSystemMetricCollector(STATS);
+    private static final Logger log = Logger.get(TrinoS3FileSystem.class);
+    private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
+    private static final RequestMetricCollector METRIC_COLLECTOR = new TrinoS3FileSystemMetricCollector(STATS);
     private static final String DIRECTORY_SUFFIX = "_$folder$";
     private static final DataSize BLOCK_SIZE = DataSize.of(32, MEGABYTE);
     private static final DataSize MAX_SKIP_SIZE = DataSize.of(1, MEGABYTE);
     private static final String PATH_SEPARATOR = "/";
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
-    private static final String S3_CUSTOM_SIGNER = "PrestoS3CustomSigner";
+    private static final String S3_CUSTOM_SIGNER = "TrinoS3CustomSigner";
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
 
     private URI uri;
@@ -222,17 +221,17 @@ public class PrestoS3FileSystem
     private String externalId;
     private boolean pinS3ClientToCurrentRegion;
     private boolean sseEnabled;
-    private PrestoS3SseType sseType;
+    private TrinoS3SseType sseType;
     private String sseKmsKeyId;
     private boolean isPathStyleAccess;
     private long multiPartUploadMinFileSize;
     private long multiPartUploadMinPartSize;
-    private PrestoS3AclType s3AclType;
+    private TrinoS3AclType s3AclType;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
     private boolean streamingUploadEnabled;
     private int streamingUploadPartSize;
-    private PrestoS3StorageClass s3StorageClass;
+    private TrinoS3StorageClass s3StorageClass;
 
     private final ExecutorService uploadExecutor = newCachedThreadPool(threadsNamed("s3-upload-%s"));
 
@@ -272,9 +271,9 @@ public class PrestoS3FileSystem
         verify(!pinS3ClientToCurrentRegion || conf.get(S3_ENDPOINT) == null,
                 "Invalid configuration: either endpoint can be set or S3 client can be pinned to the current region");
         this.sseEnabled = conf.getBoolean(S3_SSE_ENABLED, defaults.isS3SseEnabled());
-        this.sseType = PrestoS3SseType.valueOf(conf.get(S3_SSE_TYPE, defaults.getS3SseType().name()));
+        this.sseType = TrinoS3SseType.valueOf(conf.get(S3_SSE_TYPE, defaults.getS3SseType().name()));
         this.sseKmsKeyId = conf.get(S3_SSE_KMS_KEY_ID, defaults.getS3SseKmsKeyId());
-        this.s3AclType = PrestoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
+        this.s3AclType = TrinoS3AclType.valueOf(conf.get(S3_ACL_TYPE, defaults.getS3AclType().name()));
         String userAgentPrefix = conf.get(S3_USER_AGENT_PREFIX, defaults.getS3UserAgentPrefix());
         this.skipGlacierObjects = conf.getBoolean(S3_SKIP_GLACIER_OBJECTS, defaults.isSkipGlacierObjects());
         this.requesterPaysEnabled = conf.getBoolean(S3_REQUESTER_PAYS_ENABLED, defaults.isRequesterPaysEnabled());
@@ -289,7 +288,7 @@ public class PrestoS3FileSystem
                 .withSocketTimeout(toIntExact(socketTimeout.toMillis()))
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
-                .withUserAgentSuffix(S3_USER_AGENT_SUFFIX);
+                .withUserAgentSuffix("Trino");
 
         this.credentialsProvider = createAwsCredentialsProvider(uri, conf);
         this.s3 = createAmazonS3Client(conf, configuration);
@@ -450,7 +449,7 @@ public class PrestoS3FileSystem
     {
         return new FSDataInputStream(
                 new BufferedFSInputStream(
-                        new PrestoS3InputStream(s3, getBucketName(uri), path, requesterPaysEnabled, maxAttempts, maxBackoffTime, maxRetryTime),
+                        new TrinoS3InputStream(s3, getBucketName(uri), path, requesterPaysEnabled, maxAttempts, maxBackoffTime, maxRetryTime),
                         bufferSize));
     }
 
@@ -458,7 +457,7 @@ public class PrestoS3FileSystem
     public FSDataOutputStream create(Path path, FsPermission permission, boolean overwrite, int bufferSize, short replication, long blockSize, Progressable progress)
             throws IOException
     {
-        // Ignore the overwrite flag, since Presto always writes to unique file names.
+        // Ignore the overwrite flag, since Trino always writes to unique file names.
         // Checking for file existence is thus an unnecessary, expensive operation.
         return new FSDataOutputStream(createOutputStream(path), statistics);
     }
@@ -471,7 +470,7 @@ public class PrestoS3FileSystem
 
         if (streamingUploadEnabled) {
             Supplier<String> uploadIdFactory = () -> initMultipartUpload(bucketName, key).getUploadId();
-            return new PrestoS3StreamingOutputStream(s3, bucketName, key, this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize);
+            return new TrinoS3StreamingOutputStream(s3, bucketName, key, this::customizePutObjectRequest, uploadIdFactory, uploadExecutor, streamingUploadPartSize);
         }
 
         if (!stagingDirectory.exists()) {
@@ -480,8 +479,8 @@ public class PrestoS3FileSystem
         if (!stagingDirectory.isDirectory()) {
             throw new IOException("Configured staging path is not a directory: " + stagingDirectory);
         }
-        File tempFile = createTempFile(stagingDirectory.toPath(), "presto-s3-", ".tmp").toFile();
-        return new PrestoS3StagingOutputStream(s3, bucketName, key, tempFile, this::customizePutObjectRequest, multiPartUploadMinFileSize, multiPartUploadMinPartSize);
+        File tempFile = createTempFile(stagingDirectory.toPath(), "trino-s3-", ".tmp").toFile();
+        return new TrinoS3StagingOutputStream(s3, bucketName, key, tempFile, this::customizePutObjectRequest, multiPartUploadMinFileSize, multiPartUploadMinPartSize);
     }
 
     @Override
@@ -920,7 +919,7 @@ public class PrestoS3FileSystem
                 .orElseGet(DefaultAWSCredentialsProviderChain::getInstance);
 
         if (iamRole != null) {
-            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, "presto-session")
+            provider = new STSAssumeRoleSessionCredentialsProvider.Builder(iamRole, "trino-session")
                     .withExternalId(externalId)
                     .withLongLivedCredentialsProvider(provider)
                     .build();
@@ -1021,7 +1020,7 @@ public class PrestoS3FileSystem
         return (sseKmsKeyId != null) ? new SSEAwsKeyManagementParams(sseKmsKeyId) : new SSEAwsKeyManagementParams();
     }
 
-    private static class PrestoS3InputStream
+    private static class TrinoS3InputStream
             extends FSInputStream
     {
         private final AmazonS3 s3;
@@ -1038,7 +1037,7 @@ public class PrestoS3FileSystem
         private long streamPosition;
         private long nextReadPosition;
 
-        public PrestoS3InputStream(AmazonS3 s3, String bucket, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
+        public TrinoS3InputStream(AmazonS3 s3, String bucket, Path path, boolean requesterPaysEnabled, int maxAttempts, Duration maxBackoffTime, Duration maxRetryTime)
         {
             this.s3 = requireNonNull(s3, "s3 is null");
             this.bucket = requireNonNull(bucket, "bucket is null");
@@ -1331,7 +1330,7 @@ public class PrestoS3FileSystem
         }
     }
 
-    private static class PrestoS3StagingOutputStream
+    private static class TrinoS3StagingOutputStream
             extends FilterOutputStream
     {
         private final TransferManager transferManager;
@@ -1342,7 +1341,7 @@ public class PrestoS3FileSystem
 
         private boolean closed;
 
-        public PrestoS3StagingOutputStream(
+        public TrinoS3StagingOutputStream(
                 AmazonS3 s3,
                 String bucket,
                 String key,
@@ -1446,7 +1445,7 @@ public class PrestoS3FileSystem
         }
     }
 
-    private static class PrestoS3StreamingOutputStream
+    private static class TrinoS3StreamingOutputStream
             extends OutputStream
     {
         private final AmazonS3 s3;
@@ -1465,7 +1464,7 @@ public class PrestoS3FileSystem
         private Future<UploadPartResult> inProgressUploadFuture;
         private final List<UploadPartResult> parts = new ArrayList<>();
 
-        public PrestoS3StreamingOutputStream(
+        public TrinoS3StreamingOutputStream(
                 AmazonS3 s3,
                 String bucketName,
                 String key,
@@ -1705,7 +1704,7 @@ public class PrestoS3FileSystem
         throw new IllegalArgumentException("Unable to determine S3 bucket from URI.");
     }
 
-    public static PrestoS3FileSystemStats getFileSystemStats()
+    public static TrinoS3FileSystemStats getFileSystemStats()
     {
         return STATS;
     }

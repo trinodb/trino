@@ -39,15 +39,15 @@ public class HiveS3Config
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Endpoint;
-    private PrestoS3StorageClass s3StorageClass = PrestoS3StorageClass.STANDARD;
-    private PrestoS3SignerType s3SignerType;
+    private TrinoS3StorageClass s3StorageClass = TrinoS3StorageClass.STANDARD;
+    private TrinoS3SignerType s3SignerType;
     private String s3SignerClass;
     private boolean s3PathStyleAccess;
     private String s3IamRole;
     private String s3ExternalId;
     private boolean s3SslEnabled = true;
     private boolean s3SseEnabled;
-    private PrestoS3SseType s3SseType = PrestoS3SseType.S3;
+    private TrinoS3SseType s3SseType = TrinoS3SseType.S3;
     private String s3EncryptionMaterialsProvider;
     private String s3KmsKeyId;
     private String s3SseKmsKeyId;
@@ -63,7 +63,7 @@ public class HiveS3Config
     private DataSize s3MultipartMinPartSize = DataSize.of(5, MEGABYTE);
     private boolean pinS3ClientToCurrentRegion;
     private String s3UserAgentPrefix = "";
-    private PrestoS3AclType s3AclType = PrestoS3AclType.PRIVATE;
+    private TrinoS3AclType s3AclType = TrinoS3AclType.PRIVATE;
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
     private boolean s3StreamingUploadEnabled;
@@ -107,26 +107,26 @@ public class HiveS3Config
     }
 
     @NotNull
-    public PrestoS3StorageClass getS3StorageClass()
+    public TrinoS3StorageClass getS3StorageClass()
     {
         return s3StorageClass;
     }
 
     @Config("hive.s3.storage-class")
     @ConfigDescription("AWS S3 storage class to use when writing the data")
-    public HiveS3Config setS3StorageClass(PrestoS3StorageClass s3StorageClass)
+    public HiveS3Config setS3StorageClass(TrinoS3StorageClass s3StorageClass)
     {
         this.s3StorageClass = s3StorageClass;
         return this;
     }
 
-    public PrestoS3SignerType getS3SignerType()
+    public TrinoS3SignerType getS3SignerType()
     {
         return s3SignerType;
     }
 
     @Config("hive.s3.signer-type")
-    public HiveS3Config setS3SignerType(PrestoS3SignerType s3SignerType)
+    public HiveS3Config setS3SignerType(TrinoS3SignerType s3SignerType)
     {
         this.s3SignerType = s3SignerType;
         return this;
@@ -248,14 +248,14 @@ public class HiveS3Config
     }
 
     @NotNull
-    public PrestoS3SseType getS3SseType()
+    public TrinoS3SseType getS3SseType()
     {
         return s3SseType;
     }
 
     @Config("hive.s3.sse.type")
     @ConfigDescription("Key management type for S3 server-side encryption (S3 or KMS)")
-    public HiveS3Config setS3SseType(PrestoS3SseType s3SseType)
+    public HiveS3Config setS3SseType(TrinoS3SseType s3SseType)
     {
         this.s3SseType = s3SseType;
         return this;
@@ -429,14 +429,14 @@ public class HiveS3Config
     }
 
     @NotNull
-    public PrestoS3AclType getS3AclType()
+    public TrinoS3AclType getS3AclType()
     {
         return s3AclType;
     }
 
     @Config("hive.s3.upload-acl-type")
     @ConfigDescription("Canned ACL type for S3 uploads")
-    public HiveS3Config setS3AclType(PrestoS3AclType s3AclType)
+    public HiveS3Config setS3AclType(TrinoS3AclType s3AclType)
     {
         this.s3AclType = s3AclType;
         return this;

@@ -56,7 +56,7 @@ import io.trino.plugin.hive.orc.OrcPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSource;
 import io.trino.plugin.hive.rcfile.RcFilePageSource;
 import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.PrestoS3ConfigurationInitializer;
+import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.security.SqlStandardAccessControlMetadata;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -837,7 +837,7 @@ public abstract class AbstractTestHive
                                         .map(HostAndPort::fromString)
                                         .orElse(null)),
                         ImmutableSet.of(
-                                new PrestoS3ConfigurationInitializer(new HiveS3Config()),
+                                new TrinoS3ConfigurationInitializer(new HiveS3Config()),
                                 new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
                                 new PrestoAzureConfigurationInitializer(new HiveAzureConfig()))),
                 ImmutableSet.of());

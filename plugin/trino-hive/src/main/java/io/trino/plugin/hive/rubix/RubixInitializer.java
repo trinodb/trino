@@ -80,7 +80,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
  */
 public class RubixInitializer
 {
-    private static final String RUBIX_S3_FS_CLASS_NAME = CachingPrestoS3FileSystem.class.getName();
+    private static final String RUBIX_S3_FS_CLASS_NAME = CachingTrinoS3FileSystem.class.getName();
 
     private static final String RUBIX_NATIVE_AZURE_FS_CLASS_NAME = CachingPrestoNativeAzureFileSystem.class.getName();
     private static final String RUBIX_SECURE_NATIVE_AZURE_FS_CLASS_NAME = CachingPrestoSecureNativeAzureFileSystem.class.getName();

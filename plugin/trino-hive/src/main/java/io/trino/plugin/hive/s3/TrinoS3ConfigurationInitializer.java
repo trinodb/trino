@@ -22,53 +22,53 @@ import javax.inject.Inject;
 
 import java.io.File;
 
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ACL_TYPE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_CONNECT_TIMEOUT;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_EXTERNAL_ID;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_IAM_ROLE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_CONNECTIONS;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_ERROR_RETRIES;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCESS;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_REQUESTER_PAYS_ENABLED;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SIGNER_CLASS;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SIGNER_TYPE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SOCKET_TIMEOUT;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SSE_ENABLED;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SSE_KMS_KEY_ID;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SSE_TYPE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SSL_ENABLED;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_STORAGE_CLASS;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_STREAMING_UPLOAD_ENABLED;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACL_TYPE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TIMEOUT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_EXTERNAL_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_BACKOFF_TIME;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_CLIENT_RETRIES;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_CONNECTIONS;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_ERROR_RETRIES;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_RETRY_TIME;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MULTIPART_MIN_FILE_SIZE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MULTIPART_MIN_PART_SIZE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PATH_STYLE_ACCESS;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_REQUESTER_PAYS_ENABLED;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SIGNER_CLASS;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SIGNER_TYPE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SOCKET_TIMEOUT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SSE_ENABLED;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SSE_KMS_KEY_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SSE_TYPE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SSL_ENABLED;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STAGING_DIRECTORY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STORAGE_CLASS;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_ENABLED;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_USER_AGENT_PREFIX;
 
-public class PrestoS3ConfigurationInitializer
+public class TrinoS3ConfigurationInitializer
         implements ConfigurationInitializer
 {
     private final String awsAccessKey;
     private final String awsSecretKey;
     private final String endpoint;
-    private final PrestoS3StorageClass s3StorageClass;
-    private final PrestoS3SignerType signerType;
+    private final TrinoS3StorageClass s3StorageClass;
+    private final TrinoS3SignerType signerType;
     private final boolean pathStyleAccess;
     private final String iamRole;
     private final String externalId;
     private final boolean sslEnabled;
     private final boolean sseEnabled;
-    private final PrestoS3SseType sseType;
+    private final TrinoS3SseType sseType;
     private final String encryptionMaterialsProvider;
     private final String kmsKeyId;
     private final String sseKmsKeyId;
@@ -84,7 +84,7 @@ public class PrestoS3ConfigurationInitializer
     private final File stagingDirectory;
     private final boolean pinClientToCurrentRegion;
     private final String userAgentPrefix;
-    private final PrestoS3AclType aclType;
+    private final TrinoS3AclType aclType;
     private final String signerClass;
     private final boolean requesterPaysEnabled;
     private final boolean skipGlacierObjects;
@@ -92,7 +92,7 @@ public class PrestoS3ConfigurationInitializer
     private final DataSize streamingPartSize;
 
     @Inject
-    public PrestoS3ConfigurationInitializer(HiveS3Config config)
+    public TrinoS3ConfigurationInitializer(HiveS3Config config)
     {
         this.awsAccessKey = config.getS3AwsAccessKey();
         this.awsSecretKey = config.getS3AwsSecretKey();
@@ -132,9 +132,9 @@ public class PrestoS3ConfigurationInitializer
     public void initializeConfiguration(Configuration config)
     {
         // re-map filesystem schemes to match Amazon Elastic MapReduce
-        config.set("fs.s3.impl", PrestoS3FileSystem.class.getName());
-        config.set("fs.s3a.impl", PrestoS3FileSystem.class.getName());
-        config.set("fs.s3n.impl", PrestoS3FileSystem.class.getName());
+        config.set("fs.s3.impl", TrinoS3FileSystem.class.getName());
+        config.set("fs.s3a.impl", TrinoS3FileSystem.class.getName());
+        config.set("fs.s3n.impl", TrinoS3FileSystem.class.getName());
 
         if (awsAccessKey != null) {
             config.set(S3_ACCESS_KEY, awsAccessKey);

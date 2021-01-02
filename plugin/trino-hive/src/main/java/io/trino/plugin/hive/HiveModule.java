@@ -33,8 +33,8 @@ import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
-import io.trino.plugin.hive.s3select.PrestoS3ClientFactory;
 import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
+import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -77,7 +77,7 @@ public class HiveModule
         binder.bind(HiveTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(HiveAnalyzeProperties.class).in(Scopes.SINGLETON);
 
-        binder.bind(PrestoS3ClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(TrinoS3ClientFactory.class).in(Scopes.SINGLETON);
 
         binder.bind(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CachingDirectoryLister.class).withGeneratedName();

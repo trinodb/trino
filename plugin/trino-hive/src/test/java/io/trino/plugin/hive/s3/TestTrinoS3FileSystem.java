@@ -38,7 +38,7 @@ import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenService;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClient;
 import com.google.common.base.VerifyException;
-import io.trino.plugin.hive.s3.PrestoS3FileSystem.UnrecoverableS3OperationException;
+import io.trino.plugin.hive.s3.TrinoS3FileSystem.UnrecoverableS3OperationException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -72,28 +72,27 @@ import static com.google.common.io.ByteStreams.toByteArray;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ACL_TYPE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_EXTERNAL_ID;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_IAM_ROLE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_KMS_KEY_ID;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_PATH_STYLE_ACCESS;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SESSION_TOKEN;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_STAGING_DIRECTORY;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_STREAMING_UPLOAD_ENABLED;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_SUFFIX;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACL_TYPE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CREDENTIALS_PROVIDER;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_EXTERNAL_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_BACKOFF_TIME;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_CLIENT_RETRIES;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_RETRY_TIME;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PATH_STYLE_ACCESS;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SESSION_TOKEN;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SKIP_GLACIER_OBJECTS;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STAGING_DIRECTORY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_ENABLED;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_STREAMING_UPLOAD_PART_SIZE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static java.net.HttpURLConnection.HTTP_FORBIDDEN;
 import static java.net.HttpURLConnection.HTTP_INTERNAL_ERROR;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -106,7 +105,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
-public class TestPrestoS3FileSystem
+public class TestTrinoS3FileSystem
 {
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
 
@@ -115,7 +114,7 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         Configuration config = new Configuration(false);
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             AWSCredentials credentials = getStaticCredentials(config, fs, "s3n://testAccess:testSecret@test-bucket/");
             assertEquals(credentials.getAWSAccessKeyId(), "testAccess");
             assertEquals(credentials.getAWSSecretKey(), "testSecret");
@@ -131,7 +130,7 @@ public class TestPrestoS3FileSystem
         config.set(S3_ACCESS_KEY, "test_access_key");
         config.set(S3_SECRET_KEY, "test_secret_key");
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             AWSCredentials credentials = getStaticCredentials(config, fs, "s3n://test-bucket/");
             assertEquals(credentials.getAWSAccessKeyId(), "test_access_key");
             assertEquals(credentials.getAWSSecretKey(), "test_secret_key");
@@ -139,7 +138,7 @@ public class TestPrestoS3FileSystem
         }
 
         config.set(S3_SESSION_TOKEN, "test_token");
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             AWSCredentials credentials = getStaticCredentials(config, fs, "s3n://test-bucket/");
             assertEquals(credentials.getAWSAccessKeyId(), "test_access_key");
             assertEquals(credentials.getAWSSecretKey(), "test_secret_key");
@@ -148,7 +147,7 @@ public class TestPrestoS3FileSystem
         }
     }
 
-    private static AWSCredentials getStaticCredentials(Configuration config, PrestoS3FileSystem fileSystem, String uri)
+    private static AWSCredentials getStaticCredentials(Configuration config, TrinoS3FileSystem fileSystem, String uri)
             throws IOException, URISyntaxException
     {
         fileSystem.initialize(new URI(uri), config);
@@ -164,7 +163,7 @@ public class TestPrestoS3FileSystem
         Configuration config = new Configuration(false);
         config.set(S3_ENDPOINT, "test.example.endpoint.com");
         config.set(S3_PIN_CLIENT_TO_CURRENT_REGION, "true");
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3a://test-bucket/"), config);
         }
     }
@@ -176,7 +175,7 @@ public class TestPrestoS3FileSystem
         Configuration config = new Configuration(false);
         config.set(S3_IAM_ROLE, "test_role");
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             AWSCredentialsProvider tokenService = getStsCredentialsProvider(fs, "test_role");
             assertInstanceOf(tokenService, DefaultAWSCredentialsProviderChain.class);
@@ -192,7 +191,7 @@ public class TestPrestoS3FileSystem
         config.set(S3_SECRET_KEY, "test_secret_key");
         config.set(S3_IAM_ROLE, "test_role");
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             AWSCredentialsProvider tokenService = getStsCredentialsProvider(fs, "test_role");
             assertInstanceOf(tokenService, AWSStaticCredentialsProvider.class);
@@ -203,7 +202,7 @@ public class TestPrestoS3FileSystem
         }
     }
 
-    private static AWSCredentialsProvider getStsCredentialsProvider(PrestoS3FileSystem fs, String expectedRole)
+    private static AWSCredentialsProvider getStsCredentialsProvider(TrinoS3FileSystem fs, String expectedRole)
     {
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fs);
         assertInstanceOf(awsCredentialsProvider, STSAssumeRoleSessionCredentialsProvider.class);
@@ -223,7 +222,7 @@ public class TestPrestoS3FileSystem
         config.set(S3_IAM_ROLE, "role");
         config.set(S3_EXTERNAL_ID, "externalId");
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(fs);
             assertInstanceOf(awsCredentialsProvider, STSAssumeRoleSessionCredentialsProvider.class);
@@ -238,7 +237,7 @@ public class TestPrestoS3FileSystem
     {
         Configuration config = new Configuration(false);
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             assertInstanceOf(getAwsCredentialsProvider(fs), DefaultAWSCredentialsProviderChain.class);
         }
@@ -251,7 +250,7 @@ public class TestPrestoS3FileSystem
         Configuration config = new Configuration(false);
         config.setBoolean(S3_PATH_STYLE_ACCESS, true);
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             S3ClientOptions clientOptions = getFieldValue(fs.getS3Client(), AmazonS3Client.class, "clientOptions", S3ClientOptions.class);
             assertTrue(clientOptions.isPathStyleAccess());
@@ -265,7 +264,7 @@ public class TestPrestoS3FileSystem
         Configuration config = new Configuration(false);
         config.setBoolean(S3_PATH_STYLE_ACCESS, true);
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket_underscore";
             URI uri = new URI("s3n://" + expectedBucketName + "/");
@@ -282,7 +281,7 @@ public class TestPrestoS3FileSystem
     public void testReadRetryCounters()
             throws Exception
     {
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             int maxRetries = 2;
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setGetObjectHttpErrorCode(HTTP_INTERNAL_ERROR);
@@ -298,8 +297,8 @@ public class TestPrestoS3FileSystem
             catch (Throwable expected) {
                 assertInstanceOf(expected, AmazonS3Exception.class);
                 assertEquals(((AmazonS3Exception) expected).getStatusCode(), HTTP_INTERNAL_ERROR);
-                assertEquals(PrestoS3FileSystem.getFileSystemStats().getReadRetries().getTotalCount(), maxRetries);
-                assertEquals(PrestoS3FileSystem.getFileSystemStats().getGetObjectRetries().getTotalCount(), (maxRetries + 1L) * maxRetries);
+                assertEquals(TrinoS3FileSystem.getFileSystemStats().getReadRetries().getTotalCount(), maxRetries);
+                assertEquals(TrinoS3FileSystem.getFileSystemStats().getGetObjectRetries().getTotalCount(), (maxRetries + 1L) * maxRetries);
             }
         }
     }
@@ -309,7 +308,7 @@ public class TestPrestoS3FileSystem
     public void testGetMetadataRetryCounter()
     {
         int maxRetries = 2;
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setGetObjectMetadataHttpCode(HTTP_INTERNAL_ERROR);
             Configuration configuration = new Configuration(false);
@@ -323,7 +322,7 @@ public class TestPrestoS3FileSystem
         catch (Throwable expected) {
             assertInstanceOf(expected, AmazonS3Exception.class);
             assertEquals(((AmazonS3Exception) expected).getStatusCode(), HTTP_INTERNAL_ERROR);
-            assertEquals(PrestoS3FileSystem.getFileSystemStats().getGetMetadataRetries().getTotalCount(), maxRetries);
+            assertEquals(TrinoS3FileSystem.getFileSystemStats().getGetMetadataRetries().getTotalCount(), maxRetries);
         }
     }
 
@@ -332,7 +331,7 @@ public class TestPrestoS3FileSystem
     public void testReadNotFound()
             throws Exception
     {
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setGetObjectHttpErrorCode(HTTP_NOT_FOUND);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
@@ -348,7 +347,7 @@ public class TestPrestoS3FileSystem
     public void testReadForbidden()
             throws Exception
     {
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setGetObjectHttpErrorCode(HTTP_FORBIDDEN);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
@@ -368,7 +367,7 @@ public class TestPrestoS3FileSystem
         // stagingParent = /tmp/testXXX
         // staging = /tmp/testXXX/staging
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             Configuration conf = new Configuration(false);
             conf.set(S3_STAGING_DIRECTORY, staging.toString());
@@ -390,7 +389,7 @@ public class TestPrestoS3FileSystem
         java.nio.file.Path staging = createTempFile("staging", null);
         // staging = /tmp/stagingXXX.tmp
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             Configuration conf = new Configuration(false);
             conf.set(S3_STAGING_DIRECTORY, staging.toString());
@@ -420,7 +419,7 @@ public class TestPrestoS3FileSystem
                 throw new SkipException("Filesystem does not support symlinks", e);
             }
 
-            try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+            try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
                 MockAmazonS3 s3 = new MockAmazonS3();
                 Configuration conf = new Configuration(false);
                 conf.set(S3_STAGING_DIRECTORY, link.toString());
@@ -441,7 +440,7 @@ public class TestPrestoS3FileSystem
     public void testReadRequestRangeNotSatisfiable()
             throws Exception
     {
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setGetObjectHttpErrorCode(HTTP_RANGE_NOT_SATISFIABLE);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
@@ -456,7 +455,7 @@ public class TestPrestoS3FileSystem
     public void testGetMetadataForbidden()
             throws Exception
     {
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setGetObjectMetadataHttpCode(HTTP_FORBIDDEN);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
@@ -469,7 +468,7 @@ public class TestPrestoS3FileSystem
     public void testGetMetadataNotFound()
             throws Exception
     {
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setGetObjectMetadataHttpCode(HTTP_NOT_FOUND);
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
@@ -485,7 +484,7 @@ public class TestPrestoS3FileSystem
         Configuration config = new Configuration(false);
         config.set(S3_ENCRYPTION_MATERIALS_PROVIDER, TestEncryptionMaterialsProvider.class.getName());
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             assertInstanceOf(fs.getS3Client(), AmazonS3EncryptionClient.class);
         }
@@ -498,7 +497,7 @@ public class TestPrestoS3FileSystem
         Configuration config = new Configuration(false);
         config.set(S3_KMS_KEY_ID, "test-key-id");
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             assertInstanceOf(fs.getS3Client(), AmazonS3EncryptionClient.class);
         }
@@ -517,7 +516,7 @@ public class TestPrestoS3FileSystem
     {
         Configuration config = new Configuration(false);
         config.set(S3_CREDENTIALS_PROVIDER, TestCredentialsProvider.class.getName());
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             assertInstanceOf(getAwsCredentialsProvider(fs), TestCredentialsProvider.class);
         }
@@ -529,7 +528,7 @@ public class TestPrestoS3FileSystem
     {
         Configuration config = new Configuration(false);
         config.set(S3_CREDENTIALS_PROVIDER, "com.example.DoesNotExist");
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
         }
     }
@@ -541,10 +540,10 @@ public class TestPrestoS3FileSystem
         String userAgentPrefix = "agent_prefix";
         Configuration config = new Configuration(false);
         config.set(S3_USER_AGENT_PREFIX, userAgentPrefix);
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), config);
             ClientConfiguration clientConfig = getFieldValue(fs.getS3Client(), AmazonWebServiceClient.class, "clientConfiguration", ClientConfiguration.class);
-            assertEquals(clientConfig.getUserAgentSuffix(), S3_USER_AGENT_SUFFIX);
+            assertEquals(clientConfig.getUserAgentSuffix(), "Trino");
             assertEquals(clientConfig.getUserAgentPrefix(), userAgentPrefix);
         }
     }
@@ -554,14 +553,14 @@ public class TestPrestoS3FileSystem
             throws Exception
     {
         HiveS3Config defaults = new HiveS3Config();
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             fs.initialize(new URI("s3n://test-bucket/"), new Configuration(false));
             ClientConfiguration config = getFieldValue(fs.getS3Client(), AmazonWebServiceClient.class, "clientConfiguration", ClientConfiguration.class);
             assertEquals(config.getMaxErrorRetry(), defaults.getS3MaxErrorRetries());
             assertEquals(config.getConnectionTimeout(), defaults.getS3ConnectTimeout().toMillis());
             assertEquals(config.getSocketTimeout(), defaults.getS3SocketTimeout().toMillis());
             assertEquals(config.getMaxConnections(), defaults.getS3MaxConnections());
-            assertEquals(config.getUserAgentSuffix(), S3_USER_AGENT_SUFFIX);
+            assertEquals(config.getUserAgentSuffix(), "Trino");
             assertEquals(config.getUserAgentPrefix(), "");
         }
     }
@@ -580,7 +579,7 @@ public class TestPrestoS3FileSystem
         Configuration config = new Configuration(false);
         config.set(S3_SKIP_GLACIER_OBJECTS, String.valueOf(skipGlacierObjects));
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setHasGlacierObjects(true);
             fs.initialize(new URI("s3n://test-bucket/"), config);
@@ -596,7 +595,7 @@ public class TestPrestoS3FileSystem
     {
         Configuration config = new Configuration(false);
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             s3.setHasHadoopFolderMarkerObjects(true);
             fs.initialize(new URI("s3n://test-bucket/"), config);
@@ -606,7 +605,7 @@ public class TestPrestoS3FileSystem
         }
     }
 
-    public static AWSCredentialsProvider getAwsCredentialsProvider(PrestoS3FileSystem fs)
+    public static AWSCredentialsProvider getAwsCredentialsProvider(TrinoS3FileSystem fs)
     {
         return getFieldValue(fs.getS3Client(), "awsCredentialsProvider", AWSCredentialsProvider.class);
     }
@@ -680,7 +679,7 @@ public class TestPrestoS3FileSystem
     {
         Configuration config = new Configuration(false);
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket";
             fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
@@ -699,7 +698,7 @@ public class TestPrestoS3FileSystem
         Configuration config = new Configuration(false);
         config.set(S3_ACL_TYPE, "BUCKET_OWNER_FULL_CONTROL");
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket";
             fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
@@ -719,7 +718,7 @@ public class TestPrestoS3FileSystem
         config.set(S3_STREAMING_UPLOAD_ENABLED, "true");
         config.set(S3_STREAMING_UPLOAD_PART_SIZE, "10");
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3();
             String expectedBucketName = "test-bucket";
             fs.initialize(new URI("s3n://" + expectedBucketName + "/"), config);
@@ -746,7 +745,7 @@ public class TestPrestoS3FileSystem
     public void testEmptyDirectory()
             throws Exception
     {
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3()
             {
                 @Override
@@ -785,7 +784,7 @@ public class TestPrestoS3FileSystem
         childObject.setKey("prefix/child-object.txt");
         childObject.setLastModified(new Date());
 
-        try (PrestoS3FileSystem fs = new PrestoS3FileSystem()) {
+        try (TrinoS3FileSystem fs = new TrinoS3FileSystem()) {
             MockAmazonS3 s3 = new MockAmazonS3()
             {
                 @Override

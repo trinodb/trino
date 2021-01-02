@@ -47,10 +47,10 @@ public class S3SelectRecordCursorProvider
 {
     private static final Set<String> CSV_SERDES = ImmutableSet.of(LazySimpleSerDe.class.getName());
     private final HdfsEnvironment hdfsEnvironment;
-    private final PrestoS3ClientFactory s3ClientFactory;
+    private final TrinoS3ClientFactory s3ClientFactory;
 
     @Inject
-    public S3SelectRecordCursorProvider(HdfsEnvironment hdfsEnvironment, PrestoS3ClientFactory s3ClientFactory)
+    public S3SelectRecordCursorProvider(HdfsEnvironment hdfsEnvironment, TrinoS3ClientFactory s3ClientFactory)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.s3ClientFactory = requireNonNull(s3ClientFactory, "s3ClientFactory is null");

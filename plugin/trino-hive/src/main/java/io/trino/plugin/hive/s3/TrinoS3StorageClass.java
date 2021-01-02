@@ -13,7 +13,24 @@
  */
 package io.trino.plugin.hive.s3;
 
-public enum PrestoS3SseType
+import com.amazonaws.services.s3.model.StorageClass;
+
+import static java.util.Objects.requireNonNull;
+
+public enum TrinoS3StorageClass
 {
-    KMS, S3
+    STANDARD(StorageClass.Standard),
+    INTELLIGENT_TIERING(StorageClass.IntelligentTiering);
+
+    private StorageClass s3StorageClass;
+
+    TrinoS3StorageClass(StorageClass s3StorageClass)
+    {
+        this.s3StorageClass = requireNonNull(s3StorageClass, "s3StorageClass is null");
+    }
+
+    public StorageClass getS3StorageClass()
+    {
+        return s3StorageClass;
+    }
 }

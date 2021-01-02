@@ -26,8 +26,8 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.PrestoS3FileSystem;
-import io.trino.plugin.hive.s3.PrestoS3FileSystemMetricCollector;
+import io.trino.plugin.hive.s3.TrinoS3FileSystem;
+import io.trino.plugin.hive.s3.TrinoS3FileSystemMetricCollector;
 import org.apache.hadoop.conf.Configuration;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -41,27 +41,27 @@ import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_CONNECT_TIMEOUT;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_CREDENTIALS_PROVIDER;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_ERROR_RETRIES;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SECRET_KEY;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SOCKET_TIMEOUT;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SSL_ENABLED;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_USER_AGENT_PREFIX;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CONNECT_TIMEOUT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CREDENTIALS_PROVIDER;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_ERROR_RETRIES;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_PIN_CLIENT_TO_CURRENT_REGION;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SOCKET_TIMEOUT;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SSL_ENABLED;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_USER_AGENT_PREFIX;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 
 /**
  * This factory provides AmazonS3 client required for executing S3SelectPushdown requests.
- * Normal S3 GET requests use AmazonS3 clients initialized in PrestoS3FileSystem or EMRFS.
+ * Normal S3 GET requests use AmazonS3 clients initialized in {@link TrinoS3FileSystem} or EMRFS.
  * The ideal state will be to merge this logic with the two file systems and get rid of this
  * factory class.
  * Please do not use the client provided by this factory for any other use cases.
  */
-public class PrestoS3ClientFactory
+public class TrinoS3ClientFactory
 {
     private static final String S3_SELECT_PUSHDOWN_MAX_CONNECTIONS = "hive.s3select-pushdown.max-connections";
 
@@ -72,7 +72,7 @@ public class PrestoS3ClientFactory
     private AmazonS3 s3Client;
 
     @Inject
-    public PrestoS3ClientFactory(HiveConfig config)
+    public TrinoS3ClientFactory(HiveConfig config)
     {
         this.enabled = config.isS3SelectPushdownEnabled();
         this.defaultMaxConnections = config.getS3SelectPushdownMaxConnections();
@@ -103,13 +103,13 @@ public class PrestoS3ClientFactory
                 .withSocketTimeout(toIntExact(socketTimeout.toMillis()))
                 .withMaxConnections(maxConnections)
                 .withUserAgentPrefix(userAgentPrefix)
-                .withUserAgentSuffix(enabled ? "presto-select" : "presto");
+                .withUserAgentSuffix(enabled ? "Trino-select" : "Trino");
 
         AWSCredentialsProvider awsCredentialsProvider = getAwsCredentialsProvider(config);
         AmazonS3Builder<? extends AmazonS3Builder<?, ?>, ? extends AmazonS3> clientBuilder = AmazonS3Client.builder()
                 .withCredentials(awsCredentialsProvider)
                 .withClientConfiguration(clientConfiguration)
-                .withMetricsCollector(new PrestoS3FileSystemMetricCollector(PrestoS3FileSystem.getFileSystemStats()))
+                .withMetricsCollector(new TrinoS3FileSystemMetricCollector(TrinoS3FileSystem.getFileSystemStats()))
                 .enablePathStyleAccess();
 
         boolean regionOrEndpointSet = false;

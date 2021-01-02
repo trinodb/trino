@@ -25,7 +25,7 @@ import java.net.SocketTimeoutException;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class PrestoS3FileSystemStats
+public class TrinoS3FileSystemStats
 {
     private final CounterStat activeConnections = new CounterStat();
     private final CounterStat startedUploads = new CounterStat();

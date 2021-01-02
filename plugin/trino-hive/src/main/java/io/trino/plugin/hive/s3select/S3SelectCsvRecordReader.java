@@ -19,7 +19,7 @@ import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
-import io.trino.plugin.hive.s3.PrestoS3FileSystem;
+import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
@@ -49,7 +49,7 @@ class S3SelectCsvRecordReader
             long length,
             Properties schema,
             String ionSqlQuery,
-            PrestoS3ClientFactory s3ClientFactory)
+            TrinoS3ClientFactory s3ClientFactory)
     {
         super(configuration, path, start, length, schema, ionSqlQuery, s3ClientFactory);
     }
@@ -59,8 +59,8 @@ class S3SelectCsvRecordReader
     {
         SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
         URI uri = path.toUri();
-        selectObjectRequest.setBucketName(PrestoS3FileSystem.extractBucketName(uri));
-        selectObjectRequest.setKey(PrestoS3FileSystem.keyFromPath(path));
+        selectObjectRequest.setBucketName(TrinoS3FileSystem.extractBucketName(uri));
+        selectObjectRequest.setKey(TrinoS3FileSystem.keyFromPath(path));
         selectObjectRequest.setExpression(query);
         selectObjectRequest.setExpressionType(ExpressionType.SQL);
 

@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.PrestoS3ConfigurationInitializer;
+import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
@@ -61,7 +61,7 @@ public abstract class AbstractTestHiveFileSystemS3
 
     private HdfsConfiguration createHdfsConfiguration()
     {
-        ConfigurationInitializer s3Config = new PrestoS3ConfigurationInitializer(new HiveS3Config()
+        ConfigurationInitializer s3Config = new TrinoS3ConfigurationInitializer(new HiveS3Config()
                 .setS3AwsAccessKey(awsAccessKey)
                 .setS3AwsSecretKey(awsSecretKey));
         HdfsConfigurationInitializer initializer = new HdfsConfigurationInitializer(new HdfsConfig(), ImmutableSet.of(s3Config));

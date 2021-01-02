@@ -28,7 +28,7 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.extractBucketName;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.extractBucketName;
 import static java.util.Objects.requireNonNull;
 
 public class S3SecurityMapping

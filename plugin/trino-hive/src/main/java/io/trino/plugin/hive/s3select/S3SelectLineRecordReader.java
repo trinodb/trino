@@ -41,9 +41,9 @@ import java.util.Properties;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_BACKOFF_TIME;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_CLIENT_RETRIES;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_MAX_RETRY_TIME;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_BACKOFF_TIME;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_CLIENT_RETRIES;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_MAX_RETRY_TIME;
 import static io.trino.plugin.hive.util.RetryDriver.retry;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -67,7 +67,7 @@ public abstract class S3SelectLineRecordReader
     private LineReader reader;
     private boolean isFirstLine;
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
-    private final PrestoS3SelectClient selectClient;
+    private final TrinoS3SelectClient selectClient;
     private final long start;
     private final long end;
     private final int maxAttempts;
@@ -85,7 +85,7 @@ public abstract class S3SelectLineRecordReader
             long length,
             Properties schema,
             String ionSqlQuery,
-            PrestoS3ClientFactory s3ClientFactory)
+            TrinoS3ClientFactory s3ClientFactory)
     {
         requireNonNull(configuration, "configuration is null");
         requireNonNull(schema, "schema is null");
@@ -108,7 +108,7 @@ public abstract class S3SelectLineRecordReader
         this.maxBackoffTime = Duration.valueOf(configuration.get(S3_MAX_BACKOFF_TIME, defaults.getS3MaxBackoffTime().toString()));
         this.maxRetryTime = Duration.valueOf(configuration.get(S3_MAX_RETRY_TIME, defaults.getS3MaxRetryTime().toString()));
 
-        this.selectClient = new PrestoS3SelectClient(configuration, s3ClientFactory);
+        this.selectClient = new TrinoS3SelectClient(configuration, s3ClientFactory);
         closer.register(selectClient);
     }
 

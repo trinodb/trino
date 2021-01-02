@@ -35,9 +35,9 @@ import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.hive.rcfile.RcFilePageSourceFactory;
 import io.trino.plugin.hive.rubix.RubixEnabledConfig;
 import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.PrestoS3ConfigurationInitializer;
-import io.trino.plugin.hive.s3select.PrestoS3ClientFactory;
+import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.hive.s3select.S3SelectRecordCursorProvider;
+import io.trino.plugin.hive.s3select.TrinoS3ClientFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
@@ -145,7 +145,7 @@ public final class HiveTestUtils
     public static Set<HiveRecordCursorProvider> getDefaultHiveRecordCursorProviders(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
         return ImmutableSet.<HiveRecordCursorProvider>builder()
-                .add(new S3SelectRecordCursorProvider(hdfsEnvironment, new PrestoS3ClientFactory(hiveConfig)))
+                .add(new S3SelectRecordCursorProvider(hdfsEnvironment, new TrinoS3ClientFactory(hiveConfig)))
                 .build();
     }
 
@@ -188,7 +188,7 @@ public final class HiveTestUtils
                 new HdfsConfigurationInitializer(
                         new HdfsConfig(),
                         ImmutableSet.of(
-                                new PrestoS3ConfigurationInitializer(new HiveS3Config()),
+                                new TrinoS3ConfigurationInitializer(new HiveS3Config()),
                                 new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
                                 new PrestoAzureConfigurationInitializer(new HiveAzureConfig()))),
                 ImmutableSet.of());

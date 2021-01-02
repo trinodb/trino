@@ -28,8 +28,8 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.parquet.ParquetRecordWriter;
-import io.trino.plugin.hive.rubix.CachingPrestoS3FileSystem;
-import io.trino.plugin.hive.s3.PrestoS3FileSystem;
+import io.trino.plugin.hive.rubix.CachingTrinoS3FileSystem;
+import io.trino.plugin.hive.s3.TrinoS3FileSystem;
 import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -467,7 +467,7 @@ public final class HiveWriteUtils
     {
         try {
             FileSystem fileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
-            return fileSystem instanceof PrestoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME) || fileSystem instanceof CachingPrestoS3FileSystem;
+            return fileSystem instanceof TrinoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME) || fileSystem instanceof CachingTrinoS3FileSystem;
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);

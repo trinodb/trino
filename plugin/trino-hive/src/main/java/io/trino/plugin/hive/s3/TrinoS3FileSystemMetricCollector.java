@@ -18,12 +18,12 @@ import io.trino.plugin.hive.aws.AbstractSdkMetricsCollector;
 
 import static java.util.Objects.requireNonNull;
 
-public class PrestoS3FileSystemMetricCollector
+public class TrinoS3FileSystemMetricCollector
         extends AbstractSdkMetricsCollector
 {
-    private final PrestoS3FileSystemStats stats;
+    private final TrinoS3FileSystemStats stats;
 
-    public PrestoS3FileSystemMetricCollector(PrestoS3FileSystemStats stats)
+    public TrinoS3FileSystemMetricCollector(TrinoS3FileSystemStats stats)
     {
         this.stats = requireNonNull(stats, "stats is null");
     }
