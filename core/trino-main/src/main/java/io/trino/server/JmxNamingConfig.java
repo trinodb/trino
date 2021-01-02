@@ -17,7 +17,7 @@ import io.airlift.configuration.Config;
 
 public class JmxNamingConfig
 {
-    private String domainBase = "presto";
+    private String domainBase = "trino";
 
     public String getDomainBase()
     {

@@ -28,7 +28,7 @@ public class TestJmxNamingConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(JmxNamingConfig.class)
-                .setDomainBase("presto"));
+                .setDomainBase("trino"));
     }
 
     @Test

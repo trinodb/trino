@@ -40,37 +40,37 @@ Trino Cluster and Nodes
 ------------------------
 
 * Active nodes:
-  ``presto.failureDetector:name=HeartbeatFailureDetector:ActiveCount``
+  ``trino.failureDetector:name=HeartbeatFailureDetector:ActiveCount``
 
 * Free memory (general pool):
-  ``presto.memory:type=ClusterMemoryPool:name=general:FreeDistributedBytes``
+  ``trino.memory:type=ClusterMemoryPool:name=general:FreeDistributedBytes``
 
 * Cumulative count (since Trino started) of queries that ran out of memory and were killed:
-  ``presto.memory:name=ClusterMemoryManager:QueriesKilledDueToOutOfMemory``
+  ``trino.memory:name=ClusterMemoryManager:QueriesKilledDueToOutOfMemory``
 
 Trino Queries
 --------------
 
-* Active queries currently executing or queued: ``presto.execution:name=QueryManager:RunningQueries``
+* Active queries currently executing or queued: ``trino.execution:name=QueryManager:RunningQueries``
 
-* Queries started: ``presto.execution:name=QueryManager:StartedQueries.FiveMinute.Count``
+* Queries started: ``trino.execution:name=QueryManager:StartedQueries.FiveMinute.Count``
 
-* Failed queries from last 5 min (all): ``presto.execution:name=QueryManager:FailedQueries.FiveMinute.Count``
-* Failed queries from last 5 min (internal): ``presto.execution:name=QueryManager:InternalFailures.FiveMinute.Count``
-* Failed queries from last 5 min (external): ``presto.execution:name=QueryManager:ExternalFailures.FiveMinute.Count``
-* Failed queries (user): ``presto.execution:name=QueryManager:UserErrorFailures.FiveMinute.Count``
+* Failed queries from last 5 min (all): ``trino.execution:name=QueryManager:FailedQueries.FiveMinute.Count``
+* Failed queries from last 5 min (internal): ``trino.execution:name=QueryManager:InternalFailures.FiveMinute.Count``
+* Failed queries from last 5 min (external): ``trino.execution:name=QueryManager:ExternalFailures.FiveMinute.Count``
+* Failed queries (user): ``trino.execution:name=QueryManager:UserErrorFailures.FiveMinute.Count``
 
-* Execution latency (P50): ``presto.execution:name=QueryManager:ExecutionTime.FiveMinutes.P50``
-* Input data rate (P90): ``presto.execution:name=QueryManager:WallInputBytesRate.FiveMinutes.P90``
+* Execution latency (P50): ``trino.execution:name=QueryManager:ExecutionTime.FiveMinutes.P50``
+* Input data rate (P90): ``trino.execution:name=QueryManager:WallInputBytesRate.FiveMinutes.P90``
 
 Trino Tasks
 ------------
 
-* Input data bytes: ``presto.execution:name=TaskManager:InputDataSize.FiveMinute.Count``
-* Input rows: ``presto.execution:name=TaskManager:InputPositions.FiveMinute.Count``
+* Input data bytes: ``trino.execution:name=TaskManager:InputDataSize.FiveMinute.Count``
+* Input rows: ``trino.execution:name=TaskManager:InputPositions.FiveMinute.Count``
 
 Connectors
 ----------
 
 Many connectors provide their own metrics. The metric names typically start with
-``presto.plugin``.
+``trino.plugin``.
