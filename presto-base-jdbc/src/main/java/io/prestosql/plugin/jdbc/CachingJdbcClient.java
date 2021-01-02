@@ -72,6 +72,7 @@ public class CachingJdbcClient
     private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final Cache<TableHandleCacheKey, Map<String, Object>> tableProperties;
 
     @Inject
     public CachingJdbcClient(@StatsCollecting JdbcClient delegate, Set<SessionPropertiesProvider> sessionPropertiesProviders, BaseJdbcConfig config)
@@ -101,6 +102,7 @@ public class CachingJdbcClient
         tableNamesCache = cacheBuilder.build();
         tableHandleCache = cacheBuilder.build();
         columnsCache = cacheBuilder.build();
+        tableProperties = cacheBuilder.build();
     }
 
     @Override
@@ -362,7 +364,8 @@ public class CachingJdbcClient
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return delegate.getTableProperties(session, tableHandle);
+        TableHandleCacheKey key = new TableHandleCacheKey(JdbcIdentity.from(session), tableHandle.getSchemaTableName());
+        return get(tableProperties, key, () -> delegate.getTableProperties(session, tableHandle));
     }
 
     @Override
@@ -393,6 +396,7 @@ public class CachingJdbcClient
         invalidateColumnsCache(schemaTableName);
         invalidateCache(tableHandleCache, key -> key.tableName.equals(schemaTableName));
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
+        invalidateCache(tableProperties, key -> key.tableName.equals(schemaTableName));
     }
 
     private void invalidateColumnsCache(SchemaTableName table)

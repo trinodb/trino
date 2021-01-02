@@ -30,7 +30,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -79,7 +79,7 @@ public class TestCachingJdbcClient
 
     private CachingJdbcClient createCachingJdbcClient(Duration cacheTtl, boolean cacheMissing)
     {
-        return new CachingJdbcClient(database.getJdbcClient(), Set.of(getTestSessionPropertiesProvider()), cacheTtl, cacheMissing);
+        return new CachingJdbcClient(database.getJdbcClient(), Set.of(() -> PROPERTY_METADATA), cacheTtl, cacheMissing);
     }
 
     private CachingJdbcClient createCachingJdbcClient(boolean cacheMissing)
@@ -156,18 +156,6 @@ public class TestCachingJdbcClient
         createTable(phantomTable);
         assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isPresent();
         dropTable(phantomTable);
-    }
-
-    private JdbcTableHandle createTable(SchemaTableName phantomTable)
-    {
-        jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList()));
-        return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
-    }
-
-    private void dropTable(SchemaTableName phantomTable)
-    {
-        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
-        jdbcClient.dropTable(SESSION, tableHandle);
     }
 
     @Test
@@ -309,6 +297,36 @@ public class TestCachingJdbcClient
         assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 2, expectedHit, expectedMiss += 2);
     }
 
+    @Test
+    public void testTablePropertiesCached()
+    {
+        SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
+
+        JdbcTableHandle table = createTable(phantomTable, Map.of("propertyKey", "propertyValue"));
+        Map<String, Object> tableProperties = cachingJdbcClient.getTableProperties(SESSION, table);
+        dropTable(phantomTable);
+
+        assertThat(jdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
+        assertThat(cachingJdbcClient.getTableProperties(SESSION, table)).isEqualTo(tableProperties);
+    }
+
+    private JdbcTableHandle createTable(SchemaTableName phantomTable)
+    {
+        return createTable(phantomTable, Map.of());
+    }
+
+    private JdbcTableHandle createTable(SchemaTableName phantomTable, Map<String, Object> tableProperties)
+    {
+        jdbcClient.createTable(SESSION, new ConnectorTableMetadata(phantomTable, emptyList(), tableProperties));
+        return jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+    }
+
+    private void dropTable(SchemaTableName phantomTable)
+    {
+        JdbcTableHandle tableHandle = jdbcClient.getTableHandle(SESSION, phantomTable).orElseThrow();
+        jdbcClient.dropTable(SESSION, tableHandle);
+    }
+
     private void assertCacheLoadsHitsAndMisses(CacheStats stats, int expectedLoad, int expectedHit, int expectedMiss)
     {
         assertThat(stats.loadCount()).withFailMessage("Expected load count is %d but actual is %d", expectedLoad, stats.loadCount())
@@ -343,18 +361,6 @@ public class TestCachingJdbcClient
                 .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))
                 .findAny()
                 .orElseThrow();
-    }
-
-    private static SessionPropertiesProvider getTestSessionPropertiesProvider()
-    {
-        return new SessionPropertiesProvider()
-        {
-            @Override
-            public List<PropertyMetadata<?>> getSessionProperties()
-            {
-                return PROPERTY_METADATA;
-            }
-        };
     }
 
     private static ConnectorSession createSession(String sessionName)
