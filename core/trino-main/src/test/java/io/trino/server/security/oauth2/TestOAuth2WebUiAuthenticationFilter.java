@@ -63,6 +63,7 @@ import java.util.UUID;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TestingHydraService.TTL_ACCESS_TOKEN_IN_SECONDS;
+import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static java.lang.String.format;
 import static javax.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static javax.ws.rs.core.HttpHeaders.LOCATION;
@@ -192,20 +193,20 @@ public class TestOAuth2WebUiAuthenticationFilter
             throws Exception
     {
         withSuccessfulAuthentication((driver, wait) -> {
-            Cookie cookie = driver.manage().getCookieNamed("Presto-OAuth2-Token");
-            assertPrestoCookie(cookie);
+            Cookie cookie = driver.manage().getCookieNamed(OAUTH2_COOKIE);
+            assertTrinoCookie(cookie);
             assertUICallWithCookie(cookie);
         });
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "Presto-OAuth2-Token is missing")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = OAUTH2_COOKIE + " is missing")
     public void testExpiredAccessToken()
             throws Exception
     {
         withSuccessfulAuthentication(((driver, wait) -> {
-            Cookie cookie = driver.manage().getCookieNamed("Presto-OAuth2-Token");
-            assertThat(cookie).withFailMessage("Presto-OAuth2-Token is missing").isNotNull();
+            Cookie cookie = driver.manage().getCookieNamed(OAUTH2_COOKIE);
+            assertThat(cookie).withFailMessage(OAUTH2_COOKIE + " is missing").isNotNull();
             Thread.sleep((TTL_ACCESS_TOKEN_IN_SECONDS + 1) * 1000L); // wait for the token expiration
             try (Response response = httpClient.newCall(
                     uiCall()
@@ -274,9 +275,9 @@ public class TestOAuth2WebUiAuthenticationFilter
         acceptButton.click();
     }
 
-    private void assertPrestoCookie(Cookie cookie)
+    private void assertTrinoCookie(Cookie cookie)
     {
-        assertThat(cookie.getName()).isEqualTo("Presto-OAuth2-Token");
+        assertThat(cookie.getName()).isEqualTo(OAUTH2_COOKIE);
         assertThat(cookie.getDomain()).isEqualTo("host.testcontainers.internal");
         assertThat(cookie.getPath()).isEqualTo("/ui/");
         assertThat(cookie.isSecure()).isTrue();
@@ -317,7 +318,7 @@ public class TestOAuth2WebUiAuthenticationFilter
                 return ImmutableList.of(new okhttp3.Cookie.Builder()
                         .domain("localhost")
                         .path("/ui/")
-                        .name("Presto-OAuth2-Token")
+                        .name(OAUTH2_COOKIE)
                         .value(cookie.getValue())
                         .httpOnly()
                         .secure()

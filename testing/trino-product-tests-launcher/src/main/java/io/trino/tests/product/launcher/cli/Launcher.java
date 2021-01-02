@@ -127,7 +127,7 @@ public class Launcher
 
     @Command(
             name = "test",
-            description = "Run a Presto product test",
+            description = "Run a Trino product test",
             usageHelpAutoWidth = true,
             subcommands = {
                     HelpCommand.class,

@@ -113,8 +113,8 @@ import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS
 import static io.trino.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.server.InternalHeaders.PRESTO_CURRENT_VERSION;
-import static io.trino.server.InternalHeaders.PRESTO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
+import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -462,8 +462,8 @@ public class TestHttpRemoteTask
         @Produces(MediaType.APPLICATION_JSON)
         public synchronized TaskInfo getTaskInfo(
                 @PathParam("taskId") TaskId taskId,
-                @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
-                @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+                @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
+                @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
                 @Context UriInfo uriInfo)
         {
             lastActivityNanos.set(System.nanoTime());
@@ -502,8 +502,8 @@ public class TestHttpRemoteTask
         @Produces(MediaType.APPLICATION_JSON)
         public synchronized TaskStatus getTaskStatus(
                 @PathParam("taskId") TaskId taskId,
-                @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
-                @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+                @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
+                @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
                 @Context UriInfo uriInfo)
                 throws InterruptedException
         {
@@ -518,7 +518,7 @@ public class TestHttpRemoteTask
         @Produces(MediaType.APPLICATION_JSON)
         public synchronized VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(
                 @PathParam("taskId") TaskId taskId,
-                @HeaderParam(PRESTO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
+                @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
                 @Context UriInfo uriInfo)
         {
             dynamicFiltersFetchCounter++;

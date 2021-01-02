@@ -286,7 +286,7 @@ public abstract class BaseJdbcClient
                         getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
                         Optional.empty());
-                Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
+                Optional<ColumnMapping> columnMapping = toTrinoType(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                 // skip unsupported column types
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -305,7 +305,7 @@ public abstract class BaseJdbcClient
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                     verify(
                             unsupportedTypeHandling == IGNORE,
-                            "Unsupported type handling is set to %s, but toPrestoType() returned empty for %s",
+                            "Unsupported type handling is set to %s, but toTrinoType() returned empty for %s",
                             unsupportedTypeHandling,
                             typeHandle);
                 }
@@ -368,7 +368,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             return typeHandles.stream()
-                    .map(typeHandle -> toPrestoType(session, connection, typeHandle)
+                    .map(typeHandle -> toTrinoType(session, connection, typeHandle)
                             .orElseThrow(() -> new VerifyException(format("Unsupported type handle %s", typeHandle))))
                     .collect(toImmutableList());
         }
@@ -577,7 +577,7 @@ public abstract class BaseJdbcClient
 
     protected String generateTemporaryTableName()
     {
-        return "tmp_presto_" + UUID.randomUUID().toString().replace("-", "");
+        return "tmp_trino_" + UUID.randomUUID().toString().replace("-", "");
     }
 
     @Override

@@ -267,7 +267,7 @@ public final class ScalarFunctionAdapter
                     adapter = explicitCastArguments(adapter, adapter.type().changeReturnType(unwrap(returnType)));
                     adapter = guardWithTest(
                             isNullArgument(adapter.type(), 0),
-                            throwPrestoNullArgumentException(adapter.type()),
+                            throwTrinoNullArgumentException(adapter.type()),
                             adapter);
 
                     return filterReturnValue(methodHandle, adapter);
@@ -345,7 +345,7 @@ public final class ScalarFunctionAdapter
                     MethodType adapterType = methodType(boxedType, boxedType);
                     MethodHandle adapter = guardWithTest(
                             isNullArgument(adapterType, 0),
-                            throwPrestoNullArgumentException(adapterType),
+                            throwTrinoNullArgumentException(adapterType),
                             identity(boxedType));
 
                     return collectArguments(methodHandle, parameterIndex, adapter);
@@ -412,7 +412,7 @@ public final class ScalarFunctionAdapter
                     adapter = dropArguments(adapter, 1, boolean.class);
                     adapter = guardWithTest(
                             isTrueNullFlag(adapter.type(), 0),
-                            throwPrestoNullArgumentException(adapter.type()),
+                            throwTrinoNullArgumentException(adapter.type()),
                             adapter);
 
                     return collectArguments(methodHandle, parameterIndex, adapter);
@@ -449,7 +449,7 @@ public final class ScalarFunctionAdapter
                 if (nullAdaptationPolicy == THROW_ON_NULL || nullAdaptationPolicy == UNSUPPORTED || nullAdaptationPolicy == RETURN_NULL_ON_NULL) {
                     MethodHandle adapter = guardWithTest(
                             isBlockPositionNull(getBlockValue.type(), 0),
-                            throwPrestoNullArgumentException(getBlockValue.type()),
+                            throwTrinoNullArgumentException(getBlockValue.type()),
                             getBlockValue);
 
                     return collectArguments(methodHandle, parameterIndex, adapter);
@@ -596,13 +596,13 @@ public final class ScalarFunctionAdapter
         return returnNull;
     }
 
-    private static MethodHandle throwPrestoNullArgumentException(MethodType type)
+    private static MethodHandle throwTrinoNullArgumentException(MethodType type)
     {
-        MethodHandle throwException = collectArguments(throwException(type.returnType(), TrinoException.class), 0, prestoNullArgumentException());
+        MethodHandle throwException = collectArguments(throwException(type.returnType(), TrinoException.class), 0, trinoNullArgumentException());
         return permuteArguments(throwException, type);
     }
 
-    private static MethodHandle prestoNullArgumentException()
+    private static MethodHandle trinoNullArgumentException()
     {
         try {
             return publicLookup().findConstructor(TrinoException.class, methodType(void.class, ErrorCodeSupplier.class, String.class))

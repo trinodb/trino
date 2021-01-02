@@ -935,8 +935,8 @@ public interface ConnectorMetadata
      * <pre>
      *      handle = TH0
      *      aggregates = [
-     *              { functionName=agg_fn1, outputType = «some presto type» inputs = [{@link Variable} a]} ,
-     *              { functionName=agg_fn2, outputType = «some presto type» inputs = [{@link Variable} b, {@link Constant} 2]}
+     *              { functionName=agg_fn1, outputType = «some Trino type» inputs = [{@link Variable} a]} ,
+     *              { functionName=agg_fn2, outputType = «some Trino type» inputs = [{@link Variable} b, {@link Constant} 2]}
      *      ]
      *      groupingSets=[[{@link ColumnHandle} CH2]]
      *      assignments = {a = CH0, b = CH1, c = CH2}

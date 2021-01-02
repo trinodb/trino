@@ -547,7 +547,7 @@ public class TestingTrinoServer
         //
 
         // get existing announcement
-        ServiceAnnouncement announcement = getPrestoAnnouncement(announcer.getServiceAnnouncements());
+        ServiceAnnouncement announcement = getTrinoAnnouncement(announcer.getServiceAnnouncements());
 
         // update connectorIds property
         Map<String, String> properties = new LinkedHashMap<>(announcement.getProperties());
@@ -564,20 +564,20 @@ public class TestingTrinoServer
         nodeManager.refreshNodes();
     }
 
-    private static ServiceAnnouncement getPrestoAnnouncement(Set<ServiceAnnouncement> announcements)
+    private static ServiceAnnouncement getTrinoAnnouncement(Set<ServiceAnnouncement> announcements)
     {
         for (ServiceAnnouncement announcement : announcements) {
-            if (announcement.getType().equals("presto")) {
+            if (announcement.getType().equals("trino")) {
                 return announcement;
             }
         }
-        throw new RuntimeException("Presto announcement not found: " + announcements);
+        throw new RuntimeException("Trino announcement not found: " + announcements);
     }
 
     private static Path tempDirectory()
     {
         try {
-            return createTempDirectory("PrestoTest");
+            return createTempDirectory("TrinoTest");
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

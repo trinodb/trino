@@ -50,7 +50,7 @@ import static org.testng.Assert.assertEquals;
 public class TestJsonOperators
         extends AbstractTestFunctions
 {
-    // Some of the tests in this class are expected to fail when coercion between primitive presto types changes behavior
+    // Some of the tests in this class are expected to fail when coercion between primitive Trino types changes behavior
 
     private LocalQueryRunner runner;
 

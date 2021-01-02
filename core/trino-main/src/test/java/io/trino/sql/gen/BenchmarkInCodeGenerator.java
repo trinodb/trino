@@ -74,7 +74,7 @@ public class BenchmarkInCodeGenerator
 
     private Page inputPage;
     private PageProcessor processor;
-    private Type prestoType;
+    private Type trinoType;
 
     @Setup
     public void setup()
@@ -83,19 +83,19 @@ public class BenchmarkInCodeGenerator
         RowExpression[] arguments = new RowExpression[1 + inListCount];
         switch (type) {
             case StandardTypes.BIGINT:
-                prestoType = BIGINT;
+                trinoType = BIGINT;
                 for (int i = 1; i <= inListCount; i++) {
                     arguments[i] = constant((long) random.nextInt(), BIGINT);
                 }
                 break;
             case StandardTypes.DOUBLE:
-                prestoType = DOUBLE;
+                trinoType = DOUBLE;
                 for (int i = 1; i <= inListCount; i++) {
                     arguments[i] = constant(random.nextDouble(), DOUBLE);
                 }
                 break;
             case StandardTypes.VARCHAR:
-                prestoType = VARCHAR;
+                trinoType = VARCHAR;
                 for (int i = 1; i <= inListCount; i++) {
                     arguments[i] = constant(Slices.utf8Slice(Long.toString(random.nextLong())), VARCHAR);
                 }
@@ -104,10 +104,10 @@ public class BenchmarkInCodeGenerator
                 throw new IllegalStateException();
         }
 
-        arguments[0] = field(0, prestoType);
-        RowExpression project = field(0, prestoType);
+        arguments[0] = field(0, trinoType);
+        RowExpression project = field(0, trinoType);
 
-        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(prestoType));
+        PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(trinoType));
         for (int i = 0; i < 10_000; i++) {
             pageBuilder.declarePosition();
 

@@ -166,7 +166,7 @@ public class ParametricAggregation
                         stateFactory)),
                 outputType);
 
-        // Create specialized InternalAggregregationFunction for Presto
+        // Create specialized InternalAggregregationFunction for Trino
         return new InternalAggregationFunction(
                 signature.getName(),
                 inputTypes,

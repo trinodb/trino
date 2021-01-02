@@ -55,7 +55,7 @@ public interface ConnectorPageSource
     long getSystemMemoryUsage();
 
     /**
-     * Immediately finishes this page source.  Presto will always call this method.
+     * Immediately finishes this page source.  Trino will always call this method.
      */
     @Override
     void close()

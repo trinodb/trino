@@ -47,11 +47,11 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 
-public final class GlueToPrestoConverter
+public final class GlueToTrinoConverter
 {
     private static final String PUBLIC_OWNER = "PUBLIC";
 
-    private GlueToPrestoConverter() {}
+    private GlueToTrinoConverter() {}
 
     public static Database convertDatabase(com.amazonaws.services.glue.model.Database glueDb)
     {
@@ -100,7 +100,7 @@ public final class GlueToPrestoConverter
 
     private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns)
     {
-        return mappedCopy(glueColumns, GlueToPrestoConverter::convertColumn);
+        return mappedCopy(glueColumns, GlueToTrinoConverter::convertColumn);
     }
 
     private static Map<String, String> convertParameters(Map<String, String> parameters)
@@ -113,7 +113,7 @@ public final class GlueToPrestoConverter
 
     private static Function<Map<String, String>, Map<String, String>> parametersConverter()
     {
-        return memoizeLast(GlueToPrestoConverter::convertParameters);
+        return memoizeLast(GlueToTrinoConverter::convertParameters);
     }
 
     private static boolean isNullOrEmpty(List<?> list)
@@ -125,7 +125,7 @@ public final class GlueToPrestoConverter
             implements Function<com.amazonaws.services.glue.model.Partition, Partition>
     {
         private final Function<List<com.amazonaws.services.glue.model.Column>, List<Column>> columnsConverter = memoizeLast(
-                GlueToPrestoConverter::convertColumns);
+                GlueToTrinoConverter::convertColumns);
         private final Function<Map<String, String>, Map<String, String>> parametersConverter = parametersConverter();
         private final StorageConverter storageConverter = new StorageConverter();
         private final String databaseName;

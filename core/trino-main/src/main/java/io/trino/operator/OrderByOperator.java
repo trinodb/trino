@@ -306,7 +306,7 @@ public class OrderByOperator
             return immediateFuture(null);
         }
 
-        // TODO try pageIndex.compact(); before spilling, as in com.facebook.presto.operator.HashBuilderOperator.startMemoryRevoke
+        // TODO try pageIndex.compact(); before spilling, as in HashBuilderOperator.startMemoryRevoke()
 
         if (spiller.isEmpty()) {
             spiller = Optional.of(spillerFactory.get().create(

@@ -628,7 +628,7 @@ public class ParametricScalarImplementation
                                 if (Stream.of(parameterAnnotations).anyMatch(IsNull.class::isInstance)) {
                                     Class<?> isNullType = method.getParameterTypes()[parameterIndex + 1];
 
-                                    checkArgument(Stream.of(parameterAnnotations).filter(FunctionsParserHelper::isPrestoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
+                                    checkArgument(Stream.of(parameterAnnotations).filter(FunctionsParserHelper::isTrinoAnnotation).allMatch(IsNull.class::isInstance), "Method [%s] has @IsNull parameter that has other annotations", method);
                                     checkArgument(isNullType == boolean.class, "Method [%s] has non-boolean parameter with @IsNull", method);
                                     checkArgument((parameterType == Void.class) || !Primitives.isWrapperType(parameterType), "Method [%s] uses @IsNull following a parameter with boxed primitive type: %s", method, parameterType.getSimpleName());
 

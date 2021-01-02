@@ -727,7 +727,7 @@ public class TestTrinoS3FileSystem
                 stream.write('a');
                 stream.write(repeat("foo", 2).getBytes(US_ASCII));
                 stream.write(repeat("bar", 3).getBytes(US_ASCII));
-                stream.write(repeat("presto", 4).getBytes(US_ASCII), 6, 12);
+                stream.write(repeat("orange", 4).getBytes(US_ASCII), 6, 12);
             }
 
             List<UploadPartRequest> parts = s3.getUploadParts();
@@ -737,7 +737,7 @@ public class TestTrinoS3FileSystem
                     .map(UploadPartRequest::getInputStream)
                     .reduce(new ByteArrayInputStream(new byte[0]), SequenceInputStream::new);
             String data = new String(toByteArray(concatInputStream), US_ASCII);
-            assertEquals(data, "afoofoobarbarbarprestopresto");
+            assertEquals(data, "afoofoobarbarbarorangeorange");
         }
     }
 

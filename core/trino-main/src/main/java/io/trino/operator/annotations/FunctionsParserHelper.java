@@ -258,7 +258,7 @@ public final class FunctionsParserHelper
                 .anyMatch(name -> name.equals(Nullable.class.getName()));
     }
 
-    public static boolean isPrestoAnnotation(Annotation annotation)
+    public static boolean isTrinoAnnotation(Annotation annotation)
     {
         return isImplementationDependencyAnnotation(annotation) ||
                 annotation instanceof SqlType ||

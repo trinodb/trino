@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static io.trino.plugin.raptor.legacy.backup.HttpBackupStore.CONTENT_XXH64;
-import static io.trino.plugin.raptor.legacy.backup.HttpBackupStore.PRESTO_ENVIRONMENT;
+import static io.trino.plugin.raptor.legacy.backup.HttpBackupStore.TRINO_ENVIRONMENT;
 import static java.lang.Long.parseUnsignedLong;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_OCTET_STREAM;
@@ -69,7 +69,7 @@ public class TestingHttpBackupResource
     @HEAD
     @Path("{uuid}")
     public synchronized Response headRequest(
-            @HeaderParam(PRESTO_ENVIRONMENT) String environment,
+            @HeaderParam(TRINO_ENVIRONMENT) String environment,
             @PathParam("uuid") UUID uuid)
     {
         checkEnvironment(environment);
@@ -86,7 +86,7 @@ public class TestingHttpBackupResource
     @Path("{uuid}")
     @Produces(APPLICATION_OCTET_STREAM)
     public synchronized Response getRequest(
-            @HeaderParam(PRESTO_ENVIRONMENT) String environment,
+            @HeaderParam(TRINO_ENVIRONMENT) String environment,
             @PathParam("uuid") UUID uuid)
     {
         checkEnvironment(environment);
@@ -103,7 +103,7 @@ public class TestingHttpBackupResource
     @PUT
     @Path("{uuid}")
     public synchronized Response putRequest(
-            @HeaderParam(PRESTO_ENVIRONMENT) String environment,
+            @HeaderParam(TRINO_ENVIRONMENT) String environment,
             @HeaderParam(CONTENT_XXH64) String hexHash,
             @Context HttpServletRequest request,
             @PathParam("uuid") UUID uuid,
@@ -129,7 +129,7 @@ public class TestingHttpBackupResource
     @DELETE
     @Path("{uuid}")
     public synchronized Response deleteRequest(
-            @HeaderParam(PRESTO_ENVIRONMENT) String environment,
+            @HeaderParam(TRINO_ENVIRONMENT) String environment,
             @PathParam("uuid") UUID uuid)
     {
         checkEnvironment(environment);

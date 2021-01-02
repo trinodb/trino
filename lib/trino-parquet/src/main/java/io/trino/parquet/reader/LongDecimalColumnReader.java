@@ -41,20 +41,20 @@ public class LongDecimalColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type prestoType)
+    protected void readValue(BlockBuilder blockBuilder, Type trinoType)
     {
-        if (!(prestoType instanceof DecimalType)) {
-            throw new ParquetDecodingException(format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
+        if (!(trinoType instanceof DecimalType)) {
+            throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
         }
 
-        DecimalType prestoDecimalType = (DecimalType) prestoType;
+        DecimalType prestoDecimalType = (DecimalType) trinoType;
 
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
             Slice value = Decimals.encodeUnscaledValue(new BigInteger(binary.getBytes()));
 
             if (prestoDecimalType.isShort()) {
-                prestoType.writeLong(blockBuilder, longToShortCast(
+                trinoType.writeLong(blockBuilder, longToShortCast(
                         value,
                         parquetDecimalType.getPrecision(),
                         parquetDecimalType.getScale(),
@@ -62,7 +62,7 @@ public class LongDecimalColumnReader
                         prestoDecimalType.getScale()));
             }
             else {
-                prestoType.writeSlice(blockBuilder, longToLongCast(
+                trinoType.writeSlice(blockBuilder, longToLongCast(
                         value,
                         parquetDecimalType.getPrecision(),
                         parquetDecimalType.getScale(),

@@ -51,12 +51,12 @@ public final class DataTypeTestToSqlDataTypeTestConverter
                 " .addRoundTrip(%s, %s, %s, %s)",
                 toJavaLiteral(dataType.getInsertType()),
                 toJavaLiteral(dataType.toLiteral(value)),
-                typeConstructor(dataType.getPrestoResultType()),
-                toJavaLiteral(dataType.toPrestoLiteral(value))));
+                typeConstructor(dataType.getTrinoResultType()),
+                toJavaLiteral(dataType.toTrinoLiteral(value))));
 
-        Object expected = dataType.toPrestoQueryResult(value);
+        Object expected = dataType.toTrinoQueryResult(value);
         if (expected != value) {
-            output.append(format(" // TODO non-identity toPrestoQueryResult function was used: %s vs %s", value, expected));
+            output.append(format(" // TODO non-identity toTrinoQueryResult function was used: %s vs %s", value, expected));
         }
 
         output.append("\n");

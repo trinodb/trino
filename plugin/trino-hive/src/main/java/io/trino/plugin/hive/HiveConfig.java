@@ -455,7 +455,7 @@ public class HiveConfig
     }
 
     @Config("hive.respect-table-format")
-    @ConfigDescription("Should new partitions be written using the existing table format or the default Presto format")
+    @ConfigDescription("Should new partitions be written using the existing table format or the default Trino format")
     public HiveConfig setRespectTableFormat(boolean respectTableFormat)
     {
         this.respectTableFormat = respectTableFormat;
@@ -694,7 +694,7 @@ public class HiveConfig
 
     @LegacyConfig("hive.views-execution.enabled")
     @Config("hive.translate-hive-views")
-    @ConfigDescription("Experimental: Allow translation of Hive views into Presto views")
+    @ConfigDescription("Experimental: Allow translation of Hive views into Trino views")
     public HiveConfig setTranslateHiveViews(boolean translateHiveViews)
     {
         this.translateHiveViews = translateHiveViews;

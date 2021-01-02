@@ -15,13 +15,13 @@ package io.trino.server;
 
 public final class InternalHeaders
 {
-    public static final String PRESTO_CURRENT_VERSION = "X-Presto-Current-Version";
-    public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";
-    public static final String PRESTO_MAX_SIZE = "X-Presto-Max-Size";
-    public static final String PRESTO_TASK_INSTANCE_ID = "X-Presto-Task-Instance-Id";
-    public static final String PRESTO_PAGE_TOKEN = "X-Presto-Page-Sequence-Id";
-    public static final String PRESTO_PAGE_NEXT_TOKEN = "X-Presto-Page-End-Sequence-Id";
-    public static final String PRESTO_BUFFER_COMPLETE = "X-Presto-Buffer-Complete";
+    public static final String TRINO_CURRENT_VERSION = "X-Trino-Current-Version";
+    public static final String TRINO_MAX_WAIT = "X-Trino-Max-Wait";
+    public static final String TRINO_MAX_SIZE = "X-Trino-Max-Size";
+    public static final String TRINO_TASK_INSTANCE_ID = "X-Trino-Task-Instance-Id";
+    public static final String TRINO_PAGE_TOKEN = "X-Trino-Page-Sequence-Id";
+    public static final String TRINO_PAGE_NEXT_TOKEN = "X-Trino-Page-End-Sequence-Id";
+    public static final String TRINO_BUFFER_COMPLETE = "X-Trino-Buffer-Complete";
 
     private InternalHeaders() {}
 }

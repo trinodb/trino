@@ -53,7 +53,7 @@ import static java.util.Objects.requireNonNull;
 public class HttpBackupStore
         implements BackupStore
 {
-    public static final String PRESTO_ENVIRONMENT = "X-Presto-Environment";
+    public static final String TRINO_ENVIRONMENT = "X-Trino-Environment";
     public static final String CONTENT_XXH64 = "X-Content-XXH64";
 
     private final HttpClient httpClient;
@@ -75,7 +75,7 @@ public class HttpBackupStore
     public void backupShard(UUID uuid, File source)
     {
         Request request = preparePut()
-                .addHeader(PRESTO_ENVIRONMENT, environment)
+                .addHeader(TRINO_ENVIRONMENT, environment)
                 .addHeader(CONTENT_TYPE, APPLICATION_BINARY.toString())
                 .addHeader(CONTENT_XXH64, format("%016x", xxHash64(source)))
                 .setUri(shardUri(uuid))
@@ -97,7 +97,7 @@ public class HttpBackupStore
     public void restoreShard(UUID uuid, File target)
     {
         Request request = prepareGet()
-                .addHeader(PRESTO_ENVIRONMENT, environment)
+                .addHeader(TRINO_ENVIRONMENT, environment)
                 .setUri(shardUri(uuid))
                 .build();
 
@@ -119,7 +119,7 @@ public class HttpBackupStore
     public boolean deleteShard(UUID uuid)
     {
         Request request = prepareDelete()
-                .addHeader(PRESTO_ENVIRONMENT, environment)
+                .addHeader(TRINO_ENVIRONMENT, environment)
                 .setUri(shardUri(uuid))
                 .build();
 
@@ -142,7 +142,7 @@ public class HttpBackupStore
     public boolean shardExists(UUID uuid)
     {
         Request request = prepareHead()
-                .addHeader(PRESTO_ENVIRONMENT, environment)
+                .addHeader(TRINO_ENVIRONMENT, environment)
                 .setUri(shardUri(uuid))
                 .build();
 

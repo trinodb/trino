@@ -39,6 +39,7 @@ import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
+import static io.trino.server.ui.FormWebUiAuthenticationFilter.TRINO_FORM_LOGIN;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
@@ -71,7 +72,7 @@ public class OAuth2WebUiAuthenticationFilter
         if (!request.getSecurityContext().isSecure()) {
             // send 401 to REST api calls and redirect to others
             if (path.startsWith("/ui/api/")) {
-                sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of("Presto-Form-Login"));
+                sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
                 return;
             }
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());

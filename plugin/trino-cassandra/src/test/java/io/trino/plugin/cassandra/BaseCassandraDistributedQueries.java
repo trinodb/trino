@@ -121,7 +121,7 @@ public abstract class BaseCassandraDistributedQueries
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
                 || typeName.equals("timestamp")
                 || typeName.equals("decimal(5,3)")
@@ -134,8 +134,8 @@ public abstract class BaseCassandraDistributedQueries
     }
 
     @Override
-    protected String dataMappingTableName(String prestoTypeName)
+    protected String dataMappingTableName(String trinoTypeName)
     {
-        return "presto_tmp_" + System.nanoTime();
+        return "tmp_trino_" + System.nanoTime();
     }
 }

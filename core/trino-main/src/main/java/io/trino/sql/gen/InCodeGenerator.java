@@ -183,7 +183,7 @@ public class InCodeGenerator
         switch (switchGenerationCase) {
             case DIRECT_SWITCH:
                 // A white-list is used to select types eligible for DIRECT_SWITCH.
-                // For these types, it's safe to not use presto HASH_CODE and EQUAL operator.
+                // For these types, it's safe to not use Trino HASH_CODE and EQUAL operator.
                 for (Object constantValue : constantValues) {
                     switchBuilder.addCase(toIntExact((Long) constantValue), jump(match));
                 }

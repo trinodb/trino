@@ -31,7 +31,7 @@ public class ConnectorNewTableLayout
 
     /**
      * Creates a preferred table layout that is evenly partitioned on given columns by the engine.
-     * Such layout might be ignored by Presto planner.
+     * Such layout might be ignored by Trino planner.
      */
     public ConnectorNewTableLayout(List<String> partitionColumns)
     {

@@ -74,7 +74,7 @@ public class TestHive
         assertThatThrownBy(super::testHideDeltaLakeTables)
                 .hasMessageMatching("(?s)\n" +
                         "Expecting\n" +
-                        " <\\[.*\\b(\\w+.tmp_presto_test_presto_delta_lake_table_\\w+)\\b.*]>\n" +
+                        " <\\[.*\\b(\\w+.tmp_trino_test_trino_delta_lake_table_\\w+)\\b.*]>\n" +
                         "not to contain\n" +
                         " <\\[\\1]>\n" +
                         "but found.*");

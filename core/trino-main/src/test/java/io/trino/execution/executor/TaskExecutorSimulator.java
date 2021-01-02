@@ -171,7 +171,7 @@ public class TaskExecutorSimulator
         A fixed, large number of tasks (120) are submitted at approximately the same time.
 
         Desired result:
-        Presto is designed to prioritize fast, short tasks at the expense of longer slower tasks.
+        Trino is designed to prioritize fast, short tasks at the expense of longer slower tasks.
         This experiment allows us to quantify exactly how this preference manifests itself. It is
         expected that shorter tasks will complete faster, however, longer tasks should not starve
         for more than a couple of minutes at a time.
@@ -205,7 +205,7 @@ public class TaskExecutorSimulator
             throws InterruptedException
     {
         /*
-        Designed to simulate how Presto allocates resources in scenarios where there is variance in
+        Designed to simulate how Trino allocates resources in scenarios where there is variance in
         quanta run-time between tasks.
 
         Desired result:
@@ -239,7 +239,7 @@ public class TaskExecutorSimulator
             throws InterruptedException
     {
         /*
-        Designed to simulate how Presto allocates resources to tasks at the same level of the
+        Designed to simulate how Trino allocates resources to tasks at the same level of the
         feedback queue when there is large variance in accrued scheduled time.
 
         Desired result:

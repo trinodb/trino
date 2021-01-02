@@ -310,17 +310,17 @@ public class TestHiveStorageFormats
     }
 
     @Test(groups = STORAGE_FORMATS)
-    public void testOrcTableCreatedInPresto()
+    public void testOrcTableCreatedInTrino()
     {
-        onPresto().executeQuery("CREATE TABLE orc_table_created_in_presto WITH (format='ORC') AS SELECT 42 a");
-        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto"))
+        onPresto().executeQuery("CREATE TABLE orc_table_created_in_trino WITH (format='ORC') AS SELECT 42 a");
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_trino"))
                 .containsOnly(row(42));
         // Hive 3.1 validates (`org.apache.orc.impl.ReaderImpl#ensureOrcFooter`) ORC footer only when loading it from the cache, so when querying *second* time.
-        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto"))
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_trino"))
                 .containsOnly(row(42));
-        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_presto WHERE a < 43"))
+        assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_trino WHERE a < 43"))
                 .containsOnly(row(42));
-        onPresto().executeQuery("DROP TABLE orc_table_created_in_presto");
+        onPresto().executeQuery("DROP TABLE orc_table_created_in_trino");
     }
 
     @Test(groups = STORAGE_FORMATS)

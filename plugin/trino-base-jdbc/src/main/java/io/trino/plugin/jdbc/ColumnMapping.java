@@ -108,13 +108,13 @@ public final class ColumnMapping
         this.writeFunction = requireNonNull(writeFunction, "writeFunction is null");
         checkArgument(
                 type.getJavaType() == readFunction.getJavaType(),
-                "Presto type %s is not compatible with read function %s returning %s",
+                "Trino type %s is not compatible with read function %s returning %s",
                 type,
                 readFunction,
                 readFunction.getJavaType());
         checkArgument(
                 type.getJavaType() == writeFunction.getJavaType(),
-                "Presto type %s is not compatible with write function %s accepting %s",
+                "Trino type %s is not compatible with write function %s accepting %s",
                 type,
                 writeFunction,
                 writeFunction.getJavaType());

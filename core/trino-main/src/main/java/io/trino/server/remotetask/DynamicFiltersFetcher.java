@@ -40,8 +40,8 @@ import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
-import static io.trino.server.InternalHeaders.PRESTO_CURRENT_VERSION;
-import static io.trino.server.InternalHeaders.PRESTO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
+import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
 import static java.util.Objects.requireNonNull;
 
 class DynamicFiltersFetcher
@@ -152,8 +152,8 @@ class DynamicFiltersFetcher
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(taskUri).appendPath("dynamicfilters").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(PRESTO_CURRENT_VERSION, Long.toString(localDynamicFiltersVersion))
-                .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
+                .setHeader(TRINO_CURRENT_VERSION, Long.toString(localDynamicFiltersVersion))
+                .setHeader(TRINO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 
         errorTracker.startRequest();

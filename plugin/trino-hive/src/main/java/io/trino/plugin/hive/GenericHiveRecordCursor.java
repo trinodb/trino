@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.hadoop.TextLineLengthLimitExceededException;
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.plugin.base.type.PrestoTimestampEncoder;
+import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
@@ -58,7 +58,7 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -110,7 +110,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
     private final Slice[] slices;
     private final Object[] objects;
     private final boolean[] nulls;
-    private final PrestoTimestampEncoder<?>[] timestampEncoders;
+    private final TrinoTimestampEncoder<?>[] timestampEncoders;
 
     private final long totalBytes;
 
@@ -156,7 +156,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         this.slices = new Slice[size];
         this.objects = new Object[size];
         this.nulls = new boolean[size];
-        this.timestampEncoders = new PrestoTimestampEncoder[size];
+        this.timestampEncoders = new TrinoTimestampEncoder[size];
 
         // initialize data columns
         for (int i = 0; i < columns.size(); i++) {
@@ -589,14 +589,14 @@ public class GenericHiveRecordCursor<K, V extends Writable>
     private long shortTimestamp(Timestamp value, int column)
     {
         @SuppressWarnings("unchecked")
-        PrestoTimestampEncoder<Long> encoder = (PrestoTimestampEncoder<Long>) timestampEncoders[column];
+        TrinoTimestampEncoder<Long> encoder = (TrinoTimestampEncoder<Long>) timestampEncoders[column];
         return encoder.getTimestamp(new DecodedTimestamp(value.toEpochSecond(), value.getNanos()));
     }
 
     private LongTimestamp longTimestamp(Timestamp value, int column)
     {
         @SuppressWarnings("unchecked")
-        PrestoTimestampEncoder<LongTimestamp> encoder = (PrestoTimestampEncoder<LongTimestamp>) timestampEncoders[column];
+        TrinoTimestampEncoder<LongTimestamp> encoder = (TrinoTimestampEncoder<LongTimestamp>) timestampEncoders[column];
         return encoder.getTimestamp(new DecodedTimestamp(value.toEpochSecond(), value.getNanos()));
     }
 }

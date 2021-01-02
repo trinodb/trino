@@ -62,7 +62,7 @@ import static picocli.CommandLine.Option;
 
 @Command(
         name = "run",
-        description = "Run a Presto product test",
+        description = "Run a Trino product test",
         usageHelpAutoWidth = true)
 public final class TestRun
         implements Callable<Integer>

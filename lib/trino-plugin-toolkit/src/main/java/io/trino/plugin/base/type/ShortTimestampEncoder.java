@@ -24,7 +24,7 @@ import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.round;
 
 class ShortTimestampEncoder
-        extends AbstractPrestoTimestampEncoder<Long>
+        extends AbstractTrinoTimestampEncoder<Long>
 {
     ShortTimestampEncoder(TimestampType type, DateTimeZone timeZone)
     {

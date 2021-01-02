@@ -25,9 +25,9 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
-import io.trino.testing.sql.PrestoSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
@@ -118,7 +118,7 @@ public class TestMemSqlTypeMapping
     public void testFloat()
     {
         singlePrecisionFloatingPointTests(realDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_float"));
+                .execute(getQueryRunner(), prestoCreateAsSelect("trino_test_float"));
         singlePrecisionFloatingPointTests(memSqlFloatDataType())
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_float"));
     }
@@ -137,7 +137,7 @@ public class TestMemSqlTypeMapping
     public void testDouble()
     {
         doublePrecisionFloatingPointTests(doubleDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
+                .execute(getQueryRunner(), prestoCreateAsSelect("trino_test_double"));
         doublePrecisionFloatingPointTests(memSqlDoubleDataType())
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_double"));
     }
@@ -424,7 +424,7 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip(stringDataType("varchar(16777216)", createUnboundedVarcharType()), "text_g")
                 .addRoundTrip(stringDataType("varchar(" + VarcharType.MAX_LENGTH + ")", createUnboundedVarcharType()), "text_h")
                 .addRoundTrip(varcharDataType(), "unbounded")
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_parameterized_varchar"));
+                .execute(getQueryRunner(), prestoCreateAsSelect("trino_test_parameterized_varchar"));
     }
 
     @Test
@@ -517,7 +517,7 @@ public class TestMemSqlTypeMapping
     public void testJson()
     {
         jsonTestCases(memSqlJsonDataType(value -> "JSON " + formatStringLiteral(value)))
-                .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_json"));
+                .execute(getQueryRunner(), prestoCreateAsSelect("trino_test_json"));
         // MemSQL doesn't support CAST to JSON but accepts string literals as JSON values
         jsonTestCases(memSqlJsonDataType(value -> format("%s", formatStringLiteral(value))))
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.mysql_test_json"));
@@ -559,12 +559,12 @@ public class TestMemSqlTypeMapping
 
     private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup prestoCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup memSqlCreateAndInsert(String tableNamePrefix)

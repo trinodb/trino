@@ -566,7 +566,7 @@ public class ParquetTester
 
     private static FileFormat getFileFormat()
     {
-        return OPTIMIZED ? FileFormat.PRESTO_PARQUET : FileFormat.HIVE_PARQUET;
+        return OPTIMIZED ? FileFormat.TRINO_PARQUET : FileFormat.HIVE_PARQUET;
     }
 
     public static void writeParquetColumn(

@@ -24,7 +24,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
-import static io.trino.plugin.hive.HiveQlToPrestoTranslator.translateHiveViewToPresto;
+import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
 
 public class LegacyHiveViewReader
         implements ViewReaderUtil.ViewReader
@@ -35,7 +35,7 @@ public class LegacyHiveViewReader
         String viewText = table.getViewExpandedText()
                 .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view expanded text: " + table.getSchemaTableName()));
         return new ConnectorViewDefinition(
-                translateHiveViewToPresto(viewText),
+                translateHiveViewToTrino(viewText),
                 Optional.of(catalogName.toString()),
                 Optional.ofNullable(table.getDatabaseName()),
                 table.getDataColumns().stream()

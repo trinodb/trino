@@ -104,7 +104,7 @@ public final class IcebergSessionProperties
                         false))
                 .add(dataSizeProperty(
                         ORC_MAX_READ_BLOCK_SIZE,
-                        "ORC: Soft max size of Presto blocks produced by ORC reader",
+                        "ORC: Soft max size of Trino blocks produced by ORC reader",
                         orcReaderConfig.getMaxBlockSize(),
                         false))
                 .add(booleanProperty(

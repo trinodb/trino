@@ -25,7 +25,7 @@ public final class EnvironmentOptions
     @Option(names = "--config", paramLabel = "<config>", description = "Environment config to use")
     public String config = "config-default";
 
-    @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Presto server package " + DEFAULT_VALUE, defaultValue = "${server.module}/target/${server.name}-${project.version}.tar.gz")
+    @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Trino server package " + DEFAULT_VALUE, defaultValue = "${server.module}/target/${server.name}-${project.version}.tar.gz")
     public File serverPackage;
 
     @Option(names = "--without-presto", description = "Do not start " + COORDINATOR)

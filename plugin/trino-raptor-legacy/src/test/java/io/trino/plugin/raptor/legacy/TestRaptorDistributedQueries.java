@@ -60,7 +60,7 @@ public class TestRaptorDistributedQueries
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("tinyint")
                 || typeName.equals("real")
                 || typeName.startsWith("decimal(")

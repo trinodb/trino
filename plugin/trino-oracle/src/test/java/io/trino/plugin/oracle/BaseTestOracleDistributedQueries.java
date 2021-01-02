@@ -66,15 +66,15 @@ public abstract class BaseTestOracleDistributedQueries
     }
 
     @Override
-    protected String dataMappingTableName(String prestoTypeName)
+    protected String dataMappingTableName(String trinoTypeName)
     {
-        return "presto_tmp_" + System.nanoTime();
+        return "tmp_trino_" + System.nanoTime();
     }
 
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")) {
             return Optional.empty();
         }

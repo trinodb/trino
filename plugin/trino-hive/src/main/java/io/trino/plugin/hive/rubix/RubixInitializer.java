@@ -260,7 +260,7 @@ public class RubixInitializer
         LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
 
         CachingFileSystem.setLocalBookKeeper(configuration, bookKeeper, "catalog=" + catalogName);
-        PrestoClusterManager.setNodeManager(nodeManager);
+        TrinoClusterManager.setNodeManager(nodeManager);
         log.info("Rubix initialized successfully");
         cacheReady = true;
     }
@@ -270,7 +270,7 @@ public class RubixInitializer
         Configuration configuration = getRubixServerConfiguration();
         new BookKeeperServer().setupServer(configuration, new MetricRegistry());
         CachingFileSystem.setLocalBookKeeper(configuration, new DummyBookKeeper(), "catalog=" + catalogName);
-        PrestoClusterManager.setNodeManager(nodeManager);
+        TrinoClusterManager.setNodeManager(nodeManager);
     }
 
     private Configuration getRubixServerConfiguration()
@@ -328,7 +328,7 @@ public class RubixInitializer
             config.set(FILESYSTEM_OWNED_BY_RUBIX_CONFIG_PROPETY, "true");
         }
 
-        setPrestoClusterManager(config, PrestoClusterManager.class.getName());
+        setPrestoClusterManager(config, TrinoClusterManager.class.getName());
 
         rubixHdfsInitializer.initializeConfiguration(config);
     }

@@ -266,7 +266,7 @@ public class SourcePartitionedScheduler
                         if (scheduleGroup.state == ScheduleGroupState.INITIALIZED && pendingSplits.isEmpty()) {
                             // Add an empty split in case no splits have been produced for the source.
                             // For source operators, they never take input, but they may produce output.
-                            // This is well handled by Presto execution engine.
+                            // This is well handled by the execution engine.
                             // However, there are certain non-source operators that may produce output without any input,
                             // for example, 1) an AggregationOperator, 2) a HashAggregationOperator where one of the grouping sets is ().
                             // Scheduling an empty split kicks off necessary driver instantiation to make this work.

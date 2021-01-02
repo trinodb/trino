@@ -253,7 +253,7 @@ public class AccumuloClient
             // then a column was specified that does not exist
             // (or there is a duplicate column in the table DDL, which is also an issue but has been checked before in validateColumns).
             if (matchingColumns != g.getValue().size()) {
-                throw new TrinoException(INVALID_TABLE_PROPERTY, "Unknown Presto column defined for locality group " + g.getKey());
+                throw new TrinoException(INVALID_TABLE_PROPERTY, "Unknown Trino column defined for locality group " + g.getKey());
             }
         }
     }
@@ -314,7 +314,7 @@ public class AccumuloClient
             }
             else {
                 if (!mapping.containsKey(cm.getName())) {
-                    throw new InvalidParameterException(format("Misconfigured mapping for presto column %s", cm.getName()));
+                    throw new InvalidParameterException(format("Misconfigured mapping for Trino column %s", cm.getName()));
                 }
 
                 // Get the mapping for this column

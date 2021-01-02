@@ -135,9 +135,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        return delegate.toPrestoType(session, connection, typeHandle);
+        return delegate.toTrinoType(session, connection, typeHandle);
     }
 
     @Override

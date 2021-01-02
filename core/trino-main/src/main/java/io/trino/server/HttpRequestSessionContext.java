@@ -67,7 +67,7 @@ public final class HttpRequestSessionContext
         implements SessionContext
 {
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
-    public static final String AUTHENTICATED_IDENTITY = "presto.authenticated-identity";
+    public static final String AUTHENTICATED_IDENTITY = "trino.authenticated-identity";
 
     private final ProtocolHeaders protocolHeaders;
 
@@ -218,8 +218,8 @@ public final class HttpRequestSessionContext
 
     private static Identity buildSessionIdentity(Optional<Identity> authenticatedIdentity, ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers, GroupProvider groupProvider)
     {
-        String prestoUser = trimEmptyToNull(headers.getFirst(protocolHeaders.requestUser()));
-        String user = prestoUser != null ? prestoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
+        String trinoUser = trimEmptyToNull(headers.getFirst(protocolHeaders.requestUser()));
+        String user = trinoUser != null ? trinoUser : authenticatedIdentity.map(Identity::getUser).orElse(null);
         assertRequest(user != null, "User must be set");
         return authenticatedIdentity
                 .map(identity -> Identity.from(identity).withUser(user))

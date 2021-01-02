@@ -36,7 +36,7 @@ public class BigQueryConnectorModule
     @Singleton
     public static HeaderProvider createHeaderProvider(NodeManager nodeManager)
     {
-        return FixedHeaderProvider.create("user-agent", "prestosql/" + nodeManager.getCurrentNode().getVersion());
+        return FixedHeaderProvider.create("user-agent", "Trino/" + nodeManager.getCurrentNode().getVersion());
     }
 
     @Override

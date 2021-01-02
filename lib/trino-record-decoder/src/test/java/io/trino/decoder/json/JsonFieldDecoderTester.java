@@ -66,7 +66,7 @@ public class JsonFieldDecoderTester
 
     public void assertDecodedAs(String jsonValue, Type type, long expectedValue)
     {
-        checkArgument(type.getJavaType() == long.class, "Wrong (not long based) presto type '%s'", type);
+        checkArgument(type.getJavaType() == long.class, "Wrong (not long based) Trino type '%s'", type);
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertFalse(decodedValue.isNull(), format("expected non null when decoding %s as %s", jsonValue, type));
         assertEquals(decodedValue.getLong(), expectedValue);
@@ -74,7 +74,7 @@ public class JsonFieldDecoderTester
 
     public void assertDecodedAs(String jsonValue, Type type, double expectedValue)
     {
-        checkArgument(type.getJavaType() == double.class, "Wrong (not double based) presto type '%s'", type);
+        checkArgument(type.getJavaType() == double.class, "Wrong (not double based) Trino type '%s'", type);
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertFalse(decodedValue.isNull(), format("expected non null when decoding %s as %s", jsonValue, type));
         assertEquals(decodedValue.getDouble(), expectedValue);
@@ -82,7 +82,7 @@ public class JsonFieldDecoderTester
 
     public void assertDecodedAs(String jsonValue, Type type, Slice expectedValue)
     {
-        checkArgument(type.getJavaType() == Slice.class, "Wrong (not Slice based) presto type '%s'", type);
+        checkArgument(type.getJavaType() == Slice.class, "Wrong (not Slice based) Trino type '%s'", type);
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertFalse(decodedValue.isNull(), format("expected non null when decoding %s as %s", jsonValue, type));
         assertEquals(decodedValue.getSlice(), expectedValue);
@@ -90,7 +90,7 @@ public class JsonFieldDecoderTester
 
     public void assertDecodedAs(String jsonValue, Type type, boolean expectedValue)
     {
-        checkArgument(type.getJavaType() == boolean.class, "Wrong (not boolean based) presto type '%s'", type);
+        checkArgument(type.getJavaType() == boolean.class, "Wrong (not boolean based) Trino type '%s'", type);
         FieldValueProvider decodedValue = decode(Optional.of(jsonValue), type);
         assertFalse(decodedValue.isNull(), format("expected non null when decoding %s as %s", jsonValue, type));
         assertEquals(decodedValue.getBoolean(), expectedValue);

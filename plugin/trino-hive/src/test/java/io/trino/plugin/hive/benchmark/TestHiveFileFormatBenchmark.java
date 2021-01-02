@@ -26,14 +26,14 @@ public class TestHiveFileFormatBenchmark
     public void testSomeFormats()
             throws Exception
     {
-        executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_RCBINARY);
-        executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_ORC);
+        executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_RCBINARY);
+        executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_ORC);
         executeBenchmark(DataSet.LINEITEM, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
-        executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_RCBINARY);
-        executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_ORC);
+        executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_RCBINARY);
+        executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_ORC);
         executeBenchmark(DataSet.MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
-        executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_RCBINARY);
-        executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_ORC);
+        executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_RCBINARY);
+        executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_ORC);
         executeBenchmark(DataSet.LARGE_MAP_VARCHAR_DOUBLE, HiveCompressionCodec.SNAPPY, FileFormat.HIVE_RCBINARY);
     }
 
@@ -42,7 +42,7 @@ public class TestHiveFileFormatBenchmark
             throws Exception
     {
         for (HiveCompressionCodec codec : HiveCompressionCodec.values()) {
-            executeBenchmark(DataSet.LINEITEM, codec, FileFormat.PRESTO_RCBINARY);
+            executeBenchmark(DataSet.LINEITEM, codec, FileFormat.TRINO_RCBINARY);
         }
     }
 
@@ -51,7 +51,7 @@ public class TestHiveFileFormatBenchmark
             throws Exception
     {
         for (DataSet dataSet : DataSet.values()) {
-            executeBenchmark(dataSet, HiveCompressionCodec.SNAPPY, FileFormat.PRESTO_RCBINARY);
+            executeBenchmark(dataSet, HiveCompressionCodec.SNAPPY, FileFormat.TRINO_RCBINARY);
         }
     }
 

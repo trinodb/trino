@@ -63,8 +63,8 @@ public class TestHeartbeatFailureDetector
                 binder -> {
                     configBinder(binder).bindConfig(InternalCommunicationConfig.class);
                     configBinder(binder).bindConfig(QueryManagerConfig.class);
-                    discoveryBinder(binder).bindSelector("presto");
-                    discoveryBinder(binder).bindHttpAnnouncement("presto");
+                    discoveryBinder(binder).bindSelector("trino");
+                    discoveryBinder(binder).bindHttpAnnouncement("trino");
 
                     // Jersey with jetty 9 requires at least one resource
                     // todo add a dummy resource to airlift jaxrs in this case
@@ -77,7 +77,7 @@ public class TestHeartbeatFailureDetector
                 .quiet()
                 .initialize();
 
-        ServiceSelector selector = injector.getInstance(Key.get(ServiceSelector.class, serviceType("presto")));
+        ServiceSelector selector = injector.getInstance(Key.get(ServiceSelector.class, serviceType("trino")));
         assertEquals(selector.selectAllServices().size(), 1);
 
         HeartbeatFailureDetector detector = injector.getInstance(HeartbeatFailureDetector.class);

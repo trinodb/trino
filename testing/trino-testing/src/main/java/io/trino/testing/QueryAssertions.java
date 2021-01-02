@@ -72,7 +72,7 @@ public final class QueryAssertions
         }
         Duration queryTime = nanosSince(start);
         if (queryTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
-            log.info("FINISHED in presto: %s", queryTime);
+            log.info("FINISHED in Trino: %s", queryTime);
         }
 
         if (planAssertion.isPresent()) {
@@ -165,7 +165,7 @@ public final class QueryAssertions
         }
         Duration totalTime = nanosSince(start);
         if (totalTime.compareTo(Duration.succinctDuration(1, SECONDS)) > 0) {
-            log.info("FINISHED in presto: %s, h2: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
+            log.info("FINISHED in Trino: %s, H2: %s, total: %s", actualTime, nanosSince(expectedStart), totalTime);
         }
 
         if (actualResults.getUpdateType().isPresent() || actualResults.getUpdateCount().isPresent()) {

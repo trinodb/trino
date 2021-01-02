@@ -66,7 +66,7 @@ public class TestIcebergDistributed
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("tinyint")
                 || typeName.equals("smallint")
                 || typeName.startsWith("char(")) {

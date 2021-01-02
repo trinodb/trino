@@ -53,7 +53,7 @@ public class EmbedVersion
 
     public EmbedVersion(String version)
     {
-        Class<?> generatedClass = createClass(format("Presto_%s___", version));
+        Class<?> generatedClass = createClass(format("Trino_%s___", version));
         this.runnableConstructor = constructorMethodHandle(generatedClass, Runnable.class);
         this.callableConstructor = constructorMethodHandle(generatedClass, Callable.class);
     }

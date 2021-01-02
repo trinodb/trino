@@ -620,8 +620,8 @@ public class TestJdbcCompatibility
     @Test
     public void testSelectArray()
     {
-        String query = "SELECT ARRAY['presto', 'is', 'awesome']";
-        checkRepresentation(query, ARRAY, (rs, column) -> assertThat(rs.getArray(column).getArray()).isEqualTo(new Object[] {"presto", "is", "awesome"}));
+        String query = "SELECT ARRAY['Trino', 'is', 'awesome']";
+        checkRepresentation(query, ARRAY, (rs, column) -> assertThat(rs.getArray(column).getArray()).isEqualTo(new Object[] {"Trino", "is", "awesome"}));
     }
 
     @Test

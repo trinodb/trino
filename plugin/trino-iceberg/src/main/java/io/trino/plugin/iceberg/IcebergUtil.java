@@ -41,7 +41,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.reverse;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_SNAPSHOT_ID;
-import static io.trino.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static java.lang.String.format;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -86,7 +86,7 @@ final class IcebergUtil
                 .map(column -> new IcebergColumnHandle(
                         column.fieldId(),
                         column.name(),
-                        toPrestoType(column.type(), typeManager),
+                        toTrinoType(column.type(), typeManager),
                         Optional.ofNullable(column.doc())))
                 .collect(toImmutableList());
     }

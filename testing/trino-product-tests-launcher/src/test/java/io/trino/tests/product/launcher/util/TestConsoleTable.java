@@ -56,14 +56,14 @@ public class TestConsoleTable
         table.addSeparator();
         table.addRow("hello", "world");
         table.addRow("a", "b");
-        table.addRow("prestosql", "rocks");
+        table.addRow("pineapple", "rocks");
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
                 "+-----------+-------+\n" +
                 "|     hello | world |\n" +
                 "|         a |     b |\n" +
-                "| prestosql | rocks |\n" +
+                "| pineapple | rocks |\n" +
                 "+-----------+-------+");
     }
 
@@ -74,14 +74,14 @@ public class TestConsoleTable
         table.addSeparator();
         table.addRow("hello", "world");
         table.addRow("a", "b");
-        table.addRow("prestosql");
+        table.addRow("pineapple");
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
                 "+-----------+-------+\n" +
                 "|     hello | world |\n" +
                 "|         a |     b |\n" +
-                "| prestosql |       |\n" +
+                "| pineapple |       |\n" +
                 "+-----------+-------+");
     }
 
@@ -93,7 +93,7 @@ public class TestConsoleTable
         table.addRow(ConsoleTable.Alignment.RIGHT, "hello", "world");
         table.addSeparator();
         table.addRow(ConsoleTable.Alignment.CENTER, "a", "b");
-        table.addRow("prestosql", "rocks");
+        table.addRow("pineapple", "rocks");
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
@@ -101,7 +101,7 @@ public class TestConsoleTable
                 "|     hello | world |\n" +
                 "+-----------+-------+\n" +
                 "|     a     |   b   |\n" +
-                "| prestosql | rocks |\n" +
+                "| pineapple | rocks |\n" +
                 "+-----------+-------+");
     }
 
@@ -110,21 +110,21 @@ public class TestConsoleTable
     {
         ConsoleTable table = new ConsoleTable();
         table.addSeparator();
-        table.addRow(ConsoleTable.Alignment.RIGHT, "hello\npresto", "world\nawaits");
+        table.addRow(ConsoleTable.Alignment.RIGHT, "hello\norange", "world\nawaits");
         table.addSeparator();
         table.addRow(ConsoleTable.Alignment.LEFT, "a", "b");
         table.addSeparator();
-        table.addRow(ConsoleTable.Alignment.CENTER, "prestosql\nhas\nawesome\ndocs", "and\nrocks");
+        table.addRow(ConsoleTable.Alignment.CENTER, "pineapple\nhas\nawesome\ndocs", "and\nrocks");
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
                 "+-----------+--------+\n" +
                 "|     hello |  world |\n" +
-                "|    presto | awaits |\n" +
+                "|    orange | awaits |\n" +
                 "+-----------+--------+\n" +
                 "| a         | b      |\n" +
                 "+-----------+--------+\n" +
-                "| prestosql |  and   |\n" +
+                "| pineapple |  and   |\n" +
                 "|    has    | rocks  |\n" +
                 "|  awesome  |        |\n" +
                 "|   docs    |        |\n" +

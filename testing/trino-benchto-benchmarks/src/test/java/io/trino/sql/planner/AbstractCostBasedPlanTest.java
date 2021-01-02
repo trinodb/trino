@@ -133,7 +133,7 @@ public abstract class AbstractCostBasedPlanTest
             case "presto":
                 return workingDir.resolve("testing/trino-benchto-benchmarks");
             default:
-                throw new IllegalStateException("This class must be executed from trino-benchto-benchmarks or presto source directory");
+                throw new IllegalStateException("This class must be executed from trino-benchto-benchmarks or Trino source directory");
         }
     }
 

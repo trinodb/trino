@@ -148,7 +148,7 @@ public class LdapConfig
     }
 
     @Config("ldap.bind-dn")
-    @ConfigDescription("Bind distinguished name used by Presto. Example: CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
+    @ConfigDescription("Bind distinguished name. Example: CN=User Name,OU=CITY_OU,OU=STATE_OU,DC=domain,DC=domain_root")
     public LdapConfig setBindDistingushedName(String bindDistingushedName)
     {
         this.bindDistinguishedName = bindDistingushedName;
@@ -161,7 +161,7 @@ public class LdapConfig
     }
 
     @Config("ldap.bind-password")
-    @ConfigDescription("Bind password used by Presto. Example: password1234")
+    @ConfigDescription("Bind password used. Example: password1234")
     @ConfigSecuritySensitive
     public LdapConfig setBindPassword(String bindPassword)
     {

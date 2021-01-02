@@ -30,7 +30,7 @@ public final class TrinoServer
         String majorVersion = javaVersion.split("[^\\d]", 2)[0];
         Integer major = Ints.tryParse(majorVersion);
         if (major == null || major < 11) {
-            System.err.println(format("ERROR: Presto requires Java 11+ (found %s)", javaVersion));
+            System.err.println(format("ERROR: Trino requires Java 11+ (found %s)", javaVersion));
             System.exit(100);
         }
 

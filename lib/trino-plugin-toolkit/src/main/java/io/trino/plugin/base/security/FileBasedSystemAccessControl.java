@@ -234,8 +234,8 @@ public class FileBasedSystemAccessControl
                 ImmutableList.Builder<CatalogAccessControlRule> catalogRulesBuilder = ImmutableList.builder();
                 catalogRulesBuilder.addAll(rules.getCatalogRules().get());
 
-                // Hack to allow Presto Admin to access the "system" catalog for retrieving server status.
-                // todo Change userRegex from ".*" to one particular user that Presto Admin will be restricted to run as
+                // Hack to allow Trino Admin to access the "system" catalog for retrieving server status.
+                // todo Change userRegex from ".*" to one particular user that Trino Admin will be restricted to run as
                 catalogRulesBuilder.add(new CatalogAccessControlRule(
                         ALL,
                         Optional.of(Pattern.compile(".*")),

@@ -16,7 +16,7 @@ package io.trino.rcfile.binary;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.plugin.base.type.DecodedTimestamp;
-import io.trino.plugin.base.type.PrestoTimestampEncoder;
+import io.trino.plugin.base.type.TrinoTimestampEncoder;
 import io.trino.rcfile.ColumnData;
 import io.trino.rcfile.EncodeOutput;
 import io.trino.rcfile.TimestampHolder;
@@ -28,7 +28,7 @@ import org.joda.time.DateTimeZone;
 import java.util.function.BiFunction;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
-import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.createTimestampEncoder;
 import static io.trino.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static io.trino.rcfile.RcFileDecoderUtils.isNegativeVInt;
 import static io.trino.rcfile.RcFileDecoderUtils.readVInt;
@@ -41,13 +41,13 @@ public class TimestampEncoding
 {
     private final TimestampType type;
     private final DateTimeZone timeZone;
-    private final PrestoTimestampEncoder<?> prestoTimestampEncoder;
+    private final TrinoTimestampEncoder<?> trinoTimestampEncoder;
 
     public TimestampEncoding(TimestampType type, DateTimeZone timeZone)
     {
         this.type = requireNonNull(type, "type is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
-        prestoTimestampEncoder = createTimestampEncoder(this.type, timeZone);
+        trinoTimestampEncoder = createTimestampEncoder(this.type, timeZone);
     }
 
     @Override
@@ -80,7 +80,7 @@ public class TimestampEncoding
             if (length != 0) {
                 int offset = columnData.getOffset(i);
                 DecodedTimestamp decodedTimestamp = getTimestamp(slice, offset);
-                prestoTimestampEncoder.write(decodedTimestamp, builder);
+                trinoTimestampEncoder.write(decodedTimestamp, builder);
             }
             else {
                 builder.appendNull();
@@ -115,7 +115,7 @@ public class TimestampEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         DecodedTimestamp decodedTimestamp = getTimestamp(slice, offset);
-        prestoTimestampEncoder.write(decodedTimestamp, builder);
+        trinoTimestampEncoder.write(decodedTimestamp, builder);
     }
 
     private static boolean hasNanosVInt(byte b)

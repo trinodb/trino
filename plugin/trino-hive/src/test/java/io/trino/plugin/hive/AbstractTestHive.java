@@ -30,7 +30,7 @@ import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
-import io.trino.plugin.hive.azure.PrestoAzureConfigurationInitializer;
+import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.metastore.Column;
@@ -299,7 +299,7 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestHive
 {
-    protected static final String TEMPORARY_TABLE_PREFIX = "tmp_presto_test_";
+    protected static final String TEMPORARY_TABLE_PREFIX = "tmp_trino_test_";
 
     protected static final String INVALID_DATABASE = "totally_invalid_database_name";
     protected static final String INVALID_TABLE = "totally_invalid_table_name";
@@ -644,19 +644,19 @@ public abstract class AbstractTestHive
     protected void setupHive(String databaseName)
     {
         database = databaseName;
-        tablePartitionFormat = new SchemaTableName(database, "presto_test_partition_format");
-        tableUnpartitioned = new SchemaTableName(database, "presto_test_unpartitioned");
-        tableOffline = new SchemaTableName(database, "presto_test_offline");
-        tableOfflinePartition = new SchemaTableName(database, "presto_test_offline_partition");
-        tableNotReadable = new SchemaTableName(database, "presto_test_not_readable");
-        view = new SchemaTableName(database, "presto_test_view");
+        tablePartitionFormat = new SchemaTableName(database, "trino_test_partition_format");
+        tableUnpartitioned = new SchemaTableName(database, "trino_test_unpartitioned");
+        tableOffline = new SchemaTableName(database, "trino_test_offline");
+        tableOfflinePartition = new SchemaTableName(database, "trino_test_offline_partition");
+        tableNotReadable = new SchemaTableName(database, "trino_test_not_readable");
+        view = new SchemaTableName(database, "trino_test_view");
         invalidTable = new SchemaTableName(database, INVALID_TABLE);
-        tableBucketedStringInt = new SchemaTableName(database, "presto_test_bucketed_by_string_int");
-        tableBucketedBigintBoolean = new SchemaTableName(database, "presto_test_bucketed_by_bigint_boolean");
-        tableBucketedDoubleFloat = new SchemaTableName(database, "presto_test_bucketed_by_double_float");
-        tablePartitionSchemaChange = new SchemaTableName(database, "presto_test_partition_schema_change");
-        tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "presto_test_partition_schema_change_non_canonical");
-        tableBucketEvolution = new SchemaTableName(database, "presto_test_bucket_evolution");
+        tableBucketedStringInt = new SchemaTableName(database, "trino_test_bucketed_by_string_int");
+        tableBucketedBigintBoolean = new SchemaTableName(database, "trino_test_bucketed_by_bigint_boolean");
+        tableBucketedDoubleFloat = new SchemaTableName(database, "trino_test_bucketed_by_double_float");
+        tablePartitionSchemaChange = new SchemaTableName(database, "trino_test_partition_schema_change");
+        tablePartitionSchemaChangeNonCanonical = new SchemaTableName(database, "trino_test_partition_schema_change_non_canonical");
+        tableBucketEvolution = new SchemaTableName(database, "trino_test_bucket_evolution");
 
         invalidTableHandle = new HiveTableHandle(database, INVALID_TABLE, ImmutableMap.of(), ImmutableList.of(), ImmutableList.of(), Optional.empty());
 
@@ -839,7 +839,7 @@ public abstract class AbstractTestHive
                         ImmutableSet.of(
                                 new TrinoS3ConfigurationInitializer(new HiveS3Config()),
                                 new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
-                                new PrestoAzureConfigurationInitializer(new HiveAzureConfig()))),
+                                new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
                 ImmutableSet.of());
     }
 
@@ -1481,7 +1481,7 @@ public abstract class AbstractTestHive
                 fail("Expected HiveNotReadableException");
             }
             catch (HiveNotReadableException e) {
-                assertThat(e).hasMessageMatching("Table '.*\\.presto_test_not_readable' is not readable: reason for not readable");
+                assertThat(e).hasMessageMatching("Table '.*\\.trino_test_not_readable' is not readable: reason for not readable");
                 assertEquals(e.getTableName(), tableNotReadable);
                 assertEquals(e.getPartition(), Optional.empty());
             }
@@ -2011,7 +2011,7 @@ public abstract class AbstractTestHive
         }
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.presto_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = ".*The column 't_data' in table '.*\\.trino_test_partition_schema_change' is declared as type 'double', but partition 'ds=2012-12-29' declared column 't_data' as type 'string'.")
     public void testPartitionSchemaMismatch()
             throws Exception
     {
@@ -2058,42 +2058,42 @@ public abstract class AbstractTestHive
     public void testTypesTextFile()
             throws Exception
     {
-        assertGetRecords("presto_test_types_textfile", TEXTFILE);
+        assertGetRecords("trino_test_types_textfile", TEXTFILE);
     }
 
     @Test
     public void testTypesSequenceFile()
             throws Exception
     {
-        assertGetRecords("presto_test_types_sequencefile", SEQUENCEFILE);
+        assertGetRecords("trino_test_types_sequencefile", SEQUENCEFILE);
     }
 
     @Test
     public void testTypesRcText()
             throws Exception
     {
-        assertGetRecords("presto_test_types_rctext", RCTEXT);
+        assertGetRecords("trino_test_types_rctext", RCTEXT);
     }
 
     @Test
     public void testTypesRcBinary()
             throws Exception
     {
-        assertGetRecords("presto_test_types_rcbinary", RCBINARY);
+        assertGetRecords("trino_test_types_rcbinary", RCBINARY);
     }
 
     @Test
     public void testTypesOrc()
             throws Exception
     {
-        assertGetRecords("presto_test_types_orc", ORC);
+        assertGetRecords("trino_test_types_orc", ORC);
     }
 
     @Test
     public void testTypesParquet()
             throws Exception
     {
-        assertGetRecords("presto_test_types_parquet", PARQUET);
+        assertGetRecords("trino_test_types_parquet", PARQUET);
     }
 
     @Test
@@ -2661,7 +2661,7 @@ public abstract class AbstractTestHive
     {
         ConnectorSession session = newSession();
         HiveIdentity identity = new HiveIdentity(session);
-        SchemaTableName tableName = temporaryTable("presto_delta_lake_table");
+        SchemaTableName tableName = temporaryTable("trino_delta_lake_table");
 
         Table.Builder table = Table.builder()
                 .setDatabaseName(tableName.getSchemaName())

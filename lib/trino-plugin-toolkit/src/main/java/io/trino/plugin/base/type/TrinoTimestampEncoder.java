@@ -13,26 +13,14 @@
  */
 package io.trino.plugin.base.type;
 
+import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.TimestampType;
-import org.joda.time.DateTimeZone;
 
-import static java.util.Objects.requireNonNull;
-
-abstract class AbstractPrestoTimestampEncoder<T extends Comparable<T>>
-        implements PrestoTimestampEncoder<T>
+public interface TrinoTimestampEncoder<T>
 {
-    protected final DateTimeZone timeZone;
-    protected final TimestampType type;
+    void write(DecodedTimestamp decodedTimestamp, BlockBuilder blockBuilder);
 
-    AbstractPrestoTimestampEncoder(TimestampType type, DateTimeZone timeZone)
-    {
-        this.type = requireNonNull(type, "type is null");
-        this.timeZone = requireNonNull(timeZone, "timeZone is null");
-    }
+    T getTimestamp(DecodedTimestamp decodedTimestamp);
 
-    @Override
-    public TimestampType getType()
-    {
-        return type;
-    }
+    TimestampType getType();
 }

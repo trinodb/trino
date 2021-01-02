@@ -67,57 +67,57 @@ public class DataTypeTest
         return this;
     }
 
-    public void execute(QueryRunner prestoExecutor, DataSetup dataSetup)
+    public void execute(QueryRunner trinoExecutor, DataSetup dataSetup)
     {
-        execute(prestoExecutor, prestoExecutor.getDefaultSession(), dataSetup);
+        execute(trinoExecutor, trinoExecutor.getDefaultSession(), dataSetup);
     }
 
-    public void execute(QueryRunner prestoExecutor, Session session, DataSetup dataSetup)
+    public void execute(QueryRunner trinoExecutor, Session session, DataSetup dataSetup)
     {
-        List<Type> expectedTypes = inputs.stream().map(Input::getPrestoResultType).collect(toList());
-        List<Object> expectedResults = inputs.stream().map(Input::toPrestoQueryResult).collect(toList());
+        List<Type> expectedTypes = inputs.stream().map(Input::getTrinoResultType).collect(toList());
+        List<Object> expectedResults = inputs.stream().map(Input::toTrinoQueryResult).collect(toList());
         try (TestTable testTable = dataSetup.setupTestTable(unmodifiableList(inputs))) {
-            MaterializedResult materializedRows = prestoExecutor.execute(session, "SELECT * from " + testTable.getName());
+            MaterializedResult materializedRows = trinoExecutor.execute(session, "SELECT * from " + testTable.getName());
             checkResults(expectedTypes, expectedResults, materializedRows);
             if (runSelectWithWhere) {
-                queryWithWhere(prestoExecutor, session, expectedTypes, expectedResults, testTable);
+                queryWithWhere(trinoExecutor, session, expectedTypes, expectedResults, testTable);
             }
         }
     }
 
-    private void queryWithWhere(QueryRunner prestoExecutor, Session session, List<Type> expectedTypes, List<Object> expectedResults, TestTable testTable)
+    private void queryWithWhere(QueryRunner trinoExecutor, Session session, List<Type> expectedTypes, List<Object> expectedResults, TestTable testTable)
     {
-        String prestoQuery = buildPrestoQueryWithWhereClauses(testTable);
+        String trinoQuery = buildTrinoQueryWithWhereClauses(testTable);
         try {
-            MaterializedResult filteredRows = prestoExecutor.execute(session, prestoQuery);
+            MaterializedResult filteredRows = trinoExecutor.execute(session, trinoQuery);
             checkResults(expectedTypes, expectedResults, filteredRows);
         }
         catch (RuntimeException e) {
             log.error("Exception caught during query with merged WHERE clause, querying one column at a time", e);
-            debugTypes(prestoExecutor, session, expectedTypes, expectedResults, testTable);
+            debugTypes(trinoExecutor, session, expectedTypes, expectedResults, testTable);
         }
     }
 
-    private void debugTypes(QueryRunner prestoExecutor, Session session, List<Type> expectedTypes, List<Object> expectedResults, TestTable testTable)
+    private void debugTypes(QueryRunner trinoExecutor, Session session, List<Type> expectedTypes, List<Object> expectedResults, TestTable testTable)
     {
         for (int i = 0; i < inputs.size(); i++) {
             Input<?> input = inputs.get(i);
             if (input.isUseInWhereClause()) {
-                String debugQuery = format("SELECT col_%d FROM %s WHERE col_%d IS NOT DISTINCT FROM %s", i, testTable.getName(), i, input.toPrestoLiteral());
+                String debugQuery = format("SELECT col_%d FROM %s WHERE col_%d IS NOT DISTINCT FROM %s", i, testTable.getName(), i, input.toTrinoLiteral());
                 log.info("Querying input: %d (expected type: %s, expectedResult: %s) using: %s", i, expectedTypes.get(i), expectedResults.get(i), debugQuery);
-                MaterializedResult debugRows = prestoExecutor.execute(session, debugQuery);
+                MaterializedResult debugRows = trinoExecutor.execute(session, debugQuery);
                 checkResults(expectedTypes.subList(i, i + 1), expectedResults.subList(i, i + 1), debugRows);
             }
         }
     }
 
-    private String buildPrestoQueryWithWhereClauses(TestTable testTable)
+    private String buildTrinoQueryWithWhereClauses(TestTable testTable)
     {
         List<String> predicates = new ArrayList<>();
         for (int i = 0; i < inputs.size(); i++) {
             Input<?> input = inputs.get(i);
             if (input.isUseInWhereClause()) {
-                predicates.add(format("col_%d IS NOT DISTINCT FROM %s", i, input.toPrestoLiteral()));
+                predicates.add(format("col_%d IS NOT DISTINCT FROM %s", i, input.toTrinoLiteral()));
             }
         }
         return "SELECT * FROM " + testTable.getName() + " WHERE " + join(" AND ", predicates);
@@ -163,14 +163,14 @@ public class DataTypeTest
             return dataType.getInsertType();
         }
 
-        Type getPrestoResultType()
+        Type getTrinoResultType()
         {
-            return dataType.getPrestoResultType();
+            return dataType.getTrinoResultType();
         }
 
-        Object toPrestoQueryResult()
+        Object toTrinoQueryResult()
         {
-            return dataType.toPrestoQueryResult(value);
+            return dataType.toTrinoQueryResult(value);
         }
 
         @Override
@@ -184,9 +184,9 @@ public class DataTypeTest
             return dataType.toLiteral(value);
         }
 
-        public String toPrestoLiteral()
+        public String toTrinoLiteral()
         {
-            return dataType.toPrestoLiteral(value);
+            return dataType.toTrinoLiteral(value);
         }
     }
 }

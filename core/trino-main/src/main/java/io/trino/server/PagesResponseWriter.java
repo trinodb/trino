@@ -36,20 +36,20 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.List;
 
-import static io.trino.PrestoMediaTypes.PRESTO_PAGES;
+import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 import static java.util.Objects.requireNonNull;
 
 @Provider
-@Produces(PRESTO_PAGES)
+@Produces(TRINO_PAGES)
 public class PagesResponseWriter
         implements MessageBodyWriter<List<SerializedPage>>
 {
     public static final int SERIALIZED_PAGES_MAGIC = 0xfea4f001;
 
-    private static final MediaType PRESTO_PAGES_TYPE = MediaType.valueOf(PRESTO_PAGES);
+    private static final MediaType TRINO_PAGES_TYPE = MediaType.valueOf(TRINO_PAGES);
     private static final Type LIST_GENERIC_TOKEN;
 
     static {
@@ -75,7 +75,7 @@ public class PagesResponseWriter
     {
         return List.class.isAssignableFrom(type) &&
                 TypeToken.of(genericType).resolveType(LIST_GENERIC_TOKEN).getRawType().equals(SerializedPage.class) &&
-                mediaType.isCompatible(PRESTO_PAGES_TYPE);
+                mediaType.isCompatible(TRINO_PAGES_TYPE);
     }
 
     @Override

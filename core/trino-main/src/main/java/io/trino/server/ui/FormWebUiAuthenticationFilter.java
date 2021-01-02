@@ -51,8 +51,9 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class FormWebUiAuthenticationFilter
         implements WebUiAuthenticationFilter
 {
-    private static final String PRESTO_UI_AUDIENCE = "presto-ui";
-    private static final String PRESTO_UI_COOKIE = "Presto-UI-Token";
+    private static final String TRINO_UI_AUDIENCE = "trino-ui";
+    private static final String TRINO_UI_COOKIE = "Trino-UI-Token";
+    static final String TRINO_FORM_LOGIN = "Trino-Form-Login";
     static final String LOGIN_FORM = "/ui/login.html";
     static final URI LOGIN_FORM_URI = URI.create(LOGIN_FORM);
     static final String DISABLED_LOCATION = "/ui/disabled.html";
@@ -126,7 +127,7 @@ public class FormWebUiAuthenticationFilter
 
         // send 401 to REST api calls and redirect to others
         if (path.startsWith("/ui/api/")) {
-            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of("Presto-Form-Login"));
+            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
             return;
         }
 
@@ -228,7 +229,7 @@ public class FormWebUiAuthenticationFilter
 
     private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
     {
-        Cookie cookie = request.getCookies().get(PRESTO_UI_COOKIE);
+        Cookie cookie = request.getCookies().get(TRINO_UI_COOKIE);
         if (cookie == null) {
             return Optional.empty();
         }
@@ -248,7 +249,7 @@ public class FormWebUiAuthenticationFilter
     {
         String jwt = jwtGenerator.apply(userName);
         return new NewCookie(
-                PRESTO_UI_COOKIE,
+                TRINO_UI_COOKIE,
                 jwt,
                 "/ui",
                 null,
@@ -263,7 +264,7 @@ public class FormWebUiAuthenticationFilter
     public static NewCookie getDeleteCookie(boolean secure)
     {
         return new NewCookie(
-                PRESTO_UI_COOKIE,
+                TRINO_UI_COOKIE,
                 "delete",
                 "/ui",
                 null,
@@ -291,7 +292,7 @@ public class FormWebUiAuthenticationFilter
                 .signWith(SignatureAlgorithm.HS256, hmac)
                 .setSubject(username)
                 .setExpiration(Date.from(ZonedDateTime.now().plusNanos(sessionTimeoutNanos).toInstant()))
-                .setAudience(PRESTO_UI_AUDIENCE)
+                .setAudience(TRINO_UI_AUDIENCE)
                 .compact();
     }
 
@@ -299,7 +300,7 @@ public class FormWebUiAuthenticationFilter
     {
         return Jwts.parser()
                 .setSigningKey(hmac)
-                .requireAudience(PRESTO_UI_AUDIENCE)
+                .requireAudience(TRINO_UI_AUDIENCE)
                 .parseClaimsJws(jwt)
                 .getBody()
                 .getSubject();

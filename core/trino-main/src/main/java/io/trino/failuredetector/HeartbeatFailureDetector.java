@@ -101,7 +101,7 @@ public class HeartbeatFailureDetector
 
     @Inject
     public HeartbeatFailureDetector(
-            @ServiceType("presto") ServiceSelector selector,
+            @ServiceType("trino") ServiceSelector selector,
             @ForFailureDetector HttpClient httpClient,
             FailureDetectorConfig failureDetectorConfig,
             NodeInfo nodeInfo,

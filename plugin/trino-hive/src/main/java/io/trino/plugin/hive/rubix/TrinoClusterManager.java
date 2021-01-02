@@ -27,7 +27,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
-public class PrestoClusterManager
+public class TrinoClusterManager
         extends ClusterManager
 {
     private static volatile Optional<NodeManager> nodeManager = Optional.empty();
@@ -69,7 +69,7 @@ public class PrestoClusterManager
         return nodeManager
                 .map(NodeManager::getCurrentNode)
                 .map(Node::getHostAndPort)
-                .flatMap(PrestoClusterManager::toInetAddress)
+                .flatMap(TrinoClusterManager::toInetAddress)
                 .map(InetAddress::getHostAddress)
                 .orElseGet(super::getCurrentNodeHostAddress);
     }

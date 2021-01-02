@@ -95,7 +95,7 @@ public final class DiscoveryNodeManager
 
     @Inject
     public DiscoveryNodeManager(
-            @ServiceType("presto") ServiceSelector serviceSelector,
+            @ServiceType("trino") ServiceSelector serviceSelector,
             NodeInfo nodeInfo,
             FailureDetector failureDetector,
             NodeVersion expectedNodeVersion,

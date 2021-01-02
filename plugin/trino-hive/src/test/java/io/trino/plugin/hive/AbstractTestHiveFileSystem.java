@@ -165,12 +165,12 @@ public abstract class AbstractTestHiveFileSystem
     protected void setup(String host, int port, String databaseName, boolean s3SelectPushdownEnabled, HdfsConfiguration hdfsConfiguration)
     {
         database = databaseName;
-        table = new SchemaTableName(database, "presto_test_external_fs");
-        tableWithHeader = new SchemaTableName(database, "presto_test_external_fs_with_header");
-        tableWithHeaderAndFooter = new SchemaTableName(database, "presto_test_external_fs_with_header_and_footer");
+        table = new SchemaTableName(database, "trino_test_external_fs");
+        tableWithHeader = new SchemaTableName(database, "trino_test_external_fs_with_header");
+        tableWithHeaderAndFooter = new SchemaTableName(database, "trino_test_external_fs_with_header_and_footer");
 
         String random = randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
-        temporaryCreateTable = new SchemaTableName(database, "tmp_presto_test_create_" + random);
+        temporaryCreateTable = new SchemaTableName(database, "tmp_trino_test_create_" + random);
 
         config = new HiveConfig().setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
 
@@ -314,7 +314,7 @@ public abstract class AbstractTestHiveFileSystem
             throws Exception
     {
         Path basePath = getBasePath();
-        Path tablePath = new Path(basePath, "presto_test_external_fs");
+        Path tablePath = new Path(basePath, "trino_test_external_fs");
         Path filePath = new Path(tablePath, "test_table.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 

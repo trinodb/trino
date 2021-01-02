@@ -65,17 +65,17 @@ import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.http.client.ResponseHandlerUtils.propagate;
 import static io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static io.trino.PrestoMediaTypes.PRESTO_PAGES_TYPE;
+import static io.trino.TrinoMediaTypes.TRINO_PAGES_TYPE;
 import static io.trino.execution.buffer.PagesSerdeUtil.NO_CHECKSUM;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.PagesSerdeUtil.readSerializedPages;
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createEmptyPagesResponse;
 import static io.trino.operator.HttpPageBufferClient.PagesResponse.createPagesResponse;
-import static io.trino.server.InternalHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.trino.server.InternalHeaders.PRESTO_MAX_SIZE;
-import static io.trino.server.InternalHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static io.trino.server.InternalHeaders.PRESTO_PAGE_TOKEN;
-import static io.trino.server.InternalHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
+import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static io.trino.spi.HostAddress.fromUri;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -323,7 +323,7 @@ public final class HttpPageBufferClient
         URI uri = HttpUriBuilder.uriBuilderFrom(location).appendPath(String.valueOf(token)).build();
         HttpResponseFuture<PagesResponse> resultFuture = httpClient.executeAsync(
                 prepareGet()
-                        .setHeader(PRESTO_MAX_SIZE, maxResponseSize.toString())
+                        .setHeader(TRINO_MAX_SIZE, maxResponseSize.toString())
                         .setUri(uri).build(),
                 new PageResponseHandler(dataIntegrityVerification != DataIntegrityVerification.NONE));
 
@@ -631,8 +631,8 @@ public final class HttpPageBufferClient
                 if (contentType == null) {
                     throw new PageTransportErrorException(fromUri(uri), format("%s header is not set: %s", CONTENT_TYPE, response));
                 }
-                if (!mediaTypeMatches(contentType, PRESTO_PAGES_TYPE)) {
-                    throw new PageTransportErrorException(fromUri(uri), format("Expected %s response from server but got %s", PRESTO_PAGES_TYPE, contentType));
+                if (!mediaTypeMatches(contentType, TRINO_PAGES_TYPE)) {
+                    throw new PageTransportErrorException(fromUri(uri), format("Expected %s response from server but got %s", TRINO_PAGES_TYPE, contentType));
                 }
 
                 String taskInstanceId = getTaskInstanceId(response, uri);
@@ -678,36 +678,36 @@ public final class HttpPageBufferClient
 
         private static String getTaskInstanceId(Response response, URI uri)
         {
-            String taskInstanceId = response.getHeader(PRESTO_TASK_INSTANCE_ID);
+            String taskInstanceId = response.getHeader(TRINO_TASK_INSTANCE_ID);
             if (taskInstanceId == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", PRESTO_TASK_INSTANCE_ID));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_TASK_INSTANCE_ID));
             }
             return taskInstanceId;
         }
 
         private static long getToken(Response response, URI uri)
         {
-            String tokenHeader = response.getHeader(PRESTO_PAGE_TOKEN);
+            String tokenHeader = response.getHeader(TRINO_PAGE_TOKEN);
             if (tokenHeader == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", PRESTO_PAGE_TOKEN));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_TOKEN));
             }
             return Long.parseLong(tokenHeader);
         }
 
         private static long getNextToken(Response response, URI uri)
         {
-            String nextTokenHeader = response.getHeader(PRESTO_PAGE_NEXT_TOKEN);
+            String nextTokenHeader = response.getHeader(TRINO_PAGE_NEXT_TOKEN);
             if (nextTokenHeader == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", PRESTO_PAGE_NEXT_TOKEN));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_PAGE_NEXT_TOKEN));
             }
             return Long.parseLong(nextTokenHeader);
         }
 
         private static boolean getComplete(Response response, URI uri)
         {
-            String bufferComplete = response.getHeader(PRESTO_BUFFER_COMPLETE);
+            String bufferComplete = response.getHeader(TRINO_BUFFER_COMPLETE);
             if (bufferComplete == null) {
-                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", PRESTO_BUFFER_COMPLETE));
+                throw new PageTransportErrorException(fromUri(uri), format("Expected %s header", TRINO_BUFFER_COMPLETE));
             }
             return Boolean.parseBoolean(bufferComplete);
         }

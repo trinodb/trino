@@ -65,14 +65,14 @@ import static com.google.common.collect.Iterables.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
-import static io.trino.PrestoMediaTypes.PRESTO_PAGES;
-import static io.trino.server.InternalHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.trino.server.InternalHeaders.PRESTO_CURRENT_VERSION;
-import static io.trino.server.InternalHeaders.PRESTO_MAX_SIZE;
-import static io.trino.server.InternalHeaders.PRESTO_MAX_WAIT;
-import static io.trino.server.InternalHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static io.trino.server.InternalHeaders.PRESTO_PAGE_TOKEN;
-import static io.trino.server.InternalHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.trino.TrinoMediaTypes.TRINO_PAGES;
+import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
+import static io.trino.server.InternalHeaders.TRINO_CURRENT_VERSION;
+import static io.trino.server.InternalHeaders.TRINO_MAX_SIZE;
+import static io.trino.server.InternalHeaders.TRINO_MAX_WAIT;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -149,8 +149,8 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskInfo(
             @PathParam("taskId") TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
-            @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+            @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
+            @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -188,8 +188,8 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskStatus(
             @PathParam("taskId") TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
-            @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
+            @HeaderParam(TRINO_CURRENT_VERSION) Long currentVersion,
+            @HeaderParam(TRINO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
@@ -223,7 +223,7 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(
             @PathParam("taskId") TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
+            @HeaderParam(TRINO_CURRENT_VERSION) Long currentDynamicFiltersVersion,
             @Context UriInfo uriInfo)
     {
         requireNonNull(taskId, "taskId is null");
@@ -259,12 +259,12 @@ public class TaskResource
     @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Path("{taskId}/results/{bufferId}/{token}")
-    @Produces(PRESTO_PAGES)
+    @Produces(TRINO_PAGES)
     public void getResults(
             @PathParam("taskId") TaskId taskId,
             @PathParam("bufferId") OutputBufferId bufferId,
             @PathParam("token") long token,
-            @HeaderParam(PRESTO_MAX_SIZE) DataSize maxSize,
+            @HeaderParam(TRINO_MAX_SIZE) DataSize maxSize,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
@@ -294,10 +294,10 @@ public class TaskResource
 
             return Response.status(status)
                     .entity(entity)
-                    .header(PRESTO_TASK_INSTANCE_ID, result.getTaskInstanceId())
-                    .header(PRESTO_PAGE_TOKEN, result.getToken())
-                    .header(PRESTO_PAGE_NEXT_TOKEN, result.getNextToken())
-                    .header(PRESTO_BUFFER_COMPLETE, result.isBufferComplete())
+                    .header(TRINO_TASK_INSTANCE_ID, result.getTaskInstanceId())
+                    .header(TRINO_PAGE_TOKEN, result.getToken())
+                    .header(TRINO_PAGE_NEXT_TOKEN, result.getNextToken())
+                    .header(TRINO_BUFFER_COMPLETE, result.isBufferComplete())
                     .build();
         }, directExecutor());
 
@@ -306,10 +306,10 @@ public class TaskResource
         bindAsyncResponse(asyncResponse, responseFuture, responseExecutor)
                 .withTimeout(timeout,
                         Response.status(Status.NO_CONTENT)
-                                .header(PRESTO_TASK_INSTANCE_ID, taskManager.getTaskInstanceId(taskId))
-                                .header(PRESTO_PAGE_TOKEN, token)
-                                .header(PRESTO_PAGE_NEXT_TOKEN, token)
-                                .header(PRESTO_BUFFER_COMPLETE, false)
+                                .header(TRINO_TASK_INSTANCE_ID, taskManager.getTaskInstanceId(taskId))
+                                .header(TRINO_PAGE_TOKEN, token)
+                                .header(TRINO_PAGE_NEXT_TOKEN, token)
+                                .header(TRINO_BUFFER_COMPLETE, false)
                                 .build());
 
         responseFuture.addListener(() -> readFromOutputBufferTime.add(Duration.nanosSince(start)), directExecutor());

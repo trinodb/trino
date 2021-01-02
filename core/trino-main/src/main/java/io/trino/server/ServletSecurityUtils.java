@@ -99,7 +99,7 @@ public final class ServletSecurityUtils
             @Override
             public String getAuthenticationScheme()
             {
-                return "presto";
+                return "trino";
             }
         });
     }

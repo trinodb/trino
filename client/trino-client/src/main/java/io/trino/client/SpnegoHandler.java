@@ -219,7 +219,7 @@ public class SpnegoHandler
                 options.put("doNotPrompt", "true");
                 options.put("useKeyTab", "true");
 
-                if (getBoolean("presto.client.debugKerberos")) {
+                if (getBoolean("trino.client.debugKerberos")) {
                     options.put("debug", "true");
                 }
 

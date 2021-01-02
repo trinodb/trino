@@ -20,7 +20,7 @@ public final class TemptoProductTestRunner
 {
     public static void main(String[] args)
     {
-        TemptoRunnerCommandLineParser parser = TemptoRunnerCommandLineParser.builder("Presto product tests")
+        TemptoRunnerCommandLineParser parser = TemptoRunnerCommandLineParser.builder("Trino product tests")
                 .setTestsPackage("io.trino.tests.*", false)
                 .setExcludedGroups("quarantine", true)
                 .build();

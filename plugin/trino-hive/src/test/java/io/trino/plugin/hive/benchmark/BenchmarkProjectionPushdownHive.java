@@ -64,7 +64,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.TestHiveReaderProjectionsUtil.createProjectedColumnHandle;
-import static io.trino.plugin.hive.benchmark.FileFormat.PRESTO_ORC;
+import static io.trino.plugin.hive.benchmark.FileFormat.TRINO_ORC;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
@@ -129,13 +129,13 @@ public class BenchmarkProjectionPushdownHive
         @Param("1")
         private int readColumnCount = 1;
 
-        @Param({"PRESTO_ORC", "PRESTO_PARQUET"})
-        private FileFormat fileFormat = PRESTO_ORC;
+        @Param({"TRINO_ORC", "TRINO_PARQUET"})
+        private FileFormat fileFormat = TRINO_ORC;
 
         private TestData dataToWrite;
         private File dataFile;
 
-        private final File targetDir = createTempDir("presto-benchmark");
+        private final File targetDir = createTempDir("trino-benchmark");
 
         @Setup
         public void setup()

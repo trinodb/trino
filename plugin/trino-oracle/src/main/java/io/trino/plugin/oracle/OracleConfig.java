@@ -69,7 +69,7 @@ public class OracleConfig
     }
 
     @Config("oracle.number.default-scale")
-    @ConfigDescription("Default Presto DECIMAL scale for Oracle NUMBER data type")
+    @ConfigDescription("Default Trino DECIMAL scale for Oracle NUMBER data type")
     public OracleConfig setDefaultNumberScale(Integer defaultNumberScale)
     {
         this.defaultNumberScale = defaultNumberScale;

@@ -22,11 +22,11 @@ import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Math.multiplyExact;
 import static java.util.Objects.requireNonNull;
 
-public final class PrestoTimestampEncoderFactory
+public final class TrinoTimestampEncoderFactory
 {
-    private PrestoTimestampEncoderFactory() {}
+    private TrinoTimestampEncoderFactory() {}
 
-    public static PrestoTimestampEncoder<? extends Comparable<?>> createTimestampEncoder(TimestampType type, DateTimeZone timeZone)
+    public static TrinoTimestampEncoder<? extends Comparable<?>> createTimestampEncoder(TimestampType type, DateTimeZone timeZone)
     {
         requireNonNull(type, "type is null");
         requireNonNull(timeZone, "timeZoneKey is null");

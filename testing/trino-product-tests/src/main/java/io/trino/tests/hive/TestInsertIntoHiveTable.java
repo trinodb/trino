@@ -144,7 +144,7 @@ public class TestInsertIntoHiveTable
     public void testInsertIntoPartitionedWithSerdeProperty()
     {
         String tableNameInDatabase = mutableTablesState().get(PARTITIONED_TABLE_WITH_SERDE).getNameInDatabase();
-        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT 1, 'presto', '2018-01-01'")).containsExactly(row(1));
-        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsExactly(row(1, "presto", "2018-01-01"));
+        assertThat(query("INSERT INTO " + tableNameInDatabase + " SELECT 1, 'Trino', '2018-01-01'")).containsExactly(row(1));
+        assertThat(query("SELECT * FROM " + tableNameInDatabase)).containsExactly(row(1, "Trino", "2018-01-01"));
     }
 }

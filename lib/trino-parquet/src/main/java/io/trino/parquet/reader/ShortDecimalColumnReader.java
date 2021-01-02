@@ -48,11 +48,11 @@ public class ShortDecimalColumnReader
     }
 
     @Override
-    protected void readValue(BlockBuilder blockBuilder, Type prestoType)
+    protected void readValue(BlockBuilder blockBuilder, Type trinoType)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            if (!((prestoType instanceof DecimalType) || isIntegerType(prestoType))) {
-                throw new ParquetDecodingException(format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
+            if (!((trinoType instanceof DecimalType) || isIntegerType(trinoType))) {
+                throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
             }
 
             long value;
@@ -68,40 +68,40 @@ public class ShortDecimalColumnReader
                 value = getShortDecimalValue(valuesReader.readBytes().getBytes());
             }
 
-            if (prestoType instanceof DecimalType) {
-                DecimalType prestoDecimalType = (DecimalType) prestoType;
+            if (trinoType instanceof DecimalType) {
+                DecimalType trinoDecimalType = (DecimalType) trinoType;
 
-                if (isShortDecimal(prestoDecimalType)) {
-                    long rescale = longTenToNth(Math.abs(prestoDecimalType.getScale() - parquetDecimalType.getScale()));
+                if (isShortDecimal(trinoDecimalType)) {
+                    long rescale = longTenToNth(Math.abs(trinoDecimalType.getScale() - parquetDecimalType.getScale()));
                     long convertedValue = shortToShortCast(
                             value,
                             parquetDecimalType.getPrecision(),
                             parquetDecimalType.getScale(),
-                            prestoDecimalType.getPrecision(),
-                            prestoDecimalType.getScale(),
+                            trinoDecimalType.getPrecision(),
+                            trinoDecimalType.getScale(),
                             rescale,
                             rescale / 2);
 
-                    prestoType.writeLong(blockBuilder, convertedValue);
+                    trinoType.writeLong(blockBuilder, convertedValue);
                 }
-                else if (isLongDecimal(prestoDecimalType)) {
-                    prestoType.writeSlice(blockBuilder, shortToLongCast(
+                else if (isLongDecimal(trinoDecimalType)) {
+                    trinoType.writeSlice(blockBuilder, shortToLongCast(
                             value,
                             parquetDecimalType.getPrecision(),
                             parquetDecimalType.getScale(),
-                            prestoDecimalType.getPrecision(),
-                            prestoDecimalType.getScale()));
+                            trinoDecimalType.getPrecision(),
+                            trinoDecimalType.getScale()));
                 }
             }
             else {
                 if (parquetDecimalType.getScale() != 0) {
-                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported Presto column type (%s) for Parquet column (%s)", prestoType, columnDescriptor));
+                    throw new TrinoException(NOT_SUPPORTED, format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
                 }
 
-                if (!isInValidNumberRange(prestoType, value)) {
-                    throw new TrinoException(NOT_SUPPORTED, format("Could not coerce from %s to %s: %s", parquetDecimalType, prestoType, value));
+                if (!isInValidNumberRange(trinoType, value)) {
+                    throw new TrinoException(NOT_SUPPORTED, format("Could not coerce from %s to %s: %s", parquetDecimalType, trinoType, value));
                 }
-                prestoType.writeLong(blockBuilder, value);
+                trinoType.writeLong(blockBuilder, value);
             }
         }
         else if (isValueNull()) {

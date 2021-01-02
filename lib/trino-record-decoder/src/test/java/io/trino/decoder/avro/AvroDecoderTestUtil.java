@@ -209,7 +209,7 @@ public class AvroDecoderTestUtil
         GenericRecord record = (GenericRecord) value;
         RowType rowType = (RowType) type;
         assertEquals(record.getSchema().getFields().size(), rowType.getFields().size(), "Avro field size mismatch");
-        assertEquals(block.getPositionCount(), rowType.getFields().size(), "Presto type field size mismatch");
+        assertEquals(block.getPositionCount(), rowType.getFields().size(), "Trino type field size mismatch");
         for (int fieldIndex = 0; fieldIndex < rowType.getFields().size(); fieldIndex++) {
             RowType.Field rowField = rowType.getFields().get(fieldIndex);
             Object expectedValue = record.get(rowField.getName().get());

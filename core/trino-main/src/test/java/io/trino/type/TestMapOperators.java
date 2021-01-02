@@ -390,7 +390,7 @@ public class TestMapOperators
                         .build());
 
         // These two tests verifies that partial json cast preserves input order
-        // The second test should never happen in real life because valid json in presto requires natural key ordering.
+        // The second test should never happen in real life because valid json in Trino requires natural key ordering.
         // However, it is added to make sure that the order in the first test is not a coincidence.
         assertFunction("CAST(JSON '{\"k1\": {\"1klmnopq\":1, \"2klmnopq\":2, \"3klmnopq\":3, \"4klmnopq\":4, \"5klmnopq\":5, \"6klmnopq\":6, \"7klmnopq\":7}}' AS MAP<VARCHAR, JSON>)",
                 mapType(VARCHAR, JSON),

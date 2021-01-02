@@ -15,28 +15,28 @@ deploy_core_site_xml core-site.xml.s3-template \
 
 # create test tables
 # can't use create_test_tables because the first table is created with different commands
-table_path="s3a://${S3_BUCKET}/${test_directory}/presto_test_external_fs/"
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_test_external_fs/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test_table.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -e "
-    CREATE EXTERNAL TABLE presto_test_external_fs(t_bigint bigint)
+    CREATE EXTERNAL TABLE trino_test_external_fs(t_bigint bigint)
     STORED AS TEXTFILE
     LOCATION '${table_path}'"
 
-table_path="s3a://${S3_BUCKET}/${test_directory}/presto_test_external_fs_with_header/"
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_test_external_fs_with_header/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_header.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container /usr/bin/hive -e "
-    CREATE EXTERNAL TABLE presto_test_external_fs_with_header(t_bigint bigint)
+    CREATE EXTERNAL TABLE trino_test_external_fs_with_header(t_bigint bigint)
     STORED AS TEXTFILE
     LOCATION '${table_path}'
     TBLPROPERTIES ('skip.header.line.count'='1')"
 
-table_path="s3a://${S3_BUCKET}/${test_directory}/presto_test_external_fs_with_header_and_footer/"
+table_path="s3a://${S3_BUCKET}/${test_directory}/trino_test_external_fs_with_header_and_footer/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container hadoop fs -put -f /docker/files/test_table_with_header_and_footer.csv{,.gz,.bz2,.lz4} "${table_path}"
 exec_in_hadoop_master_container /usr/bin/hive -e "
-    CREATE EXTERNAL TABLE presto_test_external_fs_with_header_and_footer(t_bigint bigint)
+    CREATE EXTERNAL TABLE trino_test_external_fs_with_header_and_footer(t_bigint bigint)
     STORED AS TEXTFILE
     LOCATION '${table_path}'
     TBLPROPERTIES ('skip.header.line.count'='2', 'skip.footer.line.count'='2')"

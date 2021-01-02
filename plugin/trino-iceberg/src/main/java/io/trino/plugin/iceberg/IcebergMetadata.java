@@ -128,7 +128,7 @@ import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergType;
-import static io.trino.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -598,7 +598,7 @@ public class IcebergMetadata
                 .map(column -> {
                     return ColumnMetadata.builder()
                             .setName(column.name())
-                            .setType(toPrestoType(column.type(), typeManager))
+                            .setType(toTrinoType(column.type(), typeManager))
                             .setNullable(column.isOptional())
                             .setComment(Optional.ofNullable(column.doc()))
                             .build();

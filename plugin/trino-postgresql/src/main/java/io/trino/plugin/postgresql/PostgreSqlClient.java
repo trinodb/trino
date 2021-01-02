@@ -311,7 +311,7 @@ public class PostgreSqlClient
                             getInteger(resultSet, "DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)),
                             Optional.empty());
-                    Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toTrinoType(session, connection, typeHandle);
                     log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
@@ -329,7 +329,7 @@ public class PostgreSqlClient
                         UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                         verify(
                                 unsupportedTypeHandling == IGNORE,
-                                "Unsupported type handling is set to %s, but toPrestoType() returned empty for %s",
+                                "Unsupported type handling is set to %s, but toTrinoType() returned empty for %s",
                                 unsupportedTypeHandling,
                                 typeHandle);
                     }
@@ -373,7 +373,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
@@ -498,7 +498,7 @@ public class PostgreSqlClient
             // https://github.com/pgjdbc/pgjdbc/pull/1184
             return Optional.empty();
         }
-        Optional<ColumnMapping> baseElementMapping = toPrestoType(session, connection, baseElementTypeHandle);
+        Optional<ColumnMapping> baseElementMapping = toTrinoType(session, connection, baseElementTypeHandle);
 
         if (arrayMapping == AS_ARRAY) {
             if (typeHandle.getArrayDimensions().isEmpty()) {
@@ -994,7 +994,7 @@ public class PostgreSqlClient
          * greater than or equal to 1000. Upon `ResultSet#getString`, the driver returns e.g. "$10.00" or "$10,000.00"
          * (currency symbol depends on the server side configuration).
          *
-         * The following mapping maps PostgreSQL "money" to Presto "varchar".
+         * The following mapping maps PostgreSQL "money" to Trino "varchar".
          * Writing is disabled for simplicity.
          *
          * Money mapping can be improved when PostgreSQL JDBC gains explicit money type support.

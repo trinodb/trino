@@ -11,16 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino;
+package io.trino.tests;
 
-import com.google.common.net.MediaType;
+import org.testng.annotations.Test;
 
-public final class PrestoMediaTypes
+import java.time.ZoneId;
+
+import static org.testng.Assert.assertEquals;
+
+public class TestVerifyTrinoMainTestSetup
 {
-    public static final String PRESTO_PAGES = "application/X-presto-pages";
-    public static final MediaType PRESTO_PAGES_TYPE = MediaType.create("application", "X-presto-pages");
-
-    private PrestoMediaTypes()
+    @Test
+    public void testJvmZone()
     {
+        // Ensure that the zone defined in the POM is correctly set in the test JVM
+        assertEquals(ZoneId.systemDefault().getId(), "America/Bahia_Banderas");
     }
 }

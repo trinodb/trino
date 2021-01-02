@@ -30,7 +30,7 @@ import io.trino.plugin.hive.HivePartitionKey;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.avro.PrestoAvroSerDe;
+import io.trino.plugin.hive.avro.TrinoAvroSerDe;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.ErrorCodeSupplier;
@@ -435,7 +435,7 @@ public final class HiveUtil
         }
 
         if ("org.apache.hadoop.hive.serde2.avro.AvroSerDe".equals(name)) {
-            return PrestoAvroSerDe.class;
+            return TrinoAvroSerDe.class;
         }
 
         try {

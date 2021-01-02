@@ -66,7 +66,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterB
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
 import static io.trino.plugin.iceberg.TypeConverter.toOrcType;
-import static io.trino.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -131,7 +131,7 @@ public class IcebergFileWriterFactory
                 .map(Types.NestedField::name)
                 .collect(toImmutableList());
         List<Type> fileColumnTypes = icebergSchema.columns().stream()
-                .map(column -> toPrestoType(column.type(), typeManager))
+                .map(column -> toTrinoType(column.type(), typeManager))
                 .collect(toImmutableList());
 
         try {
@@ -185,7 +185,7 @@ public class IcebergFileWriterFactory
                     .collect(toImmutableList());
             List<Type> fileColumnTypes = columnFields.stream()
                     .map(Types.NestedField::type)
-                    .map(type -> toPrestoType(type, typeManager))
+                    .map(type -> toTrinoType(type, typeManager))
                     .collect(toImmutableList());
 
             Optional<Supplier<OrcDataSource>> validationInputFactory = Optional.empty();

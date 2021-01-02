@@ -29,7 +29,7 @@ import static java.util.Objects.requireNonNull;
 
 public class BasicAuthCredentials
 {
-    public static final String AUTHENTICATE_HEADER = "Basic realm=\"Presto\"";
+    public static final String AUTHENTICATE_HEADER = "Basic realm=\"Trino\"";
 
     private final String user;
     private final Optional<String> password;

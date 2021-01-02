@@ -352,6 +352,6 @@ public class Field
             return ((Slice) value).toStringUtf8();
         }
 
-        throw new TrinoException(NOT_SUPPORTED, "Unsupported PrestoType " + type);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported Trino type: " + type);
     }
 }

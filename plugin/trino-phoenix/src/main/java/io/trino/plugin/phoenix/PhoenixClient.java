@@ -309,7 +309,7 @@ public class PhoenixClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         switch (typeHandle.getJdbcType()) {
             case Types.BOOLEAN:
@@ -375,7 +375,7 @@ public class PhoenixClient
                 if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
                     return Optional.empty();
                 }
-                return toPrestoType(session, connection, elementTypeHandle)
+                return toTrinoType(session, connection, elementTypeHandle)
                         .map(elementMapping -> {
                             ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
                             String jdbcTypeName = elementTypeHandle.getJdbcTypeName()

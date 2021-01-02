@@ -149,13 +149,13 @@ function create_test_tables() {
     local base_path="${1:?create_test_tables requires an argument}"
     base_path="${base_path%/}" # remove trailing slash
 
-    table_name="presto_test_external_fs"
+    table_name="trino_test_external_fs"
     table_path="$base_path/$table_name/"
     exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
     exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test_table.csv{,.gz,.bz2,.lz4} "${table_path}"
     exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE $table_name(t_bigint bigint) LOCATION '${table_path}'"
 
-    table_name="presto_test_external_fs_with_header"
+    table_name="trino_test_external_fs_with_header"
     table_path="$base_path/$table_name/"
     exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
     exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test_table_with_header.csv{,.gz,.bz2,.lz4} "${table_path}"
@@ -165,7 +165,7 @@ function create_test_tables() {
         LOCATION '${table_path}'
         TBLPROPERTIES ('skip.header.line.count'='1')"
 
-    table_name="presto_test_external_fs_with_header_and_footer"
+    table_name="trino_test_external_fs_with_header_and_footer"
     table_path="$base_path/$table_name/"
     exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
     exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test_table_with_header_and_footer.csv{,.gz,.bz2,.lz4} "${table_path}"

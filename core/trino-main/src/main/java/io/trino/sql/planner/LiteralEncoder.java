@@ -250,8 +250,8 @@ public final class LiteralEncoder
             }
         }
 
-        // There is no automatic built in encoding for this Presto type, so instead the stack type is
-        // encoded as another Presto type.
+        // There is no automatic built in encoding for this Trino type,
+        // so instead the stack type is encoded as another Trino type.
 
         // If the stack value is not a simple type, encode the stack value in a block
         if (!type.getJavaType().isPrimitive() && type.getJavaType() != Slice.class && type.getJavaType() != Block.class) {

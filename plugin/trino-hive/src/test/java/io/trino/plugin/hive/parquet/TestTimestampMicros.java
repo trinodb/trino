@@ -103,7 +103,7 @@ public class TestTimestampMicros
         // TODO after https://github.com/trinodb/trino/pull/5283, replace the method with
         //  return FileFormat.PRESTO_PARQUET.createFileFormatReader(session, HDFS_ENVIRONMENT, parquetFile, columnNames, columnTypes);
 
-        HivePageSourceFactory pageSourceFactory = FileFormat.PRESTO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
+        HivePageSourceFactory pageSourceFactory = FileFormat.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
 
         Properties schema = new Properties();
         schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerDe());

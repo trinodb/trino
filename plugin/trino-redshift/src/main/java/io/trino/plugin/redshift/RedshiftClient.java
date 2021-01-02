@@ -71,7 +71,7 @@ public class RedshiftClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         // TODO implement proper type mapping
         return legacyToPrestoType(session, connection, typeHandle);

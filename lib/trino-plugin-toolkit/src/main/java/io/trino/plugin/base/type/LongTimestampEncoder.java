@@ -18,13 +18,13 @@ import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimestampType;
 import org.joda.time.DateTimeZone;
 
-import static io.trino.plugin.base.type.PrestoTimestampEncoderFactory.longTimestamp;
+import static io.trino.plugin.base.type.TrinoTimestampEncoderFactory.longTimestamp;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.Timestamps.round;
 
 class LongTimestampEncoder
-        extends AbstractPrestoTimestampEncoder<LongTimestamp>
+        extends AbstractTrinoTimestampEncoder<LongTimestamp>
 {
     LongTimestampEncoder(TimestampType type, DateTimeZone timeZone)
     {

@@ -161,7 +161,7 @@ public class TestOrcPageSourceMemoryTracking
     public void setUp()
             throws Exception
     {
-        tempFile = File.createTempFile("presto_test_orc_page_source_memory_tracking", "orc");
+        tempFile = File.createTempFile("trino_test_orc_page_source_memory_tracking", "orc");
         tempFile.delete();
         testPreparer = new TestPreparer(tempFile.getAbsolutePath());
     }
@@ -344,7 +344,7 @@ public class TestOrcPageSourceMemoryTracking
             columnBuilder.add(dataColumns[i]);
         }
         List<TestColumn> testColumns = columnBuilder.build();
-        File tempFile = File.createTempFile("presto_test_orc_page_source_max_read_bytes", "orc");
+        File tempFile = File.createTempFile("trino_test_orc_page_source_max_read_bytes", "orc");
         tempFile.delete();
 
         TestPreparer testPreparer = new TestPreparer(tempFile.getAbsolutePath(), testColumns, rowCount, rowCount);

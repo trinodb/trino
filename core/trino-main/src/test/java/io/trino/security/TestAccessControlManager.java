@@ -85,7 +85,7 @@ public class TestAccessControlManager
     private static final String USER_NAME = "user_name";
     private static final QueryId queryId = new QueryId("query_id");
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Presto server is still initializing")
+    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Trino server is still initializing")
     public void testInitializing()
     {
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());

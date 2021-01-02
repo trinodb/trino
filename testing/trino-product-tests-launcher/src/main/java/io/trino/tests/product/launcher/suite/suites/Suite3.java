@@ -43,7 +43,7 @@ public class Suite3
                         .withGroups("storage_formats", "cli", "hdfs_impersonation", "authorization")
                         .build(),
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonationWithDataProtection.class)
-                        .withTests("TestHiveStorageFormats.testOrcTableCreatedInPresto", "TestHiveCreateTable.testCreateTable")
+                        .withTests("TestHiveStorageFormats.testOrcTableCreatedInTrino", "TestHiveCreateTable.testCreateTable")
                         .build());
     }
 }

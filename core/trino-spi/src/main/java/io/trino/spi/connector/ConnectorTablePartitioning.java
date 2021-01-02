@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
  * where each split group contains all splits on a {@link Node}.
  * <p>
  * Unless the connector declares itself as supporting grouped scheduling in
- * {@link ConnectorSplitManager}, Presto engine treats all splits on a node
+ * {@link ConnectorSplitManager}, Trino engine treats all splits on a node
  * as a single split group.
  * As a result, the connector does not need to provide additional guarantee
  * as a result of this change for previously-declared node partitioning.

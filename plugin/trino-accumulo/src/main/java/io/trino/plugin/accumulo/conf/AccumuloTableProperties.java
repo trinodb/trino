@@ -71,25 +71,25 @@ public final class AccumuloTableProperties
 
         PropertyMetadata<String> s2 = stringProperty(
                 INDEX_COLUMNS,
-                "A comma-delimited list of Presto columns that are indexed in this table's corresponding index table. Default is no indexed columns.",
+                "A comma-delimited list of Trino columns that are indexed in this table's corresponding index table. Default is no indexed columns.",
                 "",
                 false);
 
         PropertyMetadata<Boolean> s3 = booleanProperty(
                 EXTERNAL,
-                "If true, Presto will only do metadata operations for the table. Else, Presto will create and drop Accumulo tables where appropriate. Default false.",
+                "If true, Trino will only do metadata operations for the table. Else, Trino will create and drop Accumulo tables where appropriate. Default false.",
                 false,
                 false);
 
         PropertyMetadata<String> s4 = stringProperty(
                 LOCALITY_GROUPS,
-                "List of locality groups to set on the Accumulo table. Only valid on internal tables. String format is locality group name, colon, comma delimited list of Presto column names in the group. Groups are delimited by pipes. Example: group1:colA,colB,colC|group2:colD,colE,colF|etc.... Default is no locality groups.",
+                "List of locality groups to set on the Accumulo table. Only valid on internal tables. String format is locality group name, colon, comma delimited list of Trino column names in the group. Groups are delimited by pipes. Example: group1:colA,colB,colC|group2:colD,colE,colF|etc.... Default is no locality groups.",
                 null,
                 false);
 
         PropertyMetadata<String> s5 = stringProperty(
                 ROW_ID,
-                "Presto column name that maps to the Accumulo row ID. Default is the first column.",
+                "Trino column name that maps to the Accumulo row ID. Default is the first column.",
                 null,
                 false);
 

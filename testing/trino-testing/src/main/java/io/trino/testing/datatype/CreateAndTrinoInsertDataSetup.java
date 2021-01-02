@@ -13,9 +13,9 @@
  */
 package io.trino.testing.datatype;
 
-import io.trino.testing.sql.PrestoSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 
 import java.util.List;
 
@@ -24,17 +24,17 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 
-public class CreateAndPrestoInsertDataSetup
+public class CreateAndTrinoInsertDataSetup
         implements DataSetup
 {
     private final SqlExecutor sqlExecutor;
-    private final PrestoSqlExecutor prestoSqlExecutor;
+    private final TrinoSqlExecutor trinoSqlExecutor;
     private final String tableNamePrefix;
 
-    public CreateAndPrestoInsertDataSetup(SqlExecutor sqlExecutor, PrestoSqlExecutor prestoSqlExecutor, String tableNamePrefix)
+    public CreateAndTrinoInsertDataSetup(SqlExecutor sqlExecutor, TrinoSqlExecutor trinoSqlExecutor, String tableNamePrefix)
     {
         this.sqlExecutor = sqlExecutor;
-        this.prestoSqlExecutor = prestoSqlExecutor;
+        this.trinoSqlExecutor = trinoSqlExecutor;
         this.tableNamePrefix = tableNamePrefix;
     }
 
@@ -57,7 +57,7 @@ public class CreateAndPrestoInsertDataSetup
         String valueLiterals = inputs.stream()
                 .map(ColumnSetup::getInputLiteral)
                 .collect(joining(", "));
-        prestoSqlExecutor.execute(format("INSERT INTO %s VALUES(%s)", testTable.getName(), valueLiterals));
+        trinoSqlExecutor.execute(format("INSERT INTO %s VALUES(%s)", testTable.getName(), valueLiterals));
     }
 
     private TestTable createTestTable(List<ColumnSetup> inputs)

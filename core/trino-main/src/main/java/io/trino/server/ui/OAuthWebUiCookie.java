@@ -26,7 +26,7 @@ import static java.util.function.Predicate.not;
 
 public final class OAuthWebUiCookie
 {
-    private static final String OAUTH2_COOKIE = "Presto-OAuth2-Token";
+    public static final String OAUTH2_COOKIE = "Trino-OAuth2-Token";
 
     private OAuthWebUiCookie() {}
 

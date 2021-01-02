@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
-import static io.trino.plugin.hive.HiveQlToPrestoTranslator.translateHiveViewToPresto;
+import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -42,7 +42,7 @@ public class TestHiveQlTranslation
 {
     private final SqlParser parser = new SqlParser();
 
-    // Map Hive names to Presto names
+    // Map Hive names to Trino names
     private static Map<String, String> simpleColumnNames =
             ImmutableMap.<String, String>builder()
                     // simple literals
@@ -113,11 +113,11 @@ public class TestHiveQlTranslation
                 Sets.cartesianProduct(nCopies(n, columns.keySet())).stream()
                         .map(names -> join(", ", names));
 
-        Stream<String> prestoNames =
+        Stream<String> trinoNames =
                 Lists.cartesianProduct(nCopies(n, List.copyOf(columns.values()))).stream()
                         .map(names -> join(", ", names));
 
-        return Streams.zip(hiveNames, prestoNames, (h, p) -> new Object[] {h, p}).iterator();
+        return Streams.zip(hiveNames, trinoNames, (h, p) -> new Object[] {h, p}).iterator();
     }
 
     @DataProvider(name = "simple_hive_translation_columns")
@@ -258,7 +258,7 @@ public class TestHiveQlTranslation
 
     private void assertTranslation(String hiveSql, String expectedPrestoSql)
     {
-        String actualPrestoSql = translateHiveViewToPresto(hiveSql);
+        String actualPrestoSql = translateHiveViewToTrino(hiveSql);
         assertEquals(actualPrestoSql, expectedPrestoSql);
         assertPrestoSqlIsParsable(expectedPrestoSql);
         assertPrestoSqlIsParsable(actualPrestoSql);
@@ -272,7 +272,7 @@ public class TestHiveQlTranslation
     private void assertViewTranslationError(String badHiveQl, String expectMessage)
     {
         try {
-            translateHiveViewToPresto(badHiveQl);
+            translateHiveViewToTrino(badHiveQl);
             fail("Expected Hive translation to throw an exception");
         }
         catch (TrinoException e) {

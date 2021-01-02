@@ -35,11 +35,11 @@ public class TestingOracleServer
         extends OracleContainer
         implements Closeable
 {
-    private static final String TEST_TABLESPACE = "presto_test";
+    private static final String TEST_TABLESPACE = "trino_test";
 
-    public static final String TEST_USER = "presto_test";
+    public static final String TEST_USER = "trino_test";
     public static final String TEST_SCHEMA = TEST_USER; // schema and user is the same thing in Oracle
-    public static final String TEST_PASS = "presto_test_password";
+    public static final String TEST_PASS = "trino_test_password";
 
     public TestingOracleServer()
     {

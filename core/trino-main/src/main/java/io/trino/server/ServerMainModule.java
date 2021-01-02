@@ -229,7 +229,7 @@ public class ServerMainModule
         binder.bind(AnalyzePropertyManager.class).in(Scopes.SINGLETON);
 
         // node manager
-        discoveryBinder(binder).bindSelector("presto");
+        discoveryBinder(binder).bindSelector("trino");
         binder.bind(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         binder.bind(InternalNodeManager.class).to(DiscoveryNodeManager.class).in(Scopes.SINGLETON);
         newExporter(binder).export(DiscoveryNodeManager.class).withGeneratedName();
@@ -396,7 +396,7 @@ public class ServerMainModule
 
         // version and announcement
         binder.bind(NodeVersion.class).toInstance(new NodeVersion(nodeVersion));
-        discoveryBinder(binder).bindHttpAnnouncement("presto")
+        discoveryBinder(binder).bindHttpAnnouncement("trino")
                 .addProperty("node_version", nodeVersion)
                 .addProperty("coordinator", String.valueOf(serverConfig.isCoordinator()));
 

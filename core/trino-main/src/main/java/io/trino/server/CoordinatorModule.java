@@ -124,8 +124,8 @@ public class CoordinatorModule
         // discovery server
         install(installModuleIf(EmbeddedDiscoveryConfig.class, EmbeddedDiscoveryConfig::isEnabled, new EmbeddedDiscoveryModule()));
 
-        // presto coordinator announcement
-        discoveryBinder(binder).bindHttpAnnouncement("presto-coordinator");
+        // coordinator announcement
+        discoveryBinder(binder).bindHttpAnnouncement("trino-coordinator");
 
         // statement resource
         jsonCodecBinder(binder).bindJsonCodec(QueryInfo.class);

@@ -41,14 +41,14 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
-import static io.trino.PrestoMediaTypes.PRESTO_PAGES;
+import static io.trino.TrinoMediaTypes.TRINO_PAGES;
 import static io.trino.execution.buffer.PagesSerdeUtil.calculateChecksum;
 import static io.trino.execution.buffer.PagesSerdeUtil.writeSerializedPages;
 import static io.trino.execution.buffer.TestingPagesSerdeFactory.testingPagesSerde;
-import static io.trino.server.InternalHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.trino.server.InternalHeaders.PRESTO_PAGE_NEXT_TOKEN;
-import static io.trino.server.InternalHeaders.PRESTO_PAGE_TOKEN;
-import static io.trino.server.InternalHeaders.PRESTO_TASK_INSTANCE_ID;
+import static io.trino.server.InternalHeaders.TRINO_BUFFER_COMPLETE;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_NEXT_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_PAGE_TOKEN;
+import static io.trino.server.InternalHeaders.TRINO_TASK_INSTANCE_ID;
 import static io.trino.server.PagesResponseWriter.SERIALIZED_PAGES_MAGIC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -86,8 +86,8 @@ public class MockExchangeRequestProcessor
         }
 
         // verify we got a data size and it parses correctly
-        assertTrue(!request.getHeaders().get(InternalHeaders.PRESTO_MAX_SIZE).isEmpty());
-        DataSize maxSize = DataSize.valueOf(request.getHeader(InternalHeaders.PRESTO_MAX_SIZE));
+        assertTrue(!request.getHeaders().get(InternalHeaders.TRINO_MAX_SIZE).isEmpty());
+        DataSize maxSize = DataSize.valueOf(request.getHeader(InternalHeaders.TRINO_MAX_SIZE));
         assertEquals(maxSize, expectedMaxSize);
 
         RequestLocation requestLocation = new RequestLocation(request.getUri());
@@ -113,11 +113,11 @@ public class MockExchangeRequestProcessor
         return new TestingResponse(
                 status,
                 ImmutableListMultimap.of(
-                        CONTENT_TYPE, PRESTO_PAGES,
-                        PRESTO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()),
-                        PRESTO_PAGE_TOKEN, String.valueOf(result.getToken()),
-                        PRESTO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
-                        PRESTO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())),
+                        CONTENT_TYPE, TRINO_PAGES,
+                        TRINO_TASK_INSTANCE_ID, String.valueOf(result.getTaskInstanceId()),
+                        TRINO_PAGE_TOKEN, String.valueOf(result.getToken()),
+                        TRINO_PAGE_NEXT_TOKEN, String.valueOf(result.getNextToken()),
+                        TRINO_BUFFER_COMPLETE, String.valueOf(result.isBufferComplete())),
                 bytes);
     }
 

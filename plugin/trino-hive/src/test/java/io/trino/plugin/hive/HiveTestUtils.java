@@ -22,7 +22,7 @@ import io.trino.metadata.Metadata;
 import io.trino.operator.PagesIndex;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.azure.HiveAzureConfig;
-import io.trino.plugin.hive.azure.PrestoAzureConfigurationInitializer;
+import io.trino.plugin.hive.azure.TrinoAzureConfigurationInitializer;
 import io.trino.plugin.hive.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.plugin.hive.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
@@ -190,7 +190,7 @@ public final class HiveTestUtils
                         ImmutableSet.of(
                                 new TrinoS3ConfigurationInitializer(new HiveS3Config()),
                                 new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
-                                new PrestoAzureConfigurationInitializer(new HiveAzureConfig()))),
+                                new TrinoAzureConfigurationInitializer(new HiveAzureConfig()))),
                 ImmutableSet.of());
         return new HdfsEnvironment(hdfsConfig, new HdfsConfig(), new NoHdfsAuthentication());
     }

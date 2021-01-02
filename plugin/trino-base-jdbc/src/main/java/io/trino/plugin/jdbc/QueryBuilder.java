@@ -156,7 +156,7 @@ public class QueryBuilder
 
     private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
     {
-        return client.toPrestoType(session, connection, column.getJdbcTypeHandle())
+        return client.toTrinoType(session, connection, column.getJdbcTypeHandle())
                 .orElseThrow(() -> new IllegalStateException(format("Unsupported type %s with handle %s", column.getColumnType(), column.getJdbcTypeHandle())))
                 .getPredicatePushdownController().apply(session, domain).getPushedDown();
     }
@@ -285,7 +285,7 @@ public class QueryBuilder
 
     private WriteFunction getWriteFunction(ConnectorSession session, Connection connection, JdbcColumnHandle column)
     {
-        WriteFunction writeFunction = client.toPrestoType(session, connection, column.getJdbcTypeHandle())
+        WriteFunction writeFunction = client.toTrinoType(session, connection, column.getJdbcTypeHandle())
                 .orElseThrow(() -> new VerifyException(format("Unsupported type %s with handle %s for %s", column.getColumnType(), column.getJdbcTypeHandle(), column)))
                 .getWriteFunction();
         verify(writeFunction.getJavaType() == column.getColumnType().getJavaType(), "Java type mismatch for %s: %s, %s", column, writeFunction, column.getColumnType());
