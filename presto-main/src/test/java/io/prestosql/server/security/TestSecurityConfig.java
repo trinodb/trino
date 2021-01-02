@@ -30,6 +30,7 @@ public class TestSecurityConfig
     {
         assertRecordedDefaults(recordDefaults(SecurityConfig.class)
                 .setAuthenticationTypes("insecure")
+                .setAuthenticationOverHttpAllowed(false)
                 .setInsecureAuthenticationOverHttpAllowed(true)
                 .setFixedManagementUser(null)
                 .setFixedManagementUserForHttps(false));
@@ -40,6 +41,7 @@ public class TestSecurityConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http-server.authentication.type", "KERBEROS,PASSWORD")
+                .put("http-server.authentication.allow-over-http", "true")
                 .put("http-server.authentication.allow-insecure-over-http", "false")
                 .put("management.user", "management-user")
                 .put("management.user.https-enabled", "true")
@@ -47,6 +49,7 @@ public class TestSecurityConfig
 
         SecurityConfig expected = new SecurityConfig()
                 .setAuthenticationTypes(ImmutableList.of("KERBEROS", "PASSWORD"))
+                .setAuthenticationOverHttpAllowed(true)
                 .setInsecureAuthenticationOverHttpAllowed(false)
                 .setFixedManagementUser("management-user")
                 .setFixedManagementUserForHttps(true);

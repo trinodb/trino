@@ -33,10 +33,24 @@ public class SecurityConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
+    private boolean authenticationOverHttpAllowed;
     private boolean insecureAuthenticationOverHttpAllowed = true;
     private List<String> authenticationTypes = ImmutableList.of("insecure");
     private Optional<String> fixedManagementUser = Optional.empty();
     private boolean fixedManagementUserForHttps;
+
+    public boolean isAuthenticationOverHttpAllowed()
+    {
+        return authenticationOverHttpAllowed;
+    }
+
+    @Config("http-server.authentication.allow-over-http")
+    @ConfigDescription("Authentication over HTTP (non-secure) enabled")
+    public SecurityConfig setAuthenticationOverHttpAllowed(boolean authenticationOverHttpAllowed)
+    {
+        this.authenticationOverHttpAllowed = authenticationOverHttpAllowed;
+        return this;
+    }
 
     public boolean isInsecureAuthenticationOverHttpAllowed()
     {

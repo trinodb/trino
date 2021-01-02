@@ -40,7 +40,7 @@ public class AuthenticationFilter
 {
     private final List<Authenticator> authenticators;
     private final InternalAuthenticationManager internalAuthenticationManager;
-    private final boolean insecureAuthenticationOverHttpAllowed;
+    private final SecurityConfig securityConfig;
     private final InsecureAuthenticator insecureAuthenticator;
 
     @Inject
@@ -53,7 +53,7 @@ public class AuthenticationFilter
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         checkArgument(!authenticators.isEmpty(), "authenticators is empty");
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
-        insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
+        this.securityConfig = requireNonNull(securityConfig, "securityConfig is null");
         this.insecureAuthenticator = requireNonNull(insecureAuthenticator, "insecureAuthenticator is null");
     }
 
@@ -66,10 +66,10 @@ public class AuthenticationFilter
         }
 
         List<Authenticator> authenticators;
-        if (request.getSecurityContext().isSecure()) {
+        if (request.getSecurityContext().isSecure() || securityConfig.isAuthenticationOverHttpAllowed()) {
             authenticators = this.authenticators;
         }
-        else if (insecureAuthenticationOverHttpAllowed) {
+        else if (securityConfig.isInsecureAuthenticationOverHttpAllowed()) {
             authenticators = ImmutableList.of(insecureAuthenticator);
         }
         else {
