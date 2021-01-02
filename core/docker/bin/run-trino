@@ -1,0 +1,23 @@
+#!/bin/bash
+
+set -xeuo pipefail
+
+if [[ ! -d /usr/lib/trino/etc ]]; then
+    if [[ -d /etc/trino ]]; then
+        ln -s /etc/trino /usr/lib/trino/etc
+    else
+        ln -s /usr/lib/trino/default/etc /usr/lib/trino/etc
+    fi
+fi
+
+set +e
+grep -s -q 'node.id' /usr/lib/trino/etc/node.properties
+NODE_ID_EXISTS=$?
+set -e
+
+NODE_ID=""
+if [[ ${NODE_ID_EXISTS} != 0 ]] ; then
+    NODE_ID="-Dnode.id=${HOSTNAME}"
+fi
+
+exec /usr/lib/trino/bin/launcher run ${NODE_ID} "$@"

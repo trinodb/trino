@@ -11,29 +11,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM centos:centos8
-LABEL maintainer="Presto community <https://trino.io/community.html>"
+FROM azul/zulu-openjdk-centos:11
 
 ENV JAVA_HOME /usr/lib/jvm/zulu11
 RUN \
     set -xeu && \
-    dnf -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
-    dnf -y -q update && \
-    dnf -y -q install zulu11 less python3 && \
-    alternatives --set python /usr/bin/python3 && \
-    dnf -q clean all && \
-    rm -rf /var/cache/dnf && \
-    rm -rf /tmp/* /var/tmp/* && \
-    groupadd presto --gid 1000 && \
-    useradd presto --uid 1000 --gid 1000 && \
-    mkdir -p /usr/lib/presto /data/presto && \
-    chown -R "presto:presto" /usr/lib/presto /data/presto
+    yum -y -q install less && \
+    yum -q clean all && \
+    rm -rf /var/cache/yum && \
+    groupadd trino --gid 1000 && \
+    useradd trino --uid 1000 --gid 1000 && \
+    mkdir -p /usr/lib/trino /data/trino && \
+    chown -R "trino:trino" /usr/lib/trino /data/trino
 
-ARG PRESTO_VERSION
-COPY trino-cli-${PRESTO_VERSION}-executable.jar /usr/bin/presto
-COPY --chown=presto:presto trino-server-${PRESTO_VERSION} /usr/lib/presto
+ARG TRINO_VERSION
+COPY trino-cli-${TRINO_VERSION}-executable.jar /usr/bin/trino
+COPY --chown=trino:trino trino-server-${TRINO_VERSION} /usr/lib/trino
 
 EXPOSE 8080
-USER presto:presto
+USER trino:trino
 ENV LANG en_US.UTF-8
-CMD ["/usr/lib/presto/bin/run-presto"]
+CMD ["/usr/lib/trino/bin/run-trino"]
