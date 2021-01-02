@@ -370,6 +370,10 @@ Property Name                                                   Description     
                                                                 Possible values are ``NONE`` or ``KERBEROS``
                                                                 (defaults to ``NONE``).
 
+``hive.metastore.thrift.assume-canonical-partition-keys``       Allow conversion of non-char types (eg BIGINT, timestamp)    ``false``
+                                                                to canonical string formats. If false, non-char types will
+                                                                be replaced with the wildcard.
+
 ``hive.metastore.thrift.impersonation.enabled``                 Enable Hive metastore end user impersonation.
 
 ``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.           ``1h``
