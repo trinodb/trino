@@ -255,10 +255,10 @@ Property Name                                      Description
 
 ``hive.hdfs.impersonation.enabled``                Enable HDFS end-user impersonation.
 
-``hive.hdfs.presto.principal``                     The Kerberos principal that Trino uses when connecting
+``hive.hdfs.trino.principal``                      The Kerberos principal that Trino uses when connecting
                                                    to HDFS.
 
-``hive.hdfs.presto.keytab``                        HDFS client keytab location.
+``hive.hdfs.trino.keytab``                         HDFS client keytab location.
 
 ``hive.hdfs.wire-encryption.enabled``              Enable HDFS wire encryption.
 ================================================== ============================================================
@@ -285,8 +285,8 @@ in-depth explanation of HDFS impersonation.
 
 This property is optional; the default is ``false``.
 
-``hive.hdfs.presto.principal``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``hive.hdfs.trino.principal``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Kerberos principal Trino uses when connecting to HDFS.
 
@@ -300,11 +300,11 @@ Example: ``trino-hdfs-superuser/trino-server-node@EXAMPLE.COM`` or
 
 This property is optional; no default value.
 
-``hive.hdfs.presto.keytab``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``hive.hdfs.trino.keytab``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The path to the keytab file that contains a key for the principal specified by
-``hive.hdfs.presto.principal``. This file must be readable by the operating
+``hive.hdfs.trino.principal``. This file must be readable by the operating
 system user running Trino.
 
 This property is optional; no default value.
@@ -337,13 +337,13 @@ Example configuration with ``KERBEROS`` authentication
 .. code-block:: text
 
     hive.hdfs.authentication.type=KERBEROS
-    hive.hdfs.presto.principal=hdfs@EXAMPLE.COM
-    hive.hdfs.presto.keytab=/etc/trino/hdfs.keytab
+    hive.hdfs.trino.principal=hdfs@EXAMPLE.COM
+    hive.hdfs.trino.keytab=/etc/trino/hdfs.keytab
 
 When the authentication type is ``KERBEROS``, Trino accesses HDFS as the
-principal specified by the ``hive.hdfs.presto.principal`` property. Trino
+principal specified by the ``hive.hdfs.trino.principal`` property. Trino
 authenticates this principal using the keytab specified by the
-``hive.hdfs.presto.keytab`` keytab.
+``hive.hdfs.trino.keytab`` keytab.
 
 Keytab files must be distributed to every node in the cluster that runs Trino.
 
@@ -390,16 +390,16 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 
     hive.hdfs.authentication.type=KERBEROS
     hive.hdfs.impersonation.enabled=true
-    hive.hdfs.presto.principal=trino@EXAMPLE.COM
-    hive.hdfs.presto.keytab=/etc/trino/hdfs.keytab
+    hive.hdfs.trino.principal=trino@EXAMPLE.COM
+    hive.hdfs.trino.keytab=/etc/trino/hdfs.keytab
 
 When using ``KERBEROS`` authentication with impersonation, Trino impersonates
 the user who is running the query when accessing HDFS. The principal
-specified by the ``hive.hdfs.presto.principal`` property must be allowed to
+specified by the ``hive.hdfs.trino.principal`` property must be allowed to
 impersonate the current Trino user, as discussed in the section
 :ref:`configuring-hadoop-impersonation`. Trino authenticates
-``hive.hdfs.presto.principal`` using the keytab specified by
-``hive.hdfs.presto.keytab``.
+``hive.hdfs.trino.principal`` using the keytab specified by
+``hive.hdfs.trino.keytab``.
 
 Keytab files must be distributed to every node in the cluster that runs Trino.
 

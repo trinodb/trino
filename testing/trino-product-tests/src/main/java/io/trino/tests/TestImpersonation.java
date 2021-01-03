@@ -46,7 +46,7 @@ public class TestImpersonation
 
     // The value for configuredHdfsUser is profile dependent
     // For non-Kerberos environments this variable will be equal to -DHADOOP_USER_NAME as set in jvm.config
-    // For Kerberized environments this variable will be equal to the hive.hdfs.presto.principal property as set in hive.properties
+    // For Kerberized environments this variable will be equal to the hive.hdfs.trino.principal property as set in hive.properties
     @Inject
     @Named("databases.presto.configured_hdfs_user")
     private String configuredHdfsUser;

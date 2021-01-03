@@ -15,41 +15,44 @@ package io.trino.plugin.hive.authentication;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 
 import javax.validation.constraints.NotNull;
 
 public class HdfsKerberosConfig
 {
-    private String hdfsPrestoPrincipal;
-    private String hdfsPrestoKeytab;
+    private String hdfsTrinoPrincipal;
+    private String hdfsTrinoKeytab;
 
     @NotNull
-    public String getHdfsPrestoPrincipal()
+    public String getHdfsTrinoPrincipal()
     {
-        return hdfsPrestoPrincipal;
+        return hdfsTrinoPrincipal;
     }
 
-    @Config("hive.hdfs.presto.principal")
-    @ConfigDescription("Presto principal used to access HDFS")
-    public HdfsKerberosConfig setHdfsPrestoPrincipal(String hdfsPrestoPrincipal)
+    @Config("hive.hdfs.trino.principal")
+    @LegacyConfig("hive.hdfs.presto.principal")
+    @ConfigDescription("Trino principal used to access HDFS")
+    public HdfsKerberosConfig setHdfsTrinoPrincipal(String hdfsTrinoPrincipal)
     {
-        this.hdfsPrestoPrincipal = hdfsPrestoPrincipal;
+        this.hdfsTrinoPrincipal = hdfsTrinoPrincipal;
         return this;
     }
 
     @NotNull
     @FileExists
-    public String getHdfsPrestoKeytab()
+    public String getHdfsTrinoKeytab()
     {
-        return hdfsPrestoKeytab;
+        return hdfsTrinoKeytab;
     }
 
-    @Config("hive.hdfs.presto.keytab")
-    @ConfigDescription("Presto keytab used to access HDFS")
-    public HdfsKerberosConfig setHdfsPrestoKeytab(String hdfsPrestoKeytab)
+    @Config("hive.hdfs.trino.keytab")
+    @LegacyConfig("hive.hdfs.presto.keytab")
+    @ConfigDescription("Trino keytab used to access HDFS")
+    public HdfsKerberosConfig setHdfsTrinoKeytab(String hdfsTrinoKeytab)
     {
-        this.hdfsPrestoKeytab = hdfsPrestoKeytab;
+        this.hdfsTrinoKeytab = hdfsTrinoKeytab;
         return this;
     }
 }
