@@ -67,6 +67,7 @@ public class ParametricAggregation
         super(
                 new FunctionMetadata(
                         signature,
+                        details.getName(),
                         true,
                         implementations.getArgumentDefinitions(),
                         details.isHidden(),

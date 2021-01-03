@@ -323,7 +323,7 @@ public class AggregationImplementation
         private AggregationImplementation get()
         {
             Signature signature = new Signature(
-                    header.getName(),
+                    header.getCanonicalName(),
                     typeVariableConstraints,
                     longVariableConstraints,
                     returnType,

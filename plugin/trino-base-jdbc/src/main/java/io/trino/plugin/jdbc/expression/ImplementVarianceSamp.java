@@ -42,8 +42,7 @@ public class ImplementVarianceSamp
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                // TODO (https://github.com/trinodb/trino/issues/6189): remove variance, an alias, from the list & simplify the pattern
-                .with(functionName().matching(name -> "variance".equals(name) || "var_samp".equals(name)))
+                .with(functionName().equalTo("variance"))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))
