@@ -44,7 +44,7 @@ public class KinesisConfig
     private Duration checkpointInterval = new Duration(60000, TimeUnit.MILLISECONDS);
     private String logicalProcessName = "process1";
     private int iteratorNumber;
-    private int updateInterval = 600;
+    private Duration updateInterval = new Duration(600000, TimeUnit.MILLISECONDS);
 
     @NotNull
     public String getTableDescriptionLocation()
@@ -57,6 +57,19 @@ public class KinesisConfig
     public KinesisConfig setTableDescriptionLocation(String tableDescriptionLocation)
     {
         this.tableDescriptionLocation = tableDescriptionLocation;
+        return this;
+    }
+
+    public Duration getUpdateInterval()
+    {
+        return updateInterval;
+    }
+
+    @Config("kinesis.update-interval")
+    @ConfigDescription("S3 configurable Kinesis update interval")
+    public KinesisConfig setUpdateInterval(Duration updateInterval)
+    {
+        this.updateInterval = updateInterval;
         return this;
     }
 
@@ -298,20 +311,6 @@ public class KinesisConfig
     public KinesisConfig setIteratorNumber(int iteratorNumber)
     {
         this.iteratorNumber = iteratorNumber;
-        return this;
-    }
-
-    @Min(0)
-    public int getUpdateInterval()
-    {
-        return updateInterval;
-    }
-
-    @Config("kinesis.update-interval")
-    @ConfigDescription("Kinesis update interval")
-    public KinesisConfig setUpdateInterval(int updateInterval)
-    {
-        this.updateInterval = updateInterval;
         return this;
     }
 }

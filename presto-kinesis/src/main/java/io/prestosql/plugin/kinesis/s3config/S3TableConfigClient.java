@@ -26,12 +26,14 @@ import com.google.common.io.CharStreams;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.plugin.kinesis.KinesisClientProvider;
 import io.prestosql.plugin.kinesis.KinesisConfig;
 import io.prestosql.plugin.kinesis.KinesisStreamDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 
 import javax.annotation.PostConstruct;
+import javax.validation.constraints.Min;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -74,7 +76,7 @@ public class S3TableConfigClient
 
     private final Map<String, KinesisStreamDescription> descriptors = Collections.synchronizedMap(new HashMap<>());
 
-    private final int updateInterval;
+    private final Duration updateInterval;
 
     @Inject
     public S3TableConfigClient(
@@ -99,10 +101,9 @@ public class S3TableConfigClient
     @PostConstruct
     protected void startS3Updates()
     {
-        // TODO: if required make the update interval configurable
         if (this.bucketUrl.isPresent()) {
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, updateInterval, TimeUnit.SECONDS);
+            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, updateInterval.toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 
