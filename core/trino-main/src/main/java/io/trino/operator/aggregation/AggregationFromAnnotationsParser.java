@@ -15,6 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import io.trino.metadata.Signature;
@@ -34,16 +35,20 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.UnaryOperator.identity;
 
 public final class AggregationFromAnnotationsParser
 {
@@ -117,6 +122,7 @@ public final class AggregationFromAnnotationsParser
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
         return new AggregationHeader(
                 aggregationAnnotation.value(),
+                aggregationAnnotation.value(),
                 parseDescription(aggregationDefinition),
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
@@ -127,10 +133,11 @@ public final class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
 
-        return getNames(toParse, aggregationAnnotation).stream()
-                .map(name ->
+        return getNames(toParse, aggregationAnnotation).entrySet().stream()
+                .map(entry ->
                         new AggregationHeader(
-                                name,
+                                entry.getKey(),
+                                entry.getValue(),
                                 parseDescription(aggregationDefinition, toParse),
                                 aggregationAnnotation.decomposable(),
                                 aggregationAnnotation.isOrderSensitive(),
@@ -138,9 +145,13 @@ public final class AggregationFromAnnotationsParser
                 .collect(toImmutableList());
     }
 
-    private static List<String> getNames(@Nullable AnnotatedElement outputFunction, AggregationFunction aggregationAnnotation)
+    private static Map<String, String> getNames(@Nullable AnnotatedElement outputFunction, AggregationFunction aggregationAnnotation)
     {
-        List<String> defaultNames = ImmutableList.<String>builder().add(aggregationAnnotation.value()).addAll(Arrays.asList(aggregationAnnotation.alias())).build();
+        Map<String, String> defaultNames = ImmutableMap.<String, String>builder()
+                .put(aggregationAnnotation.value(), aggregationAnnotation.value())
+                .putAll(Stream.of(aggregationAnnotation.alias())
+                        .collect(toImmutableMap(identity(), value -> aggregationAnnotation.value())))
+                .build();
 
         if (outputFunction == null) {
             return defaultNames;
@@ -151,7 +162,11 @@ public final class AggregationFromAnnotationsParser
             return defaultNames;
         }
         else {
-            return ImmutableList.<String>builder().add(annotation.value()).addAll(Arrays.asList(annotation.alias())).build();
+            return ImmutableMap.<String, String>builder()
+                    .put(annotation.value(), annotation.value())
+                    .putAll(Stream.of(annotation.alias())
+                            .collect(toImmutableMap(identity(), value -> annotation.value())))
+                    .build();
         }
     }
 

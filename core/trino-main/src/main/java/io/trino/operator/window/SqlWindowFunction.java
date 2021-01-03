@@ -43,7 +43,8 @@ public class SqlWindowFunction
                 true,
                 nullToEmpty(supplier.getDescription()),
                 WINDOW,
-                deprecated);
+                deprecated,
+                signature.getName());
     }
 
     @Override

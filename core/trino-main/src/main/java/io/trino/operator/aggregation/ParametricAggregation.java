@@ -73,7 +73,8 @@ public class ParametricAggregation
                         true,
                         details.getDescription().orElse(""),
                         AGGREGATE,
-                        deprecated),
+                        deprecated,
+                        details.getName()),
                 details.isDecomposable(),
                 details.isOrderSensitive());
         requireNonNull(details, "details is null");

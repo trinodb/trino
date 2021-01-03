@@ -2007,7 +2007,8 @@ public final class MetadataManager
                 functionMetadata.isDeterministic(),
                 functionMetadata.getDescription(),
                 functionMetadata.getKind(),
-                functionMetadata.isDeprecated());
+                functionMetadata.isDeprecated(),
+                functionMetadata.getActualName());
     }
 
     @Override

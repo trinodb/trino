@@ -57,7 +57,8 @@ public class ParametricScalar
                 details.isDeterministic(),
                 details.getDescription().orElse(""),
                 SCALAR,
-                deprecated));
+                deprecated,
+                signature.getName()));
         this.implementations = requireNonNull(implementations);
     }
 
