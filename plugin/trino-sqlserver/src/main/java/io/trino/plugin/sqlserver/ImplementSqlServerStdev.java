@@ -44,8 +44,7 @@ public class ImplementSqlServerStdev
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                // TODO (https://github.com/trinodb/trino/issues/6189): remove stddev, an alias, from the list & simplify the pattern
-                .with(functionName().matching(name -> "stddev".equals(name) || "stddev_samp".equals(name)))
+                .with(functionName().equalTo("stddev"))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))
