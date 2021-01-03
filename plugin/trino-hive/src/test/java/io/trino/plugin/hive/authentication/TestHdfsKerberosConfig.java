@@ -31,8 +31,8 @@ public class TestHdfsKerberosConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(HdfsKerberosConfig.class)
-                .setHdfsPrestoPrincipal(null)
-                .setHdfsPrestoKeytab(null));
+                .setHdfsTrinoPrincipal(null)
+                .setHdfsTrinoKeytab(null));
     }
 
     @Test
@@ -42,13 +42,13 @@ public class TestHdfsKerberosConfig
         Path keytab = Files.createTempFile(null, null);
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("hive.hdfs.presto.principal", "presto@EXAMPLE.COM")
-                .put("hive.hdfs.presto.keytab", keytab.toString())
+                .put("hive.hdfs.trino.principal", "trino@EXAMPLE.COM")
+                .put("hive.hdfs.trino.keytab", keytab.toString())
                 .build();
 
         HdfsKerberosConfig expected = new HdfsKerberosConfig()
-                .setHdfsPrestoPrincipal("presto@EXAMPLE.COM")
-                .setHdfsPrestoKeytab(keytab.toString());
+                .setHdfsTrinoPrincipal("trino@EXAMPLE.COM")
+                .setHdfsTrinoKeytab(keytab.toString());
 
         assertFullMapping(properties, expected);
     }

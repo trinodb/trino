@@ -245,10 +245,10 @@ Property Name                                      Description                  
 
 ``hive.hdfs.impersonation.enabled``                Enable HDFS end user impersonation.                          ``false``
 
-``hive.hdfs.presto.principal``                     The Kerberos principal that Trino will use when connecting
+``hive.hdfs.trino.principal``                      The Kerberos principal that Trino will use when connecting
                                                    to HDFS.
 
-``hive.hdfs.presto.keytab``                        HDFS client keytab location.
+``hive.hdfs.trino.keytab``                         HDFS client keytab location.
 
 ``hive.dfs.replication``                           Hadoop file system replication factor.
 
