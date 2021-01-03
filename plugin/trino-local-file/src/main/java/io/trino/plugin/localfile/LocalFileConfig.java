@@ -15,6 +15,7 @@ package io.trino.plugin.localfile;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 
 public class LocalFileConfig
@@ -28,7 +29,8 @@ public class LocalFileConfig
         return httpRequestLogLocation;
     }
 
-    @Config("presto-logs.http-request-log.location")
+    @Config("trino-logs.http-request-log.location")
+    @LegacyConfig("presto-logs.http-request-log.location")
     @ConfigDescription("Directory or file where http request logs are written")
     public LocalFileConfig setHttpRequestLogLocation(String httpRequestLogLocation)
     {
@@ -41,7 +43,8 @@ public class LocalFileConfig
         return httpRequestLogFileNamePattern;
     }
 
-    @Config("presto-logs.http-request-log.pattern")
+    @Config("trino-logs.http-request-log.pattern")
+    @LegacyConfig("presto-logs.http-request-log.pattern")
     @ConfigDescription("If log location is a directory this glob is used to match the file names in the directory")
     public LocalFileConfig setHttpRequestLogFileNamePattern(String pattern)
     {
