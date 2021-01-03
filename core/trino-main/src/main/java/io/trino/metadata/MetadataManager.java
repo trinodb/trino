@@ -1783,13 +1783,9 @@ public final class MetadataManager
         }
         catch (TrinoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_NOT_FOUND.toErrorCode().getCode()) {
-                OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, argumentTypes);
-                operatorNotFound.addSuppressed(e);
-                throw operatorNotFound;
+                throw new OperatorNotFoundException(operatorType, argumentTypes, e);
             }
-            else {
-                throw e;
-            }
+            throw e;
         }
     }
 
@@ -1803,9 +1799,7 @@ public final class MetadataManager
         }
         catch (TrinoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
-                OperatorNotFoundException operatorNotFound = new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature());
-                operatorNotFound.addSuppressed(e);
-                throw operatorNotFound;
+                throw new OperatorNotFoundException(operatorType, ImmutableList.of(fromType), toType.getTypeSignature(), e);
             }
             throw e;
         }

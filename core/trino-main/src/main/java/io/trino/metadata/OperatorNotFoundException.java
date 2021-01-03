@@ -34,17 +34,17 @@ public class OperatorNotFoundException
     private final TypeSignature returnType;
     private final List<Type> argumentTypes;
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, Throwable cause)
     {
-        super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.empty()));
+        super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.empty()), cause);
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.returnType = null;
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
-    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, TypeSignature returnType)
+    public OperatorNotFoundException(OperatorType operatorType, List<? extends Type> argumentTypes, TypeSignature returnType, Throwable cause)
     {
-        super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.of(returnType)));
+        super(OPERATOR_NOT_FOUND, formatErrorMessage(operatorType, argumentTypes, Optional.of(returnType)), cause);
         this.operatorType = requireNonNull(operatorType, "operatorType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.returnType = requireNonNull(returnType, "returnType is null");
