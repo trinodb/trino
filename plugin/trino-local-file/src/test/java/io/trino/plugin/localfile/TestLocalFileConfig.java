@@ -42,8 +42,8 @@ public class TestLocalFileConfig
         Path httpRequestLogFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("presto-logs.http-request-log.location", httpRequestLogFile.toString())
-                .put("presto-logs.http-request-log.pattern", "bar")
+                .put("trino-logs.http-request-log.location", httpRequestLogFile.toString())
+                .put("trino-logs.http-request-log.pattern", "bar")
                 .build();
 
         LocalFileConfig expected = new LocalFileConfig()
