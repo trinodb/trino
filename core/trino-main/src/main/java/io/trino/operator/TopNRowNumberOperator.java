@@ -201,7 +201,7 @@ public class TopNRowNumberOperator
                     expectedPositions,
                     isDictionaryAggregationEnabled(operatorContext.getSession()),
                     joinCompiler,
-                     blockTypeOperators,
+                    blockTypeOperators,
                     this::updateMemoryReservation);
         }
         else {
