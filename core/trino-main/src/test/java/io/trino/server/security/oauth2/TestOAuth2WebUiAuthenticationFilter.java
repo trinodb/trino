@@ -57,6 +57,7 @@ import java.net.URL;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -159,6 +160,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         KeyPairGenerator keyGenerator = KeyPairGenerator.getInstance("RSA");
         SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.RS256;
         keyGenerator.initialize(4096);
+        long now = Instant.now().getEpochSecond();
         String token = Jwts.builder()
                 .setHeaderParam("alg", "RS256")
                 .setHeaderParam("kid", "public:f467aa08-1c1b-4cde-ba45-84b0ef5d2ba8")
@@ -168,11 +170,11 @@ public class TestOAuth2WebUiAuthenticationFilter
                                 ImmutableMap.<String, Object>builder()
                                         .put("aud", ImmutableList.of())
                                         .put("client_id", "another-consumer")
-                                        .put("exp", System.currentTimeMillis() / 1000L + 60L)
-                                        .put("iat", System.currentTimeMillis())
+                                        .put("exp", now + 60L)
+                                        .put("iat", now)
                                         .put("iss", "http://hydra:4444/")
                                         .put("jti", UUID.randomUUID())
-                                        .put("nbf", System.currentTimeMillis() - 60L)
+                                        .put("nbf", now)
                                         .put("scp", ImmutableList.of("openid"))
                                         .put("sub", "foo@bar.com")
                                         .build()))
