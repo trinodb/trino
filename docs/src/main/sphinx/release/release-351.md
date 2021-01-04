@@ -23,7 +23,7 @@
 
 * Publish image as [`trinodb/trino`](https://hub.docker.com/r/trinodb/trino).
 * Change base image to `azul/zulu-openjdk-centos`.
-* Change configuration directories to `/usr/lib/trino/etc` and `/etc/trino`.
+* Change configuration directory to `/etc/trino`.
 * Rename CLI in image to `trino`.
 
 ## CLI Changes
