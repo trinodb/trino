@@ -92,6 +92,39 @@ public final class JoinHash
         return startJoinPosition(addressIndex, position, allChannelsPage);
     }
 
+    @Override
+    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    {
+        long[] result = pagesHash.getAddressIndex(positions, hashChannelsPage, rawHashes);
+        startJoinPositions(positions, allChannelsPage, result);
+
+        return result;
+    }
+
+    @Override
+    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage)
+    {
+        long[] result = pagesHash.getAddressIndex(positions, hashChannelsPage);
+        startJoinPositions(positions, allChannelsPage, result);
+
+        return result;
+    }
+
+    /**
+     * return array passed as an argument for performance reasons
+     */
+    private void startJoinPositions(int[] positions, Page hashChannelsPage, long[] result)
+    {
+        if (positionLinks == null) {
+            return;
+        }
+        for (int i = 0; i < positions.length; i++) {
+            if (result[i] != -1) {
+                result[i] = positionLinks.start((int) result[i], positions[i], hashChannelsPage);
+            }
+        }
+    }
+
     private long startJoinPosition(int currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         if (currentJoinPosition == -1) {
