@@ -150,7 +150,7 @@ public class PhoenixMetadata
     }
 
     @Override
-    public boolean supportsMissingColumnsOnInsert()
+    public boolean supportsMissingColumnsOnInsert(ConnectorTableHandle tableHandle)
     {
         return true;
     }
