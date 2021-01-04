@@ -23,6 +23,7 @@ import java.util.OptionalInt;
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.min;
+import static java.util.Arrays.stream;
 
 public class JoinProbe
 {
@@ -54,7 +55,7 @@ public class JoinProbe
 
     private final int[] probeOutputChannels;
     private final int positionCount;
-    private final Block[] probeBlocks;
+    private final Block[] nullableProbeBlocks;
     private final Page page;
     private final Page probePage;
     private final Optional<Block> probeHashBlock;
@@ -67,11 +68,12 @@ public class JoinProbe
     {
         this.probeOutputChannels = probeOutputChannels;
         this.positionCount = page.getPositionCount();
-        this.probeBlocks = new Block[probeJoinChannels.size()];
+        Block[] probeBlocks = new Block[probeJoinChannels.size()];
 
         for (int i = 0; i < probeJoinChannels.size(); i++) {
             probeBlocks[i] = page.getBlock(probeJoinChannels.get(i));
         }
+        nullableProbeBlocks = stream(probeBlocks).filter(Block::mayHaveNull).toArray(Block[]::new);
         this.page = page;
         this.probePage = new Page(page.getPositionCount(), probeBlocks);
         this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt())) : Optional.empty();
@@ -145,7 +147,7 @@ public class JoinProbe
 
     private boolean rowContainsNull(int position)
     {
-        for (Block probeBlock : probeBlocks) {
+        for (Block probeBlock : nullableProbeBlocks) {
             if (probeBlock.isNull(position)) {
                 return true;
             }
