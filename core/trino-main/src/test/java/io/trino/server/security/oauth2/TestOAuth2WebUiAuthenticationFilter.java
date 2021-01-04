@@ -66,7 +66,6 @@ import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TestingHydraService.TTL_ACCESS_TOKEN_IN_SECONDS;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static java.lang.String.format;
-import static javax.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static javax.ws.rs.core.HttpHeaders.LOCATION;
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.SEE_OTHER;
@@ -181,10 +180,8 @@ public class TestOAuth2WebUiAuthenticationFilter
                 .signWith(signatureAlgorithm, keyGenerator.generateKeyPair().getPrivate())
                 .compact();
 
-        try (Response response = httpClient.newCall(
-                uiCall()
-                        .header(AUTHORIZATION, "Bearer " + token)
-                        .build())
+        try (Response response = httpClientUsingCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build())
+                .newCall(uiCall().build())
                 .execute()) {
             assertUnauthorizedUICall(response);
         }
@@ -210,11 +207,7 @@ public class TestOAuth2WebUiAuthenticationFilter
             Cookie cookie = driver.manage().getCookieNamed(OAUTH2_COOKIE);
             assertThat(cookie).withFailMessage(OAUTH2_COOKIE + " is missing").isNotNull();
             Thread.sleep((TTL_ACCESS_TOKEN_IN_SECONDS + 1) * 1000L); // wait for the token expiration
-            try (Response response = httpClient.newCall(
-                    uiCall()
-                            .header(AUTHORIZATION, "Bearer " + cookie.getValue())
-                            .build())
-                    .execute()) {
+            try (Response response = httpClientUsingCookie(cookie).newCall(uiCall().build()).execute()) {
                 assertUnauthorizedUICall(response);
             }
         }));
@@ -304,6 +297,16 @@ public class TestOAuth2WebUiAuthenticationFilter
     private void assertUICallWithCookie(Cookie cookie)
             throws IOException
     {
+        OkHttpClient httpClient = httpClientUsingCookie(cookie);
+        // pass access token in Trino UI cookie
+        assertThat(httpClient.newCall(uiCall().build())
+                .execute()
+                .code())
+                .isEqualTo(OK.getStatusCode());
+    }
+
+    private static OkHttpClient httpClientUsingCookie(Cookie cookie)
+    {
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
         setupInsecureSsl(httpClientBuilder);
         httpClientBuilder.followRedirects(false);
@@ -327,12 +330,7 @@ public class TestOAuth2WebUiAuthenticationFilter
                         .build());
             }
         });
-
-        // pass access token in Presto UI cookie
-        assertThat(httpClientBuilder.build().newCall(uiCall().build())
-                .execute()
-                .code())
-                .isEqualTo(OK.getStatusCode());
+        return httpClientBuilder.build();
     }
 
     private static int findAvailablePort()
