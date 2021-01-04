@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -34,6 +35,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.HashMap;
@@ -41,12 +44,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.zip.GZIPInputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.AUTOMATIC;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.GZIP;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.UNCOMPRESSED;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.canUseGzip;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.getBatchSize;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.getCheckpointLogicalName;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.getIterationNumber;
@@ -55,8 +63,11 @@ import static io.trino.plugin.kinesis.KinesisSessionProperties.getIteratorStartT
 import static io.trino.plugin.kinesis.KinesisSessionProperties.getMaxBatches;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.isCheckpointEnabled;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.isIteratorFromTimestamp;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.zip.GZIPInputStream.GZIP_MAGIC;
 
 public class KinesisRecordSet
         implements RecordSet
@@ -307,7 +318,7 @@ public class KinesisRecordSet
 
             log.debug("Fetching %d bytes from current record. %d messages read so far", messageData.length, totalMessages);
 
-            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData);
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = decodeMessage(messageData);
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
             for (DecoderColumnHandle columnHandle : columnHandles) {
@@ -348,6 +359,28 @@ public class KinesisRecordSet
             }
 
             return true;
+        }
+
+        private Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeMessage(byte[] messageData)
+        {
+            KinesisCompressionCodec kinesisCompressionCodec = split.getCompressionCodec();
+            if (isGZipped(messageData)) {
+                if (!canUseGzip(kinesisCompressionCodec)) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("A %s message was found that did not match the required %s compression codec. Consider using %s or %s compressionCodec in table description", GZIP, kinesisCompressionCodec, GZIP, AUTOMATIC));
+                }
+                try (
+                        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(messageData);
+                        GZIPInputStream gZIPInputStream = new GZIPInputStream(byteArrayInputStream)) {
+                    return messageDecoder.decodeRow(gZIPInputStream.readAllBytes());
+                }
+                catch (IOException e) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+                }
+            }
+            if (kinesisCompressionCodec == UNCOMPRESSED || kinesisCompressionCodec == AUTOMATIC) {
+                return messageDecoder.decodeRow(messageData);
+            }
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("A message was found that did not match the required %s compression codec. Consider using %s or %s compressionCodec in table description", kinesisCompressionCodec, UNCOMPRESSED, AUTOMATIC));
         }
 
         /**
@@ -456,5 +489,14 @@ public class KinesisRecordSet
             GetShardIteratorResult getShardIteratorResult = clientManager.getClient().getShardIterator(getShardIteratorRequest);
             shardIterator = getShardIteratorResult.getShardIterator();
         }
+    }
+
+    private static boolean isGZipped(byte[] data)
+    {
+        if (data == null || data.length < 2) {
+            return false;
+        }
+        int magic = data[0] & 0xff | ((data[1] << 8) & 0xff00);
+        return magic == GZIP_MAGIC;
     }
 }

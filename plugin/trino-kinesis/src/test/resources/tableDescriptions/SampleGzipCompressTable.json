@@ -1,9 +1,10 @@
 {
-  "tableName": "sampleTable",
+  "tableName": "sampleGzipCompressTable",
   "schemaName": "default",
-  "streamName": "sampleTable",
+  "streamName": "sampleGzipCompressTable",
   "message": {
     "dataFormat": "json",
+    "compressionCodec": "GZIP",
     "fields": [{
       "name": "id",
       "type": "BIGINT",

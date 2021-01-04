@@ -1,9 +1,10 @@
 {
-  "tableName": "sampleTable",
+  "tableName": "sampleAutomaticCompressTable",
   "schemaName": "default",
-  "streamName": "sampleTable",
+  "streamName": "sampleAutomaticCompressTable",
   "message": {
     "dataFormat": "json",
+    "compressionCodec": "AUTOMATIC",
     "fields": [{
       "name": "id",
       "type": "BIGINT",
