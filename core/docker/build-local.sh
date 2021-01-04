@@ -17,7 +17,8 @@ WORK_DIR="$(mktemp -d)"
 cp ${SOURCE_DIR}/core/trino-server/target/trino-server-${TRINO_VERSION}.tar.gz ${WORK_DIR}
 tar -C ${WORK_DIR} -xzf ${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz
 rm ${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz
-cp -R bin default ${WORK_DIR}/trino-server-${TRINO_VERSION}
+cp -R bin ${WORK_DIR}/trino-server-${TRINO_VERSION}
+cp -R default -t ${WORK_DIR}
 
 cp ${SOURCE_DIR}/client/trino-cli/target/trino-cli-${TRINO_VERSION}-executable.jar ${WORK_DIR}
 

@@ -19,7 +19,8 @@ WORK_DIR="$(mktemp -d)"
 curl -o ${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz ${SERVER_LOCATION}
 tar -C ${WORK_DIR} -xzf ${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz
 rm ${WORK_DIR}/trino-server-${TRINO_VERSION}.tar.gz
-cp -R bin default ${WORK_DIR}/trino-server-${TRINO_VERSION}
+cp -R bin ${WORK_DIR}/trino-server-${TRINO_VERSION}
+cp -R default -t ${WORK_DIR}
 
 curl -o ${WORK_DIR}/trino-cli-${TRINO_VERSION}-executable.jar ${CLIENT_LOCATION}
 chmod +x ${WORK_DIR}/trino-cli-${TRINO_VERSION}-executable.jar
