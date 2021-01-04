@@ -29,4 +29,10 @@ public class RawRowEncoderFactory
     {
         return new RawRowEncoder(session, columnHandles);
     }
+
+    @Override
+    public boolean supportsMissingColumns()
+    {
+        return false;
+    }
 }

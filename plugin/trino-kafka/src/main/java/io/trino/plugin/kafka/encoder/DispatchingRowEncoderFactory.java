@@ -40,4 +40,10 @@ public class DispatchingRowEncoderFactory
         checkArgument(factories.containsKey(dataFormat), "unknown data format '%s'", dataFormat);
         return factories.get(dataFormat).create(session, dataSchema, columnHandles);
     }
+
+    public boolean supportsMissingColumns(String dataFormat)
+    {
+        checkArgument(factories.containsKey(dataFormat), "unknown data format '%s'", dataFormat);
+        return factories.get(dataFormat).supportsMissingColumns();
+    }
 }

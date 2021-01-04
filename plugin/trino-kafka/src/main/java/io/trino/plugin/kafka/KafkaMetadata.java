@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.trino.decoder.dummy.DummyRowDecoder;
+import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -59,17 +60,20 @@ public class KafkaMetadata
 {
     private final boolean hideInternalColumns;
     private final TableDescriptionSupplier tableDescriptionSupplier;
+    private final DispatchingRowEncoderFactory dispatchingRowEncoderFactory;
     private final KafkaInternalFieldManager kafkaInternalFieldManager;
 
     @Inject
     public KafkaMetadata(
             KafkaConfig kafkaConfig,
             TableDescriptionSupplier tableDescriptionSupplier,
+            DispatchingRowEncoderFactory dispatchingRowEncoderFactory,
             KafkaInternalFieldManager kafkaInternalFieldManager)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConfig.isHideInternalColumns();
         this.tableDescriptionSupplier = requireNonNull(tableDescriptionSupplier, "tableDescriptionSupplier is null");
+        this.dispatchingRowEncoderFactory = requireNonNull(dispatchingRowEncoderFactory, "tableDescriptionSupplier is null");
         this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldDescription is null");
     }
 
@@ -282,7 +286,9 @@ public class KafkaMetadata
                 .filter(columnHandle -> !columnHandle.isInternal() && !columnHandle.isHidden())
                 .collect(toImmutableList());
 
-        checkArgument(columns.equals(actualColumns), "Unexpected columns!\nexpected: %s\ngot: %s", actualColumns, columns);
+        if (!supportsMissingColumnsOnInsert(tableHandle)) {
+            checkArgument(columns.equals(actualColumns), "Unexpected columns!\nexpected: %s\ngot: %s", actualColumns, columns);
+        }
 
         return new KafkaTableHandle(
                 table.getSchemaName(),
@@ -294,8 +300,18 @@ public class KafkaMetadata
                 table.getMessageDataSchemaLocation(),
                 table.getKeySubject(),
                 table.getMessageSubject(),
-                actualColumns,
+                columns.stream()
+                        .map(KafkaColumnHandle.class::cast)
+                        .collect(toImmutableList()),
                 TupleDomain.none());
+    }
+
+    @Override
+    public boolean supportsMissingColumnsOnInsert(ConnectorTableHandle tableHandle)
+    {
+        KafkaTableHandle table = (KafkaTableHandle) tableHandle;
+        return dispatchingRowEncoderFactory.supportsMissingColumns(table.getKeyDataFormat()) &&
+                dispatchingRowEncoderFactory.supportsMissingColumns(table.getMessageDataFormat());
     }
 
     @Override

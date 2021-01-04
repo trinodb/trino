@@ -1,0 +1,25 @@
+{
+    "tableName": "raw_key_avro_message",
+    "schemaName": "write_test",
+    "topicName": "raw_key_avro_message",
+    "key": {
+        "dataFormat": "raw",
+        "fields": []
+    },
+    "message": {
+        "dataFormat": "avro",
+        "dataSchema": "/write_test/all_datatypes_avro_message_schema.avsc",
+        "fields": [
+            {
+                "name": "f_bigint",
+                "type": "BIGINT",
+                "mapping": "f_bigint"
+            },
+            {
+                "name": "f_varchar",
+                "type": "VARCHAR",
+                "mapping": "f_varchar"
+            }
+        ]
+    }
+}

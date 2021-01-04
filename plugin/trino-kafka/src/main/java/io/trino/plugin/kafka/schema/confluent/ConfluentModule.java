@@ -35,15 +35,20 @@ import io.trino.decoder.dummy.DummyRowDecoder;
 import io.trino.decoder.dummy.DummyRowDecoderFactory;
 import io.trino.plugin.kafka.SessionPropertiesProvider;
 import io.trino.plugin.kafka.encoder.DispatchingRowEncoderFactory;
+import io.trino.plugin.kafka.encoder.EncoderColumnHandle;
+import io.trino.plugin.kafka.encoder.RowEncoder;
 import io.trino.plugin.kafka.encoder.RowEncoderFactory;
 import io.trino.plugin.kafka.encoder.avro.AvroRowEncoder;
 import io.trino.plugin.kafka.schema.ContentSchemaReader;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Singleton;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -104,10 +109,24 @@ public class ConfluentModule
         public void configure(Binder binder)
         {
             MapBinder<String, RowEncoderFactory> encoderFactoriesByName = encoderFactory(binder);
-            encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).toInstance((session, dataSchema, columnHandles) -> {
-                throw new TrinoException(NOT_SUPPORTED, "Insert not supported");
-            });
+            encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).to(ConfluentAvroEncoderFactory.class).in(Scopes.SINGLETON);
             binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
+        }
+    }
+
+    private static class ConfluentAvroEncoderFactory
+            implements RowEncoderFactory
+    {
+        @Override
+        public RowEncoder create(ConnectorSession session, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles)
+        {
+            throw new TrinoException(NOT_SUPPORTED, "Insert not supported");
+        }
+
+        @Override
+        public boolean supportsMissingColumns()
+        {
+            return true;
         }
     }
 }
