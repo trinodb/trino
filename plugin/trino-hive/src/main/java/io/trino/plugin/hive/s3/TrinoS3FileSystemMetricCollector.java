@@ -63,4 +63,22 @@ public class TrinoS3FileSystemMetricCollector
     {
         stats.addAwsClientRetryPauseTime(duration);
     }
+
+    @Override
+    protected void recordHttpClientPoolAvailableCount(long count)
+    {
+        stats.setAwsHttpClientPoolAvailableCount(count);
+    }
+
+    @Override
+    protected void recordHttpClientPoolLeasedCount(long count)
+    {
+        stats.setAwsHttpClientPoolLeasedCount(count);
+    }
+
+    @Override
+    protected void recordHttpClientPoolPendingCount(long count)
+    {
+        stats.setAwsHttpClientPoolPendingCount(count);
+    }
 }
