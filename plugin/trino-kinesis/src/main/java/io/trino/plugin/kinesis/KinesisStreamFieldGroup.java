@@ -18,21 +18,26 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.UNCOMPRESSED;
 import static java.util.Objects.requireNonNull;
 
 public class KinesisStreamFieldGroup
 {
     private final String dataFormat;
+    private final Optional<KinesisCompressionCodec> compressionCodec;
     private final List<KinesisStreamFieldDescription> fields;
 
     @JsonCreator
     public KinesisStreamFieldGroup(
             @JsonProperty("dataFormat") String dataFormat,
+            @JsonProperty("compressionCodec") Optional<KinesisCompressionCodec> compressionCodec,
             @JsonProperty("fields") List<KinesisStreamFieldDescription> fields)
     {
         this.dataFormat = requireNonNull(dataFormat, "dataFormat is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.fields = ImmutableList.copyOf(requireNonNull(fields, "fields is null"));
     }
 
@@ -40,6 +45,11 @@ public class KinesisStreamFieldGroup
     public String getDataFormat()
     {
         return dataFormat;
+    }
+
+    public KinesisCompressionCodec getCompressionCodec()
+    {
+        return compressionCodec.orElse(UNCOMPRESSED);
     }
 
     @JsonProperty
@@ -53,6 +63,7 @@ public class KinesisStreamFieldGroup
     {
         return toStringHelper(this)
                 .add("dataFormat", dataFormat)
+                .add("compressionCodec", compressionCodec)
                 .add("fields", fields)
                 .toString();
     }

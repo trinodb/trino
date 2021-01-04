@@ -33,6 +33,7 @@ public class KinesisSplit
 {
     private final String streamName;
     private final String messageDataFormat;
+    private final KinesisCompressionCodec compressionCodec;
     private final String shardId;
     private final String start;
     private final String end;
@@ -41,12 +42,14 @@ public class KinesisSplit
     public KinesisSplit(
             @JsonProperty("streamName") String streamName,
             @JsonProperty("messageDataFormat") String messageDataFormat,
+            @JsonProperty("compressionCodec") KinesisCompressionCodec compressionCodec,
             @JsonProperty("shardId") String shardId,
             @JsonProperty("start") String start,
             @JsonProperty("end") String end)
     {
         this.streamName = requireNonNull(streamName, "streamName is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
+        this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.shardId = shardId;
         this.start = start;
         this.end = end;
@@ -74,6 +77,12 @@ public class KinesisSplit
     public String getMessageDataFormat()
     {
         return messageDataFormat;
+    }
+
+    @JsonProperty
+    public KinesisCompressionCodec getCompressionCodec()
+    {
+        return compressionCodec;
     }
 
     @JsonProperty
@@ -106,6 +115,7 @@ public class KinesisSplit
         return toStringHelper(this)
                 .add("streamName", streamName)
                 .add("messageDataFormat", messageDataFormat)
+                .add("compressionCodec", compressionCodec)
                 .add("shardId", shardId)
                 .add("start", start)
                 .add("end", end)
