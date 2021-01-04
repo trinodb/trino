@@ -109,9 +109,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    public List<ColumnMapping> toColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
     {
-        return stats.getGetColumnMappings().wrap(() -> delegate.getColumnMappings(session, typeHandles));
+        return stats.getGetColumnMappings().wrap(() -> delegate.toColumnMappings(session, typeHandles));
     }
 
     @Override

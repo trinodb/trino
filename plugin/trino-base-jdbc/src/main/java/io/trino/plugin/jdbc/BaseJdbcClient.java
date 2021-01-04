@@ -364,7 +364,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    public List<ColumnMapping> toColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             return typeHandles.stream()
