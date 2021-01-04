@@ -231,7 +231,9 @@ public class KinesisRecordSet
         {
             if (shardIterator == null && getRecordsRequest == null) {
                 getIterator(); // first shard iterator
-                log.debug("Starting read.  Retrieved first shard iterator from AWS Kinesis.");
+                log.debug("(%s:%s) Starting read.  Retrieved first shard iterator from AWS Kinesis.",
+                        split.getStreamName(),
+                        split.getShardId());
             }
 
             if (getRecordsRequest == null || (!listIterator.hasNext() && shouldGetMoreRecords())) {
@@ -242,7 +244,12 @@ public class KinesisRecordSet
                 return nextRow();
             }
             else {
-                log.debug("Read all of the records from the shard:  %d batches and %d messages and %d total bytes.", batchesRead, totalMessages, totalBytes);
+                log.debug("(%s:%s) Read all of the records from the shard:  %d batches and %d messages and %d total bytes.",
+                        split.getStreamName(),
+                        split.getShardId(),
+                        batchesRead,
+                        totalMessages,
+                        totalBytes);
                 return false;
             }
         }
@@ -289,7 +296,12 @@ public class KinesisRecordSet
                 shardIterator = getRecordsResult.getNextShardIterator();
                 kinesisRecords = getRecordsResult.getRecords();
                 if (isLogBatches) {
-                    log.info("Fetched %d records from Kinesis.  MillisBehindLatest=%d", kinesisRecords.size(), getRecordsResult.getMillisBehindLatest());
+                    log.info("(%s:%s) Fetched %d records from Kinesis.  MillisBehindLatest=%d Attempt=%d",
+                            split.getStreamName(),
+                            split.getShardId(),
+                            kinesisRecords.size(),
+                            getRecordsResult.getMillisBehindLatest(),
+                            attempts);
                 }
 
                 fetchedRecords = (kinesisRecords.size() > 0 || getMillisBehindLatest() <= MILLIS_BEHIND_LIMIT);
@@ -305,7 +317,10 @@ public class KinesisRecordSet
         {
             Record currentRecord = listIterator.next();
             String partitionKey = currentRecord.getPartitionKey();
-            log.debug("Reading record with partition key %s", partitionKey);
+            log.debug("(%s:%s) Reading record with partition key %s",
+                    split.getStreamName(),
+                    split.getShardId(),
+                    partitionKey);
 
             byte[] messageData = EMPTY_BYTE_ARRAY;
             ByteBuffer message = currentRecord.getData();
@@ -316,7 +331,11 @@ public class KinesisRecordSet
             totalBytes += messageData.length;
             totalMessages++;
 
-            log.debug("Fetching %d bytes from current record. %d messages read so far", messageData.length, totalMessages);
+            log.debug("(%s:%s) Fetching %d bytes from current record. %d messages read so far",
+                    split.getStreamName(),
+                    split.getShardId(),
+                    messageData.length,
+                    totalMessages);
 
             Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = decodeMessage(messageData);
 
@@ -441,8 +460,13 @@ public class KinesisRecordSet
         @Override
         public void close()
         {
-            log.info("Closing cursor - read complete.  Total read: %d batches %d messages, processed: %d messages and %d bytes.",
-                    batchesRead, messagesRead, totalMessages, totalBytes);
+            log.info("(%s:%s) Closing cursor - read complete.  Total read: %d batches %d messages, processed: %d messages and %d bytes.",
+                    split.getStreamName(),
+                    split.getShardId(),
+                    batchesRead,
+                    messagesRead,
+                    totalMessages,
+                    totalBytes);
             if (checkpointEnabled && lastReadSequenceNumber != null) {
                 shardCheckpointer.checkpoint(lastReadSequenceNumber);
             }
