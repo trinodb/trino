@@ -85,7 +85,7 @@ public class JdbcPageSink
         }
         else {
             columnWriters = handle.getJdbcColumnTypes().get().stream()
-                    .map(typeHandle -> jdbcClient.toTrinoType(session, connection, typeHandle)
+                    .map(typeHandle -> jdbcClient.toColumnMapping(session, connection, typeHandle)
                             .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Underlying type is not supported for INSERT: " + typeHandle)))
                     .map(ColumnMapping::getWriteFunction)
                     .collect(toImmutableList());
