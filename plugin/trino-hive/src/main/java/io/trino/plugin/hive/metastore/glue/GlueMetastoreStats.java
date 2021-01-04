@@ -20,6 +20,8 @@ import io.trino.plugin.hive.aws.AbstractSdkMetricsCollector;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -51,6 +53,9 @@ public class GlueMetastoreStats
     private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
     private final TimeStat awsClientExecuteTime = new TimeStat(MILLISECONDS);
     private final TimeStat awsClientRetryPauseTime = new TimeStat(MILLISECONDS);
+    private final AtomicLong awsHttpClientPoolAvailableCount = new AtomicLong();
+    private final AtomicLong awsHttpClientPoolLeasedCount = new AtomicLong();
+    private final AtomicLong awsHttpClientPoolPendingCount = new AtomicLong();
 
     @Managed
     @Nested
@@ -220,6 +225,24 @@ public class GlueMetastoreStats
         return awsClientRetryPauseTime;
     }
 
+    @Managed
+    public long getAwsHttpClientPoolAvailableCount()
+    {
+        return awsHttpClientPoolAvailableCount.get();
+    }
+
+    @Managed
+    public long getAwsHttpClientPoolLeasedCount()
+    {
+        return awsHttpClientPoolLeasedCount.get();
+    }
+
+    @Managed
+    public long getAwsHttpClientPoolPendingCount()
+    {
+        return awsHttpClientPoolPendingCount.get();
+    }
+
     public GlueSdkClientMetricsCollector newRequestMetricsCollector()
     {
         return new GlueSdkClientMetricsCollector(this);
@@ -269,6 +292,24 @@ public class GlueMetastoreStats
         protected void recordRetryPauseTime(Duration duration)
         {
             stats.awsClientRetryPauseTime.add(duration);
+        }
+
+        @Override
+        protected void recordHttpClientPoolAvailableCount(long count)
+        {
+            stats.awsHttpClientPoolAvailableCount.set(count);
+        }
+
+        @Override
+        protected void recordHttpClientPoolLeasedCount(long count)
+        {
+            stats.awsHttpClientPoolLeasedCount.set(count);
+        }
+
+        @Override
+        protected void recordHttpClientPoolPendingCount(long count)
+        {
+            stats.awsHttpClientPoolPendingCount.set(count);
         }
     }
 }

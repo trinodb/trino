@@ -24,6 +24,9 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static com.amazonaws.util.AWSRequestMetrics.Field.ClientExecuteTime;
+import static com.amazonaws.util.AWSRequestMetrics.Field.HttpClientPoolAvailableCount;
+import static com.amazonaws.util.AWSRequestMetrics.Field.HttpClientPoolLeasedCount;
+import static com.amazonaws.util.AWSRequestMetrics.Field.HttpClientPoolPendingCount;
 import static com.amazonaws.util.AWSRequestMetrics.Field.HttpClientRetryCount;
 import static com.amazonaws.util.AWSRequestMetrics.Field.HttpRequestTime;
 import static com.amazonaws.util.AWSRequestMetrics.Field.RequestCount;
@@ -54,6 +57,21 @@ public abstract class AbstractSdkMetricsCollector
             recordThrottleExceptionCount(throttleExceptions.longValue());
         }
 
+        Number httpClientPoolAvailableCount = timingInfo.getCounter(HttpClientPoolAvailableCount.name());
+        if (httpClientPoolAvailableCount != null) {
+            recordHttpClientPoolAvailableCount(httpClientPoolAvailableCount.longValue());
+        }
+
+        Number httpClientPoolLeasedCount = timingInfo.getCounter(HttpClientPoolLeasedCount.name());
+        if (httpClientPoolLeasedCount != null) {
+            recordHttpClientPoolLeasedCount(httpClientPoolLeasedCount.longValue());
+        }
+
+        Number httpClientPoolPendingCount = timingInfo.getCounter(HttpClientPoolPendingCount.name());
+        if (httpClientPoolPendingCount != null) {
+            recordHttpClientPoolPendingCount(httpClientPoolPendingCount.longValue());
+        }
+
         recordSubTimingDurations(timingInfo, HttpRequestTime, this::recordHttpRequestTime);
         recordSubTimingDurations(timingInfo, ClientExecuteTime, this::recordClientExecutionTime);
         recordSubTimingDurations(timingInfo, RetryPauseTime, this::recordRetryPauseTime);
@@ -70,6 +88,12 @@ public abstract class AbstractSdkMetricsCollector
     protected abstract void recordClientExecutionTime(Duration duration);
 
     protected abstract void recordRetryPauseTime(Duration duration);
+
+    protected abstract void recordHttpClientPoolAvailableCount(long count);
+
+    protected abstract void recordHttpClientPoolLeasedCount(long count);
+
+    protected abstract void recordHttpClientPoolPendingCount(long count);
 
     private static void recordSubTimingDurations(TimingInfo timingInfo, AWSRequestMetrics.Field field, Consumer<Duration> consumer)
     {

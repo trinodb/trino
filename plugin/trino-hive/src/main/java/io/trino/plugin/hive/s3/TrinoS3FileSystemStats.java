@@ -22,6 +22,7 @@ import org.weakref.jmx.Nested;
 
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -52,6 +53,9 @@ public class TrinoS3FileSystemStats
     private final TimeStat awsRequestTime = new TimeStat(MILLISECONDS);
     private final TimeStat awsClientExecuteTime = new TimeStat(MILLISECONDS);
     private final TimeStat awsClientRetryPauseTime = new TimeStat(MILLISECONDS);
+    private final AtomicLong awsHttpClientPoolAvailableCount = new AtomicLong();
+    private final AtomicLong awsHttpClientPoolLeasedCount = new AtomicLong();
+    private final AtomicLong awsHttpClientPoolPendingCount = new AtomicLong();
 
     @Managed
     @Nested
@@ -194,6 +198,24 @@ public class TrinoS3FileSystemStats
     }
 
     @Managed
+    public long getAwsHttpClientPoolAvailableCount()
+    {
+        return awsHttpClientPoolAvailableCount.get();
+    }
+
+    @Managed
+    public long getAwsHttpClientPoolLeasedCount()
+    {
+        return awsHttpClientPoolLeasedCount.get();
+    }
+
+    @Managed
+    public long getAwsHttpClientPoolPendingCount()
+    {
+        return awsHttpClientPoolPendingCount.get();
+    }
+
+    @Managed
     @Nested
     public CounterStat getGetObjectRetries()
     {
@@ -313,6 +335,21 @@ public class TrinoS3FileSystemStats
     public void addAwsClientRetryPauseTime(Duration duration)
     {
         awsClientRetryPauseTime.add(duration);
+    }
+
+    public void setAwsHttpClientPoolAvailableCount(long count)
+    {
+        this.awsHttpClientPoolAvailableCount.set(count);
+    }
+
+    public void setAwsHttpClientPoolLeasedCount(long count)
+    {
+        this.awsHttpClientPoolLeasedCount.set(count);
+    }
+
+    public void setAwsHttpClientPoolPendingCount(long count)
+    {
+        this.awsHttpClientPoolPendingCount.set(count);
     }
 
     public void newGetObjectRetry()
