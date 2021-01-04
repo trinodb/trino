@@ -38,6 +38,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
@@ -248,6 +249,31 @@ public class TestJdbcMetadata
     }
 
     @Test
+    public void testAggregationPushdownForTableHandle()
+    {
+        ConnectorSession session = TestingConnectorSession.builder()
+                .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig().setAggregationPushdownEnabled(true), Optional.empty()).getSessionProperties())
+                .build();
+        ColumnHandle groupByColumn = metadata.getColumnHandles(session, tableHandle).get("text");
+        Function<ConnectorTableHandle, Optional<AggregationApplicationResult<ConnectorTableHandle>>> applyAggregation = handle -> metadata.applyAggregation(
+                session,
+                handle,
+                ImmutableList.of(new AggregateFunction("count", BIGINT, List.of(), List.of(), false, Optional.empty())),
+                ImmutableMap.of(),
+                ImmutableList.of(ImmutableList.of(groupByColumn)));
+
+        ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
+        Optional<AggregationApplicationResult<ConnectorTableHandle>> aggregationResult = applyAggregation.apply(baseTableHandle);
+        assertThat(aggregationResult).isPresent();
+
+        SchemaTableName noAggregationPushdownTable = new SchemaTableName("example", "no_aggregation_pushdown");
+        metadata.createTable(SESSION, new ConnectorTableMetadata(noAggregationPushdownTable, ImmutableList.of(new ColumnMetadata("text", VARCHAR))), false);
+        ConnectorTableHandle noAggregationPushdownTableHandle = metadata.getTableHandle(session, noAggregationPushdownTable);
+        aggregationResult = applyAggregation.apply(noAggregationPushdownTableHandle);
+        assertThat(aggregationResult).isEmpty();
+    }
+
+    @Test
     public void testApplyFilterAfterAggregationPushdown()
     {
         ConnectorSession session = TestingConnectorSession.builder()
@@ -369,6 +395,13 @@ public class TestJdbcMetadata
         public boolean supportsGroupingSets()
         {
             return true;
+        }
+
+        @Override
+        public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+        {
+            // disable aggregation pushdown for any table named no_agg_pushdown
+            return !"no_aggregation_pushdown".equalsIgnoreCase(table.getRemoteTableName().getTableName());
         }
     }
 }

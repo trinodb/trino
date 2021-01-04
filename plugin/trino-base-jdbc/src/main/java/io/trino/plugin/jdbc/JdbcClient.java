@@ -66,6 +66,11 @@ public interface JdbcClient
         return true;
     }
 
+    default boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    {
+        return true;
+    }
+
     default Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
