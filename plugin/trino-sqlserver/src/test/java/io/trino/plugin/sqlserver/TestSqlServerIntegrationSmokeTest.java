@@ -415,6 +415,10 @@ public class TestSqlServerIntegrationSmokeTest
                         "   salesdate date,\n" +
                         "   quantity integer\n" +
                         ")");
+
+        assertUpdate("DROP TABLE partitionedSales");
+        sqlServer.execute("DROP PARTITION SCHEME psSales");
+        sqlServer.execute("DROP PARTITION FUNCTION pfSales");
     }
 
     private String getLongInClause(int start, int length)
