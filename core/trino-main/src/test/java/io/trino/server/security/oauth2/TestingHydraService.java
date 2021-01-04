@@ -35,7 +35,7 @@ public class TestingHydraService
         implements AutoCloseable
 {
     static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
-    private static final String HYDRA_IMAGE = "oryd/hydra:v1.4.2";
+    private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0";
     private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -68,7 +68,7 @@ public class TestingHydraService
             .withEnv("URLS_SELF_ISSUER", "http://hydra:4444/")
             .withEnv("URLS_CONSENT", "http://consent:3000/consent")
             .withEnv("URLS_LOGIN", "http://consent:3000/login")
-            .withEnv("OAUTH2_ACCESS_TOKEN_STRATEGY", "jwt")
+            .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
             .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
             .withCommand("serve all --dangerous-force-http")
             .waitingFor(Wait.forHttp("/health/ready").forPort(4444).forStatusCode(200));
