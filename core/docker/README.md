@@ -43,8 +43,7 @@ docker exec -it trino trino --catalog tpch --schema sf1
 
 ## Configuration
 
-Configuration is expected to be mounted to either  to `/etc/trino` or
-`/usr/lib/trino/etc` (the latter takes precedence). If neither of these exists
+Configuration is expected to be mounted `/etc/trino`. If it is not mounted
 then the default single node configuration will be used.
 
 ### Specific Config Options
