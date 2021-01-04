@@ -71,7 +71,7 @@ public class JdbcRecordCursor
 
             for (int i = 0; i < this.columnHandles.length; i++) {
                 JdbcColumnHandle columnHandle = columnHandles.get(i);
-                ColumnMapping columnMapping = jdbcClient.toTrinoType(session, connection, columnHandle.getJdbcTypeHandle())
+                ColumnMapping columnMapping = jdbcClient.toColumnMapping(session, connection, columnHandle.getJdbcTypeHandle())
                         .orElseThrow(() -> new VerifyException("Unsupported column type"));
                 verify(
                         columnHandle.getColumnType().equals(columnMapping.getType()),

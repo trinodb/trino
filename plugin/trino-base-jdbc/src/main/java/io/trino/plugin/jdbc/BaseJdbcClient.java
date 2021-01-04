@@ -286,7 +286,7 @@ public abstract class BaseJdbcClient
                         getInteger(resultSet, "DECIMAL_DIGITS"),
                         Optional.empty(),
                         Optional.empty());
-                Optional<ColumnMapping> columnMapping = toTrinoType(session, connection, typeHandle);
+                Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                 log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                 // skip unsupported column types
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -368,7 +368,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             return typeHandles.stream()
-                    .map(typeHandle -> toTrinoType(session, connection, typeHandle)
+                    .map(typeHandle -> toColumnMapping(session, connection, typeHandle)
                             .orElseThrow(() -> new VerifyException(format("Unsupported type handle %s", typeHandle))))
                     .collect(toImmutableList());
         }

@@ -311,7 +311,7 @@ public class PostgreSqlClient
                             getInteger(resultSet, "DECIMAL_DIGITS"),
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)),
                             Optional.empty());
-                    Optional<ColumnMapping> columnMapping = toTrinoType(session, connection, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                     log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
@@ -373,7 +373,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<ColumnMapping> toTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
@@ -498,7 +498,7 @@ public class PostgreSqlClient
             // https://github.com/pgjdbc/pgjdbc/pull/1184
             return Optional.empty();
         }
-        Optional<ColumnMapping> baseElementMapping = toTrinoType(session, connection, baseElementTypeHandle);
+        Optional<ColumnMapping> baseElementMapping = toColumnMapping(session, connection, baseElementTypeHandle);
 
         if (arrayMapping == AS_ARRAY) {
             if (typeHandle.getArrayDimensions().isEmpty()) {

@@ -52,10 +52,10 @@ public interface JdbcClient
 
     List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle);
 
-    Optional<ColumnMapping> toTrinoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle);
+    Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle);
 
     /**
-     * Bulk variant of {@link #toTrinoType(ConnectorSession, Connection, JdbcTypeHandle)}.
+     * Bulk variant of {@link #toColumnMapping(ConnectorSession, Connection, JdbcTypeHandle)}.
      */
     List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles);
 
