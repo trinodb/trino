@@ -127,6 +127,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
+    {
+        return delegate().supportsAggregationPushdown(session, table, groupingSets);
+    }
+
+    @Override
     public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return stats.getImplementAggregation().wrap(() -> delegate().implementAggregation(session, aggregate, assignments));
