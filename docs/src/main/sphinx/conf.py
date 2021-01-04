@@ -107,8 +107,8 @@ html_theme_options = {
     'base_url': '/',
     'globaltoc_depth': -1,
     'theme_color': '2196f3',
-    'color_primary': 'blue-grey',
-    'color_accent': 'light-blue',
+    'color_primary': '',  # set in CSS
+    'color_accent': '',   # set in CSS
     'repo_url': 'https://github.com/trinodb/trino',
     'repo_name': 'Trino',
     'version_json': '../versions.json',
