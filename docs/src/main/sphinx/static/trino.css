@@ -6,6 +6,22 @@ div.highlight {
     background-color: #f5f5f5;
 }
 
+.md-header, .md-hero, .md-tabs {
+    background-color: #0B1367;
+}
+
+.md-typeset a {
+    color: #DD00A1;
+}
+
+.md-typeset a:active, .md-typeset a:hover {
+    color: #F57C00;
+}
+
+.md-typeset h1 {
+    color: rgba(0, 0, 0, .80);
+}
+
 .sig-name, .sig-paren {
     font-weight: bold;
 }
