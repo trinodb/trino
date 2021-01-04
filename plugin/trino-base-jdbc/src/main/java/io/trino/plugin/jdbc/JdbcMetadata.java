@@ -141,7 +141,7 @@ public class JdbcMetadata
             List<JdbcColumnHandle> columnHandles = domains.keySet().stream()
                     .map(JdbcColumnHandle.class::cast)
                     .collect(toImmutableList());
-            List<ColumnMapping> columnMappings = jdbcClient.getColumnMappings(
+            List<ColumnMapping> columnMappings = jdbcClient.toColumnMappings(
                     session,
                     columnHandles.stream()
                             .map(JdbcColumnHandle::getJdbcTypeHandle)

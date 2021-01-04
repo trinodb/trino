@@ -57,7 +57,7 @@ public interface JdbcClient
     /**
      * Bulk variant of {@link #toColumnMapping(ConnectorSession, Connection, JdbcTypeHandle)}.
      */
-    List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles);
+    List<ColumnMapping> toColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles);
 
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
