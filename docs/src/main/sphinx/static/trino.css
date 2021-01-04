@@ -18,6 +18,10 @@ div.highlight {
     color: #F57C00;
 }
 
+.md-nav__button img {
+    height: 48px;
+}
+
 .md-typeset h1 {
     color: rgba(0, 0, 0, .80);
 }
