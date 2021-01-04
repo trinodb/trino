@@ -44,6 +44,18 @@ public interface LookupSource
 
     boolean isEmpty();
 
+    /**
+     * In some implementations, like {@link io.trino.operator.index.IndexLookupSource}, the result of
+     * getJoinPosition method relies on appendTo invocations beforehand. In that case any attempt to
+     * cache join positions may results in incorrect values being returned
+     *
+     * @return Whether this lookup source supports caching values returned by getJoinPosition method
+     */
+    default boolean supportsCaching()
+    {
+        return false;
+    }
+
     @Override
     void close();
 }

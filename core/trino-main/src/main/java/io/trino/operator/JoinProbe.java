@@ -22,6 +22,7 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.lang.Math.min;
 
 public class JoinProbe
 {
@@ -44,12 +45,21 @@ public class JoinProbe
         }
     }
 
+    /**
+     * Cache size will be 2^JOIN_POSITIONS_CACHE_SIZE_EXP
+     */
+    private static final int JOIN_POSITIONS_CACHE_SIZE_EXP = 11;
+    private static final int JOIN_POSITIONS_CACHE_SIZE = 1 << JOIN_POSITIONS_CACHE_SIZE_EXP;
+    private static final int JOIN_POSITIONS_CACHE_MASK = JOIN_POSITIONS_CACHE_SIZE - 1;
+
     private final int[] probeOutputChannels;
     private final int positionCount;
     private final Block[] probeBlocks;
     private final Page page;
     private final Page probePage;
     private final Optional<Block> probeHashBlock;
+    private final long[] joinPositionsCache;
+    private boolean reloadCache = true;
 
     private int position = -1;
 
@@ -65,6 +75,7 @@ public class JoinProbe
         this.page = page;
         this.probePage = new Page(page.getPositionCount(), probeBlocks);
         this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt())) : Optional.empty();
+        joinPositionsCache = new long[JOIN_POSITIONS_CACHE_SIZE];
     }
 
     public int[] getOutputChannels()
@@ -76,6 +87,9 @@ public class JoinProbe
     {
         verify(position < positionCount, "already finished");
         position++;
+        if ((position & JOIN_POSITIONS_CACHE_MASK) == 0) {
+            reloadCache = true;
+        }
         return !isFinished();
     }
 
@@ -86,7 +100,30 @@ public class JoinProbe
 
     public long getCurrentJoinPosition(LookupSource lookupSource)
     {
-        if (currentRowContainsNull()) {
+        if (lookupSource.supportsCaching()) {
+            if (reloadCache) {
+                fillJoinPositionCache(lookupSource);
+                reloadCache = false;
+            }
+
+            return joinPositionsCache[position & JOIN_POSITIONS_CACHE_MASK];
+        }
+        return getJoinPosition(position, lookupSource);
+    }
+
+    private void fillJoinPositionCache(LookupSource lookupSource)
+    {
+        // Extracted to local variables for performance reasons
+        int firstPosition = this.position & (~JOIN_POSITIONS_CACHE_MASK);
+        int limit = min(JOIN_POSITIONS_CACHE_SIZE, positionCount - firstPosition);
+        for (int i = 0; i < limit; ++i) {
+            joinPositionsCache[i] = getJoinPosition(firstPosition + i, lookupSource);
+        }
+    }
+
+    private long getJoinPosition(int position, LookupSource lookupSource)
+    {
+        if (rowContainsNull(position)) {
             return -1;
         }
         if (probeHashBlock.isPresent()) {
@@ -106,7 +143,7 @@ public class JoinProbe
         return page;
     }
 
-    private boolean currentRowContainsNull()
+    private boolean rowContainsNull(int position)
     {
         for (Block probeBlock : probeBlocks) {
             if (probeBlock.isNull(position)) {
