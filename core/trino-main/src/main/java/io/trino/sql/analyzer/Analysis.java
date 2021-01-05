@@ -18,6 +18,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
@@ -94,6 +95,8 @@ import static java.util.Objects.requireNonNull;
 
 public class Analysis
 {
+    private static final Set<String> MODIFY_TYPES = ImmutableSet.of("DELETE");
+
     @Nullable
     private final Statement root;
     private final Map<NodeRef<Parameter>, Expression> parameters;
@@ -222,11 +225,11 @@ public class Analysis
         this.target = Optional.empty();
     }
 
-    public boolean isDeleteTarget(Table table)
+    public boolean isModifyTarget(Table table)
     {
-        return "DELETE".equals(updateType) &&
-                target.orElseThrow(() -> new IllegalStateException("Update target not set"))
-                        .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in update target")) == table; // intentional comparison by reference
+        return MODIFY_TYPES.contains(updateType) &&
+                target.orElseThrow(() -> new IllegalStateException("Modify target not set"))
+                        .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in modify target")) == table; // intentional comparison by reference
     }
 
     public boolean isSkipMaterializedViewRefresh()

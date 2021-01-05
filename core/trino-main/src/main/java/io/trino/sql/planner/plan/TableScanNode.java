@@ -41,7 +41,7 @@ public class TableScanNode
     private final Map<Symbol, ColumnHandle> assignments; // symbol -> column
 
     private final TupleDomain<ColumnHandle> enforcedConstraint;
-    private final boolean forDelete;
+    private final boolean forModify;
 
     // We need this factory method to disambiguate with the constructor used for deserializing
     // from a json object. The deserializer sets some fields which are never transported
@@ -51,9 +51,9 @@ public class TableScanNode
             TableHandle table,
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
-            boolean forDelete)
+            boolean forModify)
     {
-        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), forDelete);
+        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), forModify);
     }
 
     @JsonCreator
@@ -62,7 +62,7 @@ public class TableScanNode
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("forDelete") boolean forDelete)
+            @JsonProperty("forModify") boolean forModify)
     {
         // This constructor is for JSON deserialization only. Do not use.
         super(id);
@@ -71,7 +71,7 @@ public class TableScanNode
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.enforcedConstraint = null;
-        this.forDelete = forDelete;
+        this.forModify = forModify;
     }
 
     public TableScanNode(
@@ -80,7 +80,7 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> enforcedConstraint,
-            boolean forDelete)
+            boolean forModify)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -88,7 +88,7 @@ public class TableScanNode
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
-        this.forDelete = forDelete;
+        this.forModify = forModify;
     }
 
     @JsonProperty("table")
@@ -125,10 +125,10 @@ public class TableScanNode
         return enforcedConstraint;
     }
 
-    @JsonProperty("forDelete")
-    public boolean isForDelete()
+    @JsonProperty("forModify")
+    public boolean isForModify()
     {
-        return forDelete;
+        return forModify;
     }
 
     @Override
@@ -151,7 +151,7 @@ public class TableScanNode
                 .add("outputSymbols", outputSymbols)
                 .add("assignments", assignments)
                 .add("enforcedConstraint", enforcedConstraint)
-                .add("forDelete", forDelete)
+                .add("forModify", forModify)
                 .toString();
     }
 

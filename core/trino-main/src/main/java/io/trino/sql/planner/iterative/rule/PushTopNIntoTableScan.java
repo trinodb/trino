@@ -73,7 +73,7 @@ public class PushTopNIntoTableScan
                             result.getHandle(),
                             tableScan.getOutputSymbols(),
                             tableScan.getAssignments(),
-                            tableScan.isForDelete());
+                            tableScan.isForModify());
 
                     if (!result.isTopNGuaranteed()) {
                         node = new TopNNode(topNNode.getId(), node, topNNode.getCount(), topNNode.getOrderingScheme(), TopNNode.Step.FINAL);

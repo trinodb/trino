@@ -787,7 +787,7 @@ public class PlanFragmenter
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     node.getEnforcedConstraint(),
-                    node.isForDelete());
+                    node.isForModify());
         }
     }
 }

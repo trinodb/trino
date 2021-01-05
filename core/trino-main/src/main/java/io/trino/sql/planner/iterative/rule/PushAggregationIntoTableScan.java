@@ -204,7 +204,7 @@ public class PushAggregationIntoTableScan
                                 result.getHandle(),
                                 newScanOutputs.build(),
                                 scanAssignments,
-                                tableScan.isForDelete()),
+                                tableScan.isForModify()),
                         assignmentBuilder.build()));
     }
 

@@ -110,7 +110,7 @@ public class BeginTableWrite
             DeleteTarget deleteTarget = (DeleteTarget) context.get().getMaterializedHandle(node.getTarget()).get();
             return new DeleteNode(
                     node.getId(),
-                    rewriteDeleteTableScan(node.getSource(), deleteTarget.getHandle()),
+                    rewriteUpdatingModifiedTableScan(node.getSource(), deleteTarget.getHandle()),
                     deleteTarget,
                     node.getRowId(),
                     node.getOutputSymbols());
@@ -198,35 +198,40 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
         }
 
-        private PlanNode rewriteDeleteTableScan(PlanNode node, TableHandle handle)
+        private PlanNode rewriteUpdatingModifiedTableScan(PlanNode node, TableHandle handle)
         {
             if (node instanceof TableScanNode) {
                 TableScanNode scan = (TableScanNode) node;
-                return new TableScanNode(
-                        scan.getId(),
-                        handle,
-                        scan.getOutputSymbols(),
-                        scan.getAssignments(),
-                        scan.getEnforcedConstraint(),
-                        scan.isForDelete());
+                if (scan.isForModify()) {
+                    return new TableScanNode(
+                            scan.getId(),
+                            handle,
+                            scan.getOutputSymbols(),
+                            scan.getAssignments(),
+                            scan.getEnforcedConstraint(),
+                            scan.isForModify());
+                }
+                else {
+                    return scan;
+                }
             }
 
             if (node instanceof FilterNode) {
-                PlanNode source = rewriteDeleteTableScan(((FilterNode) node).getSource(), handle);
+                PlanNode source = rewriteUpdatingModifiedTableScan(((FilterNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof ProjectNode) {
-                PlanNode source = rewriteDeleteTableScan(((ProjectNode) node).getSource(), handle);
+                PlanNode source = rewriteUpdatingModifiedTableScan(((ProjectNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source));
             }
             if (node instanceof SemiJoinNode) {
-                PlanNode source = rewriteDeleteTableScan(((SemiJoinNode) node).getSource(), handle);
+                PlanNode source = rewriteUpdatingModifiedTableScan(((SemiJoinNode) node).getSource(), handle);
                 return replaceChildren(node, ImmutableList.of(source, ((SemiJoinNode) node).getFilteringSource()));
             }
             if (node instanceof JoinNode) {
                 JoinNode joinNode = (JoinNode) node;
                 if (joinNode.getType() == JoinNode.Type.INNER && isAtMostScalar(joinNode.getRight())) {
-                    PlanNode source = rewriteDeleteTableScan(joinNode.getLeft(), handle);
+                    PlanNode source = rewriteUpdatingModifiedTableScan(joinNode.getLeft(), handle);
                     return replaceChildren(node, ImmutableList.of(source, joinNode.getRight()));
                 }
             }

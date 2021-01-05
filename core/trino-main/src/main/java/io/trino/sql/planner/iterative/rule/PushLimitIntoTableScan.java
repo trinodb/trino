@@ -70,7 +70,7 @@ public class PushLimitIntoTableScan
                             tableScan.getOutputSymbols(),
                             tableScan.getAssignments(),
                             tableScan.getEnforcedConstraint(),
-                            tableScan.isForDelete());
+                            tableScan.isForModify());
 
                     if (!result.isLimitGuaranteed()) {
                         node = new LimitNode(limit.getId(), node, limit.getCount(), limit.isPartial());
