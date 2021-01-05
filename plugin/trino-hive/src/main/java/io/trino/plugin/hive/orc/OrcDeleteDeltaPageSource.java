@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSource;
@@ -152,7 +153,8 @@ public class OrcDeleteDeltaPageSource
                 UTC,
                 systemMemoryContext,
                 MAX_BATCH_SIZE,
-                exception -> handleException(orcDataSource.getId(), exception));
+                exception -> handleException(orcDataSource.getId(), exception),
+                NameBasedFieldMapper::create);
     }
 
     @Override

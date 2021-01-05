@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSource;
@@ -319,7 +320,8 @@ public class IcebergPageSourceProvider
                     UTC,
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE,
-                    exception -> handleException(orcDataSourceId, exception));
+                    exception -> handleException(orcDataSourceId, exception),
+                    NameBasedFieldMapper::create);
 
             return new OrcPageSource(
                     recordReader,
