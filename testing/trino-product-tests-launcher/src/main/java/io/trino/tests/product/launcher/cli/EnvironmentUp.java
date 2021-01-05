@@ -88,7 +88,7 @@ public final class EnvironmentUp
         @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
 
-        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory", converter = OptionalPathConverter.class, defaultValue = "")
+        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory")
         public Optional<Path> logsDirBase;
 
         public Module toModule()
