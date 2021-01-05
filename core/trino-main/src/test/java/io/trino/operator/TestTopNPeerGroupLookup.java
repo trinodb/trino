@@ -77,6 +77,7 @@ public class TestTopNPeerGroupLookup
             for (int rowId = 0; rowId < totalRowIds; rowId++) {
                 // Value should not exist yet
                 assertEquals(lookup.get(groupId, rowId), DEFAULT_RETURN_VALUE);
+                assertEquals(lookup.get(groupId, toRowReference(rowId)), DEFAULT_RETURN_VALUE);
                 assertEquals(lookup.remove(groupId, rowId), DEFAULT_RETURN_VALUE);
 
                 // Insert the value
@@ -95,6 +96,7 @@ public class TestTopNPeerGroupLookup
         for (int groupId = 0; groupId < totalGroupIds; groupId++) {
             for (int rowId = 0; rowId < totalRowIds; rowId++) {
                 assertEquals(lookup.get(groupId, rowId), count);
+                assertEquals(lookup.get(groupId, toRowReference(rowId)), count);
                 count++;
 
                 assertFalse(lookup.isEmpty());
@@ -128,5 +130,35 @@ public class TestTopNPeerGroupLookup
         }
         assertTrue(lookup.isEmpty());
         assertEquals(lookup.size(), 0);
+    }
+
+    private static RowReference toRowReference(long rowId)
+    {
+        return new RowReference()
+        {
+            @Override
+            public int compareTo(RowIdComparisonStrategy strategy, long otherRowId)
+            {
+                return strategy.compare(rowId, otherRowId);
+            }
+
+            @Override
+            public boolean equals(RowIdHashStrategy strategy, long otherRowId)
+            {
+                return strategy.equals(rowId, otherRowId);
+            }
+
+            @Override
+            public long hash(RowIdHashStrategy strategy)
+            {
+                return strategy.hashCode(rowId);
+            }
+
+            @Override
+            public long allocateRowId()
+            {
+                return rowId;
+            }
+        };
     }
 }
