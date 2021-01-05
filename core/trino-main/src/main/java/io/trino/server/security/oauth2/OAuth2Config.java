@@ -33,6 +33,7 @@ public class OAuth2Config
     private String jwksUrl;
     private String clientId;
     private String clientSecret;
+    private Optional<String> audience = Optional.empty();
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
@@ -117,6 +118,19 @@ public class OAuth2Config
     public OAuth2Config setClientSecret(String clientSecret)
     {
         this.clientSecret = clientSecret;
+        return this;
+    }
+
+    public Optional<String> getAudience()
+    {
+        return audience;
+    }
+
+    @Config("http-server.authentication.oauth2.audience")
+    @ConfigDescription("The required audience of a token")
+    public OAuth2Config setAudience(String audience)
+    {
+        this.audience = Optional.ofNullable(audience);
         return this;
     }
 
