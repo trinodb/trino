@@ -261,34 +261,10 @@ public class OrcReader
         return createRecordReader(
                 readColumns,
                 readTypes,
+                Collections.nCopies(readColumns.size(), ProjectedLayout.fullyProjectedLayout()),
                 predicate,
                 0,
                 orcDataSource.getEstimatedSize(),
-                legacyFileTimeZone,
-                systemMemoryUsage,
-                initialBatchSize,
-                exceptionTransform);
-    }
-
-    public OrcRecordReader createRecordReader(
-            List<OrcColumn> readColumns,
-            List<Type> readTypes,
-            OrcPredicate predicate,
-            long offset,
-            long length,
-            DateTimeZone legacyFileTimeZone,
-            AggregatedMemoryContext systemMemoryUsage,
-            int initialBatchSize,
-            Function<Exception, RuntimeException> exceptionTransform)
-            throws OrcCorruptionException
-    {
-        return createRecordReader(
-                readColumns,
-                readTypes,
-                Collections.nCopies(readColumns.size(), ProjectedLayout.fullyProjectedLayout()),
-                predicate,
-                offset,
-                length,
                 legacyFileTimeZone,
                 systemMemoryUsage,
                 initialBatchSize,
