@@ -99,12 +99,12 @@ public class GroupedTopNRankAccumulator
      *
      * @return true if this row was incorporated, false otherwise
      */
-    public boolean add(long groupId, long newRowId)
+    public boolean add(long groupId, RowReference rowReference)
     {
         // Insert to any existing peer groups first (heap nodes contain distinct values)
-        long peerHeapNodeIndex = peerGroupLookup.get(groupId, newRowId);
+        long peerHeapNodeIndex = peerGroupLookup.get(groupId, rowReference);
         if (peerHeapNodeIndex != UNKNOWN_INDEX) {
-            directPeerGroupInsert(groupId, peerHeapNodeIndex, newRowId);
+            directPeerGroupInsert(groupId, peerHeapNodeIndex, rowReference.allocateRowId());
             if (calculateRootRank(groupId) > topN) {
                 heapPop(groupId, rowIdEvictionListener);
             }
@@ -115,13 +115,13 @@ public class GroupedTopNRankAccumulator
         groupIdToHeapBuffer.allocateGroupIfNeeded(groupId);
         if (groupIdToHeapBuffer.getHeapValueCount(groupId) < topN) {
             // Always safe to insert if total number of values is still less than topN
-            long newPeerGroupIndex = peerGroupBuffer.allocateNewNode(newRowId, UNKNOWN_INDEX);
+            long newPeerGroupIndex = peerGroupBuffer.allocateNewNode(rowReference.allocateRowId(), UNKNOWN_INDEX);
             heapInsert(groupId, newPeerGroupIndex, 1);
             return true;
         }
-        else if (strategy.compare(newRowId, peekRootRowId(groupId)) < 0) {
+        else if (rowReference.compareTo(strategy, peekRootRowId(groupId)) < 0) {
             // Given that total number of values >= topN, we can only consider values that are less than the root (otherwise topN would be violated)
-            long newPeerGroupIndex = peerGroupBuffer.allocateNewNode(newRowId, UNKNOWN_INDEX);
+            long newPeerGroupIndex = peerGroupBuffer.allocateNewNode(rowReference.allocateRowId(), UNKNOWN_INDEX);
             // Rank will increase by +1 after insertion, so only need to pop if root rank is already == topN.
             if (calculateRootRank(groupId) < topN) {
                 heapInsert(groupId, newPeerGroupIndex, 1);
