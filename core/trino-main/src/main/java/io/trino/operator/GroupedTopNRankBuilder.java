@@ -91,7 +91,6 @@ public class GroupedTopNRankBuilder
                         return equalsAndHash.hashCode(page, position);
                     }
                 },
-                RowReferencePageManager.RESERVED_UNUSED_ROW_ID,
                 topN,
                 pageManager::dereference);
     }
