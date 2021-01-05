@@ -51,6 +51,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.rcfile-optimized-writer.enabled",
         "hive.time-zone",
         "hive.assume-canonical-partition-keys",
+        "hive.partition-use-column-names",
 })
 public class HiveConfig
 {
@@ -97,7 +98,7 @@ public class HiveConfig
     private String orcLegacyTimeZone = TimeZone.getDefault().getID();
 
     private String parquetTimeZone = TimeZone.getDefault().getID();
-    private boolean useParquetColumnNames;
+    private boolean useParquetColumnNames = true;
 
     private String rcfileTimeZone = TimeZone.getDefault().getID();
     private boolean rcfileWriterValidate;
@@ -133,7 +134,6 @@ public class HiveConfig
 
     private boolean allowRegisterPartition;
     private boolean queryPartitionFilterRequired;
-    private boolean partitionUseColumnNames;
 
     private boolean projectionPushdownEnabled = true;
 
@@ -958,19 +958,6 @@ public class HiveConfig
     public HiveConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
     {
         this.queryPartitionFilterRequired = queryPartitionFilterRequired;
-        return this;
-    }
-
-    public boolean getPartitionUseColumnNames()
-    {
-        return partitionUseColumnNames;
-    }
-
-    @Config("hive.partition-use-column-names")
-    @ConfigDescription("Access partition columns by names")
-    public HiveConfig setPartitionUseColumnNames(boolean partitionUseColumnNames)
-    {
-        this.partitionUseColumnNames = partitionUseColumnNames;
         return this;
     }
 

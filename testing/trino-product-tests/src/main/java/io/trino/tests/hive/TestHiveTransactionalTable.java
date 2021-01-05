@@ -779,6 +779,169 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
+    public void testColumnRenamesOrcPartitioned(boolean transactional)
+    {
+        withTemporaryTable("test_column_renames_partitioned", transactional, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR)" +
+                    " WITH (format = 'ORC', transactional = %s, partitioned_by = ARRAY['old_state'])", tableName, transactional));
+            testOrcColumnRenames(tableName);
+
+            log.info("About to rename partition column old_state to new_state");
+            assertThat(() -> onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_state TO new_state", tableName)))
+                    .failsWithMessage("Renaming partition columns is not supported");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
+    public void testColumnRenamesOrcNotPartitioned(boolean transactional)
+    {
+        ensureSchemaEvolutionSupported();
+        withTemporaryTable("test_orc_column_renames_not_partitioned", transactional, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR)" +
+                    " WITH (format = 'ORC', transactional = %s)", tableName, transactional));
+            testOrcColumnRenames(tableName);
+        });
+    }
+
+    private void testOrcColumnRenames(String tableName)
+    {
+        onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
+        verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
+
+        onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_name TO new_name", tableName));
+        log.info("This shows that Presto and Hive can still query old data after a single rename");
+        verifySelectForPrestoAndHive("SELECT age FROM " + tableName, "new_name = 'Katy'", row(57));
+
+        onPresto().executeQuery(format("INSERT INTO %s VALUES(333, 'Joan', 23, 'OR')", tableName));
+        verifySelectForPrestoAndHive("SELECT age FROM " + tableName, "new_name != 'Joe'", row(57), row(23));
+
+        onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN new_name TO newer_name", tableName));
+        log.info("This shows that Presto and Hive can still query old data after a double rename");
+        verifySelectForPrestoAndHive("SELECT age FROM " + tableName, "newer_name = 'Katy'", row(57));
+
+        onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN newer_name TO old_name", tableName));
+        log.info("This shows that Presto and Hive can still query old data after a rename back to the original name");
+        verifySelectForPrestoAndHive("SELECT age FROM " + tableName, "old_name = 'Katy'", row(57));
+        verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, "Joan", 23, "OR"));
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
+    public void testOrcColumnSwap(boolean transactional)
+    {
+        withTemporaryTable("test_orc_column_renames", transactional, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (name VARCHAR, state VARCHAR) WITH (format = 'ORC', transactional = %s)", tableName, transactional));
+            onPresto().executeQuery(format("INSERT INTO %s VALUES ('Katy', 'CA'), ('Joe', 'WA')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row("Katy", "CA"), row("Joe", "WA"));
+
+            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN name TO new_name", tableName));
+            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN state TO name", tableName));
+            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN new_name TO state", tableName));
+            log.info("This shows that Presto and Hive can still query old data, but because of the renames, columns are swapped!");
+            verifySelectForPrestoAndHive("SELECT state, name FROM " + tableName, "TRUE", row("Katy", "CA"), row("Joe", "WA"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testBehaviorOnParquetColumnRenames()
+    {
+        ensureSchemaEvolutionSupported();
+        withTemporaryTable("test_parquet_column_renames", false, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR) WITH (format = 'PARQUET', transactional = false)", tableName));
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
+
+            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN old_name TO new_name", tableName));
+
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (333, 'Fineas', 31, 'OR')", tableName));
+
+            log.info("This shows that Hive and Trino do not see old data after a rename");
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(111, null, 57, "CA"), row(222, null, 72, "WA"), row(333, "Fineas", 31, "OR"));
+
+            onPresto().executeQuery(format("ALTER TABLE %s RENAME COLUMN new_name TO old_name", tableName));
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (444, 'Gladys', 47, 'WA')", tableName));
+            log.info("This shows that Presto and Hive both see data in old data files after renaming back to the original column name");
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, null, 31, "OR"), row(444, "Gladys", 47, "WA"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
+    public void testOrcColumnDropAdd(boolean transactional)
+    {
+        ensureSchemaEvolutionSupported();
+        withTemporaryTable("test_orc_add_drop", transactional, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR) WITH (transactional = %s)", tableName, transactional));
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
+
+            onPresto().executeQuery(format("ALTER TABLE %s DROP COLUMN old_state", tableName));
+            log.info("This shows that neither Presto nor Hive see the old data after a column is dropped");
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57), row(222, "Joe", 72));
+
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (333, 'Kelly', 45)", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57), row(222, "Joe", 72), row(333, "Kelly", 45));
+
+            onPresto().executeQuery(format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
+            log.info("This shows that for ORC, Presto and Hive both see data inserted into a dropped column when a column of the same type but different name is added");
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, "Kelly", 45, null));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
+    public void testOrcColumnTypeChange(boolean transactional)
+    {
+        ensureSchemaEvolutionSupported();
+        withTemporaryTable("test_orc_column_type_change", transactional, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (id INT, old_name VARCHAR, age TINYINT, old_state VARCHAR) WITH (transactional = %s)", tableName, transactional));
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
+
+            onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN age age INT", tableName));
+            log.info("This shows that Hive see the old data after a column is widened");
+            assertThat(onHive().executeQuery("SELECT * FROM " + tableName))
+                    .containsOnly(row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
+            log.info("This shows that Trino gets an exception trying to widen the type");
+            assertThat(() -> onPresto().executeQuery("SELECT * FROM " + tableName))
+                    .failsWithMessageMatching(".*Malformed ORC file. Cannot read SQL type 'integer' from ORC stream '.*.age' of type BYTE with attributes.*");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL)
+    public void testParquetColumnDropAdd()
+    {
+        ensureSchemaEvolutionSupported();
+        withTemporaryTable("test_parquet_add_drop", false, false, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = 'PARQUET')", tableName));
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (111, 'Katy', 57, 'CA'), (222, 'Joe', 72, 'WA')", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"));
+
+            onPresto().executeQuery(format("ALTER TABLE %s DROP COLUMN state", tableName));
+            log.info("This shows that neither Presto nor Hive see the old data after a column is dropped");
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57), row(222, "Joe", 72));
+
+            onPresto().executeQuery(format("INSERT INTO %s VALUES (333, 'Kelly', 45)", tableName));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57), row(222, "Joe", 72), row(333, "Kelly", 45));
+
+            onPresto().executeQuery(format("ALTER TABLE %s ADD COLUMN state VARCHAR", tableName));
+            log.info("This shows that for Parquet, Presto and Hive both see data inserted into a dropped column when a column of the same name and type is added");
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "true", row(111, "Katy", 57, "CA"), row(222, "Joe", 72, "WA"), row(333, "Kelly", 45, null));
+
+            onPresto().executeQuery(format("ALTER TABLE %s DROP COLUMN state", tableName));
+            onPresto().executeQuery(format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
+
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(111, "Katy", 57, null), row(222, "Joe", 72, null), row(333, "Kelly", 45, null));
+        });
+    }
+
+    @DataProvider
+    public Object[][] transactionModeProvider()
+    {
+        return new Object[][] {
+                {true},
+                {false},
+        };
+    }
+
     @DataProvider
     public Object[][] insertersProvider()
     {
@@ -1087,6 +1250,13 @@ public class TestHiveTransactionalTable
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
+        }
+    }
+
+    private void ensureSchemaEvolutionSupported()
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive schema evolution requires Hive version 3 or above");
         }
     }
 
