@@ -1,5 +1,5 @@
 =================
-Bitwise Functions
+Bitwise functions
 =================
 
 .. function:: bit_count(x, bits) -> bigint

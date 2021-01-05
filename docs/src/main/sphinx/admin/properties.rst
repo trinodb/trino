@@ -1,5 +1,5 @@
 ====================
-Properties Reference
+Properties reference
 ====================
 
 This section describes the most important config properties, that
@@ -9,14 +9,14 @@ may be used to tune Trino or alter its behavior when required.
     :titlesonly:
 
     General <properties-general>
-    Memory Management <properties-memory-management>
-    Query Management <properties-query-management>
+    Memory management <properties-memory-management>
+    Query management <properties-query-management>
     Spilling <properties-spilling>
     Exchange <properties-exchange>
     Task <properties-task>
-    Writer Scaling <properties-writer-scaling>
-    Node Scheduler <properties-node-scheduler>
+    Writer scaling <properties-writer-scaling>
+    Node scheduler <properties-node-scheduler>
     Optimizer <properties-optimizer>
     Logging <properties-logging>
     Web UI <properties-web-interface>
-    Regular Expression Function <properties-regexp-function>
+    Regular expression function <properties-regexp-function>

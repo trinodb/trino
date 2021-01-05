@@ -55,7 +55,7 @@ Description
 
 Retrieve rows from zero or more tables.
 
-WITH Clause
+WITH clause
 -----------
 
 The ``WITH`` clause defines named relations for use within a query.
@@ -92,7 +92,7 @@ Additionally, the relations within a ``WITH`` clause can chain::
     relation is used. This means that if the relation is used more than once and the query
     is non-deterministic, the results may be different each time.
 
-WITH RECURSIVE Clause
+WITH RECURSIVE clause
 ---------------------
 
 The ``WITH RECURSIVE`` clause is a variant of the ``WITH`` clause. It defines
@@ -163,7 +163,7 @@ You can adjust the recursion depth with the :doc:`session property
 </sql/set-session>` ``max_recursion_depth``. When changing the value consider
 that the size of the query plan growth is quadratic with the recursion depth.
 
-SELECT Clause
+SELECT clause
 -------------
 
 The ``SELECT`` clause specifies the output of the query. Each ``select_expression``
@@ -254,7 +254,7 @@ and in their absence, anonymous columns are produced::
     (1 row)
 
 
-GROUP BY Clause
+GROUP BY clause
 ---------------
 
 The ``GROUP BY`` clause divides the output of a ``SELECT`` statement into
@@ -294,7 +294,7 @@ the ``GROUP BY`` clause.
 
 .. _complex_grouping_operations:
 
-Complex Grouping Operations
+Complex grouping operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Trino also supports complex aggregations using the ``GROUPING SETS``, ``CUBE``
@@ -543,7 +543,7 @@ only unique grouping sets are generated::
 
 The default set quantifier is ``ALL``.
 
-GROUPING Operation
+GROUPING operation
 ^^^^^^^^^^^^^^^^^^
 
 ``grouping(col1, ..., colN) -> bigint``
@@ -587,7 +587,7 @@ The first grouping in the above result only includes the ``origin_state`` column
 the ``origin_zip`` and ``destination_state`` columns. The bit set constructed for that grouping
 is ``011`` where the most significant bit represents ``origin_state``.
 
-HAVING Clause
+HAVING clause
 -------------
 
 The ``HAVING`` clause is used in conjunction with aggregate functions and
@@ -619,7 +619,7 @@ with an account balance greater than the specified value::
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
-Set Operations
+Set operations
 --------------
 
 ``UNION``  ``INTERSECT`` and ``EXCEPT`` are all set operations.  These clauses are used
@@ -650,7 +650,7 @@ specified via parentheses. Additionally, ``INTERSECT`` binds more tightly
 than ``EXCEPT`` and ``UNION``. That means ``A UNION B INTERSECT C EXCEPT D``
 is the same as ``A UNION (B INTERSECT C) EXCEPT D``.
 
-UNION Clause
+UNION clause
 ^^^^^^^^^^^^
 
 ``UNION`` combines all the rows that are in the result set from the
@@ -702,7 +702,7 @@ selects the values ``42`` and ``13``::
         13
     (2 rows)
 
-INTERSECT Clause
+INTERSECT clause
 ^^^^^^^^^^^^^^^^
 
 ``INTERSECT`` returns only the rows that are in the result sets of both the first and
@@ -722,7 +722,7 @@ is only in the result set of the first query, it is not included in the final re
         13
     (2 rows)
 
-EXCEPT Clause
+EXCEPT clause
 ^^^^^^^^^^^^^
 
 ``EXCEPT`` returns the rows that are in the result set of the first query,
@@ -744,7 +744,7 @@ is also in the result set of the second query, it is not included in the final r
 
 .. _order-by-clause:
 
-ORDER BY Clause
+ORDER BY clause
 ---------------
 
 The ``ORDER BY`` clause is used to sort a result set by one or more
@@ -792,7 +792,7 @@ More background information and details can be found in
 
 .. _offset-clause:
 
-OFFSET Clause
+OFFSET clause
 -------------
 
 The ``OFFSET`` clause is used to discard a number of leading rows
@@ -821,7 +821,7 @@ Otherwise, it is arbitrary which rows are discarded.
 If the count specified in the ``OFFSET`` clause equals or exceeds the size
 of the result set, the final result is empty.
 
-LIMIT or FETCH FIRST Clauses
+LIMIT or FETCH FIRST clauses
 ----------------------------
 
 The ``LIMIT`` or ``FETCH FIRST`` clause restricts the number of rows
@@ -1085,7 +1085,7 @@ computing the rows to be joined::
     CROSS JOIN LATERAL (SELECT name || ' :-' AS x)
     CROSS JOIN LATERAL (SELECT x || ')' AS y);
 
-Qualifying Column Names
+Qualifying column names
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 When two relations in a join have columns with the same name, the column
@@ -1149,7 +1149,7 @@ standard rules for nulls. The subquery must produce exactly one column::
          WHERE name = 'AMERICA' OR name = 'AFRICA'
     );
 
-Scalar Subquery
+Scalar subquery
 ^^^^^^^^^^^^^^^
 
 A scalar subquery is a non-correlated subquery that returns zero or

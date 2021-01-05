@@ -1,10 +1,10 @@
 ====================================
-Mathematical Functions and Operators
+Mathematical functions and operators
 ====================================
 
 .. _mathematical_operators:
 
-Mathematical Operators
+Mathematical operators
 ----------------------
 
 ======== ===========
@@ -17,7 +17,7 @@ Operator Description
 ``%``    Modulus (remainder)
 ======== ===========
 
-Mathematical Functions
+Mathematical functions
 ----------------------
 
 .. function:: abs(x) -> [same as input]
@@ -131,7 +131,7 @@ Mathematical Functions
     array ``bins``. The ``bins`` parameter must be an array of doubles and is
     assumed to be in sorted ascending order.
 
-Random Functions
+Random functions
 ----------------
 
 .. function:: rand() -> double
@@ -152,7 +152,7 @@ Random Functions
 
     Returns a pseudo-random number between m and n (exclusive).
 
-Trigonometric Functions
+Trigonometric functions
 -----------------------
 
 All trigonometric function arguments are expressed in radians.
@@ -194,7 +194,7 @@ See unit conversion functions :func:`degrees` and :func:`radians`.
 
     Returns the hyperbolic tangent of ``x``.
 
-Floating Point Functions
+Floating point functions
 ------------------------
 
 .. function:: infinity() -> double
@@ -217,7 +217,7 @@ Floating Point Functions
 
     Returns the constant representing not-a-number.
 
-Base Conversion Functions
+Base conversion functions
 -------------------------
 
 .. function:: from_base(string, radix) -> bigint
@@ -228,7 +228,7 @@ Base Conversion Functions
 
     Returns the base-``radix`` representation of ``x``.
 
-Statistical Functions
+Statistical functions
 ---------------------
 
 .. function:: cosine_similarity(x, y) -> double
@@ -247,7 +247,7 @@ Statistical Functions
     Returns the upper bound of the Wilson score interval of a Bernoulli trial process
     at a confidence specified by the z-score ``z``.
 
-Cumulative Distribution Functions
+Cumulative distribution functions
 ---------------------------------
 
 .. function:: beta_cdf(a, b, v) -> double

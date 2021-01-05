@@ -2,7 +2,7 @@
 Release 329 (23 Jan 2020)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect result for :func:`last_day_of_month` function for first day of month. (:issue:`2452`)
@@ -27,13 +27,13 @@ General Changes
   ``information_schema.columns`` table. These columns can still be selected,
   but will no longer appear when describing the table. (:issue:`2306`)
 
-Security Changes
+Security changes
 ----------------
 
 * Add ``ldap.bind-dn`` and ``ldap.bind-password`` LDAP properties to allow LDAP authentication
   access LDAP server using service account. (:issue:`1917`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix incorrect data returned when using S3 Select on uncompressed files. In our testing, S3 Select
@@ -58,13 +58,13 @@ Hive Connector Changes
 * Add procedure ``system.drop_stats()`` to remove the column statistics
   for a table or selected partitions. (:issue:`2538`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Add support for :ref:`elasticsearch-array-types`. (:issue:`2441`)
 * Reduce load on Elasticsearch cluster and improve query performance. (:issue:`2561`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Fix mapping between PostgreSQL's ``TIME`` and Presto's ``TIME`` data types.

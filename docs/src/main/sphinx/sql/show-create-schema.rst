@@ -14,7 +14,7 @@ Description
 
 Show the SQL statement that creates the specified schema.
 
-See Also
+See also
 --------
 
 :doc:`create-schema`

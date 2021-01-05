@@ -1,5 +1,5 @@
 ===============
-Redis Connector
+Redis connector
 ===============
 
 The Redis connector allows querying of live data stored in `Redis <https://redis.io/>`_. This can be
@@ -26,14 +26,14 @@ replacing the properties as appropriate:
     redis.table-names=schema1.table1,schema1.table2
     redis.nodes=host:port
 
-Multiple Redis Servers
+Multiple Redis servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need. If you have additional
 Redis servers, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``.
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -143,7 +143,7 @@ The password for password-protected Redis server.
 This property is optional; the default is ``null``.
 
 
-Internal Columns
+Internal columns
 ----------------
 
 For each defined table, the connector maintains the following columns:
@@ -162,7 +162,7 @@ Column name             Type      Description
 For tables without a table definition file, the ``_key_corrupt`` and
 ``_value_corrupt`` columns are ``false``.
 
-Table Definition Files
+Table definition files
 ----------------------
 
 With the Redis connector it's possible to further reduce Redis key/value pairs into

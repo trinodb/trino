@@ -1,5 +1,5 @@
 ===================
-Session Information
+Session information
 ===================
 
 Functions providing information about the query execution environment.

@@ -16,7 +16,7 @@ The results of this pushdown can include the following benefits:
 Support for pushdown is specific to each connector and the relevant underlying
 database or storage system.
 
-Aggregation Pushdown
+Aggregation pushdown
 --------------------
 
 Aggregation pushdown can take place provided the following conditions are satisfied:

@@ -37,7 +37,7 @@ Show the SQL that can be run to create the ``orders`` table::
      )
     (1 row)
 
-See Also
+See also
 --------
 
 :doc:`create-table`

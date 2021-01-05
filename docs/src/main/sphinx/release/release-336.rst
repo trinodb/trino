@@ -2,20 +2,20 @@
 Release 336 (16 Jun 2020)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix failure when querying timestamp columns from older clients. (:issue:`4036`)
 * Improve reporting of configuration errors. (:issue:`4050`)
 * Fix rare failure when recording server stats in T-Digests. (:issue:`3965`)
 
-Security Changes
+Security changes
 ----------------
 
 * Add table access rules to :doc:`/security/file-system-access-control`. (:issue:`3951`)
 * Add new ``default`` system access control that allows all operations except user impersonation. (:issue:`4040`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix incorrect query results when reading Parquet files with predicates

@@ -32,7 +32,7 @@ Examples
     START TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY;
     START TRANSACTION READ WRITE, ISOLATION LEVEL SERIALIZABLE;
 
-See Also
+See also
 --------
 
 :doc:`commit`, :doc:`rollback`

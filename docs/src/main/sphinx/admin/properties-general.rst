@@ -1,5 +1,5 @@
 ==================
-General Properties
+General properties
 ==================
 
 ``join-distribution-type``

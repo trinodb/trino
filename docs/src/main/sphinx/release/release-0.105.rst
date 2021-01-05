@@ -2,7 +2,7 @@
 Release 0.105
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix issue which can cause queries to be blocked permanently.
@@ -10,7 +10,7 @@ General Changes
 * Add implicit coercions for values of equi-join criteria.
 * Fix detection of window function calls without an ``OVER`` clause.
 
-SPI Changes
+SPI changes
 -----------
 
 * Remove ``ordinalPosition`` from ``ColumnMetadata``.

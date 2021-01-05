@@ -2,7 +2,7 @@
 Release 0.108
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect query results when a window function follows a :func:`row_number`
@@ -31,7 +31,7 @@ General Changes
 * Fix printing of table layouts in :doc:`/sql/explain`.
 * Add :doc:`/connector/blackhole`.
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 * Randomly select Cassandra node for split generation.

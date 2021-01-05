@@ -1,5 +1,5 @@
 ==========
-Data Types
+Data types
 ==========
 
 Trino has a set of built-in data types, described below.
@@ -46,7 +46,7 @@ also available for this type.
 A 64-bit signed two's complement integer with a minimum value of
 ``-2^63`` and a maximum value of ``2^63 - 1``.
 
-Floating-Point
+Floating-point
 --------------
 
 ``REAL``
@@ -65,7 +65,7 @@ IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
 Example literals: ``DOUBLE '10.3'``, ``DOUBLE '1.03e1'``, ``10.3e0``, ``1.03e1``
 
-Fixed-Precision
+Fixed-precision
 ---------------
 
 ``DECIMAL``
@@ -138,7 +138,7 @@ JSON value type, which can be a JSON object, a JSON array, a JSON number, a JSON
 
 .. _date-time-data-types:
 
-Date and Time
+Date and time
 -------------
 
 See also :doc:`/functions/datetime`
@@ -286,7 +286,7 @@ operator (``[]``). The position starts at ``1`` and must be a constant.
 
 Example: ``ROW(1, 2.0)[1]``
 
-Network Address
+Network address
 ---------------
 
 .. _ipaddress_type:
@@ -339,7 +339,7 @@ sparse representation, switching to a dense representation when it becomes more 
 A P4HyperLogLog sketch is similar to :ref:`hyperloglog_type`, but it starts (and remains)
 in the dense representation.
 
-Quantile Digest
+Quantile digest
 ---------------
 
 .. _qdigest_type:
@@ -363,7 +363,7 @@ the past week of data with ``approx_percentile``, ``qdigest``\ s could be stored
 daily, and quickly merged to retrieve the 99th percentile value.
 
 T-Digest
----------------
+--------
 
 .. _tdigest_type:
 

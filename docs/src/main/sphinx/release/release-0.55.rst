@@ -2,7 +2,7 @@
 Release 0.55
 ============
 
-RC Binary 2-4x Gain in CPU Efficiency
+RC binary 2-4x gain in CPU efficiency
 -------------------------------------
 
 Presto uses custom fast-path decoding logic for specific Hive file
@@ -15,7 +15,7 @@ result in measurable gains for most queries over RC Binary encoded data.
 Note that this optimization may not result in a reduction in latency
 if your cluster is network or disk I/O bound.
 
-Hash Distributed Aggregations
+Hash distributed aggregations
 -----------------------------
 
 ``GROUP BY`` aggregations are now distributed across a fixed number of machines.
@@ -27,7 +27,7 @@ will use all available machines.  The default value is ``8``.
 The maximum memory size of an aggregation is now
 ``query.initial-hash-partitions`` times ``task.max-memory``.
 
-Simple Distinct Aggregations
+Simple distinct aggregations
 ----------------------------
 
 We have added support for the ``DISTINCT`` argument qualifier for aggregation
@@ -39,7 +39,7 @@ where all the aggregation functions have the same input expression. For example:
 
 Support for complete ``DISTINCT`` functionality is in our roadmap.
 
-Range Predicate Pushdown
+Range predicate pushdown
 ------------------------
 
 We've modified the connector API to support range predicates in addition to simple equality predicates.
@@ -65,20 +65,20 @@ query to further limit the data scanned.
     so if you have written a connector, you will need to update your code
     before deploying this release.
 
-json_array_get Function
+json_array_get function
 -----------------------
 
 The :func:`json_array_get` function makes it simple to fetch a single element from a
 scalar json array.
 
-Non-reserved Keywords
+Non-reserved keywords
 ---------------------
 
 The keywords ``DATE``, ``TIME``, ``TIMESTAMP``, and ``INTERVAL`` are no longer
 reserved keywords in the grammar.  This means that you can access a column
 named ``date`` without quoting the identifier.
 
-CLI source Option
+CLI source option
 -----------------
 
 The Presto CLI now has an option to set the query source.  The source
@@ -92,7 +92,7 @@ SHOW SCHEMAS FROM
 Although the documentation included the syntax ``SHOW SCHEMAS [FROM catalog]``,
 it was not implemented.  This release now implements this statement correctly.
 
-Hive Bucketed Table Fixes
+Hive bucketed table fixes
 -------------------------
 
 For queries over Hive bucketed tables, Presto will attempt to limit scans to

@@ -2,7 +2,7 @@
 Release 300 (22 Jan 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix :func:`array_intersect` and :func:`array_distinct`
@@ -19,7 +19,7 @@ General Changes
   to filters that can be pushed down to connectors.
 * Return final results to clients immediately for failed queries.
 
-JMX MBean Naming Changes
+JMX MBean naming changes
 ------------------------
 
 * The base domain name for server MBeans is now ``presto``. The old names can be
@@ -34,17 +34,17 @@ Web UI
 
 * Fix rendering of live plan view for queries involving index joins.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Change driver class name to ``io.prestosql.jdbc.PrestoDriver``.
 
-System Connector Changes
+System connector changes
 ------------------------
 
 * Remove ``node_id`` column from ``system.runtime.queries`` table.
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix accounting of time spent reading Parquet data.
@@ -57,49 +57,49 @@ Hive Connector Changes
 * Add support for :ref:`s3selectpushdown`, which enables pushing down
   column selection and range filters into S3 for text files.
 
-Kudu Connector Changes
+Kudu connector changes
 ----------------------
 
 * Add ``number_of_replicas`` table property to ``SHOW CREATE TABLE`` output.
 
-Cassandra Connector Changes
+Cassandra connector changes
 ---------------------------
 
 * Add ``cassandra.splits-per-node`` and ``cassandra.protocol-version`` configuration
   properties to allow connecting to Cassandra servers older than 2.1.5.
 
-MySQL Connector Changes
+MySQL connector changes
 -----------------------
 
 * Add support for predicate pushdown for columns of ``char(x)`` type.
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Add support for predicate pushdown for columns of ``char(x)`` type.
 
-Redshift Connector Changes
+Redshift connector changes
 ---------------------------
 
 * Add support for predicate pushdown for columns of ``char(x)`` type.
 
-SQL Server Connector Changes
+SQL Server connector changes
 ----------------------------
 
 * Add support for predicate pushdown for columns of ``char(x)`` type.
 
-Raptor Legacy Connector Changes
+Raptor Legacy connector changes
 -------------------------------
 
 * Change name of connector to ``raptor-legacy``.
 
-Verifier Changes
+Verifier changes
 ----------------
 
 * Add ``run-teardown-on-result-mismatch`` configuration property to facilitate debugging.
   When set to false, temporary tables will not be dropped after checksum failures.
 
-SPI Changes
+SPI changes
 -----------
 
 * Change base package to ``io.prestosql.spi``.

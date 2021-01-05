@@ -1,5 +1,5 @@
 ========================
-Kafka Connector Tutorial
+Kafka connector tutorial
 ========================
 
 Introduction

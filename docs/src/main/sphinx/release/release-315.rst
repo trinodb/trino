@@ -2,7 +2,7 @@
 Release 315 (14 Jun 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect results when dividing certain decimal numbers. (:issue:`958`)
@@ -10,17 +10,17 @@ General Changes
 * Add locality awareness to default split scheduler. (:issue:`680`)
 * Add :func:`format` function. (:issue:`548`)
 
-Server RPM Changes
+Server RPM changes
 ------------------
 
 * Require JDK version 8u161+ during installation, which is the version the server requires. (:issue:`983`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix alignment of nulls for numeric columns in aligned output format. (:issue:`871`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix regression in partition pruning for certain query shapes. (:issue:`984`)
@@ -33,13 +33,13 @@ Hive Connector Changes
   by turning on ``DEBUG`` logging for
   ``io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient``. (:issue:`946`)
 
-MongoDB Connector Changes
+MongoDB connector changes
 -------------------------
 
 * Fix query failure when ``ROW`` with an ``ObjectId`` field is used as a join key. (:issue:`933`)
 * Add cast from ``ObjectId`` to ``VARCHAR``. (:issue:`933`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Allow connectors to provide view definitions. ``ConnectorViewDefinition`` now contains

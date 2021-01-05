@@ -1,5 +1,5 @@
 ====================
-Prometheus Connector
+Prometheus connector
 ====================
 
 The Prometheus connector allows reading
@@ -28,7 +28,7 @@ replacing the properties as appropriate:
     prometheus.cache.ttl=30s
     prometheus.bearer.token.file=/path/to/bearer/token/file
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -43,7 +43,7 @@ Property Name                                   Description
 ``prometheus.bearer.token.file``         File holding bearer token if needed for access to Prometheus
 ======================================== ============================================================================================
 
-Not Exhausting Your Trino Available Heap
+Not exhausting your Trino available heap
 -----------------------------------------
 
 The ``prometheus.query.chunk.size.duration`` and ``prometheus.max.query.range.duration`` are values to protect Trino from
@@ -67,7 +67,7 @@ If the query does not include a WHERE clause limit, these config
 settings are meant to protect against an unlimited query.
 
 
-Bearer Token Authentication
+Bearer token authentication
 ---------------------------
 
 Prometheus can be setup to require a Authorization header with every query. The value in

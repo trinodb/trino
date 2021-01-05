@@ -2,7 +2,7 @@
 Release 0.174
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix correctness issue for correlated subqueries containing a ``LIMIT`` clause.
@@ -24,7 +24,7 @@ General Changes
 * Add support for escaped unicode sequences in string literals.
 * Add :doc:`/sql/show-grants` and ``information_schema.table_privileges`` table.
 
-Hive Changes
+Hive changes
 ------------
 
 * Change default value of ``hive.metastore-cache-ttl`` and ``hive.metastore-refresh-interval`` to 0

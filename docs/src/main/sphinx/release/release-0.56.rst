@@ -2,7 +2,7 @@
 Release 0.56
 ============
 
-Table Creation
+Table creation
 --------------
 
 Tables can be created from the result of a query::
@@ -23,7 +23,7 @@ currently the best format for Presto.
     the new ``ReadOnlyConnectorMetadata`` abstract base class unless you want to
     support table creation.
 
-Cross Joins
+Cross joins
 -----------
 
 Cross joins are supported using the standard ANSI SQL syntax::

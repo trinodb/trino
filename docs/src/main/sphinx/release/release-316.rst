@@ -2,7 +2,7 @@
 Release 316 (8 Jul 2019)
 ========================
 
-General Changes
+General changes
 ---------------
 
 * Fix ``date_format`` function failure when format string contains non-ASCII
@@ -10,13 +10,13 @@ General Changes
 * Improve performance of queries using ``UNNEST``.  (:issue:`901`)
 * Improve error message when statement parsing fails. (:issue:`1042`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix refresh of completion cache when catalog or schema is changed. (:issue:`1016`)
 * Allow reading password from console when stdout is a pipe. (:issue:`982`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Acquire S3 credentials from the default AWS locations if not configured explicitly. (:issue:`741`)
@@ -28,38 +28,38 @@ Hive Connector Changes
   ``collect_column_statistics_on_write`` session property. (:issue:`981`)
 * Eliminate unused idle threads when using the metastore cache. (:issue:`1061`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Add support for columns of type ``UUID``. (:issue:`1011`)
 * Export JMX statistics for various JDBC and connector operations. (:issue:`906`).
 
-MySQL Connector Changes
+MySQL connector changes
 -----------------------
 
 * Export JMX statistics for various JDBC and connector operations. (:issue:`906`).
 
-Redshift Connector Changes
+Redshift connector changes
 --------------------------
 
 * Export JMX statistics for various JDBC and connector operations. (:issue:`906`).
 
-SQL Server Connector Changes
+SQL Server connector changes
 ----------------------------
 
 * Export JMX statistics for various JDBC and connector operations. (:issue:`906`).
 
-TPC-H Connector Changes
+TPC-H connector changes
 -----------------------
 
 * Fix ``SHOW TABLES`` failure when used with a hidden schema. (:issue:`1005`)
 
-TPC-DS Connector Changes
+TPC-DS connector changes
 ------------------------
 
 * Fix ``SHOW TABLES`` failure when used with a hidden schema. (:issue:`1005`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Add support for pushing simple column and row field reference expressions into

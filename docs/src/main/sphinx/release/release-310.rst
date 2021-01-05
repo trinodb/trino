@@ -2,7 +2,7 @@
 Release 310 (3 May 2019)
 ========================
 
-General Changes
+General changes
 ---------------
 
 * Reduce compilation failures for expressions over types containing an extremely
@@ -17,12 +17,12 @@ General Changes
   experience significant CPU and performance improvement. (:issue:`602`)
 * Add support for ``FETCH FIRST`` syntax. (:issue:`666`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Make the final query time consistent with query stats. (:issue:`692`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Ignore boolean column statistics when the count is ``-1``. (:issue:`241`)
@@ -33,12 +33,12 @@ Hive Connector Changes
   partition and table schema mismatch. (:issue:`352`)
 * Fix typo in Metastore recorder duration property name. (:issue:`711`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Support for the ``ARRAY`` type has been disabled by default.  (:issue:`687`)
 
-Blackhole Connector Changes
+Blackhole connector changes
 ---------------------------
 
 * Support having tables with same name in different Blackhole schemas. (:issue:`550`)

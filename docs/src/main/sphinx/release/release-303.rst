@@ -2,7 +2,7 @@
 Release 303 (13 Feb 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect padding for ``CHAR`` values containing Unicode supplementary characters.
@@ -16,35 +16,35 @@ General Changes
 * Expand grouped execution support to window functions, making it possible
   to execute them with less peak memory usage. (:issue:`169`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Add additional details to and improve rendering of live plan. (:issue:`182`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Add ``--progress`` option to show query progress in batch mode. (:issue:`34`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix query failure when reading Parquet data with no columns selected.
   This affects queries such as ``SELECT count(*)``. (:issue:`203`)
 
-Mongo Connector Changes
+Mongo connector changes
 -----------------------
 
 * Fix failure for queries involving joins or aggregations on ``ObjectId`` type. (:issue:`215`)
 
 
-Base-JDBC Connector Library Changes
+Base-JDBC connector library changes
 -----------------------------------
 
 * Allow customizing how query predicates are pushed down to the underlying database. (:issue:`109`)
 * Allow customizing how values are written to the underlying database. (:issue:`109`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Remove deprecated methods ``getSchemaName`` and ``getTableName`` from the ``SchemaTablePrefix``

@@ -3,7 +3,7 @@ Release 324 (1 Nov 2019)
 ========================
 
 
-General Changes
+General changes
 ---------------
 
 * Fix query failure when ``CASE`` operands have different types. (:issue:`1825`)
@@ -15,20 +15,20 @@ General Changes
 * Configuration property ``experimental.reserved-pool-enabled`` was renamed to
   ``experimental.reserved-pool-disabled`` (with meaning reversed). (:issue:`1916`)
 
-Security Changes
+Security changes
 ----------------
 
 * Perform access control checks when displaying table or view definitions
   with ``SHOW CREATE``. (:issue:`1517`)
 
-Hive Changes
+Hive changes
 ------------
 
 * Allow using ``SHOW GRANTS`` on a Hive view when using the ``sql-standard``
   security mode. (:issue:`1842`)
 * Improve performance when filtering dictionary-encoded Parquet columns. (:issue:`1846`)
 
-PostgreSQL Changes
+PostgreSQL changes
 ------------------
 
 * Add support for inserting ``MAP(VARCHAR, VARCHAR)`` values into columns of
@@ -40,7 +40,7 @@ Elasticsearch Changes
 * Fix failure when reading datetime columns in Elasticsearch 5.x. (:issue:`1844`)
 * Add support for mixed-case field names. (:issue:`1914`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Introduce a builder for ``ColumnMetadata``. The various overloaded constructors

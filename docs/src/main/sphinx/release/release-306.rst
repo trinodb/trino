@@ -2,7 +2,7 @@
 Release 306 (16 Mar 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix planning failure for queries containing a ``LIMIT`` after a global
@@ -33,7 +33,7 @@ General Changes
 * Remove deprecated ``distributed_join`` system property. Use ``join_distribution_type``
   instead. (:issue:`452`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix calling procedures immediately after startup, before any other queries are run.
@@ -41,33 +41,33 @@ Hive Connector Changes
   to fail. (:issue:`414`)
 * Improve ORC reader performance for decoding ``REAL`` and ``DOUBLE`` types. (:issue:`465`)
 
-MySQL Connector Changes
+MySQL connector changes
 -----------------------
 
 * Allow creating or renaming tables, and adding, renaming, or dropping columns. (:issue:`418`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Fix predicate pushdown for PostgreSQL ``ENUM`` type. (:issue:`408`)
 * Allow creating or renaming tables, and adding, renaming, or dropping columns. (:issue:`418`)
 
-Redshift Connector Changes
+Redshift connector changes
 --------------------------
 
 * Allow creating or renaming tables, and adding, renaming, or dropping columns. (:issue:`418`)
 
-SQL Server Connector Changes
+SQL Server connector changes
 ----------------------------
 
 * Allow creating or renaming tables, and adding, renaming, or dropping columns. (:issue:`418`)
 
-Base-JDBC Connector Library Changes
+Base-JDBC connector library changes
 -----------------------------------
 
 * Allow mapping column type to Presto type based on ``Block``. (:issue:`454`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Deprecate Table Layout APIs. Connectors can opt out of the legacy behavior by implementing

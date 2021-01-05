@@ -2,7 +2,7 @@
 Release 0.182
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix correctness issue that causes :func:`corr` to return positive numbers for inverse correlations.
@@ -25,12 +25,12 @@ General Changes
 * Add :doc:`/connector/tpcds`. This connector provides a set of schemas to
   support the TPC Benchmark™ DS (TPC-DS).
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix an issue that would sometimes prevent queries from being cancelled when exiting from the pager.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix reading decimal values in the optimized Parquet reader when they are backed

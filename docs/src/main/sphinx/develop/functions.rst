@@ -2,7 +2,7 @@
 Functions
 =========
 
-Plugin Implementation
+Plugin implementation
 ---------------------
 
 The function framework is used to implement SQL functions. Trino includes a
@@ -35,7 +35,7 @@ For a full example in the codebase, see either the ``trino-ml`` module for machi
 learning functions or the ``trino-teradata-functions`` module for Teradata-compatible
 functions, both in the root of the Trino source.
 
-Scalar Function Implementation
+Scalar function implementation
 ------------------------------
 
 The function framework uses annotations to indicate relevant information
@@ -91,7 +91,7 @@ to avoid unexpected results.
   native container type when using ``@SqlNullable``. The method must be annotated with
   ``@SqlNullable`` if it can return ``NULL`` when the arguments are non-null.
 
-Parametric Scalar Functions
+Parametric scalar functions
 ---------------------------
 
 Scalar functions that have type parameters have some additional complexity.
@@ -165,7 +165,7 @@ To make our previous example work with any type we need the following:
         // ...and so on for each native container type
     }
 
-Another Scalar Function Example
+Another scalar function example
 -------------------------------
 
 The ``lowercaser`` function takes a single ``VARCHAR`` argument and returns a
@@ -191,7 +191,7 @@ on the underlying ``byte[]``, which have much better performance. This function
 has no ``@SqlNullable`` annotations, meaning that if the argument is ``NULL``,
 the result will automatically be ``NULL`` (the function will not be called).
 
-Aggregation Function Implementation
+Aggregation function implementation
 -----------------------------------
 
 Aggregation functions use a similar framework to scalar functions, but are
@@ -305,7 +305,7 @@ function follows:
   will be automatically generated for you, if you don't specify a
   ``AccumulatorStateFactory``
 
-Deprecated Function
+Deprecated function
 -------------------
 
 The ``@Deprecated`` annotation has to be used on any function that should no longer be

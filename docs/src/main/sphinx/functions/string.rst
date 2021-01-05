@@ -1,8 +1,8 @@
 ==============================
-String Functions and Operators
+String functions and operators
 ==============================
 
-String Operators
+String operators
 ----------------
 
 The ``||`` operator performs concatenation.
@@ -10,7 +10,7 @@ The ``||`` operator performs concatenation.
 The ``LIKE`` statement can be used for pattern matching and is documented in
 :ref:`like_operator`.
 
-String Functions
+String functions
 ----------------
 
 .. note::
@@ -241,7 +241,7 @@ String Functions
 
     Returns the stem of ``word`` in the ``lang`` language.
 
-Unicode Functions
+Unicode functions
 -----------------
 
 .. function:: normalize(string) -> varchar

@@ -1,5 +1,5 @@
 =========================
-Salesforce Authentication
+Salesforce authentication
 =========================
 
 Trino can be configured to enable frontend password authentication over
@@ -16,7 +16,7 @@ basic credentials.  This can also be used to secure the :ref:`Web UI <web-ui-aut
     Salesforce data. It's simply a means by which users can authenticate to Trino, similar
     to :doc:`ldap` or :doc:`password-file`.
 
-Salesforce Authenticator Configuration
+Salesforce authenticator configuration
 --------------------------------------
 
 Enable Salesforce authentication by creating an
@@ -45,14 +45,14 @@ Property                               Description
                                        Defaults to ``2m``.
 ====================================   ============================================================
 
-Salesforce Concepts
+Salesforce concepts
 -------------------
 
 There are two Salesforce specific aspects to this authenticator.  They are the use of the
 Salesforce security token, and configuration of one or more Salesforce.com Organization IDs.
 
 
-Security Token
+Security token
 ^^^^^^^^^^^^^^
 
 Credentials are a user's Salesforce username and password if Trino is connecting from a whitelisted
@@ -63,7 +63,7 @@ and security token is ``token``, use ``passwordtoken`` to authenticate.
 You can configure a public IP for Trino as a trusted IP by `whitelisting an IP range
 <https://help.salesforce.com/articleView?id=security_networkaccess.htm&type=5>`_.
 
-Salesforce.com Organization IDs
+Salesforce.com organization IDs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can configure one or more Salesforce Organization IDs for additional security.  When the user authenticates,

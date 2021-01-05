@@ -1,5 +1,5 @@
 ***************
-Query Optimizer
+Query optimizer
 ***************
 
 .. toctree::

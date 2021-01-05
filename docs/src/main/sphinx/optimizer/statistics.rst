@@ -1,5 +1,5 @@
 ================
-Table Statistics
+Table statistics
 ================
 
 Trino supports statistics based optimizations for queries. For a query to take
@@ -8,7 +8,7 @@ the tables in that query.
 
 Table statistics are provided to the query planner by connectors.
 
-Available Statistics
+Available statistics
 --------------------
 
 The following statistics are available in Trino:

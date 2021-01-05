@@ -2,30 +2,30 @@
 Release 308 (11 Apr 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix a regression that prevented the server from starting on Java 9+. (:issue:`610`)
 * Fix correctness issue for queries involving ``FULL OUTER JOIN`` and ``coalesce``. (:issue:`622`)
 
-Security Changes
+Security changes
 ----------------
 
 * Add authorization for listing table columns. (:issue:`507`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Add option for specifying Kerberos service principal pattern. (:issue:`597`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Correctly report precision and column display size in ``ResultSetMetaData``
   for ``char`` and ``varchar`` columns. (:issue:`615`)
 * Add option for specifying Kerberos service principal pattern. (:issue:`597`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix regression that could cause queries to fail with ``Query can potentially
@@ -36,23 +36,23 @@ Hive Connector Changes
 * Add directory listing cache for specific tables. The list of tables is specified
   using the  ``hive.file-status-cache-tables`` configuration property. (:issue:`343`)
 
-MySQL Connector Changes
+MySQL connector changes
 -----------------------
 
 * Fix ``ALTER TABLE ... RENAME TO ...`` statement. (:issue:`586`)
 * Push simple ``LIMIT`` queries into the external database. (:issue:`589`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Push simple ``LIMIT`` queries into the external database. (:issue:`589`)
 
-Redshift Connector Changes
+Redshift connector changes
 --------------------------
 
 * Push simple ``LIMIT`` queries into the external database. (:issue:`589`)
 
-SQL Server Connector Changes
+SQL Server connector changes
 ----------------------------
 
 * Fix writing ``varchar`` values with non-Latin characters in ``CREATE TABLE AS``. (:issue:`573`)
@@ -61,7 +61,7 @@ SQL Server Connector Changes
 * Support writing ``boolean`` values in ``CREATE TABLE AS``. (:issue:`573`)
 * Push simple ``LIMIT`` queries into the external database. (:issue:`589`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Add support for Search Guard in Elasticsearch connector. Please refer to :doc:`/connector/elasticsearch`

@@ -2,7 +2,7 @@
 Release 0.133
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add support for calling connector-defined procedures using :doc:`/sql/call`.

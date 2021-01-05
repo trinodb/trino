@@ -2,7 +2,7 @@
 Release 0.78
 ============
 
-ARRAY and MAP Types in Hive Connector
+ARRAY and MAP types in Hive connector
 -------------------------------------
 
 The Hive connector now returns arrays and maps instead of json encoded strings,
@@ -10,7 +10,7 @@ for columns whose underlying type is array or map. Please note that this is a ba
 incompatible change, and the :doc:`/functions/json` will no longer work on these columns,
 unless you :func:`cast` them to the ``json`` type.
 
-Session Properties
+Session properties
 ------------------
 
 The Presto session can now contain properties, which can be used by the Presto
@@ -40,7 +40,7 @@ For JDBC, the properties can be set by unwrapping the ``Connection`` as follows:
     property values. Additionally, the Presto grammar will be extended to
     allow setting properties via a query.
 
-Hive Changes
+Hive changes
 ------------
 
 * Add ``storage_format`` session property to override format used for creating tables.
@@ -49,7 +49,7 @@ Hive Changes
 * Add support for partition keys with null values (``__HIVE_DEFAULT_PARTITION__``).
 * Fix ``hive.storage-format`` option (see :doc:`release-0.76`).
 
-General Changes
+General changes
 ---------------
 
 * Fix expression optimizer, so that it runs in linear time instead of exponential time.

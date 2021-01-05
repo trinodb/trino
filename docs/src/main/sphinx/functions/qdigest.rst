@@ -1,8 +1,8 @@
 =========================
-Quantile Digest Functions
+Quantile digest functions
 =========================
 
-Data Structures
+Data structures
 ---------------
 
 A quantile digest is a data sketch which stores approximate percentile

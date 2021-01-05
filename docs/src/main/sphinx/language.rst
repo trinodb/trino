@@ -1,5 +1,5 @@
 ************
-SQL Language
+SQL language
 ************
 
 Trino is an ANSI SQL compliant query engine. This standard compliance allows

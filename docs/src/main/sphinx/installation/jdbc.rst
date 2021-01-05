@@ -1,5 +1,5 @@
 ===========
-JDBC Driver
+JDBC driver
 ===========
 
 The Trino `JDBC driver <https://en.wikipedia.org/wiki/JDBC_driver>`_ allows

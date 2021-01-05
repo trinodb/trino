@@ -1,5 +1,5 @@
 ================
-Memory Connector
+Memory connector
 ================
 
 The Memory connector stores all data and metadata in RAM on workers
@@ -41,7 +41,7 @@ Drop table::
 
     DROP TABLE memory.default.nation;
 
-Dynamic Filtering
+Dynamic filtering
 -----------------
 
 The Memory connector supports the :doc:`dynamic filtering </admin/dynamic-filtering>` optimization.

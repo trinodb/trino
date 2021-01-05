@@ -2,7 +2,7 @@
 Release 301 (31 Jan 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix reporting of aggregate input data size stats. (:issue:`100`)
@@ -20,17 +20,17 @@ General Changes
 * Improve performance of queries involving ``SYSTEM`` table sampling and computations over the
   columns of the sampled table. (:issue:`29`)
 
-Server RPM Changes
+Server RPM changes
 ------------------
 
 * Do not allow uninstalling RPM while server is still running. (:issue:`67`)
 
-Security Changes
+Security changes
 ----------------
 
 * Support LDAP with anonymous bind disabled. (:issue:`97`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Add procedure for dumping metastore recording to a file. (:issue:`54`)
@@ -43,18 +43,18 @@ Hive Connector Changes
   staging directory that is used for write operations. The ``${USER}`` placeholder can be used to
   use a different location for each user (e.g., ``/tmp/${USER}``). (:issue:`70`)
 
-Kafka Connector Changes
+Kafka connector changes
 -----------------------
 
 * The minimum supported Kafka broker version is now 0.10.0. (:issue:`53`)
 
-Base-JDBC Connector Library Changes
+Base-JDBC connector library changes
 -----------------------------------
 
 * Add support for defining procedures. (:issue:`73`)
 * Add support for providing table statistics. (:issue:`72`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Include session trace token in ``QueryCreatedEvent`` and ``QueryCompletedEvent``. (:issue:`24`)

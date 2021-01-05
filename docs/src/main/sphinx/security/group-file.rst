@@ -1,12 +1,12 @@
 =========================
-File Based Group Provider
+File based group provider
 =========================
 
 Trino can map user names onto groups for easier access control and
 resource group management. Group file resolves group membership using
 a file on the coordinator.
 
-Group File Configuration
+Group file configuration
 ------------------------
 
 Enable group file by creating an ``etc/group-provider.properties``
@@ -28,10 +28,10 @@ Property                             Description
                                      Defaults to ``5s``.
 ==================================== ==============================================
 
-Group Files
+Group files
 -----------
 
-File Format
+File format
 ^^^^^^^^^^^
 
 The group file contains a list of groups and members, one per line,

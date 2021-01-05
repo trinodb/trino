@@ -1,5 +1,5 @@
 ===============
-Resource Groups
+Resource groups
 ===============
 
 Resource groups place limits on resource usage, and can enforce queueing policies on
@@ -21,7 +21,7 @@ the built-in manager that reads a JSON config file:
 Change the value of ``resource-groups.config-file`` to point to a JSON config file,
 which can be an absolute path, or a path relative to the Trino data directory.
 
-Resource Group Properties
+Resource group properties
 -------------------------
 
 * ``name`` (required): name of the group. May be a template (see below).
@@ -72,7 +72,7 @@ Resource Group Properties
 
 * ``subGroups`` (optional): list of sub-groups.
 
-Selector Rules
+Selector rules
 --------------
 
 * ``user`` (optional): regex to match against user name.
@@ -98,12 +98,12 @@ Selector Rules
 
 Selectors are processed sequentially and the first one that matches will be used.
 
-Global Properties
+Global properties
 -----------------
 
 * ``cpuQuotaPeriod`` (optional): the period in which cpu quotas are enforced.
 
-Providing Selector Properties
+Providing selector properties
 -----------------------------
 
 The source name can be set as follows:

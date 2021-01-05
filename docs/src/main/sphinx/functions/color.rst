@@ -1,5 +1,5 @@
 ===============
-Color Functions
+Color functions
 ===============
 
 .. function:: bar(x, width) -> varchar

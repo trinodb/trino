@@ -2,7 +2,7 @@
 Release 0.192
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix performance regression in split scheduling introduced in 0.191. If a query
@@ -29,19 +29,19 @@ General Changes
 * Remove ``dictionary-processing-joins-enabled`` configuration option and ``dictionary_processing_join``
   session property.
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix incorrect reporting of input size and positions in live plan view.
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix update of prompt after ``USE`` statement.
 * Fix correctness issue when rendering arrays of Bing tiles that causes
   the first entry to be repeated multiple times.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix reading partitioned table statistics from newer Hive metastores.
@@ -57,19 +57,19 @@ Hive Changes
 * Improve error reporting when the target table of an insert query is dropped.
 * Remove retry when creating Hive record reader. This can help queries fail faster.
 
-MySQL Changes
+MySQL changes
 -------------
 
 * Remove support for ``TIME WITH TIME ZONE`` and ``TIMESTAMP WITH TIME ZONE``
   types due to MySQL types not being able to store timezone information.
 * Add support for ``REAL`` type, which maps to MySQL's ``FLOAT`` type.
 
-PostgreSQL Changes
+PostgreSQL changes
 ------------------
 
 * Add support for ``VARBINARY`` type, which maps to PostgreSQL's ``BYTEA`` type.
 
-MongoDB Changes
+MongoDB changes
 ---------------
 
 * Fix support for pushing down inequality operators for string types.
@@ -77,12 +77,12 @@ MongoDB Changes
 * Add support for MongoDB's ``Decimal128`` type.
 * Treat document and array of documents as ``JSON`` instead of ``VARCHAR``.
 
-JMX Changes
+JMX changes
 -----------
 
 * Allow nulls in history table values.
 
-SPI Changes
+SPI changes
 -----------
 
 * Remove ``SliceArrayBlock`` class.

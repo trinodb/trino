@@ -2,7 +2,7 @@
 Release 0.107
 =============
 
-General Changes
+General changes
 ---------------
 
 * Added ``query_max_memory`` session property. Note: this session property cannot

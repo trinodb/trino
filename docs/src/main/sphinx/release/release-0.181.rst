@@ -2,7 +2,7 @@
 Release 0.181
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix query failure and memory usage tracking when query contains
@@ -36,7 +36,7 @@ General Changes
   has an effect when ``task.level-absolute-priority=true`` and
   ``task.legacy-scheduling-behavior=false``.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix potential native memory leak when writing tables using RCFile.
@@ -44,22 +44,22 @@ Hive Changes
 * Decrease the number of file system metadata calls when reading tables.
 * Add support for dropping columns.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Add support for query cancellation using ``Statement.cancel()``.
 
-PostgreSQL Changes
+PostgreSQL changes
 ------------------
 
 * Add support for operations on external tables.
 
-Accumulo Changes
+Accumulo changes
 ----------------
 
 * Improve query performance by scanning index ranges in parallel.
 
-SPI Changes
+SPI changes
 -----------
 
 * Fix regression that broke serialization for ``SchemaTableName``.

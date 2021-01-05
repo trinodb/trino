@@ -2,7 +2,7 @@
 Release 0.74
 ============
 
-Bytecode Compiler
+Bytecode compiler
 -----------------
 
 This version includes new infrastructure for bytecode compilation, and lays the groundwork for future improvements.
@@ -10,14 +10,14 @@ There should be no impact in performance or correctness with the new code, but w
 old implementation in case of issues. To do so, add ``compiler.new-bytecode-generator-enabled=false`` to
 ``etc/config.properties`` in the coordinator and workers.
 
-Hive Storage Format
+Hive storage format
 -------------------
 
 The storage format to use when writing data to Hive can now be configured via the ``hive.storage-format`` option
 in your Hive catalog properties file. Valid options are ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE`` and ``TEXTFILE``.
 The default format if the property is not set is ``RCBINARY``.
 
-General Changes
+General changes
 ---------------
 
 * Show column comments in ``DESCRIBE``

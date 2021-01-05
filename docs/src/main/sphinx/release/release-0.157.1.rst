@@ -2,7 +2,7 @@
 Release 0.157.1
 ===============
 
-General Changes
+General changes
 ---------------
 
 * Fix regression that could cause high CPU and heap usage on coordinator,

@@ -54,7 +54,7 @@ Limitations
 Some connectors have no support for ``REVOKE``.
 See connector documentation for more details.
 
-See Also
+See also
 --------
 
 :doc:`grant`, :doc:`show-grants`

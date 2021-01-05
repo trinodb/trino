@@ -1,10 +1,10 @@
 ==================
-Teradata Functions
+Teradata functions
 ==================
 
 These functions provide compatibility with Teradata SQL.
 
-String Functions
+String functions
 ----------------
 
 .. function:: char2hexint(string) -> varchar
@@ -15,7 +15,7 @@ String Functions
 
     Alias for :func:`strpos` function.
 
-Date Functions
+Date functions
 --------------
 
 The functions in this section use a format string that is compatible with

@@ -2,7 +2,7 @@
 Release 319 (22 Sep 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix planning failure for queries involving ``UNION`` and ``DISTINCT`` aggregates. (:issue:`1510`)
@@ -34,7 +34,7 @@ General Changes
   via the ``node-scheduler.network-topology.type`` configuration property. (:issue:`1500`)
 * Add support for ``SphericalGeography`` to :func:`ST_Length`. (:issue:`1551`)
 
-Security Changes
+Security changes
 ----------------
 
 * Allow configuring read-only access in :doc:`/security/built-in-system-access-control`. (:issue:`1153`)
@@ -43,19 +43,19 @@ Security Changes
   ``X-Forwarded-Proto`` header. This is disabled by default, but can be enabled using the
   ``http-server.authentication.allow-forwarded-https`` configuration property. (:issue:`1442`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix rendering bug in Query Timeline resulting in inconsistency of presented information after
   query finishes. (:issue:`1371`)
 * Show total memory in Query Timeline instead of user memory. (:issue:`1371`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Add ``--insecure`` option to skip validation of server certificates for debugging. (:issue:`1484`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix reading from ``information_schema``, as well as ``SHOW SCHEMAS``, ``SHOW TABLES``, and

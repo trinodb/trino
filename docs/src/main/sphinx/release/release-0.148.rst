@@ -2,7 +2,7 @@
 Release 0.148
 =============
 
-General Changes
+General changes
 ---------------
 * Fix issue where auto-commit transaction can be rolled back for a successfully
   completed query.
@@ -35,7 +35,7 @@ General Changes
 * Warn if Presto server is not using G1 garbage collector.
 * Move interval types out of SPI.
 
-Interval Fixes
+Interval fixes
 --------------
 
 This release fixes several problems with large and negative intervals.
@@ -59,7 +59,7 @@ This release fixes several problems with large and negative intervals.
     intervals from new servers. Make sure to update the JDBC driver
     along with the server.
 
-Functions and Language Features
+Functions and language features
 -------------------------------
 
 * Add :func:`element_at` function for map type.
@@ -71,14 +71,14 @@ Functions and Language Features
 * Add support for ``SMALLINT`` and ``TINYINT`` types.
 * Add support for non-equi outer joins.
 
-Verifier Changes
+Verifier changes
 ----------------
 
 * Add ``skip-cpu-check-regex`` config property which can be used to skip the CPU
   time comparison for queries that match the given regex.
 * Add ``check-cpu`` config property which can be used to disable CPU time comparison.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix ``NoClassDefFoundError`` for ``KMSClientProvider`` in HDFS client.
@@ -90,28 +90,28 @@ Hive Changes
 * Push down filters for columns of type ``DECIMAL``.
 * Improve CPU efficiency when reading ORC files.
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 * Allow configuring load balancing policy and no host available retry.
 * Add support for ``varchar(n)``.
 
-Kafka Changes
+Kafka changes
 -------------
 
 * Update to Kafka client 0.8.2.2. This enables support for LZ4 data.
 
-JMX Changes
+JMX changes
 -----------
 
 * Add ``jmx.history`` schema with in-memory periodic samples of values from JMX MBeans.
 
-MySQL and PostgreSQL Changes
+MySQL and PostgreSQL changes
 ----------------------------
 
 * Push down predicates for ``VARCHAR``, ``DATE``, ``TIME`` and ``TIMESTAMP`` types.
 
-Other Connector Changes
+Other connector changes
 -----------------------
 
 * Add support for ``varchar(n)`` to the Redis, TPCH, MongoDB, Local File

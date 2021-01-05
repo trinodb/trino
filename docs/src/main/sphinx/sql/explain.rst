@@ -265,7 +265,7 @@ IO::
     }
 
 
-See Also
+See also
 --------
 
 :doc:`explain-analyze`

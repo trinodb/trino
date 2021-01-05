@@ -2,7 +2,7 @@
 Release 0.149
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix runtime failure for queries that use grouping sets over unions.
@@ -32,7 +32,7 @@ General Changes
 * Improve performance of subscript operator for the ``MAP`` type.
 * Improve performance of ``JOIN`` and ``GROUP BY`` queries.
 
-Hive Changes
+Hive changes
 ------------
 
 * Clean up empty staging directories after inserts.

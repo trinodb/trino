@@ -1,4 +1,4 @@
-Accumulo Connector
+Accumulo connector
 ==================
 
 Overview
@@ -8,7 +8,7 @@ The Accumulo connector supports reading and writing data from
 `Apache Accumulo <https://accumulo.apache.org/>`_.
 Please read this page thoroughly to understand the capabilities and features of the connector.
 
-Installing the Iterator Dependency
+Installing the iterator dependency
 ----------------------------------
 
 The Accumulo connector uses custom Accumulo iterators in
@@ -24,7 +24,7 @@ JAR file to Accumulo's ``lib/ext`` directory on each TabletServer node.
 
     # TabletServer should pick up new JAR files in ext directory, but may require restart
 
-Connector Configuration
+Connector configuration
 -----------------------
 
 Create ``etc/catalog/accumulo.properties``
@@ -39,7 +39,7 @@ replacing the ``accumulo.xxx`` properties as required:
     accumulo.username=username
     accumulo.password=password
 
-Configuration Variables
+Configuration variables
 -----------------------
 
 ================================================ ====================== ========== =====================================================================================
@@ -54,7 +54,7 @@ Property Name                                    Default Value          Required
 ``accumulo.cardinality.cache.expire.duration``   ``5m``                 No         Sets the expiration duration of the cardinality cache.
 ================================================ ====================== ========== =====================================================================================
 
-Unsupported Features
+Unsupported features
 --------------------
 
 The following features are not supported:
@@ -206,7 +206,7 @@ tables.
 
     DROP TABLE myschema.scientists;
 
-Indexing Columns
+Indexing columns
 ----------------
 
 Internally, the connector creates an Accumulo ``Range`` and packs it in
@@ -298,7 +298,7 @@ scans the data table.
      row1      | Grace Hopper | 109 | 1906-12-09
     (1 row)
 
-Loading Data
+Loading data
 ------------
 
 The Accumulo connector supports loading data via INSERT statements, however
@@ -312,7 +312,7 @@ leverages the Trino/Accumulo metadata to write Mutations to the main data table.
 In particular, it handles indexing the given mutations on any indexed columns.
 Usage of the tool is provided in the README in the `repository <https://github.com/bloomberg/presto-accumulo>`_.
 
-External Tables
+External tables
 ---------------
 
 By default, the tables created using SQL statements via Trino are
@@ -427,7 +427,7 @@ tables, setting the locality groups and iterator configuration.
      2 | 2 | 2015-03-07 | NULL
     (2 rows)
 
-Table Properties
+Table properties
 ----------------
 
 Table property usage example:
@@ -463,7 +463,7 @@ Property Name        Default Value    Description
 ``scan_auths``       (user auths)     Scan-time authorizations set on the batch scanner.
 ==================== ================ ======================================================================================================
 
-Session Properties
+Session properties
 ------------------
 
 You can change the default value of a session property by using :doc:`/sql/set-session`.
@@ -488,7 +488,7 @@ Property Name                                 Default Value Description
 ``index_cardinality_cache_polling_duration``  ``10ms``      Sets the cardinality cache polling duration for short circuit retrieval of index metrics
 ============================================= ============= =======================================================================================================
 
-Adding Columns
+Adding columns
 --------------
 
 Adding a new column to an existing table cannot be done today via
@@ -599,7 +599,7 @@ specifying the fully-qualified Java class name in the connector configuration.
       serializer = 'my.serializer.package.MySerializer'
     );
 
-Metadata Management
+Metadata management
 -------------------
 
 Metadata for the Trino/Accumulo tables is stored in ZooKeeper. You can,
@@ -630,7 +630,7 @@ for Accumulo, take a look at
 ``io.trino.plugin.accumulo.metadata.ZooKeeperMetadataManager`` for some
 Java code to simplify the process.
 
-Converting Table from Internal to External
+Converting table from internal to external
 ------------------------------------------
 
 If your table is *internal*, you can convert it to an external table by deleting

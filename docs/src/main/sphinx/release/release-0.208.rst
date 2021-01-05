@@ -7,7 +7,7 @@ Release 0.208
     This release has the potential for data loss in the Hive connector
     when writing bucketed sorted tables.
 
-General Changes
+General changes
 ---------------
 
 * Fix an issue with memory accounting that would lead to garbage collection pauses
@@ -28,13 +28,13 @@ General Changes
 * Add support for correlated subqueries requiring coercions.
 * Add experimental support for running on Linux ppc64le.
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix creation of the history file when it does not exist.
 * Add ``PRESTO_HISTORY_FILE`` environment variable to override location of history file.
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Remove size limit for writing bucketed sorted tables.
@@ -45,7 +45,7 @@ Hive Connector Changes
 * Collect column level statistics when writing tables. This is disabled by default,
   and can be enabled by setting the ``hive.collect-column-statistics-on-write`` property.
 
-Thrift Connector Changes
+Thrift connector changes
 ------------------------
 
 * Include error message from remote server in query failure message.

@@ -6,7 +6,7 @@ Release 0.113
 
     The ORC reader in the Hive connector is broken in this release.
 
-Cluster Resource Management
+Cluster resource management
 ---------------------------
 
 The cluster resource manager announced in :doc:`/release/release-0.103` is now enabled by default.
@@ -17,7 +17,7 @@ of memory a query may use on any one node. On each worker, the
 ``resources.reserved-system-memory`` config property controls how much memory is reserved
 for internal Presto data structures and temporary allocations.
 
-Session Properties
+Session properties
 ------------------
 
 All session properties now have a SQL type, default value and description.  The
@@ -36,7 +36,7 @@ can be validated and converted to any Java type using
     implementation and callers of ``ConnectorSession.getProperty()`` will now
     need the expected Java type of the property.
 
-General Changes
+General changes
 ---------------
 
 * Allow using any type with value window functions :func:`first_value`,
@@ -48,7 +48,7 @@ General Changes
 * Fix handling of literal ``NULL`` in ``IS DISTINCT FROM``.
 * Fix an issue that caused some specific queries to fail in planning.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix the Hive metadata cache to properly handle negative responses.
@@ -58,7 +58,7 @@ Hive Changes
   Hive but Presto thinks it still exists.
 * Fix metastore socket leak when SOCKS connect fails.
 
-SPI Changes
+SPI changes
 -----------
 
 * Changed the internal representation of structural types.

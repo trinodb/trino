@@ -54,7 +54,7 @@ Limitations
 Some connectors have no support for ``GRANT``.
 See connector documentation for more details.
 
-See Also
+See also
 --------
 
 :doc:`revoke`, :doc:`show-grants`

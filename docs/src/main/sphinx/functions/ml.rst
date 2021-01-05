@@ -1,5 +1,5 @@
 ==========================
-Machine Learning Functions
+Machine learning functions
 ==========================
 
 The machine learning plugin provides machine learning functionality
@@ -12,7 +12,7 @@ based classifiers and regressors for the supervised learning problems.
   The capability to train large data sets is limited by this execution of the
   final training on a single instance.
 
-Feature Vector
+Feature vector
 --------------
 
 To solve a problem with the machine learning technique, especially as a
@@ -119,7 +119,7 @@ The way to use the model is similar to the classification case::
 Internally, the model is trained by `libsvm <https://www.csie.ntu.edu.tw/~cjlin/libsvm/>`_.
 :func:`learn_libsvm_regressor` provides you a way to control the training process.
 
-Machine Learning Functions
+Machine learning functions
 --------------------------
 
 .. function:: features(double, ...) -> map(bigint, double)

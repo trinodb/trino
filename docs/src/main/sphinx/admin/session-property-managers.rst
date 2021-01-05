@@ -1,5 +1,5 @@
 =========================
-Session Property Managers
+Session property managers
 =========================
 
 Administrators can add session properties to control the behavior for subsets of their workload.
@@ -24,7 +24,7 @@ by default. All matching rules contribute to constructing a list of session prop
 are applied in the order they are specified. Rules specified later in the file override values
 for properties that have been previously encountered.
 
-Match Rules
+Match rules
 -----------
 
 * ``user`` (optional): regex to match against user name.

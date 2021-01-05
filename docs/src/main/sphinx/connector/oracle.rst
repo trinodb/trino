@@ -1,5 +1,5 @@
 ================
-Oracle Connector
+Oracle connector
 ================
 
 The Oracle connector allows querying and creating tables in an external Oracle

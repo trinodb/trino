@@ -4,7 +4,7 @@ Release 321 (15 Oct 2019)
 
 .. warning:: The server RPM is broken in this release.
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect result of :func:`round` when applied to a ``tinyint``, ``smallint``,
@@ -14,12 +14,12 @@ General Changes
   via the ``experimental.enable-dynamic-filtering`` configuration option or the
   ``enable_dynamic_filtering`` session property. (:issue:`1686`)
 
-Security Changes
+Security changes
 ----------------
 
 * Improve the security of query results with one-time tokens. (:issue:`1654`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix reading ``TEXT`` file collection delimiter set by Hive versions earlier
@@ -36,29 +36,29 @@ Hive Connector Changes
 * Allow caching directory listings for all tables or schemas. (:issue:`1668`)
 * Add support for dynamic filtering for broadcast joins. (:issue:`1686`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Support reading PostgreSQL arrays as the ``JSON`` data type. This can be enabled by
   setting the ``postgresql.experimental.array-mapping`` configuration property or the
   ``array_mapping`` catalog session property to ``AS_JSON``. (:issue:`682`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Add support for Amazon Elasticsearch Service. (:issue:`1693`)
 
-Cassandra Connector Changes
+Cassandra connector changes
 ---------------------------
 
 * Add TLS support. (:issue:`1680`)
 
-JMX Connector Changes
+JMX connector changes
 ---------------------
 
 * Add support for wildcards in configuration of history tables. (:issue:`1572`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Fix ``QueryStatistics.getWallTime()`` to report elapsed time rather than total

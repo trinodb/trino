@@ -1,5 +1,5 @@
 =================
-Phoenix Connector
+Phoenix connector
 =================
 
 The Phoenix connector allows querying data stored in
@@ -28,7 +28,7 @@ nodes used for discovery of the HBase cluster:
 The optional paths to Hadoop resource files, such as ``hbase-site.xml`` are used
 to load custom Phoenix client connection properties.
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -45,7 +45,7 @@ Property Name                                      Required   Description
                                                               connection properties.  These files must exist on the machines running Trino.
 ================================================== ========== ===================================================================================
 
-Querying Phoenix Tables
+Querying Phoenix tables
 -------------------------
 
 The default empty schema in Phoenix maps to a schema named ``default`` in Trino.
@@ -101,7 +101,7 @@ Phoenix table in Trino that uses the ``BINARY`` data type, as Trino
 does not have an equivalent type.
 
 
-Table Properties - Phoenix
+Table properties - Phoenix
 --------------------------
 
 Table property usage example::
@@ -142,7 +142,7 @@ This is a comma-separated list of columns to be used as the table's primary key.
 , as well as a sequence with the same name as the table suffixed with ``_seq`` (i.e. ``<schema>.<table>_seq``)
 , which is used to automatically populate the ``ROWKEY`` for each row during insertion.
 
-Table Properties - HBase
+Table properties - HBase
 ------------------------
 The following are the supported HBase table properties that are passed through by Phoenix during table creation.
 Use them in the the same way as above: in the ``WITH`` clause of the ``CREATE TABLE`` statement.

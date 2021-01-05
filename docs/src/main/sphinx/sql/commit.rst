@@ -22,7 +22,7 @@ Examples
     COMMIT;
     COMMIT WORK;
 
-See Also
+See also
 --------
 
 :doc:`rollback`, :doc:`start-transaction`

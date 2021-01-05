@@ -1,7 +1,7 @@
 .. _lambda_expressions:
 
 ==================
-Lambda Expressions
+Lambda expressions
 ==================
 
 Lambda expressions are written with ``->``::

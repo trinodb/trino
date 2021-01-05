@@ -56,7 +56,7 @@ Prepare and describe a query with no parameters:
     -----------------
     (0 rows)
 
-See Also
+See also
 --------
 
 :doc:`prepare`

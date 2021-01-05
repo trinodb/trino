@@ -2,7 +2,7 @@
 Release 0.146
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix error in :func:`map_concat` when the second map is empty.
@@ -10,7 +10,7 @@ General Changes
 * Support casting between map types.
 * Add :doc:`/connector/mongodb`.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix incorrect skipping of data in Parquet during predicate push-down.
@@ -22,12 +22,12 @@ Hive Changes
   security system. Specifically, the ``sql-standard`` authorization system
   does not enforce these settings.
 
-Black Hole Changes
+Black Hole changes
 ------------------
 
 * Add support for ``varchar(n)``.
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 * Add support for Cassandra 3.0.

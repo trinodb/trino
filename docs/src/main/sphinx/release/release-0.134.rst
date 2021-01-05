@@ -2,7 +2,7 @@
 Release 0.134
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add cumulative memory statistics tracking and expose the stat in the web interface.
@@ -11,12 +11,12 @@ General Changes
 * Fix performance regression in creation of ``DictionaryBlock``.
 * Fix rare memory accounting leak in queries with ``JOIN``.
 
-Hive Changes
+Hive changes
 ------------
 
 * The comment for partition keys is now prefixed with *"Partition Key"*.
 
-SPI Changes
+SPI changes
 -----------
 
 * Remove legacy partition API methods and classes.

@@ -2,7 +2,7 @@
 Release 0.111
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add :func:`histogram` function.

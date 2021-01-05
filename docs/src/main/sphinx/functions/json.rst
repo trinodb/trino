@@ -1,5 +1,5 @@
 ============================
-JSON Functions and Operators
+JSON functions and operators
 ============================
 
 Cast to JSON
@@ -119,7 +119,7 @@ some cases. To address this, Trino supports partial casting of arrays and maps::
 
 When casting from ``JSON`` to ``ROW``, both JSON array and JSON object are supported.
 
-JSON Functions
+JSON functions
 --------------
 .. function:: is_json_scalar(json) -> boolean
 

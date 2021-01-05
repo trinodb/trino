@@ -39,7 +39,7 @@ Limitations
 Some connectors have no support for ``SHOW GRANTS``.
 See connector documentation for more details.
 
-See Also
+See also
 --------
 
 :doc:`grant`, :doc:`revoke`

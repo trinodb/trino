@@ -1,5 +1,5 @@
 ====================
-PostgreSQL Connector
+PostgreSQL connector
 ====================
 
 The PostgreSQL connector allows querying and creating tables in an
@@ -23,7 +23,7 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
-Multiple PostgreSQL Databases or Servers
+Multiple PostgreSQL databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The PostgreSQL connector can only access a single database within
@@ -36,7 +36,7 @@ with a different name, making sure it ends in ``.properties``. For example,
 if you name the property file ``sales.properties``, Trino creates a
 catalog named ``sales`` using the configured connector.
 
-Decimal Type Handling
+Decimal type handling
 ---------------------
 
 ``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``
@@ -50,7 +50,7 @@ property, which can be set to ``UNNECESSARY`` (the default),
 ``UP``, ``DOWN``, ``CEILING``, ``FLOOR``, ``HALF_UP``, ``HALF_DOWN``, or ``HALF_EVEN``
 (see `RoundingMode <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/math/RoundingMode.html#enum.constant.summary>`_).
 
-Array Type Handling
+Array type handling
 -------------------
 
 The PostgreSQL array implementation does not support fixed dimensions whereas Trino

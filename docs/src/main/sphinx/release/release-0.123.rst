@@ -2,7 +2,7 @@
 Release 0.123
 =============
 
-General Changes
+General changes
 ---------------
 
 * Remove ``node-scheduler.location-aware-scheduling-enabled`` config.
@@ -18,7 +18,7 @@ General Changes
 * Optimize execution of cross join.
 * Run Presto server as ``presto`` user in RPM init scripts.
 
-Table Properties
+Table properties
 ----------------
 
 When creating tables with :doc:`/sql/create-table` or :doc:`/sql/create-table-as`,
@@ -28,7 +28,7 @@ properties, run the following query::
 
     SELECT * FROM system.metadata.table_properties
 
-Hive Changes
+Hive changes
 ------------
 
 We have implemented ``INSERT`` and ``DELETE`` for Hive.  Both ``INSERT`` and ``CREATE``

@@ -2,7 +2,7 @@
 Release 0.160
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix planning failure when query has multiple unions with identical underlying columns.
@@ -11,7 +11,7 @@ General Changes
   comes back before coordinator times out the query.
 * Add :doc:`/functions/lambda`.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix planning failure when inserting into columns of struct types with uppercase field names.

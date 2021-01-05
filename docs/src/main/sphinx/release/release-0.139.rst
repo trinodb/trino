@@ -2,7 +2,7 @@
 Release 0.139
 =============
 
-Dynamic Split Concurrency
+Dynamic split concurrency
 -------------------------
 
 The number of running leaf splits per query is now dynamically adjusted to improve
@@ -12,7 +12,7 @@ can be used to change how frequently adjustments happen. The session properties
 ``initial_splits_per_node`` and ``split_concurrency_adjustment_interval`` can
 also be used.
 
-General Changes
+General changes
 ---------------
 
 * Fix planning bug that causes some joins to not be redistributed when
@@ -21,7 +21,7 @@ General Changes
 * Add experimental ``task.join-concurrency`` config which can be used to increase
   concurrency for the probe side of joins.
 
-Hive Changes
+Hive changes
 ------------
 
 * Remove cursor-based readers for ORC and DWRF file formats, as they have been

@@ -1,5 +1,5 @@
 ================
-Window Functions
+Window functions
 ================
 
 Window functions perform calculations across rows of the query result.
@@ -29,7 +29,7 @@ For example, the following query ranks orders for each clerk by price::
     FROM orders
     ORDER BY clerk, rnk
 
-Aggregate Functions
+Aggregate functions
 -------------------
 
 All :doc:`aggregate` can be used as window functions by adding the ``OVER``
@@ -45,7 +45,7 @@ by day for each clerk::
     FROM orders
     ORDER BY clerk, orderdate, orderkey
 
-Ranking Functions
+Ranking functions
 -----------------
 
 .. function:: cume_dist() -> bigint
@@ -90,7 +90,7 @@ Ranking Functions
     Returns a unique, sequential number for each row, starting with one,
     according to the ordering of rows within the window partition.
 
-Value Functions
+Value functions
 ---------------
 
 By default, null values are respected. If ``IGNORE NULLS`` is specified, all rows where

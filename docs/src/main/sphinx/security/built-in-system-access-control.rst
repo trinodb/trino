@@ -1,5 +1,5 @@
 ==============================
-Built-in System Access Control
+Built-in system access control
 ==============================
 
 .. toctree::
@@ -37,17 +37,17 @@ Plugin Name                                        Description
 If you want to limit access on a system level in any other way than the ones
 listed above, you must implement a custom :doc:`/develop/system-access-control`.
 
-Default System Access Control
+Default system access control
 ===============================
 
 All operations are permitted, except for user impersonation. This plugin is enabled by default.
 
-Allow All System Access Control
+Allow all system access control
 ===============================
 
 All operations are permitted under this plugin.
 
-Read Only System Access Control
+Read only system access control
 ===============================
 
 Under this plugin, you are allowed to execute any operation that reads data or
@@ -61,7 +61,7 @@ file with the following contents:
 
    access-control.name=read-only
 
-File Based System Access Control
+File based system access control
 ================================
 
 This plugin allows you to specify access control rules in a JSON file.

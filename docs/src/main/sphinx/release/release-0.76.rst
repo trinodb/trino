@@ -2,7 +2,7 @@
 Release 0.76
 ============
 
-Kafka Connector
+Kafka connector
 ---------------
 
 This release adds a connector that allows querying of `Apache Kafka`_ topic data
@@ -14,7 +14,7 @@ the connector and a :doc:`tutorial </connector/kafka-tutorial>` to get started.
 
 .. _Apache Kafka: https://kafka.apache.org/
 
-MySQL and PostgreSQL Connectors
+MySQL and PostgreSQL connectors
 -------------------------------
 
 This release adds the :doc:`/connector/mysql` and :doc:`/connector/postgresql`
@@ -22,7 +22,7 @@ for querying and creating tables in external relational databases. These can
 be used to join or copy data between different systems like MySQL and Hive,
 or between two different MySQL or PostgreSQL instances, or any combination.
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 The :doc:`/connector/cassandra` configuration properties
@@ -35,7 +35,7 @@ The retry policy for the Cassandra client is now configurable via the
 ``cassandra.retry-policy`` property. In particular, the custom ``BACKOFF``
 retry policy may be useful.
 
-Hive Changes
+Hive changes
 ------------
 
 The new :doc:`/connector/hive` configuration property ``hive.s3.socket-timeout``
@@ -57,7 +57,7 @@ The property ``hive.storage-format`` is broken and has been disabled. It
 sets the storage format on the metadata but always writes the table using
 ``RCBINARY``. This will be implemented in a future release.
 
-General Changes
+General changes
 ---------------
 
 * Fix hang in verifier when an exception occurs.

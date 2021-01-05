@@ -2,7 +2,7 @@
 Release 0.121
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix regression that causes task scheduler to not retry requests in some cases.

@@ -1,6 +1,6 @@
-===============
-Trino Concepts
-===============
+==============
+Trino concepts
+==============
 
 Overview
 --------
@@ -27,7 +27,7 @@ general to most specific.
     provide further information about Trino and the concepts in use.
 
 
-Server Types
+Server types
 ------------
 
 There are two types of Trino servers: coordinators and workers. The
@@ -68,7 +68,7 @@ for task execution.
 Workers communicate with other workers and Trino coordinators
 using a REST API.
 
-Data Sources
+Data sources
 ------------
 
 Throughout this documentation, you'll read terms such as connector,
@@ -138,7 +138,7 @@ A table is a set of unordered rows, which are organized into named columns
 with types. This is the same as in any relational database. The mapping
 from source data to tables is defined by the connector.
 
-Query Execution Model
+Query execution model
 ---------------------
 
 Trino executes SQL statements and turns these statements into queries,
