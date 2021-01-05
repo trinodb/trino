@@ -117,13 +117,13 @@ public final class TestRun
         @Option(names = "--reports-dir", paramLabel = "<dir>", description = "Location of the reports directory " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/reports")
         public Path reportsDir;
 
-        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE, converter = OptionalPathConverter.class, defaultValue = "")
+        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE)
         public Optional<Path> logsDirBase;
 
         @Option(names = "--startup-retries", paramLabel = "<retries>", description = "Environment startup retries " + DEFAULT_VALUE, defaultValue = "5")
         public Integer startupRetries = 5;
 
-        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of tests execution " + DEFAULT_VALUE, converter = DurationConverter.class, defaultValue = "999d")
+        @Option(names = "--timeout", paramLabel = "<timeout>", description = "Maximum duration of tests execution " + DEFAULT_VALUE, defaultValue = "999d")
         public Duration timeout;
 
         @Parameters(paramLabel = "<argument>", description = "Test arguments")
