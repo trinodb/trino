@@ -46,6 +46,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.trino.orc.OrcReader.ProjectedLayout.fullyProjectedLayout;
 import static io.trino.orc.OrcReader.createOrcReader;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
@@ -144,6 +145,7 @@ public class OrcDeleteDeltaPageSource
         recordReader = reader.createRecordReader(
                 rowIdColumns,
                 ImmutableList.of(BIGINT, BIGINT),
+                ImmutableList.of(fullyProjectedLayout(), fullyProjectedLayout()),
                 OrcPredicate.TRUE,
                 0,
                 fileSize,
