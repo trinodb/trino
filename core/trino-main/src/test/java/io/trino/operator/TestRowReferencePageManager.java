@@ -16,7 +16,6 @@ package io.trino.operator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import it.unimi.dsi.fastutil.longs.LongComparator;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -50,7 +49,7 @@ public class TestRowReferencePageManager
     {
         RowReferencePageManager pageManager = new RowReferencePageManager();
 
-        LongComparator rowIdComparator = (rowId1, rowId2) -> {
+        RowIdComparisonStrategy strategy = (rowId1, rowId2) -> {
             long value1 = extractValue(pageManager, rowId1);
             long value2 = extractValue(pageManager, rowId2);
             return Long.compare(value1, value2);
@@ -66,18 +65,18 @@ public class TestRowReferencePageManager
             assertEquals(extractValue(pageManager, id0), 0L);
 
             assertTrue(cursor.advance());
-            assertTrue(cursor.compareTo(rowIdComparator, id0) > 0);
+            assertTrue(cursor.compareTo(strategy, id0) > 0);
             id1 = cursor.allocateRowId();
             assertEquals(extractValue(pageManager, id1), 1L);
 
             assertTrue(cursor.advance());
-            assertTrue(cursor.compareTo(rowIdComparator, id0) > 0);
-            assertTrue(cursor.compareTo(rowIdComparator, id1) > 0);
+            assertTrue(cursor.compareTo(strategy, id0) > 0);
+            assertTrue(cursor.compareTo(strategy, id1) > 0);
             // Skip this row by not allocating an ID
 
             assertTrue(cursor.advance());
-            assertTrue(cursor.compareTo(rowIdComparator, id0) > 0);
-            assertTrue(cursor.compareTo(rowIdComparator, id1) > 0);
+            assertTrue(cursor.compareTo(strategy, id0) > 0);
+            assertTrue(cursor.compareTo(strategy, id1) > 0);
             id3 = cursor.allocateRowId();
             assertEquals(extractValue(pageManager, id3), 3L);
 
@@ -97,7 +96,7 @@ public class TestRowReferencePageManager
     {
         RowReferencePageManager pageManager = new RowReferencePageManager();
 
-        LongComparator rowIdComparator = (rowId1, rowId2) -> {
+        RowIdComparisonStrategy strategy = (rowId1, rowId2) -> {
             long value1 = extractValue(pageManager, rowId1);
             long value2 = extractValue(pageManager, rowId2);
             return Long.compare(value1, value2);
@@ -125,7 +124,7 @@ public class TestRowReferencePageManager
         page = createBigIntSingleBlockPage(1, 2);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
             assertTrue(cursor.advance());
-            assertTrue(cursor.compareTo(rowIdComparator, id0) > 0);
+            assertTrue(cursor.compareTo(strategy, id0) > 0);
             id1 = cursor.allocateRowId();
             assertEquals(extractValue(pageManager, id1), 1L);
             assertFalse(cursor.advance());

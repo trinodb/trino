@@ -58,18 +58,6 @@ import static java.util.Objects.requireNonNull;
  */
 public class GroupedTopNRankAccumulator
 {
-    public interface RowComparisonStrategy
-    {
-        int compare(long leftRowId, long rightRowId);
-
-        default boolean equals(long leftRowId, long rightRowId)
-        {
-            return compare(leftRowId, rightRowId) == 0;
-        }
-
-        long hashCode(long rowId);
-    }
-
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedTopNRankAccumulator.class).instanceSize();
     private static final long UNKNOWN_INDEX = -1;
     private static final long NULL_GROUP_ID = -1;
@@ -82,14 +70,14 @@ public class GroupedTopNRankAccumulator
     // Map from (Group ID, Row Value) to Heap Node Index where the value is stored
     private final LongLong2LongOpenCustomBigHashMap peerGroupLookup;
 
-    private final RowComparisonStrategy rowComparisonStrategy;
+    private final RowIdComparisonHashStrategy strategy;
     private final long nullRowId;
     private final int topN;
     private final LongConsumer rowIdEvictionListener;
 
-    public GroupedTopNRankAccumulator(RowComparisonStrategy rowComparisonStrategy, long nullRowId, int topN, LongConsumer rowIdEvictionListener)
+    public GroupedTopNRankAccumulator(RowIdComparisonHashStrategy strategy, long nullRowId, int topN, LongConsumer rowIdEvictionListener)
     {
-        this.rowComparisonStrategy = requireNonNull(rowComparisonStrategy, "rowComparisonStrategy is null");
+        this.strategy = requireNonNull(strategy, "strategy is null");
         this.peerGroupLookup = new LongLong2LongOpenCustomBigHashMap(
                 10_000,
                 new LongLong2LongOpenCustomBigHashMap.HashStrategy()
@@ -98,7 +86,7 @@ public class GroupedTopNRankAccumulator
                     public long hashCode(long groupId, long rowId)
                     {
                         // TODO: benchmarks show the hashCode computation as a major hotspot that should be optimized
-                        return groupId * 31 + rowComparisonStrategy.hashCode(rowId);
+                        return groupId * 31 + strategy.hashCode(rowId);
                     }
 
                     @Override
@@ -115,7 +103,7 @@ public class GroupedTopNRankAccumulator
                         if (leftRowId == nullRowId || rightRowId == nullRowId) {
                             return false;
                         }
-                        return rowComparisonStrategy.equals(leftRowId, rightRowId);
+                        return strategy.equals(leftRowId, rightRowId);
                     }
                 },
                 NULL_GROUP_ID,
@@ -167,7 +155,7 @@ public class GroupedTopNRankAccumulator
             heapInsert(groupId, newPeerGroupIndex, 1);
             return true;
         }
-        else if (rowComparisonStrategy.compare(newRowId, peekRootRowId(groupId)) < 0) {
+        else if (strategy.compare(newRowId, peekRootRowId(groupId)) < 0) {
             // Given that total number of values >= topN, we can only consider values that are less than the root (otherwise topN would be violated)
             long newPeerGroupIndex = peerGroupBuffer.allocateNewNode(newRowId, UNKNOWN_INDEX);
             // Rank will increase by +1 after insertion, so only need to pop if root rank is already == topN.
@@ -402,7 +390,7 @@ public class GroupedTopNRankAccumulator
             long currentCanonicalRowId = peerGroupBuffer.getRowId(peerGroupIndex);
             // We can short-circuit the check if a parent has already been swapped because the new row to insert must
             // be greater than all of it's children.
-            if (swapped || rowComparisonStrategy.compare(newCanonicalRowId, currentCanonicalRowId) > 0) {
+            if (swapped || strategy.compare(newCanonicalRowId, currentCanonicalRowId) > 0) {
                 long peerGroupCount = heapNodeBuffer.getPeerGroupCount(currentHeapNodeIndex);
 
                 // Swap the peer groups
@@ -465,14 +453,14 @@ public class GroupedTopNRankAccumulator
             if (rightChildNodeIndex != UNKNOWN_INDEX) {
                 long rightChildPeerGroupIndex = heapNodeBuffer.getPeerGroupIndex(rightChildNodeIndex);
                 long rightChildCanonicalRowId = peerGroupBuffer.getRowId(rightChildPeerGroupIndex);
-                if (rowComparisonStrategy.compare(rightChildCanonicalRowId, maxChildCanonicalRowId) > 0) {
+                if (strategy.compare(rightChildCanonicalRowId, maxChildCanonicalRowId) > 0) {
                     maxChildNodeIndex = rightChildNodeIndex;
                     maxChildPeerGroupIndex = rightChildPeerGroupIndex;
                     maxChildCanonicalRowId = rightChildCanonicalRowId;
                 }
             }
 
-            if (rowComparisonStrategy.compare(newCanonicalRowId, maxChildCanonicalRowId) >= 0) {
+            if (strategy.compare(newCanonicalRowId, maxChildCanonicalRowId) >= 0) {
                 // New row is greater than or equal to both children, so the heap invariant is satisfied by inserting the
                 // new row at this position
                 break;
@@ -567,7 +555,7 @@ public class GroupedTopNRankAccumulator
             rowId = peerGroupBuffer.getRowId(peerGroupIndex);
             actualPeerGroupCount++;
             if (actualPeerGroupCount >= 2) {
-                verify(rowComparisonStrategy.equals(rowId, previousRowId), "Row value does not belong in peer group");
+                verify(strategy.equals(rowId, previousRowId), "Row value does not belong in peer group");
             }
             verify(peerGroupLookup.get(groupId, rowId) == heapNodeIndex, "Mismatch between peer group and lookup mapping");
 
@@ -577,11 +565,11 @@ public class GroupedTopNRankAccumulator
         verify(actualPeerGroupCount == peerGroupCount, "Recorded peer group count does not match actual");
 
         if (leftChildHeapIndex != UNKNOWN_INDEX) {
-            verify(rowComparisonStrategy.compare(rowId, peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(leftChildHeapIndex))) > 0, "Max heap invariant violated");
+            verify(strategy.compare(rowId, peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(leftChildHeapIndex))) > 0, "Max heap invariant violated");
         }
         if (rightChildHeapIndex != UNKNOWN_INDEX) {
             verify(leftChildHeapIndex != UNKNOWN_INDEX, "Left should always be inserted before right");
-            verify(rowComparisonStrategy.compare(rowId, peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(rightChildHeapIndex))) > 0, "Max heap invariant violated");
+            verify(strategy.compare(rowId, peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(rightChildHeapIndex))) > 0, "Max heap invariant violated");
         }
 
         IntegrityStats leftIntegrityStats = verifyHeapIntegrity(groupId, leftChildHeapIndex);
