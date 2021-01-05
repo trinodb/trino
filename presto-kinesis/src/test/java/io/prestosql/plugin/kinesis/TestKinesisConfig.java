@@ -46,7 +46,8 @@ public class TestKinesisConfig
                 .setDynamoWriteCapacity(10)
                 .setCheckpointInterval(new Duration(60000, TimeUnit.MILLISECONDS))
                 .setLogicalProcessName("process1")
-                .setIteratorNumber(0));
+                .setIteratorNumber(0)
+                .setUpdateInterval(new Duration(600000, TimeUnit.MILLISECONDS)));
     }
 
     @Test
@@ -73,6 +74,7 @@ public class TestKinesisConfig
                 .put("kinesis.checkpoint-interval", "50000ms")
                 .put("kinesis.checkpoint-logical-name", "process")
                 .put("kinesis.iterator-number", "1")
+                .put("kinesis.update-interval", "600000ms")
                 .build();
 
         KinesisConfig expected = new KinesisConfig()
@@ -95,7 +97,8 @@ public class TestKinesisConfig
                 .setDynamoWriteCapacity(20)
                 .setCheckpointInterval(new Duration(50000, TimeUnit.MILLISECONDS))
                 .setLogicalProcessName("process")
-                .setIteratorNumber(1);
+                .setIteratorNumber(1)
+                .setUpdateInterval(new Duration(600000, TimeUnit.MILLISECONDS));
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }
