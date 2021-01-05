@@ -27,6 +27,7 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -56,7 +57,8 @@ public class TestPrestoTableStatisticsWithHive
         remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithHive(
                 tempDir,
                 Map.of(),
-                ImmutableList.of(ORDERS, NATION)));
+                ImmutableList.of(ORDERS, NATION),
+                Optional.empty()));
         remoteSession = testSessionBuilder()
                 .setCatalog("hive")
                 .setSchema("tiny")

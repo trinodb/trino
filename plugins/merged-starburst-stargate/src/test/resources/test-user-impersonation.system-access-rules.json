@@ -1,0 +1,14 @@
+{
+  "catalogs": [
+    {
+      "user": "user",
+      "catalog": "(memory|tpch)",
+      "allow": "all"
+    },
+    {
+      "user": "test_user_in_remote_cluster",
+      "catalog": "memory",
+      "allow": "read-only"
+    }
+  ]
+}

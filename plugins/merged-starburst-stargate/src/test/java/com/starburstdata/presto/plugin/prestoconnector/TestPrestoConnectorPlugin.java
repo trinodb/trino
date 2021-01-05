@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.prestoconnector;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
@@ -50,6 +51,40 @@ public class TestPrestoConnectorPlugin
         assertThatThrownBy(() -> createTestingPlugin(ImmutableMap.of("connection-url", "jdbc:presto://localhost:8080/test", "starburst.authentication.type", "PASSWORD")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Connection user is not configured");
+    }
+
+    @Test
+    public void testAuthToLocalVerification()
+    {
+        String authToLocalFilePath = Resources.getResource("test-user-impersonation.auth-to-local.json").getPath();
+
+        assertThatThrownBy(() ->
+                createTestingPlugin(ImmutableMap.of(
+                        "connection-url", "jdbc:presto://localhost:8080/test",
+                        "connection-user", "presto",
+                        "auth-to-local.config-file", authToLocalFilePath)))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("property 'auth-to-local.config-file' was not used");
+
+        createTestingPlugin(ImmutableMap.of(
+                "connection-url", "jdbc:presto://localhost:8080/test",
+                "connection-user", "presto",
+                "auth-to-local.config-file", authToLocalFilePath,
+                "starburst.impersonation.enabled", "true"));
+    }
+
+    @Test
+    public void testPasswordPathThroughWithUserImpersonation()
+    {
+        String authToLocalFilePath = Resources.getResource("test-user-impersonation.auth-to-local.json").getPath();
+        assertThatThrownBy(() ->
+                createTestingPlugin(ImmutableMap.of(
+                        "connection-url", "jdbc:presto://localhost:8080/test",
+                        "starburst.impersonation.enabled", "true",
+                        "auth-to-local.config-file", authToLocalFilePath,
+                        "starburst.authentication.type", "PASSWORD_PASS_THROUGH")))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("property 'auth-to-local.config-file' was not used");
     }
 
     public static void createTestingPlugin(Map<String, String> properties)

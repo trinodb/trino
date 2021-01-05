@@ -26,7 +26,8 @@ public class TestPrestoConnectorConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(PrestoConnectorConfig.class)
-                .setPrestoAuthenticationType(PASSWORD));
+                .setPrestoAuthenticationType(PASSWORD)
+                .setImpersonationEnabled(false));
     }
 
     @Test
@@ -34,10 +35,12 @@ public class TestPrestoConnectorConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("starburst.authentication.type", "PASSWORD_PASS_THROUGH")
+                .put("starburst.impersonation.enabled", "true")
                 .build();
 
         PrestoConnectorConfig expected = new PrestoConnectorConfig()
-                .setPrestoAuthenticationType(PASSWORD_PASS_THROUGH);
+                .setPrestoAuthenticationType(PASSWORD_PASS_THROUGH)
+                .setImpersonationEnabled(true);
 
         assertFullMapping(properties, expected);
     }

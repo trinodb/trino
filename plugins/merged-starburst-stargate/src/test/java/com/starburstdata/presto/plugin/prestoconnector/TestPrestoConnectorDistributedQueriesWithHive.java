@@ -18,6 +18,7 @@ import io.trino.tpch.TpchTable;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
@@ -37,7 +38,8 @@ public class TestPrestoConnectorDistributedQueriesWithHive
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithHive(
                 tempDir,
                 Map.of(),
-                TpchTable.getTables()));
+                TpchTable.getTables(),
+                Optional.empty()));
         return createPrestoConnectorQueryRunner(
                 false,
                 Map.of(),

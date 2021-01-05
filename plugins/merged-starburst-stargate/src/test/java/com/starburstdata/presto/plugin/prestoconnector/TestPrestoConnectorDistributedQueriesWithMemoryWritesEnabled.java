@@ -16,6 +16,7 @@ import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
@@ -30,7 +31,8 @@ public class TestPrestoConnectorDistributedQueriesWithMemoryWritesEnabled
     {
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
-                TpchTable.getTables()));
+                TpchTable.getTables(),
+                Optional.empty()));
         return createPrestoConnectorQueryRunner(
                 true,
                 Map.of(),

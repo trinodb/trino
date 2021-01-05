@@ -27,6 +27,7 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
@@ -60,7 +61,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
                         "connection-user", postgreSqlServer.getUser(),
                         "connection-password", postgreSqlServer.getPassword(),
                         "case-insensitive-name-matching", "true"),
-                ImmutableList.of(ORDERS, NATION)));
+                ImmutableList.of(ORDERS, NATION),
+                Optional.empty()));
         remoteSession = testSessionBuilder()
                 .setCatalog("postgresql")
                 .setSchema("tiny")

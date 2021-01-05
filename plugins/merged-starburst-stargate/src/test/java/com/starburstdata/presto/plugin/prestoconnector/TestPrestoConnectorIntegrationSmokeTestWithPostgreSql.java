@@ -16,6 +16,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.tpch.TpchTable;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithPostgreSql;
@@ -35,7 +36,8 @@ public class TestPrestoConnectorIntegrationSmokeTestWithPostgreSql
                 postgreSqlServer,
                 Map.of(),
                 Map.of("connection-url", postgreSqlServer.getJdbcUrl()),
-                TpchTable.getTables()));
+                TpchTable.getTables(),
+                Optional.empty()));
         return createPrestoConnectorQueryRunner(
                 false,
                 Map.of(),

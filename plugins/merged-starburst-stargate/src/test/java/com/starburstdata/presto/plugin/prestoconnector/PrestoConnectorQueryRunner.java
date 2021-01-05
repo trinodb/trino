@@ -20,6 +20,7 @@ import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.postgresql.TestingPostgreSqlServer;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.security.SystemAccessControl;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
@@ -28,6 +29,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -40,7 +42,7 @@ public final class PrestoConnectorQueryRunner
 {
     private PrestoConnectorQueryRunner() {}
 
-    private static DistributedQueryRunner createRemotePrestoQueryRunner(Map<String, String> extraProperties)
+    private static DistributedQueryRunner createRemotePrestoQueryRunner(Map<String, String> extraProperties, Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -50,11 +52,13 @@ public final class PrestoConnectorQueryRunner
                     .setCatalog("unspecified_catalog")
                     .setSchema("unspecified_schema")
                     .build();
-            queryRunner = DistributedQueryRunner.builder(session)
+            DistributedQueryRunner.Builder queryRunnerBuilder = DistributedQueryRunner.builder(session)
                     .setNodeCount(1) // 1 is perfectly enough until we do parallel Presto Connector
-                    .setExtraProperties(extraProperties)
-                    .build();
+                    .setExtraProperties(extraProperties);
 
+            systemAccessControl.ifPresent(queryRunnerBuilder::setSystemAccessControl);
+
+            queryRunner = queryRunnerBuilder.build();
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
@@ -144,10 +148,11 @@ public final class PrestoConnectorQueryRunner
 
     public static DistributedQueryRunner createRemotePrestoQueryRunnerWithMemory(
             Map<String, String> extraProperties,
-            Iterable<TpchTable<?>> requiredTablesInMemoryConnector)
+            Iterable<TpchTable<?>> requiredTablesInMemoryConnector,
+            Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties, systemAccessControl);
         addMemoryToRemotePrestoQueryRunner(queryRunner, requiredTablesInMemoryConnector);
         return queryRunner;
     }
@@ -155,10 +160,11 @@ public final class PrestoConnectorQueryRunner
     public static DistributedQueryRunner createRemotePrestoQueryRunnerWithHive(
             File tmpDir,
             Map<String, String> extraProperties,
-            Iterable<TpchTable<?>> requiredTablesInHiveConnector)
+            Iterable<TpchTable<?>> requiredTablesInHiveConnector,
+            Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties, systemAccessControl);
         addHiveToRemotePrestoQueryRunner(queryRunner, tmpDir, requiredTablesInHiveConnector);
         return queryRunner;
     }
@@ -167,10 +173,11 @@ public final class PrestoConnectorQueryRunner
             TestingPostgreSqlServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
-            Iterable<TpchTable<?>> requiredTablesInPostgreSqlConnector)
+            Iterable<TpchTable<?>> requiredTablesInPostgreSqlConnector,
+            Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties);
+        DistributedQueryRunner queryRunner = createRemotePrestoQueryRunner(extraProperties, systemAccessControl);
         addPostgreSqlToRemotePrestoQueryRunner(queryRunner, server, connectorProperties, requiredTablesInPostgreSqlConnector);
         return queryRunner;
     }
@@ -231,7 +238,7 @@ public final class PrestoConnectorQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner remotePresto = createRemotePrestoQueryRunner(Map.of());
+        DistributedQueryRunner remotePresto = createRemotePrestoQueryRunner(Map.of(), Optional.empty());
 
         addMemoryToRemotePrestoQueryRunner(
                 remotePresto,

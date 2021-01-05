@@ -35,6 +35,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -94,7 +95,8 @@ public class TestPrestoConnectorTypeMapping
     {
         remotePresto = createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
-                List.of());
+                List.of(),
+                Optional.empty());
         return createPrestoConnectorQueryRunner(
                 true,
                 Map.of(),

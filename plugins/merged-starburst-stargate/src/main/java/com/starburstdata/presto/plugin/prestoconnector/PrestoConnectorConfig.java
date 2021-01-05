@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.prestoconnector;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.PASSWORD;
 
@@ -17,6 +18,7 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticati
 public class PrestoConnectorConfig
 {
     private PrestoAuthenticationType prestoAuthenticationType = PASSWORD;
+    private boolean impersonationEnabled;
 
     public PrestoAuthenticationType getPrestoAuthenticationType()
     {
@@ -27,6 +29,19 @@ public class PrestoConnectorConfig
     public PrestoConnectorConfig setPrestoAuthenticationType(PrestoAuthenticationType prestoAuthenticationType)
     {
         this.prestoAuthenticationType = prestoAuthenticationType;
+        return this;
+    }
+
+    public boolean isImpersonationEnabled()
+    {
+        return impersonationEnabled;
+    }
+
+    @Config("starburst.impersonation.enabled")
+    @ConfigDescription("Impersonate session user in remote Presto cluster")
+    public PrestoConnectorConfig setImpersonationEnabled(boolean impersonationEnabled)
+    {
+        this.impersonationEnabled = impersonationEnabled;
         return this;
     }
 }

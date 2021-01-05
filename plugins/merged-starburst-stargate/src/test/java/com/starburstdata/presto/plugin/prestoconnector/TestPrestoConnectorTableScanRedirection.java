@@ -16,6 +16,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
@@ -30,7 +31,8 @@ public class TestPrestoConnectorTableScanRedirection
     {
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
-                tables));
+                tables,
+                Optional.empty()));
 
         Map<String, String> connectorProperties = ImmutableMap.<String, String>builder()
                 .put("connection-url", prestoConnectorConnectionUrl(remotePresto, "memory"))

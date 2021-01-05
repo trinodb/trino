@@ -15,6 +15,7 @@ import io.trino.testing.QueryRunner;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
@@ -30,7 +31,8 @@ public class TestPrestoConnectorDynamicFilteringWritesEnabled
     {
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
-                List.of(ORDERS)));
+                List.of(ORDERS),
+                Optional.empty()));
         return createPrestoConnectorQueryRunner(
                 true,
                 Map.of(),

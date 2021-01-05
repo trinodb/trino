@@ -16,6 +16,7 @@ import org.testng.SkipException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
@@ -32,7 +33,8 @@ public class TestPrestoConnectorDynamicFiltering
     {
         DistributedQueryRunner remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
-                List.of(ORDERS)));
+                List.of(ORDERS),
+                Optional.empty()));
         return createPrestoConnectorQueryRunner(
                 false,
                 Map.of(),

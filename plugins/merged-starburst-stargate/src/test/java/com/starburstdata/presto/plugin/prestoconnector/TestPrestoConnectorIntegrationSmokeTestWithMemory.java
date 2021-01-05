@@ -15,6 +15,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.tpch.TpchTable;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithMemory;
@@ -31,7 +32,8 @@ public class TestPrestoConnectorIntegrationSmokeTestWithMemory
     {
         remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithMemory(
                 Map.of(),
-                TpchTable.getTables()));
+                TpchTable.getTables(),
+                Optional.empty()));
         return createPrestoConnectorQueryRunner(
                 false,
                 Map.of(),
