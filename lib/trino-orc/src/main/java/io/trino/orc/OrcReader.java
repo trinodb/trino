@@ -268,7 +268,8 @@ public class OrcReader
                 legacyFileTimeZone,
                 systemMemoryUsage,
                 initialBatchSize,
-                exceptionTransform);
+                exceptionTransform,
+                NameBasedFieldMapper::create);
     }
 
     public OrcRecordReader createRecordReader(
@@ -281,7 +282,8 @@ public class OrcReader
             DateTimeZone legacyFileTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize,
-            Function<Exception, RuntimeException> exceptionTransform)
+            Function<Exception, RuntimeException> exceptionTransform,
+            FieldMapperFactory fieldMapperFactory)
             throws OrcCorruptionException
     {
         return new OrcRecordReader(
@@ -307,7 +309,8 @@ public class OrcReader
                 systemMemoryUsage,
                 writeValidation,
                 initialBatchSize,
-                exceptionTransform);
+                exceptionTransform,
+                fieldMapperFactory);
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
@@ -473,5 +476,16 @@ public class OrcReader
 
             return new ProjectedLayout(Optional.of(fieldLayouts.build()));
         }
+    }
+
+    public interface FieldMapperFactory
+    {
+        FieldMapper create(OrcColumn orcColumn);
+    }
+
+    // Used for mapping a nested field with the appropriate OrcColumn
+    public interface FieldMapper
+    {
+        OrcColumn get(String fieldName);
     }
 }
