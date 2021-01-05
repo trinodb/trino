@@ -38,6 +38,7 @@ public class TestOAuth2Config
                 .setJwksUrl(null)
                 .setClientId(null)
                 .setClientSecret(null)
+                .setAudience(null)
                 .setChallengeTimeout(Duration.valueOf("15m"))
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null));
@@ -55,6 +56,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.jwks-url", "http://127.0.0.1:9000/.well-known/jwks.json")
                 .put("http-server.authentication.oauth2.client-id", "another-consumer")
                 .put("http-server.authentication.oauth2.client-secret", "consumer-secret")
+                .put("http-server.authentication.oauth2.audience", "https://127.0.0.1:8443")
                 .put("http-server.authentication.oauth2.challenge-timeout", "90s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
@@ -67,6 +69,7 @@ public class TestOAuth2Config
                 .setJwksUrl("http://127.0.0.1:9000/.well-known/jwks.json")
                 .setClientId("another-consumer")
                 .setClientSecret("consumer-secret")
+                .setAudience("https://127.0.0.1:8443")
                 .setChallengeTimeout(Duration.valueOf("90s"))
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile());
