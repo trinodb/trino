@@ -21,7 +21,7 @@ import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
-import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import io.trino.testng.services.Flaky;
@@ -52,12 +52,12 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
-        extends AbstractTestQueryFramework
 {
     private static final String RECORD_NAME = "test_record";
     private static final int MESSAGE_COUNT = 100;
@@ -73,13 +73,9 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             .name("col_3").type().optional().doubleType()
             .endRecord();
 
-    private TestingKafka testingKafka;
-
-    @Override
-    protected QueryRunner createQueryRunner()
+    protected static QueryRunner createQueryRunner(TestingKafka testingKafka)
             throws Exception
     {
-        testingKafka = closeAfterClass(TestingKafka.createWithSchemaRegistry());
         return KafkaWithConfluentSchemaRegistryQueryRunner.builder(testingKafka)
                 .setExtraKafkaProperties(ImmutableMap.<String, String>builder()
                         .put("kafka.confluent-subjects-cache-refresh-interval", "1ms")
@@ -90,135 +86,173 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     @Test
     @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testBasicTopic()
+            throws Exception
     {
-        String topic = "topic-basic-MixedCase-" + randomTableSuffix();
-        assertTopic(
-                topic,
-                format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
-                format("SELECT col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
-                false,
-                schemaRegistryAwareProducer()
-                        .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
-                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+                QueryRunner queryRunner = createQueryRunner(testingKafka)) {
+            String topic = "topic-basic-MixedCase-" + randomTableSuffix();
+            assertTopic(
+                    testingKafka, queryRunner, topic,
+                    format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
+                    format("SELECT col_1, col_2, col_3 FROM %s", toDoubleQuoted(topic)),
+                    false,
+                    schemaRegistryAwareProducer(testingKafka)
+                            .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
+                            .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .build());
+        }
     }
 
     @Test
     @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithKeySubject()
+            throws Exception
     {
-        String topic = "topic-Key-Subject-" + randomTableSuffix();
-        assertTopic(
-                topic,
-                format("SELECT \"%s-key\", col_1, col_2 FROM %s", topic, toDoubleQuoted(topic)),
-                format("SELECT \"%s-key\", col_1, col_2, col_3 FROM %s", topic, toDoubleQuoted(topic)),
-                true,
-                schemaRegistryAwareProducer()
-                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+                QueryRunner queryRunner = createQueryRunner(testingKafka)) {
+            String topic = "topic-Key-Subject-" + randomTableSuffix();
+            assertTopic(
+                    testingKafka, queryRunner, topic,
+                    format("SELECT \"%s-key\", col_1, col_2 FROM %s", topic, toDoubleQuoted(topic)),
+                    format("SELECT \"%s-key\", col_1, col_2, col_3 FROM %s", topic, toDoubleQuoted(topic)),
+                    true,
+                    schemaRegistryAwareProducer(testingKafka)
+                            .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .build());
+        }
     }
 
     @Test
     @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithRecordNameStrategy()
+            throws Exception
     {
-        String topic = "topic-Record-Name-Strategy-" + randomTableSuffix();
-        assertTopic(
-                topic,
-                format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
-                format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
-                true,
-                schemaRegistryAwareProducer()
-                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .put(VALUE_SUBJECT_NAME_STRATEGY, RecordNameStrategy.class.getName())
-                        .build());
+        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+                QueryRunner queryRunner = createQueryRunner(testingKafka)) {
+            String topic = "topic-Record-Name-Strategy-" + randomTableSuffix();
+            assertTopic(
+                    testingKafka, queryRunner, topic,
+                    format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
+                    format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
+                    true,
+                    schemaRegistryAwareProducer(testingKafka)
+                            .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .put(VALUE_SUBJECT_NAME_STRATEGY, RecordNameStrategy.class.getName())
+                            .build());
+        }
     }
 
     @Test
     @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithTopicRecordNameStrategy()
+            throws Exception
     {
-        String topic = "topic-Topic-Record-Name-Strategy-" + randomTableSuffix();
-        assertTopic(
-                topic,
-                format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
-                format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
-                true,
-                schemaRegistryAwareProducer()
-                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .put(VALUE_SUBJECT_NAME_STRATEGY, TopicRecordNameStrategy.class.getName())
-                        .build());
+        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+                QueryRunner queryRunner = createQueryRunner(testingKafka)) {
+            String topic = "topic-Topic-Record-Name-Strategy-" + randomTableSuffix();
+            assertTopic(
+                    testingKafka, queryRunner, topic,
+                    format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
+                    format("SELECT \"%1$s-key\", col_1, col_2, col_3 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
+                    true,
+                    schemaRegistryAwareProducer(testingKafka)
+                            .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .put(VALUE_SUBJECT_NAME_STRATEGY, TopicRecordNameStrategy.class.getName())
+                            .build());
+        }
     }
 
     @Test
     @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testUnsupportedInsert()
+            throws Exception
     {
-        String topicName = "topic-unsupported-insert-" + randomTableSuffix();
+        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+                QueryRunner queryRunner = createQueryRunner(testingKafka)) {
+            String topicName = "topic-unsupported-insert-" + randomTableSuffix();
 
-        assertNotExists(topicName);
+            assertNotExists(queryRunner, topicName);
 
-        List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
-        testingKafka.sendMessages(
-                messages.stream(),
-                schemaRegistryAwareProducer()
-                        .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
-                        .build());
+            List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
+            testingKafka.sendMessages(
+                    messages.stream(),
+                    schemaRegistryAwareProducer(testingKafka)
+                            .put(KEY_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaAvroSerializer.class.getName())
+                            .build());
 
-        waitUntilTableExists(topicName);
+            waitUntilTableExists(queryRunner, topicName);
 
-        assertQueryFails(format("INSERT INTO \"%s\" VALUES (0, 0, '')", topicName), "Insert not supported");
+            assertThatThrownBy(() -> queryRunner.execute(format("INSERT INTO %s VALUES(0, 0, '')", toDoubleQuoted(topicName))))
+                    .hasMessage("Insert not supported");
+        }
     }
 
     @Test
     @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering JSON schema: .*")
     public void testUnsupportedFormat()
+            throws Exception
     {
-        String topicName = "topic-unsupported-format-" + randomTableSuffix();
+        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+                QueryRunner queryRunner = createQueryRunner(testingKafka)) {
+            String topicName = "topic-unsupported-format-" + randomTableSuffix();
 
-        assertNotExists(topicName);
+            assertNotExists(queryRunner, topicName);
 
-        testingKafka.sendMessages(
-                IntStream.range(0, MESSAGE_COUNT)
-                        .mapToObj(id -> new ProducerRecord<>(topicName, (long) id, new JsonValue(id, "value_" + id))),
-                schemaRegistryAwareProducer()
-                        .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
-                        .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
-                        .build());
+            testingKafka.sendMessages(
+                    IntStream.range(0, MESSAGE_COUNT)
+                            .mapToObj(id -> new ProducerRecord<>(topicName, (long) id, new JsonValue(id, "value_" + id))),
+                    schemaRegistryAwareProducer(testingKafka)
+                            .put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName())
+                            .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
+                            .build());
 
-        String errorMessage = "Not supported schema: JSON";
-        assertEventually(
-                succinctDuration(10, SECONDS),
-                () -> assertThatThrownBy(() -> tableExists(topicName))
-                        .isInstanceOf(RuntimeException.class)
-                        .hasMessage(errorMessage));
+            String errorMessage = "Not supported schema: JSON";
+            assertEventually(
+                    succinctDuration(10, SECONDS),
+                    () -> assertThatThrownBy(() -> tableExists(queryRunner, topicName))
+                            .isInstanceOf(RuntimeException.class)
+                            .hasMessage(errorMessage));
 
-        assertQueryFails(format("SHOW COLUMNS FROM \"%s\"", topicName), errorMessage);
-        assertQueryFails(format("SELECT * FROM \"%s\"", topicName), errorMessage);
-        assertQueryFails(format("INSERT INTO \"%s\" VALUES (0, 0, '')", topicName), errorMessage);
+            assertThatThrownBy(() -> queryRunner.execute("SHOW COLUMNS FROM " + toDoubleQuoted(topicName)))
+                    .hasMessage(errorMessage);
+            assertThatThrownBy(() -> queryRunner.execute("SELECT * FROM " + toDoubleQuoted(topicName)))
+                    .hasMessage(errorMessage);
+            assertThatThrownBy(() -> queryRunner.execute(format("INSERT INTO %s VALUES(0, 0, '')", toDoubleQuoted(topicName))))
+                    .hasMessage(errorMessage);
+        }
     }
 
-    private ImmutableMap.Builder<String, String> schemaRegistryAwareProducer()
+    private ImmutableMap.Builder<String, String> schemaRegistryAwareProducer(TestingKafka testingKafka)
     {
         return ImmutableMap.<String, String>builder()
                 .put(SCHEMA_REGISTRY_URL_CONFIG, testingKafka.getSchemaRegistryConnectString());
     }
 
-    private void assertTopic(String topicName, String initialQuery, String evolvedQuery, boolean isKeyIncluded, Map<String, String> producerConfig)
+    private void assertTopic(
+            TestingKafka testingKafka,
+            QueryRunner queryRunner,
+            String topicName,
+            String initialQuery,
+            String evolvedQuery,
+            boolean isKeyIncluded,
+            Map<String, String> producerConfig)
     {
-        assertNotExists(topicName);
+        assertNotExists(queryRunner, topicName);
 
         List<ProducerRecord<Long, GenericRecord>> messages = createMessages(topicName, MESSAGE_COUNT, true);
         testingKafka.sendMessages(messages.stream(), producerConfig);
 
-        waitUntilTableExists(topicName);
-        assertCount(topicName, MESSAGE_COUNT);
+        waitUntilTableExists(queryRunner, topicName);
+        assertCount(queryRunner, topicName, MESSAGE_COUNT);
 
-        assertQuery(initialQuery, getExpectedValues(messages, INITIAL_SCHEMA, isKeyIncluded));
+        QueryAssertions queryAssertions = new QueryAssertions(queryRunner);
+        queryAssertions.query(initialQuery)
+                .assertThat()
+                .containsAll(getExpectedValues(messages, INITIAL_SCHEMA, isKeyIncluded));
 
         List<ProducerRecord<Long, GenericRecord>> newMessages = createMessages(topicName, MESSAGE_COUNT, false);
         testingKafka.sendMessages(newMessages.stream(), producerConfig);
@@ -227,8 +261,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                 .addAll(messages)
                 .addAll(newMessages)
                 .build();
-        assertCount(topicName, allMessages.size());
-        assertQuery(evolvedQuery, getExpectedValues(allMessages, EVOLVED_SCHEMA, isKeyIncluded));
+        assertCount(queryRunner, topicName, allMessages.size());
+        queryAssertions.query(evolvedQuery)
+                .assertThat()
+                .containsAll(getExpectedValues(messages, EVOLVED_SCHEMA, isKeyIncluded));
     }
 
     private static String getExpectedValues(List<ProducerRecord<Long, GenericRecord>> messages, Schema schema, boolean isKeyIncluded)
@@ -239,7 +275,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             ImmutableList.Builder<String> columnsBuilder = ImmutableList.builder();
 
             if (isKeyIncluded) {
-                columnsBuilder.add(String.valueOf(message.key()));
+                columnsBuilder.add(format("CAST(%s as bigint)", message.key()));
             }
 
             addExpectedColumns(schema, message.value(), columnsBuilder);
@@ -254,52 +290,64 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     {
         for (Schema.Field field : schema.getFields()) {
             Object value = record.get(field.name());
-            if (value == null) {
-                columnsBuilder.add("null");
+            if (value == null && field.schema().getType().equals(Schema.Type.UNION) && field.schema().getTypes().contains(Schema.create(Schema.Type.NULL))) {
+                if (field.schema().getTypes().contains(Schema.create(Schema.Type.DOUBLE))) {
+                    columnsBuilder.add("CAST(null AS double)");
+                }
+                else {
+                    throw new IllegalArgumentException("Unsupported field: " + field);
+                }
             }
             else if (field.schema().getType().equals(Schema.Type.STRING)) {
-                columnsBuilder.add(toSingleQuoted(value));
+                columnsBuilder.add(format("CAST('%s' AS varchar)", value));
+            }
+            else if (field.schema().getType().equals(Schema.Type.LONG)) {
+                columnsBuilder.add(format("CAST(%s AS bigint)", value));
             }
             else {
-                columnsBuilder.add(String.valueOf(value));
+                throw new IllegalArgumentException("Unsupported field: " + field);
             }
         }
     }
 
-    private void assertNotExists(String tableName)
+    private static void assertNotExists(QueryRunner queryRunner, String tableName)
     {
-        if (schemaExists()) {
-            assertQueryReturnsEmptyResult(format("SHOW TABLES LIKE '%s'", tableName));
+        if (schemaExists(queryRunner)) {
+            assertThat(queryRunner.execute("SHOW TABLES LIKE " + toSingleQuoted(tableName)).getRowCount()).isZero();
         }
     }
 
-    private void waitUntilTableExists(String tableName)
+    private static void waitUntilTableExists(QueryRunner queryRunner, String tableName)
     {
         Failsafe.with(
                 new RetryPolicy<>()
                         .withMaxAttempts(10)
                         .withDelay(Duration.ofMillis(100)))
-                .run(() -> assertTrue(schemaExists()));
+                .run(() -> assertTrue(schemaExists(queryRunner)));
         Failsafe.with(
                 new RetryPolicy<>()
                         .withMaxAttempts(10)
                         .withDelay(Duration.ofMillis(100)))
-                .run(() -> assertTrue(tableExists(tableName)));
+                .run(() -> assertTrue(tableExists(queryRunner, tableName)));
     }
 
-    private boolean schemaExists()
+    private static boolean schemaExists(QueryRunner queryRunner)
     {
-        return computeActual(format("SHOW SCHEMAS FROM %s LIKE '%s'", getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow())).getRowCount() == 1;
+        return queryRunner.execute(format(
+                "SHOW SCHEMAS FROM %s LIKE '%s'",
+                queryRunner.getDefaultSession().getCatalog().orElseThrow(),
+                queryRunner.getDefaultSession().getSchema().orElseThrow()))
+                .getRowCount() == 1;
     }
 
-    private boolean tableExists(String tableName)
+    private static boolean tableExists(QueryRunner queryRunner, String tableName)
     {
-        return computeActual(format("SHOW TABLES LIKE '%s'", tableName.toLowerCase(ENGLISH))).getRowCount() == 1;
+        return queryRunner.execute(format("SHOW TABLES LIKE '%s'", tableName.toLowerCase(ENGLISH))).getRowCount() == 1;
     }
 
-    private void assertCount(String tableName, int count)
+    private static void assertCount(QueryRunner queryRunner, String tableName, long count)
     {
-        assertQuery(format("SELECT count(*) FROM %s", toDoubleQuoted(tableName)), format("VALUES (%s)", count));
+        assertThat(queryRunner.execute("SELECT count(*) FROM " + toDoubleQuoted(tableName)).getOnlyValue()).isEqualTo(count);
     }
 
     private static String toDoubleQuoted(String tableName)
