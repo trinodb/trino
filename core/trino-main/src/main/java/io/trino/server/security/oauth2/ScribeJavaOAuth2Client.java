@@ -27,26 +27,32 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.Optional;
 
+import static com.github.scribejava.core.model.OAuthConstants.REDIRECT_URI;
+import static com.github.scribejava.core.model.OAuthConstants.STATE;
 import static java.util.Objects.requireNonNull;
 
 public class ScribeJavaOAuth2Client
         implements OAuth2Client
 {
     private final DynamicCallbackOAuth2Service service;
+    private final Optional<String> audience;
 
     @Inject
     public ScribeJavaOAuth2Client(OAuth2Config config)
     {
+        requireNonNull(config, "config is null");
         service = new DynamicCallbackOAuth2Service(config);
+        audience = config.getAudience();
     }
 
     @Override
     public URI getAuthorizationUri(String state, URI callbackUri)
     {
-        return URI.create(service.getAuthorizationUrl(ImmutableMap.<String, String>builder()
-                .put(OAuthConstants.REDIRECT_URI, callbackUri.toString())
-                .put(OAuthConstants.STATE, state)
-                .build()));
+        ImmutableMap.Builder<String, String> parameters = ImmutableMap.builder();
+        parameters.put(REDIRECT_URI, callbackUri.toString());
+        parameters.put(STATE, state);
+        audience.ifPresent(audience -> parameters.put("audience", audience));
+        return URI.create(service.getAuthorizationUrl(parameters.build()));
     }
 
     @Override
