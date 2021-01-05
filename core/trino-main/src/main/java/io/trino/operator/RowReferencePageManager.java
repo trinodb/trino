@@ -20,7 +20,6 @@ import io.trino.spi.Page;
 import io.trino.util.LongBigArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongComparator;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -197,10 +196,10 @@ public class RowReferencePageManager
             return true;
         }
 
-        public int compareTo(LongComparator rowIdComparator, long rowId)
+        public int compareTo(RowIdComparisonStrategy strategy, long rowId)
         {
             checkState(currentPosition >= 0, "Not yet advanced");
-            return rowIdComparator.compare(RESERVED_ROW_ID_FOR_CURSOR, rowId);
+            return strategy.compare(RESERVED_ROW_ID_FOR_CURSOR, rowId);
         }
 
         public long allocateRowId()

@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.trino.array.LongBigArray;
-import io.trino.operator.GroupedTopNRankAccumulator.RowComparisonStrategy;
 import io.trino.operator.RowReferencePageManager.LoadCursor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -62,7 +61,7 @@ public class GroupedTopNRankBuilder
         requireNonNull(comparator, "comparator is null");
         requireNonNull(equalsAndHash, "equalsAndHash is null");
         groupedTopNRankAccumulator = new GroupedTopNRankAccumulator(
-                new RowComparisonStrategy()
+                new RowIdComparisonHashStrategy()
                 {
                     @Override
                     public int compare(long leftRowId, long rightRowId)
