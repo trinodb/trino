@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import io.trino.array.LongBigArray;
-import io.trino.operator.GroupedTopNRowNumberAccumulator.RowReference;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import org.testng.annotations.Test;
@@ -265,7 +264,19 @@ public class TestGroupedTopNRowNumberAccumulator
         }
 
         @Override
-        public long extractRowId()
+        public boolean equals(RowIdHashStrategy strategy, long otherRowId)
+        {
+            return strategy.equals(rowId, otherRowId);
+        }
+
+        @Override
+        public long hash(RowIdHashStrategy strategy)
+        {
+            return strategy.hashCode(rowId);
+        }
+
+        @Override
+        public long allocateRowId()
         {
             rowIdExtracted = true;
             return rowId;
