@@ -24,6 +24,7 @@ import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
+import io.trino.testng.services.Flaky;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.avro.Schema;
@@ -43,6 +44,7 @@ import static io.airlift.units.Duration.succinctDuration;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.confluent.kafka.serializers.AbstractKafkaAvroSerDeConfig.VALUE_SUBJECT_NAME_STRATEGY;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -86,9 +88,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testBasicTopic()
     {
-        String topic = "topic-basic-MixedCase";
+        String topic = "topic-basic-MixedCase-" + randomTableSuffix();
         assertTopic(
                 topic,
                 format("SELECT col_1, col_2 FROM %s", toDoubleQuoted(topic)),
@@ -101,9 +104,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithKeySubject()
     {
-        String topic = "topic-Key-Subject";
+        String topic = "topic-Key-Subject-" + randomTableSuffix();
         assertTopic(
                 topic,
                 format("SELECT \"%s-key\", col_1, col_2 FROM %s", topic, toDoubleQuoted(topic)),
@@ -116,9 +120,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithRecordNameStrategy()
     {
-        String topic = "topic-Record-Name-Strategy";
+        String topic = "topic-Record-Name-Strategy-" + randomTableSuffix();
         assertTopic(
                 topic,
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%2$s\"", topic, RECORD_NAME),
@@ -132,9 +137,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithTopicRecordNameStrategy()
     {
-        String topic = "topic-Topic-Record-Name-Strategy";
+        String topic = "topic-Topic-Record-Name-Strategy-" + randomTableSuffix();
         assertTopic(
                 topic,
                 format("SELECT \"%1$s-key\", col_1, col_2 FROM \"%1$s&value-subject=%1$s-%2$s\"", topic, RECORD_NAME),
@@ -148,9 +154,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testUnsupportedInsert()
     {
-        String topicName = "topic-unsupported-insert";
+        String topicName = "topic-unsupported-insert-" + randomTableSuffix();
 
         assertNotExists(topicName);
 
@@ -168,9 +175,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering JSON schema: .*")
     public void testUnsupportedFormat()
     {
-        String topicName = "topic-unsupported-format";
+        String topicName = "topic-unsupported-format-" + randomTableSuffix();
 
         assertNotExists(topicName);
 
