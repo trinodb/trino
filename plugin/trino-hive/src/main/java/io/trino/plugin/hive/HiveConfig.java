@@ -70,7 +70,7 @@ public class HiveConfig
     private int domainCompactionThreshold = 100;
     private DataSize writerSortBufferSize = DataSize.of(64, MEGABYTE);
     private boolean forceLocalScheduling;
-    private boolean recursiveDirWalkerEnabled;
+    private boolean recursiveDirWalkerEnabled = true;
     private boolean ignoreAbsentPartitions;
 
     private int maxConcurrentFileRenames = 20;
