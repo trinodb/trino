@@ -28,7 +28,7 @@ Drop the view ``orders_by_date`` if it exists::
 
     DROP VIEW IF EXISTS orders_by_date
 
-See Also
+See also
 --------
 
 :doc:`create-view`

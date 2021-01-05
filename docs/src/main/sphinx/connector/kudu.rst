@@ -1,5 +1,5 @@
 ==============
-Kudu Connector
+Kudu connector
 ==============
 
 The Kudu connector allows querying, inserting and deleting data in `Apache Kudu`_.
@@ -59,7 +59,7 @@ replacing the properties as appropriate:
    #kudu.client.disable-statistics = false
 
 
-Querying Data
+Querying data
 -------------
 
 Apache Kudu does not support schemas, i.e. namespaces for tables.
@@ -119,7 +119,7 @@ Example
 
     SELECT * FROM kudu.default.users;
 
-Behaviour With Schema Emulation
+Behaviour with schema emulation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If schema emulation has been enabled in the connector properties, i.e. ``etc/catalog/kudu.properties``,
@@ -162,7 +162,7 @@ tables are mapped to schemas depending on some conventions.
   As schemas are not directly supported by Kudu, a special table named
   ``presto::$schemas`` is created for managing the schemas.
 
-Data Type Mapping
+Data type mapping
 -----------------
 
 The data types of Trino and Kudu are mapped as far as possible:
@@ -288,7 +288,7 @@ Supported Trino SQL statements
 ``ALTER SCHEMA ... RENAME TO ...`` is not supported.
 
 
-Create Table
+Create table
 ------------
 
 On creating a Kudu table, you need to provide the columns and their types, of
@@ -330,7 +330,7 @@ but multiple hash partitioning 'levels'.
 For more details see `Partitioning Design`_.
 
 
-Column Properties
+Column properties
 ~~~~~~~~~~~~~~~~~
 
 Besides column name and type, you can specify some more properties of a column.
@@ -383,7 +383,7 @@ Example
        ...
     ) WITH (...);
 
-Partitioning Design
+Partitioning design
 ~~~~~~~~~~~~~~~~~~~
 
 A table must have at least one partitioning (either hash or range).
@@ -573,7 +573,7 @@ Use the SQL statement ``SHOW CREATE TABLE`` to query the existing
 range partitions (they are shown in the table property
 ``range_partitions``).
 
-Add Column
+Add column
 ----------
 
 Adding a column to an existing table uses the SQL statement ``ALTER TABLE ... ADD COLUMN ...``.

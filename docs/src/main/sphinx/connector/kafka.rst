@@ -1,5 +1,5 @@
 ===============
-Kafka Connector
+Kafka connector
 ===============
 
 .. toctree::
@@ -44,7 +44,7 @@ replacing the properties as appropriate:
     kafka.table-names=table1,table2
     kafka.nodes=host1:port,host2:port
 
-Multiple Kafka Clusters
+Multiple Kafka clusters
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
@@ -53,7 +53,7 @@ with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -146,7 +146,7 @@ show up in ``DESCRIBE <table-name>`` or ``SELECT *``.
 
 This property is optional; the default is ``true``.
 
-Internal Columns
+Internal columns
 ----------------
 
 For each defined table, the connector maintains the following columns:
@@ -172,7 +172,7 @@ Column name             Type                            Description
 For tables without a table definition file, the ``_key_corrupt`` and
 ``_message_corrupt`` columns will always be ``false``.
 
-Table Definition Files
+Table definition files
 ----------------------
 
 Kafka maintains topics only as byte messages and leaves it to producers
@@ -223,7 +223,7 @@ Field           Required  Type           Description
 ``message``     optional  JSON object    Field definitions for data columns mapped to the message itself.
 =============== ========= ============== =============================
 
-Key and Message in Kafka
+Key and message in Kafka
 ------------------------
 
 Starting with Kafka 0.8, each message in a topic can have an optional key.
@@ -269,7 +269,7 @@ Field           Required  Type      Description
 
 There is no limit on field descriptions for either key or message.
 
-Kafka Inserts
+Kafka inserts
 -------------
 
 The Kafka connector supports the use of :doc:`/sql/insert` statements to write
@@ -296,7 +296,7 @@ used as the target for a message. If a message includes a key, the producer will
 use a hash algorithm to choose the target partition for the message. The same
 key will always be assigned the same partition.
 
-Row Encoding
+Row encoding
 ------------
 
 Encoding is required to allow writing data and defines how table columns in
@@ -318,7 +318,7 @@ The Kafka connector contains the following encoders:
     A `table definition file <#table-definition-files>`__ must be defined
     for the encoder to work.
 
-Raw Encoder
+Raw encoder
 ^^^^^^^^^^^
 
 The raw encoder formats the table columns as raw bytes using the mapping
@@ -449,7 +449,7 @@ decoder will not be able to properly read the value because there is no defined
 padding character. Due to these constraints the encoder fails if the width of
 the inserted value is not equal to the mapping width.
 
-CSV Encoder
+CSV encoder
 ^^^^^^^^^^^
 
 The CSV encoder formats the values for each row as a line of
@@ -514,7 +514,7 @@ Example insert query for the above table definition::
     INSERT INTO example_csv_table (field1, field2, field3)
       VALUES (123456789, 'example text', TRUE);
 
-JSON Encoder
+JSON encoder
 ^^^^^^^^^^^^
 
 The JSON encoder maps table columns to JSON fields defined in the
@@ -633,7 +633,7 @@ Example insert query for the above table definition::
     INSERT INTO example_json_table (field1, field2, field3)
       VALUES (123456789, 'example text', TIMESTAMP '2020-07-15 01:02:03.456');
 
-Avro Encoder
+Avro encoder
 ^^^^^^^^^^^^
 
 The Avro encoder serializes rows to Avro records as defined by the
@@ -747,7 +747,7 @@ Example insert query for the above table definition::
     INSERT INTO example_avro_table (field1, field2, field3)
       VALUES (123456789, 'example text', FALSE);
 
-Row Decoding
+Row decoding
 ------------
 
 For key and message, a decoder is used to map message and key data onto table columns.
@@ -764,7 +764,7 @@ The Kafka connector contains the following decoders:
     If no table definition file exists for a table, the ``dummy`` decoder is used,
     which does not expose any columns.
 
-``raw`` Decoder
+``raw`` decoder
 ^^^^^^^^^^^^^^^
 
 The raw decoder supports reading of raw (byte-based) values from Kafka message
@@ -829,7 +829,7 @@ Length of decoded byte sequence is implied by the ``dataFormat``.
 
 For ``VARCHAR`` data type a sequence of bytes is interpreted according to UTF-8 encoding.
 
-``csv`` Decoder
+``csv`` decoder
 ^^^^^^^^^^^^^^^
 
 The CSV decoder converts the bytes representing a message or key into a
@@ -862,7 +862,7 @@ Table below lists supported Trino types, which can be used in ``type`` and decod
 +-------------------------------------+--------------------------------------------------------------------------------+
 
 
-``json`` Decoder
+``json`` decoder
 ^^^^^^^^^^^^^^^^
 
 The JSON decoder converts the bytes representing a message or key into a
@@ -910,15 +910,15 @@ which can be specified via ``dataFormat`` attribute.
 +-------------------------------------+--------------------------------------------------------------------------------+
 
 
-Default Field decoder
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Default field decoder
+^^^^^^^^^^^^^^^^^^^^^
 
 This is the standard field decoder, supporting all the Trino physical data
 types. A field value is transformed under JSON conversion rules into
 boolean, long, double or string values. For non-date/time based columns,
 this decoder should be used.
 
-Date and Time Decoders
+Date and time decoders
 ^^^^^^^^^^^^^^^^^^^^^^
 
 To convert values from JSON objects into Trino ``DATE``, ``TIME``, ``TIME WITH TIME ZONE``,
@@ -936,7 +936,7 @@ To convert values from JSON objects into Trino ``DATE``, ``TIME``, ``TIME WITH T
 For ``TIMESTAMP WITH TIME ZONE`` and ``TIME WITH TIME ZONE`` data types, if timezone information is present in decoded value, it will
 be used in Trino value. Otherwise result time zone will be set to ``UTC``.
 
-``avro`` Decoder
+``avro`` decoder
 ^^^^^^^^^^^^^^^^
 
 The Avro decoder converts the bytes representing a message or key in

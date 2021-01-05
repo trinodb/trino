@@ -2,7 +2,7 @@
 Release 0.171
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix planning regression for queries that compute a mix of distinct and non-distinct aggregations.
@@ -16,12 +16,12 @@ General Changes
 * Improve validation of resource group configuration.
 * Fail queries when casting unsupported types to JSON; see :doc:`/functions/json` for supported types.
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix the threads UI (``/ui/thread``).
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix issue where some files are not deleted on cancellation of ``INSERT`` or ``CREATE`` queries.

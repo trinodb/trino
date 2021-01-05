@@ -1,5 +1,5 @@
 ==================
-Logging Properties
+Logging properties
 ==================
 
 ``log.path``

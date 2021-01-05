@@ -2,7 +2,7 @@
 Release 0.118
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix planning error for ``UNION`` queries that require implicit coercions.

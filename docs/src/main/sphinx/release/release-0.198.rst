@@ -2,7 +2,7 @@
 Release 0.198
 =============
 
-General Changes
+General changes
 ---------------
 
 * Perform semantic analysis before enqueuing queries.
@@ -34,7 +34,7 @@ General Changes
 * Improve parallelism of queries that have an empty grouping set.
 * Improve performance of join queries involving the :func:`ST_Distance` function.
 
-Resource Groups Changes
+Resource groups changes
 -----------------------
 
 * Query Queues have been removed. Resource Groups are always enabled. The
@@ -42,14 +42,14 @@ Resource Groups Changes
 * Change ``WEIGHTED_FAIR`` scheduling policy to select oldest eligible sub group
   of groups where utilization and share are identical.
 
-CLI Changes
+CLI changes
 -----------
 
 * The ``--enable-authentication`` option has been removed. Kerberos authentication
   is automatically enabled when ``--krb5-remote-service-name`` is specified.
 * Kerberos authentication now requires HTTPS.
 
-Hive Changes
+Hive changes
 ------------
 
 * Add support for using `AWS Glue <https://aws.amazon.com/glue/>`_ as the metastore.
@@ -57,12 +57,12 @@ Hive Changes
 * Fix a bug in the ORC writer that will write incorrect data of type ``VARCHAR`` or ``VARBINARY``
   into files.
 
-JMX Changes
+JMX changes
 -----------
 
 * Add wildcard character ``*`` which allows querying several MBeans with a single query.
 
-SPI Changes
+SPI changes
 -----------
 
 * Add performance statistics to query plan in ``QueryCompletedEvent``.

@@ -1,5 +1,5 @@
 ===============
-Pinot Connector
+Pinot connector
 ===============
 
 The Pinot connector allows Trino to query data stored in
@@ -24,7 +24,7 @@ e.g. ``etc/catalog/pinot.properties`` with at least the following contents:
 Replace ``host1:9000,host2:9000`` with a comma-separated list of Pinot Controller nodes.
 This can be the ip or the FDQN, the url scheme (``http://``) is optional.
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -42,8 +42,8 @@ Property Name                  Required   Description
                                           resolution is slow.
 ============================== ========== ==============================================================================
 
-Querying Pinot Tables
--------------------------
+Querying Pinot tables
+---------------------
 
 The Pinot connector automatically exposes all tables in the default schema of the catalog.
 You can list all tables in the pinot catalog with the following query::
@@ -62,7 +62,7 @@ Queries written with SQL are fully supported and can include filters and limits:
     WHERE bar = 3 AND baz IN ('ONE', 'TWO', 'THREE')
     LIMIT 25000;
 
-Dynamic Tables
+Dynamic tables
 --------------
 
 To leverage Pinot's fast aggregation, a Pinot query written in PQL can be used as the table name.

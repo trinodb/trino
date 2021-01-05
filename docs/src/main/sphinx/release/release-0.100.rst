@@ -2,7 +2,7 @@
 Release 0.100
 =============
 
-System Connector
+System connector
 ----------------
 
 The :doc:`/connector/system` now works like other connectors: global system
@@ -11,7 +11,7 @@ schema that is available in every catalog. Additionally, connectors may now
 provide system tables that are available within that connector's catalog by
 implementing the ``getSystemTables()`` method on the ``Connector`` interface.
 
-General Changes
+General changes
 ---------------
 
 * Fix ``%f`` specifier in :func:`date_format` and :func:`date_parse`.

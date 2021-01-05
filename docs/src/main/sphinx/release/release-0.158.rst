@@ -2,7 +2,7 @@
 Release 0.158
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix regression that could cause high CPU and heap usage on coordinator
@@ -21,7 +21,7 @@ General Changes
   the ``experimental.spill-enabled`` configuration flag.
 * Push down predicates for ``DECIMAL``, ``TINYINT``, ``SMALLINT`` and ``REAL`` data types.
 
-Hive Changes
+Hive changes
 ------------
 
 * Add hidden ``$bucket`` column for bucketed tables that
@@ -30,7 +30,7 @@ Hive Changes
 * Add configurable size limit to Hive metastore cache to avoid using too much
   coordinator memory.
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 * Allow starting the server even if a contact point hostname cannot be resolved.

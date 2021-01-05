@@ -1,5 +1,5 @@
 ==================
-BigQuery Connector
+BigQuery connector
 ==================
 
 The BigQuery connector allows querying the data stored in `BigQuery
@@ -8,7 +8,7 @@ different systems like BigQuery and Hive. The connector uses the `BigQuery
 Storage API <https://cloud.google.com/bigquery/docs/reference/storage/>`_ to
 read the data from the tables.
 
-Beta Disclaimer
+Beta disclaimer
 ---------------
 
 The BigQuery Storage API and this connector are in Beta and are subject to change.
@@ -78,7 +78,7 @@ your setup:
     connector.name=bigquery
     bigquery.project-id=<your Google Cloud Platform project id>
 
-Multiple GCP Projects
+Multiple GCP projects
 ^^^^^^^^^^^^^^^^^^^^^
 
 The BigQuery connector can only access a single GCP project.Thus, if you have
@@ -89,7 +89,7 @@ one for the sales and one for analytics, you can create two properties files in
 having ``connector.name=bigquery`` but with different ``project-id``. This will
 create the two catalogs, ``sales`` and ``analytics`` respectively.
 
-Configuring Partitioning
+Configuring partitioning
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 By default the connector creates one partition per 400MB in the table being
@@ -98,7 +98,7 @@ of readers supported by the BigQuery Storage API. This can be configured
 explicitly with the ``bigquery.parallelism`` property. BigQuery may limit the
 number of partitions based on server constraints.
 
-Reading From Views
+Reading from views
 ^^^^^^^^^^^^^^^^^^
 
 The connector has a preliminary support for reading from `BigQuery views
@@ -117,7 +117,7 @@ a few caveats:
 * Reading from views is disabled by default. In order to enable it, set the
   ``bigquery.views-enabled`` configuration property to ``true``.
 
-Configuration Properties
+Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 All configuration properties are optional.
@@ -138,7 +138,7 @@ Property                                  Description                           
 ``bigquery.credentials-file``             The path to the JSON credentials file                          None. See `authentication <#authentication>`_
 ========================================= ============================================================== ==============================================
 
-Data Types
+Data types
 ----------
 
 With a few exceptions, all BigQuery types are mapped directly to their Trino

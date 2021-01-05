@@ -1,5 +1,5 @@
 =======================
-Google Sheets Connector
+Google Sheets connector
 =======================
 
 The Google Sheets connector allows reading `Google Sheets <https://www.google.com/sheets/about/>`_ spreadsheets as tables in Trino.
@@ -17,7 +17,7 @@ replacing the properties as appropriate:
     credentials-path=/path/to/google-sheets-credentials.json
     metadata-sheet-id=exampleId
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -51,7 +51,7 @@ The key file needs to be available on the Trino coordinator and workers.
 Set the ``credentials-path`` configuration property to point to this file.
 The exact name of the file does not matter -- it can be named anything.
 
-Metadata Sheet
+Metadata sheet
 --------------
 
 The metadata sheet is used to map table names to sheet IDs.
@@ -72,7 +72,7 @@ button to share the sheet with the email address of the service account.
 
 Set the ``metadata-sheet-id`` configuration property to the ID of this sheet.
 
-Querying Sheets
+Querying sheets
 ---------------
 
 The service account user must have access to the sheet in order for Trino
@@ -85,7 +85,7 @@ to a specific tab in the sheet, add the tab name after the sheet ID, separated
 with ``#``. If tab name is not provided, connector loads only 10,000 rows by default from
 the first tab in the sheet.
 
-API Usage Limits
+API usage limits
 ----------------
 
 The Google Sheets API has `usage limits <https://developers.google.com/sheets/api/limits>`_,

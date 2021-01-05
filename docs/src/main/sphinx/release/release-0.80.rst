@@ -2,7 +2,7 @@
 Release 0.80
 ============
 
-New Hive ORC Reader
+New Hive ORC reader
 -------------------
 
 We have added a new ORC reader implementation. The new reader supports vectorized
@@ -15,20 +15,20 @@ disable the new reader on a per-query basis by setting the
 the reader by default by setting the Hive catalog property
 ``hive.optimized-reader.enabled=false``.
 
-Hive Changes
+Hive changes
 ------------
 
 * The maximum retry time for the Hive S3 file system can be configured
   by setting ``hive.s3.max-retry-time``.
 * Fix Hive partition pruning for null keys (i.e. ``__HIVE_DEFAULT_PARTITION__``).
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 * Update Cassandra driver to 2.1.0.
 * Map Cassandra ``TIMESTAMP`` type to Presto ``TIMESTAMP`` type.
 
-"Big Query" Support
+"Big Query" support
 -------------------
 
 We've added experimental support for "big" queries. This provides a separate
@@ -45,7 +45,7 @@ the ``experimental_big_query`` session property:
 
 Queries submitted with this property will use hash distribution for all joins.
 
-Metadata-Only Query Optimization
+Metadata-only query optimization
 --------------------------------
 
 We now support an optimization that rewrites aggregation queries that are insensitive to the
@@ -77,7 +77,7 @@ to the coordinator config properties.
       Hive connector will produce incorrect results if your Hive warehouse
       contains partitions without data.
 
-General Changes
+General changes
 ---------------
 
 * Add support implicit joins. The following syntax is now allowed::

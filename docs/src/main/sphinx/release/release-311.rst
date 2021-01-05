@@ -2,7 +2,7 @@
 Release 311 (14 May 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect results for aggregation query that contains a ``HAVING`` clause but no
@@ -14,25 +14,25 @@ General Changes
 * Print cost metrics using appropriate units in the output of ``EXPLAIN``. (:issue:`68`)
 * Add :func:`combinations` function. (:issue:`714`)
 
-Hive Connector Changes
+Hive connector changes
 ------------------------
 
 * Add support for static AWS credentials for the Glue metastore. (:issue:`748`)
 
-Cassandra Connector Changes
+Cassandra connector changes
 ---------------------------
 
 * Support collections nested in other collections. (:issue:`657`)
 * Automatically discover the Cassandra protocol version when the previously required
   ``cassandra.protocol-version`` configuration property is not set. (:issue:`596`)
 
-Black Hole Connector Changes
+Black Hole connector changes
 ----------------------------
 
 * Fix rendering of tables and columns in plans. (:issue:`728`)
 * Add table and column statistics. (:issue:`728`)
 
-System Connector Changes
+System connector changes
 ------------------------
 
 * Add ``system.metadata.table_comments`` table that contains table comments. (:issue:`531`)

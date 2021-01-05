@@ -1,5 +1,5 @@
 ===================
-Exchange Properties
+Exchange properties
 ===================
 
 Exchanges transfer data between Trino nodes for different stages of

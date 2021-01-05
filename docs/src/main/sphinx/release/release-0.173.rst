@@ -2,7 +2,7 @@
 Release 0.173
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix issue where ``FILTER`` was ignored for :func:`count` with a constant argument.

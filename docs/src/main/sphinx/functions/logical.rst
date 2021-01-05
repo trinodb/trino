@@ -1,10 +1,10 @@
 .. _logical_operators:
 
 =================
-Logical Operators
+Logical operators
 =================
 
-Logical Operators
+Logical operators
 -----------------
 
 ======== ============================ =======
@@ -15,7 +15,7 @@ Operator Description                  Example
 ``NOT``  True if the value is false   NOT a
 ======== ============================ =======
 
-Effect of NULL on Logical Operators
+Effect of NULL on logical operators
 -----------------------------------
 
 The result of an ``AND`` comparison may be ``NULL`` if one or both

@@ -1,5 +1,5 @@
 ================
-MemSQL Connector
+MemSQL connector
 ================
 
 The MemSQL connector allows querying and creating tables in an external
@@ -22,7 +22,7 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
-Multiple MemSQL Servers
+Multiple MemSQL servers
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional

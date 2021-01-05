@@ -2,7 +2,7 @@
 Release 0.104
 =============
 
-General Changes
+General changes
 ---------------
 
 * Handle thread interruption in StatementClient.
@@ -22,7 +22,7 @@ General Changes
 * Support ``TIMESTAMP`` for :func:`first_value`, :func:`last_value`,
   :func:`nth_value`, :func:`lead` and :func:`lag`.
 
-Hive Changes
+Hive changes
 ------------
 
 * Upgrade to Parquet 1.6.0.

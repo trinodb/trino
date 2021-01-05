@@ -1,5 +1,5 @@
 ================
-Distributed Sort
+Distributed sort
 ================
 
 Distributed sort allows to sort data, which exceeds ``query.max-memory-per-node``.

@@ -1,5 +1,5 @@
 ===================
-Migrating From Hive
+Migrating from Hive
 ===================
 
 Trino uses ANSI SQL syntax and semantics, whereas Hive uses a SQL-like language called HiveQL which is loosely modeled after MySQL (which itself has many differences from ANSI SQL).

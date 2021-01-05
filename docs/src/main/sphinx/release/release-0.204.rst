@@ -2,7 +2,7 @@
 Release 0.204
 =============
 
-General Changes
+General changes
 ---------------
 
 * Use distributed join if one side is naturally partitioned on join keys.
@@ -18,23 +18,23 @@ General Changes
   The missing positions are filled with ``NULL``.
 * Track execution statistics of ``AddExchanges`` and ``PredicatePushdown`` optimizer rules.
 
-Event Listener Changes
+Event listener changes
 ----------------------
 
 * Add resource estimates to query events.
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix kill query button.
 * Display resource estimates in Web UI query details page.
 
-Resource Group Changes
+Resource group changes
 ----------------------
 
 * Fix unnecessary queuing in deployments where no resource group configuration was specified.
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix over-estimation of memory usage for scan operators when reading ORC files.
@@ -46,7 +46,7 @@ Hive Connector Changes
   highly compressed, dictionary encoded columns.
 * Enable optimized Parquet reader and predicate pushdown by default.
 
-Cassandra Connector Changes
+Cassandra connector changes
 ---------------------------
 
 * Add support for reading from materialized views.

@@ -2,7 +2,7 @@
 Release 0.197
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix query scheduling hang when the ``concurrent_lifespans_per_task`` session property is set.
@@ -19,7 +19,7 @@ General Changes
 * Add :func:`ST_IsSimple` geospatial function.
 * Add support for broadcast spatial joins.
 
-Resource Groups Changes
+Resource groups changes
 -----------------------
 
 * Change configuration check for weights in resource group policy to validate that
@@ -28,7 +28,7 @@ Resource Groups Changes
   used to parameterize resource group names.
 * Add support for optional fields in DB resource group exact match selectors.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix reading of Hive partition statistics with unset fields. Previously, unset fields
@@ -46,12 +46,12 @@ Hive Changes
 * Use the view owner returned from the metastore at the time of the query rather than
   always using the user who created the view. This allows changing the owner of a view.
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix hang when CLI fails to communicate with Presto server.
 
-SPI Changes
+SPI changes
 -----------
 
 * Include connector session properties for the connector metadata calls made

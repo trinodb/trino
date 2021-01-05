@@ -2,7 +2,7 @@
 Release 0.130
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix a performance regression in ``GROUP BY`` and ``JOIN`` queries when the

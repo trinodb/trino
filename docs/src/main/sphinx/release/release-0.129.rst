@@ -8,7 +8,7 @@ Release 0.129
    queries when the length of the keys is between 16 and 31 bytes. This is fixed
    in :doc:`/release/release-0.130`.
 
-General Changes
+General changes
 ---------------
 
 * Fix a planner issue that could cause queries involving ``OUTER JOIN`` to
@@ -28,7 +28,7 @@ General Changes
   structure that trades off accuracy and memory requirements when handling small sets for an
   improvement in performance.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Throw exception when using :doc:`/sql/set-session` or :doc:`/sql/reset-session`
@@ -37,20 +37,20 @@ JDBC Driver Changes
   The ``Statement`` interface supports all variants of the ``execute`` methods.
   It also supports the ``getUpdateCount`` and ``getLargeUpdateCount`` methods.
 
-CLI Changes
+CLI changes
 -----------
 
 * Always clear screen when canceling query with ``ctrl-C``.
 * Make client request timeout configurable.
 
-Network Topology Aware Scheduling
+Network topology aware scheduling
 ---------------------------------
 
 The scheduler can now be configured to take network topology into account when
 scheduling splits. This is set using the ``node-scheduler.network-topology``
 config. See :doc:`/admin/tuning` for more information.
 
-Hive Changes
+Hive changes
 ------------
 
 * The S3 region is no longer automatically configured when running in EC2.

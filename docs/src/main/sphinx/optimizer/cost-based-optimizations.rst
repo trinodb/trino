@@ -4,7 +4,7 @@ Cost based optimizations
 
 Trino supports several cost based optimizations, described below.
 
-Join Enumeration
+Join enumeration
 ----------------
 
 The order in which joins are executed in a query can have a significant impact
@@ -33,7 +33,7 @@ If using ``AUTOMATIC`` and statistics are not available, or if for any other
 reason a cost could not be computed, the ``ELIMINATE_CROSS_JOINS`` strategy is
 used instead.
 
-Join Distribution Selection
+Join distribution selection
 ---------------------------
 
 Trino uses a hash based join algorithm. That implies that for each join
@@ -82,7 +82,7 @@ This allows to improve cluster concurrency and to prevent bad plans when CBO mis
 
 By default replicated table size is capped to 100MB.
 
-Connector Implementations
+Connector implementations
 -------------------------
 
 In order for the Trino optimizer to use the cost based strategies,

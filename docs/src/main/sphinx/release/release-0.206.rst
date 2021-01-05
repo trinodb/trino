@@ -2,7 +2,7 @@
 Release 0.206
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix execution failure for certain queries containing a join followed by an aggregation
@@ -36,13 +36,13 @@ General Changes
   In addition, the new semantics are not yet stable as more breaking changes are planned,
   particularly around the ``TIME WITH TIME ZONE`` type.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Add ``applicationNamePrefix`` parameter, which is combined with
   the ``ApplicationName`` property to construct the client source name.
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Reduce ORC reader memory usage by reducing unnecessarily large internal buffers.

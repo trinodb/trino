@@ -1,5 +1,5 @@
 ==============
-Event Listener
+Event listener
 ==============
 
 Trino supports custom event listeners that are invoked for the following
@@ -47,7 +47,7 @@ Example configuration file:
     custom-property1=custom-value1
     custom-property2=custom-value2
 
-Multiple Event Listeners
+Multiple event listeners
 ------------------------
 
 Multiple instances of the same, or different event listeners can be

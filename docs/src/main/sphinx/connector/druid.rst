@@ -1,5 +1,5 @@
 ===============
-Druid Connector
+Druid connector
 ===============
 
 The Druid connector allows querying an `Apache Druid <https://druid.apache.org/>`_

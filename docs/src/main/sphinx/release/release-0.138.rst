@@ -2,13 +2,13 @@
 Release 0.138
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix planning bug with ``NULL`` literal coercions.
 * Reduce query startup time by reducing lock contention in scheduler.
 
-New Hive Parquet Reader
+New Hive Parquet reader
 -----------------------
 
 We have added a new Parquet reader implementation. The new reader supports vectorized

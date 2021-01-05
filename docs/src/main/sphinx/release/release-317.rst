@@ -2,7 +2,7 @@
 Release 317 (1 Aug 2019)
 ========================
 
-General Changes
+General changes
 ---------------
 
 * Fix :func:`url_extract_parameter` when the query string contains an encoded ``&`` or ``=`` character.
@@ -14,13 +14,13 @@ General Changes
 * Allow overriding session time zone for clients via the
   ``sql.forced-session-time-zone`` configuration property. (:issue:`1164`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix tooltip visibility on stage performance details page. (:issue:`1113`)
 * Add planning time to query details page. (:issue:`1115`)
 
-Security Changes
+Security changes
 ----------------
 
 * Allow schema owner to create, drop, and rename schema when using file-based
@@ -32,17 +32,17 @@ Security Changes
   configuration property, as the header should only be used when the Presto
   coordinator is behind a proxy. (:issue:`1033`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Fix ``DatabaseMetaData.getURL()`` to include the ``jdbc:`` prefix. (:issue:`1211`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Add support for nested fields. (:issue:`1001`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix bucketing version safety check to correctly disallow writes
@@ -51,22 +51,22 @@ Hive Connector Changes
 * Improve performance of file listings in ``system.sync_partition_metadata`` procedure,
   especially for S3. (:issue:`1093`)
 
-Kudu Connector Changes
+Kudu connector changes
 ----------------------
 
 * Update Kudu client library version to ``1.10.0``. (:issue:`1086`)
 
-MongoDB Connector Changes
+MongoDB connector changes
 -------------------------
 
 * Allow passwords to contain the ``:`` or ``@`` characters. (:issue:`1094`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Add support for reading ``hstore`` data type. (:issue:`1101`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Allow delete to be implemented for non-legacy connectors. (:issue:`1015`)

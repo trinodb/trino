@@ -1,5 +1,5 @@
 ===============
-MySQL Connector
+MySQL connector
 ===============
 
 The MySQL connector allows querying and creating tables in an external
@@ -22,7 +22,7 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
-Multiple MySQL Servers
+Multiple MySQL servers
 ^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
@@ -31,7 +31,7 @@ with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
-Decimal Type Handling
+Decimal type handling
 ---------------------
 
 ``DECIMAL`` types with precision larger than 38 can be mapped to a Trino ``DECIMAL``

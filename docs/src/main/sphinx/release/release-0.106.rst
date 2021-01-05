@@ -2,7 +2,7 @@
 Release 0.106
 =============
 
-General Changes
+General changes
 ---------------
 
 * Parallelize startup of table scan task splits.

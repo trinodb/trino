@@ -1,10 +1,10 @@
 ==================================
-Comparison Functions and Operators
+Comparison functions and operators
 ==================================
 
 .. _comparison_operators:
 
-Comparison Operators
+Comparison operators
 --------------------
 
 ======== ===========
@@ -21,7 +21,7 @@ Operator Description
 
 .. _range_operator:
 
-Range Operator: BETWEEN
+Range operator: BETWEEN
 -----------------------
 
 The ``BETWEEN`` operator tests if a value is within a specified range.
@@ -136,7 +136,7 @@ The following types are supported:
 
 .. _quantified_comparison_predicates:
 
-Quantified Comparison Predicates: ALL, ANY and SOME
+Quantified comparison predicates: ALL, ANY and SOME
 ---------------------------------------------------
 
 The ``ALL``, ``ANY`` and ``SOME`` quantifiers can be used together with comparison operators in the
@@ -171,7 +171,7 @@ Expression              Meaning
 
 .. _like_operator:
 
-Pattern Comparison: LIKE
+Pattern comparison: LIKE
 ------------------------
 
 The ``LIKE`` operator can be used to compare values with a pattern::

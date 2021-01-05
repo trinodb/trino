@@ -1,5 +1,5 @@
 ====================
-Geospatial Functions
+Geospatial functions
 ====================
 
 Trino Geospatial functions that begin with the ``ST_`` prefix support the SQL/MM specification
@@ -111,7 +111,7 @@ Constructors
 
     Converts a SphericalGeography object to a Geometry object.
 
-Relationship Tests
+Relationship tests
 ------------------
 
 .. function:: ST_Contains(Geometry, Geometry) -> boolean
@@ -417,7 +417,7 @@ Aggregations
 
     Returns a geometry that represents the point set union of all input geometries.
 
-Bing Tiles
+Bing tiles
 ----------
 
 These functions convert between geometries and
@@ -471,7 +471,7 @@ These functions convert between geometries and
     Returns the minimum set of Bing tiles that fully covers a given geometry at
     a given zoom level. Zoom levels from 1 to 23 are supported.
 
-Encoded Polylines
+Encoded polylines
 -----------------
 
 These functions convert between geometries and

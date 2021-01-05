@@ -2,7 +2,7 @@
 Release 0.152.1
 ===============
 
-General Changes
+General changes
 ---------------
 
 * Fix race which could cause failed queries to have no error details.

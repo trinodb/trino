@@ -2,12 +2,12 @@
 Release 0.159
 =============
 
-General Changes
+General changes
 ---------------
 
 * Improve predicate performance for ``JOIN`` queries.
 
-Hive Changes
+Hive changes
 ------------
 
 * Optimize filtering of partition names to reduce object creation.

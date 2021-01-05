@@ -2,7 +2,7 @@
 Release 0.153
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect results for grouping sets when ``task.concurrency`` is greater than one.
@@ -36,7 +36,7 @@ General Changes
 * Allow running Presto with early-access Java versions.
 * Add :doc:`/connector/accumulo`.
 
-Functions and Language Features
+Functions and language features
 -------------------------------
 
 * Allow subqueries in non-equality outer join criteria.
@@ -50,7 +50,7 @@ Functions and Language Features
   :func:`truncate`, :func:`abs`, :func:`mod` and :func:`sign`.
 * Add :func:`shuffle` function for arrays.
 
-Pluggable Resource Groups
+Pluggable resource groups
 -------------------------
 
 Resource group management is now pluggable. A ``Plugin`` can
@@ -60,7 +60,7 @@ configuration file by setting the ``resource-groups.configuration-manager``
 property. See the ``presto-resource-group-managers`` plugin for an example
 and :doc:`/admin/resource-groups` for more details.
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix rendering failures due to null nested data structures.
@@ -70,17 +70,17 @@ Web UI Changes
 * Add option to filter task lists by status on query details page.
 * Add copy button for query text, query ID, and user to query details page.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Add support for ``real`` data type, which corresponds to the Java ``float`` type.
 
-CLI Changes
+CLI changes
 -----------
 
 * Add support for configuring the HTTPS Truststore.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix permissions for new tables when using SQL-standard authorization.
@@ -117,30 +117,30 @@ Hive Changes
 * Allow configuring a custom S3 encryption materials provider using the
   ``hive.s3.encryption-materials-provider`` configuration property.
 
-JMX Changes
+JMX changes
 -----------
 
 * Make name configuration for history tables case-insensitive.
 
-MySQL Changes
+MySQL changes
 -------------
 
 * Optimize fetching column names when describing a single table.
 * Add support for ``char(x)`` and ``real`` data types.
 
-PostgreSQL Changes
+PostgreSQL changes
 ------------------
 
 * Optimize fetching column names when describing a single table.
 * Add support for ``char(x)`` and ``real`` data types.
 * Add support for querying materialized views.
 
-Blackhole Changes
+Blackhole changes
 -----------------
 
 * Add ``page_processing_delay`` table property.
 
-SPI Changes
+SPI changes
 -----------
 
 * Add ``schemaExists()`` method to ``ConnectorMetadata``.

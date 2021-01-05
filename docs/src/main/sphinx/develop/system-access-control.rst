@@ -1,5 +1,5 @@
 =====================
-System Access Control
+System access control
 =====================
 
 Trino separates the concept of the principal who authenticates to the

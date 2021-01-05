@@ -1,5 +1,5 @@
 ============
-SPI Overview
+SPI overview
 ============
 
 When you implement a new Trino plugin, you implement interfaces and
@@ -16,7 +16,7 @@ Code
 The SPI source can be found in the ``trino-spi`` directory in the
 root of the Trino source tree.
 
-Plugin Metadata
+Plugin metadata
 ---------------
 
 Each plugin identifies an entry point: an implementation of the
@@ -49,7 +49,7 @@ is ready to create an instance of a connector to back a catalog. There are simil
 methods for ``Type``, ``ParametricType``, ``Function``, ``SystemAccessControl``, and
 ``EventListenerFactory`` objects.
 
-Building Plugins via Maven
+Building plugins via Maven
 --------------------------
 
 Plugins depend on the SPI from Trino:
@@ -79,7 +79,7 @@ of a library that Trino uses internally.
 For an example ``pom.xml`` file, see the example HTTP connector in the
 ``trino-example-http`` directory in the root of the Trino source tree.
 
-Deploying a Custom Plugin
+Deploying a custom plugin
 -------------------------
 
 In order to add a custom plugin to a Trino installation, create a directory

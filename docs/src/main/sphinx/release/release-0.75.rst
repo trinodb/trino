@@ -2,7 +2,7 @@
 Release 0.75
 ============
 
-Hive Changes
+Hive changes
 ------------
 
 * The Hive S3 file system has a new configuration option,
@@ -13,7 +13,7 @@ Hive Changes
   is not enabled. To enable it, set ``hive.allow-rename-table=true`` in
   your Hive catalog properties file.
 
-General Changes
+General changes
 ---------------
 
 * Optimize :func:`count` with a constant to execute as the much faster ``count(*)``
@@ -31,7 +31,7 @@ General Changes
 * Add basic support for inserting data using the :doc:`/sql/insert` statement.
   This is currently only supported for the Raptor connector.
 
-JSON Function Changes
+JSON function changes
 ---------------------
 
 The :func:`json_extract` and :func:`json_extract_scalar` functions now support
@@ -46,7 +46,7 @@ Additionally, colons cannot be used in a un-quoted bracketed path segment.
 Use the new bracket syntax with quotes to match elements that contain
 special characters.
 
-Scheduler Changes
+Scheduler changes
 -----------------
 
 The scheduler now assigns splits to a node based on the current load on the node across all queries.
@@ -55,7 +55,7 @@ Previously, the scheduler load balanced splits across nodes on a per query level
 when the node already has the maximum allowable splits, every task can schedule at most
 ``node-scheduler.max-pending-splits-per-node-per-task`` splits on the node.
 
-Row Number Optimizations
+Row number optimizations
 ------------------------
 
 Queries that use the :func:`row_number` function are substantially faster
@@ -85,7 +85,7 @@ from ``orders`` for each ``orderstatus``::
 Use the :doc:`/sql/explain` statement to see if any of these optimizations
 have been applied to your query.
 
-SPI Changes
+SPI changes
 -----------
 
 The core Presto engine no longer automatically adds a column for ``count(*)``

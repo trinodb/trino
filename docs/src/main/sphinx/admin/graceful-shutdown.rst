@@ -1,5 +1,5 @@
 =================
-Graceful Shutdown
+Graceful shutdown
 =================
 
 Trino has a graceful shutdown API that can be used exclusively on workers in
@@ -27,7 +27,7 @@ Keep the following aspects in mind:
   then the user in the HTTP request must have read and write permissions in
   the system information rules.
 
-Shutdown Behavior
+Shutdown behavior
 -----------------
 
 Once the API is called, the worker performs the following steps:

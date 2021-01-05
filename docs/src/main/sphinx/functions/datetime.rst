@@ -1,10 +1,10 @@
 =====================================
-Date and Time Functions and Operators
+Date and time functions and operators
 =====================================
 
 These functions and operators operate on :ref:`date and time data types <date-time-data-types>`.
 
-Date and Time Operators
+Date and time operators
 -----------------------
 
 ======== ===================================================== ===========================
@@ -26,7 +26,7 @@ Operator Example                                               Result
 
 .. _at_time_zone_operator:
 
-Time Zone Conversion
+Time zone conversion
 --------------------
 
 The ``AT TIME ZONE`` operator sets the time zone of a timestamp::
@@ -37,7 +37,7 @@ The ``AT TIME ZONE`` operator sets the time zone of a timestamp::
     SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles';
     -- 2012-10-30 18:00:00.000 America/Los_Angeles
 
-Date and Time Functions
+Date and time functions
 -----------------------
 
 .. data:: current_date
@@ -198,7 +198,7 @@ Date and Time Functions
     - ``localtime``
     - ``localtimestamp``
 
-Truncation Function
+Truncation function
 -------------------
 
 The ``date_trunc`` function supports the following units:
@@ -224,7 +224,7 @@ The above examples use the timestamp ``2001-08-22 03:04:05.321`` as the input.
 
 .. _datetime-interval-functions:
 
-Interval Functions
+Interval functions
 ------------------
 
 The functions in this section support the following interval units:
@@ -276,7 +276,7 @@ Unit              Description
         SELECT date_diff('millisecond', TIMESTAMP '2020-06-01 12:30:45.000000000', TIMESTAMP '2020-06-02 12:30:45.123456789');
         -- 86400123
 
-Duration Function
+Duration function
 -----------------
 
 The ``parse_duration`` function supports the following units:
@@ -317,7 +317,7 @@ Unit    Description
         SELECT human_readable_seconds(61);
         -- 1 minute, 1 second
 
-MySQL Date Functions
+MySQL date functions
 --------------------
 
 The functions in this section use a format string that is compatible with
@@ -377,7 +377,7 @@ Specifier Description
 
     Parses ``string`` into a timestamp using ``format``.
 
-Java Date Functions
+Java date functions
 -------------------
 
 The functions in this section use a format string that is compatible with
@@ -393,7 +393,7 @@ JodaTime's `DateTimeFormat`_ pattern format.
 
     Parses ``string`` into a timestamp with time zone using ``format``.
 
-Extraction Function
+Extraction function
 -------------------
 
 The ``extract`` function supports the following fields:
@@ -429,7 +429,7 @@ field to be extracted. Most fields support all date and time types.
 
     .. note:: This SQL-standard function uses special syntax for specifying the arguments.
 
-Convenience Extraction Functions
+Convenience extraction functions
 --------------------------------
 
 .. function:: day(x) -> bigint

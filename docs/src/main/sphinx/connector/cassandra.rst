@@ -1,5 +1,5 @@
 ===================
-Cassandra Connector
+Cassandra connector
 ===================
 
 The Cassandra connector allows querying data stored in
@@ -26,7 +26,7 @@ nodes, used to discovery the cluster topology:
 You also need to set ``cassandra.native-protocol-port``, if your
 Cassandra nodes are not using the default port 9042.
 
-Multiple Cassandra Clusters
+Multiple Cassandra clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
@@ -35,7 +35,7 @@ with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -158,7 +158,7 @@ Property Name                                                 Description
 ``cassandra.tls.truststore-password``                         Password for the trust store.
 ============================================================= ======================================================================
 
-Querying Cassandra Tables
+Querying Cassandra tables
 -------------------------
 
 The ``users`` table is an example Cassandra table from the Cassandra

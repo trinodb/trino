@@ -2,7 +2,7 @@
 Release 0.144.7
 ===============
 
-General Changes
+General changes
 ---------------
 
 * Fail queries with non-equi conjuncts in ``OUTER JOIN``\s, instead of silently

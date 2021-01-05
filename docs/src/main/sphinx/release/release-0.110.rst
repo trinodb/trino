@@ -2,7 +2,7 @@
 Release 0.110
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix result truncation bug in window function :func:`row_number` when performing a

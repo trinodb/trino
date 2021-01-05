@@ -1,5 +1,5 @@
 ============
-User Mapping
+User mapping
 ============
 
 User mapping defines rules for mapping from users in the authentication system to Trino users.  This
@@ -9,7 +9,7 @@ are complex like ``alice@example`` or ``CN=Alice Smith, OU=Finance, O=Acme, C=US
 User mapping can be configured with a simple regex extraction pattern, or more complex rules in a
 separate configuration file.
 
-Pattern Mapping Rule
+Pattern mapping rule
 --------------------
 
 The pattern mapping rule maps the authentication user to the first matching group in the regular
@@ -29,7 +29,7 @@ Json Web Token                        ``http-server.authentication.jwt.user-mapp
 Insecure                              ``http-server.authentication.insecure.user-mapping.pattern``
 ===================================== ===============================================================
 
-File Mapping Rules
+File mapping rules
 ------------------
 
 The file mapping rules allow for more complex mappings from the authentication user.  These rules are

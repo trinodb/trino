@@ -2,12 +2,12 @@
 Release 0.83
 ============
 
-Raptor Changes
+Raptor changes
 --------------
 * Raptor now enables specifying the backup storage location. This feature is highly experimental.
 * Fix the handling of shards not assigned to any node.
 
-General Changes
+General changes
 ---------------
 
 * Fix resource leak in query queues.

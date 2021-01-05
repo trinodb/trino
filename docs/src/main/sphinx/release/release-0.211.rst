@@ -2,7 +2,7 @@
 Release 0.211
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix missing final query plan in ``QueryCompletedEvent``. Statistics and cost estimates
@@ -23,7 +23,7 @@ General Changes
   to automate the setting of session properties based on query characteristics.
 * Allow running on a JVM from any vendor that meets the functional requirements.
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix regression in 0.210 that causes query failure when writing ORC or DWRF files
@@ -33,12 +33,12 @@ Hive Connector Changes
 * Fix coordinator OOM when a query scans many partitions of a Hive table (:issue:`x11322`).
 * Improve readability of columns, partitioning, and transactions in explain plains.
 
-Thrift Connector Changes
+Thrift connector changes
 ------------------------
 
 * Fix lack of retry for network errors while sending requests.
 
-Resource Group Changes
+Resource group changes
 ----------------------
 
 * Add documentation for new resource group scheduling policies.
@@ -47,7 +47,7 @@ Resource Group Changes
   :doc:`file based property manager </admin/session-property-managers>`
   to set session properties.
 
-SPI Changes
+SPI changes
 -----------
 
 * Clarify semantics of ``predicate`` in ``ConnectorTableLayout``.

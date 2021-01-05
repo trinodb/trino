@@ -28,7 +28,7 @@ any query. This can be restricted by using :ref:`query rules <query_rules>` with
 :doc:`/security/built-in-system-access-control`. Users always have permission to view
 or kill their own queries.
 
-Password Authentication
+Password authentication
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Typically, a :doc:`password authenticator </develop/password-authenticator>`
@@ -38,7 +38,7 @@ is configured to use a password authenticator, the Web UI authentication type
 is automatically set to ``form``. The Web UI will display a login form that accepts
 a username and password.
 
-Fixed User Authentication
+Fixed user authentication
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you require the Web UI to be accessible without authentication, you can set a fixed
@@ -47,7 +47,7 @@ username that will be used for all Web UI access by setting the authentication t
 If there is a system access control installed, this user must have permission to view
 (and possibly to kill) queries.
 
-Other Authentication Types
+Other authentication types
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The following Web UI authentication types are also supported:
@@ -60,7 +60,7 @@ For these authentication types, the username is defined by :doc:`/security/user-
 
 .. _web-ui-overview:
 
-User Interface Overview
+User interface overview
 -----------------------
 
 The main page has a list of queries along with information like unique query ID, query text,

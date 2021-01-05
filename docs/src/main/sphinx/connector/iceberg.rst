@@ -1,5 +1,5 @@
 =================
-Iceberg Connector
+Iceberg connector
 =================
 
 Overview
@@ -40,7 +40,7 @@ At a minimum, ``hive.metastore.uri`` must be configured:
     connector.name=iceberg
     hive.metastore.uri=thrift://localhost:9083
 
-Partitioned Tables
+Partitioned tables
 ------------------
 
 Iceberg supports partitioning by specifying transforms over the table columns.
@@ -79,7 +79,7 @@ In this example, the table is partitioned by month and further divided into 10 b
         customer VARCHAR)
     WITH (partitioning = ARRAY['month(order_date)', 'bucket(account_number, 10)'])
 
-Deletion by Partition
+Deletion by partition
 ---------------------
 
 For partitioned tables, the Iceberg connector supports the deletion of entire
@@ -97,7 +97,7 @@ in the partition::
     DELETE FROM iceberg.testdb.sample_partitioned
     WHERE date_trunc(month, order_date) = date_trunc(month, DATE '2018-06-01') AND customer = 'Freds Foods'
 
-Rolling Back to a Previous Snapshot
+Rolling back to a previous snapshot
 -----------------------------------
 
 Iceberg supports a "snapshot" model of data, where table snapshots are
@@ -114,7 +114,7 @@ the state of the table to a previous snapshot id::
 
     CALL system.rollback_to_snapshot(schema_name, table_name, snapshot_id)
 
-Schema Evolution
+Schema evolution
 ----------------
 
 Iceberg and the Iceberg connector support schema evolution, with safe
@@ -122,21 +122,21 @@ column add, drop, reorder and rename operations, including in nested structures.
 Table partitioning can also be changed and the connector can still
 query data created before the partitioning change.
 
-Migrating Existing Tables
+Migrating existing tables
 -------------------------
 
 The connector can read from or write to Hive tables that have been migrated to Iceberg.
 Currently, there is no Trino support to migrate Hive tables to Trino, so you will
 need to use either the Iceberg API or Spark.
 
-System Tables and Columns
+System tables and columns
 -------------------------
 
 The connector supports queries of the table partitions.  Given a table ``customer_accounts``,
 ``SELECT * customer_acccounts$partitions`` shows the table partitions, including the minimum
 and maximum values for the partition columns.
 
-Iceberg Table Properties
+Iceberg table properties
 ------------------------
 
 ================================================== ================================================================

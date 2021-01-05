@@ -2,7 +2,7 @@
 Release 0.213
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix split scheduling backpressure when plan contains colocated join. Previously, splits
@@ -39,7 +39,7 @@ General Changes
 * Add experimental config option ``experimental.reserved-pool-enabled`` to disable the reserved memory pool.
 * Add ``targetResultSize`` query parameter to ``/v1/statement`` endpoint to control response data size.
 
-Geospatial Changes
+Geospatial changes
 ------------------
 
 * Fix :func:`ST_Distance` function to return ``NULL`` if any of the inputs is an
@@ -48,12 +48,12 @@ Geospatial Changes
 * Add :func:`geometry_union` function to efficiently union arrays of geometries.
 * Add support for distributed spatial joins (:issue:`x11072`).
 
-Server RPM Changes
+Server RPM changes
 ------------------
 
 * Allow running on a JVM from any vendor.
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Remove legacy plan UI.
@@ -61,7 +61,7 @@ Web UI Changes
 * Add dialog to show errors refreshing data from coordinator.
 * Change worker thread list to not show thread stacks by default to improve page peformance.
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix LZO and LZOP decompression to work with certain data compressed by Hadoop.
@@ -88,18 +88,18 @@ Hive Connector Changes
   configuration properties and ``parquet_writer_block_size`` and
   ``parquet_writer_page_size`` session properties for tuning Parquet writer options.
 
-Memory Connector Changes
+Memory connector changes
 ------------------------
 
 * Improve table data size accounting.
 
-Thrift Connector Changes
+Thrift connector changes
 ------------------------
 
 * Include constraint in explain plan for index joins.
 * Improve readability of columns, tables, layouts, and indexes in explain plans.
 
-Verifier Changes
+Verifier changes
 ----------------
 
 * Rewrite queries in parallel when shadowing writes.

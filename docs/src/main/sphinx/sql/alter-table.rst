@@ -69,7 +69,7 @@ Allow everyone with role public to drop and alter table ``people``::
 
     ALTER TABLE people SET AUTHORIZATION ROLE PUBLIC
 
-See Also
+See also
 --------
 
 :doc:`create-table`

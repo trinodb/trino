@@ -2,7 +2,7 @@
 Release 330 (18 Feb 2020)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect behavior of :func:`format` for ``char`` values. Previously, the function
@@ -28,7 +28,7 @@ General Changes
 * Verify that the target schema exists for the :doc:`/sql/use` statement. (:issue:`2764`)
 * Verify that the session catalog exists when executing :doc:`/sql/set-role`. (:issue:`2768`)
 
-Server Changes
+Server changes
 --------------
 
 * Require running on :ref:`Java 11 or above <requirements-java>`. This requirement may be temporarily relaxed by adding
@@ -36,7 +36,7 @@ Server Changes
   This fallback will be removed in future versions of Presto after March 2020. (:issue:`2751`)
 * Add experimental support for running on Linux aarch64 (ARM64). (:issue:`2809`)
 
-Security Changes
+Security changes
 ----------------
 
 * :ref:`principal_rules` are deprecated and will be removed in a future release.
@@ -51,12 +51,12 @@ Security Changes
 * When authentication is disabled, the Presto user may now be set using standard
   HTTP basic authentication with an empty password. (:issue:`2653`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Display physical read time in detailed query view. (:issue:`2805`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Fix a performance issue on JDK 11+ when connecting using HTTP/2. (:issue:`2633`)
@@ -67,17 +67,17 @@ JDBC Driver Changes
 * Allow using the ``:`` character within an extra credential value specified via the
   ``extraCredentials`` property. (:issue:`2780`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix a performance issue on JDK 11+ when connecting using HTTP/2. (:issue:`2633`)
 
-Cassandra Connector Changes
+Cassandra connector changes
 ---------------------------
 
 * Fix query failure when identifiers should be quoted. (:issue:`2455`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix reading symlinks from HDFS when using Kerberos. (:issue:`2720`)
@@ -108,26 +108,26 @@ Hive Connector Changes
   procedures for adding partitions to and removing partitions from a partitioned table. (:issue:`2692`)
 * Allow running :doc:`/sql/analyze` collecting only basic table statistics. (:issue:`2762`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Improve performance of queries containing a ``LIMIT`` clause. (:issue:`2781`)
 * Add support for ``nested`` data type. (:issue:`754`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Add read support for PostgreSQL ``money`` data type. The type is mapped to ``varchar`` in Presto.
   (:issue:`2601`)
 
-Other Connector Changes
+Other connector changes
 -----------------------
 
 These changes apply to the MySQL, PostgreSQL, Redshift, Phoenix and SQL Server connectors.
 
 * Respect ``DEFAULT`` column clause when writing to a table. (:issue:`1185`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Allow procedures to have optional arguments with default values. (:issue:`2706`)

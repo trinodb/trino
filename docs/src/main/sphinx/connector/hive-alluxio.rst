@@ -1,5 +1,5 @@
 ===========================
-Hive Connector with Alluxio
+Hive connector with Alluxio
 ===========================
 
 The :doc:`hive` can read and write tables stored in the `Alluxio Data Orchestration
@@ -46,7 +46,7 @@ for more details.
 
 .. _alluxio_catalog_service:
 
-Alluxio Catalog Service
+Alluxio catalog service
 -----------------------
 
 An alternative way for Trino to interact with Alluxio is via the

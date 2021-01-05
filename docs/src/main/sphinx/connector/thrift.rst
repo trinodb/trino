@@ -1,5 +1,5 @@
 ================
-Thrift Connector
+Thrift connector
 ================
 
 The Thrift connector makes it possible to integrate with external storage systems
@@ -26,14 +26,14 @@ replacing the properties as appropriate:
     connector.name=trino-thrift
     trino.thrift.client.addresses=host:port,host:port
 
-Multiple Thrift Systems
+Multiple Thrift systems
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
 Thrift systems to connect to, simply add another properties file to ``etc/catalog``
 with a different name, making sure it ends in ``.properties``.
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -84,7 +84,7 @@ Number of refresh threads for metadata cache.
 
 This property is optional; the default is ``1``.
 
-Thrift IDL File
+Thrift IDL file
 ---------------
 
 The following IDL describes the ``TrinoThriftService`` that must be implemented:

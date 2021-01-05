@@ -1,5 +1,5 @@
 =============
-Spill to Disk
+Spill to disk
 =============
 
 Overview
@@ -15,7 +15,7 @@ implemented on the application level to address specific needs of Trino.
 
 Properties related to spilling are described in :doc:`properties-spilling`.
 
-Memory Management and Spill
+Memory management and spill
 ---------------------------
 
 By default, Trino kills queries, if the memory requested by the query execution
@@ -43,7 +43,7 @@ memory intensive queries. It is still possible that the query runner fails
 to divide intermediate data into chunks small enough so that every chunk fits into
 memory, leading to ``Out of memory`` errors while loading the data from disk.
 
-Spill Disk Space
+Spill disk space
 ----------------
 
 Spilling intermediate results to disk, and retrieving them back, is expensive
@@ -60,7 +60,7 @@ Trino treats spill paths as independent disks (see `JBOD
 <https://en.wikipedia.org/wiki/Non-RAID_drive_architectures#JBOD>`_), so
 there is no need to use RAID for spill.
 
-Spill Compression
+Spill compression
 -----------------
 
 When spill compression is enabled (``spill-compression-enabled`` property in
@@ -68,7 +68,7 @@ When spill compression is enabled (``spill-compression-enabled`` property in
 written to disk. Enabling this feature can reduce disk IO at the cost
 of extra CPU load to compress and decompress spilled pages.
 
-Spill Encryption
+Spill encryption
 ----------------
 
 When spill encryption is enabled (``spill-encryption-enabled`` property in
@@ -78,7 +78,7 @@ of spilling to disk, but can protect spilled data from being recovered from spil
 Consider reducing the value of ``memory-revoking-threshold`` when spill
 encryption is enabled, to account for the increase in latency of spilling.
 
-Supported Operations
+Supported operations
 --------------------
 
 Not all operations support spilling to disk, and each handles spilling
@@ -119,7 +119,7 @@ amount of memory may be needed. When spill-to-disk is enabled, if there is not
 enough memory, intermediate cumulated aggregation results are written to disk.
 They are loaded back and merged with a lower memory footprint.
 
-Order By
+Order by
 ^^^^^^^^
 
 If your trying to sort a larger amount of data, a significant amount of memory
@@ -127,7 +127,7 @@ may be needed. When spill to disk for ``order by`` is enabled, if there is not e
 memory, intermediate sorted results are written to disk. They are loaded back and
 merged with a lower memory footprint.
 
-Window Functions
+Window functions
 ^^^^^^^^^^^^^^^^
 
 Window functions perform an operator over a window of rows, and return one value

@@ -2,7 +2,7 @@
 Release 0.185
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect column names in ``QueryCompletedEvent``.
@@ -23,7 +23,7 @@ General Changes
 * Add cast from ``JSON`` to ``ROW``.
 * Allow usage of ``TRY`` within lambda expressions.
 
-Hive Changes
+Hive changes
 ------------
 
 * Improve ORC reader efficiency by only reading small ORC streams when accessed in the query.
@@ -31,7 +31,7 @@ Hive Changes
 * Fix native memory leak for optimized RCFile writer.
 * Fix potential native memory leak for optimized ORC writer.
 
-Memory Connector Changes
+Memory connector changes
 ------------------------
 
 * Add support for views.

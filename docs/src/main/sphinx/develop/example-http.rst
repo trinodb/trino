@@ -1,5 +1,5 @@
 ======================
-Example HTTP Connector
+Example HTTP connector
 ======================
 
 The Example HTTP connector has a simple goal: it reads comma-separated
@@ -13,7 +13,7 @@ Code
 The Example HTTP connector can be found in the ``trino-example-http``
 directory in the root of the Trino source tree.
 
-Plugin Implementation
+Plugin implementation
 ---------------------
 
 The plugin implementation in the Example HTTP connector looks very
@@ -34,7 +34,7 @@ Note that the ``ImmutableList`` class is a utility class from Guava.
 As with all connectors, this plugin overrides the ``getConnectorFactories()`` method
 and returns an ``ExampleConnectorFactory``.
 
-ConnectorFactory Implementation
+ConnectorFactory implementation
 -------------------------------
 
 In Trino, the primary object that handles the connection between
@@ -94,7 +94,7 @@ The ``ExampleMetadata`` implementation delegates many of these calls to
 ``ExampleClient``, a class that implements much of the core functionality
 of the connector.
 
-Split Manager: ExampleSplitManager
+Split manager: ExampleSplitManager
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The split manager partitions the data for a table into the individual
@@ -102,7 +102,7 @@ chunks that Trino will distribute to workers for processing.
 In the case of the Example HTTP connector, each table contains one or
 more URIs pointing at the actual data. One split is created per URI.
 
-Record Set Provider: ExampleRecordSetProvider
+Record set provider: ExampleRecordSetProvider
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The record set provider creates a record set which in turn creates a

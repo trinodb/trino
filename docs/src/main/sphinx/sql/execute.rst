@@ -40,7 +40,7 @@ This is equivalent to::
 
    SELECT name FROM nation WHERE regionkey = 1 AND nationkey < 3;
 
-See Also
+See also
 --------
 
 :doc:`prepare`

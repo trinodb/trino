@@ -1,5 +1,5 @@
 =====================================
-Hive Connector Security Configuration
+Hive connector security configuration
 =====================================
 
 Authorization
@@ -40,7 +40,7 @@ Property Value                                     Description
 
 .. _hive-sql-standard-based-authorization:
 
-SQL Standard Based Authorization
+SQL standard based authorization
 --------------------------------
 
 When ``sql-standard`` security is enabled, Trino enforces the same SQL
@@ -90,7 +90,7 @@ Lists)` to provide additional security for data.
   See :doc:`/security/server` and :doc:`/security/cli`
   for information on setting up Kerberos authentication.
 
-Kerberos Support
+Kerberos support
 ================
 
 In order to use the Hive connector with a Hadoop cluster that uses ``kerberos``
@@ -111,7 +111,7 @@ file that contains the general Hive connector configuration.
 
     Example: ``-Djava.security.krb5.conf=/example/path/krb5.conf``.
 
-Hive Metastore Thrift Service Authentication
+Hive metastore Thrift service authentication
 --------------------------------------------
 
 In a Kerberized Hadoop cluster, Trino connects to the Hive metastore Thrift
@@ -240,7 +240,7 @@ Keytab files must be distributed to every node in the cluster that runs Trino.
 
 :ref:`Additional Information About Keytab Files.<hive-security-additional-keytab>`
 
-HDFS Authentication
+HDFS authentication
 -------------------
 
 In a Kerberized Hadoop cluster, Trino authenticates to HDFS using Kerberos.
@@ -351,10 +351,10 @@ Keytab files must be distributed to every node in the cluster that runs Trino.
 
 .. _hive-security-impersonation:
 
-End User Impersonation
+End user impersonation
 ======================
 
-Impersonation Accessing HDFS
+Impersonation accessing HDFS
 ----------------------------
 
 Trino can impersonate the end user who is running a query. In the case of a
@@ -383,7 +383,7 @@ section :ref:`configuring-hadoop-impersonation`. Kerberos is not used.
 
 .. _hive-security-kerberos-impersonation:
 
-``KERBEROS`` Authentication With HDFS Impersonation
+``KERBEROS`` authentication with HDFS impersonation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: text
@@ -407,7 +407,7 @@ Keytab files must be distributed to every node in the cluster that runs Trino.
 
 .. _hive-security-metastore-impersonation:
 
-Impersonation Accessing the Hive Metastore
+Impersonation accessing the Hive metastore
 ------------------------------------------
 
 Trino supports impersonating the end user when accessing the Hive metastore.
@@ -450,7 +450,7 @@ configuration options can be found in the `Hadoop documentation
 
 .. _hive-security-additional-keytab:
 
-Additional Information About Keytab Files
+Additional information about Keytab files
 =========================================
 
 Keytab files contain encryption keys that are used to authenticate principals
@@ -473,7 +473,7 @@ node after distributing them.
 
 .. _hive-file-based-authorization:
 
-File Based Authorization
+File based authorization
 ========================
 
 The config file is specified using JSON and is composed of three sections,
@@ -485,7 +485,7 @@ matching rule. All regexes default to ``.*`` if not specified.
 
     These rules do not apply to system defined table in the ``information_schema`` schema.
 
-Schema Rules
+Schema rules
 ------------
 
 These rules govern who is considered an owner of a schema.
@@ -498,7 +498,7 @@ These rules govern who is considered an owner of a schema.
 
 * ``owner`` (required): boolean indicating ownership.
 
-Table Rules
+Table rules
 -----------
 
 These rules govern the privileges granted on specific tables.
@@ -520,7 +520,7 @@ These rules govern the privileges granted on specific tables.
 
 * ``filter_environment`` (optional): environment use during filter evaluation.
 
-Column Constraint
+Column constraint
 ^^^^^^^^^^^^^^^^^
 
 These constraints can be used to restrict access to column data.
@@ -530,12 +530,12 @@ These constraints can be used to restrict access to column data.
 * ``mask`` (optional): mask expression applied to column.
 * ``mask_environment`` (optional): environment use during mask evaluation.
 
-Filter and Mask Environment
+Filter and mask environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * ``user`` (optional): username for checking permission of subqueries in mask.
 
-Session Property Rules
+Session property rules
 ----------------------
 
 These rules govern who may set session properties.

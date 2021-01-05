@@ -7,7 +7,7 @@ Release 0.144
    Querying bucketed tables in the Hive connector may produce incorrect results.
    This is fixed in :doc:`/release/release-0.144.1`, and :doc:`/release/release-0.145`.
 
-General Changes
+General changes
 ---------------
 
 * Fix already exists check when adding a column to be case-insensitive.
@@ -24,7 +24,7 @@ General Changes
 * Improve performance when processing results in CLI and JDBC driver.
 * Improve performance of ``GROUP BY`` queries.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix ORC reader to actually use ``hive.orc.stream-buffer-size`` configuration property.

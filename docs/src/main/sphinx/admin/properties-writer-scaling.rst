@@ -1,5 +1,5 @@
 =========================
-Writer Scaling Properties
+Writer scaling properties
 =========================
 
 By default, the number of writer tasks is static. Enabling writer scaling allows

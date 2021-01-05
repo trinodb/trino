@@ -13,7 +13,7 @@ Release 0.69
     Additionally, the ``datasources`` property is now deprecated
     and should also be removed (see `Datasource Configuration`_).
 
-Prevent Scheduling Work on Coordinator
+Prevent scheduling work on coordinator
 --------------------------------------
 
 We have a new config property, ``node-scheduler.include-coordinator``,
@@ -27,7 +27,7 @@ query execution.
 We recommend setting this property to ``false`` for the coordinator.
 See :ref:`config_properties` for an example.
 
-Datasource Configuration
+Datasource configuration
 ------------------------
 
 The ``datasources`` config property has been deprecated.
@@ -36,7 +36,7 @@ The datasources configuration is now automatically generated based
 on the ``node-scheduler.include-coordinator`` property
 (see `Prevent Scheduling Work on Coordinator`_).
 
-Raptor Connector
+Raptor connector
 ----------------
 
 Presto has an extremely experimental connector that was previously called
@@ -66,7 +66,7 @@ coordinator and workers that contains the following:
     metadata.db.type=h2
     metadata.db.filename=var/data/db/MetaStore
 
-Machine Learning Functions
+Machine learning functions
 --------------------------
 
 Presto now has functions to train and use machine learning models
@@ -85,14 +85,14 @@ In the above example, the column ``label`` is a ``bigint`` and the column
 identifiers must be integers (encoded as strings because JSON only supports
 strings for map keys) and the feature values are numbers (floating point).
 
-Variable Length Binary Type
+Variable length binary type
 ---------------------------
 
 Presto now supports the ``varbinary`` type for variable length binary data.
 Currently, the only supported function is :func:`length`.
 The Hive connector now maps the Hive ``BINARY`` type to ``varbinary``.
 
-General Changes
+General changes
 ---------------
 
 * Add missing operator: ``timestamp with time zone`` - ``interval year to month``

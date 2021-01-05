@@ -2,24 +2,24 @@
 Release 313 (31 May 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix leak in operator peak memory computations. (:issue:`843`)
 * Fix incorrect results for queries involving ``GROUPING SETS`` and ``LIMIT``. (:issue:`864`)
 * Add compression and encryption support for :doc:`/admin/spill`. (:issue:`778`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix failure when selecting a value of type :ref:`uuid_type`. (:issue:`854`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Fix failure when selecting a value of type :ref:`uuid_type`. (:issue:`854`)
 
-Phoenix Connector Changes
+Phoenix connector changes
 ---------------------------
 
 * Allow matching schema and table names case insensitively. This can be enabled by setting

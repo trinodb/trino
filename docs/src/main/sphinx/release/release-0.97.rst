@@ -2,7 +2,7 @@
 Release 0.97
 ============
 
-General Changes
+General changes
 ---------------
 
 * The queueing policy in Presto may now be injected.
@@ -13,7 +13,7 @@ General Changes
 * Fix a planning issue in queries that use ``SELECT *``, window functions and implicit coercions.
 * Fix scheduler deadlock for queries with a ``UNION`` between ``VALUES`` and ``SELECT``.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix decoding of ``STRUCT`` type from Parquet files.

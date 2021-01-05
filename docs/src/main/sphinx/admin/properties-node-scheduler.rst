@@ -1,5 +1,5 @@
 =========================
-Node Scheduler Properties
+Node scheduler properties
 =========================
 
 Splits
@@ -66,7 +66,7 @@ distribution across all hosts. ``topology`` tries to schedule splits according t
 the topology distance between nodes and splits. It is recommended to use ``uniform``
 for clusters where distributed storage runs on the same nodes as Trino workers.
 
-Network Topology
+Network topology
 ----------------
 
 ``node-scheduler.network-topology.segments``
@@ -98,7 +98,7 @@ must be set to ``topology``.
   and ``node-scheduler.network-topology.subnet.ip-address-protocol`` described
   in the following sections.
 
-File Based Network Topology
+File based network topology
 ---------------------------
 
 ``node-scheduler.network-topology.file``
@@ -127,7 +127,7 @@ network location, separated by whitespace. Network location must begin with a le
 Controls how often the network topology file is reloaded.  To use this option,
 ``node-scheduler.network-topology.type`` must be set to ``file``.
 
-Subnet Based Network Topology
+Subnet based network topology
 -----------------------------
 
 ``node-scheduler.network-topology.subnet.ip-address-protocol``

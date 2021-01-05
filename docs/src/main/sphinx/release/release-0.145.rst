@@ -2,7 +2,7 @@
 Release 0.145
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix potential memory leak in coordinator query history.
@@ -22,20 +22,20 @@ General Changes
 * Improve reliability in highly congested networks by adjusting the default
   connection idle timeouts.
 
-Verifier Changes
+Verifier changes
 ----------------
 
 * Change verifier to only run read-only queries by default. This behavior can be
   changed with the ``control.query-types`` and ``test.query-types`` config flags.
 
-CLI Changes
+CLI changes
 -----------
 
 * Improve performance of output in batch mode.
 * Fix hex rendering in batch mode.
 * Abort running queries when CLI is terminated.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix bug when grouping on a bucketed column which causes incorrect results.

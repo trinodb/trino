@@ -30,7 +30,7 @@ Limitations
 Some connectors do not support role management.
 See connector documentation for more details.
 
-See Also
+See also
 --------
 
 :doc:`create-role`, :doc:`set-role`, :doc:`grant-roles`, :doc:`revoke-roles`

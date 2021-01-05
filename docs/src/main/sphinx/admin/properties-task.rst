@@ -1,5 +1,5 @@
 ===============
-Task Properties
+Task properties
 ===============
 
 ``task.concurrency``

@@ -2,37 +2,37 @@
 Release 0.77
 ============
 
-Parametric Types
+Parametric types
 ----------------
 Presto now has a framework for implementing parametric types and functions.
 Support for :ref:`array_type` and :ref:`map_type` types has been added, including the element accessor
 operator ``[]``, and new :doc:`/functions/array`.
 
-Streaming Index Joins
+Streaming index joins
 ---------------------
 Index joins will now switch to use a key-by-key streaming join if index
 results fail to fit in the allocated index memory space.
 
-Distributed Joins
+Distributed joins
 -----------------
 Joins where both tables are distributed are now supported. This allows larger tables to be joined,
 and can be enabled with the ``distributed-joins-enabled`` flag. It may perform worse than the existing
 broadcast join implementation because it requires redistributing both tables.
 This feature is still experimental, and should be used with caution.
 
-Hive Changes
+Hive changes
 ------------
 * Handle spurious ``AbortedException`` when closing S3 input streams
 * Add support for ORC, DWRF and Parquet in Hive
 * Add support for ``DATE`` type in Hive
 * Fix performance regression in Hive when reading ``VARCHAR`` columns
 
-Kafka Changes
+Kafka changes
 -------------
 * Fix Kafka handling of default port
 * Add support for Kafka messages with a null key
 
-General Changes
+General changes
 ---------------
 * Fix race condition in scheduler that could cause queries to hang
 * Add ConnectorPageSource which is a more efficient interface for column-oriented sources

@@ -2,7 +2,7 @@
 Release 0.202
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix correctness issue for queries involving aggregations over the result of an outer join (:issue:`x10592`).
@@ -36,7 +36,7 @@ General Changes
 * Add :func:`wilson_interval_lower` and :func:`wilson_interval_upper` functions.
 * Add ``IS DISTINCT FROM`` for ``json`` and ``ipaddress`` type.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix optimized ORC writer encoding of ``TIMESTAMP`` before ``1970-01-01``.  Previously, the
@@ -57,12 +57,12 @@ Hive Changes
   read multiple consecutive stripes or entire fires at once. Previously, this feature
   piggybacks on other properties.
 
-CLI Changes
+CLI changes
 -----------
 
 * Add peak memory usage to ``--debug`` output.
 
-SPI Changes
+SPI changes
 -----------
 
 * Make ``PageSorter`` and ``PageIndexer`` supported interfaces.

@@ -2,7 +2,7 @@
 Release 0.57
 ============
 
-Distinct Aggregations
+Distinct aggregations
 ---------------------
 
 The ``DISTINCT`` argument qualifier for aggregation functions is now

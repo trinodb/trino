@@ -1,5 +1,5 @@
 ===================================
-Coordinator Kerberos Authentication
+Coordinator Kerberos authentication
 ===================================
 
 Trino can be configured to enable Kerberos authentication over HTTPS for
@@ -12,7 +12,7 @@ The worker nodes continue to connect to the coordinator over
 unauthenticated HTTP. However, if you want to secure the communication between
 Trino nodes with SSL/TLS, configure :doc:`/security/internal-communication`.
 
-Environment Configuration
+Environment configuration
 -------------------------
 
 .. |subject_node| replace:: Trino coordinator
@@ -25,7 +25,7 @@ Environment Configuration
 
 .. _server_kerberos_principals:
 
-Kerberos Principals and Keytab Files
+Kerberos principals and keytab files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Trino coordinator needs a Kerberos principal, as do users who are going to
@@ -46,22 +46,22 @@ In addition, the Trino coordinator needs a `keytab file
 
 .. include:: ktadd-note.fragment
 
-Java Keystore File for TLS
+Java keystore file for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When using Kerberos authentication, access to the Trino coordinator should be
 through HTTPS. You can do it by creating a :ref:`server_java_keystore` on the
 coordinator.
 
-System Access Control Plugin
+System access control plugin
 ----------------------------
 
 A Trino coordinator with Kerberos enabled probably needs a
 :doc:`/develop/system-access-control` plugin to achieve
 the desired level of security.
 
-Trino Coordinator Node Configuration
--------------------------------------
+Trino coordinator node configuration
+------------------------------------
 
 You must make the above changes to the environment prior to configuring the
 Trino coordinator to use Kerberos authentication and HTTPS. After making the
@@ -159,7 +159,7 @@ See :doc:`/develop/system-access-control` for details.
 
 .. _coordinator-troubleshooting:
 
-User Mapping
+User mapping
 ------------
 
 After authenticating with Kerberos, the Trino server receives the user's principal which is typically similar to
@@ -177,7 +177,7 @@ Getting Kerberos authentication working can be challenging. You can
 independently verify some of the configuration outside of Trino, to help narrow
 your focus when trying to solve a problem.
 
-Kerberos Verification
+Kerberos verification
 ^^^^^^^^^^^^^^^^^^^^^
 
 Ensure that you can connect to the KDC from the Trino coordinator using
@@ -198,13 +198,13 @@ Verify that the keytab file can be used to successfully obtain a ticket using
     $ kinit -kt /etc/trino/trino.keytab trino@EXAMPLE.COM
     $ klist
 
-Java Keystore File Verification
+Java keystore file verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Verify the password for a keystore file and view its contents using
 :ref:`troubleshooting_keystore`
 
-Additional Kerberos Debugging Information
+Additional Kerberos debugging information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can enable additional Kerberos debugging information for the Trino

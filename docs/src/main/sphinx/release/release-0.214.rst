@@ -2,7 +2,7 @@
 Release 0.214
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix history leak in coordinator for failed or canceled queries.
@@ -31,25 +31,25 @@ General Changes
 * Remove experimental pre-allocated memory system, and the related configuration
   property ``experimental.preallocate-memory-threshold``.
 
-Security Changes
+Security changes
 ----------------
 
 * Add functionality to refresh the configuration of file-based access controllers.
   The refresh interval can be set using the ``security.refresh-period``
   configuration property.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Clear update count after calling ``Statement.getMoreResults()``.
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Show query warnings on the query detail page.
 * Allow selecting non-default sort orders in query list view.
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Prevent ORC writer from writing stripes larger than the maximum configured size.
@@ -58,7 +58,7 @@ Hive Connector Changes
 * Add Hive metastore API recording tool for remote debugging purposes.
 * Add support for retrying on metastore connection errors.
 
-Verifier Changes
+Verifier changes
 ----------------
 
 * Handle SQL execution timeouts while rewriting queries.

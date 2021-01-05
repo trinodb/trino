@@ -2,7 +2,7 @@
 Release 0.79
 ============
 
-Hive Changes
+Hive changes
 ------------
 
 * Add configuration option ``hive.force-local-scheduling`` and session property
@@ -11,7 +11,7 @@ Hive Changes
   setting the configuration option ``hive.optimized-reader.enabled`` or session
   property ``optimized_reader_enabled``.
 
-General Changes
+General changes
 ---------------
 
 * Add support for :ref:`unnest`, which can be used as a replacement for the ``explode()`` function in Hive.

@@ -1,5 +1,5 @@
 ===================
-Aggregate Functions
+Aggregate functions
 ===================
 
 Aggregate functions operate on a set of values to compute a single result.
@@ -13,7 +13,7 @@ zero.
 
 .. _aggregate-function-ordering-during-aggregation:
 
-Ordering During Aggregation
+Ordering during aggregation
 ----------------------------
 
 Some aggregate functions such as :func:`array_agg` produce different results
@@ -25,7 +25,7 @@ an :ref:`order-by-clause` within the aggregate function::
 
 .. _aggregate-function-filtering-during-aggregation:
 
-Filtering During Aggregation
+Filtering during aggregation
 ----------------------------
 
 The ``FILTER`` keyword can be used to remove rows from aggregation processing
@@ -90,7 +90,7 @@ Using a filter you retain all information::
     versicolor |   34
 
 
-General Aggregate Functions
+General aggregate functions
 ---------------------------
 
 .. function:: arbitrary(x) -> [same as input]
@@ -186,7 +186,7 @@ General Aggregate Functions
 
     Returns the sum of all input values.
 
-Bitwise Aggregate Functions
+Bitwise aggregate functions
 ---------------------------
 
 .. function:: bitwise_and_agg(x) -> bigint
@@ -197,7 +197,7 @@ Bitwise Aggregate Functions
 
     Returns the bitwise OR of all input values in 2's complement representation.
 
-Map Aggregate Functions
+Map aggregate functions
 -----------------------
 
 .. function:: histogram(x) -> map(K,bigint)
@@ -218,7 +218,7 @@ Map Aggregate Functions
     Returns a multimap created from the input ``key`` / ``value`` pairs.
     Each key can be associated with multiple values.
 
-Approximate Aggregate Functions
+Approximate aggregate functions
 -------------------------------
 
 .. function:: approx_distinct(x) -> bigint
@@ -363,7 +363,7 @@ Approximate Aggregate Functions
 
     See :doc:`tdigest`.
 
-Statistical Aggregate Functions
+Statistical aggregate functions
 -------------------------------
 
 .. function:: corr(y, x) -> double
@@ -425,7 +425,7 @@ Statistical Aggregate Functions
 
     Returns the sample variance of all input values.
 
-Lambda Aggregate Functions
+Lambda aggregate functions
 --------------------------
 
 .. function:: reduce_agg(inputValue T, initialState S, inputFunction(S, T, S), combineFunction(S, S, S)) -> S

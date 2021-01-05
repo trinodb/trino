@@ -1,5 +1,5 @@
 =================
-Reserved Keywords
+Reserved keywords
 =================
 
 The following table lists all of the keywords that are reserved in Trino,

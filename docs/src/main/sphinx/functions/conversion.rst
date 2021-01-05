@@ -1,5 +1,5 @@
 ====================
-Conversion Functions
+Conversion functions
 ====================
 
 Trino will implicitly convert numeric and character values to the
@@ -10,7 +10,7 @@ equivalent varchar.
 
 When necessary, values can be explicitly cast to a particular type.
 
-Conversion Functions
+Conversion functions
 --------------------
 
 .. function:: cast(value AS type) -> type
@@ -52,7 +52,7 @@ Formatting
         SELECT format('%1$tA, %1$tB %1$te, %1$tY', date '2006-07-04');
         -- 'Tuesday, July 4, 2006'
 
-Data Size
+Data size
 ---------
 
 The ``parse_presto_data_size`` function supports the following units:

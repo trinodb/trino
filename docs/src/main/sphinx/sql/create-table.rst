@@ -84,7 +84,7 @@ plus additional columns at the start and end::
       another_orderdate date
     )
 
-See Also
+See also
 --------
 
 :doc:`alter-table`, :doc:`drop-table`, :doc:`create-table-as`, :doc:`show-create-table`

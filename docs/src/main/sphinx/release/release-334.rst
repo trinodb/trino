@@ -2,7 +2,7 @@
 Release 334 (29 May 2020)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect query results for certain queries involving comparisons of ``real`` and ``double`` types
@@ -27,36 +27,36 @@ General Changes
   ``dispatcher.forwarded-header`` configuration properties are no longer supported. (:issue:`3714`)
 * Add pluggable :doc:`/develop/certificate-authenticator`. (:issue:`3804`)
 
-JDBC Driver
+JDBC driver
 -----------
 
 * Implement ``toString()`` for ``java.sql.Array`` results. (:issue:`3803`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Improve rendering of elapsed time for short queries. (:issue:`3311`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Add ``fixed``, ``certificate``, ``JWT``, and ``Kerberos`` to UI authentication. (:issue:`3433`)
 * Show join distribution type in Live Plan. (:issue:`1323`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Improve performance of ``DatabaseMetaData.getColumns()`` when the
   parameters contain unescaped ``%`` or ``_``. (:issue:`1620`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Fix failure when executing ``SHOW CREATE TABLE``. (:issue:`3718`)
 * Improve performance for ``count(*)`` queries. (:issue:`3512`)
 * Add support for raw Elasticsearch queries. (:issue:`3735`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix matching bucket filenames without leading zeros. (:issue:`3702`)
@@ -78,18 +78,18 @@ Hive Connector Changes
   the ``hive.metastore.thrift.delegation-token.cache-ttl`` and ``hive.metastore.thrift.delegation-token.cache-maximum-size``
   configuration properties. (:issue:`3771`)
 
-MemSQL Connector Changes
+MemSQL connector changes
 ------------------------
 
 * Include :doc:`/connector/memsql` in the server tarball and RPM. (:issue:`3743`)
 
-MongoDB Connector Changes
+MongoDB connector changes
 -------------------------
 
 * Support case insensitive database and collection names. This can be enabled with the
   ``mongodb.case-insensitive-name-matching`` configuration property. (:issue:`3453`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Allow a ``SystemAccessControl`` to provide an ``EventListener``. (:issue:`3629`).

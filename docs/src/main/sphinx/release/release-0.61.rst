@@ -2,7 +2,7 @@
 Release 0.61
 ============
 
-Add support for Table Value Constructors
+Add support for table value constructors
 ----------------------------------------
 
 Presto now supports the SQL table value constructor syntax to create inline tables.

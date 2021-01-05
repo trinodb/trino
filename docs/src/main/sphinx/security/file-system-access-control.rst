@@ -1,5 +1,5 @@
 ================================
-File Based System Access Control
+File based system access control
 ================================
 
 This access control plugin allows you to specify authorization rules in a JSON file.
@@ -34,7 +34,7 @@ Trino restart. The refresh period is specified in the ``etc/access-control.prope
 
    security.refresh-period=1s
 
-Catalog, Schema, and Table Access
+Catalog, schema, and table access
 ---------------------------------
 
 Access to catalogs, schemas, tables, and views is controlled by the catalog, schema, and table
@@ -95,7 +95,7 @@ need to already exist as any potential permission makes the item visible. Specif
 * schema: Visible if the user is the owner of the schema, or has permissions on any nested table.
 * table: Visible if the user has any permissions on the table.
 
-Catalog Rules
+Catalog rules
 ^^^^^^^^^^^^^
 
 Each catalog rule is composed of the following fields:
@@ -164,7 +164,7 @@ following rules:
 For group-based rules to match, users need to be assigned to groups by a
 :doc:`/develop/group-provider`.
 
-Schema Rules
+Schema rules
 ^^^^^^^^^^^^
 
 Each schema rule is composed of the following fields:
@@ -201,7 +201,7 @@ ownership of any schema, you can use the following rules:
       ]
     }
 
-Table Rules
+Table rules
 ^^^^^^^^^^^
 
 Each table rule is composed of the following fields:
@@ -217,7 +217,7 @@ Each table rule is composed of the following fields:
 * ``filter`` (optional): boolean filter expression for the table.
 * ``filter_environment`` (optional): environment use during filter evaluation.
 
-Column Constraint
+Column constraint
 ^^^^^^^^^^^^^^^^^
 
 These constraints can be used to restrict access to column data.
@@ -227,7 +227,7 @@ These constraints can be used to restrict access to column data.
 * ``mask`` (optional): mask expression applied to column.
 * ``mask_environment`` (optional): environment use during mask evaluation.
 
-Filter and Mask Environment
+Filter and mask environment
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * ``user`` (optional): username for checking permission of subqueries in mask.
@@ -291,7 +291,7 @@ The example below defines the following table access policy:
 
 .. _session_property_rules:
 
-Session Property Rules
+Session property rules
 ----------------------
 
 These rules control the ability of a user to set system and catalog session properties. The
@@ -321,7 +321,7 @@ The example below defines the following table access policy:
 
 .. _query_rules:
 
-Query Rules
+Query rules
 -----------
 
 These rules control the ability of a user to execute, view, or kill a query. The user is
@@ -347,7 +347,7 @@ the following rules:
 
 .. _impersonation_rules:
 
-Impersonation Rules
+Impersonation rules
 -------------------
 
 These rules control the ability of a user to impersonate another user.  In
@@ -379,7 +379,7 @@ impersonate the ``test`` user:
 
 .. _principal_rules:
 
-Principal Rules
+Principal rules
 ---------------
 
 .. warning::
@@ -453,7 +453,7 @@ name, and allow ``alice`` and ``bob`` to use a group principal named as
 
 .. _system_information_rules:
 
-System Information Rules
+System information rules
 ------------------------
 
 These rules specify which users can access the system information management interface.

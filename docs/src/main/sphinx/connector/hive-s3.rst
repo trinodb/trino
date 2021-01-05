@@ -1,5 +1,5 @@
 =============================
-Hive Connector with Amazon S3
+Hive connector with Amazon S3
 =============================
 
 The :doc:`hive` can read and write tables that are stored in
@@ -10,7 +10,7 @@ uses an S3 prefix, rather than an HDFS prefix.
 Trino uses its own S3 filesystem for the URI prefixes
 ``s3://``, ``s3n://`` and  ``s3a://``.
 
-S3 Configuration Properties
+S3 configuration properties
 ---------------------------
 
 ============================================ =================================================================
@@ -90,7 +90,7 @@ Property Name                                Description
 
 .. _hive-s3-credentials:
 
-S3 Credentials
+S3 credentials
 --------------
 
 If you are running Trino on Amazon EC2, using EMR or another facility,
@@ -103,7 +103,7 @@ setting AWS access and secret keys in the ``hive.s3.aws-access-key``
 and ``hive.s3.aws-secret-key`` settings, and also allows EC2 to automatically
 rotate credentials on a regular basis without any additional work on your part.
 
-Custom S3 Credentials Provider
+Custom S3 credentials provider
 ------------------------------
 
 You can configure a custom S3 credentials provider by setting the Hadoop
@@ -122,7 +122,7 @@ files referenced by the ``hive.config.resources`` Hive connector property.
 
 .. _hive-s3-security-mapping:
 
-S3 Security Mapping
+S3 security mapping
 -------------------
 
 Trino supports flexible security mapping for S3, allowing for separate
@@ -232,7 +232,7 @@ Property Name                                           Description
                                                         value that is not used in any of your IAM ARNs.
 ======================================================= =================================================================
 
-Tuning Properties
+Tuning properties
 -----------------
 
 The following tuning properties affect the behavior of the client
@@ -263,7 +263,7 @@ Property Name                         Description                               
 ``hive.s3.multipart.min-part-size``   Minimum multi-part upload part size.                        ``5 MB``
 ===================================== =========================================================== ===============
 
-S3 Data Encryption
+S3 data encryption
 ------------------
 
 
@@ -294,10 +294,10 @@ encryption keys.
 
 .. _s3selectpushdown:
 
-S3 Select Pushdown
+S3 Select pushdown
 ------------------
 
-S3 Select Pushdown enables pushing down projection (SELECT) and predicate (WHERE)
+S3 Select pushdown enables pushing down projection (SELECT) and predicate (WHERE)
 processing to `S3 Select <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectSELECTContent.html>`_.
 With S3 Select Pushdown, Trino only retrieves the required data from S3 instead
 of entire S3 objects, reducing both latency and network usage.
@@ -305,7 +305,7 @@ of entire S3 objects, reducing both latency and network usage.
 Is S3 Select a good fit for my workload?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Performance of S3 Select Pushdown depends on the amount of data filtered by the
+Performance of S3 Select pushdown depends on the amount of data filtered by the
 query. Filtering a large number of rows should result in better performance. If
 the query doesn't filter any data, then pushdown may not add any additional value
 and the user is charged for S3 Select requests. Thus, we recommend that you
@@ -329,7 +329,7 @@ workload:
   transfer speed and available bandwidth. Amazon S3 Select does not compress
   HTTP responses, so the response size may increase for compressed input files.
 
-Considerations and Limitations
+Considerations and limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * Only objects stored in CSV format are supported. Objects can be uncompressed,
@@ -341,7 +341,7 @@ Considerations and Limitations
 * S3 Select Pushdown is not a substitute for using columnar or compressed file
   formats such as ORC and Parquet.
 
-Enabling S3 Select Pushdown
+Enabling S3 Select pushdown
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can enable S3 Select Pushdown using the ``s3_select_pushdown_enabled``
@@ -349,7 +349,7 @@ Hive session property, or using the ``hive.s3select-pushdown.enabled``
 configuration property. The session property overrides the config
 property, allowing you enable or disable on a per-query basis.
 
-Understanding and Tuning the Maximum Connections
+Understanding and tuning the maximum connections
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Trino can use its native S3 file system or EMRFS. When using the native FS, the

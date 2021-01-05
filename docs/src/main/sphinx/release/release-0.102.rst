@@ -2,7 +2,7 @@
 Release 0.102
 =============
 
-Unicode Support
+Unicode support
 ---------------
 
 All string functions have been updated to support Unicode. The functions assume
@@ -15,7 +15,7 @@ Additionally, the functions operate on Unicode code points and not user visible
 into a single user-perceived *character*, the basic unit of a writing system for a
 language, but the functions will treat each code point as a separate unit.
 
-Regular Expression Functions
+Regular expression functions
 ----------------------------
 
 All :doc:`/functions/regexp` have been rewritten to improve performance.
@@ -24,7 +24,7 @@ orders of magnitude faster (due to removal of quadratic behavior).
 This change introduced some minor incompatibilities that are explained
 in the documentation for the functions.
 
-General Changes
+General changes
 ---------------
 
 * Add support for partitioned right outer joins, which allows for larger tables to
@@ -42,7 +42,7 @@ General Changes
 * Implement implicit coercions in ``VALUES`` expressions.
 * Fix potential deadlock in scheduler.
 
-Hive Changes
+Hive changes
 ------------
 
 * Collect more metrics from ``PrestoS3FileSystem``.

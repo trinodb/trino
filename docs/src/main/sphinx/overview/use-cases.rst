@@ -1,13 +1,13 @@
 =========
-Use Cases
+Use cases
 =========
 
 This section puts Trino into perspective, so that prospective
 administrators and end users know what to expect from Trino.
 
-------------------
-What Trino Is Not
-------------------
+-----------------
+What Trino is not
+-----------------
 
 Since Trino is being called a *database* by many members of the community,
 it makes sense to begin with a definition of what Trino is not.
@@ -19,9 +19,9 @@ PostgreSQL or Oracle. Trino was not designed to handle Online
 Transaction Processing (OLTP). This is also true for many other
 databases designed and optimized for data warehousing or analytics.
 
---------------
-What Trino Is
---------------
+-------------
+What Trino is
+-------------
 
 Trino is a tool designed to efficiently query vast amounts of data
 using distributed queries. If you work with terabytes or petabytes of

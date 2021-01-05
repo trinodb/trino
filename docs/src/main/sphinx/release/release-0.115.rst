@@ -2,7 +2,7 @@
 Release 0.115
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix an issue with hierarchical queue rules where queries could be rejected after being accepted.
@@ -10,7 +10,7 @@ General Changes
 * Add :func:`power` as an alias for :func:`pow`.
 * Add support for ``LIMIT ALL`` syntax.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix a race condition which could cause queries to finish without reading all the data.

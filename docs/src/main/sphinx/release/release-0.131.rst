@@ -2,7 +2,7 @@
 Release 0.131
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix poor performance of transporting dictionary encoded data over the network.

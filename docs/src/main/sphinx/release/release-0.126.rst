@@ -2,7 +2,7 @@
 Release 0.126
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add error location information (line and column number) for semantic errors.
@@ -35,7 +35,7 @@ General Changes
 * Fix memory leak in coordinator.
 * Add validation for names of table properties.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix reading structural types containing nulls in Parquet.

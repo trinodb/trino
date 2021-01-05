@@ -2,7 +2,7 @@
 Release 0.143
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix race condition in output buffer that can cause a page to be lost.
@@ -19,7 +19,7 @@ General Changes
 * Improve query startup time in large clusters.
 * Improve error messages for ``CAST`` and :func:`slice`.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix native memory leak when reading or writing gzip compressed data.

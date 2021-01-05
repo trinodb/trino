@@ -1,5 +1,5 @@
 ======================
-Command Line Interface
+Command line interface
 ======================
 
 The Trino CLI provides a terminal-based, interactive shell for running

@@ -1,10 +1,10 @@
 =============================
-Array Functions and Operators
+Array functions and operators
 =============================
 
 .. _subscript_operator:
 
-Subscript Operator: []
+Subscript operator: []
 ----------------------
 
 The ``[]`` operator is used to access an element of an array and is indexed starting from one::
@@ -13,7 +13,7 @@ The ``[]`` operator is used to access an element of an array and is indexed star
 
 .. _concatenation_operator:
 
-Concatenation Operator: ||
+Concatenation operator: ||
 --------------------------
 
 The ``||`` operator is used to concatenate an array with an array or an element of the same type::
@@ -27,7 +27,7 @@ The ``||`` operator is used to concatenate an array with an array or an element 
     SELECT 2 || ARRAY[1];
     -- [2, 1]
 
-Array Functions
+Array functions
 ---------------
 
 .. function:: all_match(array(T), function(T,boolean)) -> boolean

@@ -2,7 +2,7 @@
 Release 0.196
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix behavior of ``JOIN ... USING`` to conform to standard SQL semantics.
@@ -33,7 +33,7 @@ Security
   to enforce a specific matching between authentication credentials and a
   executing username.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix a correctness issue where non-null values can be treated as null values

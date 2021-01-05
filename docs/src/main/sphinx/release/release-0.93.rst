@@ -2,7 +2,7 @@
 Release 0.93
 ============
 
-ORC Memory Usage
+ORC memory usage
 ----------------
 
 This release changes the Presto ORC reader to favor small buffers when reading
@@ -29,7 +29,7 @@ If you're upgrading from 0.92, you need to alter your verifier_queries table
     ALTER TABLE verifier_queries add control_username VARCHAR(256) NOT NULL default 'verifier-test';
     ALTER TABLE verifier_queries add control_password VARCHAR(256);
 
-General Changes
+General changes
 ---------------
 
 * Add optimizer for ``LIMIT 0``

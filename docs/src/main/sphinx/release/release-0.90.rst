@@ -4,7 +4,7 @@ Release 0.90
 
 .. warning:: This release has a memory leak and should not be used.
 
-General Changes
+General changes
 ---------------
 
 * Initial support for partition and placement awareness in the query planner. This can
@@ -27,7 +27,7 @@ General Changes
 * Improve :doc:`/installation/jdbc` conformance. In particular, all unimplemented
   methods now throw ``SQLException`` rather than ``UnsupportedOperationException``.
 
-Functions and Language Features
+Functions and language features
 -------------------------------
 
 * Add :func:`bool_and` and :func:`bool_or` aggregation functions.
@@ -41,7 +41,7 @@ Functions and Language Features
 * Improve formatting of ``EXPLAIN (TYPE DISTRIBUTED)`` output and include additional
   information such as output layout, task placement policy and partitioning functions.
 
-Hive Changes
+Hive changes
 ------------
 * Disable optimized metastore partition fetching for non-string partition keys.
   This fixes an issue were Presto might silently ignore data with non-canonical
@@ -49,7 +49,7 @@ Hive Changes
   to the coordinator and worker config properties.
 * Don't retry operations against S3 that fail due to lack of permissions.
 
-SPI Changes
+SPI changes
 -----------
 * Add ``getColumnTypes`` to ``RecordSink``.
 * Use ``Slice`` for table writer fragments.

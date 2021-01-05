@@ -1,5 +1,5 @@
 ====================
-Optimizer Properties
+Optimizer properties
 ====================
 
 ``optimizer.dictionary-aggregation``

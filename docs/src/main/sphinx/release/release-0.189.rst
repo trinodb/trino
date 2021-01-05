@@ -2,7 +2,7 @@
 Release 0.189
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix query failure while logging the query plan.
@@ -20,7 +20,7 @@ General Changes
   field in the ``ROW``.
 * Add support for dereferencing row fields in lambda expressions.
 
-Security Changes
+Security changes
 ----------------
 
 * Support configuring multiple authentication types, which allows supporting
@@ -37,7 +37,7 @@ Security Changes
   yet supported).
 * Skip sending final leg of SPNEGO authentication when using Kerberos.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Per the JDBC specification, close the ``ResultSet`` when ``Statement`` is closed.
@@ -49,35 +49,35 @@ JDBC Driver Changes
   to use ``setCatalog()`` and ``setSchema()`` on ``Connection`` is recommended.
 * Allow executing ``SET SESSION`` and ``RESET SESSION``.
 
-Resource Group Changes
+Resource group changes
 ----------------------
 
 * Add ``WEIGHTED_FAIR`` resource group scheduling policy.
 
-Hive Changes
+Hive changes
 ------------
 
 * Do not require setting ``hive.metastore.uri`` when using the file metastore.
 * Reduce memory usage when reading string columns from ORC or DWRF files.
 
 
-MySQL, PostgreSQL, Redshift, and SQL Server Changes
+MySQL, PostgreSQL, Redshift, and SQL Server shanges
 ---------------------------------------------------
 
 * Change mapping for columns with ``DECIMAL(p,s)`` data type from Presto ``DOUBLE``
   type to the corresponding Presto ``DECIMAL`` type.
 
-Kafka Changes
+Kafka changes
 -------------
 
 * Fix documentation for raw decoder.
 
-Thrift Connector Changes
+Thrift connector changes
 ------------------------
 
 * Add support for index joins.
 
-SPI Changes
+SPI changes
 -----------
 
 * Deprecate ``SliceArrayBlock``.
