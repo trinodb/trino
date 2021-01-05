@@ -31,7 +31,7 @@ import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPo
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -67,7 +67,7 @@ public class SinglenodeSparkIceberg
         builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/iceberg.properties")),
-                        CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties"));
+                        CONTAINER_TRINO_ETC + "/catalog/iceberg.properties"));
 
         builder.addContainer(createSpark())
                 .containerDependsOn("spark", HADOOP);

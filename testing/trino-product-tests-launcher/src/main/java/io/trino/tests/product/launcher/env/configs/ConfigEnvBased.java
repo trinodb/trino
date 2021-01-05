@@ -94,12 +94,12 @@ public class ConfigEnvBased
     {
         builder.configureContainers(container -> {
             if (container.getLogicalName().startsWith(PRESTO)) {
-                String prestoInitScript = getenv("HADOOP_PRESTO_INIT_SCRIPT");
+                String trinoInitScript = getenv("HADOOP_TRINO_INIT_SCRIPT");
 
-                if (!Strings.isNullOrEmpty(prestoInitScript)) {
+                if (!Strings.isNullOrEmpty(trinoInitScript)) {
                     container.withCopyFileToContainer(
-                            forHostPath(dockerFiles.getDockerFilesHostPath(prestoInitScript)),
-                            "/docker/presto-init.d/presto-init.sh");
+                            forHostPath(dockerFiles.getDockerFilesHostPath(trinoInitScript)),
+                            "/docker/trino-init.d/trino-init.sh");
                 }
             }
 
@@ -109,7 +109,7 @@ public class ConfigEnvBased
                 if (!Strings.isNullOrEmpty(hadoopInitScript)) {
                     container.withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath(hadoopInitScript)),
-                            CONTAINER_HADOOP_INIT_D + "/hadoop-presto-init.sh");
+                            CONTAINER_HADOOP_INIT_D + "/hadoop-trino-init.sh");
                 }
             }
         });

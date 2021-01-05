@@ -38,7 +38,7 @@ public class ConfigHdp3
 
     /**
      * export HADOOP_BASE_IMAGE="ghcr.io/trinodb/testing/hdp3.1-hive"
-     * export TEMPTO_ENVIRONMENT_CONFIG_FILE="/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml"
+     * export TEMPTO_ENVIRONMENT_CONFIG_FILE="/docker/trino-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml"
      * export DISTRO_SKIP_GROUP=iceberg
      */
     @Override
@@ -55,8 +55,8 @@ public class ConfigHdp3
                 container.withCopyFileToContainer(forHostPath(
                         // HDP3's handling of timestamps is incompatible with previous versions of Hive (see https://issues.apache.org/jira/browse/HIVE-21002);
                         // in order for Presto to deal with the differences, we must set catalog properties for Parquet and RCFile
-                        dockerFiles.getDockerFilesHostPath("common/standard/presto-init-hdp3.sh")),
-                        "/docker/presto-init.d/presto-init-hdp3.sh");
+                        dockerFiles.getDockerFilesHostPath("common/standard/trino-init-hdp3.sh")),
+                        "/docker/trino-init.d/trino-init-hdp3.sh");
             }
         });
     }
@@ -70,6 +70,6 @@ public class ConfigHdp3
     @Override
     public String getTemptoEnvironmentConfigFile()
     {
-        return "/docker/presto-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml";
+        return "/docker/trino-product-tests/conf/tempto/tempto-configuration-for-hive3.yaml";
     }
 }

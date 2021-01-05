@@ -95,10 +95,10 @@ public final class DockerFiles
             Path dockerFilesHostPath = createTemporaryDirectoryForDocker();
             ClassPath.from(Thread.currentThread().getContextClassLoader())
                     .getResources().stream()
-                    .filter(resourceInfo -> resourceInfo.getResourceName().startsWith("docker/presto-product-tests/"))
+                    .filter(resourceInfo -> resourceInfo.getResourceName().startsWith("docker/trino-product-tests/"))
                     .forEach(resourceInfo -> {
                         try {
-                            Path target = dockerFilesHostPath.resolve(resourceInfo.getResourceName().replaceFirst("^docker/presto-product-tests/", ""));
+                            Path target = dockerFilesHostPath.resolve(resourceInfo.getResourceName().replaceFirst("^docker/trino-product-tests/", ""));
                             Files.createDirectories(target.getParent());
 
                             try (InputStream inputStream = resourceInfo.asByteSource().openStream()) {
