@@ -23,7 +23,7 @@ Examples
     RESET SESSION optimize_hash_generation;
     RESET SESSION hive.optimized_reader_enabled;
 
-See Also
+See also
 --------
 
 :doc:`set-session`, :doc:`show-session`

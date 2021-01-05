@@ -28,7 +28,7 @@ Drop the schema ``sales`` if it exists::
 
     DROP SCHEMA IF EXISTS sales
 
-See Also
+See also
 --------
 
 :doc:`alter-schema`, :doc:`create-schema`

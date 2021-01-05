@@ -2,7 +2,7 @@
 Release 0.140
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add the ``TRY`` function to handle specific data exceptions. See
@@ -22,14 +22,14 @@ General Changes
   duplicated columns.
 * Optimize ``NOT IN`` queries to produce more compact predicates.
 
-Hive Changes
+Hive changes
 ------------
 
 * Remove bogus "from deserializer" column comments.
 * Change categorization of Hive writer errors to be more specific.
 * Add date and timestamp support to new Parquet Reader
 
-SPI Changes
+SPI changes
 -----------
 
 * Remove partition key from ``ColumnMetadata``.

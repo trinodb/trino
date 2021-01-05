@@ -63,7 +63,7 @@ and allow everyone to drop schema and create tables in schema ``web``::
 
     CREATE SCHEMA web AUTHORIZATION ROLE PUBLIC WITH ( LOCATION = '/hive/data/web' )
 
-See Also
+See also
 --------
 
 :doc:`alter-schema`, :doc:`drop-schema`

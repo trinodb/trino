@@ -62,7 +62,7 @@ Create a new ``empty_nation`` table with the same schema as ``nation`` and no da
     FROM nation
     WITH NO DATA
 
-See Also
+See also
 --------
 
 :doc:`create-table`, :doc:`select`

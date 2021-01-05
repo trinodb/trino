@@ -2,7 +2,7 @@
 Release 0.167
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix planning failure when a window function depends on the output of another window function.
@@ -21,7 +21,7 @@ General Changes
 * Add JMX stats for compiler caches.
 * Raise required Java version to 8u92.
 
-Security Changes
+Security changes
 ----------------
 
 * The ``http.server.authentication.enabled`` config option that previously enabled
@@ -31,19 +31,19 @@ Security Changes
 * Allow access controls to filter the results of listing catalogs, schemas and tables.
 * Add access control checks for :doc:`/sql/show-schemas` and :doc:`/sql/show-tables`.
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Add operator-level performance analysis.
 * Improve visibility of blocked and reserved query states.
 * Lots of minor improvements.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Allow escaping in ``DatabaseMetaData`` patterns.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix write operations for ``ViewFileSystem`` by using a relative location.
@@ -53,7 +53,7 @@ Hive Changes
 * Remove support for the legacy S3 block-based file system.
 * Add support for KMS-managed keys for S3 server-side encryption.
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 * Add support for Cassandra 3.x by removing the deprecated Thrift interface used to
@@ -61,7 +61,7 @@ Cassandra Changes
   ``cassandra.thrift-port``, ``cassandra.thrift-connection-factory-class``,
   ``cassandra.transport-factory-options`` and ``cassandra.partitioner``.
 
-SPI Changes
+SPI changes
 -----------
 
 * Add methods to ``SystemAccessControl`` and ``ConnectorAccessControl`` to

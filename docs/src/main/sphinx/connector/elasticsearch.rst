@@ -1,5 +1,5 @@
 =======================
-Elasticsearch Connector
+Elasticsearch connector
 =======================
 
 Overview
@@ -26,7 +26,7 @@ replacing the properties as appropriate:
     elasticsearch.port=9200
     elasticsearch.default-schema-name=default
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -119,7 +119,7 @@ User name to use to authenticate to Elasticsearch nodes.
 
 Password to use to authenticate to Elasticsearch nodes.
 
-TLS Security
+TLS security
 ------------
 
 The Elasticsearch connector provides additional security options to support Elasticsearch clusters that have been configured to use TLS.
@@ -154,7 +154,7 @@ The key password for the trust store specified by ``elasticsearch.tls.truststore
 
 This property is optional.
 
-Data Types
+Data types
 ----------
 
 The data type mappings are as follows:
@@ -179,7 +179,7 @@ Elasticsearch Trino
 
 .. _elasticsearch-array-types:
 
-Array Types
+Array types
 ^^^^^^^^^^^
 
 Fields in Elasticsearch can contain `zero or more values <https://www.elastic.co/guide/en/elasticsearch/reference/current/array.html>`_
@@ -225,7 +225,7 @@ property definition to the ``_meta.presto`` property of the target index mapping
         }
     }'
 
-Special Columns
+Special columns
 ---------------
 
 The following hidden columns are available:
@@ -240,7 +240,7 @@ _source The source of the original document
 
 .. _elasticsearch-full-text-queries:
 
-Full Text Queries
+Full text queries
 -----------------
 
 Trino SQL queries can be combined with Elasticsearch queries by providing the `full text query`_
@@ -253,7 +253,7 @@ as part of the table name, separated by a colon. For example:
 .. _full text query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-query-string-query.html#query-string-syntax
 
 
-Pass-through Queries
+Pass-through queries
 --------------------
 
 The Elasticsearch connector allows you to embed any valid Elasticsearch query,
@@ -275,7 +275,7 @@ column named ``result`` of type VARCHAR. It contains the JSON payload returned
 by Elasticsearch, and can be processed with the :doc:`built-in JSON functions
 </functions/json>`.
 
-AWS Authorization
+AWS authorization
 -----------------
 
 To enable AWS authorization using IAM policies, the ``elasticsearch.security`` option needs to be set to ``AWS``.

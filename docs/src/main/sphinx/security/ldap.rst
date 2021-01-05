@@ -1,5 +1,5 @@
 ===================
-LDAP Authentication
+LDAP authentication
 ===================
 
 Trino can be configured to enable frontend LDAP authentication over
@@ -15,10 +15,10 @@ only the communication from the clients to the coordinator is authenticated.
 However, if you want to secure the communication between
 Trino nodes with SSL/TLS configure :doc:`/security/internal-communication`.
 
-Trino Server Configuration
+Trino server configuration
 ---------------------------
 
-Trino Coordinator Node Configuration
+Trino coordinator node configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Access to the Trino coordinator should be through HTTPS. You can do that
@@ -30,7 +30,7 @@ The first part is to enable HTTPS support and password authentication
 in the coordinator's ``config.properties`` file. The second part is
 to configure LDAP as the password authenticator plugin.
 
-Server Config Properties
+Server config properties
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 The following is an example of the required properties that need to be added
@@ -70,7 +70,7 @@ Property                                                      Description
                                                               :doc:`/security/user-mapping` for more information.
 ============================================================= ======================================================
 
-Password Authenticator Configuration
+Password authenticator configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Password authentication needs to be configured to use LDAP. Create an
@@ -139,7 +139,7 @@ Example:
 
     ldap.user-bind-pattern=uid=${USER},OU=America,DC=corp,DC=example,DC=com
 
-Authorization based on LDAP Group Membership
+Authorization based on LDAP group membership
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can further restrict the set of users allowed to connect to the Trino
@@ -237,10 +237,10 @@ property may be set as follows:
 Trino CLI
 ----------
 
-Environment Configuration
+Environment configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TLS Configuration
+TLS configuration
 ~~~~~~~~~~~~~~~~~
 
 Access to the Trino coordinator should be through HTTPS when using LDAP
@@ -253,7 +253,7 @@ for its TLS configuration. If you are using truststore, you can either use
 default Java truststores or create a custom truststore on the CLI. We do not
 recommend using self-signed certificates in production.
 
-Trino CLI Execution
+Trino CLI execution
 ^^^^^^^^^^^^^^^^^^^^
 
 In addition to the options that are required when connecting to a Trino
@@ -304,13 +304,13 @@ Option                          Description
 Troubleshooting
 ---------------
 
-Java Keystore File Verification
+Java keystore file verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Verify the password for a keystore file and view its contents using
 :ref:`troubleshooting_keystore`.
 
-Debug Trino to LDAP Server Issues
+Debug Trino to LDAP server issues
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 If you need to debug issues with Trino communicating with the LDAP server,
 you can change the :ref:`log level <log-levels>` for the LDAP authenticator:
@@ -319,7 +319,7 @@ you can change the :ref:`log level <log-levels>` for the LDAP authenticator:
 
     io.trino.plugin.password=DEBUG
 
-SSL Debugging for Trino CLI
+SSL debugging for Trino CLI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you encounter any SSL related errors when running the Trino CLI, you can run
@@ -348,7 +348,7 @@ Adding a SAN to this certificate is required in cases where ``https://`` uses IP
 than the domain contained in the coordinator's certificate, and the certificate does not contain the
 :abbr:`SAN (Subject Alternative Name)` parameter with the matching IP address as an alternative attribute.
 
-Authentication or SSL errors with JDK Upgrade
+Authentication or SSL errors with JDK upgrade
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Starting with the JDK 8u181 release, to improve the robustness of LDAPS

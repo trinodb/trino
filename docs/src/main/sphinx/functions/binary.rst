@@ -1,13 +1,13 @@
 ==============================
-Binary Functions and Operators
+Binary functions and operators
 ==============================
 
-Binary Operators
+Binary operators
 ----------------
 
 The ``||`` operator performs concatenation.
 
-Binary Functions
+Binary functions
 ----------------
 
 .. function:: concat(binary1, ..., binaryN) -> varbinary
@@ -60,7 +60,7 @@ Binary Functions
 
     Returns ``binary`` with the bytes in reverse order.
 
-Base64 Encoding Functions
+Base64 encoding functions
 -------------------------
 
 The Base64 functions implement the encoding specified in :rfc:`4648`.
@@ -81,7 +81,7 @@ The Base64 functions implement the encoding specified in :rfc:`4648`.
 
     Encodes ``binary`` into a base64 string representation using the URL safe alphabet.
 
-Hex Encoding Functions
+Hex encoding functions
 ----------------------
 
 .. function:: from_hex(string) -> varbinary
@@ -92,7 +92,7 @@ Hex Encoding Functions
 
     Encodes ``binary`` into a hex string representation.
 
-Integer Encoding Functions
+Integer encoding functions
 --------------------------
 
 .. function:: from_big_endian_32(binary) -> integer
@@ -113,7 +113,7 @@ Integer Encoding Functions
 
     Encodes ``bigint`` into a 64-bit two's complement big-endian format.
 
-Floating-Point Encoding Functions
+Floating-point encoding functions
 ---------------------------------
 
 .. function:: from_ieee754_32(binary) -> real
@@ -134,7 +134,7 @@ Floating-Point Encoding Functions
 
     Encodes ``double`` into a 64-bit big-endian binary according to IEEE 754 double-precision floating-point format.
 
-Hashing Functions
+Hashing functions
 -----------------
 
 .. function:: crc32(binary) -> bigint
@@ -174,7 +174,7 @@ Hashing Functions
 
     Computes the 128-bit murmur3 hash of ``binary``.
 
-HMAC Functions
+HMAC functions
 --------------
 
 .. function:: hmac_md5(binary, key) -> varbinary

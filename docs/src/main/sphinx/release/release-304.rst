@@ -2,7 +2,7 @@
 Release 304 (27 Feb 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix wrong results for queries involving ``FULL OUTER JOIN`` and ``coalesce`` expressions
@@ -15,19 +15,19 @@ General Changes
 * Avoid opening an unnecessary HTTP listener on an arbitrary port. (:issue:`239`)
 * Add experimental support for spilling for queries involving ``ORDER BY`` or window functions. (:issue:`228`)
 
-Server RPM Changes
+Server RPM changes
 ------------------
 
 * Preserve modified configuration files when the RPM is uninstalled. (:issue:`267`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix broken timeline view. (:issue:`283`)
 * Show data size and position count reported by connectors and by worker-to-worker data transfers
   in detailed query view. (:issue:`271`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix authorization failure when using SQL Standard Based Authorization mode with user identifiers
@@ -50,12 +50,12 @@ Hive Connector Changes
   in the metastore with the partitions that are physically on the file system. (:issue:`223`)
 * Improve performance of ORC reader for columns that only contain nulls. (:issue:`229`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Map PostgreSQL ``json`` and ``jsonb`` types to Presto ``json`` type. (:issue:`81`)
 
-Cassandra Connector Changes
+Cassandra connector changes
 ---------------------------
 
 * Support queries over tables containing partitioning columns of any type. (:issue:`252`)

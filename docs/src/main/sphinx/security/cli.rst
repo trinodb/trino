@@ -1,11 +1,11 @@
 ===========================
-CLI Kerberos Authentication
+CLI Kerberos authentication
 ===========================
 
 The Trino :doc:`/installation/cli` can connect to a :doc:`Trino coordinator
 </security/server>`, that has Kerberos authentication enabled.
 
-Environment Configuration
+Environment configuration
 -------------------------
 
 .. |subject_node| replace:: client
@@ -13,7 +13,7 @@ Environment Configuration
 .. include:: kerberos-services.fragment
 .. include:: kerberos-configuration.fragment
 
-Kerberos Principals and Keytab Files
+Kerberos principals and keytab files
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Each user, who connects to the Trino coordinator, needs a Kerberos principal.
@@ -33,7 +33,7 @@ principal.
 
 .. include:: ktadd-note.fragment
 
-Java Keystore File for TLS
+Java keystore file for TLS
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Access to the Trino coordinator must be through HTTPS when using Kerberos
@@ -87,7 +87,7 @@ Troubleshooting
 Many of the same steps, that can be used when troubleshooting the :ref:`Trino
 coordinator <coordinator-troubleshooting>`, apply to troubleshooting the CLI.
 
-Additional Kerberos Debugging Information
+Additional Kerberos debugging information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can enable additional Kerberos debugging information for the Trino CLI

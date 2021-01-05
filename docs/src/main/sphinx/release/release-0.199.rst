@@ -2,7 +2,7 @@
 Release 0.199
 =============
 
-General Changes
+General changes
 ---------------
 
 * Allow users to create views for their own use when they do not have permission
@@ -38,22 +38,22 @@ General Changes
 * Improve the performance of functions that return maps.
 * Improve the performance of joins and aggregations that include map columns.
 
-Server RPM Changes
+Server RPM changes
 ------------------
 
 * Add support for installing on machines with OpenJDK.
 
-Security Changes
+Security changes
 ----------------
 
 * Add support for authentication with JWT access token.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Make driver compatible with Java 9+. It previously failed with ``IncompatibleClassChangeError``.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix ORC writer failure when writing ``NULL`` values into columns of type ``ROW``, ``MAP``,  or ``ARRAY``.
@@ -70,14 +70,14 @@ Hive Changes
   ``hive.max-partitions-per-scan`` config option.
 * Allow marking partitions as offline via the ``presto_offline`` partition property.
 
-Thrift Connector Changes
+Thrift connector changes
 ------------------------
 
 * Most of the config property names are different due to replacing the
   underlying Thrift client implementation. Please see :doc:`/connector/thrift`
   for details on the new properties.
 
-SPI Changes
+SPI changes
 -----------
 
 * Allow connectors to provide system tables dynamically.

@@ -2,7 +2,7 @@
 Release 0.210
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix planning failure when aliasing columns of tables containing hidden
@@ -14,7 +14,7 @@ General Changes
 * Remove user CPU time tracking as introduces non-trivial overhead.
 * Select join distribution type automatically for queries involving outer joins.
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix a security bug introduced in 0.209 when using ``hive.security=file``,
@@ -26,14 +26,14 @@ Hive Connector Changes
 * Support backward compatible Avro schema evolution.
 * Support cross-realm Kerberos authentication for HDFS and Hive Metastore.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Deallocate prepared statement when ``PreparedStatement`` is closed. Previously,
   ``Connection`` became unusable after many prepared statements were created.
 * Remove ``getUserTimeMillis()`` from ``QueryStats`` and ``StageStats``.
 
-SPI Changes
+SPI changes
 -----------
 
 * ``SystemAccessControl.checkCanSetUser()`` now takes an ``Optional<Principal>``

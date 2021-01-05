@@ -2,7 +2,7 @@
 Release 323 (23 Oct 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix query failure when referencing columns from a table that contains
@@ -15,18 +15,18 @@ General Changes
 * Allow using ``.*`` on expressions of type ``ROW`` in the ``SELECT`` clause to
   convert the fields of a row into multiple columns. (:issue:`1017`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Fix a compatibility issue when connecting to pre-321 servers. (:issue:`1785`)
 * Fix reporting of views in ``DatabaseMetaData.getTables()``. (:issue:`1488`)
 
-CLI Changes
+CLI changes
 ------------
 
 * Fix a compatibility issue when connecting to pre-321 servers. (:issue:`1785`)
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix the ORC writer to correctly write the file footers. Previously written files were
@@ -37,14 +37,14 @@ Hive Changes
 * Allow using multiple Hive catalogs that use different Kerberos or other authentication
   configurations. (:issue:`760`, :issue:`978`, :issue:`1820`)
 
-PostgreSQL Changes
+PostgreSQL changes
 ------------------
 
 * Support for PostgreSQL arrays is no longer considered experimental, therefore
   the configuration property ``postgresql.experimental.array-mapping`` is now named
   to ``postgresql.array-mapping``. (:issue:`1740`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Add support for unnesting dictionary blocks duration compaction. (:issue:`1761`)

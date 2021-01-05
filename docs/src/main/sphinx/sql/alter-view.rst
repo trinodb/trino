@@ -26,7 +26,7 @@ Change owner of VIEW ``people`` to user ``alice``::
 
     ALTER VIEW people SET AUTHORIZATION alice
 
-See Also
+See also
 --------
 
 :doc:`create-view`

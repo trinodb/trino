@@ -1,10 +1,10 @@
 ==============================
-Java Keystores and Truststores
+Java keystores and truststores
 ==============================
 
 .. _server_java_keystore:
 
-Java Keystore File for TLS
+Java keystore file for TLS
 --------------------------
 
 Access to the Trino coordinator must be through HTTPS when using Kerberos
@@ -46,7 +46,7 @@ that confirms the information is correct:
 
 .. _cli_java_truststore:
 
-Java Truststore File for TLS
+Java truststore file for TLS
 ----------------------------
 
 Truststore files contain certificates of trusted TLS/SSL servers, or of
@@ -73,7 +73,7 @@ Troubleshooting
 
 .. _troubleshooting_keystore:
 
-Java Keystore File Verification
+Java keystore file verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Verify the password for a keystore file and view its contents using `keytool

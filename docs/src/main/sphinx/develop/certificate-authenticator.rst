@@ -1,5 +1,5 @@
 =========================
-Certificate Authenticator
+Certificate authenticator
 =========================
 
 Trino supports TLS-based authentication with X509 certificates via a custom

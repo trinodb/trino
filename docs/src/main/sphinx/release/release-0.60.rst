@@ -20,7 +20,7 @@ The :doc:`/installation/cli` now supports ``USE CATALOG`` and
 ``USE SCHEMA``.
 
 
-TPCH Connector
+TPCH connector
 --------------
 
 We have added a new connector that will generate synthetic data following the

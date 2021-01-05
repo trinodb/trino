@@ -1,8 +1,8 @@
 =============
-URL Functions
+URL functions
 =============
 
-Extraction Functions
+Extraction functions
 --------------------
 
 The URL extraction functions extract components from HTTP URLs
@@ -46,7 +46,7 @@ such as ``:`` or ``?``.
 
     Returns the query string from ``url``.
 
-Encoding Functions
+Encoding functions
 ------------------
 
 .. function:: url_encode(value) -> varchar

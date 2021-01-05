@@ -22,7 +22,7 @@ Examples
     ROLLBACK;
     ROLLBACK WORK;
 
-See Also
+See also
 --------
 
 :doc:`commit`, :doc:`start-transaction`

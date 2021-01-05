@@ -2,7 +2,7 @@
 Release 327 (20 Dec 2019)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix join query failure when late materialization is enabled. (:issue:`2144`)
@@ -16,13 +16,13 @@ General Changes
 * Rename ``experimental.work-processor-pipelines`` configuration property to ``experimental.late-materialization.enabled``
   and rename ``work_processor_pipelines`` session property to ``late_materialization``. (:issue:`2275`)
 
-Security Changes
+Security changes
 ----------------
 
 * Allow using multiple system access controls. (:issue:`2178`)
 * Add :doc:`/security/password-file`. (:issue:`797`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix incorrect query results when reading ``timestamp`` values from ORC files written by
@@ -40,7 +40,7 @@ Hive Connector Changes
 * Allow configuring the ``hive.orc.use-column-names`` config property on a per-session
   basis using the ``orc_use_column_names`` session property. (:issue:`2248`)
 
-Kudu Connector Changes
+Kudu connector changes
 ----------------------
 
 * Support predicate pushdown for the ``decimal`` type. (:issue:`2131`)
@@ -48,35 +48,35 @@ Kudu Connector Changes
 * Improve predicate pushdown for queries that match a column against
   multiple values (typically using the ``IN`` operator). (:issue:`2253`)
 
-MongoDB Connector Changes
+MongoDB connector changes
 -------------------------
 
 * Add support for reading from views. (:issue:`2156`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Allow converting unsupported types to ``VARCHAR`` by setting the session property
   ``unsupported_type_handling`` or configuration property ``unsupported-type-handling``
   to ``CONVERT_TO_VARCHAR``. (:issue:`1182`)
 
-MySQL Connector Changes
+MySQL connector changes
 -----------------------
 
 * Fix ``INSERT`` query failure when ``GTID`` mode is enabled. (:issue:`2251`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Improve performance for queries involving equality and range filters
   over table columns. (:issue:`2310`)
 
-Google Sheets Connector Changes
+Google Sheets connector changes
 -------------------------------
 
 * Fix incorrect results when listing tables in ``information_schema``. (:issue:`2118`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Add ``executionTime`` to ``QueryStatistics`` for event listeners. (:issue:`2247`)

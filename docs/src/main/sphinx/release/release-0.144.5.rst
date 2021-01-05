@@ -2,7 +2,7 @@
 Release 0.144.5
 ===============
 
-General Changes
+General changes
 ---------------
 
 * Fix window functions to correctly handle empty frames between unbounded and

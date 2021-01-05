@@ -1,5 +1,5 @@
 =================================
-Hive Connector with Azure Storage
+Hive connector with Azure Storage
 =================================
 
 The :doc:`hive` can be configured to query
@@ -12,7 +12,7 @@ Trino supports both ADLS Gen1 and Gen2. With ADLS Gen2 now generally available,
 we recommend using ADLS Gen2. Learn more from `the official documentation
 <https://docs.microsoft.com/en-us/azure/data-lake-store/data-lake-store-overview>`_.
 
-Hive Connector Configuration
+Hive connector configuration
 ----------------------------
 
 All configuration for the Azure storage driver is stored in the Hadoop
@@ -36,7 +36,7 @@ accounts involved, we recommend configuring Trino using a ``core-site.xml``
 containing the appropriate credentials for each account, as described in the
 preceding section.
 
-WASB Storage
+WASB storage
 ^^^^^^^^^^^^
 
 .. list-table:: WASB properties
@@ -50,7 +50,7 @@ WASB Storage
   * - ``hive.azure.wasb-access-key``
     - The decrypted access key for the Azure Blob Storage
 
-ADLS Gen2 / ABFS Storage
+ADLS Gen2 / ABFS storage
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 To connect to ABFS storage, you may either use the storage account's access

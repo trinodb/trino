@@ -2,7 +2,7 @@
 Release 0.154
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix planning issue that could cause ``JOIN`` queries involving functions
@@ -22,7 +22,7 @@ General Changes
 * Add support for ``DESCRIBE INPUT`` to describe the requirements for
   the input parameters to a prepared statement.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix handling of metastore cache TTL. With the introduction of the

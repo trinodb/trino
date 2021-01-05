@@ -2,7 +2,7 @@
 Release 0.127
 =============
 
-General Changes
+General changes
 ---------------
 
 * Disable index join repartitioning when it disrupts streaming execution.

@@ -1,5 +1,5 @@
 ======================
-Password Authenticator
+Password authenticator
 ======================
 
 Trino supports authentication with a username and password via a custom

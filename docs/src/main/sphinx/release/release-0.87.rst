@@ -2,7 +2,7 @@
 Release 0.87
 ============
 
-General Changes
+General changes
 ---------------
 
 * Fixed a bug where :ref:`row_type` types could have the wrong field names.

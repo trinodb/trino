@@ -1,5 +1,5 @@
 ===================
-Spilling Properties
+Spilling properties
 ===================
 
 These properties control :doc:`spill`.

@@ -2,7 +2,7 @@
 Release 0.164
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix correctness issue for queries that perform ``DISTINCT`` and ``LIMIT`` on the results of a ``JOIN``.
@@ -19,12 +19,12 @@ General Changes
 * Improve client error message for invalid session.
 * Add ``VALIDATE`` mode for :doc:`/sql/explain`.
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Add resource group to query detail page.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix handling of ORC files containing extremely large metadata.

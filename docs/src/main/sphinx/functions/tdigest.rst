@@ -1,8 +1,8 @@
 =========================
-T-Digest Functions
+T-Digest functions
 =========================
 
-Data Structures
+Data structures
 ---------------
 
 A T-digest is a data sketch which stores approximate percentile

@@ -2,7 +2,7 @@
 Release 0.191
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix regression that could cause high CPU usage for join queries when dictionary
@@ -30,17 +30,17 @@ General Changes
   The tradeoff for writer scaling is that write queries can take longer to run
   due to the decreased writer parallelism while the writer count ramps up.
 
-Resource Groups Changes
+Resource groups changes
 -----------------------
 
 *  Add query type to the exact match source selector in the DB resource group selectors.
 
-CLI Changes
+CLI changes
 -----------
 
 * Improve display of values of the Geometry type.
 
-Hive Changes
+Hive changes
 ------------
 
 * Add support for grouped join execution for Hive tables when both
@@ -51,7 +51,7 @@ Hive Changes
   This is especially important for tables that have many small partitions, as
   small files can take a disproportionately longer time to read.
 
-Thrift Connector Changes
+Thrift connector changes
 ------------------------
 
 * Add page size distribution metrics.

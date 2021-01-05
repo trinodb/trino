@@ -1,5 +1,5 @@
 ***********************
-Functions and Operators
+Functions and operators
 ***********************
 
 This chapter describes the SQL functions and operators supported by Trino. They
@@ -24,10 +24,10 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Bitwise             <functions/bitwise>
     Decimal             <functions/decimal>
     String              <functions/string>
-    Regular Expression  <functions/regexp>
+    Regular expression  <functions/regexp>
     Binary              <functions/binary>
     JSON                <functions/json>
-    Date and Time       <functions/datetime>
+    Date and time       <functions/datetime>
     Aggregate           <functions/aggregate>
     Window              <functions/window>
     Array               <functions/array>
@@ -35,11 +35,11 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     URL                 <functions/url>
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>
-    Quantile Digest     <functions/qdigest>
+    Quantile digest     <functions/qdigest>
     T-Digest            <functions/tdigest>
     UUID                <functions/uuid>
     Color               <functions/color>
     Session             <functions/session>
     Teradata            <functions/teradata>
-    Machine Learning    <functions/ml>
+    Machine learning    <functions/ml>
     functions/list

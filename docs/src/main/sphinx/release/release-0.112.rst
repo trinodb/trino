@@ -2,14 +2,14 @@
 Release 0.112
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect handling of filters and limits in :func:`row_number` optimizer.
   This caused certain query shapes to produce incorrect results.
 * Fix non-string object arrays in JMX connector.
 
-Hive Changes
+Hive changes
 ------------
 
 * Tables created using :doc:`/sql/create-table` (not :doc:`/sql/create-table-as`)

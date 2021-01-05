@@ -1,10 +1,10 @@
 ===============================
-Decimal Functions and Operators
+Decimal functions and operators
 ===============================
 
 .. _decimal_literal:
 
-Decimal Literals
+Decimal literals
 ----------------
 
 Use the ``DECIMAL 'xxxxxxx.yyyyyyy'`` syntax to define a decimal literal.
@@ -21,7 +21,7 @@ Example literal                             Data type
 ``DECIMAL '0000012345.1234500000'``         ``DECIMAL(20, 10)``
 =========================================== =============================
 
-Binary Arithmetic Decimal Operators
+Binary arithmetic decimal operators
 -----------------------------------
 
 Standard mathematical operators are supported. The table below explains
@@ -65,12 +65,12 @@ in the common super type. For example, the common super type of decimal(38, 0) a
 decimal(38, 1) is decimal(38, 1), but certain values that fit in decimal(38, 0)
 cannot be represented as a decimal(38, 1).
 
-Comparison Operators
+Comparison operators
 --------------------
 
 All standard :doc:`comparison` work for the decimal type.
 
-Unary Decimal Operators
+Unary decimal operators
 -----------------------
 
 The ``-`` operator performs negation. The type of result is same as type of argument.

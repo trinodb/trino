@@ -1,5 +1,5 @@
 ===============================
-List of Functions and Operators
+List of functions and operators
 ===============================
 
 #

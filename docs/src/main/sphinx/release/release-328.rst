@@ -2,7 +2,7 @@
 Release 328 (10 Jan 2020)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix correctness issue for certain correlated join queries when the correlated subquery on
@@ -19,14 +19,14 @@ General Changes
 * Add support for interpolating :doc:`/security/secrets` in server and catalog configuration
   files. (:issue:`2370`)
 
-Security Changes
+Security changes
 ----------------
 
 * Fix a security issue allowing users to gain unauthorized access to Presto cluster
   when using password authenticator with LDAP. (:issue:`2356`)
 * Add support for LDAP referrals in LDAP password authenticator. (:issue:`2354`)
 
-JDBC Driver
+JDBC driver
 -----------
 
 * Fix behavior of ``java.sql.Connection#commit()`` and ``java.sql.Connection#rollback()``
@@ -35,7 +35,7 @@ JDBC Driver
 * Fix failure when restoring autocommit mode with
   ``java.sql.Connection#setAutocommit()`` (:issue:`2338`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Reduce query latency and Hive metastore load when using the
@@ -44,7 +44,7 @@ Hive Connector Changes
 * Avoid redundant file system stat call when writing Parquet files. (:issue:`1746`)
 * Avoid retrying permanent errors for S3-related services such as STS. (:issue:`2331`)
 
-Kafka Connector Changes
+Kafka connector changes
 -----------------------
 
 * Remove internal columns: ``_segment_start``, ``_segment_end`` and
@@ -52,21 +52,21 @@ Kafka Connector Changes
 * Add new configuration property ``kafka.messages-per-split`` to control how many Kafka
   messages will be processed by a single Presto split. (:issue:`2303`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Fix query failure when an object in an Elasticsearch document
   does not have any fields. (:issue:`2217`)
 * Add support for querying index aliases. (:issue:`2324`)
 
-Phoenix Connector Changes
+Phoenix connector changes
 -------------------------
 
 * Add support for mapping unsupported data types to ``VARCHAR``. This can be enabled by setting
   the ``unsupported-type-handling`` configuration property or the ``unsupported_type_handling`` session
   property to ``CONVERT_TO_VARCHAR``. (:issue:`2427`)
 
-Other Connector Changes
+Other connector changes
 -----------------------
 
 These changes apply to the MySQL, PostgreSQL, Redshift and SQL Server connectors:

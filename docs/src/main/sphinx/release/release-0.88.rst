@@ -2,7 +2,7 @@
 Release 0.88
 ============
 
-General Changes
+General changes
 ---------------
 
 * Added :func:`arbitrary` aggregation function.

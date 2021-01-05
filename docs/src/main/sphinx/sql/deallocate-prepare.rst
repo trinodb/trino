@@ -22,6 +22,6 @@ Deallocate a statement with the name ``my_query``::
 
     DEALLOCATE PREPARE my_query;
 
-See Also
+See also
 --------
 :doc:`prepare`

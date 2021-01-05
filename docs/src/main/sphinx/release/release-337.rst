@@ -6,7 +6,7 @@ Release 337 (25 Jun 2020)
    attacker can take advantage of this vulnerability to escalate privileges to internal APIs. We encourage everyone to upgrade as soon
    as possible.
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect results for inequality join involving ``NaN``. (:issue:`4120`)
@@ -23,7 +23,7 @@ General Changes
 * Add :func:`translate` function. (:issue:`4080`)
 * Reduce worker graceful shutdown duration. (:issue:`4192`)
 
-Security Changes
+Security changes
 ----------------
 
 * Disable insecure authentication over HTTP by default when HTTPS with authentication is enabled. This
@@ -32,12 +32,12 @@ Security Changes
 * Add :ref:`system_information_rules` which control the ability of a user to access to read and write system management information. (:issue:`4199`)
 * Disable user impersonation in default system security. (:issue:`4082`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Add support for password authentication. (:issue:`4165`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix reading CSV tables with ``separatorChar``, ``quoteChar`` or ``escapeChar`` table property
@@ -57,14 +57,14 @@ Hive Connector Changes
 * Support ACID data files naming used when direct inserts are enabled in Hive (HIVE-21164).
   Direct inserts is an upcoming feature in Hive 4. (:issue:`4049`)
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
 * Improve performance of aggregation queries by computing aggregations within PostgreSQL database.
   Currently, the following aggregate functions are eligible for pushdown:
   ``count``,  ``min``, ``max``, ``sum`` and ``avg``. (:issue:`3881`)
 
-Base-JDBC Connector Library Changes
+Base-JDBC connector library changes
 -----------------------------------
 
 * Implement framework for aggregation pushdown. (:issue:`3881`)

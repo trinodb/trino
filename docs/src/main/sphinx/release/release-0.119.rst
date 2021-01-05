@@ -2,7 +2,7 @@
 Release 0.119
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add :doc:`/connector/redis`.
@@ -25,7 +25,7 @@ General Changes
   the same side.
 * Support ``RENAME COLUMN`` in :doc:`/sql/alter-table`.
 
-SPI Changes
+SPI changes
 -----------
 
 * Add more system table distribution modes.
@@ -37,7 +37,7 @@ SPI Changes
     new APIs.
 
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix handling of full width characters.
@@ -47,19 +47,19 @@ CLI Changes
 * Fix handling of query abortion after result has been partially received.
 * Fix handling of ``ctrl-C`` when displaying results without a pager.
 
-Verifier Changes
+Verifier changes
 ----------------
 
 * Add ``expected-double-precision`` config to specify the expected level of
   precision when comparing double values.
 * Return non-zero exit code when there are failures.
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 * Add support for Cassandra blob types.
 
-Hive Changes
+Hive changes
 ------------
 
 * Support adding and renaming columns using :doc:`/sql/alter-table`.
@@ -67,7 +67,7 @@ Hive Changes
 * Allow configuring multiple Hive metastores for high availability.
 * Add support for ``TIMESTAMP`` and ``VARBINARY`` in Parquet.
 
-MySQL and PostgreSQL Changes
+MySQL and PostgreSQL changes
 ----------------------------
 
 * Enable streaming results instead of buffering everything in memory.

@@ -2,7 +2,7 @@
 Release 0.172
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix correctness issue in ``ORDER BY`` queries due to improper implicit coercions.

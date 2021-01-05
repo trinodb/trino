@@ -60,7 +60,7 @@ Create a new table with column ``id`` and ``name``::
             (3, 'c')
     ) AS t (id, name)
 
-See Also
+See also
 --------
 
 :doc:`insert`, :doc:`select`

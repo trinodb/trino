@@ -2,7 +2,7 @@
 Release 302 (6 Feb 2019)
 ========================
 
-General Changes
+General changes
 ---------------
 
 * Fix cluster starvation when wait for minimum number of workers is enabled. (:issue:`155`)
@@ -17,25 +17,25 @@ General Changes
 * Remove deprecated system memory pool. (:issue:`168`)
 * Improve query performance for certain queries involving ``ROLLUP``. (:issue:`105`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Add ``--trace-token`` option to set the trace token. (:issue:`117`)
 * Display spilled data size as part of debug information. (:issue:`161`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Add spilled data size to query details page. (:issue:`161`)
 
-Security Changes
+Security changes
 ----------------
 
 * Add ``http.server.authentication.krb5.principal-hostname`` configuration option to set the hostname
   for the Kerberos service principal. (:issue:`146`, :issue:`153`)
 * Add support for client-provided extra credentials that can be utilized by connectors. (:issue:`124`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix Parquet predicate pushdown for ``smallint``, ``tinyint`` types. (:issue:`131`)
@@ -46,17 +46,17 @@ Hive Connector Changes
 * Reduce GC pressure from Parquet reader by constraining the maximum column read size. (:issue:`58`)
 * Reduce network utilization and latency for S3 when reading ORC or Parquet. (:issue:`142`)
 
-Kafka Connector Changes
+Kafka connector changes
 -----------------------
 
 * Fix query failure when reading ``information_schema.columns`` without an equality condition on ``table_name``. (:issue:`120`)
 
-Redis Connector Changes
+Redis connector changes
 -----------------------
 
 * Fix query failure when reading ``information_schema.columns`` without an equality condition on ``table_name``. (:issue:`120`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Include query peak task user memory in ``QueryCreatedEvent`` and ``QueryCompletedEvent``. (:issue:`163`)

@@ -2,7 +2,7 @@
 Release 333 (04 May 2020)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Fix planning failure when lambda expressions are repeated in a query. (:issue:`3218`)
@@ -23,44 +23,44 @@ General Changes
 * Add :doc:`/sql/show-create-schema`. (:issue:`3099`)
 * Add :func:`starts_with` function. (:issue:`3392`)
 
-Server Changes
+Server changes
 --------------
 
 * Require running on :ref:`Java 11 or above <requirements-java>`. (:issue:`2799`)
 
-Server RPM Changes
+Server RPM changes
 ------------------
 
 * Reduce size of RPM and disk usage after installation. (:issue:`3595`)
 
-Security Changes
+Security changes
 ----------------
 
 * Allow configuring trust certificate for LDAP password authenticator. (:issue:`3523`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Fix hangs on JDK 8u252 when using secure connections. (:issue:`3444`)
 
-BigQuery Connector Changes
+BigQuery connector changes
 --------------------------
 
 * Improve performance for queries that contain filters on table columns. (:issue:`3376`)
 * Add support for partitioned tables. (:issue:`3376`)
 
-Cassandra Connector Changes
+Cassandra connector changes
 ---------------------------
 
 * Allow :doc:`/sql/insert` statement for table having hidden ``id`` column. (:issue:`3499`)
 * Add support for :doc:`/sql/create-table` statement. (:issue:`3478`)
 
-Elasticsearch Connector Changes
+Elasticsearch connector changes
 -------------------------------
 
 * Fix failure when querying Elasticsearch 7.x clusters. (:issue:`3447`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix incorrect query results when reading Parquet data with a ``varchar`` column predicate
@@ -82,13 +82,13 @@ Hive Connector Changes
   ``projection_pushdown_enabled`` session property. (:issue:`3490`)
 * Add support for connecting to the Thrift metastore using TLS. (:issue:`3440`)
 
-MongoDB Connector Changes
+MongoDB connector changes
 -------------------------
 
 * Skip unknown types in nested BSON object. (:issue:`2935`)
 * Fix query failure when the user does not have access privileges for ``system.views``. (:issue:`3355`)
 
-Other Connector Changes
+Other connector changes
 -----------------------
 
 These changes apply to the MemSQL, MySQL, PostgreSQL, Redshift, and SQL Server connectors.

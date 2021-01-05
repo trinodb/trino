@@ -1,5 +1,5 @@
 ==================
-Redshift Connector
+Redshift connector
 ==================
 
 The Redshift connector allows querying and creating tables in an
@@ -23,7 +23,7 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
-Multiple Redshift Databases or Clusters
+Multiple Redshift databases or clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The Redshift connector can only access a single database within

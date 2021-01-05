@@ -2,7 +2,7 @@
 Release 0.103
 =============
 
-Cluster Resource Management
+Cluster resource management
 ---------------------------
 
 There is a new cluster resource manager, which can be enabled via the
@@ -16,7 +16,7 @@ of memory a query may use on any one node. On each worker, the
 ``resources.reserved-system-memory`` flags controls how much memory is reserved
 for internal Presto data structures and temporary allocations.
 
-Task Parallelism
+Task parallelism
 ----------------
 Queries involving a large number of aggregations or a large hash table for a
 join can be slow due to single threaded execution in the intermediate stages.
@@ -35,7 +35,7 @@ This is an experimental feature and will likely change in a future release.  It
 is also expected that this will eventually be handled automatically by the
 query planner and these options will be removed entirely.
 
-Hive Changes
+Hive changes
 ------------
 
 * Removed the ``hive.max-split-iterator-threads`` parameter and renamed
@@ -43,7 +43,7 @@ Hive Changes
 * Fix excessive object creation when querying tables with a large number of partitions.
 * Do not retry requests when an S3 path is not found.
 
-General Changes
+General changes
 ---------------
 
 * Add :func:`array_remove`.

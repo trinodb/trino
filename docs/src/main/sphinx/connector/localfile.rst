@@ -1,5 +1,5 @@
 ====================
-Local File Connector
+Local file connector
 ====================
 
 The local file connector allows querying data stored on the local
@@ -15,7 +15,7 @@ under ``etc/catalog`` named, for example, ``localfile.properties`` with the foll
 
     connector.name=localfile
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 =========================================   ==============================================================
@@ -26,7 +26,7 @@ Property Name                               Description
                                             to match file names in the directory
 =========================================   ==============================================================
 
-Local File Connector Schemas and Tables
+Local file connector schemas and tables
 ---------------------------------------
 
 The local file connector provides a single schema named ``logs``.

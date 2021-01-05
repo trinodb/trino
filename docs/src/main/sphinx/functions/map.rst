@@ -1,15 +1,15 @@
 ===========================
-Map Functions and Operators
+Map functions and operators
 ===========================
 
-Subscript Operator: []
+Subscript operator: []
 ----------------------
 
 The ``[]`` operator is used to retrieve the value corresponding to a given key from a map::
 
     SELECT name_to_age_map['Bob'] AS bob_age;
 
-Map Functions
+Map functions
 -------------
 
 .. function:: cardinality(x) -> bigint

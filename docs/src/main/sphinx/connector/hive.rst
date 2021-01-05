@@ -1,5 +1,5 @@
 ==============
-Hive Connector
+Hive connector
 ==============
 
 .. toctree::
@@ -50,7 +50,7 @@ and :doc:`Azure Storage <hive-azure>`.
 The coordinator and all workers must have network access to the Hive metastore
 and the storage system.
 
-Supported File Types
+Supported file types
 --------------------
 
 The following file types are supported for the Hive connector:
@@ -65,7 +65,7 @@ The following file types are supported for the Hive connector:
 * CSV (using ``org.apache.hadoop.hive.serde2.OpenCSVSerde``)
 * TextFile
 
-Metastore Configuration for Avro
+Metastore configuration for Avro
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to enable first-class support for Avro tables when using
@@ -80,10 +80,10 @@ configuration file ``hive-site.xml`` (and restart the metastore service):
         <value>org.apache.hadoop.hive.metastore.SerDeStorageSchemaReader</value>
     </property>
 
-Supported Table Types
+Supported table types
 ---------------------
 
-Transactional and ACID Tables
+Transactional and ACID tables
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When connecting to a Hive metastore version 3.x, the Hive connector supports
@@ -93,7 +93,7 @@ partitioning and bucketing. Row-level deletes are supported for ACID tables.
 ACID tables created with `Hive Streaming Ingest <https://cwiki.apache.org/confluence/display/Hive/Streaming+Data+Ingest>`_
 are not supported.
 
-Materialized Views
+Materialized views
 ------------------
 
 The Hive connector supports reading from Hive materialized views.
@@ -112,7 +112,7 @@ for your Hive metastore Thrift service:
     connector.name=hive-hadoop2
     hive.metastore.uri=thrift://example.net:9083
 
-Multiple Hive Clusters
+Multiple Hive clusters
 ^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
@@ -121,7 +121,7 @@ with a different name, making sure it ends in ``.properties``. For
 example, if you name the property file ``sales.properties``, Trino
 creates a catalog named ``sales`` using the configured connector.
 
-HDFS Configuration
+HDFS configuration
 ^^^^^^^^^^^^^^^^^^
 
 For basic setups, Trino configures the HDFS client automatically and
@@ -142,7 +142,7 @@ The configuration files must exist on all Trino nodes. If you are
 referencing existing Hadoop config files, make sure to copy them to
 any Trino nodes that are not running Hadoop.
 
-HDFS Username and Permissions
+HDFS username and permissions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Before running any ``CREATE TABLE`` or ``CREATE TABLE AS`` statements
@@ -183,7 +183,7 @@ security options in the Hive connector.
 
 .. _hive_configuration_properties:
 
-Hive Configuration Properties
+Hive configuration properties
 -----------------------------
 
 ================================================== ============================================================ ============
@@ -318,7 +318,7 @@ Property Name                                      Description                  
                                                    session property to ``true``.
 ================================================== ============================================================ ============
 
-Metastore Configuration Properties
+Metastore configuration properties
 ----------------------------------
 
 The required Hive metastore can be configured with a number of properties.
@@ -351,7 +351,7 @@ Property Name                                      Description                  
                                         metastore.
 ======================================= ============================================================ ============
 
-Thrift Metastore Configuration Properties
+Thrift metastore configuration properties
 -----------------------------------------
 
 =============================================================== ============================================================ ============
@@ -396,7 +396,7 @@ Property Name                                                   Description     
 
 =============================================================== ============================================================ ============
 
-AWS Glue Catalog Configuration Properties
+AWS Glue catalog configuration properties
 -----------------------------------------
 
 In order to use a Glue catalog, ensure to configure the metastore with
@@ -455,13 +455,13 @@ Property Name                                        Description
                                                      defaults to ``20``.
 ==================================================== ============================================================
 
-Google Cloud Storage Configuration
+Google Cloud Storage configuration
 ----------------------------------
 
 The Hive connector can access data stored in GCS, using the ``gs://`` URI prefix.
 Please refer to the :doc:`hive-gcs-tutorial` for step-by-step instructions.
 
-GCS Configuration properties
+GCS configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 ============================================ =================================================================
@@ -473,7 +473,7 @@ Property Name                                Description
                                              This is mutually exclusive with a global JSON key file.
 ============================================ =================================================================
 
-Table Statistics
+Table statistics
 ----------------
 
 The Hive connector supports collecting and managing :doc:`table statistics
@@ -543,7 +543,7 @@ You can also drop statistics for selected partitions only::
 
     CALL system.drop_stats(schema_name, table_name, ARRAY[ARRAY['p2_value1', 'p2_value2']])
 
-Dynamic Filtering
+Dynamic filtering
 -----------------
 
 The Hive connector supports the :doc:`dynamic filtering </admin/dynamic-filtering>` optimization.
@@ -573,7 +573,7 @@ time until the collection of dynamic filters by using the configuration property
 ``hive.dynamic-filtering-probe-blocking-timeout`` in the catalog file or the catalog
 session property ``<hive-catalog>.dynamic_filtering_probe_blocking_timeout``.
 
-Schema Evolution
+Schema evolution
 ----------------
 
 Hive allows the partitions in a table to have a different schema than the
@@ -590,7 +590,7 @@ as Hive. For example, converting the string ``'foo'`` to a number,
 or converting the string ``'1234'`` to a ``tinyint`` (which has a
 maximum value of ``127``).
 
-Avro Schema Evolution
+Avro schema evolution
 ---------------------
 
 Trino supports querying and manipulating Hive tables with the Avro storage
@@ -698,7 +698,7 @@ Procedures
   Unregisters given, existing partition in the metastore for the specified table.
   The partition data is not deleted.
 
-Special Columns
+Special columns
 ---------------
 
 In addition to the defined columns, the Hive connector automatically exposes
@@ -716,10 +716,10 @@ directly or used in conditional statements.
 
 * ``$partition``: Partition name for this row
 
-Special Tables
+Special tables
 ----------------
 
-Table Properties
+Table properties
 ^^^^^^^^^^^^^^^^
 
 The raw Hive table properties are available as a hidden table, containing a
@@ -824,13 +824,13 @@ Drop a schema::
 
     DROP SCHEMA hive.web
 
-Hive Connector Limitations
+Hive connector limitations
 --------------------------
 
 * :doc:`/sql/delete` is only supported if the ``WHERE`` clause matches entire partitions.
 * :doc:`/sql/alter-schema` usage fails, since the Hive metastore does not support renaming schemas.
 
-Hive 3 Related Limitations
+Hive 3 related limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * For security reasons, the ``sys`` system catalog is not accessible.

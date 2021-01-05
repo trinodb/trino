@@ -14,7 +14,7 @@ Description
 
 Show the SQL statement that creates the specified view.
 
-See Also
+See also
 --------
 
 :doc:`create-view`

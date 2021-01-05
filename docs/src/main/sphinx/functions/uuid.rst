@@ -1,5 +1,5 @@
 ==============
-UUID Functions
+UUID functions
 ==============
 
 .. function:: uuid() -> uuid

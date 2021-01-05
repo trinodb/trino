@@ -2,7 +2,7 @@
 Release 0.170
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix race condition that could cause queries to fail with ``InterruptedException`` in rare cases.
@@ -10,24 +10,24 @@ General Changes
 * Fix a performance regression that occurs when a significant number of exchange
   sources produce no data during an exchange (e.g., in a skewed hash join).
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix broken rendering when catalog properties are set.
 * Fix rendering of live plan when query is queued.
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Add support for ``DatabaseMetaData.getTypeInfo()``.
 
-Hive Changes
+Hive changes
 ------------
 
 * Improve decimal support for the Parquet reader.
 * Remove misleading "HDFS" string from error messages.
 
-Cassandra Changes
+Cassandra changes
 -----------------
 
 * Fix an intermittent connection issue for Cassandra 2.1.
@@ -40,7 +40,7 @@ Cassandra Changes
   ``cassandra.no-host-available-retry-timeout`` config option, which has a default value of ``1m``.
   The ``cassandra.no-host-available-retry-count`` config option is no longer supported.
 
-Verifier Changes
+Verifier changes
 ----------------
 
 * Add support for ``INSERT`` queries.

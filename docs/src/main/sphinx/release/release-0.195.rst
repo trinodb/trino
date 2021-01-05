@@ -2,7 +2,7 @@
 Release 0.195
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix :func:`histogram` for map type when type coercion is required.
@@ -19,7 +19,7 @@ General Changes
   the system when workers are offline for long periods due to GC or network errors.
 * Remove the ``compiler.interpreter-enabled`` config property.
 
-Security Changes
+Security changes
 ----------------
 
 * Presto now supports generic password authentication using a pluggable :doc:`/develop/password-authenticator`.
@@ -28,17 +28,17 @@ Security Changes
 * :doc:`/security/ldap` is now implemented as a password authentication
   plugin. You will need to update your configuration if you are using it.
 
-CLI and JDBC Changes
+CLI and JDBC changes
 --------------------
 
 * Provide a better error message when TLS client certificates are expired or not yet valid.
 
-MySQL Changes
+MySQL changes
 -------------
 
 * Fix an error that can occur while listing tables if one of the listed tables is dropped.
 
-Hive Changes
+Hive changes
 ------------
 
 * Add support for LZ4 compressed ORC files.
@@ -46,7 +46,7 @@ Hive Changes
 * Validate ORC compression block size when reading ORC files.
 * Set timeout of Thrift metastore client. This was accidentally removed in 0.191.
 
-MySQL, Redis, Kafka, and MongoDB Changes
+MySQL, Redis, Kafka, and MongoDB changes
 ----------------------------------------
 
 * Fix failure when querying ``information_schema.columns`` when there is no equality predicate on ``table_name``.

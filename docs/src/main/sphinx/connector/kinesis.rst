@@ -1,5 +1,5 @@
 =================
-Kinesis Connector
+Kinesis connector
 =================
 
 `Kinesis <https://aws.amazon.com/kinesis/>`_ is Amazon's fully managed cloud-based service for real-time processing of large, distributed data streams.
@@ -28,7 +28,7 @@ with the following contents, replacing the properties as appropriate:
     kinesis.access-key=XXXXXX
     kinesis.secret-key=XXXXXX
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -147,7 +147,7 @@ If these columns are hidden, they can still be used in queries, but they do not 
 
 This property is optional; the default is true.
 
-Internal Columns
+Internal columns
 ----------------
 For each defined table, the connector maintains the following columns:
 
@@ -174,7 +174,7 @@ Column name               Type          Description
 
 For tables without a table definition file, the ``_message_valid`` column is always ``true``.
 
-Table Definition
+Table definition
 ----------------
 
 A table definition file consists of a JSON definition for a table, which corresponds to one stream in Kinesis.

@@ -99,7 +99,7 @@ For example, the window function operator will output the following::
      ...
 
 
-See Also
+See also
 --------
 
 :doc:`explain`

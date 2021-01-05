@@ -1,13 +1,13 @@
 # Release 351 (3 Jan 2021)
 
-## General Changes
+## General changes
 
 * Rename client protocol headers to start with `X-Trino-`.
   Legacy clients can be supported by setting the configuration property
   `protocol.v1.alternate-header-name` to `Presto`. This configuration
   property is deprecated and will be removed in a future release.
 
-## JMX MBean Naming Changes
+## JMX MBean naming changes
 
 * Rename base domain name for server MBeans to `trino`. The name can
   be changed using the configuration property `jmx.base-name`.
@@ -15,22 +15,22 @@
   and Thrift connectors to `trino.plugin`. The name can be changed
   using the catalog configuration property `jmx.base-name`.
 
-## Server RPM Changes
+## Server RPM changes
 
 * Rename installation directories from `presto` to `trino`.
 
-## Docker Image Changes
+## Docker image changes
 
 * Publish image as [`trinodb/trino`](https://hub.docker.com/r/trinodb/trino).
 * Change base image to `azul/zulu-openjdk-centos`.
 * Change configuration directories to `/usr/lib/trino/etc` and `/etc/trino`.
 * Rename CLI in image to `trino`.
 
-## CLI Changes
+## CLI changes
 
 * Use new client protocol header names. The CLI is not compatible with older servers.
 
-## JDBC Driver Changes
+## JDBC driver changes
 
 * Use new client protocol header names. The driver is not compatible with older servers.
 * Change driver URL prefix to `jdbc:trino:`.
@@ -40,7 +40,7 @@
 * Rename Java package for all driver classes to `io.trino.jdbc` and rename
   various driver classes such as `TrinoConnection` to start with `Trino`.
 
-## Hive Connector Changes
+## Hive connector changes
 
 * Rename JMX name for `PrestoS3FileSystem` to `TrinoS3FileSystem`.
 * Change configuration properties
@@ -48,20 +48,20 @@
   `hive.hdfs.presto.keytab` to `hive.hdfs.trino.keytab`.
   The old names are deprecated and will be removed in a future release.
 
-## Local File Connector Changes
+## Local file connector changes
 
 * Change configuration properties
   `presto-logs.http-request-log.location` to `trino-logs.http-request-log.location` and
   `presto-logs.http-request-log.pattern` to `trino-logs.http-request-log.pattern`.
   The old names are deprecated and will be removed in a future release.
 
-## Thrift Connector Changes
+## Thrift connector changes
 
 * Rename Thrift service method names starting with `presto` to `trino`.
 * Rename all classes in the Thrift IDL starting with `Presto` to `Trino`.
 * Rename configuration properties starting with `presto` to `trino`.
 
-## SPI Changes
+## SPI changes
 
 * Rename Java package to `io.trino.spi`.
 * Rename `PrestoException` to `TrinoException`.

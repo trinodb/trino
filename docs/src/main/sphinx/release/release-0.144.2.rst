@@ -2,7 +2,7 @@
 Release 0.144.2
 ===============
 
-General Changes
+General changes
 ---------------
 
 * Fix potential memory leak in coordinator query history.

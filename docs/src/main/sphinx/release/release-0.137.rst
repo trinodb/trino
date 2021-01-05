@@ -2,7 +2,7 @@
 Release 0.137
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix ``current_date`` to return correct results for all time zones.
@@ -19,7 +19,7 @@ General Changes
   percentiles.
 * Add API to JDBC driver to track query progress.
 
-Hive Changes
+Hive changes
 ------------
 
 * Do not allow inserting into tables when the Hive type does not match

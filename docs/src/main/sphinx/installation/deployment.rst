@@ -5,7 +5,7 @@ Deploying Trino
 Requirements
 ------------
 
-Linux Operating System
+Linux operating system
 ^^^^^^^^^^^^^^^^^^^^^^
 
 * 64-bit required
@@ -24,7 +24,7 @@ Linux Operating System
 
 .. _requirements-java:
 
-Java Runtime Environment
+Java runtime environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Trino requires a 64-bit version of Java 11, with a minimum required version of 11.0.7.
@@ -65,7 +65,7 @@ This holds the following configuration:
 * Config Properties: configuration for the Trino server
 * Catalog Properties: configuration for :doc:`/connector` (data sources)
 
-Node Properties
+Node properties
 ^^^^^^^^^^^^^^^
 
 The node properties file, ``etc/node.properties``, contains configuration
@@ -101,7 +101,7 @@ The above properties are described below:
 
 .. _trino_jvm_config:
 
-JVM Config
+JVM config
 ^^^^^^^^^^
 
 The JVM config file, ``etc/jvm.config``, contains a list of command line
@@ -141,7 +141,7 @@ list of JVM options.
 
 .. _config_properties:
 
-Config Properties
+Config properties
 ^^^^^^^^^^^^^^^^^
 
 The config properties file, ``etc/config.properties``, contains the
@@ -236,7 +236,7 @@ In particular, see :doc:`/admin/resource-groups` for configuring queuing policie
 
 .. _log-levels:
 
-Log Levels
+Log levels
 ^^^^^^^^^^
 
 The optional log levels file, ``etc/log.properties``, allows setting the
@@ -255,7 +255,7 @@ The default minimum level is ``INFO``,
 thus the above example does not actually change anything.
 There are four levels: ``DEBUG``, ``INFO``, ``WARN`` and ``ERROR``.
 
-Catalog Properties
+Catalog properties
 ^^^^^^^^^^^^^^^^^^
 
 Trino accesses data via *connectors*, which are mounted in catalogs.

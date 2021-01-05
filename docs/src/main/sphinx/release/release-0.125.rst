@@ -2,7 +2,7 @@
 Release 0.125
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix an issue where certain operations such as ``GROUP BY``, ``DISTINCT``, etc. on the

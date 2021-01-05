@@ -1,5 +1,5 @@
 ============================
-Password File Authentication
+Password file authentication
 ============================
 
 Trino can be configured to enable frontend password authentication over
@@ -11,7 +11,7 @@ Password file authentication is very similar to :doc:`ldap`. Please see
 the LDAP documentation for generic instructions on configuring the server
 and clients to use TLS and authenticate with a username and password.
 
-Password Authenticator Configuration
+Password authenticator configuration
 ------------------------------------
 
 Enable password file authentication by creating an
@@ -36,10 +36,10 @@ Property                             Description
                                      Defaults to ``1000``.
 ==================================== ==============================================
 
-Password Files
+Password files
 --------------
 
-File Format
+File format
 ^^^^^^^^^^^
 
 The password file contains a list of usernames and passwords, one per line,
@@ -58,7 +58,7 @@ hex encoded salt and hash:
 
     test:1000:5b4240333032306164:f38d165fce8ce42f59d366139ef5d9e1ca1247f0e06e503ee1a611dd9ec40876bb5edb8409f5abe5504aab6628e70cfb3d3a18e99d70357d295002c3d0a308a0
 
-Creating a Password File
+Creating a password file
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 Password files utilizing the bcrypt format can be created using the

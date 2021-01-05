@@ -1,5 +1,5 @@
 ********************
-SQL Statement Syntax
+SQL statement syntax
 ********************
 
 This chapter describes the SQL syntax used in Trino.

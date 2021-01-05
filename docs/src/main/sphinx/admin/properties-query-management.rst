@@ -1,5 +1,5 @@
 ===========================
-Query Management Properties
+Query management properties
 ===========================
 
 ``query.max-execution-time``

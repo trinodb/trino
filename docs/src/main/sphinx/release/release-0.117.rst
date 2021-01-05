@@ -2,7 +2,7 @@
 Release 0.117
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add back casts between JSON and VARCHAR to provide an easier migration path

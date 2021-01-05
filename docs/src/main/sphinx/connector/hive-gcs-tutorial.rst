@@ -1,10 +1,10 @@
-Hive Connector GCS Tutorial
+Hive connector GCS tutorial
 ===========================
 
-Preliminary Steps
+Preliminary steps
 -----------------
 
-Ensure Access to GCS
+Ensure access to GCS
 ^^^^^^^^^^^^^^^^^^^^
 
 The :doc:`hive` can access
@@ -18,7 +18,7 @@ You can do this on the
 `service accounts page in GCP <https://console.cloud.google.com/projectselector2/iam-admin/serviceaccounts>`_.
 Once you create a service account, create a key for it and download the key in JSON format.
 
-Hive Connector configuration
+Hive connector configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Another requirement is that you have enabled and configured a Hive connector in Trino.
@@ -82,17 +82,17 @@ There are two possible solutions to this problem:
 * Make sure Hive GCS configuration includes a ``fs.gs.reported.permissions`` property
   with a value of ``777``.
 
-Accessing GCS Data From Trino for the First Time
+Accessing GCS data from Trino for the first time
 -------------------------------------------------
 
-Accessing Data Already Mapped in the Hive metastore
+Accessing data already mapped in the Hive metastore
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you migrate to Trino from Hive, chances are that your GCS data is already mapped to
 SQL tables in the metastore.
 In that case, you should be able to query it.
 
-Accessing Data Not Yet Mapped in the Hive metastore
+Accessing data not yet mapped in the Hive metastore
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 To access GCS data that is not yet mapped in the Hive metastore you need to provide the
@@ -122,7 +122,7 @@ Now you should be able to query the newly mapped table::
 
     SELECT * FROM orders;
 
-Writing GCS Data with Trino
+Writing GCS data with Trino
 ----------------------------
 
 Prerequisites
@@ -131,7 +131,7 @@ Prerequisites
 Before you attempt to write data to GCS, make sure you have configured everything
 necessary to read data from GCS.
 
-Create Export Schema
+Create export schema
 ^^^^^^^^^^^^^^^^^^^^
 
 If Hive metastore contains schema(s) mapped to GCS locations, you can use them to
@@ -141,7 +141,7 @@ the Hive metastore, you need to create a new one::
 
     CREATE SCHEMA hive.gcs_export WITH (location = 'gs://my_bucket/some/path');
 
-Export Data to GCS
+Export data to GCS
 ^^^^^^^^^^^^^^^^^^
 
 Once you have a schema pointing to a location, where you want to export the data, you can issue

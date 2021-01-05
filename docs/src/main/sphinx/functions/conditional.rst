@@ -1,5 +1,5 @@
 =======================
-Conditional Expressions
+Conditional expressions
 =======================
 
 .. _case_expression:

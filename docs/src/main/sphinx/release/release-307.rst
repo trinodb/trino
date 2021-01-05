@@ -2,7 +2,7 @@
 Release 307 (3 Apr 2019)
 ========================
 
-General Changes
+General changes
 ---------------
 
 * Fix cleanup of spill files for queries using window functions or ``ORDER BY``. (:issue:`543`)
@@ -14,18 +14,18 @@ General Changes
 * Add support for outer joins involving lateral derived tables (i.e., ``LATERAL``). (:issue:`390`)
 * Add support for setting table comments via the :doc:`/sql/comment` syntax. (:issue:`200`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Allow UI to work when opened as ``/ui`` (no trailing slash). (:issue:`500`)
 
-Security Changes
+Security changes
 ----------------
 
 * Make query result and cancellation URIs secure. Previously, an authenticated
   user could potentially steal the result data of any running query. (:issue:`561`)
 
-Server RPM Changes
+Server RPM changes
 ------------------
 
 * Prevent JVM from allocating large amounts of native memory. The new configuration is applied
@@ -33,19 +33,19 @@ Server RPM Changes
   you provide your own ``jvm.config``, we recommend adding ``-Djdk.nio.maxCachedBufferSize=2000000``
   to your ``jvm.config``. See :doc:`/installation/deployment` for details. (:issue:`542`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Always abort query in batch mode when CLI is killed. (:issue:`508`, :issue:`580`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Abort query synchronously when the ``ResultSet`` is closed or when the
   ``Statement`` is cancelled. Previously, the abort was sent in the background,
   allowing the JVM to exit before the abort was received by the server. (:issue:`580`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Add safety checks for Hive bucketing version. Hive 3.0 introduced a new
@@ -53,27 +53,27 @@ Hive Connector Changes
   will treat such tables as not bucketed when reading and disallows writing. (:issue:`512`)
 * Add support for setting table comments via the :doc:`/sql/comment` syntax. (:issue:`200`)
 
-MySQL Connector Changes
+MySQL connector changes
 -----------------------
 
-See `Base-JDBC Connector Library Changes <#base-jdbc-connector-library-changes>`__.
+See `Base-JDBC connector library changes <#base-jdbc-connector-library-changes>`__.
 
-PostgreSQL Connector Changes
+PostgreSQL connector changes
 ----------------------------
 
-See `Base-JDBC Connector Library Changes <#base-jdbc-connector-library-changes>`__.
+See `Base-JDBC connector library changes <#base-jdbc-connector-library-changes>`__.
 
-Redshift Connector Changes
+Redshift connector changes
 --------------------------
 
-See `Base-JDBC Connector Library Changes <#base-jdbc-connector-library-changes>`__.
+See `Base-JDBC connector library changes <#base-jdbc-connector-library-changes>`__.
 
-SQL Server Connector Changes
+SQL Server connector changes
 ----------------------------
 
-See `Base-JDBC Connector Library Changes <#base-jdbc-connector-library-changes>`__.
+See `Base-JDBC connector library changes <#base-jdbc-connector-library-changes>`__.
 
-Base-JDBC Connector Library Changes
+Base-JDBC connector library changes
 -----------------------------------
 
 * Fix reading and writing of ``timestamp`` values. Previously, an incorrect value
@@ -82,7 +82,7 @@ Base-JDBC Connector Library Changes
   names can be configured using the ``user-credential-name`` and ``password-credential-name``
   configuration properties. (:issue:`482`)
 
-SPI Changes
+SPI changes
 -----------
 
 * ``LongDecimalType`` and ``IpAddressType`` now use ``Int128ArrayBlock`` instead

@@ -2,7 +2,7 @@
 Release 0.155
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect results when queries contain multiple grouping sets that
@@ -20,7 +20,7 @@ General Changes
 * Properly account for time spent creating page source.
 * Various optimizations to reduce coordinator CPU usage.
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix schema evolution support in new Parquet reader.
@@ -28,7 +28,7 @@ Hive Changes
 * Add support for Avro file format.
 * Always produce dictionary blocks for DWRF dictionary encoded streams.
 
-SPI Changes
+SPI changes
 -----------
 
 * Remove legacy connector API.

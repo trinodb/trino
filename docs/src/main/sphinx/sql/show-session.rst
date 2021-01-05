@@ -15,7 +15,7 @@ Description
 List the current session properties.
 The ``LIKE`` clause can be used to restrict the list of session properties.
 
-See Also
+See also
 --------
 
 :doc:`reset-session`, :doc:`set-session`

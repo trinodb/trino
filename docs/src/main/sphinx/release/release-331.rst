@@ -2,7 +2,7 @@
 Release 331 (16 Mar 2020)
 =========================
 
-General Changes
+General changes
 ---------------
 
 * Prevent query failures when worker is shut down gracefully. (:issue:`2648`)
@@ -22,7 +22,7 @@ General Changes
 * Add :doc:`/connector/bigquery`. (:issue:`2532`)
 * Add support for large prepared statements. (:issue:`2719`)
 
-Security Changes
+Security changes
 ----------------
 
 * Remove unused ``internal-communication.jwt.enabled`` configuration property. (:issue:`2709`)
@@ -31,12 +31,12 @@ Security Changes
   configured using :ref:`query_rules` in :doc:`/security/file-system-access-control`. (:issue:`2213`)
 * Hide columns of tables for which the user has no privileges in :doc:`/security/file-system-access-control`. (:issue:`2925`)
 
-JDBC Driver Changes
+JDBC driver changes
 -------------------
 
 * Implement ``PreparedStatement.getMetaData()``. (:issue:`2770`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Fix copying worker address to clipboard. (:issue:`2865`)
@@ -48,13 +48,13 @@ Web UI Changes
 * Add simple form based authentication that utilizes the configured password authenticator. (:issue:`2755`)
 * Allow disabling the UI via the ``web-ui.enabled`` configuration property. (:issue:`2755`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Fix formatting of ``varbinary`` in nested data types. (:issue:`2858`)
 * Add ``--timezone`` parameter. (:issue:`2961`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix incorrect results for reads from ``information_schema`` tables and
@@ -75,20 +75,20 @@ Hive Connector Changes
 * Hide the Hive system schema ``sys`` for security reasons. (:issue:`3008`)
 * Add support for changing the owner of a schema. (:issue:`2673`)
 
-MongoDB Connector Changes
+MongoDB connector changes
 -------------------------
 
 * Fix incorrect results when queries contain filters on certain data types, such
   as ``real`` or ``decimal``. (:issue:`1781`)
 
-Other Connector Changes
+Other connector changes
 -----------------------
 
 These changes apply to the MemSQL, MySQL, PostgreSQL, Redshift, Phoenix, and SQL Server connectors.
 
 * Add support for dropping schemas. (:issue:`2956`)
 
-SPI Changes
+SPI changes
 -----------
 
 * Remove deprecated ``Identity`` constructors. (:issue:`2877`)

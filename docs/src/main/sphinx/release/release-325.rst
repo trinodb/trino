@@ -4,7 +4,7 @@ Release 325 (14 Nov 2019)
 
 .. warning:: There is a performance regression in this release.
 
-General Changes
+General changes
 ---------------
 
 * Fix incorrect results for certain queries involving ``FULL`` or ``RIGHT`` joins and
@@ -22,12 +22,12 @@ General Changes
 * Add variant of :func:`strpos` that returns the Nth occurrence of a substring. (:issue:`1811`)
 * Add :func:`to_encoded_polyline` and :func:`from_encoded_polyline` geospatial functions. (:issue:`1827`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Show actual query for an ``EXECUTE`` statement. (:issue:`1980`)
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix incorrect behavior of ``CREATE TABLE`` when Hive metastore is configured
@@ -39,7 +39,7 @@ Hive Changes
   the precision in the table or partition schema. (:issue:`1949`)
 * Improve performance when reading Parquet files with small row groups. (:issue:`1925`)
 
-Other Connector Changes
+Other connector changes
 -----------------------
 
 These changes apply to the MySQL, PostgreSQL, Redshift, and SQL Server connectors.

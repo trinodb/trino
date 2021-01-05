@@ -36,7 +36,7 @@ Prepare an insert query::
     PREPARE my_insert FROM
     INSERT INTO cities VALUES (1, 'San Francisco');
 
-See Also
+See also
 --------
 
 :doc:`execute`, :doc:`deallocate-prepare`, :doc:`describe-input`, :doc:`describe-output`

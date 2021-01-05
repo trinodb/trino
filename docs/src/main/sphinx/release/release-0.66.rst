@@ -2,7 +2,7 @@
 Release 0.66
 ============
 
-Type System
+Type system
 -----------
 
 In this release we have replaced the existing simple fixed type system
@@ -23,7 +23,7 @@ there is only one namespace for types, you should be careful to make names
 for custom types unique as we will add other common SQL types to Presto
 in the near future.
 
-Date/Time Types
+Date/time types
 ---------------
 
 Presto now supports all standard SQL date/time types:
@@ -44,7 +44,7 @@ can perform an aggregation by hour::
     FROM ...
     GROUP BY 1
 
-Time Zones
+Time zones
 ~~~~~~~~~~
 
 This release has full support for time zone rules, which are needed to
@@ -157,7 +157,7 @@ In this release we have made a number of backward incompatible changes to the SP
 * Added a ``ConnectorSession`` parameter to most ``ConnectorMetadata`` methods
 * Removed most ``canHandle`` methods
 
-General Bug Fixes
+General bug fixes
 -----------------
 
 * Fixed CLI hang after using ``USE CATALOG`` or ``USE SCHEMA``
@@ -168,13 +168,13 @@ General Bug Fixes
 * Fixed resource leak caused by abandoned queries
 * Fail queries immediately on unrecoverable data transport errors
 
-Hive Bug Fixes
+Hive bug fixes
 --------------
 
 * Fixed parsing of timestamps in the Hive RCFile Text SerDe (``ColumnarSerDe``)
   by adding configuration to set the time zone originally used when writing data
 
-Cassandra Bug Fixes
+Cassandra bug fixes
 -------------------
 
 * Auto-reconnect if Cassandra session dies

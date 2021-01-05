@@ -1,4 +1,4 @@
-Web UI Properties
+Web UI properties
 -----------------
 
 The following properties can be used to configure the :doc:`web-interface`.

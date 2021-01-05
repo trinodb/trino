@@ -2,7 +2,7 @@
 Release 305 (7 Mar 2019)
 ========================
 
-General Changes
+General changes
 ---------------
 
 * Fix failure of :doc:`/functions/regexp` for certain patterns and inputs
@@ -17,23 +17,23 @@ General Changes
 * Add a system table ``system.metadata.analyze_properties``
   to list all :doc:`/sql/analyze` properties. (:issue:`376`)
 
-Resource Groups Changes
+Resource groups changes
 -----------------------
 
 * Fix resource group selection when selector uses regular expression variables. (:issue:`373`)
 
-Web UI Changes
+Web UI changes
 --------------
 
 * Display peak revocable memory, current total memory,
   and peak total memory in detailed query view. (:issue:`273`)
 
-CLI Changes
+CLI changes
 -----------
 
 * Add option to output CSV without quotes. (:issue:`319`)
 
-Hive Connector Changes
+Hive connector changes
 ----------------------
 
 * Fix handling of updated credentials for Google Cloud Storage (GCS). (:issue:`398`)
@@ -48,7 +48,7 @@ Hive Connector Changes
 * Remove legacy writers for ORC and RCFile. (:issue:`353`)
 * Remove support for the DWRF file format. (:issue:`353`)
 
-Base-JDBC Connector Library Changes
+Base-JDBC connector library changes
 -----------------------------------
 
 * Allow access to extra credentials when opening a JDBC connection. (:issue:`281`)

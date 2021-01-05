@@ -1,5 +1,5 @@
 ================
-System Connector
+System connector
 ================
 
 The System connector provides information and metrics about the currently
@@ -11,7 +11,7 @@ Configuration
 The System connector doesn't need to be configured: it is automatically
 available via a catalog named ``system``.
 
-Using the System Connector
+Using the System connector
 --------------------------
 
 List the available system schemas::
@@ -30,7 +30,7 @@ Kill a running query::
 
     CALL system.runtime.kill_query(query_id => '20151207_215727_00146_tx3nr', message => 'Using too many resources');
 
-System Connector Tables
+System connector tables
 -----------------------
 
 ``metadata.catalogs``
@@ -97,7 +97,7 @@ The transactions table contains the list of currently open transactions
 and related metadata. This includes information such as the create time,
 idle time, initialization parameters, and accessed catalogs.
 
-System Connector Procedures
+System connector procedures
 ---------------------------
 
 .. function:: runtime.kill_query(query_id, message)

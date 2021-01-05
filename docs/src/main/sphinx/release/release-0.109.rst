@@ -2,7 +2,7 @@
 Release 0.109
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add :func:`slice`, :func:`md5`, :func:`array_min` and :func:`array_max` functions.
@@ -16,7 +16,7 @@ General Changes
   be disabled by setting the session property ``redistribute_writes``
   or the config property ``redistribute-writes`` to false.
 
-Remove "Big Query" Support
+Remove "Big Query" support
 --------------------------
 The experimental support for big queries has been removed in favor of
 the new resource manager which can be enabled via the

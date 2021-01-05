@@ -2,7 +2,7 @@
 Release 0.128
 =============
 
-Graceful Shutdown
+Graceful shutdown
 -----------------
 
 Workers can now be instructed to shutdown. This is done by submiting a ``PUT``
@@ -10,7 +10,7 @@ request to ``/v1/info/state`` with the body ``"SHUTTING_DOWN"``. Once instructed
 to shutdown, the worker will no longer receive new tasks, and will exit once
 all existing tasks have completed.
 
-General Changes
+General changes
 ---------------
 
 * Fix cast from json to structural types when rows or maps have arrays,
@@ -23,7 +23,7 @@ General Changes
   ``GROUP BY``, ``DISTINCT``, etc. When this triggers, the join may fail to
   produce some of the output rows.
 
-MySQL Changes
+MySQL changes
 -------------
 
 * Fix handling of MySQL database names with underscores.

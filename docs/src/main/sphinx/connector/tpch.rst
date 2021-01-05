@@ -1,5 +1,5 @@
 ==============
-TPCH Connector
+TPCH connector
 ==============
 
 The TPCH connector provides a set of schemas to support the
@@ -21,7 +21,7 @@ To configure the TPCH connector, create a catalog properties file
 
     connector.name=tpch
 
-TPCH Schemas
+TPCH schemas
 ------------
 
 The TPCH connector supplies several schemas::

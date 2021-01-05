@@ -1,5 +1,5 @@
 ===============
-TPCDS Connector
+TPCDS connector
 ===============
 
 The TPCDS connector provides a set of schemas to support the
@@ -21,7 +21,7 @@ To configure the TPCDS connector, create a catalog properties file
 
     connector.name=tpcds
 
-TPCDS Schemas
+TPCDS schemas
 -------------
 
 The TPCDS connector supplies several schemas::

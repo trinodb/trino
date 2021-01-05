@@ -1,5 +1,5 @@
 ==============
-Group Provider
+Group provider
 ==============
 
 Trino can map user names onto groups for easier access control management.

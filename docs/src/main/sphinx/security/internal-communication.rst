@@ -1,11 +1,11 @@
 =============================
-Secure Internal Communication
+Secure internal communication
 =============================
 
 The Trino cluster can be configured to use secured communication. Communication
 between Trino nodes can be secured with SSL/TLS.
 
-Internal Authentication
+Internal authentication
 -----------------------
 
 Requests between Trino nodes are authenticated using a shared secret. For secure
@@ -142,7 +142,7 @@ window functions, which require repartitioning), the performance impact can be
 considerable. The slowdown may vary from 10% to even 100%+, depending on the network
 traffic and the CPU utilization.
 
-Advanced Performance Tuning
+Advanced performance tuning
 ---------------------------
 
 In some cases, changing the source of random numbers improves performance

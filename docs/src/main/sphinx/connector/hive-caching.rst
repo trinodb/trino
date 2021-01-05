@@ -1,5 +1,5 @@
 ==============================
-Hive Connector Storage Caching
+Hive connector storage caching
 ==============================
 
 Querying object storage with the :doc:`/connector/hive` is a

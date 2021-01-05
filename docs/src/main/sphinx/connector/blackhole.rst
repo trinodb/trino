@@ -1,5 +1,5 @@
 ====================
-Black Hole Connector
+Black Hole connector
 ====================
 
 Primarily Black Hole connector is designed for high performance testing of

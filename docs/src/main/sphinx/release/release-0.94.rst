@@ -2,7 +2,7 @@
 Release 0.94
 ============
 
-ORC Memory Usage
+ORC memory usage
 ----------------
 
 This release contains additional changes to the Presto ORC reader to favor
@@ -15,7 +15,7 @@ single ORC buffer, and for larger columns we instead stream the data. This
 reduces heap fragmentation and excessive buffers in ORC at the expense of
 HDFS IOPS. The default value is ``8MB``.
 
-General Changes
+General changes
 ---------------
 
 * Update Hive CDH 4 connector to CDH 4.7.1

@@ -1,5 +1,5 @@
 ====================
-SQL Server Connector
+SQL Server connector
 ====================
 
 The SQL Server connector allows querying and creating tables in an
@@ -25,7 +25,7 @@ appropriate for your setup:
     connection-user=root
     connection-password=secret
 
-Multiple SQL Server Databases or Servers
+Multiple SQL Server databases or servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The SQL Server connector can't access more than one database using a single

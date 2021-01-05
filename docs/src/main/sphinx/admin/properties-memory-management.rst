@@ -1,5 +1,5 @@
 ============================
-Memory Management Properties
+Memory management properties
 ============================
 
 ``query.max-memory-per-node``

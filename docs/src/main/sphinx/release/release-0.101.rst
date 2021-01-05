@@ -2,7 +2,7 @@
 Release 0.101
 =============
 
-General Changes
+General changes
 ---------------
 
 * Add support for :doc:`/sql/create-table` (in addition to :doc:`/sql/create-table-as`).
@@ -35,14 +35,14 @@ General Changes
 * Make ``UNION`` run partitioned, if underlying plan is partitioned.
 * Add ``hash_partition_count`` session property to control hash partitions.
 
-Web UI Changes
+Web UI changes
 --------------
 
 The main page of the web UI has been completely rewritten to use ReactJS. It also has
 a number of new features, such as the ability to pause auto-refresh via the "Z" key and
 also with a toggle in the UI.
 
-Hive Changes
+Hive changes
 ------------
 
 * Add support for connecting to S3 using EC2 instance credentials.
@@ -64,7 +64,7 @@ Hive Changes
 * Add ``hive.recursive-directories`` config option to recursively scan
   partition directories for data.
 
-SPI Changes
+SPI changes
 -----------
 
 * Add connector callback for rollback of ``INSERT`` and ``CREATE TABLE AS``.

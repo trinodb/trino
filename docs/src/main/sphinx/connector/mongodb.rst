@@ -1,5 +1,5 @@
 =================
-MongoDB Connector
+MongoDB connector
 =================
 
 The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`_ collections as tables in Trino.
@@ -20,7 +20,7 @@ replacing the properties as appropriate:
     connector.name=mongodb
     mongodb.seeds=host1,host:port
 
-Multiple MongoDB Clusters
+Multiple MongoDB clusters
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
@@ -29,7 +29,7 @@ with a different name, making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Trino
 will create a catalog named ``sales`` using the configured connector.
 
-Configuration Properties
+Configuration properties
 ------------------------
 
 The following configuration properties are available:
@@ -185,7 +185,7 @@ This property is optional; the default is ``0``.
 
 .. _table-definition-label:
 
-Table Definition
+Table definition
 ----------------
 
 MongoDB maintains table definitions on the special collection where ``mongodb.schema-collection`` configuration value specifies.

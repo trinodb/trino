@@ -2,7 +2,7 @@
 Release 0.161
 =============
 
-General Changes
+General changes
 ---------------
 
 * Fix correctness issue for queries involving multiple nested EXCEPT clauses.
@@ -25,13 +25,13 @@ General Changes
   to show extra information from connectors.
 * Add :func:`map` to construct an empty :ref:`map_type`.
 
-Hive Connector
+Hive connector
 --------------
 
 * Remove ``"Partition Key: "`` prefix from column comments and
   replace it with the new extra information field described above.
 
-JMX Connector
+JMX connector
 -------------
 
 * Add support for escaped commas in ``jmx.dump-tables`` config property.

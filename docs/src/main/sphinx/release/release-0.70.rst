@@ -20,7 +20,7 @@ be queried by Hive, nor can Hive views be queried by Presto.
 See :doc:`/sql/create-view` and :doc:`/sql/drop-view`
 for details and examples.
 
-DUAL Table
+DUAL table
 ----------
 
 The synthetic ``DUAL`` table is no longer supported. As an alternative, please
@@ -32,7 +32,7 @@ Presto Verifier
 There is a new project, Presto Verifier, which can be used to verify a set of
 queries against two different clusters.
 
-Connector Improvements
+Connector improvements
 ----------------------
 
 * Connectors can now add hidden columns to a table. Hidden columns are not
@@ -44,7 +44,7 @@ Connector Improvements
   suite has been extracted into the ``presto-test`` module for use during
   connector development. For an example, see ``TestRaptorDistributedQueries``.
 
-Machine Learning Functions
+Machine learning functions
 --------------------------
 
 We have added two new machine learning functions, which can be used
@@ -52,7 +52,7 @@ by advanced users familiar with LIBSVM. The functions are
 ``learn_libsvm_classifier`` and ``learn_libsvm_regressor``. Both take a
 parameters string which has the form ``key=value,key=value``
 
-General Changes
+General changes
 ---------------
 
 * New comparison functions: :func:`greatest` and :func:`least`
@@ -80,7 +80,7 @@ General Changes
 
 * Fix processing of empty or commented out statements in the CLI.
 
-Hive Changes
+Hive changes
 ------------
 
 * There are two new configuration options for the Hive connector,

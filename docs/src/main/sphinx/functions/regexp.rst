@@ -1,5 +1,5 @@
 ============================
-Regular Expression Functions
+Regular expression functions
 ============================
 
 All of the regular expression functions use the `Java pattern`_ syntax,

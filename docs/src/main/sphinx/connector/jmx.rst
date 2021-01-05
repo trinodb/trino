@@ -1,5 +1,5 @@
 =============
-JMX Connector
+JMX connector
 =============
 
 The JMX connector provides the ability to query Java Management Extensions (JMX)

@@ -1,4 +1,4 @@
-MIT Kerberos Configuration
+MIT Kerberos configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Kerberos needs to be configured on the |subject_node|. At a minimum, there needs

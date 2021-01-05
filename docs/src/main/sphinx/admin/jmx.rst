@@ -36,7 +36,7 @@ JVM
 * Heap size: ``java.lang:type=Memory:HeapMemoryUsage.used``
 * Thread count: ``java.lang:type=Threading:ThreadCount``
 
-Trino Cluster and Nodes
+Trino cluster and nodes
 ------------------------
 
 * Active nodes:
@@ -48,7 +48,7 @@ Trino Cluster and Nodes
 * Cumulative count (since Trino started) of queries that ran out of memory and were killed:
   ``trino.memory:name=ClusterMemoryManager:QueriesKilledDueToOutOfMemory``
 
-Trino Queries
+Trino queries
 --------------
 
 * Active queries currently executing or queued: ``trino.execution:name=QueryManager:RunningQueries``
@@ -63,7 +63,7 @@ Trino Queries
 * Execution latency (P50): ``trino.execution:name=QueryManager:ExecutionTime.FiveMinutes.P50``
 * Input data rate (P90): ``trino.execution:name=QueryManager:WallInputBytesRate.FiveMinutes.P90``
 
-Trino Tasks
+Trino tasks
 ------------
 
 * Input data bytes: ``trino.execution:name=TaskManager:InputDataSize.FiveMinute.Count``

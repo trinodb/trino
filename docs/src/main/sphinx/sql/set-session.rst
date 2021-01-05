@@ -38,7 +38,7 @@ would use the following to set the catalog session property::
 This catalog session property does not apply to any other catalog, even if it
 also uses the Accumulo connector.
 
-See Also
+See also
 --------
 
 :doc:`reset-session`, :doc:`show-session`

@@ -71,7 +71,7 @@ Prepare and describe a row count query::
      rows        |         |        |       | bigint |         8 | false
     (1 row)
 
-See Also
+See also
 --------
 
 :doc:`prepare`

@@ -2,7 +2,7 @@
 Release 0.89
 ============
 
-DATE Type
+DATE type
 ---------
 The memory representation of dates is now the number of days since January 1, 1970
 using a 32-bit signed integer.
@@ -12,7 +12,7 @@ using a 32-bit signed integer.
     representation, so if you have written a connector, you will need to update
     your code before deploying this release.
 
-General Changes
+General changes
 ---------------
 
 * ``USE CATALOG`` and ``USE SCHEMA`` have been replaced with :doc:`/sql/use`.

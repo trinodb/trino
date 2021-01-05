@@ -1,5 +1,5 @@
 ***************
-Developer Guide
+Developer guide
 ***************
 
 This guide is intended for Trino contributors and plugin developers.

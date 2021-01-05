@@ -2,13 +2,13 @@
 Release 0.81
 ============
 
-Hive Changes
+Hive changes
 ------------
 
 * Fix ORC predicate pushdown.
 * Fix column selection in RCFile.
 
-General Changes
+General changes
 ---------------
 
 * Fix handling of null and out-of-range offsets for

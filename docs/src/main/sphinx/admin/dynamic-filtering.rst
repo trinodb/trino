@@ -1,5 +1,5 @@
 =================
-Dynamic Filtering
+Dynamic filtering
 =================
 
 Dynamic filtering optimizations significantly improve the performance of queries

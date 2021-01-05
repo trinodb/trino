@@ -1,5 +1,5 @@
 ======================================
-Regular Expression Function Properties
+Regular expression function properties
 ======================================
 
 These properties allow tuning the :doc:`/functions/regexp`.
