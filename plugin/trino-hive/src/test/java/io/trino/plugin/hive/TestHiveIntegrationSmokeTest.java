@@ -73,6 +73,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -7614,6 +7615,97 @@ public class TestHiveIntegrationSmokeTest
         // TODO(https://github.com/prestosql/presto/issues/6295) Presto view schema is fixed on creation
         // should be: assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123456789'")
         assertThat(query(nanosSessions, "SELECT ts FROM hive_timestamp_nanos.tpch." + prestoViewNameNanos)).matches("VALUES TIMESTAMP '1990-01-02 12:13:14.123000000'");
+    }
+
+    @Test(dataProvider = "legalUseColumnNamesProvider")
+    public void testUseColumnNames(HiveStorageFormat format, boolean formatUseColumnNames)
+    {
+        String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
+        Session.SessionBuilder builder = Session.builder(getQueryRunner().getDefaultSession());
+        if (format == HiveStorageFormat.ORC || format == HiveStorageFormat.PARQUET) {
+            builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
+        }
+        Session admin = builder.build();
+        String tableName = format("test_renames_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomTableSuffix());
+        assertUpdate(admin, format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = '%s', partitioned_by = ARRAY['state'])", tableName, format));
+        assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
+        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");
+
+        assertUpdate(admin, format("ALTER TABLE %s RENAME COLUMN old_name TO new_name", tableName));
+
+        boolean canSeeOldData = !formatUseColumnNames && !NAMED_COLUMN_ONLY_FORMATS.contains(format);
+
+        String katyValue = canSeeOldData ? "'Katy'" : "null";
+        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, %s, 57, 'CA')", katyValue));
+
+        assertUpdate(admin, format("INSERT INTO %s (id, new_name, age, state) VALUES(333, 'Cary', 35, 'WA')", tableName), 1);
+        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, %s, 57, 'CA'), (333, 'Cary', 35, 'WA')", katyValue));
+
+        assertUpdate(admin, format("ALTER TABLE %s RENAME COLUMN new_name TO old_name", tableName));
+        String caryValue = canSeeOldData ? "'Cary'" : null;
+        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57, 'CA'), (333, %s, 35, 'WA')", caryValue));
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "legalUseColumnNamesProvider")
+    public void testUseColumnAddDrop(HiveStorageFormat format, boolean formatUseColumnNames)
+    {
+        String lowerCaseFormat = format.name().toLowerCase(Locale.ROOT);
+        Session.SessionBuilder builder = Session.builder(getQueryRunner().getDefaultSession());
+        if (format == HiveStorageFormat.ORC || format == HiveStorageFormat.PARQUET) {
+            builder.setCatalogSessionProperty(catalog, lowerCaseFormat + "_use_column_names", String.valueOf(formatUseColumnNames));
+        }
+        Session admin = builder.build();
+        String tableName = format("test_add_drop_%s_%s_%s", lowerCaseFormat, formatUseColumnNames, randomTableSuffix());
+        assertUpdate(admin, format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, state VARCHAR) WITH (format = '%s')", tableName, format));
+        assertUpdate(admin, format("INSERT INTO %s VALUES(111, 'Katy', 57, 'CA')", tableName), 1);
+        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA')");
+
+        assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN state", tableName));
+        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57)"));
+
+        assertUpdate(admin, format("INSERT INTO %s VALUES(333, 'Cary', 35)", tableName), 1);
+        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57), (333, 'Cary', 35)");
+
+        assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN state VARCHAR", tableName));
+        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57, 'CA'), (333, 'Cary', 35, null)");
+
+        assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN state", tableName));
+        assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', 57), (333, 'Cary', 35)");
+
+        assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN new_state VARCHAR", tableName));
+        boolean canSeeOldData = !formatUseColumnNames && !NAMED_COLUMN_ONLY_FORMATS.contains(format);
+        String katyState = canSeeOldData ? "'CA'" : "null";
+        assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', 57, %s), (333, 'Cary', 35, null)", katyState));
+
+        if (formatUseColumnNames) {
+            assertUpdate(admin, format("ALTER TABLE %s DROP COLUMN age", tableName));
+            assertQuery(admin, "SELECT * FROM " + tableName, format("VALUES(111, 'Katy', %s), (333, 'Cary', null)", katyState));
+            assertUpdate(admin, format("ALTER TABLE %s ADD COLUMN age INT", tableName));
+            assertQuery(admin, "SELECT * FROM " + tableName, "VALUES(111, 'Katy', null, 57), (333, 'Cary', null, 35)");
+        }
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
+
+    @DataProvider
+    public Object[][] legalUseColumnNamesProvider()
+    {
+        return new Object[][] {
+                {HiveStorageFormat.ORC, true},
+                {HiveStorageFormat.ORC, false},
+                {HiveStorageFormat.PARQUET, true},
+                {HiveStorageFormat.PARQUET, false},
+                {HiveStorageFormat.AVRO, false},
+                {HiveStorageFormat.JSON, false},
+                {HiveStorageFormat.RCBINARY, false},
+                {HiveStorageFormat.RCTEXT, false},
+                {HiveStorageFormat.SEQUENCEFILE, false},
+                {HiveStorageFormat.TEXTFILE, false},
+        };
     }
 
     private Session getParallelWriteSession()
