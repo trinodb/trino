@@ -25,28 +25,21 @@ import java.util.List;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static java.lang.Math.min;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestGroupedTopNRankAccumulator
 {
-    private static final long NULL_ROW_ID = Long.MIN_VALUE;
-    private static final RowIdComparisonHashStrategy ROW_COMPARISON_STRATEGY = new RowIdComparisonHashStrategy()
+    private static final RowIdComparisonHashStrategy STRATEGY = new RowIdComparisonHashStrategy()
     {
         @Override
         public int compare(long leftRowId, long rightRowId)
         {
-            // Null rowIds should never be observed
-            assertNotEquals(leftRowId, NULL_ROW_ID);
-            assertNotEquals(rightRowId, NULL_ROW_ID);
             return Long.compare(leftRowId, rightRowId);
         }
 
         @Override
         public long hashCode(long rowId)
         {
-            // Null rowIds should never be observed
-            assertNotEquals(rowId, NULL_ROW_ID);
             return rowId;
         }
     };
@@ -74,7 +67,7 @@ public class TestGroupedTopNRankAccumulator
     public void testSinglePeerGroupInsert(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
-        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(ROW_COMPARISON_STRATEGY, NULL_ROW_ID, topN, evicted::add);
+        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
         accumulator.verifyIntegrity();
 
         // Add the same value repeatedly, so everything should be accepted, and all results will have a rank of 1
@@ -115,7 +108,7 @@ public class TestGroupedTopNRankAccumulator
     public void testIncreasingAllUniqueValues(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
-        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(ROW_COMPARISON_STRATEGY, NULL_ROW_ID, topN, evicted::add);
+        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
         accumulator.verifyIntegrity();
 
         for (int rowId = 0; rowId < valueCount; rowId++) {
@@ -156,7 +149,7 @@ public class TestGroupedTopNRankAccumulator
     public void testDecreasingAllUniqueValues(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
-        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(ROW_COMPARISON_STRATEGY, NULL_ROW_ID, topN, evicted::add);
+        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
         accumulator.verifyIntegrity();
 
         List<Long> expectedEvicted = new ArrayList<>();
@@ -204,7 +197,7 @@ public class TestGroupedTopNRankAccumulator
         int topN = 3;
 
         List<Long> evicted = new LongArrayList();
-        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(ROW_COMPARISON_STRATEGY, NULL_ROW_ID, topN, evicted::add);
+        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
         accumulator.verifyIntegrity();
 
         // Add rowId 0

@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import io.trino.array.LongBigArray;
 import io.trino.util.HeapTraversal;
 import io.trino.util.LongBigArrayFIFOQueue;
-import io.trino.util.LongLong2LongOpenCustomBigHashMap;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -68,52 +67,19 @@ public class GroupedTopNRankAccumulator
     private final HeapTraversal heapTraversal = new HeapTraversal();
 
     // Map from (Group ID, Row Value) to Heap Node Index where the value is stored
-    private final LongLong2LongOpenCustomBigHashMap peerGroupLookup;
+    private final TopNPeerGroupLookup peerGroupLookup;
 
     private final RowIdComparisonHashStrategy strategy;
-    private final long nullRowId;
     private final int topN;
     private final LongConsumer rowIdEvictionListener;
 
-    public GroupedTopNRankAccumulator(RowIdComparisonHashStrategy strategy, long nullRowId, int topN, LongConsumer rowIdEvictionListener)
+    public GroupedTopNRankAccumulator(RowIdComparisonHashStrategy strategy, int topN, LongConsumer rowIdEvictionListener)
     {
-        this.strategy = requireNonNull(strategy, "strategy is null");
-        this.peerGroupLookup = new LongLong2LongOpenCustomBigHashMap(
-                10_000,
-                new LongLong2LongOpenCustomBigHashMap.HashStrategy()
-                {
-                    @Override
-                    public long hashCode(long groupId, long rowId)
-                    {
-                        // TODO: benchmarks show the hashCode computation as a major hotspot that should be optimized
-                        return groupId * 31 + strategy.hashCode(rowId);
-                    }
-
-                    @Override
-                    public boolean equals(long leftGroupId, long leftRowId, long rightGroupId, long rightRowId)
-                    {
-                        if (leftGroupId != rightGroupId) {
-                            return false;
-                        }
-                        if (leftRowId == rightRowId) {
-                            return true;
-                        }
-                        // fastutil custom hash strategy will pass the null keys back for equality checks.
-                        // We add extra handling here so that these are not visible to the rowComparisonStrategy implementation.
-                        if (leftRowId == nullRowId || rightRowId == nullRowId) {
-                            return false;
-                        }
-                        return strategy.equals(leftRowId, rightRowId);
-                    }
-                },
-                NULL_GROUP_ID,
-                nullRowId);
-        this.nullRowId = nullRowId;
+        this.strategy = requireNonNull(strategy, "rowComparisonStrategy is null");
+        this.peerGroupLookup = new TopNPeerGroupLookup(10_000, strategy, NULL_GROUP_ID, UNKNOWN_INDEX);
         checkArgument(topN > 0, "topN must be greater than zero");
         this.topN = topN;
         this.rowIdEvictionListener = requireNonNull(rowIdEvictionListener, "rowIdEvictionListener is null");
-
-        peerGroupLookup.defaultReturnValue(UNKNOWN_INDEX);
     }
 
     public long sizeOf()
@@ -135,8 +101,6 @@ public class GroupedTopNRankAccumulator
      */
     public boolean add(long groupId, long newRowId)
     {
-        checkArgument(newRowId != nullRowId, "Cannot add null row ID");
-
         // Insert to any existing peer groups first (heap nodes contain distinct values)
         long peerHeapNodeIndex = peerGroupLookup.get(groupId, newRowId);
         if (peerHeapNodeIndex != UNKNOWN_INDEX) {
