@@ -127,10 +127,7 @@ public class GroupedTopNRankBuilder
             for (int position = 0; position < newPage.getPositionCount(); position++) {
                 long groupId = groupIds.getGroupId(position);
                 loadCursor.advance();
-                long rowId = loadCursor.allocateRowId();
-                if (!groupedTopNRankAccumulator.add(groupId, rowId)) {
-                    pageManager.dereference(rowId);
-                }
+                groupedTopNRankAccumulator.add(groupId, loadCursor);
             }
             verify(!loadCursor.advance());
         }
