@@ -16,46 +16,37 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.spi.QueryId;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.ValueSet;
-import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.MaterializedResult;
+import io.trino.testing.AbstractDynamicFilteringIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.ResultWithQueryId;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
-import java.util.List;
-
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
-import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
-import static io.trino.spi.predicate.Domain.none;
-import static io.trino.spi.predicate.Domain.singleValue;
-import static io.trino.spi.predicate.Range.range;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.tpch.TpchTable.getTables;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestHiveDynamicPartitionPruning
-        extends AbstractTestQueryFramework
+        extends AbstractDynamicFilteringIntegrationSmokeTest
 {
     private static final Logger log = Logger.get(TestHiveDynamicPartitionPruning.class);
     private static final String PARTITIONED_LINEITEM = "partitioned_lineitem";
-    private static final long LINEITEM_COUNT = 60175;
+
+    @Override
+    protected boolean supportsNodeLocalDynamicFiltering()
+    {
+        return true;
+    }
+
+    @Override
+    protected boolean supportsCoordinatorDynamicFiltering()
+    {
+        return true;
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -93,338 +84,5 @@ public class TestHiveDynamicPartitionPruning
                 // Enabled large dynamic filters to verify min/max DF collection in testJoinLargeBuildSideRangeDynamicFiltering
                 .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "true")
                 .build();
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithEmptyBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'");
-        assertEquals(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(INTEGER).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
-        assertTrue(domainStats.getCollectionDuration().isPresent());
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithSelectiveBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
-                        "AND supplier.name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(INTEGER, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithNonSelectiveBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(INTEGER, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinLargeBuildSideRangeDynamicFiltering()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(
-                domainStats.getSimplifiedDomain(),
-                Domain.create(
-                        ValueSet.ofRanges(range(INTEGER, 1L, true, 60000L, true)), false)
-                        .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithMultipleDynamicFiltersOnProbe()
-    {
-        // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM (" +
-                        "SELECT supplier.suppkey FROM " +
-                        "partitioned_lineitem JOIN tpch.tiny.supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
-                        ") t JOIN supplier ON t.suppkey = supplier.suppkey AND supplier.suppkey IN (2, 3)");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 2L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 2L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 2);
-
-        List<DynamicFilterDomainStats> domainStats = dynamicFiltersStats.getDynamicFilterDomainStats();
-        assertEquals(domainStats.size(), 2);
-        domainStats.forEach(stats -> {
-            assertGreaterThanOrEqual(stats.getRangeCount(), 1);
-            assertEquals(stats.getDiscreteValuesCount(), 0);
-        });
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithImplicitCoercion()
-    {
-        // setup partitioned fact table with integer suppkey
-        assertUpdate(
-                "CREATE TABLE partitioned_lineitem_int " +
-                        "WITH (format = 'TEXTFILE', partitioned_by=array['suppkey_int']) AS " +
-                        "SELECT orderkey, CAST(suppkey as int) suppkey_int FROM tpch.tiny.lineitem",
-                LINEITEM_COUNT);
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testSemiJoinWithEmptyBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')");
-        assertEquals(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(INTEGER).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testSemiJoinWithSelectiveBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(INTEGER, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testSemiJoinWithNonSelectiveBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(INTEGER, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testSemiJoinLargeBuildSideRangeDynamicFiltering()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(
-                domainStats.getSimplifiedDomain(),
-                Domain.create(
-                        ValueSet.ofRanges(range(INTEGER, 1L, true, 60000L, true)), false)
-                        .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testRightJoinWithEmptyBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'");
-        assertEquals(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testRightJoinWithSelectiveBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testRightJoinWithNonSelectiveBuildSide()
-    {
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(BIGINT, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
-    }
-
-    private DynamicFiltersStats getDynamicFilteringStats(QueryId queryId)
-    {
-        return getDistributedQueryRunner().getCoordinator()
-                .getQueryManager()
-                .getFullQueryInfo(queryId)
-                .getQueryStats()
-                .getDynamicFiltersStats();
     }
 }
