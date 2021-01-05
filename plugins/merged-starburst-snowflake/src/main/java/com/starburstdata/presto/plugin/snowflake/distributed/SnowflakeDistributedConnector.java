@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.log.Logger;
@@ -38,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
@@ -56,7 +56,7 @@ public class SnowflakeDistributedConnector
     private final JdbcPageSinkProvider jdbcPageSinkProvider;
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
-    private final Set<SessionPropertiesProvider> sessionProperties;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
 
@@ -69,7 +69,7 @@ public class SnowflakeDistributedConnector
             JdbcPageSinkProvider jdbcPageSinkProvider,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
-            Set<SessionPropertiesProvider> sessionProperties)
+            Set<SessionPropertiesProvider> sessionPropertiesProviders)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
@@ -78,7 +78,9 @@ public class SnowflakeDistributedConnector
         this.jdbcPageSinkProvider = requireNonNull(jdbcPageSinkProvider, "jdbcPageSinkProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
-        this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null");
+        this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
+                .flatMap(provider -> provider.getSessionProperties().stream())
+                .collect(toImmutableList());
     }
 
     @Override
@@ -151,9 +153,7 @@ public class SnowflakeDistributedConnector
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
-        var builder = ImmutableList.<PropertyMetadata<?>>builder();
-        this.sessionProperties.forEach(sessionPropertiesProvider -> builder.addAll(sessionPropertiesProvider.getSessionProperties()));
-        return builder.build();
+        return sessionProperties;
     }
 
     @Override
