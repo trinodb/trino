@@ -162,7 +162,7 @@ public class RowReferencePageManager
      * quickly skip positions that won't be needed.
      */
     public static class LoadCursor
-            implements AutoCloseable
+            implements RowReference, AutoCloseable
     {
         private final PageAccounting pageAccounting;
         private final Runnable closeCallback;
@@ -195,12 +195,28 @@ public class RowReferencePageManager
             return true;
         }
 
+        @Override
         public int compareTo(RowIdComparisonStrategy strategy, long rowId)
         {
             checkState(currentPosition >= 0, "Not yet advanced");
             return strategy.compare(RESERVED_ROW_ID_FOR_CURSOR, rowId);
         }
 
+        @Override
+        public boolean equals(RowIdHashStrategy strategy, long rowId)
+        {
+            checkState(currentPosition >= 0, "Not yet advanced");
+            return strategy.equals(RESERVED_ROW_ID_FOR_CURSOR, rowId);
+        }
+
+        @Override
+        public long hash(RowIdHashStrategy strategy)
+        {
+            checkState(currentPosition >= 0, "Not yet advanced");
+            return strategy.hashCode(RESERVED_ROW_ID_FOR_CURSOR);
+        }
+
+        @Override
         public long allocateRowId()
         {
             checkState(currentPosition >= 0, "Not yet advanced");

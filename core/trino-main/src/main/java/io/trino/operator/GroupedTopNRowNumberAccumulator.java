@@ -48,26 +48,6 @@ import static java.util.Objects.requireNonNull;
  */
 public class GroupedTopNRowNumberAccumulator
 {
-    /**
-     * Reference to an input row.
-     * <p>
-     * Note: RowReference gives us the ability to defer row ID generation (which can be expensive in tight loops).
-     */
-    public interface RowReference
-    {
-        /**
-         * Compares the referenced row to the specified row ID using the provided comparison strategy.
-         */
-        int compareTo(RowIdComparisonStrategy strategy, long rowId);
-
-        /**
-         * Extract a stable row ID that can be used to reference this row at a future point.
-         * <p>
-         * This accumulator will not retain any references to the RowReference object.
-         */
-        long extractRowId();
-    }
-
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(GroupedTopNRowNumberAccumulator.class).instanceSize();
     private static final long UNKNOWN_INDEX = -1;
 
@@ -105,11 +85,11 @@ public class GroupedTopNRowNumberAccumulator
 
         long heapRootNodeIndex = groupIdToHeapBuffer.getHeapRootNodeIndex(groupId);
         if (heapRootNodeIndex == UNKNOWN_INDEX || calculateRootRowNumber(groupId) < topN) {
-            heapInsert(groupId, rowReference.extractRowId());
+            heapInsert(groupId, rowReference.allocateRowId());
             return true;
         }
         else if (rowReference.compareTo(strategy, heapNodeBuffer.getRowId(heapRootNodeIndex)) < 0) {
-            heapPopAndInsert(groupId, rowReference.extractRowId(), rowIdEvictionListener);
+            heapPopAndInsert(groupId, rowReference.allocateRowId(), rowIdEvictionListener);
             return true;
         }
         else {
