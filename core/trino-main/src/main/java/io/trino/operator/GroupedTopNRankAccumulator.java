@@ -577,11 +577,11 @@ public class GroupedTopNRankAccumulator
         verify(actualPeerGroupCount == peerGroupCount, "Recorded peer group count does not match actual");
 
         if (leftChildHeapIndex != UNKNOWN_INDEX) {
-            verify(rowComparisonStrategy.compare(rowId, peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(leftChildHeapIndex))) >= 0, "Max heap invariant violated");
+            verify(rowComparisonStrategy.compare(rowId, peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(leftChildHeapIndex))) > 0, "Max heap invariant violated");
         }
         if (rightChildHeapIndex != UNKNOWN_INDEX) {
             verify(leftChildHeapIndex != UNKNOWN_INDEX, "Left should always be inserted before right");
-            verify(rowComparisonStrategy.compare(rowId, peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(rightChildHeapIndex))) >= 0, "Max heap invariant violated");
+            verify(rowComparisonStrategy.compare(rowId, peerGroupBuffer.getRowId(heapNodeBuffer.getPeerGroupIndex(rightChildHeapIndex))) > 0, "Max heap invariant violated");
         }
 
         IntegrityStats leftIntegrityStats = verifyHeapIntegrity(groupId, leftChildHeapIndex);

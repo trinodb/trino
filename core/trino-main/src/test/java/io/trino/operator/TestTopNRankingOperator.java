@@ -292,6 +292,7 @@ public class TestTopNRankingOperator
                 .row(0.2, "b", 1L)
                 .row(0.7, "b", 2L)
                 .row(Double.NaN, "b", 3L)
+                .row(Double.NaN, "b", 3L)
                 .row(0.1, "c", 1L)
                 .row(0.91, "c", 2L)
                 .build();

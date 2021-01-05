@@ -18,8 +18,8 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
@@ -32,7 +32,7 @@ public class SimplePageWithPositionEqualsAndHash
         implements PageWithPositionEqualsAndHash
 {
     private final IntList equalityChannels;
-    private final List<BlockPositionEqual> equalsOperators;
+    private final List<BlockPositionIsDistinctFrom> distinctFromOperators;
     private final List<BlockPositionHashCode> hashOperators;
 
     public SimplePageWithPositionEqualsAndHash(List<Type> channelTypes, List<Integer> equalityChannels, BlockTypeOperators blockTypeOperators)
@@ -41,15 +41,15 @@ public class SimplePageWithPositionEqualsAndHash
         this.equalityChannels = new IntArrayList(requireNonNull(equalityChannels, "equalityChannels is null"));
         checkArgument(channelTypes.size() >= equalityChannels.size(), "channelTypes cannot have fewer columns then equalityChannels");
 
-        // TODO: Should use IS DISTINCT FROM for equality, because it evaluates NULL and NaN values as distinct (unlike SQL EQUALS), but holding for compatibility
-        ImmutableList.Builder<BlockPositionEqual> equalsOperators = ImmutableList.builder();
+        // Use IS DISTINCT FROM for equality, because it evaluates NULL and NaN values as distinct (unlike SQL EQUALS)
+        ImmutableList.Builder<BlockPositionIsDistinctFrom> distinctFromOperators = ImmutableList.builder();
         ImmutableList.Builder<BlockPositionHashCode> hashOperators = ImmutableList.builder();
         for (int index = 0; index < equalityChannels.size(); index++) {
             Type type = channelTypes.get(this.equalityChannels.getInt(index));
-            equalsOperators.add(blockTypeOperators.getEqualOperator(type));
+            distinctFromOperators.add(blockTypeOperators.getDistinctFromOperator(type));
             hashOperators.add(blockTypeOperators.getHashCodeOperator(type));
         }
-        this.equalsOperators = equalsOperators.build();
+        this.distinctFromOperators = distinctFromOperators.build();
         this.hashOperators = hashOperators.build();
     }
 
@@ -60,7 +60,7 @@ public class SimplePageWithPositionEqualsAndHash
             int equalityChannel = equalityChannels.getInt(i);
             Block leftBlock = left.getBlock(equalityChannel);
             Block rightBlock = right.getBlock(equalityChannel);
-            if (!equalsOperators.get(i).equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition)) {
+            if (distinctFromOperators.get(i).isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
