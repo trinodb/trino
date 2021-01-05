@@ -1,13 +1,13 @@
 # Benchmark Driver
 
 The benchmark driver can be used to measure the performance of queries
-in a Presto cluster. We use it to continuously measure the performance
+in a Trino cluster. We use it to continuously measure the performance
 of the master branch.
 
  Download the [Maven benchmark driver plugin][maven_download] for the same
- release as your Presto instance by navigating to the directory for that
- release, and selecting the ``presto-benchmark-driver-*.jar`` file. Once it is
- downloaded, rename it to `presto-benchmark-driver` and make it executable with `chmod +x`.
+ release as your Trino instance by navigating to the directory for that
+ release, and selecting the ``trino-benchmark-driver-*.jar`` file. Once it is
+ downloaded, rename it to `trino-benchmark-driver` and make it executable with `chmod +x`.
 
 [maven_download]: https://repo.maven.apache.org/maven2/io/trino/trino-benchmark-driver/
 
@@ -93,7 +93,7 @@ query.
 
 # CLI Arguments
 
-The `presto-benchmark-driver` program contains many CLI arguments to
+The `trino-benchmark-driver` program contains many CLI arguments to
 control which suites and queries to run, the number of warm-up runs and
 the number of measurement runs. All of the command line arguments can be
 seen with the `--help` option.
