@@ -30,9 +30,11 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.jsonwebtoken.Claims.AUDIENCE;
 import static io.trino.server.ServletSecurityUtils.sendErrorMessage;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
@@ -50,6 +52,7 @@ public class OAuth2WebUiAuthenticationFilter
 
     private final OAuth2Service service;
     private final UserMapping userMapping;
+    private final Optional<String> validAudience;
 
     @Inject
     public OAuth2WebUiAuthenticationFilter(OAuth2Service service, OAuth2Config oauth2Config)
@@ -57,6 +60,7 @@ public class OAuth2WebUiAuthenticationFilter
         this.service = requireNonNull(service, "service is null");
         requireNonNull(oauth2Config, "oauth2Config is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
+        this.validAudience = oauth2Config.getAudience();
     }
 
     @Override
@@ -78,15 +82,21 @@ public class OAuth2WebUiAuthenticationFilter
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
-
-        Optional<String> subject = getAccessToken(request).map(token -> token.getBody().getSubject());
-        if (subject.isEmpty()) {
+        Optional<Claims> claims = getAccessToken(request).map(Jws::getBody);
+        if (claims.isEmpty()) {
             needAuthentication(request);
             return;
         }
+        Object audience = claims.get().get(AUDIENCE);
+        if (!hasValidAudience(audience)) {
+            LOG.debug("Invalid audience: %s. Expected audience to be equal to or contain: %s", audience, validAudience);
+            sendErrorMessage(request, UNAUTHORIZED, "Unauthorized");
+            return;
+        }
         try {
-            setAuthenticatedIdentity(request, Identity.forUser(userMapping.mapUser(subject.get()))
-                    .withPrincipal(new BasicPrincipal(subject.get()))
+            String subject = claims.get().getSubject();
+            setAuthenticatedIdentity(request, Identity.forUser(userMapping.mapUser(subject))
+                    .withPrincipal(new BasicPrincipal(subject))
                     .build());
         }
         catch (UserMappingException e) {
@@ -112,5 +122,22 @@ public class OAuth2WebUiAuthenticationFilter
     {
         URI redirectLocation = service.startChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
         request.abortWith(Response.seeOther(redirectLocation).build());
+    }
+
+    private boolean hasValidAudience(Object audience)
+    {
+        if (validAudience.isEmpty()) {
+            return true;
+        }
+        if (audience == null) {
+            return false;
+        }
+        if (audience instanceof String) {
+            return audience.equals(validAudience.get());
+        }
+        if (audience instanceof List) {
+            return ((List<?>) audience).contains(validAudience.get());
+        }
+        return false;
     }
 }
