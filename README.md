@@ -1,7 +1,9 @@
 <p align="center">
-    <a href="https://trino.io/"><img alt="Trino Logo" src="https://trino.io/assets/trino-og.png" width="50%" /></a>
+    <a href="https://trino.io/"><img alt="Trino Logo" src=".github/homepage.png" /></a>
 </p>
-<p align="center">Trino is a fast distributed SQL query engine for big data analytics.</p>
+<p align="center">
+    <b>Trino is a fast distributed SQL query engine for big data analytics.</b>
+</p>
 <p align="center">
     See the <a href="https://trino.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.
 </p>
