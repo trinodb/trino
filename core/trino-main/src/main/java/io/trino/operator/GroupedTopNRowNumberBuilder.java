@@ -116,9 +116,9 @@ public class GroupedTopNRowNumberBuilder
         return new GroupedTopNRowNumberAccumulator.RowReference()
         {
             @Override
-            public int compareTo(LongComparator rowIdComparator, long rowId)
+            public int compareTo(RowIdComparisonStrategy strategy, long rowId)
             {
-                return cursor.compareTo(rowIdComparator, rowId);
+                return cursor.compareTo(strategy, rowId);
             }
 
             @Override

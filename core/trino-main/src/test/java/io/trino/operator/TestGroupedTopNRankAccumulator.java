@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import io.trino.array.LongBigArray;
-import io.trino.operator.GroupedTopNRankAccumulator.RowComparisonStrategy;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -32,7 +31,7 @@ import static org.testng.Assert.assertTrue;
 public class TestGroupedTopNRankAccumulator
 {
     private static final long NULL_ROW_ID = Long.MIN_VALUE;
-    private static final RowComparisonStrategy ROW_COMPARISON_STRATEGY = new RowComparisonStrategy()
+    private static final RowIdComparisonHashStrategy ROW_COMPARISON_STRATEGY = new RowIdComparisonHashStrategy()
     {
         @Override
         public int compare(long leftRowId, long rightRowId)
