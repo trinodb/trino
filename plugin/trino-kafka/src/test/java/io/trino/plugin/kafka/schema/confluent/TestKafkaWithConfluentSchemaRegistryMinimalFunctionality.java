@@ -58,7 +58,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         extends AbstractTestQueryFramework
 {
     private static final String RECORD_NAME = "test_record";
-    private static final int MESSAGE_COUNT = 100;
+    private static final int MESSAGE_COUNT = 10;
     private static final Schema INITIAL_SCHEMA = SchemaBuilder.record(RECORD_NAME)
             .fields()
             .name("col_1").type().longType().noDefault()
