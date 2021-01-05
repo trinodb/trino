@@ -143,6 +143,30 @@ public class TopNPeerGroupLookup
         }
     }
 
+    public long get(long groupId, RowReference rowReference)
+    {
+        checkArgument(groupId != unmappedGroupId, "Group ID cannot be the unmapped group ID");
+
+        long hash = hash(groupId, rowReference);
+        long index = hash & mask;
+        if (buffer.isEmptySlot(index)) {
+            return defaultReturnValue;
+        }
+        if (hash == buffer.getPrecomputedHash(index) && equals(groupId, rowReference, index)) {
+            return buffer.getValue(index);
+        }
+        // There's always an unused entry.
+        while (true) {
+            index = (index + 1) & mask;
+            if (buffer.isEmptySlot(index)) {
+                return defaultReturnValue;
+            }
+            if (hash == buffer.getPrecomputedHash(index) && equals(groupId, rowReference, index)) {
+                return buffer.getValue(index);
+            }
+        }
+    }
+
     public long put(long groupId, long rowId, long value)
     {
         checkArgument(groupId != unmappedGroupId, "Group ID cannot be the unmapped group ID");
@@ -164,9 +188,19 @@ public class TopNPeerGroupLookup
         return mix(groupId * 31 + strategy.hashCode(rowId));
     }
 
+    private long hash(long groupId, RowReference rowReference)
+    {
+        return mix(groupId * 31 + rowReference.hash(strategy));
+    }
+
     private boolean equals(long groupId, long rowId, long index)
     {
         return groupId == buffer.getGroupId(index) && strategy.equals(rowId, buffer.getRowId(index));
+    }
+
+    private boolean equals(long groupId, RowReference rowReference, long index)
+    {
+        return groupId == buffer.getGroupId(index) && rowReference.equals(strategy, buffer.getRowId(index));
     }
 
     private void insert(long index, long groupId, long rowId, long precomputedHash, long value)
