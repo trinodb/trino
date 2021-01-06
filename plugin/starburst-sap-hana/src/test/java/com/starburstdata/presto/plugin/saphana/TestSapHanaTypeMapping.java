@@ -22,6 +22,7 @@ import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
 import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
+import io.prestosql.testing.datatype.SqlDataTypeTest;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -39,7 +40,6 @@ import java.util.function.Function;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.prestoTimeForSapHanaDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.prestoTimestampForSapHanaDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.prestoVarcharForSapHanaDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaAlphanumDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaBintextDataType;
@@ -62,6 +62,7 @@ import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createS
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
@@ -727,9 +728,6 @@ public class TestSapHanaTypeMapping
                 .execute(getQueryRunner(), session, sapHanaCreateAndInsert("tpch.test_timestamp"));
     }
 
-    /**
-     * @see #testTimestampCoercion
-     */
     @Test(dataProvider = "sessionZonesDataProvider")
     public void testPrestoTimestamp(ZoneId sessionZone)
     {
@@ -737,106 +735,73 @@ public class TestSapHanaTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        DataTypeTest dataTypeTest = DataTypeTest.create()
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), beforeEpoch)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), afterEpoch)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), timeDoubledInJvmZone)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), timeDoubledInVilnius)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), epoch) // epoch also is a gap in JVM zone
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), timeGapInJvmZone1)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), timeGapInJvmZone2)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), timeGapInVilnius)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), timeGapInKathmandu)
+        SqlDataTypeTest.create()
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1958-01-01 13:18:03.123'", createTimestampType(7), "TIMESTAMP '1958-01-01 13:18:03.1230000'") // before epoch
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampType(7), "TIMESTAMP '2019-03-18 10:01:17.9870000'") // after epoch
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampType(7), "TIMESTAMP '2018-10-28 01:33:17.4560000'") // time doubled in JVM zone
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", createTimestampType(7), "TIMESTAMP '2018-10-28 03:33:33.3330000'") // time doubled in Vilnius
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000'") // epoch is also a gap in JVM zone
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:13:42.0000000'") // time gap in JVM zone
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", createTimestampType(7), "TIMESTAMP '2018-04-01 02:13:55.1230000'") // time gap in JVM zone
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", createTimestampType(7), "TIMESTAMP '2018-03-25 03:17:17.0000000'") // time gap in Vilnius
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.000'", createTimestampType(7), "TIMESTAMP '1986-01-01 00:13:07.0000000'") // time gap in Kathmandu
 
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), beforeEpoch)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), afterEpoch)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), timeDoubledInJvmZone)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), timeDoubledInVilnius)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), epoch) // epoch also is a gap in JVM zone
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), timeGapInJvmZone1)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), timeGapInJvmZone2)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), timeGapInVilnius)
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), timeGapInKathmandu)
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '1958-01-01 13:18:03.1230000'", createTimestampType(7), "TIMESTAMP '1958-01-01 13:18:03.1230000'") // before epoch
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '2019-03-18 10:01:17.9870000'", createTimestampType(7), "TIMESTAMP '2019-03-18 10:01:17.9870000'") // after epoch
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '2018-10-28 01:33:17.4560000'", createTimestampType(7), "TIMESTAMP '2018-10-28 01:33:17.4560000'") // time doubled in JVM zone
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '2018-10-28 03:33:33.3330000'", createTimestampType(7), "TIMESTAMP '2018-10-28 03:33:33.3330000'") // time doubled in Vilnius
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '1970-01-01 00:00:00.0000000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:00:00.0000000'") // epoch is also a gap in JVM zone
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '1970-01-01 00:13:42.0000000'", createTimestampType(7), "TIMESTAMP '1970-01-01 00:13:42.0000000'") // time gap in JVM zone
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '2018-04-01 02:13:55.1230000'", createTimestampType(7), "TIMESTAMP '2018-04-01 02:13:55.1230000'") // time gap in JVM zone
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '2018-03-25 03:17:17.0000000'", createTimestampType(7), "TIMESTAMP '2018-03-25 03:17:17.0000000'") // time gap in Vilnius
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '1986-01-01 00:13:07.0000000'", createTimestampType(7), "TIMESTAMP '1986-01-01 00:13:07.0000000'") // time gap in Kathmandu
 
                 // test some arbitrary time for all supported precisions
-                .addRoundTrip(prestoTimestampForSapHanaDataType(0), LocalDateTime.of(1970, 1, 1, 0, 0, 0))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(1), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 100_000_000))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(2), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 120_000_000))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(3), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_000_000))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(4), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_400_000))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(5), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_450_000))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(6), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_000))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_700))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(8), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_780))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(9), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_789))
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1000000'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.12'", "TIMESTAMP '1970-01-01 00:00:00.1200000'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.1230000'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1234'", "TIMESTAMP '1970-01-01 00:00:00.1234000'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.12345'", "TIMESTAMP '1970-01-01 00:00:00.1234500'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.1234560'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1234567'", "TIMESTAMP '1970-01-01 00:00:00.1234567'")
+                // precision loss causing rounding
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.12345678'", "TIMESTAMP '1970-01-01 00:00:00.1234568'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456789'", "TIMESTAMP '1970-01-01 00:00:00.1234568'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1123456789'", "TIMESTAMP '1970-01-01 00:00:00.1123457'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.11223456789'", "TIMESTAMP '1970-01-01 00:00:00.1122346'")
+                // max supported precision in SAP HANA
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.112233445566'", "TIMESTAMP '1970-01-01 00:00:00.1122334'")
 
                 // before epoch with nanos
-                .addRoundTrip(prestoTimestampForSapHanaDataType(6), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_000))
-                .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_700));
+                .addRoundTrip("timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.123456'", createTimestampType(7), "TIMESTAMP '1969-12-31 23:59:59.1234560'")
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '1969-12-31 23:59:59.1234567'", createTimestampType(7), "TIMESTAMP '1969-12-31 23:59:59.1234567'")
 
-                // Since https://github.com/prestosql/presto/pull/6334 toLiteral impl. for TIMESTAMPs correctly truncates the value according to precision of the type.
-                // The toPrestoQueryResult impl. in prestoTimestampForSapHanaDataType tries to round the value. The rounding is now incorrect for values with precision
-                // greater than the data type because the original value is truncated and hence it's effectively always rounded down for such cases.
-                // TODO replace with SQL-literal based tests (https://starburstdata.atlassian.net/browse/PRESTO-5009)
-                // precision loss
-                // .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_712))
-                // .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_789))
-                // .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_712))
-                // .addRoundTrip(prestoTimestampForSapHanaDataType(7), LocalDateTime.of(1969, 12, 31, 23, 59, 59, 123_456_789));
+                // round down before and after epoch
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456712'", "TIMESTAMP '1970-01-01 00:00:00.1234567'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.123456712'", "TIMESTAMP '1969-12-31 23:59:59.1234567'")
 
-        dataTypeTest.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
-        dataTypeTest.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_timestamp"));
-    }
+                // round up before and after epoch
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456789'", "TIMESTAMP '1970-01-01 00:00:00.1234568'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.123456789'", "TIMESTAMP '1969-12-31 23:59:59.1234568'")
 
-    /**
-     * Additional test supplementing {@link #testPrestoTimestamp} with timestamp precision higher than expressible with {@link LocalDateTime}.
-     *
-     * @see #testPrestoTimestamp
-     */
-    @Test
-    public void testTimestampCoercion()
-    {
-        // precision 0 ends up as precision 0
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00'", "TIMESTAMP '1970-01-01 00:00:00'");
+                // picos round up, end result rounds down
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456749'", "TIMESTAMP '1970-01-01 00:00:00.1234567'")
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456749999'", "TIMESTAMP '1970-01-01 00:00:00.1234567'")
 
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 00:00:00.1000000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 00:00:00.9000000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 00:00:00.1230000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 00:00:00.9990000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 00:00:00.1234560'");
+                // round up to next second
+                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.99999995'", "TIMESTAMP '1970-01-01 00:00:01.0000000'")
 
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.1000000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.9000000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.1230000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.9990000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.1234560'");
+                // round up to next day
+                .addRoundTrip("TIMESTAMP '1970-01-01 23:59:59.99999995'", "TIMESTAMP '1970-01-02 00:00:00.0000000'")
 
-        // max supported precision
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.1234567'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
+                // negative epoch
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.99999995'", "TIMESTAMP '1970-01-01 00:00:00.0000000'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999999949999'", "TIMESTAMP '1969-12-31 23:59:59.9999999'")
+                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.99999994'", "TIMESTAMP '1969-12-31 23:59:59.9999999'")
 
-        // round down
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.12345671'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
-
-        // picos round up, end result rounds down
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456749'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.123456749999'", "TIMESTAMP '1970-01-01 00:00:00.1234567'");
-
-        // round up
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.12345675'", "TIMESTAMP '1970-01-01 00:00:00.1234568'");
-
-        // max precision
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "TIMESTAMP '1970-01-01 00:00:00.1112223'");
-
-        // round up to next second
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 00:00:00.99999995'", "TIMESTAMP '1970-01-01 00:00:01.0000000'");
-
-        // round up to next day
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1970-01-01 23:59:59.99999995'", "TIMESTAMP '1970-01-02 00:00:00.0000000'");
-
-        // negative epoch
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.99999995'", "TIMESTAMP '1970-01-01 00:00:00.0000000'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.999999949999'", "TIMESTAMP '1969-12-31 23:59:59.9999999'");
-        testCreateTableAsAndInsertConsistency("TIMESTAMP '1969-12-31 23:59:59.99999994'", "TIMESTAMP '1969-12-31 23:59:59.9999999'");
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_timestamp"));
     }
 
     @DataProvider

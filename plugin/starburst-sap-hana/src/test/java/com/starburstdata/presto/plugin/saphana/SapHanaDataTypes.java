@@ -9,12 +9,10 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
-import com.google.common.math.IntMath;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.datatype.DataType;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -205,27 +203,5 @@ public final class SapHanaDataTypes
                 createTimestampType(7),
                 timestampDataType(7)::toLiteral,
                 identity());
-    }
-
-    public static DataType<LocalDateTime> prestoTimestampForSapHanaDataType(int precision)
-    {
-        Type prestoType;
-        if (precision == 0) {
-            // timestamp(0) gets stored as SECONDDATE and read back as timestamp(0)
-            prestoType = createTimestampType(0);
-        }
-        else {
-            // everything else is stored as TIMESTAMP and read back as timestamp(7)
-            prestoType = createTimestampType(7);
-        }
-
-        return dataType(
-                format("timestamp(%s)", precision),
-                prestoType,
-                timestampDataType(precision)::toLiteral,
-                localDateTime -> {
-                    // SAP HANA stores up to precision 7
-                    return localDateTime.withNano(IntMath.divide(localDateTime.getNano(), 100, RoundingMode.HALF_UP) * 100);
-                });
     }
 }
