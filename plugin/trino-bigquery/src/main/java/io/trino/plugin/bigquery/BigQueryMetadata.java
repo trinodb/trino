@@ -278,7 +278,7 @@ public class BigQueryMetadata
         ImmutableList.Builder<Assignment> assignmentList = ImmutableList.builder();
         assignments.forEach((name, column) -> {
             projectedColumns.add(column);
-            assignmentList.add(new Assignment(name, column, ((BigQueryColumnHandle) column).getPrestoType()));
+            assignmentList.add(new Assignment(name, column, ((BigQueryColumnHandle) column).getTrinoType()));
         });
 
         bigQueryTableHandle = bigQueryTableHandle.withProjectedColumns(projectedColumns.build());

@@ -147,7 +147,7 @@ public class TpcdsMetadata
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         for (Column column : tpcdsTable.getColumns()) {
-            columns.add(new ColumnMetadata(column.getName(), getPrestoType(column.getType())));
+            columns.add(new ColumnMetadata(column.getName(), getTrinoType(column.getType())));
         }
         SchemaTableName tableName = new SchemaTableName(schemaName, tpcdsTable.getName());
         return new ConnectorTableMetadata(tableName, columns.build());
@@ -249,7 +249,7 @@ public class TpcdsMetadata
         }
     }
 
-    public static Type getPrestoType(ColumnType tpcdsType)
+    public static Type getTrinoType(ColumnType tpcdsType)
     {
         switch (tpcdsType.getBase()) {
             case IDENTIFIER:

@@ -216,19 +216,19 @@ public class TestHiveQlTranslation
     }
 
     @Test(dataProvider = "simple_hive_translation_columns")
-    public void testSimpleColumns(String hiveColumn, String prestoColumn)
+    public void testSimpleColumns(String hiveColumn, String trinoColumn)
     {
         assertTranslation(
                 format("SELECT %s FROM sometable", hiveColumn),
-                format("SELECT %s FROM sometable", prestoColumn));
+                format("SELECT %s FROM sometable", trinoColumn));
     }
 
     @Test(dataProvider = "extended_hive_translation_columns")
-    public void testExtendedColumns(String hiveColumn, String prestoColumn)
+    public void testExtendedColumns(String hiveColumn, String trinoColumn)
     {
         assertTranslation(
                 format("SELECT %s FROM sometable", hiveColumn),
-                format("SELECT %s FROM sometable", prestoColumn));
+                format("SELECT %s FROM sometable", trinoColumn));
     }
 
     @Test
@@ -256,17 +256,17 @@ public class TestHiveQlTranslation
                 "SELECT 'abc\u03B5xyz' FROM sometable"); // that's epsilon
     }
 
-    private void assertTranslation(String hiveSql, String expectedPrestoSql)
+    private void assertTranslation(String hiveSql, String expectedTrinoSql)
     {
-        String actualPrestoSql = translateHiveViewToTrino(hiveSql);
-        assertEquals(actualPrestoSql, expectedPrestoSql);
-        assertPrestoSqlIsParsable(expectedPrestoSql);
-        assertPrestoSqlIsParsable(actualPrestoSql);
+        String actualTrinoSql = translateHiveViewToTrino(hiveSql);
+        assertEquals(actualTrinoSql, expectedTrinoSql);
+        assertTrinoSqlIsParsable(expectedTrinoSql);
+        assertTrinoSqlIsParsable(actualTrinoSql);
     }
 
-    private void assertPrestoSqlIsParsable(String actualPrestoSql)
+    private void assertTrinoSqlIsParsable(String actualTrinoSql)
     {
-        parser.createStatement(actualPrestoSql, new ParsingOptions());
+        parser.createStatement(actualTrinoSql, new ParsingOptions());
     }
 
     private void assertViewTranslationError(String badHiveQl, String expectMessage)

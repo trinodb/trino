@@ -98,8 +98,8 @@ public enum BigQueryType
 
     static RowType.Field toRawTypeField(String name, BigQueryType.Adaptor typeAdaptor)
     {
-        Type prestoType = typeAdaptor.getPrestoType();
-        return RowType.field(name, prestoType);
+        Type trinoType = typeAdaptor.getTrinoType();
+        return RowType.field(name, trinoType);
     }
 
     static LocalDateTime toLocalDateTime(String datetime)
@@ -116,7 +116,7 @@ public enum BigQueryType
         return result.withNano(nanoOfSecond);
     }
 
-    static long toPrestoTimestamp(String datetime)
+    static long toTrinoTimestamp(String datetime)
     {
         return toLocalDateTime(datetime).toInstant(UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
     }
@@ -214,7 +214,7 @@ public enum BigQueryType
 
         Field.Mode getMode();
 
-        default Type getPrestoType()
+        default Type getTrinoType()
         {
             Type rawType = getBigQueryType().getNativeType(this);
             return getMode() == Field.Mode.REPEATED ? new ArrayType(rawType) : rawType;

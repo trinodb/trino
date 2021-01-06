@@ -104,7 +104,7 @@ public class AccumuloSplitManager
     /**
      * Gets a list of {@link AccumuloColumnConstraint} based on the given constraint ID, excluding the row ID column
      *
-     * @param rowIdName Presto column name mapping to the Accumulo row ID
+     * @param rowIdName Trino column name mapping to the Accumulo row ID
      * @param constraint Set of query constraints
      * @return List of all column constraints
      */

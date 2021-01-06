@@ -57,7 +57,7 @@ import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.fromBlock;
 import static io.trino.plugin.thrift.server.SplitInfo.normalSplit;
-import static io.trino.plugin.tpch.TpchMetadata.getPrestoType;
+import static io.trino.plugin.tpch.TpchMetadata.getTrinoType;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static java.lang.Math.min;
@@ -218,7 +218,7 @@ public class ThriftTpchService
     public static List<Type> types(String tableName, List<String> columnNames)
     {
         TpchTable<?> table = TpchTable.getTable(tableName);
-        return columnNames.stream().map(name -> getPrestoType(table.getColumn(name))).collect(toList());
+        return columnNames.stream().map(name -> getTrinoType(table.getColumn(name))).collect(toList());
     }
 
     public static double schemaNameToScaleFactor(String schemaName)
@@ -318,6 +318,6 @@ public class ThriftTpchService
 
     private static String getTypeString(TpchColumn<?> column)
     {
-        return getPrestoType(column).getTypeSignature().toString();
+        return getTrinoType(column).getTypeSignature().toString();
     }
 }

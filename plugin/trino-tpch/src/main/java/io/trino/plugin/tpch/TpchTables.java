@@ -37,7 +37,7 @@ public final class TpchTables
     {
         TpchTable<?> table = TpchTable.getTable(tableName);
         return table.getColumns().stream()
-                .map(TpchMetadata::getPrestoType)
+                .map(TpchMetadata::getTrinoType)
                 .collect(toImmutableList());
     }
 

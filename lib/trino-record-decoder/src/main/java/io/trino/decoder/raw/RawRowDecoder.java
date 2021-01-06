@@ -26,7 +26,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
 /**
- * Decoder for raw (direct byte) rows. All field decoders map bytes directly to Presto columns.
+ * Decoder for raw (direct byte) rows. All field decoders map bytes directly to Trino columns.
  */
 public class RawRowDecoder
         implements RowDecoder

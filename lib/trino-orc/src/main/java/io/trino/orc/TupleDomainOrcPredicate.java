@@ -246,9 +246,9 @@ public class TupleDomainOrcPredicate
         else if ((type.equals(TIMESTAMP_MILLIS) || type.equals(TIMESTAMP_MICROS)) && columnStatistics.getTimestampStatistics() != null) {
             // ORC timestamp statistics are truncated to millisecond precision, regardless of the precision of the actual data column.
             // Since that can cause some column values to fall outside the stats range, here we are creating a tuple domain predicate
-            // that ensures inclusion of all values.  Note that we are adding a full millisecond to account for the fact that Presto rounds
+            // that ensures inclusion of all values.  Note that we are adding a full millisecond to account for the fact that Trino rounds
             // timestamps. For example, the stats for timestamp 2020-09-22 12:34:56.678910 are truncated to 2020-09-22 12:34:56.678.
-            // If Presto is using millisecond precision, the timestamp gets rounded to the next millisecond (2020-09-22 12:34:56.679), so the
+            // If Trino is using millisecond precision, the timestamp gets rounded to the next millisecond (2020-09-22 12:34:56.679), so the
             // upper bound of the domain we create must be adjusted accordingly, to includes the rounded timestamp.
             return createDomain(
                     type,

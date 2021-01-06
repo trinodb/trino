@@ -251,13 +251,13 @@ public class TestOrcPageSourceFactory
 
     private static HiveColumnHandle toHiveColumnHandle(NationColumn nationColumn, int hiveColumnIndex)
     {
-        Type prestoType;
+        Type trinoType;
         switch (nationColumn.getType().getBase()) {
             case IDENTIFIER:
-                prestoType = BIGINT;
+                trinoType = BIGINT;
                 break;
             case VARCHAR:
-                prestoType = VARCHAR;
+                trinoType = VARCHAR;
                 break;
             default:
                 throw new IllegalStateException("Unexpected value: " + nationColumn.getType().getBase());
@@ -266,8 +266,8 @@ public class TestOrcPageSourceFactory
         return createBaseColumn(
                 nationColumn.getColumnName(),
                 hiveColumnIndex,
-                toHiveType(prestoType),
-                prestoType,
+                toHiveType(trinoType),
+                trinoType,
                 REGULAR,
                 Optional.empty());
     }

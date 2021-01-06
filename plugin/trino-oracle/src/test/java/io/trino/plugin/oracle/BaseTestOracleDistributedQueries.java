@@ -128,7 +128,7 @@ public abstract class BaseTestOracleDistributedQueries
                 "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10",
                 "SELECT 10");
 
-        // this is comment because presto creates a table of varchar(1) and in oracle this unicode occupy 3 char
+        // this is comment because Trino creates a table of varchar(1) and in oracle this unicode occupy 3 char
         // we should try to get bytes instead of size ??
         /*
         assertCreateTableAsSelect(

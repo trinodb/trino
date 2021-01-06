@@ -276,7 +276,7 @@ public class PinotMetadata
     @VisibleForTesting
     public List<PinotColumn> getPinotColumns(String tableName)
     {
-        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName);
+        String pinotTableName = getPinotTableNameFromTrinoTableName(tableName);
         return getFromCache(pinotTableColumnCache, pinotTableName);
     }
 
@@ -299,18 +299,18 @@ public class PinotMetadata
         }
     }
 
-    private String getPinotTableNameFromPrestoTableName(String prestoTableName)
+    private String getPinotTableNameFromTrinoTableName(String trinoTableName)
     {
         List<String> allTables = getPinotTableNames();
         String pinotTableName = null;
         for (String candidate : allTables) {
-            if (prestoTableName.equalsIgnoreCase(candidate)) {
+            if (trinoTableName.equalsIgnoreCase(candidate)) {
                 pinotTableName = candidate;
                 break;
             }
         }
         if (pinotTableName == null) {
-            throw new TableNotFoundException(new SchemaTableName(SCHEMA_NAME, prestoTableName));
+            throw new TableNotFoundException(new SchemaTableName(SCHEMA_NAME, trinoTableName));
         }
         return pinotTableName;
     }

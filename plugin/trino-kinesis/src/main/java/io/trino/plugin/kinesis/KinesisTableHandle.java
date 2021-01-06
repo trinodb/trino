@@ -24,7 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Class maintains all the properties of Presto Table
+ * Class maintains all the properties of Trino Table
  */
 public class KinesisTableHandle
         implements ConnectorTableHandle
@@ -36,7 +36,7 @@ public class KinesisTableHandle
     private final String schemaName;
 
     /**
-     * The table name used by presto.
+     * The table name used by Trino.
      */
     private final String tableName;
 

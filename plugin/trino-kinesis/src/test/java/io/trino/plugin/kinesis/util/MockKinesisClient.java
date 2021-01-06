@@ -50,7 +50,7 @@ import static java.lang.Integer.parseInt;
 
 /**
  * Mock kinesis client for testing that is primarily used for reading from the
- * stream as we do here in Presto.
+ * stream as we do here in Trino.
  * <p>
  * This is to help prove that the API is being used correctly and debug any
  * issues that arise without incurring AWS load and charges.  It is far from a complete

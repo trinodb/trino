@@ -94,7 +94,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(tinyintDataType(), (byte) 5)
                 .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
     }
 
     @Test
@@ -105,7 +105,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(varcharDataType(), "unbounded");
 
         varcharTypeTest
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varchar"));
 
         varcharTypeTest
                 .addRoundTrip(primaryKey(), 1)
@@ -124,7 +124,7 @@ public class TestPhoenixTypeMapping
     public void testChar()
     {
         stringDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_char"));
 
         stringDataTypeTest(DataType::charDataType)
                 .addRoundTrip(primaryKey(), 1)
@@ -142,7 +142,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("integer primary key", "1", INTEGER, "1")
@@ -160,7 +160,7 @@ public class TestPhoenixTypeMapping
     public void testDecimal()
     {
         decimalTests(DataType::decimalDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
 
         decimalTests(TestPhoenixTypeMapping::phoenixDecimalDataType)
                 .addRoundTrip(primaryKey(), 1)
@@ -214,7 +214,7 @@ public class TestPhoenixTypeMapping
         LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
         checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
 
-        DataTypeTest prestoTestCases = dateTests(
+        DataTypeTest trinoTestCases = dateTests(
                 dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
                 dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
                 dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
@@ -231,9 +231,9 @@ public class TestPhoenixTypeMapping
             Session session = Session.builder(getSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
-            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_date"));
-            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect(getSession(), "test_date"));
-            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
+            trinoTestCases.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_date"));
+            trinoTestCases.execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_date"));
+            trinoTestCases.execute(getQueryRunner(), session, prestoCreateAndInsert(session, "test_date"));
             phoenixTestCases.execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
         }
     }
@@ -249,22 +249,22 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(arrayDataType(smallintDataType()), asList((short) 32_456))
                 .addRoundTrip(arrayDataType(doubleDataType()), asList(123.45d))
                 .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_basic"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_basic"));
 
         arrayDateTest(TestPhoenixTypeMapping::arrayDataType, dateDataType())
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_date"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_date"));
         arrayDateTest(TestPhoenixTypeMapping::phoenixArrayDataType, phoenixDateDataType())
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_date"));
 
         arrayDecimalTest(TestPhoenixTypeMapping::arrayDataType, DataType::decimalDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_decimal"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_decimal"));
         arrayDecimalTest(TestPhoenixTypeMapping::phoenixArrayDataType, TestPhoenixTypeMapping::phoenixDecimalDataType)
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_decimal"));
 
         arrayStringDataTypeTest(TestPhoenixTypeMapping::arrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_char"));
         arrayStringDataTypeTest(TestPhoenixTypeMapping::phoenixArrayDataType, DataType::charDataType)
                 .addRoundTrip(primaryKey(), 1)
                 .execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_array_char"));
@@ -272,7 +272,7 @@ public class TestPhoenixTypeMapping
         arrayStringDataTypeTest(TestPhoenixTypeMapping::arrayDataType, DataType::varcharDataType)
                 .addRoundTrip(arrayDataType(varcharDataType(10485760)), asList("text_f"))
                 .addRoundTrip(arrayDataType(varcharDataType()), asList("unbounded"))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_varchar"));
         arrayStringDataTypeTest(TestPhoenixTypeMapping::phoenixArrayDataType, DataType::varcharDataType)
                 .addRoundTrip(phoenixArrayDataType(varcharDataType(10485760)), asList("text_f"))
                 .addRoundTrip(phoenixArrayDataType(varcharDataType()), asList("unbounded"))
@@ -287,7 +287,7 @@ public class TestPhoenixTypeMapping
                 .addRoundTrip(arrayDataType(booleanDataType()), null)
                 .addRoundTrip(arrayDataType(varcharDataType()), singletonList(null))
                 .addRoundTrip(arrayDataType(varcharDataType()), asList("foo", null, "bar", null))
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_array_nulls"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_array_nulls"));
     }
 
     private DataTypeTest arrayDecimalTest(Function<DataType<BigDecimal>, DataType<List<BigDecimal>>> arrayTypeFactory, BiFunction<Integer, Integer, DataType<BigDecimal>> decimalTypeFactory)
@@ -400,12 +400,12 @@ public class TestPhoenixTypeMapping
         return dataType("integer primary key", INTEGER, Object::toString);
     }
 
-    private DataSetup prestoCreateAsSelect(String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
-        return prestoCreateAsSelect(getSession(), tableNamePrefix);
+        return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }

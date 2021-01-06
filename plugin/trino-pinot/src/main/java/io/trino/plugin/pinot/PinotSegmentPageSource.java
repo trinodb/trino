@@ -239,7 +239,7 @@ public class PinotSegmentPageSource
     /**
      * Generates the {@link io.trino.spi.block.Block} for the specific column from the {@link #currentDataTable}.
      *
-     * <p>Based on the original Pinot column types, write as Presto-supported values to {@link io.trino.spi.block.BlockBuilder}, e.g.
+     * <p>Based on the original Pinot column types, write as Trino-supported values to {@link io.trino.spi.block.BlockBuilder}, e.g.
      * FLOAT -> Double, INT -> Long, String -> Slice.
      *
      * @param blockBuilder blockBuilder for the current column
@@ -361,8 +361,8 @@ public class PinotSegmentPageSource
 
     Block getArrayBlock(int rowIndex, int columnIndex)
     {
-        Type prestoType = getType(columnIndex);
-        Type elementType = prestoType.getTypeParameters().get(0);
+        Type trinoType = getType(columnIndex);
+        Type elementType = trinoType.getTypeParameters().get(0);
         DataSchema.ColumnDataType columnType = currentDataTable.getDataTable().getDataSchema().getColumnDataType(columnIndex);
         BlockBuilder blockBuilder;
         switch (columnType) {
@@ -410,12 +410,12 @@ public class PinotSegmentPageSource
 
     Slice getSlice(int rowIndex, int columnIndex)
     {
-        Type prestoType = getType(columnIndex);
-        if (prestoType instanceof VarcharType) {
+        Type trinoType = getType(columnIndex);
+        if (trinoType instanceof VarcharType) {
             String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
             return getUtf8Slice(field);
         }
-        else if (prestoType instanceof VarbinaryType) {
+        else if (trinoType instanceof VarbinaryType) {
             return Slices.wrappedBuffer(toBytes(currentDataTable.getDataTable().getString(rowIndex, columnIndex)));
         }
         return Slices.EMPTY_SLICE;

@@ -396,15 +396,15 @@ public class IcebergPageSourceProvider
                     systemMemoryContext,
                     options);
 
-            ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
+            ImmutableList.Builder<Type> trinoTypes = ImmutableList.builder();
             ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
             for (int columnIndex = 0; columnIndex < regularColumns.size(); columnIndex++) {
                 IcebergColumnHandle column = regularColumns.get(columnIndex);
                 org.apache.parquet.schema.Type parquetField = parquetFields.get(columnIndex);
 
-                Type prestoType = column.getType();
+                Type trinoType = column.getType();
 
-                prestoTypes.add(prestoType);
+                trinoTypes.add(trinoType);
 
                 if (parquetField == null) {
                     internalFields.add(Optional.empty());
@@ -414,7 +414,7 @@ public class IcebergPageSourceProvider
                 }
             }
 
-            return new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build());
+            return new ParquetPageSource(parquetReader, trinoTypes.build(), internalFields.build());
         }
         catch (IOException | RuntimeException e) {
             try {
