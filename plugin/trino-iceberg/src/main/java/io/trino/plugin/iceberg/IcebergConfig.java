@@ -20,12 +20,14 @@ import org.apache.iceberg.FileFormat;
 import javax.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 
 public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
+    private IcebergCatalogType type = HIVE;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -50,6 +52,19 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @NotNull
+    public IcebergCatalogType getCatalogType()
+    {
+        return type;
+    }
+
+    @Config("iceberg.catalog-type")
+    public IcebergConfig setCatalogType(IcebergCatalogType type)
+    {
+        this.type = type;
         return this;
     }
 }
