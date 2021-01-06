@@ -56,7 +56,7 @@ public abstract class AbstractSinglenodeLdap
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        String baseImage = format("prestodev/%s:%s", getBaseImage(), imagesVersion);
+        String baseImage = format("ghcr.io/trinodb/testing/%s:%s", getBaseImage(), imagesVersion);
 
         builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
