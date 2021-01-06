@@ -71,7 +71,7 @@ public class S3TableConfigClient
 
     private final Optional<String> bucketUrl;
     private volatile long lastCheck;
-    private final Duration updateInterval;
+    private final Duration tableDescriptionRefreshInterval;
     private volatile ScheduledFuture<?> updateTaskHandle;
 
     private final Map<String, KinesisStreamDescription> descriptors = Collections.synchronizedMap(new HashMap<>());
@@ -83,7 +83,7 @@ public class S3TableConfigClient
             JsonCodec<KinesisStreamDescription> jsonCodec)
     {
         requireNonNull(connectorConfig, "connectorConfig is null");
-        this.updateInterval = connectorConfig.getUpdateInterval();
+        this.tableDescriptionRefreshInterval = connectorConfig.getTableDescriptionRefreshInterval();
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
         this.streamDescriptionCodec = requireNonNull(jsonCodec, "jsonCodec is null");
 
@@ -101,7 +101,7 @@ public class S3TableConfigClient
     {
         if (this.bucketUrl.isPresent()) {
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, updateInterval.toMillis(), TimeUnit.SECONDS);
+            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, tableDescriptionRefreshInterval.toMillis(), TimeUnit.MILLISECONDS);
         }
     }
 
