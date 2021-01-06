@@ -146,6 +146,7 @@ public abstract class AbstractTestingTrinoClient<T>
         return new ClientSession(
                 server,
                 session.getIdentity().getUser(),
+                Optional.empty(),
                 session.getSource().orElse(null),
                 session.getTraceToken(),
                 session.getClientTags(),

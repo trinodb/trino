@@ -101,7 +101,7 @@ class StatementClientV1
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
-        this.user = session.getUser();
+        this.user = session.getPrincipal();
         this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
         this.compressionDisabled = session.isCompressionDisabled();
 
@@ -132,6 +132,8 @@ class StatementClientV1
         }
 
         session.getTraceToken().ifPresent(token -> builder.addHeader(TRINO_HEADERS.requestTraceToken(), token));
+
+        session.getUser().ifPresent(user -> builder.header(TRINO_HEADERS.requestUser(), session.getUser().get()));
 
         if (session.getClientTags() != null && !session.getClientTags().isEmpty()) {
             builder.addHeader(TRINO_HEADERS.requestClientTags(), Joiner.on(",").join(session.getClientTags()));

@@ -102,6 +102,7 @@ public class BenchmarkDriverOptions
         return new ClientSession(
                 parseServer(server),
                 user,
+                Optional.empty(),
                 "trino-benchmark",
                 Optional.empty(),
                 ImmutableSet.of(),
