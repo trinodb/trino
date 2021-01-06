@@ -15,58 +15,79 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
-import io.trino.Session;
 import io.trino.client.ClientSession;
+import io.trino.client.QueryError;
 import io.trino.client.StatementClient;
+import io.trino.plugin.base.security.FileBasedSystemAccessControl;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.QueryId;
+import io.trino.spi.security.SystemAccessControl;
+import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
+
+import javax.annotation.Nullable;
 
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Optional;
 
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
+import static com.google.common.io.Resources.getResource;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.client.StatementClientFactory.newStatementClient;
+import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 
-public class TestFinalQueryInfo
+public class TestUserImpersonationAccessControl
+        extends AbstractTestQueryFramework
 {
-    @Test(timeOut = 240_000)
-    public void testFinalQueryInfoSetOnAbort()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(TEST_SESSION)) {
-            QueryId queryId = startQuery("SELECT COUNT(*) FROM tpch.sf1000.lineitem", queryRunner);
-            SettableFuture<QueryInfo> finalQueryInfoFuture = SettableFuture.create();
-            queryRunner.getCoordinator().addFinalQueryInfoListener(queryId, finalQueryInfoFuture::set);
+        String securityConfigFile = getResource("access_control_rules.json").getPath();
+        SystemAccessControl accessControl = new FileBasedSystemAccessControl.Factory().create(ImmutableMap.of(SECURITY_CONFIG_FILE, securityConfigFile));
+        QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
+                .setNodeCount(1)
+                .setSystemAccessControl(accessControl)
+                .build();
 
-            // wait 1s then kill query
-            Thread.sleep(1_000);
-            queryRunner.getCoordinator().getQueryManager().cancelQuery(queryId);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
 
-            // wait for final query info
-            QueryInfo finalQueryInfo = tryGetFutureValue(finalQueryInfoFuture, 10, SECONDS)
-                    .orElseThrow(() -> new AssertionError("Final query info never set"));
-            assertTrue(finalQueryInfo.isFinalQueryInfo());
-        }
+        return queryRunner;
     }
 
-    private static QueryId startQuery(String sql, DistributedQueryRunner queryRunner)
+    // On the tpch catalog Alice has allow all permissions, Bob has no permissions, and Charlie has read only permissions.
+    @Test
+    public void testReadAccessControl()
+    {
+        QueryError aliceQueryError = trySelectQuery("alice");
+        assertNull(aliceQueryError);
+
+        QueryError bobQueryError = trySelectQuery("bob");
+        assertNotNull(bobQueryError);
+        assertEquals(bobQueryError.getErrorType(), "USER_ERROR");
+        assertEquals(bobQueryError.getErrorName(), "PERMISSION_DENIED");
+
+        QueryError charlieQueryError = trySelectQuery("charlie");
+        assertNull(charlieQueryError);
+    }
+
+    @Nullable
+    private QueryError trySelectQuery(String assumedUser)
     {
         OkHttpClient httpClient = new OkHttpClient();
         try {
             ClientSession clientSession = new ClientSession(
-                    queryRunner.getCoordinator().getBaseUrl(),
+                    getDistributedQueryRunner().getCoordinator().getBaseUrl(),
                     "user",
-                    Optional.empty(),
+                    Optional.of(assumedUser),
                     "source",
                     Optional.empty(),
                     ImmutableSet.of(),
@@ -86,37 +107,19 @@ public class TestFinalQueryInfo
                     true);
 
             // start query
-            StatementClient client = newStatementClient(httpClient, clientSession, sql);
+            StatementClient client = newStatementClient(httpClient, clientSession, "SELECT * FROM tpch.tiny.nation");
 
             // wait for query to be fully scheduled
             while (client.isRunning() && !client.currentStatusInfo().getStats().isScheduled()) {
                 client.advance();
             }
 
-            return new QueryId(client.currentStatusInfo().getId());
+            return client.currentStatusInfo().getError();
         }
         finally {
             // close the client since, query is not managed by the client protocol
             httpClient.dispatcher().executorService().shutdown();
             httpClient.connectionPool().evictAll();
-        }
-    }
-
-    public static DistributedQueryRunner createQueryRunner(Session session)
-            throws Exception
-    {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setNodeCount(2)
-                .build();
-
-        try {
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-            return queryRunner;
-        }
-        catch (Exception e) {
-            queryRunner.close();
-            throw e;
         }
     }
 }
