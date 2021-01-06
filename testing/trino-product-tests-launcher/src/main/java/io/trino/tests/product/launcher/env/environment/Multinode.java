@@ -82,7 +82,7 @@ public final class Multinode
     @SuppressWarnings("resource")
     private DockerContainer createPrestoWorker()
     {
-        return createPrestoContainer(dockerFiles, serverPackage, debug, "prestodev/centos7-oj11:" + imagesVersion, WORKER)
+        return createPrestoContainer(dockerFiles, serverPackage, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, WORKER)
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)

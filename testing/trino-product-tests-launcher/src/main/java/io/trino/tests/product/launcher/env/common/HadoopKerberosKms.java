@@ -51,7 +51,7 @@ public class HadoopKerberosKms
     public void extendEnvironment(Environment.Builder builder)
     {
         // TODO (https://github.com/trinodb/trino/issues/1652) create images with HDP and KMS
-        String dockerImageName = "prestodev/cdh5.15-hive-kerberized-kms:" + hadoopImagesVersion;
+        String dockerImageName = "ghcr.io/trinodb/testing/cdh5.15-hive-kerberized-kms:" + hadoopImagesVersion;
 
         builder.configureContainer(HADOOP, container -> {
             container.setDockerImageName(dockerImageName);
