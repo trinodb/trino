@@ -58,7 +58,7 @@ public class SinglenodeSparkIceberg
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(HADOOP, dockerContainer -> {
-            dockerContainer.setDockerImageName("prestodev/hdp3.1-hive:" + hadoopImagesVersion);
+            dockerContainer.setDockerImageName("ghcr.io/trinodb/testing/hdp3.1-hive:" + hadoopImagesVersion);
             dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/apply-hdp3-config.sh")),
                     CONTAINER_HADOOP_INIT_D + "apply-hdp3-config.sh");
@@ -76,7 +76,7 @@ public class SinglenodeSparkIceberg
     @SuppressWarnings("resource")
     private DockerContainer createSpark()
     {
-        DockerContainer container = new DockerContainer("prestodev/spark3.0-iceberg:" + hadoopImagesVersion, "spark")
+        DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/spark3.0-iceberg:" + hadoopImagesVersion, "spark")
                 .withEnv("HADOOP_USER_NAME", "hive")
                 .withCopyFileToContainer(
                         forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-spark-iceberg/spark-defaults.conf")),
