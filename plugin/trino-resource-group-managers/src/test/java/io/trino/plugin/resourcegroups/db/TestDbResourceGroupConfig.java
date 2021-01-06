@@ -40,12 +40,12 @@ public class TestDbResourceGroupConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("resource-groups.config-db-url", "jdbc:mysql://localhost:3306/config?user=presto_admin")
+                .put("resource-groups.config-db-url", "jdbc:mysql://localhost:3306/config?user=trino_admin")
                 .put("resource-groups.max-refresh-interval", "1m")
                 .put("resource-groups.exact-match-selector-enabled", "true")
                 .build();
         DbResourceGroupConfig expected = new DbResourceGroupConfig()
-                .setConfigDbUrl("jdbc:mysql://localhost:3306/config?user=presto_admin")
+                .setConfigDbUrl("jdbc:mysql://localhost:3306/config?user=trino_admin")
                 .setMaxRefreshInterval(new Duration(1, MINUTES))
                 .setExactMatchSelectorEnabled(true);
 

@@ -61,7 +61,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Presto metadata provider for Accumulo.
+ * Trino metadata provider for Accumulo.
  * Responsible for creating/dropping/listing tables, schemas, columns, all sorts of goodness. Heavily leverages {@link AccumuloClient}.
  */
 public class AccumuloMetadata

@@ -807,7 +807,7 @@ public abstract class AbstractTestAggregations
         assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(comment) FROM orders", "SELECT sum(length(comment)) FROM orders");
 
         // char
-        // Presto removes trailing whitespaces when casting to CHAR.
+        // Trino removes trailing whitespaces when casting to CHAR.
         // Hard code the expected data size since there is no easy to way to compute it in H2.
         assertQuery("SELECT \"$internal$sum_data_size_for_stats\"(CAST(comment AS CHAR(1000))) FROM orders", "SELECT 725468");
 

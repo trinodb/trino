@@ -64,7 +64,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 /**
- * Output class for serializing Presto pages (blocks of rows of data) to Accumulo.
+ * Output class for serializing Trino pages (blocks of rows of data) to Accumulo.
  * This class converts the rows from within a page to a collection of Accumulo Mutations,
  * writing and indexed the rows. Writers are flushed and closed on commit, and if a rollback occurs...
  * we'll you're gonna have a bad time.

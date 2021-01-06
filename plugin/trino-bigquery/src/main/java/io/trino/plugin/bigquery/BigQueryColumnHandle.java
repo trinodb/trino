@@ -117,7 +117,7 @@ public class BigQueryColumnHandle
     {
         return ColumnMetadata.builder()
                 .setName(name)
-                .setType(getPrestoType())
+                .setType(getTrinoType())
                 .setComment(Optional.ofNullable(description))
                 .setNullable(mode == Field.Mode.NULLABLE)
                 .setHidden(hidden)

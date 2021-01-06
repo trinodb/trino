@@ -35,7 +35,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.plugin.tpch.TpchMetadata.getPrestoType;
+import static io.trino.plugin.tpch.TpchMetadata.getTrinoType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +71,7 @@ public class TpchRecordSet<E extends TpchEntity>
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.columnTypes = columns.stream()
-                .map(TpchMetadata::getPrestoType)
+                .map(TpchMetadata::getTrinoType)
                 .collect(toImmutableList());
         this.predicate = requireNonNull(predicate, "predicate is null");
     }
@@ -121,7 +121,7 @@ public class TpchRecordSet<E extends TpchEntity>
         @Override
         public Type getType(int field)
         {
-            return getPrestoType(getTpchColumn(field));
+            return getTrinoType(getTpchColumn(field));
         }
 
         @Override
@@ -222,7 +222,7 @@ public class TpchRecordSet<E extends TpchEntity>
                                 TpchColumnHandle tpchColumnHandle = (TpchColumnHandle) column;
                                 Type type = tpchColumnHandle.getType();
                                 TpchColumn<E> tpchColumn = table.getColumn(tpchColumnHandle.getColumnName());
-                                return NullableValue.of(type, getPrestoObject(tpchColumn, type));
+                                return NullableValue.of(type, getTrinoObject(tpchColumn, type));
                             }));
 
             TupleDomain<ColumnHandle> rowTupleDomain = TupleDomain.fromFixedValues(rowMap);
@@ -230,7 +230,7 @@ public class TpchRecordSet<E extends TpchEntity>
             return predicate.contains(rowTupleDomain);
         }
 
-        private Object getPrestoObject(TpchColumn<E> column, Type type)
+        private Object getTrinoObject(TpchColumn<E> column, Type type)
         {
             if (type.getJavaType() == long.class) {
                 return getLong(column);

@@ -122,17 +122,17 @@ public final class DynamicTableBuilder
         return new DynamicTable(pinotTableName, suffix, selectionColumns, groupByColumns, filter, aggregationExpressionBuilder.build(), orderBy, getTopNOrLimit(request), getOffset(request), query);
     }
 
-    private static List<String> resolvePinotColumns(SchemaTableName schemaTableName, List<String> prestoColumnNames, Map<String, ColumnHandle> columnHandles)
+    private static List<String> resolvePinotColumns(SchemaTableName schemaTableName, List<String> trinoColumnNames, Map<String, ColumnHandle> columnHandles)
     {
         ImmutableList.Builder<String> pinotColumnNamesBuilder = ImmutableList.builder();
-        for (String prestoColumnName : prestoColumnNames) {
-            if (prestoColumnName.equals(WILDCARD)) {
+        for (String trinoColumnName : trinoColumnNames) {
+            if (trinoColumnName.equals(WILDCARD)) {
                 pinotColumnNamesBuilder.addAll(columnHandles.values().stream().map(handle -> ((PinotColumnHandle) handle).getColumnName()).collect(toImmutableList()));
             }
             else {
-                PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(prestoColumnName);
+                PinotColumnHandle columnHandle = (PinotColumnHandle) columnHandles.get(trinoColumnName);
                 if (columnHandle == null) {
-                    throw new ColumnNotFoundException(schemaTableName, prestoColumnName);
+                    throw new ColumnNotFoundException(schemaTableName, trinoColumnName);
                 }
                 pinotColumnNamesBuilder.add(columnHandle.getColumnName());
             }

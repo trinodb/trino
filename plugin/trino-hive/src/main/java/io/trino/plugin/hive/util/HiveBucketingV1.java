@@ -74,32 +74,32 @@ final class HiveBucketingV1
             case PRIMITIVE:
                 PrimitiveTypeInfo typeInfo = (PrimitiveTypeInfo) type;
                 PrimitiveCategory primitiveCategory = typeInfo.getPrimitiveCategory();
-                Type prestoType = requireNonNull(HiveTypeTranslator.fromPrimitiveType(typeInfo));
+                Type trinoType = requireNonNull(HiveTypeTranslator.fromPrimitiveType(typeInfo));
                 switch (primitiveCategory) {
                     case BOOLEAN:
-                        return prestoType.getBoolean(block, position) ? 1 : 0;
+                        return trinoType.getBoolean(block, position) ? 1 : 0;
                     case BYTE:
-                        return SignedBytes.checkedCast(prestoType.getLong(block, position));
+                        return SignedBytes.checkedCast(trinoType.getLong(block, position));
                     case SHORT:
-                        return Shorts.checkedCast(prestoType.getLong(block, position));
+                        return Shorts.checkedCast(trinoType.getLong(block, position));
                     case INT:
-                        return toIntExact(prestoType.getLong(block, position));
+                        return toIntExact(trinoType.getLong(block, position));
                     case LONG:
-                        long bigintValue = prestoType.getLong(block, position);
+                        long bigintValue = trinoType.getLong(block, position);
                         return (int) ((bigintValue >>> 32) ^ bigintValue);
                     case FLOAT:
                         // convert to canonical NaN if necessary
-                        return floatToIntBits(intBitsToFloat(toIntExact(prestoType.getLong(block, position))));
+                        return floatToIntBits(intBitsToFloat(toIntExact(trinoType.getLong(block, position))));
                     case DOUBLE:
-                        long doubleValue = doubleToLongBits(prestoType.getDouble(block, position));
+                        long doubleValue = doubleToLongBits(trinoType.getDouble(block, position));
                         return (int) ((doubleValue >>> 32) ^ doubleValue);
                     case STRING:
-                        return hashBytes(0, prestoType.getSlice(block, position));
+                        return hashBytes(0, trinoType.getSlice(block, position));
                     case VARCHAR:
-                        return hashBytes(1, prestoType.getSlice(block, position));
+                        return hashBytes(1, trinoType.getSlice(block, position));
                     case DATE:
                         // day offset from 1970-01-01
-                        return toIntExact(prestoType.getLong(block, position));
+                        return toIntExact(trinoType.getLong(block, position));
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }

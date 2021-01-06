@@ -67,13 +67,13 @@ public class TestS3TableConfigClient
         // info:
         log.info("Tested out URI2 : " + uri2.toString());
 
-        AmazonS3URI uri3 = new AmazonS3URI("s3://presto.kinesis.config/unit-test/presto-kinesis");
+        AmazonS3URI uri3 = new AmazonS3URI("s3://trino.kinesis.config/unit-test/trino-kinesis");
         assertNotNull(uri3.getKey());
         assertNotNull(uri3.getBucket());
 
-        assertEquals(uri3.toString(), "s3://presto.kinesis.config/unit-test/presto-kinesis");
-        assertEquals(uri3.getBucket(), "presto.kinesis.config");
-        assertEquals(uri3.getKey(), "unit-test/presto-kinesis");
+        assertEquals(uri3.toString(), "s3://trino.kinesis.config/unit-test/trino-kinesis");
+        assertEquals(uri3.getBucket(), "trino.kinesis.config");
+        assertEquals(uri3.getKey(), "unit-test/trino-kinesis");
     }
 
     @Parameters({

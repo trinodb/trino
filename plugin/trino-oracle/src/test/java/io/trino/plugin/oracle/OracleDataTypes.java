@@ -81,9 +81,9 @@ public final class OracleDataTypes
 
     /* Fixed-point numeric types */
 
-    public static DataType<BigDecimal> unspecifiedNumberDataType(int expectedScaleInPresto)
+    public static DataType<BigDecimal> unspecifiedNumberDataType(int expectedScaleInTrino)
     {
-        return numberDataType(38, expectedScaleInPresto, "number");
+        return numberDataType(38, expectedScaleInTrino, "number");
     }
 
     public static DataType<BigDecimal> numberDataType(int precision)
@@ -93,7 +93,7 @@ public final class OracleDataTypes
 
     /**
      * Create a number type using the same transformation as
-     * OracleClient.toPrestoType to handle negative scale.
+     * {@link OracleClient#toColumnMapping} to handle negative scale.
      */
     public static DataType<BigDecimal> numberDataType(int precision, int scale)
     {
@@ -102,14 +102,14 @@ public final class OracleDataTypes
 
     private static DataType<BigDecimal> numberDataType(int precision, int scale, String oracleInsertType)
     {
-        int prestoPrecision = precision + max(-scale, 0);
-        int prestoScale = max(scale, 0);
+        int trinoPrecision = precision + max(-scale, 0);
+        int trinoScale = max(scale, 0);
         return dataType(
                 oracleInsertType,
-                createDecimalType(prestoPrecision, prestoScale),
+                createDecimalType(trinoPrecision, trinoScale),
                 BigDecimal::toString,
-                // Round to Oracle's scale if necessary, then return to the scale Presto will use.
-                i -> i.setScale(scale, RoundingMode.HALF_UP).setScale(prestoScale));
+                // Round to Oracle's scale if necessary, then return to the scale Trino will use.
+                i -> i.setScale(scale, RoundingMode.HALF_UP).setScale(trinoScale));
     }
 
     public static DataType<BigDecimal> oracleDecimalDataType(int precision, int scale)
@@ -228,7 +228,7 @@ public final class OracleDataTypes
                 LocalDate::atStartOfDay);
     }
 
-    public static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType()
+    public static DataType<ZonedDateTime> trinoTimestampWithTimeZoneDataType()
     {
         return dataType(
                 "timestamp with time zone",

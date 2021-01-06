@@ -34,16 +34,16 @@ public class RowSchema
         return this;
     }
 
-    public RowSchema addColumn(String prestoName, Optional<String> family, Optional<String> qualifier, Type type)
+    public RowSchema addColumn(String trinoName, Optional<String> family, Optional<String> qualifier, Type type)
     {
-        return addColumn(prestoName, family, qualifier, type, false);
+        return addColumn(trinoName, family, qualifier, type, false);
     }
 
-    public RowSchema addColumn(String prestoName, Optional<String> family, Optional<String> qualifier, Type type, boolean indexed)
+    public RowSchema addColumn(String trinoName, Optional<String> family, Optional<String> qualifier, Type type, boolean indexed)
     {
         columns.add(
                 new AccumuloColumnHandle(
-                        prestoName,
+                        trinoName,
                         family,
                         qualifier,
                         type,

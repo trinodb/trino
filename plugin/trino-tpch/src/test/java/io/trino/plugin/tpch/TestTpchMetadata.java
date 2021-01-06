@@ -42,7 +42,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.tpch.TpchMetadata.getPrestoType;
+import static io.trino.plugin.tpch.TpchMetadata.getTrinoType;
 import static io.trino.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
 import static io.trino.spi.connector.Constraint.alwaysFalse;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -371,15 +371,15 @@ public class TestTpchMetadata
         requireNonNull(column, "column is null");
         requireNonNull(value, "value is null");
         return TupleDomain.fromFixedValues(
-                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new NullableValue(getPrestoType(column), value)));
+                ImmutableMap.of(tpchMetadata.toColumnHandle(column), new NullableValue(getTrinoType(column), value)));
     }
 
     private static TupleDomain<ColumnHandle> fixedValueTupleDomain(TpchMetadata tpchMetadata, TpchColumn<?> column1, Object value1, TpchColumn<?> column2, Object value2)
     {
         return TupleDomain.fromFixedValues(
                 ImmutableMap.of(
-                        tpchMetadata.toColumnHandle(column1), new NullableValue(getPrestoType(column1), value1),
-                        tpchMetadata.toColumnHandle(column2), new NullableValue(getPrestoType(column2), value2)));
+                        tpchMetadata.toColumnHandle(column1), new NullableValue(getTrinoType(column1), value1),
+                        tpchMetadata.toColumnHandle(column2), new NullableValue(getTrinoType(column2), value2)));
     }
 
     private ColumnStatistics noColumnStatistics()

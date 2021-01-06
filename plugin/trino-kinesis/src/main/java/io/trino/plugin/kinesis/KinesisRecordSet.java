@@ -176,7 +176,7 @@ public class KinesisRecordSet
     {
         private final FieldValueProvider[] currentRowValues = new FieldValueProvider[columnHandles.size()];
         // TODO: total bytes here only includes records we iterate through, not total read from Kinesis.
-        // This may not be an issue, but if total vs. completed is an important signal to Presto then
+        // This may not be an issue, but if total vs. completed is an important signal to Trino then
         // the implementation below could be a problem.  Need to investigate.
         private long batchesRead;
         private long messagesRead;

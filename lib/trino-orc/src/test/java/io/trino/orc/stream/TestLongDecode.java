@@ -77,12 +77,12 @@ public class TestLongDecode
         }
         Slice hiveBytes = Slices.copyOf(output.slice());
 
-        // write using Presto's code, and verify they are the same
+        // write using Trino's code, and verify they are the same
         output.reset();
         writeVLong(output, value, signed);
-        Slice prestoBytes = Slices.copyOf(output.slice());
-        if (!prestoBytes.equals(hiveBytes)) {
-            assertEquals(prestoBytes, hiveBytes);
+        Slice trinoBytes = Slices.copyOf(output.slice());
+        if (!trinoBytes.equals(hiveBytes)) {
+            assertEquals(trinoBytes, hiveBytes);
         }
 
         // read using Hive's code
@@ -95,7 +95,7 @@ public class TestLongDecode
             assertEquals(readValueOld, value);
         }
 
-        // read using Presto's code
+        // read using Trino's code
         long readValueNew = readVInt(signed, new OrcInputStream(OrcChunkLoader.create(new OrcDataSourceId("test"), hiveBytes, Optional.empty(), newSimpleAggregatedMemoryContext())));
         assertEquals(readValueNew, value);
     }

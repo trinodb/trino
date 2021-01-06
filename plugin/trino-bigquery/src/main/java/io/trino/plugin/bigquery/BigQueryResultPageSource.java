@@ -56,7 +56,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
 import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
-import static io.trino.plugin.bigquery.BigQueryType.toPrestoTimestamp;
+import static io.trino.plugin.bigquery.BigQueryType.toTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -91,7 +91,7 @@ public class BigQueryResultPageSource
         this.split = requireNonNull(split, "split is null");
         this.readBytes = new AtomicLong();
         this.columnTypes = requireNonNull(columns, "columns is null").stream()
-                .map(BigQueryColumnHandle::getPrestoType)
+                .map(BigQueryColumnHandle::getTrinoType)
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(columnTypes);
 
@@ -163,7 +163,7 @@ public class BigQueryResultPageSource
                     type.writeLong(output, ((Number) value).intValue());
                 }
                 else if (type.equals(TIMESTAMP_MILLIS)) {
-                    type.writeLong(output, toPrestoTimestamp(((Utf8) value).toString()));
+                    type.writeLong(output, toTrinoTimestamp(((Utf8) value).toString()));
                 }
                 else if (type.equals(TIME_WITH_TIME_ZONE)) {
                     type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));

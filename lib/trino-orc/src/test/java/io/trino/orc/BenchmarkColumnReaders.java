@@ -56,7 +56,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
-import static io.trino.orc.OrcTester.writeOrcColumnPresto;
+import static io.trino.orc.OrcTester.writeOrcColumnTrino;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.plugin.tpch.TpchTables.getTableColumns;
 import static io.trino.plugin.tpch.TpchTables.getTablePages;
@@ -369,7 +369,7 @@ public class BenchmarkColumnReaders
             this.types = ImmutableList.of(type);
             temporaryDirectory = createTempDir();
             orcFile = new File(temporaryDirectory, randomUUID().toString());
-            writeOrcColumnPresto(orcFile, NONE, type, values, new OrcWriterStats());
+            writeOrcColumnTrino(orcFile, NONE, type, values, new OrcWriterStats());
 
             dataSource = new MemoryOrcDataSource(new OrcDataSourceId(orcFile.getPath()), Slices.wrappedBuffer(readAllBytes(orcFile.toPath())));
         }

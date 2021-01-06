@@ -50,7 +50,7 @@ public final class StandaloneQueryRunner
 {
     private final TestingTrinoServer server;
 
-    private final TestingTrinoClient prestoClient;
+    private final TestingTrinoClient trinoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -59,7 +59,7 @@ public final class StandaloneQueryRunner
         requireNonNull(defaultSession, "defaultSession is null");
 
         this.server = createTestingTrinoServer();
-        this.prestoClient = new TestingTrinoClient(server, defaultSession);
+        this.trinoClient = new TestingTrinoClient(server, defaultSession);
 
         refreshNodes();
 
@@ -75,7 +75,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(sql).getResult();
+            return trinoClient.execute(sql).getResult();
         }
         finally {
             lock.readLock().unlock();
@@ -87,7 +87,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(session, sql).getResult();
+            return trinoClient.execute(session, sql).getResult();
         }
         finally {
             lock.readLock().unlock();
@@ -98,7 +98,7 @@ public final class StandaloneQueryRunner
     public void close()
     {
         try {
-            closeAll(prestoClient, server);
+            closeAll(trinoClient, server);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -114,7 +114,7 @@ public final class StandaloneQueryRunner
     @Override
     public Session getDefaultSession()
     {
-        return prestoClient.getDefaultSession();
+        return trinoClient.getDefaultSession();
     }
 
     @Override
@@ -234,7 +234,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.listTables(session, catalog, schema);
+            return trinoClient.listTables(session, catalog, schema);
         }
         finally {
             lock.readLock().unlock();
@@ -246,7 +246,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.tableExists(session, table);
+            return trinoClient.tableExists(session, table);
         }
         finally {
             lock.readLock().unlock();

@@ -34,22 +34,22 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 /**
- * Interface for deserializing the data in Accumulo into a Presto row.
+ * Interface for deserializing the data in Accumulo into a Trino row.
  * <p>
  * Provides a means for end-users of the connector to customize how the data in an Accumulo row gets
- * serialized and deserialized from/to a Presto row.
+ * serialized and deserialized from/to a Trino row.
  * <p>
  * The workflow of how this class is called by the Accumulo connector for reading data is as
  * follows:
  * <ol>
- * <li>setRowIdName - Sets the Presto name which is the Accumulo row ID</li>
+ * <li>setRowIdName - Sets the Trino name which is the Accumulo row ID</li>
  * <li>setRowOnly - True if only the row ID is going to be retrieved, false if more data is
  * necessary.</li>
- * <li>setMapping - Multiple calls for each Presto column, setting the mapping of Presto column name
+ * <li>setMapping - Multiple calls for each Trino column, setting the mapping of Trino column name
  * to Accumulo column family and qualifier</li>
  * <li>deserialize - Called for each Accumulo entry in the same row. Implements should
- * retrieve the Presto column value from the given key/value pair</li>
- * <li>get* - Called to retrieve the data type for the given Presto column name</li>
+ * retrieve the Trino column value from the given key/value pair</li>
+ * <li>get* - Called to retrieve the data type for the given Trino column name</li>
  * <li>reset - Begins a new Row, serializer is expected to clear any state</li>
  * <li>If there are more entries left, go back to deserialize, else end!</li>
  * </ol>
@@ -70,16 +70,16 @@ public interface AccumuloRowSerializer
     }
 
     /**
-     * Sets the Presto name which maps to the Accumulo row ID.
+     * Sets the Trino name which maps to the Accumulo row ID.
      *
-     * @param name Presto column name
+     * @param name Trino column name
      */
     void setRowIdName(String name);
 
     /**
-     * Sets the mapping for the Presto column name to Accumulo family and qualifier.
+     * Sets the mapping for the Trino column name to Accumulo family and qualifier.
      *
-     * @param name Presto name
+     * @param name Trino name
      * @param family Accumulo family
      * @param qualifier Accumulo qualifier
      */
@@ -98,14 +98,14 @@ public interface AccumuloRowSerializer
     void reset();
 
     /**
-     * Deserialize the given Accumulo entry, retrieving data for the Presto column.
+     * Deserialize the given Accumulo entry, retrieving data for the Trino column.
      *
      * @param entry Entry to deserialize
      */
     void deserialize(Entry<Key, Value> entry);
 
     /**
-     * Gets a Boolean value indicating whether or not the Presto column is a null value.
+     * Gets a Boolean value indicating whether or not the Trino column is a null value.
      *
      * @param name Column name
      * @return True if null, false otherwise.
@@ -113,7 +113,7 @@ public interface AccumuloRowSerializer
     boolean isNull(String name);
 
     /**
-     * Gets the array Block of the given Presto column.
+     * Gets the array Block of the given Trino column.
      *
      * @param name Column name
      * @param type Array type
@@ -131,7 +131,7 @@ public interface AccumuloRowSerializer
     void setArray(Text text, Type type, Block block);
 
     /**
-     * Gets the Boolean value of the given Presto column.
+     * Gets the Boolean value of the given Trino column.
      *
      * @param name Column name
      * @return Boolean value
@@ -147,7 +147,7 @@ public interface AccumuloRowSerializer
     void setBoolean(Text text, Boolean value);
 
     /**
-     * Gets the Byte value of the given Presto column.
+     * Gets the Byte value of the given Trino column.
      *
      * @param name Column name
      * @return Byte value
@@ -163,7 +163,7 @@ public interface AccumuloRowSerializer
     void setByte(Text text, Byte value);
 
     /**
-     * Gets the Date value of the given Presto column.
+     * Gets the Date value of the given Trino column.
      *
      * @param name Column name
      * @return Date value
@@ -179,7 +179,7 @@ public interface AccumuloRowSerializer
     void setDate(Text text, Date value);
 
     /**
-     * Gets the Double value of the given Presto column.
+     * Gets the Double value of the given Trino column.
      *
      * @param name Column name
      * @return Double value
@@ -195,7 +195,7 @@ public interface AccumuloRowSerializer
     void setDouble(Text text, Double value);
 
     /**
-     * Gets the Float value of the given Presto column.
+     * Gets the Float value of the given Trino column.
      *
      * @param name Column name
      * @return Float value
@@ -211,7 +211,7 @@ public interface AccumuloRowSerializer
     void setFloat(Text text, Float value);
 
     /**
-     * Gets the Integer value of the given Presto column.
+     * Gets the Integer value of the given Trino column.
      *
      * @param name Column name
      * @return Integer value
@@ -227,7 +227,7 @@ public interface AccumuloRowSerializer
     void setInt(Text text, Integer value);
 
     /**
-     * Gets the Long value of the given Presto column.
+     * Gets the Long value of the given Trino column.
      *
      * @param name Column name
      * @return Long value
@@ -243,7 +243,7 @@ public interface AccumuloRowSerializer
     void setLong(Text text, Long value);
 
     /**
-     * Gets the Map value of the given Presto column and Map type.
+     * Gets the Map value of the given Trino column and Map type.
      *
      * @param name Column name
      * @param type Map type
@@ -261,7 +261,7 @@ public interface AccumuloRowSerializer
     void setMap(Text text, Type type, Block block);
 
     /**
-     * Gets the Short value of the given Presto column.
+     * Gets the Short value of the given Trino column.
      *
      * @param name Column name
      * @return Short value
@@ -277,7 +277,7 @@ public interface AccumuloRowSerializer
     void setShort(Text text, Short value);
 
     /**
-     * Gets the Time value of the given Presto column.
+     * Gets the Time value of the given Trino column.
      *
      * @param name Column name
      * @return Time value
@@ -293,7 +293,7 @@ public interface AccumuloRowSerializer
     void setTime(Text text, Time value);
 
     /**
-     * Gets the Timestamp value of the given Presto column.
+     * Gets the Timestamp value of the given Trino column.
      *
      * @param name Column name
      * @return Timestamp value
@@ -309,7 +309,7 @@ public interface AccumuloRowSerializer
     void setTimestamp(Text text, Timestamp value);
 
     /**
-     * Gets the Varbinary value of the given Presto column.
+     * Gets the Varbinary value of the given Trino column.
      *
      * @param name Column name
      * @return Varbinary value
@@ -325,7 +325,7 @@ public interface AccumuloRowSerializer
     void setVarbinary(Text text, byte[] value);
 
     /**
-     * Gets the String value of the given Presto column.
+     * Gets the String value of the given Trino column.
      *
      * @param name Column name
      * @return String value
@@ -341,7 +341,7 @@ public interface AccumuloRowSerializer
     void setVarchar(Text text, String value);
 
     /**
-     * Encodes a Presto Java object to a byte array based on the given type.
+     * Encodes a Trino Java object to a byte array based on the given type.
      * <p>
      * Java Lists and Maps can be converted to Blocks using
      * {@link AccumuloRowSerializer#getBlockFromArray(Type, java.util.List)} and
@@ -410,7 +410,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * </table>
      *
-     * @param type The presto {@link io.trino.spi.type.Type}
+     * @param type The Trino {@link io.trino.spi.type.Type}
      * @param value The Java object per the table in the method description
      * @return Encoded bytes
      */
@@ -482,7 +482,7 @@ public interface AccumuloRowSerializer
      * </tr>
      * </table>
      *
-     * @param type The presto {@link io.trino.spi.type.Type}
+     * @param type The Trino {@link io.trino.spi.type.Type}
      * @param value Encoded bytes to decode
      * @param <T> The Java type of the object that has been encoded to the given byte array
      * @return The Java object per the table in the method description
@@ -490,7 +490,7 @@ public interface AccumuloRowSerializer
     <T> T decode(Type type, byte[] value);
 
     /**
-     * Given the array element type and Presto Block, decodes the Block into a list of values.
+     * Given the array element type and Trino Block, decodes the Block into a list of values.
      *
      * @param elementType Array element type
      * @param block Array block
@@ -506,7 +506,7 @@ public interface AccumuloRowSerializer
     }
 
     /**
-     * Given the map type and Presto Block, decodes the Block into a map of values.
+     * Given the map type and Trino Block, decodes the Block into a map of values.
      *
      * @param type Map type
      * @param block Map block
@@ -528,7 +528,7 @@ public interface AccumuloRowSerializer
      *
      * @param elementType Element type of the array
      * @param array Array of elements to encode
-     * @return Presto Block
+     * @return Trino Block
      */
     static Block getBlockFromArray(Type elementType, List<?> array)
     {
@@ -542,9 +542,9 @@ public interface AccumuloRowSerializer
     /**
      * Encodes the given map into a Block.
      *
-     * @param mapType Presto type of the map
+     * @param mapType Trino type of the map
      * @param map Map of key/value pairs to encode
-     * @return Presto Block
+     * @return Trino Block
      */
     static Block getBlockFromMap(Type mapType, Map<?, ?> map)
     {
@@ -569,7 +569,7 @@ public interface AccumuloRowSerializer
      * builder. Supports nested complex types!
      *
      * @param builder Block builder
-     * @param type Presto type
+     * @param type Trino type
      * @param obj Object to write to the block builder
      */
     static void writeObject(BlockBuilder builder, Type type, Object obj)
@@ -599,7 +599,7 @@ public interface AccumuloRowSerializer
      * Recursive helper function used by {@link AccumuloRowSerializer#getArrayFromBlock} and
      * {@link AccumuloRowSerializer#getMapFromBlock} to decode the Block into a Java type.
      *
-     * @param type Presto type
+     * @param type Trino type
      * @param block Block to decode
      * @param position Position in the block to get
      * @return Java object from the Block

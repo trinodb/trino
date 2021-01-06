@@ -48,9 +48,9 @@ public final class RedisTestUtils
         queryRunner.createCatalog("redis", "redis", redisConfig);
     }
 
-    public static void loadTpchTable(RedisServer redisServer, TestingTrinoClient prestoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
+    public static void loadTpchTable(RedisServer redisServer, TestingTrinoClient trinoClient, String tableName, QualifiedObjectName tpchTableName, String dataFormat)
     {
-        RedisLoader tpchLoader = new RedisLoader(prestoClient.getServer(), prestoClient.getDefaultSession(), redisServer.getJedisPool(), tableName, dataFormat);
+        RedisLoader tpchLoader = new RedisLoader(trinoClient.getServer(), trinoClient.getDefaultSession(), redisServer.getJedisPool(), tableName, dataFormat);
         tpchLoader.execute(format("SELECT * from %s", tpchTableName));
     }
 

@@ -75,7 +75,7 @@ public class IcebergSplitManager
                                 .intersect(table.getUnenforcedPredicate().simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD))))
                 .useSnapshot(table.getSnapshotId().get());
 
-        // TODO Use residual. Right now there is no way to propagate residual to presto but at least we can
+        // TODO Use residual. Right now there is no way to propagate residual to Trino but at least we can
         //      propagate it at split level so the parquet pushdown can leverage it.
         IcebergSplitSource splitSource = new IcebergSplitSource(tableScan.planTasks());
 

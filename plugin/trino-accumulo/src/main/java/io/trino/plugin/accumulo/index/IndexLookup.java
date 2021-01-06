@@ -74,10 +74,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 /**
- * Class to assist the Presto connector, and maybe external applications,
+ * Class to assist the Trino connector, and maybe external applications,
  * leverage the secondary * index built by the {@link Indexer}.
  * Leverages {@link ColumnCardinalityCache} to assist in * retrieving row IDs.
- * Currently pretty bound to the Presto connector APIs.
+ * Currently pretty bound to the Trino connector APIs.
  */
 public class IndexLookup
 {
@@ -369,7 +369,7 @@ public class IndexLookup
         return ImmutableList.copyOf(finalRanges);
     }
 
-    private static void binRanges(int numRangesPerBin, List<Range> splitRanges, List<TabletSplitMetadata> prestoSplits)
+    private static void binRanges(int numRangesPerBin, List<Range> splitRanges, List<TabletSplitMetadata> trinoSplits)
     {
         checkArgument(numRangesPerBin > 0, "number of ranges per bin must positivebe greater than zero");
         int toAdd = splitRanges.size();
@@ -378,7 +378,7 @@ public class IndexLookup
         do {
             // Add the sublist of range handles
             // Use an empty location because we are binning multiple Ranges spread across many tablet servers
-            prestoSplits.add(new TabletSplitMetadata(Optional.empty(), splitRanges.subList(fromIndex, toIndex)));
+            trinoSplits.add(new TabletSplitMetadata(Optional.empty(), splitRanges.subList(fromIndex, toIndex)));
             toAdd -= toIndex - fromIndex;
             fromIndex = toIndex;
             toIndex += Math.min(toAdd, numRangesPerBin);

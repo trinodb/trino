@@ -95,13 +95,13 @@ public class PinotColumn
     {
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
-                .map(columnName -> new PinotColumn(columnName, getPrestoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
+                .map(columnName -> new PinotColumn(columnName, getTrinoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
                 .collect(toImmutableList());
     }
 
-    public static Type getPrestoTypeFromPinotType(FieldSpec field)
+    public static Type getTrinoTypeFromPinotType(FieldSpec field)
     {
-        Type type = getPrestoTypeFromPinotType(field.getDataType());
+        Type type = getTrinoTypeFromPinotType(field.getDataType());
         if (field.isSingleValueField()) {
             return type;
         }
@@ -110,7 +110,7 @@ public class PinotColumn
         }
     }
 
-    public static Type getPrestoTypeFromPinotType(DataType dataType)
+    public static Type getTrinoTypeFromPinotType(DataType dataType)
     {
         switch (dataType) {
             case BOOLEAN:
