@@ -53,6 +53,7 @@ import static java.lang.String.format;
 public final class IcebergSessionProperties
         implements SessionPropertiesProvider
 {
+    private static final String CATALOG_TYPE = "catalog_type";
     private static final String COMPRESSION_CODEC = "compression_codec";
     private static final String USE_FILE_SIZE_FROM_METADATA = "use_file_size_from_metadata";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -102,6 +103,12 @@ public final class IcebergSessionProperties
             ParquetWriterConfig parquetWriterConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(enumProperty(
+                        CATALOG_TYPE,
+                        "The iceber catalog type to use (either hive or hadoop)",
+                        IcebergCatalogType.class,
+                        icebergConfig.getCatalogType(),
+                        false))
                 .add(enumProperty(
                         COMPRESSION_CODEC,
                         "Compression codec to use when writing files",
@@ -318,6 +325,11 @@ public final class IcebergSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    public static IcebergCatalogType getCatalogType(ConnectorSession session)
+    {
+        return session.getProperty(CATALOG_TYPE, IcebergCatalogType.class);
     }
 
     public static boolean isOrcBloomFiltersEnabled(ConnectorSession session)

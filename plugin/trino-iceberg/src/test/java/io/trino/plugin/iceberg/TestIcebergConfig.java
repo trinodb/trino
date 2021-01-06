@@ -61,6 +61,8 @@ public class TestIcebergConfig
                 .setMinimumAssignedSplitWeight(0.05)
                 .setMaterializedViewsStorageSchema(null)
                 .setRegisterTableProcedureEnabled(false)
+                .setCatalogWarehouse(null)
+                .setCatalogCacheSize(10)
                 .setSortedWritingEnabled(true));
     }
 
@@ -88,6 +90,8 @@ public class TestIcebergConfig
                 .put("iceberg.minimum-assigned-split-weight", "0.01")
                 .put("iceberg.materialized-views.storage-schema", "mv_storage_schema")
                 .put("iceberg.register-table-procedure.enabled", "true")
+                .put("iceberg.catalog.warehouse", "s3://bucket/root")
+                .put("iceberg.catalog.cache-size", "3")
                 .put("iceberg.sorted-writing-enabled", "false")
                 .buildOrThrow();
 
@@ -112,6 +116,8 @@ public class TestIcebergConfig
                 .setMinimumAssignedSplitWeight(0.01)
                 .setMaterializedViewsStorageSchema("mv_storage_schema")
                 .setRegisterTableProcedureEnabled(true)
+                .setCatalogWarehouse("s3://bucket/root")
+                .setCatalogCacheSize(3)
                 .setSortedWritingEnabled(false);
 
         assertFullMapping(properties, expected);
