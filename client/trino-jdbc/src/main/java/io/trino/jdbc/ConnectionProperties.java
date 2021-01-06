@@ -48,6 +48,7 @@ final class ConnectionProperties
 
     public static final ConnectionProperty<String> USER = new User();
     public static final ConnectionProperty<String> PASSWORD = new Password();
+    public static final ConnectionProperty<String> SESSION_USER = new SessionUser();
     public static final ConnectionProperty<Map<String, ClientSelectedRole>> ROLES = new Roles();
     public static final ConnectionProperty<HostAndPort> SOCKS_PROXY = new SocksProxy();
     public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
@@ -79,6 +80,7 @@ final class ConnectionProperties
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
+            .add(SESSION_USER)
             .add(ROLES)
             .add(SOCKS_PROXY)
             .add(HTTP_PROXY)
@@ -153,6 +155,15 @@ final class ConnectionProperties
         public Password()
         {
             super("password", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class SessionUser
+            extends AbstractConnectionProperty<String>
+    {
+        protected SessionUser()
+        {
+            super("sessionUser", NOT_REQUIRED, ALLOWED, NON_EMPTY_STRING_CONVERTER);
         }
     }
 

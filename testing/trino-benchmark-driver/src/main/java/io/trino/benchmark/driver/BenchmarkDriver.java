@@ -47,7 +47,7 @@ public class BenchmarkDriver
         this.clientSession = requireNonNull(clientSession, "clientSession is null");
         this.queries = ImmutableList.copyOf(requireNonNull(queries, "queries is null"));
 
-        queryRunner = new BenchmarkQueryRunner(warm, runs, debug, maxFailures, clientSession.getServer(), socksProxy, clientSession.getUser());
+        queryRunner = new BenchmarkQueryRunner(warm, runs, debug, maxFailures, clientSession.getServer(), socksProxy, clientSession.getPrincipal());
     }
 
     public void run(Suite suite)

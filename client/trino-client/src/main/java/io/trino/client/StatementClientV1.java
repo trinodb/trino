@@ -101,7 +101,7 @@ class StatementClientV1
         this.timeZone = session.getTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
-        this.user = session.getUser();
+        this.user = session.getUser().orElse(session.getPrincipal());
         this.clientCapabilities = Joiner.on(",").join(ClientCapabilities.values());
         this.compressionDisabled = session.isCompressionDisabled();
 
