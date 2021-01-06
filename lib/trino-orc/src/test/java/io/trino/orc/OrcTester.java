@@ -429,31 +429,31 @@ public class OrcTester
             boolean hiveSupported = (compression != LZ4) && (compression != ZSTD) && !isTimestampTz(writeType) && !isTimestampTz(readType);
 
             for (Format format : formats) {
-                // write Hive, read Presto
+                // write Hive, read Trino
                 if (hiveSupported) {
                     try (TempFile tempFile = new TempFile()) {
                         writeOrcColumnHive(tempFile.getFile(), format, compression, writeType, writeValues.iterator());
-                        assertFileContentsPresto(readType, tempFile, readValues, false, false);
+                        assertFileContentsTrino(readType, tempFile, readValues, false, false);
                     }
                 }
             }
 
-            // write Presto, read Hive and Presto
+            // write Trino, read Hive and Trino
             try (TempFile tempFile = new TempFile()) {
-                writeOrcColumnPresto(tempFile.getFile(), compression, writeType, writeValues.iterator(), stats);
+                writeOrcColumnTrino(tempFile.getFile(), compression, writeType, writeValues.iterator(), stats);
 
                 if (hiveSupported) {
                     assertFileContentsHive(readType, tempFile, readValues);
                 }
 
-                assertFileContentsPresto(readType, tempFile, readValues, false, false);
+                assertFileContentsTrino(readType, tempFile, readValues, false, false);
 
                 if (skipBatchTestsEnabled) {
-                    assertFileContentsPresto(readType, tempFile, readValues, true, false);
+                    assertFileContentsTrino(readType, tempFile, readValues, true, false);
                 }
 
                 if (skipStripeTestsEnabled) {
-                    assertFileContentsPresto(readType, tempFile, readValues, false, true);
+                    assertFileContentsTrino(readType, tempFile, readValues, false, true);
                 }
             }
         }
@@ -461,7 +461,7 @@ public class OrcTester
         assertEquals(stats.getWriterSizeInBytes(), 0);
     }
 
-    private static void assertFileContentsPresto(
+    private static void assertFileContentsTrino(
             Type type,
             TempFile tempFile,
             List<?> expectedValues,
@@ -632,7 +632,7 @@ public class OrcTester
         writer.validate(new FileOrcDataSource(outputFile, READER_OPTIONS));
     }
 
-    public static void writeOrcColumnPresto(File outputFile, CompressionKind compression, Type type, Iterator<?> values, OrcWriterStats stats)
+    public static void writeOrcColumnTrino(File outputFile, CompressionKind compression, Type type, Iterator<?> values, OrcWriterStats stats)
             throws Exception
     {
         List<String> columnNames = ImmutableList.of("test");
@@ -835,7 +835,7 @@ public class OrcTester
         else if (actualValue instanceof HiveDecimalWritable) {
             DecimalType decimalType = (DecimalType) type;
             HiveDecimalWritable writable = (HiveDecimalWritable) actualValue;
-            // writable messes with the scale so rescale the values to the Presto type
+            // writable messes with the scale so rescale the values to the Trino type
             BigInteger rescaledValue = rescale(writable.getHiveDecimal().unscaledValue(), writable.getScale(), decimalType.getScale());
             actualValue = new SqlDecimal(rescaledValue, decimalType.getPrecision(), decimalType.getScale());
         }

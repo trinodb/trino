@@ -20,7 +20,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import java.util.Optional;
 
 /**
- * Presto plugin to use Redis as a data source.
+ * Trino plugin to use Redis as a data source.
  */
 public class RedisPlugin
         implements Plugin

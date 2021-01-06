@@ -173,7 +173,7 @@ public final class HiveType
                 // This feature (reading uniontypes as structs) has only been verified against Avro and ORC tables. Here's a discussion:
                 //   1. Avro tables are supported and verified.
                 //   2. ORC tables are supported and verified.
-                //   3. The Parquet format doesn't support uniontypes itself so there's no need to add support for it in Presto.
+                //   3. The Parquet format doesn't support uniontypes itself so there's no need to add support for it in Trino.
                 //   4. TODO: RCFile tables are not supported yet.
                 //   5. TODO: The support for Avro is done in SerDeUtils so it's possible that formats other than Avro are also supported. But verification is needed.
                 if (storageFormat.getSerDe().equalsIgnoreCase(AVRO.getSerDe()) || storageFormat.getSerDe().equalsIgnoreCase(ORC.getSerDe())) {

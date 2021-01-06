@@ -40,7 +40,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * This class get() method reads the table description file stored in Kinesis directory
- * and then creates user defined field for Presto Table.
+ * and then creates user defined field for Trino Table.
  */
 public class KinesisTableDescriptionSupplier
         implements Supplier<Map<SchemaTableName, KinesisStreamDescription>>

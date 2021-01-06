@@ -27,7 +27,7 @@ import java.util.Map;
 public interface HiveStatisticsProvider
 {
     /**
-     * @param columns must be Hive columns, not hidden (Presto-internal) columns
+     * @param columns must be Hive columns, not hidden (Trino-internal) columns
      */
     TableStatistics getTableStatistics(
             ConnectorSession session,

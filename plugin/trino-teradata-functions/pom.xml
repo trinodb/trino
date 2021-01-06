@@ -9,7 +9,7 @@
     </parent>
 
     <artifactId>trino-teradata-functions</artifactId>
-    <description>Teradata's specific functions for Presto</description>
+    <description>Teradata's specific functions for Trino</description>
     <packaging>trino-plugin</packaging>
 
     <properties>

@@ -39,7 +39,7 @@ import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Presto Connector for Accumulo.
+ * Trino Connector for Accumulo.
  * Defines several high-level classes for properties, metadata, retrieving splits, providing I/O operations, etc.
  */
 public class AccumuloConnector

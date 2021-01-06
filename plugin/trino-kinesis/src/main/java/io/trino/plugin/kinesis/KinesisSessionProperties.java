@@ -30,7 +30,7 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
 public final class KinesisSessionProperties
 {
-    private static final String PRESTO_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
+    private static final String TRINO_TIMESTAMP_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
     private static final String UNSET_TIMESTAMP = "2000-01-01 00:00:00.000";
 
     private static final String CHECKPOINT_ENABLED = "checkpoint_enabled";
@@ -144,7 +144,7 @@ public final class KinesisSessionProperties
     {
         // Parse this as a date and return the long timestamp value (2016-07-10 17:03:56.124).
         // They will be entering timestamps in their session's timezone.  Use session.getTimeZoneKey().
-        SimpleDateFormat format = new SimpleDateFormat(PRESTO_TIMESTAMP_FORMAT);
+        SimpleDateFormat format = new SimpleDateFormat(TRINO_TIMESTAMP_FORMAT);
 
         if (!session.getTimeZoneKey().getId().equals(TimeZone.getDefault().getID())) {
             TimeZone sessionTimeZone = TimeZone.getTimeZone(session.getTimeZoneKey().getZoneId());

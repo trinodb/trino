@@ -517,7 +517,7 @@ class StatementClientV1
         CLIENT_ERROR,
         CLIENT_ABORTED,
         /**
-         * finished on remote Presto server (including failed and successfully completed)
+         * finished on remote Trino server (including failed and successfully completed)
          */
         FINISHED,
     }

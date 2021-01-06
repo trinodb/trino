@@ -68,9 +68,9 @@ final class ParquetWriters
 {
     private ParquetWriters() {}
 
-    static List<ColumnWriter> getColumnWriters(MessageType messageType, Map<List<String>, Type> prestoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
+    static List<ColumnWriter> getColumnWriters(MessageType messageType, Map<List<String>, Type> trinoTypes, ParquetProperties parquetProperties, CompressionCodecName compressionCodecName)
     {
-        WriteBuilder writeBuilder = new WriteBuilder(messageType, prestoTypes, parquetProperties, compressionCodecName);
+        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, compressionCodecName);
         ParquetTypeVisitor.visit(messageType, writeBuilder);
         return writeBuilder.build();
     }

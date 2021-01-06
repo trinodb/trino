@@ -57,7 +57,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
- * Implementation of Presto RecordCursor, responsible for iterating over a Presto split,
+ * Implementation of Trino RecordCursor, responsible for iterating over a Trino split,
  * reading rows of data and then implementing various methods to retrieve columns within each row.
  *
  * @see AccumuloRecordSet
@@ -116,7 +116,7 @@ public class AccumuloRecordCursor
 
                 // Make sure to skip the row ID!
                 if (!columnHandle.getName().equals(rowIdName)) {
-                    // Set the mapping of presto column name to the family/qualifier
+                    // Set the mapping of Trino column name to the family/qualifier
                     this.serializer.setMapping(columnHandle.getName(), columnHandle.getFamily().get(), columnHandle.getQualifier().get());
 
                     // Set our scanner to fetch this family/qualifier column
@@ -262,7 +262,7 @@ public class AccumuloRecordCursor
      * Gets a Boolean value indicating whether or not the scanner should only return row IDs.
      * <p>
      * This can occur in cases such as SELECT COUNT(*) or the table only has one column.
-     * Presto doesn't need the entire contents of the row to count them,
+     * Trino doesn't need the entire contents of the row to count them,
      * so we can configure Accumulo to only give us the first key/value pair in the row
      *
      * @param rowIdName Row ID column name

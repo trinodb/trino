@@ -49,7 +49,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
- * Implementation of {@link StringRowSerializer} that encodes and decodes Presto column values as human-readable String objects.
+ * Implementation of {@link StringRowSerializer} that encodes and decodes Trino column values as human-readable String objects.
  */
 public class StringRowSerializer
         implements AccumuloRowSerializer

@@ -41,7 +41,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Implementation of a Presto RecordSet, responsible for returning the column types and the RecordCursor to the framework.
+ * Implementation of a Trino RecordSet, responsible for returning the column types and the RecordCursor to the framework.
  *
  * @see AccumuloRecordCursor
  * @see AccumuloRecordSetProvider

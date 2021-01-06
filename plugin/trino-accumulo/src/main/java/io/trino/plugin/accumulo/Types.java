@@ -18,7 +18,7 @@ import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 
 /**
- * Utility class for Presto Type-related functionality.
+ * Utility class for Trino Type-related functionality.
  */
 public final class Types
 {

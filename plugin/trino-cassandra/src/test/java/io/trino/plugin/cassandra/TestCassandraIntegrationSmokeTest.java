@@ -414,7 +414,7 @@ public class TestCassandraIntegrationSmokeTest
         session.execute("CREATE KEYSPACE \"KeYsPaCe_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
         session.execute("CREATE KEYSPACE \"kEySpAcE_3\" WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
 
-        // Although in Presto all the schema and table names are always displayed as lowercase
+        // Although in Trino all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW SCHEMAS FROM cassandra"), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row("keyspace_3")
                 .row("keyspace_3")
@@ -443,7 +443,7 @@ public class TestCassandraIntegrationSmokeTest
         session.execute("CREATE TABLE keyspace_4.\"TaBlE_4\" (column_4 bigint PRIMARY KEY)");
         session.execute("CREATE TABLE keyspace_4.\"tAbLe_4\" (column_4 bigint PRIMARY KEY)");
 
-        // Although in Presto all the schema and table names are always displayed as lowercase
+        // Although in Trino all the schema and table names are always displayed as lowercase
         assertContainsEventually(() -> execute("SHOW TABLES FROM cassandra.keyspace_4"), resultBuilder(getSession(), createUnboundedVarcharType())
                 .row("table_4")
                 .row("table_4")
@@ -695,10 +695,10 @@ public class TestCassandraIntegrationSmokeTest
         assertEquals(execute("SELECT * FROM " + keyspaceAndTable + whereMultiplePartitionKey).getRowCount(), 0);
     }
 
-    private void assertSelect(String tableName, boolean createdByPresto)
+    private void assertSelect(String tableName, boolean createdByTrino)
     {
-        Type uuidType = createdByPresto ? createUnboundedVarcharType() : createVarcharType(36);
-        Type inetType = createdByPresto ? createUnboundedVarcharType() : createVarcharType(45);
+        Type uuidType = createdByTrino ? createUnboundedVarcharType() : createVarcharType(36);
+        Type inetType = createdByTrino ? createUnboundedVarcharType() : createVarcharType(45);
 
         String sql = "SELECT " +
                 " key, " +

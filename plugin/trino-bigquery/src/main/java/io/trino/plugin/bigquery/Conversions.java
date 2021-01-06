@@ -51,7 +51,7 @@ final class Conversions
     {
         return ColumnMetadata.builder()
                 .setName(field.getName())
-                .setType(adapt(field).getPrestoType())
+                .setType(adapt(field).getTrinoType())
                 .setComment(Optional.ofNullable(field.getDescription()))
                 .setNullable(getMode(field) == Field.Mode.NULLABLE)
                 .build();

@@ -85,7 +85,7 @@ public class DistributedQueryRunner
 
     private final Closer closer = Closer.create();
 
-    private final TestingTrinoClient prestoClient;
+    private final TestingTrinoClient trinoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -132,7 +132,7 @@ public class DistributedQueryRunner
             extraCoordinatorProperties.putAll(coordinatorProperties);
 
             if (!extraCoordinatorProperties.containsKey("web-ui.authentication.type")) {
-                // Make it possible to use Presto UI when running multiple tests (or tests and SomeQueryRunner.main) at once.
+                // Make it possible to use Trino UI when running multiple tests (or tests and SomeQueryRunner.main) at once.
                 // This is necessary since cookies are shared (don't discern port number) and logging into one instance logs you out from others.
                 extraCoordinatorProperties.put("web-ui.authentication.type", "fixed");
                 extraCoordinatorProperties.put("web-ui.user", "admin");
@@ -161,7 +161,7 @@ public class DistributedQueryRunner
 
         // copy session using property manager in coordinator
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getMetadata().getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials());
-        this.prestoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
+        this.trinoClient = closer.register(new TestingTrinoClient(coordinator, defaultSession));
 
         waitForAllNodesGloballyVisible();
 
@@ -286,7 +286,7 @@ public class DistributedQueryRunner
 
     public TestingTrinoClient getClient()
     {
-        return prestoClient;
+        return trinoClient;
     }
 
     @Override
@@ -298,7 +298,7 @@ public class DistributedQueryRunner
     @Override
     public Session getDefaultSession()
     {
-        return prestoClient.getDefaultSession();
+        return trinoClient.getDefaultSession();
     }
 
     @Override
@@ -423,7 +423,7 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.listTables(session, catalog, schema);
+            return trinoClient.listTables(session, catalog, schema);
         }
         finally {
             lock.readLock().unlock();
@@ -435,7 +435,7 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.tableExists(session, table);
+            return trinoClient.tableExists(session, table);
         }
         finally {
             lock.readLock().unlock();
@@ -447,7 +447,7 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(sql).getResult();
+            return trinoClient.execute(sql).getResult();
         }
         finally {
             lock.readLock().unlock();
@@ -459,7 +459,7 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(session, sql).getResult();
+            return trinoClient.execute(session, sql).getResult();
         }
         finally {
             lock.readLock().unlock();
@@ -470,7 +470,7 @@ public class DistributedQueryRunner
     {
         lock.readLock().lock();
         try {
-            return prestoClient.execute(session, sql);
+            return trinoClient.execute(session, sql);
         }
         finally {
             lock.readLock().unlock();
