@@ -183,6 +183,7 @@ public class ClientOptions
         return new ClientSession(
                 parseServer(server),
                 user,
+                Optional.empty(), // TODO: https://github.com/trinodb/trino/issues/6567 Add option to specify session user separately from authentication user
                 source,
                 Optional.ofNullable(traceToken),
                 parseClientTags(nullToEmpty(clientTags)),

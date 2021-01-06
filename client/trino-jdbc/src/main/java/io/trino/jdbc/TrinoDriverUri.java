@@ -59,6 +59,7 @@ import static io.trino.jdbc.ConnectionProperties.KERBEROS_USE_CANONICAL_HOSTNAME
 import static io.trino.jdbc.ConnectionProperties.PASSWORD;
 import static io.trino.jdbc.ConnectionProperties.ROLES;
 import static io.trino.jdbc.ConnectionProperties.SESSION_PROPERTIES;
+import static io.trino.jdbc.ConnectionProperties.SESSION_USER;
 import static io.trino.jdbc.ConnectionProperties.SOCKS_PROXY;
 import static io.trino.jdbc.ConnectionProperties.SOURCE;
 import static io.trino.jdbc.ConnectionProperties.SSL;
@@ -156,6 +157,12 @@ public final class TrinoDriverUri
             throws SQLException
     {
         return USER.getRequiredValue(properties);
+    }
+
+    public Optional<String> getSessionUser()
+            throws SQLException
+    {
+        return SESSION_USER.getValue(properties);
     }
 
     public Map<String, ClientSelectedRole> getRoles()
