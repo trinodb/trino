@@ -22,6 +22,7 @@ import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
+import static io.trino.plugin.iceberg.IcebergCatalogType.HIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 
 public class IcebergConfig
@@ -30,6 +31,7 @@ public class IcebergConfig
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
+    private IcebergCatalogType type = HIVE;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -89,6 +91,16 @@ public class IcebergConfig
     public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
+    @NotNull
+    public IcebergCatalogType getCatalogType()
+    {
+        return type;
+    }
+
+    @Config("iceberg.catalog-type")
+    public IcebergConfig setCatalogType(IcebergCatalogType type)
+    {
+        this.type = type;
         return this;
     }
 }

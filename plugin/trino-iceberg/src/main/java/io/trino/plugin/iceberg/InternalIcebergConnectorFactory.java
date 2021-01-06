@@ -50,6 +50,7 @@ import io.trino.spi.procedure.Procedure;
 import io.trino.spi.type.TypeManager;
 import org.weakref.jmx.guice.MBeanModule;
 
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -100,6 +101,10 @@ public final class InternalIcebergConnectorFactory
             IcebergSessionProperties icebergSessionProperties = injector.getInstance(IcebergSessionProperties.class);
             IcebergTableProperties icebergTableProperties = injector.getInstance(IcebergTableProperties.class);
             Set<Procedure> procedures = injector.getInstance((Key<Set<Procedure>>) Key.get(Types.setOf(Procedure.class)));
+
+            String strType = config.getOrDefault("iceberg.catalog-type", "hive").toUpperCase(Locale.US);
+            IcebergCatalogType type = IcebergCatalogType.valueOf(strType);
+            metadataFactory.setCatalogType(type);
 
             return new IcebergConnector(
                     lifeCycleManager,
