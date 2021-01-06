@@ -15,6 +15,7 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -321,7 +322,9 @@ public class IcebergPageSourceProvider
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSourceId, exception),
-                    NameBasedFieldMapper::create);
+                    fileColumnsByIcebergId.isEmpty()
+                            ? NameBasedFieldMapper::create
+                            : new IdBasedFieldMapperFactory(columns));
 
             return new OrcPageSource(
                     recordReader,
@@ -348,6 +351,71 @@ public class IcebergPageSourceProvider
                 throw new TrinoException(ICEBERG_MISSING_DATA, message, e);
             }
             throw new TrinoException(ICEBERG_CANNOT_OPEN_SPLIT, message, e);
+        }
+    }
+
+    private static class IdBasedFieldMapperFactory
+            implements OrcReader.FieldMapperFactory
+    {
+        // Stores a mapping between subfield names and ids for every top-level/nested column id
+        private final Map<Integer, Map<String, Integer>> fieldNameToIdMappingForTableColumns;
+
+        public IdBasedFieldMapperFactory(List<IcebergColumnHandle> columns)
+        {
+            requireNonNull(columns, "columns is null");
+
+            ImmutableMap.Builder<Integer, Map<String, Integer>> mapping = ImmutableMap.builder();
+            for (IcebergColumnHandle column : columns) {
+                // Recursively compute subfield name to id mapping for every column
+                populateMapping(column.getColumnIdentity(), mapping);
+            }
+
+            this.fieldNameToIdMappingForTableColumns = mapping.build();
+        }
+
+        @Override
+        public OrcReader.FieldMapper create(OrcColumn column)
+        {
+            Map<Integer, OrcColumn> nestedColumns = Maps.uniqueIndex(
+                    column.getNestedColumns(),
+                    field -> Integer.valueOf(field.getAttributes().get(ORC_ICEBERG_ID_KEY)));
+
+            int icebergId = Integer.valueOf(column.getAttributes().get(ORC_ICEBERG_ID_KEY));
+            return new IdBasedFieldMapper(nestedColumns, fieldNameToIdMappingForTableColumns.get(icebergId));
+        }
+
+        private static void populateMapping(
+                ColumnIdentity identity,
+                ImmutableMap.Builder<Integer, Map<String, Integer>> fieldNameToIdMappingForTableColumns)
+        {
+            fieldNameToIdMappingForTableColumns.put(
+                    identity.getId(),
+                    identity.getChildren().stream()
+                            .collect(toImmutableMap(ColumnIdentity::getName, ColumnIdentity::getId)));
+
+            for (ColumnIdentity child : identity.getChildren()) {
+                populateMapping(child, fieldNameToIdMappingForTableColumns);
+            }
+        }
+    }
+
+    private static class IdBasedFieldMapper
+            implements OrcReader.FieldMapper
+    {
+        private final Map<Integer, OrcColumn> idToColumnMappingForFile;
+        private final Map<String, Integer> nameToIdMappingForTableColumns;
+
+        public IdBasedFieldMapper(Map<Integer, OrcColumn> idToColumnMappingForFile, Map<String, Integer> nameToIdMappingForTableColumns)
+        {
+            this.idToColumnMappingForFile = requireNonNull(idToColumnMappingForFile, "idToColumnMappingForFile is null");
+            this.nameToIdMappingForTableColumns = requireNonNull(nameToIdMappingForTableColumns, "nameToIdMappingForTableColumns is null");
+        }
+
+        @Override
+        public OrcColumn get(String fieldName)
+        {
+            int fieldId = nameToIdMappingForTableColumns.get(fieldName);
+            return idToColumnMappingForFile.get(fieldId);
         }
     }
 
