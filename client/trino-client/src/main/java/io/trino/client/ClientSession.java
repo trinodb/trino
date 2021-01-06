@@ -34,7 +34,8 @@ import static java.util.Objects.requireNonNull;
 public class ClientSession
 {
     private final URI server;
-    private final String user;
+    private final String principal;
+    private final Optional<String> user;
     private final String source;
     private final Optional<String> traceToken;
     private final Set<String> clientTags;
@@ -67,7 +68,8 @@ public class ClientSession
 
     public ClientSession(
             URI server,
-            String user,
+            String principal,
+            Optional<String> user,
             String source,
             Optional<String> traceToken,
             Set<String> clientTags,
@@ -87,6 +89,7 @@ public class ClientSession
             boolean compressionDisabled)
     {
         this.server = requireNonNull(server, "server is null");
+        this.principal = principal;
         this.user = user;
         this.source = source;
         this.traceToken = requireNonNull(traceToken, "traceToken is null");
@@ -140,7 +143,12 @@ public class ClientSession
         return server;
     }
 
-    public String getUser()
+    public String getPrincipal()
+    {
+        return principal;
+    }
+
+    public Optional<String> getUser()
     {
         return user;
     }
@@ -243,6 +251,7 @@ public class ClientSession
     {
         return toStringHelper(this)
                 .add("server", server)
+                .add("principal", principal)
                 .add("user", user)
                 .add("clientTags", clientTags)
                 .add("clientInfo", clientInfo)
@@ -261,7 +270,8 @@ public class ClientSession
     public static final class Builder
     {
         private URI server;
-        private String user;
+        private String principal;
+        private Optional<String> user;
         private String source;
         private Optional<String> traceToken;
         private Set<String> clientTags;
@@ -284,6 +294,7 @@ public class ClientSession
         {
             requireNonNull(clientSession, "clientSession is null");
             server = clientSession.getServer();
+            principal = clientSession.getPrincipal();
             user = clientSession.getUser();
             source = clientSession.getSource();
             traceToken = clientSession.getTraceToken();
@@ -368,6 +379,7 @@ public class ClientSession
         {
             return new ClientSession(
                     server,
+                    principal,
                     user,
                     source,
                     traceToken,
