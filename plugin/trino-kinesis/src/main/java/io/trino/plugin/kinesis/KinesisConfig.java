@@ -28,8 +28,8 @@ public class KinesisConfig
 {
     private String defaultSchema = "default";
     private String tableDescriptionLocation = "etc/kinesis/";
+    private Duration tableDescriptionRefreshInterval = new Duration(1, TimeUnit.MINUTES);
     private boolean hideInternalColumns = true;
-    private Duration updateInterval = new Duration(1, TimeUnit.MINUTES);
     private String awsRegion = "us-east-1";
     private int batchSize = 10000;
     private int maxBatches = 600;
@@ -63,13 +63,14 @@ public class KinesisConfig
 
     @NotNull
     @MinDuration("1ms")
-    public Duration getUpdateInterval() { return updateInterval; }
+    public Duration getTableDescriptionRefreshInterval() {
+        return tableDescriptionRefreshInterval;
+    }
 
     @Config("kinesis.table-description-refresh-interval")
     @ConfigDescription("How often to get the table description from S3")
-    public KinesisConfig setUpdateInterval(Duration updateInterval)
-    {
-        this.updateInterval = updateInterval;
+    public KinesisConfig setTableDescriptionRefreshInterval(Duration tableDescriptionRefreshInterval) {
+        this.tableDescriptionRefreshInterval = tableDescriptionRefreshInterval;
         return this;
     }
 

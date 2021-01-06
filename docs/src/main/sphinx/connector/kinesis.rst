@@ -41,6 +41,7 @@ Property Name                           Description
 ``kinesis.aws-region``                  AWS region to be used to read kinesis stream from
 ``kinesis.default-schema``              Default schema name for tables
 ``kinesis.table-description-location``  Directory containing table description files
+``kinesis.table-description-refresh-interval``  Time for identifying the refresh interval for the directory containing table description files
 ``kinesis.hide-internal-columns``       Controls whether internal columns are part of the table schema or not
 ``kinesis.batch-size``                  Maximum number of records to return in one batch
 ``kinesis.fetch-attempts``              Read attempts made when no records returned and not caught up
@@ -94,6 +95,14 @@ References an S3 URL or a folder within Trino deployment that holds one or more 
 The S3 bucket and folder will be checked every 10 minutes for updates and changed files.
 
 This property is optional; the default is ``etc/kinesis``.
+
+``kinesis.table-description-refresh-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+References the refresh interval foor an S3 URL or a folder within Trino deployment that holds one or more JSON files ending with ``.json``, which contain table description files.
+The S3 bucket and folder will be checked every 10 minutes for updates and changed files.
+
+This property is optional; the default is ``1 min``.
 
 ``kinesis.batch-size``
 ^^^^^^^^^^^^^^^^^^^^^^
