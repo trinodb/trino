@@ -26,6 +26,7 @@ import com.google.common.io.CharStreams;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.trino.plugin.kinesis.KinesisClientProvider;
 import io.trino.plugin.kinesis.KinesisConfig;
 import io.trino.plugin.kinesis.KinesisStreamDescription;
@@ -70,6 +71,7 @@ public class S3TableConfigClient
 
     private final Optional<String> bucketUrl;
     private volatile long lastCheck;
+    private final Duration updateInterval;
     private volatile ScheduledFuture<?> updateTaskHandle;
 
     private final Map<String, KinesisStreamDescription> descriptors = Collections.synchronizedMap(new HashMap<>());
@@ -81,6 +83,7 @@ public class S3TableConfigClient
             JsonCodec<KinesisStreamDescription> jsonCodec)
     {
         requireNonNull(connectorConfig, "connectorConfig is null");
+        this.updateInterval = connectorConfig.getUpdateInterval();
         this.clientManager = requireNonNull(clientManager, "clientManager is null");
         this.streamDescriptionCodec = requireNonNull(jsonCodec, "jsonCodec is null");
 
@@ -96,10 +99,9 @@ public class S3TableConfigClient
     @PostConstruct
     protected void startS3Updates()
     {
-        // TODO: if required make the update interval configurable
         if (this.bucketUrl.isPresent()) {
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, 600, TimeUnit.SECONDS);
+            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, updateInterval.toMillis(), TimeUnit.SECONDS);
         }
     }
 

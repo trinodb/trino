@@ -16,6 +16,7 @@ package io.trino.plugin.kinesis;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
@@ -28,6 +29,7 @@ public class KinesisConfig
     private String defaultSchema = "default";
     private String tableDescriptionLocation = "etc/kinesis/";
     private boolean hideInternalColumns = true;
+    private Duration updateInterval = new Duration(1, TimeUnit.MINUTES);
     private String awsRegion = "us-east-1";
     private int batchSize = 10000;
     private int maxBatches = 600;
@@ -56,6 +58,18 @@ public class KinesisConfig
     public KinesisConfig setTableDescriptionLocation(String tableDescriptionLocation)
     {
         this.tableDescriptionLocation = tableDescriptionLocation;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("1ms")
+    public Duration getUpdateInterval() { return updateInterval; }
+
+    @Config("kinesis.table-description-refresh-interval")
+    @ConfigDescription("How often to get the table description from S3")
+    public KinesisConfig setUpdateInterval(Duration updateInterval)
+    {
+        this.updateInterval = updateInterval;
         return this;
     }
 
