@@ -200,7 +200,7 @@ public class ElasticsearchMetadata
                 .collect(Collectors.groupingBy(f -> f.getName().toLowerCase(ENGLISH), Collectors.counting()));
 
         for (IndexMetadata.Field field : metadata.getSchema().getFields()) {
-            Type type = toPrestoType(field);
+            Type type = toTrinoType(field);
             if (type == null || counts.get(field.getName().toLowerCase(ENGLISH)) > 1) {
                 continue;
             }
@@ -220,7 +220,7 @@ public class ElasticsearchMetadata
         for (IndexMetadata.Field field : fields) {
             result.add(ColumnMetadata.builder()
                     .setName(field.getName())
-                    .setType(toPrestoType(field))
+                    .setType(toTrinoType(field))
                     .build());
         }
         return result.build();
@@ -237,7 +237,7 @@ public class ElasticsearchMetadata
         for (IndexMetadata.Field field : fields) {
             result.put(field.getName(), new ElasticsearchColumnHandle(
                     field.getName(),
-                    toPrestoType(field),
+                    toTrinoType(field),
                     supportsPredicates(field.getType())));
         }
 
@@ -267,16 +267,16 @@ public class ElasticsearchMetadata
         return false;
     }
 
-    private Type toPrestoType(IndexMetadata.Field metaDataField)
+    private Type toTrinoType(IndexMetadata.Field metaDataField)
     {
-        return toPrestoType(metaDataField, metaDataField.isArray());
+        return toTrinoType(metaDataField, metaDataField.isArray());
     }
 
-    private Type toPrestoType(IndexMetadata.Field metaDataField, boolean isArray)
+    private Type toTrinoType(IndexMetadata.Field metaDataField, boolean isArray)
     {
         IndexMetadata.Type type = metaDataField.getType();
         if (isArray) {
-            Type elementType = toPrestoType(metaDataField, false);
+            Type elementType = toTrinoType(metaDataField, false);
             return new ArrayType(elementType);
         }
         if (type instanceof PrimitiveType) {
@@ -315,9 +315,9 @@ public class ElasticsearchMetadata
 
             ImmutableList.Builder<RowType.Field> builder = ImmutableList.builder();
             for (IndexMetadata.Field field : objectType.getFields()) {
-                Type prestoType = toPrestoType(field);
-                if (prestoType != null) {
-                    builder.add(RowType.field(field.getName(), prestoType));
+                Type trinoType = toTrinoType(field);
+                if (trinoType != null) {
+                    builder.add(RowType.field(field.getName(), trinoType));
                 }
             }
 

@@ -73,8 +73,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This utility class assists the Presto connector, and external applications,
- * in populating the index table and metrics table for Accumulo-backed Presto tables.
+ * This utility class assists the Trino connector, and external applications,
+ * in populating the index table and metrics table for Accumulo-backed Trino tables.
  * <p>
  * This class is totally not thread safe.
  * <p>
@@ -161,7 +161,7 @@ public class Indexer
                 ByteBuffer qualifier = wrap(columnHandle.getQualifier().get().getBytes(UTF_8));
                 indexColumnsBuilder.put(family, qualifier);
 
-                // Create a mapping for this column's Presto type, again creating a new one for the
+                // Create a mapping for this column's Trino type, again creating a new one for the
                 // family if necessary
                 Map<ByteBuffer, Type> types = indexColumnTypesBuilder.get(family);
                 if (types == null) {
@@ -390,8 +390,8 @@ public class Indexer
     /**
      * Gets the column family of the index table based on the given column family and qualifier.
      *
-     * @param columnFamily Presto column family
-     * @param columnQualifier Presto column qualifier
+     * @param columnFamily Trino column family
+     * @param columnQualifier Trino column qualifier
      * @return ByteBuffer of the given index column family
      */
     public static ByteBuffer getIndexColumnFamily(byte[] columnFamily, byte[] columnQualifier)

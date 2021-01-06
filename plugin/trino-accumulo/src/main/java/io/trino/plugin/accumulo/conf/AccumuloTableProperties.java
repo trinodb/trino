@@ -124,10 +124,10 @@ public final class AccumuloTableProperties
     /**
      * Gets the value of the column_mapping property, or Optional.empty() if not set.
      * <p>
-     * Parses the value into a map of Presto column name to a pair of strings, the Accumulo column family and qualifier.
+     * Parses the value into a map of Trino column name to a pair of strings, the Accumulo column family and qualifier.
      *
      * @param tableProperties The map of table properties
-     * @return The column mapping, presto name to (accumulo column family, qualifier)
+     * @return The column mapping, Trino name to (accumulo column family, qualifier)
      */
     public static Optional<Map<String, Pair<String, String>>> getColumnMapping(
             Map<String, Object> tableProperties)

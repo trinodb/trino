@@ -19,7 +19,7 @@ import java.time.ZoneId;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestVerifyPrestoTestsTestSetup
+public class TestVerifyTrinoTestsTestSetup
 {
     @Test
     public void testJvmZone()

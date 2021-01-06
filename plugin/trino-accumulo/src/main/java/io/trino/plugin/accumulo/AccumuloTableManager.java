@@ -55,7 +55,7 @@ public class AccumuloTableManager
     /**
      * Ensures the given Accumulo namespace exist, creating it if necessary
      *
-     * @param schema Presto schema (Accumulo namespace)
+     * @param schema Trino schema (Accumulo namespace)
      */
     public void ensureNamespace(String schema)
     {

@@ -73,10 +73,10 @@ import static io.trino.plugin.oracle.OracleDataTypes.numberDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.nvarchar2DataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleFloatDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.realDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.tooLargeCharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
+import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.varchar2DataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
@@ -132,12 +132,12 @@ public abstract class AbstractTestOracleTypeMapping
         checkIsGap(kathmandu, timeGapInKathmandu);
     }
 
-    private DataSetup prestoCreateAsSelect(String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
-    private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
+    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
@@ -427,7 +427,7 @@ public abstract class AbstractTestOracleTypeMapping
     {
         // TODO: Add similar tests for write mappings.
         // Those tests would require the table to be created in Oracle, but values inserted
-        // by Presto, which is outside the capabilities of the current DataSetup classes.
+        // by Trino, which is outside the capabilities of the current DataSetup classes.
         DataTypeTest.create()
                 .addRoundTrip(numberDataType(1, -1), BigDecimal.valueOf(2_0))
                 .addRoundTrip(numberDataType(1, -1), BigDecimal.valueOf(3_5)) // More useful as a test for write mappings.
@@ -523,7 +523,7 @@ public abstract class AbstractTestOracleTypeMapping
         DataTypeTest.create()
                 .addRoundTrip(booleanDataType(), true)
                 .addRoundTrip(booleanDataType(), false)
-                .execute(getQueryRunner(), prestoCreateAsSelect("boolean_types"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("boolean_types"));
     }
 
     @Test
@@ -537,7 +537,7 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), prestoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("blob", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
@@ -565,7 +565,7 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testLegacyDateMapping()
     {
-        legacyDateTests(zone -> prestoCreateAsSelect("l_date_" + zone));
+        legacyDateTests(zone -> trinoCreateAsSelect("l_date_" + zone));
     }
 
     @Test
@@ -616,7 +616,7 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testDateMapping()
     {
-        DateTests(zone -> prestoCreateAsSelect("nl_date_" + zone));
+        DateTests(zone -> trinoCreateAsSelect("nl_date_" + zone));
     }
 
     @Test
@@ -686,7 +686,7 @@ public abstract class AbstractTestOracleTypeMapping
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
+    public void testTimestamp(boolean insertWithTrino, ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
         DataTypeTest tests = DataTypeTest.create()
@@ -704,8 +704,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        if (insertWithPresto) {
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
+        if (insertWithTrino) {
+            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
         }
         else {
             tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
@@ -735,13 +735,13 @@ public abstract class AbstractTestOracleTypeMapping
     }
 
     @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
-    public void testTimestampWithTimeZone(boolean insertWithPresto)
+    public void testTimestampWithTimeZone(boolean insertWithTrino)
     {
         DataType<ZonedDateTime> dataType;
         DataSetup dataSetup;
-        if (insertWithPresto) {
-            dataType = prestoTimestampWithTimeZoneDataType();
-            dataSetup = prestoCreateAsSelect("timestamp_tz");
+        if (insertWithTrino) {
+            dataType = trinoTimestampWithTimeZoneDataType();
+            dataSetup = trinoCreateAsSelect("timestamp_tz");
         }
         else {
             dataType = oracleTimestamp3TimeZoneDataType();
@@ -822,11 +822,11 @@ public abstract class AbstractTestOracleTypeMapping
     }
 
     /**
-     * Run {@link DataTypeTest}s, creating tables from Presto.
+     * Run {@link DataTypeTest}s, creating tables from Trino.
      */
     private void testTypeMapping(String tableNamePrefix, DataTypeTest... tests)
     {
-        runTestsWithSetup(prestoCreateAsSelect(tableNamePrefix), tests);
+        runTestsWithSetup(trinoCreateAsSelect(tableNamePrefix), tests);
     }
 
     /**

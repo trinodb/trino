@@ -47,27 +47,27 @@ public class LongDecimalColumnReader
             throw new ParquetDecodingException(format("Unsupported Trino column type (%s) for Parquet column (%s)", trinoType, columnDescriptor));
         }
 
-        DecimalType prestoDecimalType = (DecimalType) trinoType;
+        DecimalType trinoDecimalType = (DecimalType) trinoType;
 
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
             Binary binary = valuesReader.readBytes();
             Slice value = Decimals.encodeUnscaledValue(new BigInteger(binary.getBytes()));
 
-            if (prestoDecimalType.isShort()) {
+            if (trinoDecimalType.isShort()) {
                 trinoType.writeLong(blockBuilder, longToShortCast(
                         value,
                         parquetDecimalType.getPrecision(),
                         parquetDecimalType.getScale(),
-                        prestoDecimalType.getPrecision(),
-                        prestoDecimalType.getScale()));
+                        trinoDecimalType.getPrecision(),
+                        trinoDecimalType.getScale()));
             }
             else {
                 trinoType.writeSlice(blockBuilder, longToLongCast(
                         value,
                         parquetDecimalType.getPrecision(),
                         parquetDecimalType.getScale(),
-                        prestoDecimalType.getPrecision(),
-                        prestoDecimalType.getScale()));
+                        trinoDecimalType.getPrecision(),
+                        trinoDecimalType.getScale()));
             }
         }
         else if (isValueNull()) {

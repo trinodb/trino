@@ -33,7 +33,7 @@ import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class encapsulates metadata regarding an Accumulo table in Presto.
+ * This class encapsulates metadata regarding an Accumulo table in Trino.
  */
 public class AccumuloTable
 {

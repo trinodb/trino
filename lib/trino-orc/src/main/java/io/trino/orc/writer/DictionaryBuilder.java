@@ -26,7 +26,7 @@ import static it.unimi.dsi.fastutil.HashCommon.arraySize;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-// TODO this class is not memory efficient.  We can bypass all of the Presto type and block code
+// TODO this class is not memory efficient.  We can bypass all of the Trino type and block code
 // since we are only interested in a hash of byte arrays.  The only place an actual block is needed
 // is during conversion to direct, and in that case we can use a slice array block.  This code
 // can use store the data in multiple Slices to avoid a large contiguous allocation.

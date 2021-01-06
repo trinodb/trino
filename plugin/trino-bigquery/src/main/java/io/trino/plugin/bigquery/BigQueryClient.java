@@ -44,7 +44,7 @@ import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.joining;
 
 // holds caches and mappings
-// presto converts the dataset and table names to lower case, while BigQuery is case sensitive
+// Trino converts the dataset and table names to lower case, while BigQuery is case sensitive
 // the mappings here keep the mappings
 class BigQueryClient
 {
@@ -101,8 +101,8 @@ class BigQueryClient
     private Dataset addDataSetMappingIfNeeded(Dataset dataset)
     {
         DatasetId bigQueryDatasetId = dataset.getDatasetId();
-        DatasetId prestoDatasetId = DatasetId.of(bigQueryDatasetId.getProject(), bigQueryDatasetId.getDataset().toLowerCase(ENGLISH));
-        datasetIds.putIfAbsent(prestoDatasetId, bigQueryDatasetId);
+        DatasetId trinoDatasetId = DatasetId.of(bigQueryDatasetId.getProject(), bigQueryDatasetId.getDataset().toLowerCase(ENGLISH));
+        datasetIds.putIfAbsent(trinoDatasetId, bigQueryDatasetId);
         return dataset;
     }
 

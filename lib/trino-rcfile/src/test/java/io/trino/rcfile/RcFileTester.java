@@ -835,7 +835,7 @@ public class RcFileTester
         else if (actualValue instanceof HiveDecimalWritable) {
             DecimalType decimalType = (DecimalType) type;
             HiveDecimalWritable writable = (HiveDecimalWritable) actualValue;
-            // writable messes with the scale so rescale the values to the Presto type
+            // writable messes with the scale so rescale the values to the Trino type
             BigInteger rescaledValue = rescale(writable.getHiveDecimal().unscaledValue(), writable.getScale(), decimalType.getScale());
             actualValue = new SqlDecimal(rescaledValue, decimalType.getPrecision(), decimalType.getScale());
         }

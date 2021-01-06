@@ -89,8 +89,8 @@ public class TestParquetDecimalScaling
     }
 
     /**
-     * Tests if Parquet decimal with given precision and scale can be read into Presto decimal with different precision and scale
-     * if Parquet decimal value could be rescaled into Presto decimal without losing most and least significant digits.
+     * Tests if Parquet decimal with given precision and scale can be read into Trino decimal with different precision and scale
+     * if Parquet decimal value could be rescaled into Trino decimal without losing most and least significant digits.
      */
     @Test(dataProvider = "testReadingMatchingPrecisionDataProvider")
     public void testReadingMatchingPrecision(int precision, int scale, boolean forceFixedLengthArray, List<String> values, List<String> expected)
@@ -140,8 +140,8 @@ public class TestParquetDecimalScaling
     }
 
     /**
-     * Tests if Parquet decimal with given precision and scale can be read into Presto decimal with different precision and scale
-     * if Parquet decimal value could be rescaled into Presto decimal without loosing most and least significant digits.
+     * Tests if Parquet decimal with given precision and scale can be read into Trino decimal with different precision and scale
+     * if Parquet decimal value could be rescaled into Trino decimal without loosing most and least significant digits.
      */
     @Test(dataProvider = "testReadingRescaledDecimalsProvider")
     public void testReadingRescaledDecimals(int precision, int scale, boolean forceFixedLengthArray, int schemaPrecision, int schemaScale, List<String> values, List<String> expected)
@@ -207,8 +207,8 @@ public class TestParquetDecimalScaling
     }
 
     /**
-     * Tests if Parquet decimal with given precision and scale can be read into Presto decimal with different precision and scale
-     * if Parquet decimal value will be rounded to fit into Presto decimal.
+     * Tests if Parquet decimal with given precision and scale can be read into Trino decimal with different precision and scale
+     * if Parquet decimal value will be rounded to fit into Trino decimal.
      */
     @Test(dataProvider = "testReadingRoundedDecimalsProvider")
     public void testReadingRoundedDecimals(int precision, int scale, boolean forceFixedLengthArray, int schemaPrecision, int schemaScale, List<String> values, List<String> expected)

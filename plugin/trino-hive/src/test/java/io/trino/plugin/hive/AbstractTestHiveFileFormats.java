@@ -527,7 +527,7 @@ public abstract class AbstractTestHiveFileFormats
         return columns;
     }
 
-    public static FileSplit createTestFilePresto(
+    public static FileSplit createTestFileTrino(
             String filePath,
             HiveStorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,

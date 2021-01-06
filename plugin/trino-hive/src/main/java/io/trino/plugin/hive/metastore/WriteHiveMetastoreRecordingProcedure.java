@@ -55,7 +55,7 @@ public class WriteHiveMetastoreRecordingProcedure
     public void writeHiveMetastoreRecording()
     {
         try {
-            // limit rate of recording dumps to prevent IO and Presto saturation
+            // limit rate of recording dumps to prevent IO and Trino saturation
             rateLimiter.acquire();
             recordingHiveMetastore.writeRecording();
         }

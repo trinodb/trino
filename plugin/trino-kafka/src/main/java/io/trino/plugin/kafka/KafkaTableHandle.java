@@ -39,7 +39,7 @@ public final class KafkaTableHandle
     private final String schemaName;
 
     /**
-     * The table name used by presto.
+     * The table name used by Trino.
      */
     private final String tableName;
 
