@@ -2,10 +2,21 @@
 Release notes
 *************
 
+
+2021
+====
+
 .. toctree::
     :maxdepth: 1
 
     release/release-351
+
+2020
+====
+
+.. toctree::
+    :maxdepth: 1
+
     release/release-350
     release/release-349
     release/release-348
@@ -29,6 +40,13 @@ Release notes
     release/release-330
     release/release-329
     release/release-328
+
+2019
+====
+
+.. toctree::
+    :maxdepth: 1
+
     release/release-327
     release/release-326
     release/release-325
@@ -57,6 +75,13 @@ Release notes
     release/release-302
     release/release-301
     release/release-300
+
+Before 2019
+===========
+
+.. toctree::
+    :maxdepth: 1
+
     release/release-0.215
     release/release-0.214
     release/release-0.213
