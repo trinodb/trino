@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -41,12 +42,14 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -56,13 +59,18 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableOperations;
+import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
+import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
@@ -79,6 +87,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
+import java.util.function.Function;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -93,9 +102,12 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERT
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
+import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
+import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTable;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
@@ -213,7 +225,67 @@ public abstract class IcebergMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return new ConnectorTableProperties();
+        IcebergTableHandle table = (IcebergTableHandle) tableHandle;
+        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+
+        TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
+
+        TableScan tableScan = icebergTable.newScan()
+                .useSnapshot(table.getSnapshotId().get())
+                .filter(toIcebergExpression(enforcedPredicate))
+                .includeColumnStats();
+
+        CloseableIterable<FileScanTask> files = tableScan.planFiles();
+
+        // Extract identity partition fields that are present in all partition specs, for creating the discrete predicates.
+        Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
+
+        DiscretePredicates discretePredicates = null;
+        if (!partitionSourceIds.isEmpty()) {
+            // Extract identity partition columns
+            Map<Integer, IcebergColumnHandle> columns = getColumns(icebergTable.schema(), typeManager).stream()
+                    .filter(column -> partitionSourceIds.contains(column.getId()))
+                    .collect(toImmutableMap(IcebergColumnHandle::getId, Function.identity()));
+
+            Iterable<TupleDomain<ColumnHandle>> discreteTupleDomain = Iterables.transform(files, fileScan -> {
+                // Extract partition values in the data file
+                Map<Integer, String> partitionColumnValueStrings = getPartitionKeys(fileScan);
+                Map<ColumnHandle, NullableValue> partitionValues = partitionSourceIds.stream()
+                        .filter(partitionColumnValueStrings::containsKey)
+                        .collect(toImmutableMap(
+                                columns::get,
+                                columnId -> {
+                                    IcebergColumnHandle column = columns.get(columnId);
+                                    Object prestoValue = deserializePartitionValue(
+                                            column.getType(),
+                                            partitionColumnValueStrings.get(columnId),
+                                            column.getName(),
+                                            session.getTimeZoneKey());
+
+                                    return NullableValue.of(column.getType(), prestoValue);
+                                }));
+
+                return TupleDomain.fromFixedValues(partitionValues);
+            });
+
+            discretePredicates = new DiscretePredicates(
+                    columns.values().stream()
+                            .map(ColumnHandle.class::cast)
+                            .collect(toImmutableList()),
+                    discreteTupleDomain);
+        }
+
+        return new ConnectorTableProperties(
+                // Using the predicate here directly avoids eagerly loading all partition values. Logically, this
+                // still keeps predicate and discretePredicates evaluation the same on every row of the table. This
+                // can be further optimized by intersecting with partition values at the cost of iterating
+                // over all tableScan.planFiles() and caching partition values in table handle.
+                enforcedPredicate.transform(ColumnHandle.class::cast),
+                // TODO: implement table partitioning
+                Optional.empty(),
+                Optional.empty(),
+                Optional.ofNullable(discretePredicates),
+                ImmutableList.of());
     }
 
     @Override
@@ -526,13 +598,7 @@ public abstract class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) handle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
 
-        // Extract identity partition column source ids common to ALL specs
-        Set<Integer> partitionSourceIds = icebergTable.spec().fields().stream()
-                .filter(field -> field.transform().isIdentity())
-                .filter(field -> icebergTable.specs().values().stream().allMatch(spec -> spec.fields().contains(field)))
-                .map(PartitionField::sourceId)
-                .collect(toImmutableSet());
-
+        Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
         BiPredicate<IcebergColumnHandle, Domain> isIdentityPartition = (column, domain) -> partitionSourceIds.contains(column.getId());
 
         // TODO: Avoid enforcing the constraint when partition filters have large IN expressions, since iceberg cannot
@@ -560,6 +626,16 @@ public abstract class IcebergMetadata
                         newUnenforcedConstraint,
                         newEnforcedConstraint),
                 newUnenforcedConstraint.transform(ColumnHandle.class::cast)));
+    }
+
+    private static Set<Integer> identityPartitionColumnsInAllSpecs(org.apache.iceberg.Table table)
+    {
+        // Extract identity partition column source ids common to ALL specs
+        return table.spec().fields().stream()
+                .filter(field -> field.transform().isIdentity())
+                .filter(field -> table.specs().values().stream().allMatch(spec -> spec.fields().contains(field)))
+                .map(PartitionField::sourceId)
+                .collect(toImmutableSet());
     }
 
     @Override

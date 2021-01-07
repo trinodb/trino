@@ -13,6 +13,7 @@
  */
 package io.trino.server.security.jwt;
 
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Strings;
@@ -26,6 +27,7 @@ import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.security.spec.ECParameterSpec;
 import java.security.spec.ECPoint;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,84 +54,54 @@ public final class JwkDecoder
                 .collect(toImmutableMap(JwkPublicKey::getKeyId, Function.identity()));
     }
 
-    public static Optional<? extends JwkPublicKey> tryDecodeJwkKey(Map<String, String> properties)
+    public static Optional<? extends JwkPublicKey> tryDecodeJwkKey(Key key)
     {
-        String keyId = properties.get("kid");
-        if (Strings.isNullOrEmpty(keyId)) {
-            // key id is required to index the key
+        // key id is required to index the key
+        if (key.getKid().isEmpty() || key.getKid().get().isEmpty()) {
             return Optional.empty();
         }
-
-        String keyType = properties.get("kty");
-        switch (keyType) {
+        String keyId = key.getKid().get();
+        switch (key.getKty()) {
             case "RSA":
-                return tryDecodeRsaKey(keyId, properties);
+                return tryDecodeRsaKey(keyId, key);
             case "EC":
-                return tryDecodeEcKey(keyId, properties);
+                return tryDecodeEcKey(keyId, key);
             default:
                 // ignore non unknown keys
                 return Optional.empty();
         }
     }
 
-    public static Optional<JwkRsaPublicKey> tryDecodeRsaKey(String keyId, Map<String, String> properties)
+    public static Optional<JwkRsaPublicKey> tryDecodeRsaKey(String keyId, Key key)
     {
         // alg field is optional so not verified
         // use field is optional so not verified
-
-        String encodedModulus = properties.get("n");
-        if (Strings.isNullOrEmpty(encodedModulus)) {
-            log.error("JWK RSA key %s does not contain the required modulus field 'n'", keyId);
-            return Optional.empty();
-        }
-        String encodedExponent = properties.get("e");
-        if (Strings.isNullOrEmpty(encodedExponent)) {
-            log.error("JWK RSA key %s does not contain the required exponent field 'e'", keyId);
-            return Optional.empty();
-        }
-
-        Optional<BigInteger> modulus = decodeBigint(keyId, "modulus", encodedModulus);
+        Optional<BigInteger> modulus = key.getStringProperty("n").flatMap(encodedModulus -> decodeBigint(keyId, "modulus", encodedModulus));
         if (modulus.isEmpty()) {
             return Optional.empty();
         }
-        Optional<BigInteger> exponent = decodeBigint(keyId, "exponent", encodedExponent);
+        Optional<BigInteger> exponent = key.getStringProperty("e").flatMap(encodedExponent -> decodeBigint(keyId, "exponent", encodedExponent));
         if (exponent.isEmpty()) {
             return Optional.empty();
         }
         return Optional.of(new JwkRsaPublicKey(keyId, exponent.get(), modulus.get()));
     }
 
-    public static Optional<JwkEcPublicKey> tryDecodeEcKey(String keyId, Map<String, String> properties)
+    public static Optional<JwkEcPublicKey> tryDecodeEcKey(String keyId, Key key)
     {
         // alg field is optional so not verified
         // use field is optional so not verified
-
-        String curveName = properties.get("crv");
-        if (Strings.isNullOrEmpty(curveName)) {
-            log.error("JWK EC key %s does not contain the required curve field 'crv'", keyId);
-            return Optional.empty();
-        }
-        String encodedX = properties.get("x");
-        if (Strings.isNullOrEmpty(encodedX)) {
-            log.error("JWK EC key %s does not contain the required x coordinate field 'x'", keyId);
-            return Optional.empty();
-        }
-        String encodedY = properties.get("y");
-        if (Strings.isNullOrEmpty(encodedY)) {
-            log.error("JWK EC key %s does not contain the required y coordinate field 'y'", keyId);
-            return Optional.empty();
-        }
-
-        Optional<ECParameterSpec> curve = EcCurve.tryGet(curveName);
+        Optional<String> curveName = key.getStringProperty("crv");
+        Optional<ECParameterSpec> curve = curveName.flatMap(EcCurve::tryGet);
         if (curve.isEmpty()) {
             log.error("JWK EC %s curve '%s' is not supported", keyId, curveName);
             return Optional.empty();
         }
-        Optional<BigInteger> x = decodeBigint(keyId, "x", encodedX);
+        Optional<BigInteger> x = key.getStringProperty("x").flatMap(encodedX -> decodeBigint(keyId, "x", encodedX));
         if (x.isEmpty()) {
             return Optional.empty();
         }
-        Optional<BigInteger> y = decodeBigint(keyId, "y", encodedY);
+        Optional<BigInteger> y = key.getStringProperty("y").flatMap(encodedY -> decodeBigint(keyId, "y", encodedY));
         if (y.isEmpty()) {
             return Optional.empty();
         }
@@ -259,17 +231,58 @@ public final class JwkDecoder
 
     public static class Keys
     {
-        private final List<Map<String, String>> keys;
+        private final List<Key> keys;
 
         @JsonCreator
-        public Keys(@JsonProperty("keys") List<Map<String, String>> keys)
+        public Keys(@JsonProperty("keys") List<Key> keys)
         {
             this.keys = ImmutableList.copyOf(requireNonNull(keys, "keys is null"));
         }
 
-        public List<Map<String, String>> getKeys()
+        public List<Key> getKeys()
         {
             return keys;
+        }
+    }
+
+    public static class Key
+    {
+        private final String kty;
+        private final Optional<String> kid;
+        private final Map<String, Object> other = new HashMap<>();
+
+        @JsonCreator
+        public Key(
+                @JsonProperty("kty") String kty,
+                @JsonProperty("kid") Optional<String> kid)
+        {
+            this.kty = requireNonNull(kty, "kty is null");
+            this.kid = requireNonNull(kid, "kid is null");
+        }
+
+        public String getKty()
+        {
+            return kty;
+        }
+
+        public Optional<String> getKid()
+        {
+            return kid;
+        }
+
+        public Optional<String> getStringProperty(String name)
+        {
+            Object value = other.get(name);
+            if (value instanceof String && !Strings.isNullOrEmpty((String) value)) {
+                return Optional.of((String) value);
+            }
+            return Optional.empty();
+        }
+
+        @JsonAnySetter
+        public void set(String name, Object value)
+        {
+            other.put(name, value);
         }
     }
 }

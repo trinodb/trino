@@ -13,8 +13,8 @@
  */
 package io.trino.tests.hive;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.tempto.ProductTest;
@@ -33,6 +33,7 @@ import java.sql.JDBCType;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -53,12 +54,15 @@ import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
+import static io.trino.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.utils.QueryExecutors.onHive;
 import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
+import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class TestHiveStorageFormats
         extends ProductTest
@@ -69,46 +73,175 @@ public class TestHiveStorageFormats
     @Named("databases.presto.admin_role_enabled")
     private boolean adminRoleEnabled;
 
-    @DataProvider(name = "storage_formats")
-    public static Object[][] storageFormats()
-    {
-        return new StorageFormat[][] {
-                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true"))},
-                {storageFormat("PARQUET")},
-                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
-                {storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
-                {storageFormat("SEQUENCEFILE")},
-                {storageFormat("TEXTFILE")},
-                {storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"))},
-                {storageFormat("AVRO")}
-        };
-    }
+    private static final List<TimestampAndPrecision> TIMESTAMPS_FROM_HIVE = List.of(
+            // write precision is not relevant here, as Hive always uses nanos
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.111", // millis, no rounding
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111000",
+                    "1967-01-02 12:01:00.111000000"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.1114", // hundreds of micros, rounds down in millis, (pre-epoch)
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111400",
+                    "1967-01-02 12:01:00.111400000"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.1115", // hundreds of micros, rounds up in millis (smallest), pre-epoch
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.112",
+                    "1967-01-02 12:01:00.111500",
+                    "1967-01-02 12:01:00.111500000"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.111499", // micros, rounds down (largest), pre-epoch
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111499",
+                    "1967-01-02 12:01:00.111499000"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.1113334", // hundreds of nanos, rounds down
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111333",
+                    "1967-01-02 12:01:00.111333400"),
+            timestampAndPrecision(
+                    "1967-01-02 23:59:59.999999999", // nanos, rounds up to next day
+                    NANOSECONDS,
+                    "1967-01-03 00:00:00.000",
+                    "1967-01-03 00:00:00.000000",
+                    "1967-01-02 23:59:59.999999999"),
 
-    @DataProvider(name = "storage_formats_with_null_format")
-    public static Object[][] storageFormatsWithNullFormat()
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.1110019", // hundreds of nanos, rounds down in millis and up in micros, pre-epoch
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.111",
+                    "1967-01-02 12:01:00.111002",
+                    "1967-01-02 12:01:00.111001900"),
+            timestampAndPrecision(
+                    "1967-01-02 12:01:00.111901001", // nanos, rounds up in millis and down in micros, pre-epoch
+                    NANOSECONDS,
+                    "1967-01-02 12:01:00.112",
+                    "1967-01-02 12:01:00.111901",
+                    "1967-01-02 12:01:00.111901001"),
+            timestampAndPrecision(
+                    "1967-12-31 23:59:59.999999499", // nanos, rounds micros down (largest), rounds millis up to next year, pre-epoch
+                    NANOSECONDS,
+                    "1968-01-01 00:00:00.000",
+                    "1967-12-31 23:59:59.999999",
+                    "1967-12-31 23:59:59.999999499"),
+
+            timestampAndPrecision(
+                    "2027-01-02 12:01:00.1110019", // hundreds of nanos, rounds down in millis and up in micros, post-epoch
+                    NANOSECONDS,
+                    "2027-01-02 12:01:00.111",
+                    "2027-01-02 12:01:00.111002",
+                    "2027-01-02 12:01:00.111001900"),
+            timestampAndPrecision(
+                    "2027-01-02 12:01:00.111901001", // nanos, rounds up in millis and down in micros, post-epoch
+                    NANOSECONDS,
+                    "2027-01-02 12:01:00.112",
+                    "2027-01-02 12:01:00.111901",
+                    "2027-01-02 12:01:00.111901001"),
+            timestampAndPrecision(
+                    "2027-12-31 23:59:59.999999499", // nanos, rounds micros down (largest), rounds millis up to next year, post-epoch
+                    NANOSECONDS,
+                    "2028-01-01 00:00:00.000",
+                    "2027-12-31 23:59:59.999999",
+                    "2027-12-31 23:59:59.999999499"));
+
+    // These check that values are correctly rounded on insertion
+    private static final List<TimestampAndPrecision> TIMESTAMPS_FROM_PRESTO = List.of(
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.999", // millis as millis (no rounding)
+                    MILLISECONDS,
+                    "2020-01-02 12:01:00.999",
+                    "2020-01-02 12:01:00.999000",
+                    "2020-01-02 12:01:00.999000000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.111499999", // nanos as millis rounds down (largest)
+                    MILLISECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111000",
+                    "2020-01-02 12:01:00.111000000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.1115", // micros as millis rounds up (smallest)
+                    MILLISECONDS,
+                    "2020-01-02 12:01:00.112",
+                    "2020-01-02 12:01:00.112000",
+                    "2020-01-02 12:01:00.112000000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.111333", // micros as micros (no rounding)
+                    MICROSECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111333",
+                    "2020-01-02 12:01:00.111333000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.1113334", // nanos as micros rounds down
+                    MICROSECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111333",
+                    "2020-01-02 12:01:00.111333000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.111333777", // nanos as micros rounds up
+                    MICROSECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111334",
+                    "2020-01-02 12:01:00.111334000"),
+            timestampAndPrecision(
+                    "2020-01-02 12:01:00.111333444", // nanos as nanos (no rounding)
+                    NANOSECONDS,
+                    "2020-01-02 12:01:00.111",
+                    "2020-01-02 12:01:00.111333",
+                    "2020-01-02 12:01:00.111333444"),
+            timestampAndPrecision(
+                    "2020-01-02 23:59:59.999911333", // nanos as millis rounds up to next day
+                    MILLISECONDS,
+                    "2020-01-03 00:00:00.000",
+                    "2020-01-03 00:00:00.000000",
+                    "2020-01-03 00:00:00.000000000"),
+            timestampAndPrecision(
+                    "2020-12-31 23:59:59.99999", // micros as millis rounds up to next year
+                    MILLISECONDS,
+                    "2021-01-01 00:00:00.000",
+                    "2021-01-01 00:00:00.000000",
+                    "2021-01-01 00:00:00.000000000"));
+
+    @DataProvider
+    public static StorageFormat[] storageFormats()
     {
-        return new StorageFormat[][] {
-                {storageFormat("TEXTFILE")},
-                {storageFormat("RCTEXT")},
-                {storageFormat("SEQUENCEFILE")},
+        return new StorageFormat[] {
+                storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true")),
+                storageFormat("PARQUET"),
+                storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
+                storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true")),
+                storageFormat("SEQUENCEFILE"),
+                storageFormat("TEXTFILE"),
+                storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E")),
+                storageFormat("AVRO"),
         };
     }
 
     @DataProvider
-    public static Object[][] storageFormatsWithNanosecondPrecision()
+    public static StorageFormat[] storageFormatsWithNullFormat()
     {
-        return new StorageFormat[][] {
-                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true"))},
-                {storageFormat("PARQUET")},
-                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
-                {storageFormat("RCTEXT")},
-                {storageFormat("SEQUENCEFILE")},
-                {storageFormat("TEXTFILE")},
-                {storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"))}
+        return new StorageFormat[] {
+                storageFormat("TEXTFILE"),
+                storageFormat("RCTEXT"),
+                storageFormat("SEQUENCEFILE")
         };
     }
 
-    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @DataProvider
+    public static Iterator<StorageFormat> storageFormatsWithNanosecondPrecision()
+    {
+        return Stream.of(storageFormats())
+                // everything but Avro supports nanoseconds
+                .filter(format -> !"AVRO".equals(format.getName()))
+                .iterator();
+    }
+
+    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
@@ -153,7 +286,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
     public void testCreateTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
@@ -180,7 +313,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
@@ -225,7 +358,7 @@ public class TestHiveStorageFormats
         query(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats_with_null_format", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
     {
@@ -257,7 +390,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats_with_null_format", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS)
     public void testSelectWithNullFormat(StorageFormat storageFormat)
     {
         String nullFormat = "null_value";
@@ -281,7 +414,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
     @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
@@ -351,100 +484,14 @@ public class TestHiveStorageFormats
     {
         String tableName = "test_timestamp_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
         createSimpleTimestampTable(tableName, storageFormat);
-        // write precision is not relevant here, as Hive always uses nanos
-        List<TimestampAndPrecision> data = ImmutableList.of(
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.123",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123000",
-                        "1967-01-02 12:34:56.123000000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123000",
-                        "2020-01-02 12:34:56.123000000"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.1234",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123400",
-                        "1967-01-02 12:34:56.123400000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123400",
-                        "2020-01-02 12:34:56.123400000"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.1236",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.124",
-                        "1967-01-02 12:34:56.123600",
-                        "1967-01-02 12:34:56.123600000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1236",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.124",
-                        "2020-01-02 12:34:56.123600",
-                        "2020-01-02 12:34:56.123600000"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.123456",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123456",
-                        "1967-01-02 12:34:56.123456000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123456",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123456",
-                        "2020-01-02 12:34:56.123456000"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.1234564",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123456",
-                        "1967-01-02 12:34:56.123456400"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234564",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123456",
-                        "2020-01-02 12:34:56.123456400"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.1234567",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123457",
-                        "1967-01-02 12:34:56.123456700"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234567",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123457",
-                        "2020-01-02 12:34:56.123456700"),
-                timestampAndPrecision(
-                        "1967-01-02 12:34:56.123456789",
-                        NANOSECONDS,
-                        "1967-01-02 12:34:56.123",
-                        "1967-01-02 12:34:56.123457",
-                        "1967-01-02 12:34:56.123456789"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123456789",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123457",
-                        "2020-01-02 12:34:56.123456789"));
 
         // insert records one by one so that we have one file per record, which allows us to exercise predicate push-down in Parquet
         // (which only works when the value range has a min = max)
-        for (TimestampAndPrecision entry : data) {
+        for (TimestampAndPrecision entry : TIMESTAMPS_FROM_HIVE) {
             onHive().executeQuery(format("INSERT INTO %s VALUES (%s, '%s')", tableName, entry.getId(), entry.getWriteValue()));
         }
 
-        runTimestampQueries(tableName, data);
+        runTimestampQueries(tableName, TIMESTAMPS_FROM_HIVE);
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
@@ -454,59 +501,15 @@ public class TestHiveStorageFormats
         String tableName = "test_timestamp_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
         createSimpleTimestampTable(tableName, storageFormat);
 
-        List<TimestampAndPrecision> data = ImmutableList.of(
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123",
-                        MILLISECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123000",
-                        "2020-01-02 12:34:56.123000000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234",
-                        MILLISECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123000",
-                        "2020-01-02 12:34:56.123000000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1236",
-                        MILLISECONDS,
-                        "2020-01-02 12:34:56.124",
-                        "2020-01-02 12:34:56.124000",
-                        "2020-01-02 12:34:56.124000000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123456",
-                        MICROSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123456",
-                        "2020-01-02 12:34:56.123456000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234564",
-                        MICROSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123456",
-                        "2020-01-02 12:34:56.123456000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.1234567",
-                        MICROSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123457",
-                        "2020-01-02 12:34:56.123457000"),
-                timestampAndPrecision(
-                        "2020-01-02 12:34:56.123456789",
-                        NANOSECONDS,
-                        "2020-01-02 12:34:56.123",
-                        "2020-01-02 12:34:56.123457",
-                        "2020-01-02 12:34:56.123456789"));
-
-        for (TimestampAndPrecision entry : data) {
+        for (TimestampAndPrecision entry : TIMESTAMPS_FROM_PRESTO) {
             // insert timestamps with different precisions
-            setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", entry.getPrecision());
+            setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", entry.getPrecision().name());
             // insert records one by one so that we have one file per record, which allows us to exercise predicate push-down in Parquet
             // (which only works when the value range has a min = max)
             onPresto().executeQuery(format("INSERT INTO %s VALUES (%s, TIMESTAMP'%s')", tableName, entry.getId(), entry.getWriteValue()));
         }
 
-        runTimestampQueries(tableName, data);
+        runTimestampQueries(tableName, TIMESTAMPS_FROM_PRESTO);
     }
 
     private void createSimpleTimestampTable(String tableName, StorageFormat storageFormat)
@@ -537,6 +540,114 @@ public class TestHiveStorageFormats
             }
         }
         onPresto().executeQuery("DROP TABLE " + tableName);
+    }
+
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS)
+    public void testStructTimestamps(StorageFormat format)
+            throws SQLException
+    {
+        setAdminRole(onPresto().getConnection());
+        ensureDummyExists();
+
+        String tableName = format("test_struct_timestamp_precision_%s_%s", format.getName().toLowerCase(Locale.ENGLISH), randomTableSuffix());
+
+        onPresto().executeQuery(format(
+                "CREATE TABLE %s ("
+                        + "   id INTEGER,"
+                        + "   arr ARRAY(TIMESTAMP),"
+                        + "   map MAP(TIMESTAMP, TIMESTAMP),"
+                        + "   row ROW(col TIMESTAMP),"
+                        + "   nested ARRAY(MAP(TIMESTAMP, ROW(col ARRAY(TIMESTAMP))))"
+                        + ") WITH (%s)",
+                tableName,
+                format.getStoragePropertiesAsSql()));
+
+        // Insert in a loop because inserting with UNION ALL sometimes makes values invisible to Presto
+        for (TimestampAndPrecision entry : TIMESTAMPS_FROM_HIVE) {
+            onHive().executeQuery(format(
+                    "INSERT INTO %1$s"
+                            // insert with SELECT because hive does not support array/map/struct functions in VALUES
+                            + " SELECT"
+                            + "   %3$s,"
+                            + "   array(%2$s),"
+                            + "   map(%2$s, %2$s),"
+                            + "   named_struct('col', %2$s),"
+                            + "   array(map(%2$s, named_struct('col', array(%2$s))))"
+                            // some hive versions don't allow INSERT from SELECT without FROM
+                            + " FROM dummy",
+                    tableName,
+                    format("TIMESTAMP '%s'", entry.getWriteValue()),
+                    entry.getId()));
+        }
+
+        for (HiveTimestampPrecision precision : HiveTimestampPrecision.values()) {
+            setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", precision.name());
+
+            // Check that the correct types are read
+            String type = TIMESTAMPS_FROM_HIVE.get(0).getReadType(precision);
+            assertThat(onPresto()
+                    .executeQuery(format(
+                            "SELECT"
+                                    + "   typeof(arr),"
+                                    + "   typeof(map),"
+                                    + "   typeof(row),"
+                                    + "   typeof(nested)"
+                                    + " FROM %s"
+                                    + " LIMIT 1",
+                            tableName)))
+                    .as("timestamp container types on %s", format.getName().toLowerCase(Locale.ENGLISH))
+                    .containsOnly(row(
+                            format("array(%s)", type),
+                            format("map(%1$s, %1$s)", type),
+                            format("row(col %s)", type),
+                            format("array(map(%1$s, row(col array(%1$s))))", type)));
+
+            // Check the values as varchar
+            assertThat(onPresto()
+                    .executeQuery(format(
+                            "SELECT"
+                                    + "   id,"
+                                    + "   CAST(arr[1] AS VARCHAR),"
+                                    + "   CAST(map_entries(map)[1][1] AS VARCHAR)," // key
+                                    + "   CAST(map_entries(map)[1][2] AS VARCHAR)," // value
+                                    + "   CAST(row.col AS VARCHAR),"
+                                    + "   CAST(map_entries(nested[1])[1][1] AS VARCHAR)," // key
+                                    + "   CAST(map_entries(nested[1])[1][2].col[1] AS VARCHAR)" // value
+                                    + " FROM %s"
+                                    + " ORDER BY id",
+                            tableName)))
+                    .as("timestamp containers on %s", format.getName().toLowerCase(Locale.ENGLISH))
+                    .containsExactly(TIMESTAMPS_FROM_HIVE.stream()
+                            .sorted(comparingInt(TimestampAndPrecision::getId))
+                            .map(e -> new Row(Lists.asList(
+                                    e.getId(),
+                                    nCopies(6, e.getReadValue(precision)).toArray())))
+                            .collect(toList()));
+
+            // Check the values
+            assertThat(onPresto()
+                    .executeQuery(format(
+                            "SELECT"
+                                    + "   id,"
+                                    + "   arr[1],"
+                                    + "   map_entries(map)[1][1]," // key
+                                    + "   map_entries(map)[1][2]," // value
+                                    + "   row.col,"
+                                    + "   map_entries(nested[1])[1][1]," // key
+                                    + "   map_entries(nested[1])[1][2].col[1]" // value
+                                    + " FROM %s"
+                                    + " ORDER BY id",
+                            tableName)))
+                    .as("timestamp containers on %s", format.getName().toLowerCase(Locale.ENGLISH))
+                    .containsExactly(TIMESTAMPS_FROM_HIVE.stream()
+                            .sorted(comparingInt(TimestampAndPrecision::getId))
+                            .map(e -> new Row(Lists.asList(
+                                    e.getId(),
+                                    nCopies(6, Timestamp.valueOf(e.getReadValue(precision))).toArray())))
+                            .collect(toList()));
+        }
+
+        onHive().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     /**
@@ -572,6 +683,17 @@ public class TestHiveStorageFormats
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Ensures that a view named "dummy" with exactly one row exists in the default schema.
+     */
+    // These tests run on versions of Hive (1.1.0 on CDH 5) that don't fully support SELECT without FROM
+    private void ensureDummyExists()
+    {
+        onHive().executeQuery("DROP TABLE IF EXISTS dummy");
+        onHive().executeQuery("CREATE TABLE dummy (dummy varchar(1))");
+        onHive().executeQuery("INSERT INTO dummy VALUES ('x')");
     }
 
     private static void setSessionProperties(StorageFormat storageFormat)
@@ -710,9 +832,9 @@ public class TestHiveStorageFormats
             return id;
         }
 
-        public String getPrecision()
+        public HiveTimestampPrecision getPrecision()
         {
-            return precision.name();
+            return precision;
         }
 
         public String getWriteValue()

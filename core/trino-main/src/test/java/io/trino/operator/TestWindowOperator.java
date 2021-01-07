@@ -56,7 +56,6 @@ import static io.trino.operator.OperatorAssertion.assertOperatorEqualsIgnoreOrde
 import static io.trino.operator.OperatorAssertion.toMaterializedResult;
 import static io.trino.operator.OperatorAssertion.toPages;
 import static io.trino.operator.WindowFunctionDefinition.window;
-import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -308,46 +307,65 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
     }
 
-    @Test
-    public void testRank()
+    @Test(dataProvider = "spillEnabled")
+    public void testDistinctPartitionAndPeers(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1L, null)
-                .row(2L, 0.2)
-                .row(2L, Double.NaN)
-                .row(3L, 0.1)
-                .row(3L, 0.91)
+        List<Page> input = rowPagesBuilder(DOUBLE, DOUBLE)
+                .row(1.0, 1.0)
+                .row(1.0, 0.0)
+                .row(1.0, Double.NaN)
+                .row(1.0, null)
+                .row(2.0, 2.0)
+                .row(2.0, Double.NaN)
+                .row(Double.NaN, Double.NaN)
+                .row(Double.NaN, Double.NaN)
+                .row(null, null)
+                .row(null, 1.0)
+                .row(null, null)
                 .pageBreak()
-                .row(1L, 0.4)
-                .pageBreak()
-                .row(1L, null)
-                .row(2L, 0.7)
-                .row(2L, Double.NaN)
+                .row(1.0, Double.NaN)
+                .row(1.0, null)
+                .row(2.0, 2.0)
+                .row(2.0, null)
+                .row(Double.NaN, 3.0)
+                .row(Double.NaN, null)
+                .row(null, 2.0)
+                .row(null, null)
                 .build();
 
         WindowOperatorFactory operatorFactory = createFactoryUnbounded(
-                ImmutableList.of(BIGINT, DOUBLE),
-                Ints.asList(1, 0),
+                ImmutableList.of(DOUBLE, DOUBLE),
+                Ints.asList(0, 1),
                 RANK,
                 Ints.asList(0),
                 Ints.asList(1),
-                ImmutableList.copyOf(new SortOrder[] {ASC_NULLS_FIRST}),
-                false);
+                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                spillEnabled);
 
-        DriverContext driverContext = createDriverContext();
-        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
-                .row(null, 1L, 1L)
-                .row(null, 1L, 1L)
-                .row(0.4, 1L, 3L)
-                .row(0.2, 2L, 1L)
-                .row(0.7, 2L, 2L)
-                .row(Double.NaN, 2L, 3L)
-                .row(Double.NaN, 2L, 4L)
-                .row(0.1, 3L, 1L)
-                .row(0.91, 3L, 2L)
+        DriverContext driverContext = createDriverContext(memoryLimit);
+        MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, DOUBLE, BIGINT)
+                .row(1.0, 0.0, 1L)
+                .row(1.0, 1.0, 2L)
+                .row(1.0, Double.NaN, 3L)
+                .row(1.0, Double.NaN, 3L)
+                .row(1.0, null, 5L)
+                .row(1.0, null, 5L)
+                .row(2.0, 2.0, 1L)
+                .row(2.0, 2.0, 1L)
+                .row(2.0, Double.NaN, 3L)
+                .row(2.0, null, 4L)
+                .row(Double.NaN, 3.0, 1L)
+                .row(Double.NaN, Double.NaN, 2L)
+                .row(Double.NaN, Double.NaN, 2L)
+                .row(Double.NaN, null, 4L)
+                .row(null, 1.0, 1L)
+                .row(null, 2.0, 2L)
+                .row(null, null, 3L)
+                .row(null, null, 3L)
+                .row(null, null, 3L)
                 .build();
 
-        assertOperatorEquals(operatorFactory, driverContext, input, expected);
+        assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
     @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node user memory limit of 10B.*")

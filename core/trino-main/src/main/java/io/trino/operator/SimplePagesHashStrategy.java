@@ -155,12 +155,38 @@ public class SimplePagesHashStrategy
     }
 
     @Override
+    public boolean rowNotDistinctFromRow(int leftPosition, Page leftPage, int rightPosition, Page rightPage)
+    {
+        for (int i = 0; i < hashChannels.size(); i++) {
+            Block leftBlock = leftPage.getBlock(i);
+            Block rightBlock = rightPage.getBlock(i);
+            if (isDistinctFromOperators.get(i).isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
     public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
             Block leftBlock = channels.get(hashChannels.get(i)).get(leftBlockIndex);
             Block rightBlock = rightPage.getBlock(i);
             if (!equalOperators.get(i).equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage)
+    {
+        for (int i = 0; i < hashChannels.size(); i++) {
+            Block leftBlock = channels.get(hashChannels.get(i)).get(leftBlockIndex);
+            Block rightBlock = rightPage.getBlock(i);
+            if (isDistinctFromOperators.get(i).isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
@@ -204,6 +230,20 @@ public class SimplePagesHashStrategy
             Block leftBlock = channel.get(leftBlockIndex);
             Block rightBlock = channel.get(rightBlockIndex);
             if (!equalOperators.get(i).equalNullSafe(leftBlock, leftPosition, rightBlock, rightPosition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public boolean positionNotDistinctFromPosition(int leftBlockIndex, int leftPosition, int rightBlockIndex, int rightPosition)
+    {
+        for (int i = 0; i < hashChannels.size(); i++) {
+            List<Block> channel = channels.get(hashChannels.get(i));
+            Block leftBlock = channel.get(leftBlockIndex);
+            Block rightBlock = channel.get(rightBlockIndex);
+            if (isDistinctFromOperators.get(i).isDistinctFrom(leftBlock, leftPosition, rightBlock, rightPosition)) {
                 return false;
             }
         }
