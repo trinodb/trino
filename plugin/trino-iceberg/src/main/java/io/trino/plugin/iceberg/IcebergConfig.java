@@ -26,6 +26,7 @@ public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
+    private boolean useFileSizeFromMetadata = true;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -50,6 +51,27 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isUseFileSizeFromMetadata()
+    {
+        return useFileSizeFromMetadata;
+    }
+
+    /**
+     * Some Iceberg writers populate incorrect file sizes in the metadata. When
+     * this property is set to false, Trino ignores the stored values and fetches
+     * them with a getFileStatus call. This means an additional call per split,
+     * so it is recommended for a Trino admin to fix the metadata, rather than
+     * relying on this property for too long.
+     */
+    @Deprecated
+    @Config("iceberg.use-file-size-from-metadata")
+    public IcebergConfig setUseFileSizeFromMetadata(boolean useFileSizeFromMetadata)
+    {
+        this.useFileSizeFromMetadata = useFileSizeFromMetadata;
         return this;
     }
 }

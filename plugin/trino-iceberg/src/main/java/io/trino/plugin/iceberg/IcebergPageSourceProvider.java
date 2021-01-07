@@ -58,6 +58,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
@@ -93,6 +94,7 @@ import static io.trino.plugin.hive.parquet.ParquetColumnIOConverter.constructFie
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CURSOR_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_MISSING_DATA;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcLazyReadSmallRanges;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcMaxBufferSize;
@@ -103,6 +105,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcTinyStripeT
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
@@ -182,6 +185,17 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate)
     {
+        if (!isUseFileSizeFromMetadata(session)) {
+            try {
+                FileStatus fileStatus = hdfsEnvironment.doAs(session.getUser(),
+                        () -> hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path));
+                fileSize = fileStatus.getLen();
+            }
+            catch (IOException e) {
+                throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, e);
+            }
+        }
+
         switch (fileFormat) {
             case ORC:
                 return createOrcPageSource(

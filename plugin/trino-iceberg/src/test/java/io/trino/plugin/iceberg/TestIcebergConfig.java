@@ -33,7 +33,8 @@ public class TestIcebergConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(ORC)
-                .setCompressionCodec(GZIP));
+                .setCompressionCodec(GZIP)
+                .setUseFileSizeFromMetadata(true));
     }
 
     @Test
@@ -42,11 +43,13 @@ public class TestIcebergConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
+                .put("iceberg.use-file-size-from-metadata", "false")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(PARQUET)
-                .setCompressionCodec(HiveCompressionCodec.NONE);
+                .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setUseFileSizeFromMetadata(false);
 
         assertFullMapping(properties, expected);
     }

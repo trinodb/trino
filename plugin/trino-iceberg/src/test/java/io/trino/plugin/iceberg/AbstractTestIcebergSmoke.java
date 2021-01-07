@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -35,10 +36,20 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testng.services.Flaky;
 import io.trino.transaction.TransactionBuilder;
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.io.File;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -53,6 +64,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.spi.predicate.Domain.multipleValues;
@@ -73,6 +86,7 @@ import static org.apache.iceberg.FileFormat.PARQUET;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -1615,5 +1629,61 @@ public abstract class AbstractTestIcebergSmoke
         // i.e. a query like 'DELETE FROM test_metadata_optimization WHERE b = 6 AND a = 5'
 
         dropTable("test_metadata_optimization");
+    }
+
+    @Test
+    public void testIncorrectIcebergFileSizes()
+            throws Exception
+    {
+        // Create a table with a single insert
+        assertUpdate("CREATE TABLE test_iceberg_file_size (x BIGINT) WITH (format='PARQUET')");
+        assertUpdate("INSERT INTO test_iceberg_file_size VALUES (123), (456), (758)", 3);
+
+        // Get manifest file
+        MaterializedResult result = computeActual("SELECT path FROM \"test_iceberg_file_size$manifests\"");
+        assertEquals(result.getRowCount(), 1);
+        String manifestFile = (String) result.getOnlyValue();
+
+        // Read manifest file
+        Schema schema;
+        GenericData.Record entry = null;
+        try (DataFileReader<GenericData.Record> dataFileReader = new DataFileReader<>(new File(manifestFile), new GenericDatumReader<>())) {
+            schema = dataFileReader.getSchema();
+            int recordCount = 0;
+            while (dataFileReader.hasNext()) {
+                entry = dataFileReader.next();
+                recordCount++;
+            }
+            assertEquals(recordCount, 1);
+        }
+
+        // Alter data file entry to store incorrect file size
+        GenericData.Record dataFile = (GenericData.Record) entry.get("data_file");
+        long alteredValue = 50L;
+        assertNotEquals((long) dataFile.get("file_size_in_bytes"), alteredValue);
+        dataFile.put("file_size_in_bytes", alteredValue);
+
+        // Replace the file through HDFS client. This is required for correct checksums.
+        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession(), "iceberg");
+        Path manifestFilePath = new Path(manifestFile);
+        FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
+
+        // Write altered metadata
+        try (OutputStream out = fs.create(manifestFilePath);
+                DataFileWriter<GenericData.Record> dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(schema))) {
+            dataFileWriter.create(schema, out);
+            dataFileWriter.append(entry);
+        }
+
+        // Ignoring Iceberg provided file size makes the query succeed
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("iceberg", "use_file_size_from_metadata", "false")
+                .build();
+        assertQuery(session, "SELECT * FROM test_iceberg_file_size", "VALUES (123), (456), (758)");
+
+        // Using Iceberg provided file size fails the query
+        assertQueryFails("SELECT * FROM test_iceberg_file_size", format("Error reading tail from .* with length %d", alteredValue));
+
+        dropTable("test_iceberg_file_size");
     }
 }
