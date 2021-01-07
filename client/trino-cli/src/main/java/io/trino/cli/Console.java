@@ -14,6 +14,7 @@
 package io.trino.cli;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import io.airlift.log.Logging;
@@ -248,6 +249,9 @@ public class Console
                     continue;
                 }
                 catch (EndOfFileException e) {
+                    if (!Strings.isNullOrEmpty(e.getPartialLine())) {
+                        reader.getHistory().add(e.getPartialLine());
+                    }
                     System.out.println();
                     return;
                 }
