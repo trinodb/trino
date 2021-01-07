@@ -6,4 +6,4 @@ Migration
     :maxdepth: 1
 
     migration/from-hive
-
+    migration/from-prestosql
