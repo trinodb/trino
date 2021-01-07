@@ -997,9 +997,8 @@ public interface ConnectorMetadata
      * invocation, even if the connector generally supports topN pushdown. Doing otherwise can cause the optimizer
      * to loop indefinitely.
      * <p>
-     * If the connector can handle TopN Pushdown and guarantee it will produce fewer rows than it should return a
+     * If the connector can handle TopN Pushdown and guarantee it will produce no more rows than requested then it should return a
      * non-empty result with "topN guaranteed" flag set to true.
-     * @return
      */
     default Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
             ConnectorSession session,
