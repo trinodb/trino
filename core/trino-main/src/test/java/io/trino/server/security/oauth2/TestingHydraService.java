@@ -49,7 +49,7 @@ public class TestingHydraService
             .withDatabaseName("hydra");
 
     private final GenericContainer<?> migrationContainer = createHydraContainer()
-            .withCommand("migrate sql --yes " + DSN)
+            .withCommand("migrate", "sql", "--yes", DSN)
             .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(ofMinutes(5)));
 
     private final FixedHostPortGenericContainer<?> consentContainer = new FixedHostPortGenericContainer<>("oryd/hydra-login-consent-node:v1.4.2")
@@ -100,14 +100,14 @@ public class TestingHydraService
     public void createConsumer(String callback)
     {
         createHydraContainer()
-                .withCommand("clients create " +
-                        "--endpoint http://hydra:4445 " +
-                        "--id another-consumer " +
-                        "--secret consumer-secret " +
-                        "-g authorization_code,refresh_token " +
-                        "-r token,code,id_token " +
-                        "--scope openid,offline " +
-                        "--callbacks " + callback)
+                .withCommand("clients", "create",
+                        "--endpoint", "http://hydra:4445",
+                        "--id", "another-consumer",
+                        "--secret", "consumer-secret",
+                        "-g", "authorization_code,refresh_token",
+                        "-r", "token,code,id_token",
+                        "--scope", "openid,offline",
+                        "--callbacks", callback)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
     }
