@@ -94,6 +94,12 @@ public class IcebergHadoopMetadata
         return getHadoopCatalog(session, warehouse);
     }
 
+    /**
+     * Get catalog a given location.
+     * @param session
+     * @param location
+     * @return
+     */
     private HadoopCatalog getHadoopCatalog(ConnectorSession session, String location)
     {
         HdfsContext hdfsContext = new HdfsContext(session, "not used");
