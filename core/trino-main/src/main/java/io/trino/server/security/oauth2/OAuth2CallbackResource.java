@@ -100,7 +100,7 @@ public class OAuth2CallbackResource
         if (authId.isEmpty()) {
             return Response
                     .seeOther(URI.create(UI_LOCATION))
-                    .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration(), securityContext.isSecure()))
+                    .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()))
                     .build();
         }
 
@@ -115,7 +115,7 @@ public class OAuth2CallbackResource
 
         ResponseBuilder builder = Response.ok(service.getSuccessHtml());
         if (webUiOAuthEnabled) {
-            builder.cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration(), securityContext.isSecure()));
+            builder.cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()));
         }
         return builder.build();
     }
