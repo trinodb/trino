@@ -13,8 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 
@@ -31,10 +29,7 @@ public final class Range
     private final Marker low;
     private final Marker high;
 
-    @JsonCreator
-    public Range(
-            @JsonProperty("low") Marker low,
-            @JsonProperty("high") Marker high)
+    public Range(Marker low, Marker high)
     {
         requireNonNull(low, "value is null");
         requireNonNull(high, "value is null");
@@ -97,13 +92,11 @@ public final class Range
         return low.getType();
     }
 
-    @JsonProperty
     public Marker getLow()
     {
         return low;
     }
 
-    @JsonProperty
     public Marker getHigh()
     {
         return high;
