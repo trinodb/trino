@@ -248,7 +248,11 @@ public final class TupleDomain<T>
                 intersected.put(entry.getKey(), entry.getValue());
             }
             else {
-                intersected.put(entry.getKey(), intersectionDomain.intersect(entry.getValue()));
+                Domain intersect = intersectionDomain.intersect(entry.getValue());
+                if (intersect.isNone()) {
+                    return TupleDomain.none();
+                }
+                intersected.put(entry.getKey(), intersect);
             }
         }
         return withColumnDomains(intersected);
