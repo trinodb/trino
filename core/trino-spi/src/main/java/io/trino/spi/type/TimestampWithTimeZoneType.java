@@ -18,6 +18,10 @@ import io.trino.spi.TrinoException;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
 
+/**
+ * @see ShortTimestampWithTimeZoneType
+ * @see LongTimestampWithTimeZoneType
+ */
 public abstract class TimestampWithTimeZoneType
         extends AbstractType
         implements FixedWidthType

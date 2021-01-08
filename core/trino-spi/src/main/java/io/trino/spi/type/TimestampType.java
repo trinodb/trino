@@ -19,7 +19,10 @@ import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
 
 /**
- * A timestamp is encoded as milliseconds from 1970-01-01T00:00:00 UTC and is to be interpreted as local date time without regards to any time zone.
+ * A timestamp is to be interpreted as local date time without regards to any time zone.
+ *
+ * @see ShortTimestampType
+ * @see LongTimestampType
  */
 public abstract class TimestampType
         extends AbstractType
