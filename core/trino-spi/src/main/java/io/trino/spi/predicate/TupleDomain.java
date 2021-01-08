@@ -315,6 +315,9 @@ public final class TupleDomain<T>
         Iterator<TupleDomain<T>> domains = tupleDomains.iterator();
         while (domains.hasNext()) {
             TupleDomain<T> domain = domains.next();
+            if (domain.isAll()) {
+                return TupleDomain.all();
+            }
             if (!domain.isNone()) {
                 found = true;
                 commonColumns.addAll(domain.getDomains().get().keySet());
