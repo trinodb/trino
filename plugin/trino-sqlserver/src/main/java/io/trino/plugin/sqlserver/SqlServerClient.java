@@ -24,6 +24,8 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.RemoteTableName;
@@ -64,6 +66,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
@@ -373,7 +376,7 @@ public class SqlServerClient
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        try (Connection connection = connectionFactory.openConnection(session);
+        try (Connection connection = configureConnectionTransactionIsolation(connectionFactory.openConnection(session));
                 Handle handle = Jdbi.open(connection)) {
             return getTableDataCompression(handle, tableHandle)
                     .map(dataCompression -> ImmutableMap.<String, Object>of(DATA_COMPRESSION, dataCompression))
@@ -382,6 +385,35 @@ public class SqlServerClient
         catch (SQLException exception) {
             throw new TrinoException(JDBC_ERROR, exception);
         }
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+            throws SQLException
+    {
+        return configureConnectionTransactionIsolation(super.getConnection(session, handle));
+    }
+
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+            throws SQLException
+    {
+        return configureConnectionTransactionIsolation(super.getConnection(session, split));
+    }
+
+    private static Connection configureConnectionTransactionIsolation(Connection connection)
+            throws SQLException
+    {
+        try {
+            // SQL Server's READ COMMITTED + SNAPSHOT ISOLATION is equivalent to ordinary READ COMMITTED in e.g. Oracle, PostgreSQL.
+            connection.setTransactionIsolation(TRANSACTION_SNAPSHOT);
+        }
+        catch (SQLException e) {
+            connection.close();
+            throw e;
+        }
+
+        return connection;
     }
 
     private static String singleQuote(String... objects)
