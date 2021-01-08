@@ -33,6 +33,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -310,6 +311,21 @@ public class TestSortedRangeSet
     }
 
     @Test
+    public void testContainsValueRejectNull()
+    {
+        SortedRangeSet all = SortedRangeSet.all(BIGINT);
+        SortedRangeSet none = SortedRangeSet.none(BIGINT);
+        SortedRangeSet someRange = SortedRangeSet.of(Range.range(BIGINT, 10L, false, 41L, false));
+
+        assertThatThrownBy(() -> all.containsValue(null))
+                .hasMessage("value is null");
+        assertThatThrownBy(() -> none.containsValue(null))
+                .hasMessage("value is null");
+        assertThatThrownBy(() -> someRange.containsValue(null))
+                .hasMessage("value is null");
+    }
+
+    @Test
     public void testIntersect()
     {
         assertEquals(
@@ -381,6 +397,16 @@ public class TestSortedRangeSet
                 SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)),
                 SortedRangeSet.of(Range.lessThan(BIGINT, 0L)),
                 SortedRangeSet.of(BIGINT, 0L).complement());
+
+        assertUnion(
+                SortedRangeSet.of(Range.range(BIGINT, 0L, true, 10L, false)),
+                SortedRangeSet.of(Range.equal(BIGINT, 9L)),
+                SortedRangeSet.of(Range.range(BIGINT, 0L, true, 10L, false)));
+
+        assertUnion(
+                SortedRangeSet.of(Range.range(createVarcharType(25), utf8Slice("LARGE PLATED "), true, utf8Slice("LARGE PLATED!"), false)),
+                SortedRangeSet.of(Range.equal(createVarcharType(25), utf8Slice("LARGE PLATED NICKEL"))),
+                SortedRangeSet.of(Range.range(createVarcharType(25), utf8Slice("LARGE PLATED "), true, utf8Slice("LARGE PLATED!"), false)));
     }
 
     @Test
