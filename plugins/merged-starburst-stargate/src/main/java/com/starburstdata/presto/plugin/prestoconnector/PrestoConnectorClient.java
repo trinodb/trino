@@ -13,6 +13,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.airlift.log.Logger;
@@ -36,6 +37,7 @@ import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.TableScanRedirectApplicationResult;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.DoubleRange;
@@ -142,11 +144,13 @@ public class PrestoConnectorClient
     private final Cache<FunctionsCacheKey, Set<String>> supportedAggregateFunctions;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final TableStatisticsClient tableStatisticsClient;
+    private final TableScanRedirection tableScanRedirection;
 
     @Inject
     public PrestoConnectorClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
+            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             TypeManager typeManager,
             @EnableWrites boolean enableWrites)
@@ -163,6 +167,7 @@ public class PrestoConnectorClient
                         this::getSupportedAggregateFunctions,
                         this::toTypeHandle)));
         this.tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
+        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }
 
     @Override
@@ -597,6 +602,12 @@ public class PrestoConnectorClient
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
         return tableStatisticsClient.getTableStatistics(session, handle, tupleDomain);
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)

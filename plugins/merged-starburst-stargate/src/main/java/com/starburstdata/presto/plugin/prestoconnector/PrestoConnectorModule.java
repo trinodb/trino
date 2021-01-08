@@ -13,6 +13,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
@@ -53,5 +54,6 @@ public class PrestoConnectorModule
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(PRESTO_CONNECTOR_MAX_DOMAIN_COMPACTION_THRESHOLD);
 
         install(new PrestoConnectorAuthenticationModule());
+        install(new TableScanRedirectionModule());
     }
 }
