@@ -143,7 +143,7 @@ Iceberg table properties
 Property Name                                      Description
 ================================================== ================================================================
 ``format``                                         Optionally specifies the format of table data files;
-                                                   either ``PARQUET`` or ``ORC`.  Defaults to ``ORC``.
+                                                   either ``PARQUET`` or ``ORC``.  Defaults to ``ORC``.
 
 ``partitioning``                                   Optionally specifies table partitioning.
                                                    If a table is partitioned by columns ``c1`` and ``c2``, the
