@@ -44,7 +44,7 @@ public class TestKinesisConfig
                 .setCheckpointEnabled(false)
                 .setDynamoReadCapacity(50)
                 .setDynamoWriteCapacity(10)
-                .setCheckpointInterval(new Duration(60000, TimeUnit.MILLISECONDS))
+                .setCheckpointInterval(new Duration(500, TimeUnit.MILLISECONDS))
                 .setLogicalProcessName("process1")
                 .setIteratorNumber(0));
     }
