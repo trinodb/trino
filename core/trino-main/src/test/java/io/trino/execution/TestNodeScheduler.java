@@ -78,7 +78,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestNodeScheduler
@@ -255,7 +254,7 @@ public class TestNodeScheduler
                     rack2++;
                     break;
                 default:
-                    fail();
+                    throw new AssertionError("Unexpected rack: " + rack);
             }
         }
         assertEquals(rack1, 2);

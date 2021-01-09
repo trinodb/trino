@@ -17,10 +17,8 @@ import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
 
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
@@ -32,8 +30,6 @@ import static io.trino.tests.TestGroups.TRINO_JDBC;
 import static io.trino.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static java.lang.String.format;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestLdapTrinoJdbc
         extends BaseLdapJdbcTest
@@ -102,28 +98,18 @@ public class TestLdapTrinoJdbc
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailQueryForLdapWithoutSsl()
     {
-        try {
-            DriverManager.getConnection("jdbc:trino://" + prestoServer(), ldapUserName, ldapUserPassword);
-            fail();
-        }
-        catch (SQLException exception) {
-            assertEquals(exception.getMessage(), "Authentication using username/password requires SSL to be enabled");
-        }
+        assertThatThrownBy(() -> DriverManager.getConnection("jdbc:trino://" + prestoServer(), ldapUserName, ldapUserPassword))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Authentication using username/password requires SSL to be enabled");
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
     public void shouldFailForIncorrectTrustStore()
     {
-        try {
-            String url = format("jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", prestoServer(), ldapTruststorePath, "wrong_password");
-            Connection connection = DriverManager.getConnection(url, ldapUserName, ldapUserPassword);
-            Statement statement = connection.createStatement();
-            statement.executeQuery(NATION_SELECT_ALL_QUERY);
-            fail();
-        }
-        catch (SQLException exception) {
-            assertEquals(exception.getMessage(), "Error setting up SSL: Keystore was tampered with, or password was incorrect");
-        }
+        String url = format("jdbc:trino://%s?SSL=true&SSLTrustStorePath=%s&SSLTrustStorePassword=%s", prestoServer(), ldapTruststorePath, "wrong_password");
+        assertThatThrownBy(() -> DriverManager.getConnection(url, ldapUserName, ldapUserPassword))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Error setting up SSL: Keystore was tampered with, or password was incorrect");
     }
 
     @Test(groups = {LDAP, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
