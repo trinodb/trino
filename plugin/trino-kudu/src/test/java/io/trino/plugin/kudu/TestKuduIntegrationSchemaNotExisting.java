@@ -19,8 +19,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestKuduIntegrationSchemaNotExisting
         extends AbstractTestQueryFramework
@@ -60,14 +59,8 @@ public class TestKuduIntegrationSchemaNotExisting
                 " partition_by_hash_columns = ARRAY['id'],\n" +
                 " partition_by_hash_buckets = 2\n" +
                 ")";
-
-        try {
-            assertUpdate(createTable);
-            fail();
-        }
-        catch (Exception e) {
-            assertEquals("Schema test_presto_schema not found", e.getMessage());
-        }
+        assertThatThrownBy(() -> assertUpdate(createTable))
+                .hasMessage("Schema test_presto_schema not found");
 
         assertUpdate("CREATE SCHEMA kudu.test_presto_schema");
         assertUpdate(createTable);
