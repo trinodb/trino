@@ -24,10 +24,10 @@ import java.util.List;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestRowReferencePageManager
 {
@@ -38,12 +38,9 @@ public class TestRowReferencePageManager
         Page page = createBigIntSingleBlockPage(0, 0);
         try (RowReferencePageManager.LoadCursor cursor = pageManager.add(page)) {
             assertFalse(cursor.advance());
-            try {
-                cursor.allocateRowId();
-                fail();
-            }
-            catch (IllegalStateException e) {
-            }
+            assertThatThrownBy(cursor::allocateRowId)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessage("Not yet advanced");
         }
         assertEquals(pageManager.getPageBytes(), 0);
     }
