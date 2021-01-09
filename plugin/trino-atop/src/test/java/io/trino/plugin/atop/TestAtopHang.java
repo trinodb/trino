@@ -15,7 +15,6 @@ package io.trino.plugin.atop;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
-import io.trino.spi.TrinoException;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -30,8 +29,7 @@ import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.Resources.toByteArray;
 import static io.trino.plugin.atop.AtopErrorCode.ATOP_READ_TIMEOUT;
 import static io.trino.plugin.atop.LocalAtopQueryRunner.createQueryRunner;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 
 public class TestAtopHang
 {
@@ -56,13 +54,8 @@ public class TestAtopHang
     @Test(timeOut = 60_000)
     public void testTimeout()
     {
-        try {
-            queryRunner.execute("SELECT * FROM disks");
-            fail();
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), ATOP_READ_TIMEOUT.toErrorCode(), e.getMessage());
-        }
+        assertTrinoExceptionThrownBy(() -> queryRunner.execute("SELECT * FROM disks"))
+                .hasErrorCode(ATOP_READ_TIMEOUT);
     }
 
     private void copyExecutable(String name, File target)
