@@ -27,7 +27,6 @@ import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -163,7 +162,7 @@ public final class SqlTimestampWithTimeZone
     {
         long epochSecond = floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
         int nanosOfSecond = floorMod(epochMillis, MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND +
-                toIntExact(roundDiv(picosOfMilli, PICOSECONDS_PER_NANOSECOND));
+                roundDiv(picosOfMilli, PICOSECONDS_PER_NANOSECOND);
 
         // nanosOfSecond overflowing NANOSECONDS_PER_SECOND case is handled by Instant.ofEpochSecond
         return Instant.ofEpochSecond(epochSecond, nanosOfSecond)
