@@ -38,8 +38,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.instruction.Constant.loadBoolean;
 import static io.airlift.bytecode.instruction.Constant.loadDouble;
-import static io.airlift.bytecode.instruction.Constant.loadFloat;
-import static io.airlift.bytecode.instruction.Constant.loadInt;
 import static io.airlift.bytecode.instruction.Constant.loadLong;
 import static io.airlift.bytecode.instruction.Constant.loadString;
 import static io.trino.sql.gen.BytecodeUtils.loadConstant;
@@ -172,14 +170,8 @@ public class RowExpressionCompiler
             if (javaType == boolean.class) {
                 return block.append(loadBoolean((Boolean) value));
             }
-            if (javaType == byte.class || javaType == short.class || javaType == int.class) {
-                return block.append(loadInt(((Number) value).intValue()));
-            }
             if (javaType == long.class) {
                 return block.append(loadLong((Long) value));
-            }
-            if (javaType == float.class) {
-                return block.append(loadFloat((Float) value));
             }
             if (javaType == double.class) {
                 return block.append(loadDouble((Double) value));
