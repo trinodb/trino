@@ -1735,6 +1735,7 @@
                                     -Xep:MissingOverride:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
+                                    -Xep:OptionalEquality:ERROR
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:UnnecessaryMethodReference:ERROR
