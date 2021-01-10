@@ -833,7 +833,9 @@ public final class ExpressionTreeRewriter<C>
                     }
                 }
 
-                if (dataType != field.getType() || name != field.getName()) {
+                @SuppressWarnings("OptionalEquality")
+                boolean nameRewritten = name != field.getName();
+                if (dataType != field.getType() || nameRewritten) {
                     rewritten.add(new RowDataType.Field(field.getLocation(), name, dataType));
                 }
                 else {
