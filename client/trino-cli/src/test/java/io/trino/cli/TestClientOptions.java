@@ -224,7 +224,7 @@ public class TestClientOptions
     private static Console createConsole(String... args)
     {
         Console console = new Console();
-        createCommandLine(console).parseArgs(args);
+        createCommandLine(console).setDefaultValueProvider(null).parseArgs(args);
         return console;
     }
 }
