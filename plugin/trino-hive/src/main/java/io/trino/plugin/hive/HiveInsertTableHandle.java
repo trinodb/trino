@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 
 import java.util.List;
@@ -34,6 +35,7 @@ public class HiveInsertTableHandle
             @JsonProperty("pageSinkMetadata") HivePageSinkMetadata pageSinkMetadata,
             @JsonProperty("locationHandle") LocationHandle locationHandle,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
+            @JsonProperty("sortBy") List<SortingColumn> sortBy,
             @JsonProperty("tableStorageFormat") HiveStorageFormat tableStorageFormat,
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
             @JsonProperty("transaction") AcidTransaction transaction)
@@ -45,6 +47,7 @@ public class HiveInsertTableHandle
                 pageSinkMetadata,
                 locationHandle,
                 bucketProperty,
+                sortBy,
                 tableStorageFormat,
                 partitionStorageFormat,
                 transaction);

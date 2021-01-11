@@ -269,6 +269,7 @@ public class TestHivePageSink
                 config.getHiveStorageFormat(),
                 ImmutableList.of(),
                 Optional.empty(),
+                ImmutableList.of(),
                 "test",
                 ImmutableMap.of(),
                 NO_ACID_TRANSACTION,

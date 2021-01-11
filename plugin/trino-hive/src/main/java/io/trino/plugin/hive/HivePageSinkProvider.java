@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -124,7 +123,7 @@ public class HivePageSinkProvider
     private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, Map<String, String> additionalTableParameters)
     {
         OptionalInt bucketCount = OptionalInt.empty();
-        List<SortingColumn> sortedBy = ImmutableList.of();
+        List<SortingColumn> sortedBy = handle.getSortBy();
 
         if (handle.getBucketProperty().isPresent()) {
             bucketCount = OptionalInt.of(handle.getBucketProperty().get().getBucketCount());

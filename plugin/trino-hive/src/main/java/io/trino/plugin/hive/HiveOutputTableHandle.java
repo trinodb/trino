@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 
 import java.util.List;
@@ -47,6 +48,7 @@ public class HiveOutputTableHandle
             @JsonProperty("partitionStorageFormat") HiveStorageFormat partitionStorageFormat,
             @JsonProperty("partitionedBy") List<String> partitionedBy,
             @JsonProperty("bucketProperty") Optional<HiveBucketProperty> bucketProperty,
+            @JsonProperty("sortBy") List<SortingColumn> sortBy,
             @JsonProperty("tableOwner") String tableOwner,
             @JsonProperty("additionalTableParameters") Map<String, String> additionalTableParameters,
             @JsonProperty("transaction") AcidTransaction transaction,
@@ -59,6 +61,7 @@ public class HiveOutputTableHandle
                 pageSinkMetadata,
                 locationHandle,
                 bucketProperty,
+                sortBy,
                 tableStorageFormat,
                 partitionStorageFormat,
                 transaction);

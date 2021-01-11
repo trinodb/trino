@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePageSinkMetadata;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.spi.connector.SchemaTableName;
 
 import java.util.List;
@@ -33,6 +34,7 @@ public class HiveWritableTableHandle
     private final HivePageSinkMetadata pageSinkMetadata;
     private final LocationHandle locationHandle;
     private final Optional<HiveBucketProperty> bucketProperty;
+    private final List<SortingColumn> sortBy;
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
     private final AcidTransaction transaction;
@@ -44,6 +46,7 @@ public class HiveWritableTableHandle
             HivePageSinkMetadata pageSinkMetadata,
             LocationHandle locationHandle,
             Optional<HiveBucketProperty> bucketProperty,
+            List<SortingColumn> sortBy,
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
             AcidTransaction transaction)
@@ -54,6 +57,7 @@ public class HiveWritableTableHandle
         this.pageSinkMetadata = requireNonNull(pageSinkMetadata, "pageSinkMetadata is null");
         this.locationHandle = requireNonNull(locationHandle, "locationHandle is null");
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
+        this.sortBy = ImmutableList.copyOf(requireNonNull(sortBy, "sortBy is null"));
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.transaction = requireNonNull(transaction);
@@ -99,6 +103,12 @@ public class HiveWritableTableHandle
     public Optional<HiveBucketProperty> getBucketProperty()
     {
         return bucketProperty;
+    }
+
+    @JsonProperty
+    public List<SortingColumn> getSortBy()
+    {
+        return sortBy;
     }
 
     @JsonProperty

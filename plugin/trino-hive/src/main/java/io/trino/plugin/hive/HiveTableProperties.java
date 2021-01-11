@@ -53,6 +53,7 @@ public class HiveTableProperties
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String BUCKET_COUNT_PROPERTY = "bucket_count";
     public static final String SORTED_BY_PROPERTY = "sorted_by";
+    public static final String SORT_BY = "sort_by";
     // TODO: This property represents the subset of columns to be analyzed. This exists mainly because there is no way
     //       to pass the column names to ConnectorMetadata#getStatisticsCollectionMetadata; we should consider passing
     //       ConnectorTableHandle instead of ConnectorTableMetadata as an argument since it makes more information
@@ -128,16 +129,30 @@ public class HiveTableProperties
                                 .map(HiveUtil::sortingColumnToString)
                                 .collect(toImmutableList())),
                 new PropertyMetadata<>(
-                        ORC_BLOOM_FILTER_COLUMNS,
-                        "ORC Bloom filter index columns",
+                        SORT_BY,
+                        "File sorting columns",
                         new ArrayType(VARCHAR),
                         List.class,
                         ImmutableList.of(),
                         false,
                         value -> ((Collection<?>) value).stream()
                                 .map(String.class::cast)
-                                .map(name -> name.toLowerCase(ENGLISH))
+                                .map(HiveUtil::sortingColumnFromString)
                                 .collect(toImmutableList()),
+                        value -> ((Collection<?>) value).stream()
+                                .map(SortingColumn.class::cast)
+                                .map(HiveUtil::sortingColumnToString)
+                                .collect(toImmutableList())),
+                new PropertyMetadata<>(
+                        ORC_BLOOM_FILTER_COLUMNS,
+                        "ORC Bloom filter index columns",
+                        new ArrayType(VARCHAR),
+                        List.class,
+                        ImmutableList.of(),
+                        false,
+                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                                .map(name -> ((String) name).toLowerCase(ENGLISH))
+                                .collect(Collectors.toList())),
                         value -> value),
                 doubleProperty(
                         ORC_BLOOM_FILTER_FPP,
@@ -237,6 +252,13 @@ public class HiveTableProperties
             return BUCKETING_V2;
         }
         throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s must be between 1 and 2 (inclusive): %s", BUCKETING_VERSION, property));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static List<SortingColumn> getSortBy(Map<String, Object> tableProperties)
+    {
+        List<SortingColumn> sortBy = (List<SortingColumn>) tableProperties.get(SORT_BY);
+        return sortBy == null ? ImmutableList.of() : ImmutableList.copyOf(sortBy);
     }
 
     @SuppressWarnings("unchecked")

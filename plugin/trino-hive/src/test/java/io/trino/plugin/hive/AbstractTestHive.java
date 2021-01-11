@@ -215,6 +215,7 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.SORT_BY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
@@ -245,6 +246,7 @@ import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
+import static io.trino.plugin.hive.util.HiveUtil.sortingColumnFromString;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
@@ -5350,6 +5352,53 @@ public abstract class AbstractTestHive
             // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
             // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
             assertFalse(hdfsEnvironment.getFileSystem(context, path).exists(path));
+        }
+    }
+
+    @Test
+    public void testSortBy()
+    {
+        SchemaTableName schemaTableName = temporaryTable("test_sort_by");
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            List<Column> columns = ImmutableList.of(
+                    new Column("sk1", HIVE_STRING, Optional.empty()),
+                    new Column("sk2", HIVE_STRING, Optional.empty()));
+            String tableOwner = session.getUser();
+            String schemaName = schemaTableName.getSchemaName();
+            String tableName = schemaTableName.getTableName();
+            LocationHandle locationHandle = locationService.forNewTable(transaction.getMetastore(), session, schemaName, tableName, Optional.empty());
+            Path targetPath = locationService.getQueryWriteInfo(locationHandle).getTargetPath();
+            // create table with sort_by
+            Table.Builder tableBuilder = Table.builder()
+                    .setDatabaseName(schemaName)
+                    .setTableName(tableName)
+                    .setOwner(tableOwner)
+                    .setTableType(TableType.MANAGED_TABLE.name())
+                    .setParameters(ImmutableMap.of(
+                            PRESTO_VERSION_NAME, TEST_SERVER_VERSION,
+                            PRESTO_QUERY_ID_NAME, session.getQueryId(),
+                            SORT_BY, "sk1,sk2 DESC"))
+                    .setDataColumns(columns)
+                    .withStorage(storage -> storage
+                            .setLocation(targetPath.toString())
+                            .setStorageFormat(fromHiveStorageFormat(ORC))
+                            .setSerdeParameters(ImmutableMap.of()));
+            PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(tableOwner, session.getUser());
+            transaction.getMetastore().createTable(session, tableBuilder.build(), principalPrivileges, Optional.empty(), true, EMPTY_TABLE_STATISTICS);
+            transaction.commit();
+        }
+
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorTableHandle tableHandle = metadata.getTableHandle(newSession(), schemaTableName);
+            ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(newSession(), tableHandle);
+            assertThat(HiveTableProperties.getSortBy(tableMetadata.getProperties())).isEqualTo(ImmutableList.of(
+                    sortingColumnFromString("sk1 ASC"),
+                    sortingColumnFromString("sk2 DESC")));
+        }
+        finally {
+            dropTable(schemaTableName);
         }
     }
 }

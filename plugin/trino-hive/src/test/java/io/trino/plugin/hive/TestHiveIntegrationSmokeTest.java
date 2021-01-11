@@ -95,6 +95,7 @@ import static io.trino.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXEC
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.GROUPED_EXECUTION;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.SKIP_REDUNDANT_SORT;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
@@ -7316,6 +7317,27 @@ public class TestHiveIntegrationSmokeTest
         MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.lineitem");
         MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testSortBy()
+    {
+        String tableName = "test_sort_by";
+        assertUpdate(
+                format("CREATE TABLE %s " +
+                                "WITH (sort_by = ARRAY['nationkey DESC']) " +
+                                "AS " +
+                                "SELECT * FROM tpch.tiny.nation",
+                        tableName),
+                25L);
+        MaterializedResult expected = computeActual(
+                Session.builder(getSession())
+                        .setSystemProperty(SKIP_REDUNDANT_SORT, "false")
+                        .build(),
+                "SELECT * FROM tpch.tiny.nation ORDER BY nationkey DESC");
+        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
+        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
         assertUpdate("DROP TABLE " + tableName);
     }
 

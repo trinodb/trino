@@ -77,6 +77,12 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testSortBy()
+    {
+        // Alluxio metastore does not support create operations
+    }
+
+    @Override
     public void testBucketedTableEvolution()
     {
         // Alluxio metastore does not support create/insert/update operations

@@ -116,6 +116,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -194,6 +195,7 @@ import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.SKIP_FOOTER_LINE_COUNT;
 import static io.trino.plugin.hive.HiveTableProperties.SKIP_HEADER_LINE_COUNT;
 import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.SORT_BY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR_ESCAPE;
@@ -604,6 +606,8 @@ public class HiveMetadata
             properties.put(SORTED_BY_PROPERTY, property.getSortedBy());
         });
 
+        properties.put(SORT_BY, getSortBy(table));
+
         // Transactional properties
         String transactionalProperty = table.getParameters().get(HiveMetadata.TRANSACTIONAL);
         if (parseBoolean(transactionalProperty)) {
@@ -671,6 +675,17 @@ public class HiveMetadata
                     format("Different values for '%s' set in serde properties and table properties: '%s' and '%s'", key, serdePropertyValue, tablePropertyValue));
         }
         return firstNonNullable(tablePropertyValue, serdePropertyValue);
+    }
+
+    private static List<SortingColumn> getSortBy(Table table)
+    {
+        String sortBy = table.getParameters().get(SORT_BY);
+        if (sortBy == null) {
+            return ImmutableList.of();
+        }
+        return Arrays.stream(sortBy.split(","))
+                .map(HiveUtil::sortingColumnFromString)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -847,6 +862,7 @@ public class HiveMetadata
         String tableName = schemaTableName.getTableName();
         List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+        List<SortingColumn> sortBy = HiveTableProperties.getSortBy(tableMetadata.getProperties());
 
         if ((bucketProperty.isPresent() || !partitionedBy.isEmpty()) && getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
             throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
@@ -893,6 +909,7 @@ public class HiveMetadata
                 hiveStorageFormat,
                 partitionedBy,
                 bucketProperty,
+                sortBy,
                 tableProperties,
                 targetPath,
                 external,
@@ -1094,6 +1111,7 @@ public class HiveMetadata
             HiveStorageFormat hiveStorageFormat,
             List<String> partitionedBy,
             Optional<HiveBucketProperty> bucketProperty,
+            List<SortingColumn> sortBy,
             Map<String, String> additionalTableParameters,
             Path targetPath,
             boolean external,
@@ -1124,6 +1142,15 @@ public class HiveMetadata
                 .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, queryId)
                 .putAll(additionalTableParameters);
+
+        if (!sortBy.isEmpty()) {
+            tableParameters.put(
+                    SORT_BY,
+                    String.join(",", sortBy.stream()
+                            .map(HiveUtil::sortingColumnToString)
+                            .peek(column -> verify(!column.contains(","), "Column name contains a comma: " + column))
+                            .collect(toImmutableList())));
+        }
 
         if (external) {
             tableParameters.put("EXTERNAL", "TRUE");
@@ -1349,6 +1376,7 @@ public class HiveMetadata
                 partitionStorageFormat,
                 partitionedBy,
                 bucketProperty,
+                HiveTableProperties.getSortBy(tableMetadata.getProperties()),
                 session.getUser(),
                 tableProperties,
                 transaction,
@@ -1380,6 +1408,7 @@ public class HiveMetadata
                 handle.getTableStorageFormat(),
                 handle.getPartitionedBy(),
                 handle.getBucketProperty(),
+                handle.getSortBy(),
                 handle.getAdditionalTableParameters(),
                 writeInfo.getTargetPath(),
                 handle.isExternal(),
@@ -1598,6 +1627,7 @@ public class HiveMetadata
                 metastore.generatePageSinkMetadata(identity, tableName),
                 locationHandle,
                 table.getStorage().getBucketProperty(),
+                getSortBy(table),
                 tableStorageFormat,
                 isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session),
                 transaction);
@@ -2458,6 +2488,7 @@ public class HiveMetadata
         validateTimestampColumns(tableMetadata.getColumns(), getTimestampPrecision(session));
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
+        validateSortByColumns(tableMetadata);
         validateColumns(tableMetadata);
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         if (bucketProperty.isEmpty()) {
@@ -2626,6 +2657,11 @@ public class HiveMetadata
         if (bucketProperty.isEmpty()) {
             return;
         }
+
+        if (!HiveTableProperties.getSortBy(tableMetadata.getProperties()).isEmpty()) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Use sorted_by instead of sort_by when bucketing is defined");
+        }
+
         Set<String> allColumns = tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
                 .collect(toSet());
@@ -2752,6 +2788,28 @@ public class HiveMetadata
             for (Type fieldType : ((RowType) type).getTypeParameters()) {
                 validateTimestampTypes(fieldType, precision);
             }
+        }
+    }
+
+    private static void validateSortByColumns(ConnectorTableMetadata tableMetadata)
+    {
+        List<String> sortByColumns = HiveTableProperties.getSortBy(tableMetadata.getProperties()).stream()
+                .map(SortingColumn::getColumnName)
+                .collect(toImmutableList());
+        if (sortByColumns.isEmpty()) {
+            return;
+        }
+
+        if (getBucketProperty(tableMetadata.getProperties()).isPresent()) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Use sorted_by instead of sort_by when bucketing is defined");
+        }
+
+        List<String> allColumns = tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .collect(toList());
+
+        if (!allColumns.containsAll(sortByColumns)) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sort by columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortByColumns), ImmutableSet.copyOf(allColumns))));
         }
     }
 
