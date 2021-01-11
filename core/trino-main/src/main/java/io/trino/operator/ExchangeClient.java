@@ -219,12 +219,6 @@ public class ExchangeClient
         }
 
         SerializedPage page = pageBuffer.poll();
-        return postProcessPage(page);
-    }
-
-    private SerializedPage postProcessPage(SerializedPage page)
-    {
-        checkState(!Thread.holdsLock(this), "Cannot get next page while holding a lock on this");
 
         if (page == null) {
             return null;
@@ -244,12 +238,10 @@ public class ExchangeClient
             if (!closed.get()) {
                 bufferRetainedSizeInBytes -= page.getRetainedSizeInBytes();
                 systemMemoryContext.setBytes(bufferRetainedSizeInBytes);
-                if (pageBuffer.peek() == NO_MORE_PAGES) {
-                    close();
-                }
             }
+            scheduleRequestIfNecessary();
         }
-        scheduleRequestIfNecessary();
+
         return page;
     }
 
