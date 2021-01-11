@@ -18,7 +18,7 @@ import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteri
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.license.StarburstPrestoFeature.PRESTO_CONNECTOR;
+import static com.starburstdata.presto.license.StarburstPrestoFeature.STARBURST_CONNECTOR;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
@@ -28,7 +28,7 @@ public class PrestoConnectorPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new LicenceCheckingConnectorFactory(PRESTO_CONNECTOR, getConnectorFactory(new LicenseManagerProvider().get(), false)));
+        return ImmutableList.of(new LicenceCheckingConnectorFactory(STARBURST_CONNECTOR, getConnectorFactory(new LicenseManagerProvider().get(), false)));
     }
 
     @VisibleForTesting
@@ -36,8 +36,8 @@ public class PrestoConnectorPlugin
     {
         requireNonNull(licenseManager, "licenseManager is null");
         return new DynamicFilteringJdbcConnectorFactory(
-                // "presto-connector" will be used also for the parallel variant, with implementation chosen by a configuration property
-                "presto-connector",
+                // "starburst-remote" will be used also for the parallel variant, with implementation chosen by a configuration property
+                "starburst-remote",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
                         binder -> binder.bind(Boolean.class).annotatedWith(EnableWrites.class).toInstance(enableWrites),

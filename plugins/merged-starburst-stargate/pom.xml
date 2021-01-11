@@ -9,6 +9,7 @@
         <relativePath>../..</relativePath>
     </parent>
 
+    <!-- TODO https://starburstdata.atlassian.net/browse/PRESTO-5104 change to something appropriate -->
     <artifactId>starburst-presto-connector</artifactId>
     <description>Starburst Presto - Presto-Presto Connector</description>
     <packaging>presto-plugin</packaging>

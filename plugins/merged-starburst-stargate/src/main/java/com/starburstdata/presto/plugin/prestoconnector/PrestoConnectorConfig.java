@@ -13,6 +13,7 @@ import io.airlift.configuration.Config;
 
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.PASSWORD;
 
+// TODO https://starburstdata.atlassian.net/browse/PRESTO-5104 update the name
 public class PrestoConnectorConfig
 {
     private PrestoAuthenticationType prestoAuthenticationType = PASSWORD;
@@ -22,7 +23,7 @@ public class PrestoConnectorConfig
         return prestoAuthenticationType;
     }
 
-    @Config("presto.authentication.type")
+    @Config("starburst.authentication.type")
     public PrestoConnectorConfig setPrestoAuthenticationType(PrestoAuthenticationType prestoAuthenticationType)
     {
         this.prestoAuthenticationType = prestoAuthenticationType;

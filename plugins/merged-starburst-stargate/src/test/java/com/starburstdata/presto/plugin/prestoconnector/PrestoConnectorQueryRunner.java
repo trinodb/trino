@@ -202,7 +202,7 @@ public final class PrestoConnectorQueryRunner
             connectorProperties.putIfAbsent("connection-user", "p2p");
 
             queryRunner.installPlugin(new TestingPrestoConnectorPlugin(enableWrites));
-            queryRunner.createCatalog("p2p_remote", "presto-connector", connectorProperties);
+            queryRunner.createCatalog("p2p_remote", "starburst-remote", connectorProperties);
 
             return queryRunner;
         }
@@ -258,14 +258,14 @@ public final class PrestoConnectorQueryRunner
                         "allow-drop-table", "true"));
         queryRunner.createCatalog(
                 "p2p_remote_postgresql",
-                "presto-connector",
+                "starburst-remote",
                 Map.of(
                         "connection-user", "p2p",
                         "connection-url", prestoConnectorConnectionUrl(remotePresto, "postgresql"),
                         "allow-drop-table", "true"));
         queryRunner.createCatalog(
                 "p2p_remote_hive",
-                "presto-connector",
+                "starburst-remote",
                 Map.of(
                         "connection-user", "p2p",
                         "connection-url", prestoConnectorConnectionUrl(remotePresto, "hive"),

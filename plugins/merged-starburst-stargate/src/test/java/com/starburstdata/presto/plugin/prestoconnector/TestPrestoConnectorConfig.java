@@ -33,7 +33,7 @@ public class TestPrestoConnectorConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("presto.authentication.type", "PASSWORD_PASS_THROUGH")
+                .put("starburst.authentication.type", "PASSWORD_PASS_THROUGH")
                 .build();
 
         PrestoConnectorConfig expected = new PrestoConnectorConfig()

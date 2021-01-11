@@ -31,7 +31,7 @@ public class TestPrestoConnectorPlugin
         assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:presto://localhost:8080/test", "connection-user", "presto"), new TestingConnectorContext()))
 
                 .isInstanceOf(RuntimeException.class)
-                .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: presto-connector");
+                .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: starburst-connector");
     }
 
     @Test
@@ -47,7 +47,7 @@ public class TestPrestoConnectorPlugin
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Invalid Presto JDBC URL");
 
-        assertThatThrownBy(() -> createTestingPlugin(ImmutableMap.of("connection-url", "jdbc:presto://localhost:8080/test", "presto.authentication.type", "PASSWORD")))
+        assertThatThrownBy(() -> createTestingPlugin(ImmutableMap.of("connection-url", "jdbc:presto://localhost:8080/test", "starburst.authentication.type", "PASSWORD")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Connection user is not configured");
     }
