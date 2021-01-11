@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.CliExecutable;
 import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -50,6 +51,7 @@ public final class MultinodeTls
 
     private final String imagesVersion;
     private final File serverPackage;
+    private final File cliExecutable;
     private final boolean debug;
 
     @Inject
@@ -60,6 +62,7 @@ public final class MultinodeTls
             Hadoop hadoop,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
+            @CliExecutable File cliExecutable,
             @Debug boolean debug)
     {
         super(ImmutableList.of(standard, hadoop));
@@ -67,6 +70,7 @@ public final class MultinodeTls
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
+        this.cliExecutable = requireNonNull(cliExecutable, "cliExecutable is null");
         this.debug = debug;
     }
 
@@ -90,7 +94,7 @@ public final class MultinodeTls
 
     private DockerContainer createPrestoWorker(String workerName)
     {
-        return createPrestoContainer(dockerFiles, serverPackage, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, workerName)
+        return createPrestoContainer(dockerFiles, serverPackage, cliExecutable, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, workerName)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls/config-worker.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)

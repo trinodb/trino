@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.env.common;
 
 import io.airlift.log.Logger;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.CliExecutable;
 import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -70,6 +71,8 @@ public final class Standard
 
     private final String imagesVersion;
     private final File serverPackage;
+    private final File cliExecutable;
+
     private final boolean debug;
 
     @Inject
@@ -78,12 +81,14 @@ public final class Standard
             PortBinder portBinder,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage,
+            @CliExecutable File cliExecutable,
             @Debug boolean debug)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
+        this.cliExecutable = requireNonNull(cliExecutable, "cliExecutable is null");
         this.debug = debug;
         checkArgument(serverPackage.getName().endsWith(".tar.gz"), "Currently only server .tar.gz package is supported");
     }
@@ -98,7 +103,7 @@ public final class Standard
     private DockerContainer createPrestoMaster()
     {
         DockerContainer container =
-                createPrestoContainer(dockerFiles, serverPackage, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, COORDINATOR)
+                createPrestoContainer(dockerFiles, serverPackage, cliExecutable, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, COORDINATOR)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
@@ -111,6 +116,7 @@ public final class Standard
     {
         DockerContainer container = new DockerContainer("ghcr.io/trinodb/testing/centos6-oj8:" + imagesVersion, TESTS)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withFileSystemBind(cliExecutable.getPath(), "/docker/trino-cli", READ_ONLY)
                 .withCommand("bash", "-xeuc", "echo 'No command provided' >&2; exit 69")
                 .waitingFor(new WaitAllStrategy()) // don't wait
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy());
@@ -119,7 +125,7 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, boolean debug, String dockerImageName, String logicalName)
+    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, File cliExecutable, boolean debug, String dockerImageName, String logicalName)
     {
         DockerContainer container = new DockerContainer(dockerImageName, logicalName)
                 .withNetworkAliases(logicalName + ".docker.cluster")
@@ -129,6 +135,7 @@ public final class Standard
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("health-checks/trino-health-check.sh")), CONTAINER_HEALTH_D + "trino-health-check.sh")
                 // the server package is hundreds MB and file system bind is much more efficient
                 .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
+                .withFileSystemBind(cliExecutable.getPath(), "/docker/trino-cli", READ_ONLY)
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingForAll(forLogMessage(".*======== SERVER STARTED ========.*", 1), forHealthcheck())
