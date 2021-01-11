@@ -141,12 +141,12 @@ There are four selectors, that define which queries run in which resource group:
   dynamically-created per-user pipeline group under the ``global.pipeline`` group.
 
 * The fifth selector matches queries that come from BI tools which have a source matching the regular
-  expression ``jdbc#(?<toolname>.*)``, and have client provided tags that are a superset of ``hi-pri``.
-  These are placed in a dynamically-created sub-group under the ``global.pipeline.tools`` group. The dynamic
-  sub-group are created based on the named variable ``toolname``, which is extracted from the in the
-  regular expression for source. Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and
-  client tags ``hipri`` and ``fast``. This query is routed to the ``global.pipeline.bi-powerfulbi.kayla``
-  resource group.
+  expression ``jdbc#(?<toolname>.*)`` and have client provided tags that are a superset of ``hipri``.
+  These are placed in a dynamically-created sub-group under the ``global.adhoc`` group.
+  The dynamic sub-groups are created based on the values of named variables ``toolname`` and ``user``.
+  The values are derived from the source regular expression and the query user respectively.
+  Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and client tags ``hipri`` and ``fast``.
+  This query is routed to the ``global.adhoc.bi-powerfulbi.kayla`` resource group.
 
 * The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
   adhoc group.
