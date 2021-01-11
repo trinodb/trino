@@ -293,7 +293,10 @@ public class OrcPageSourceFactory
                         .collect(Collectors.groupingBy(
                                 HiveColumnHandle::getBaseColumnName,
                                 mapping(
-                                        column -> column.getHiveColumnProjectionInfo().map(HiveColumnProjectionInfo::getDereferenceNames).orElse(ImmutableList.<String>of()),
+                                        column -> column.getHiveColumnProjectionInfo()
+                                                .map(HiveColumnProjectionInfo::getDereferenceNames)
+                                                .map(names -> names.stream().map(name -> name.toLowerCase(ENGLISH)).collect(toUnmodifiableList()))
+                                                .orElse(ImmutableList.<String>of()),
                                         toList())));
             }
             else {
@@ -301,7 +304,10 @@ public class OrcPageSourceFactory
                         .collect(Collectors.groupingBy(
                                 HiveColumnHandle::getBaseHiveColumnIndex,
                                 mapping(
-                                        column -> column.getHiveColumnProjectionInfo().map(HiveColumnProjectionInfo::getDereferenceNames).orElse(ImmutableList.<String>of()),
+                                        column -> column.getHiveColumnProjectionInfo()
+                                                .map(HiveColumnProjectionInfo::getDereferenceNames)
+                                                .map(names -> names.stream().map(name -> name.toLowerCase(ENGLISH)).collect(toUnmodifiableList()))
+                                                .orElse(ImmutableList.<String>of()),
                                         toList())));
             }
 
