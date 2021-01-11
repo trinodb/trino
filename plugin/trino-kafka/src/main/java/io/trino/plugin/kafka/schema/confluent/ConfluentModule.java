@@ -68,19 +68,23 @@ public class ConfluentModule
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(TableDescriptionSupplier.class).toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, SchemaParser.class).addBinding("AVRO").to(AvroSchemaParser.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, SchemaRegistryPropertiesProvider.class);
     }
 
     @Provides
     @Singleton
-    public static SchemaRegistryClient getSchemaRegistryClient(ConfluentSchemaRegistryConfig confluentConfig, Set<SchemaProvider> schemaProviders)
+    public static SchemaRegistryClient getSchemaRegistryClient(ConfluentSchemaRegistryConfig confluentConfig, Set<SchemaProvider> schemaProviders, Set<SchemaRegistryPropertiesProvider> schemaRegistryPropertiesProviders)
     {
+        ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+        schemaRegistryPropertiesProviders.stream()
+                .forEach(provider -> builder.putAll(provider.getConfigurationProperties()));
         return new CachedSchemaRegistryClient(
                 confluentConfig.getConfluentSchemaRegistryUrls().stream()
                         .map(HostAddress::getHostText)
                         .collect(toImmutableList()),
                 confluentConfig.getConfluentSchemaRegistryClientCacheSize(),
                 ImmutableList.copyOf(schemaProviders),
-                ImmutableMap.of());
+                builder.build());
     }
 
     private static class ConfluentDecoderModule
