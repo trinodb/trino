@@ -39,7 +39,8 @@ public final class Trino
                 .registerConverter(ClientSessionProperty.class, ClientSessionProperty::new)
                 .registerConverter(ClientExtraCredential.class, ClientExtraCredential::new)
                 .registerConverter(HostAndPort.class, HostAndPort::fromString)
-                .registerConverter(Duration.class, Duration::valueOf);
+                .registerConverter(Duration.class, Duration::valueOf)
+                .setResourceBundle(new ClientOptions.DefaultsBundle());
     }
 
     public static class VersionProvider

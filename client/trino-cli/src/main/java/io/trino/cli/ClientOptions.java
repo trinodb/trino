@@ -14,8 +14,10 @@
 package io.trino.cli;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CaseFormat;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
@@ -27,6 +29,7 @@ import java.net.URISyntaxException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListResourceBundle;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -35,6 +38,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.common.collect.Maps.immutableEntry;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static java.util.Collections.emptyMap;
 import static java.util.Locale.ENGLISH;
@@ -47,28 +51,28 @@ public class ClientOptions
     private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E); // spaces are not allowed
     private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-    @Option(names = "--server", paramLabel = "<server>", defaultValue = "localhost:8080", description = "Trino server location " + DEFAULT_VALUE)
+    @Option(names = "--server", paramLabel = "<server>", defaultValue = "${defaults:server}", description = "Trino server location " + DEFAULT_VALUE)
     public String server;
 
-    @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", defaultValue = "$${SERVICE}@$${HOST}", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
+    @Option(names = "--krb5-service-principal-pattern", paramLabel = "<pattern>", defaultValue = "${defaults:krb5-service-principal-pattern}", description = "Remote kerberos service principal pattern " + DEFAULT_VALUE)
     public String krb5ServicePrincipalPattern;
 
-    @Option(names = "--krb5-remote-service-name", paramLabel = "<name>", description = "Remote peer's kerberos service name")
+    @Option(names = "--krb5-remote-service-name", paramLabel = "<name>", defaultValue = "${defaults:krb5-remote-service-name}", description = "Remote peer's kerberos service name " + DEFAULT_VALUE)
     public String krb5RemoteServiceName;
 
-    @Option(names = "--krb5-config-path", paramLabel = "<path>", defaultValue = "/etc/krb5.conf", description = "Kerberos config file path " + DEFAULT_VALUE)
+    @Option(names = "--krb5-config-path", paramLabel = "<path>", defaultValue = "${defaults:krb5-config-path}", description = "Kerberos config file path " + DEFAULT_VALUE)
     public String krb5ConfigPath;
 
-    @Option(names = "--krb5-keytab-path", paramLabel = "<path>", defaultValue = "/etc/krb5.keytab", description = "Kerberos key table path " + DEFAULT_VALUE)
+    @Option(names = "--krb5-keytab-path", paramLabel = "<path>", defaultValue = "${defaults:krb5-keytab-path}", description = "Kerberos key table path " + DEFAULT_VALUE)
     public String krb5KeytabPath;
 
-    @Option(names = "--krb5-credential-cache-path", paramLabel = "<path>", description = "Kerberos credential cache path")
-    public String krb5CredentialCachePath = defaultCredentialCachePath().orElse(null);
+    @Option(names = "--krb5-credential-cache-path", paramLabel = "<path>", defaultValue = "${defaults:krb5-credential-cache-path}", description = "Kerberos credential cache path " + DEFAULT_VALUE)
+    public String krb5CredentialCachePath;
 
-    @Option(names = "--krb5-principal", paramLabel = "<principal>", description = "Kerberos principal to be used")
+    @Option(names = "--krb5-principal", paramLabel = "<principal>", defaultValue = "${defaults:krb5-principal}", description = "Kerberos principal to be used " + DEFAULT_VALUE)
     public String krb5Principal;
 
-    @Option(names = "--krb5-disable-remote-service-hostname-canonicalization", description = "Disable service hostname canonicalization using the DNS reverse lookup")
+    @Option(names = "--krb5-disable-remote-service-hostname-canonicalization", defaultValue = "${defaults:krb5-disable-remote-service-hostname-canonicalization}", description = "Disable service hostname canonicalization using the DNS reverse lookup " + DEFAULT_VALUE)
     public boolean krb5DisableRemoteServiceHostnameCanonicalization;
 
     @Option(names = "--keystore-path", paramLabel = "<path>", description = "Keystore path")
@@ -163,6 +167,38 @@ public class ClientOptions
 
     @Option(names = "--disable-compression", description = "Disable compression of query results")
     public boolean disableCompression;
+
+    public static class DefaultsBundle
+            extends ListResourceBundle
+    {
+        @Override
+        protected Object[][] getContents()
+        {
+            return ImmutableList.<Map.Entry<String, String>>builder()
+                    .add(getDefaultValue("server", "localhost:8080"))
+                    .add(immutableEntry("krb5-credential-cache-path", defaultCredentialCachePath().orElse("")))
+                    .add(getDefaultValue("krb5-service-principal-pattern", "$${SERVICE}@$${HOST}}"))
+                    .add(getDefaultValue("krb5-config-path", "/etc/krb5.conf"))
+                    .add(getDefaultValue("krb5-keytab-path", "/etc/krb5.keytab"))
+                    .add(getDefaultValue("krb5-remote-service-name", ""))
+                    .add(getDefaultValue("krb5-principal", ""))
+                    .add(getDefaultValue("krb5-disable-remote-service-hostname-canonicalization", "false"))
+                    .build()
+                    .stream()
+                    .map(entry -> new Object[]{entry.getKey(), entry.getValue()})
+                    .toArray(Object[][]::new);
+        }
+    }
+
+    private static Map.Entry<String, String> getDefaultValue(String key, String defaultValue)
+    {
+        String environmentKey = "TRINO_" + CaseFormat.LOWER_HYPHEN.to(CaseFormat.UPPER_UNDERSCORE, key);
+        String value = System.getenv(environmentKey);
+        if (value != null) {
+            return immutableEntry("defaults:" + key, value);
+        }
+        return immutableEntry("defaults:" + key, defaultValue);
+    }
 
     public enum OutputFormat
     {
