@@ -307,6 +307,8 @@ public class PartitionedOutputOperator
 
     private static class PagePartitioner
     {
+        private static final int REPLICATE = -1;
+
         private final OutputBuffer outputBuffer;
         private final List<Type> sourceTypes;
         private final PartitionFunction partitionFunction;
@@ -407,19 +409,65 @@ public class PartitionedOutputOperator
         {
             requireNonNull(page, "page is null");
 
+            if (page.getPositionCount() == 0) {
+                return;
+            }
+
             Page partitionFunctionArgs = getPartitionFunctionArguments(page);
-            for (int position = 0; position < page.getPositionCount(); position++) {
-                boolean shouldReplicate = (replicatesAnyRow && !hasAnyRowBeenReplicated) ||
-                        nullChannel.isPresent() && page.getBlock(nullChannel.getAsInt()).isNull(position);
-                if (shouldReplicate) {
-                    for (PageBuilder pageBuilder : pageBuilders) {
-                        appendRow(pageBuilder, page, position);
-                    }
-                    hasAnyRowBeenReplicated = true;
-                }
-                else {
+            int partitionCount = partitionFunction.getPartitionCount();
+            int[] partitions = new int[page.getPositionCount()];
+            int[] rowCount = new int[partitionCount];
+            int replicatedRowCount = 0;
+
+            if (nullChannel.isEmpty()) {
+                for (int position = 0; position < page.getPositionCount(); position++) {
                     int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
-                    appendRow(pageBuilders[partition], page, position);
+                    partitions[position] = partition;
+                    rowCount[partition]++;
+                }
+            }
+            else {
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    if (page.getBlock(nullChannel.getAsInt()).isNull(position)) {
+                        partitions[position] = REPLICATE;
+                        replicatedRowCount++;
+                    }
+                    else {
+                        int partition = partitionFunction.getPartition(partitionFunctionArgs, position);
+                        partitions[position] = partition;
+                        rowCount[partition]++;
+                    }
+                }
+            }
+
+            if (replicatesAnyRow && !hasAnyRowBeenReplicated) {
+                if (replicatedRowCount == 0) {
+                    rowCount[partitions[0]]--;
+                    replicatedRowCount = 1;
+                    partitions[0] = REPLICATE;
+                }
+                hasAnyRowBeenReplicated = true;
+            }
+
+            for (int i = 0; i < partitionCount; i++) {
+                pageBuilders[i].declarePositions(replicatedRowCount + rowCount[i]);
+            }
+
+            // Do a per-column (block) outer loop instead of per-row
+            for (int channel = 0; channel < sourceTypes.size(); channel++) {
+                Type type = sourceTypes.get(channel);
+                Block sourceBlock = page.getBlock(channel);
+
+                for (int position = 0; position < page.getPositionCount(); position++) {
+                    int partition = partitions[position];
+                    if (partition == REPLICATE) {
+                        for (int i = 0; i < partitionCount; i++) {
+                            type.appendTo(sourceBlock, position, pageBuilders[i].getBlockBuilder(channel));
+                        }
+                    }
+                    else {
+                        type.appendTo(sourceBlock, position, pageBuilders[partitions[position]].getBlockBuilder(channel));
+                    }
                 }
             }
             flush(false);
@@ -443,16 +491,6 @@ public class PartitionedOutputOperator
                 }
             }
             return new Page(page.getPositionCount(), blocks);
-        }
-
-        private void appendRow(PageBuilder pageBuilder, Page page, int position)
-        {
-            pageBuilder.declarePosition();
-
-            for (int channel = 0; channel < sourceTypes.size(); channel++) {
-                Type type = sourceTypes.get(channel);
-                type.appendTo(page.getBlock(channel), position, pageBuilder.getBlockBuilder(channel));
-            }
         }
 
         public void flush(boolean force)
