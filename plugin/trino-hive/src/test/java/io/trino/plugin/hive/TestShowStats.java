@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.BeforeClass;
@@ -85,6 +86,19 @@ public class TestShowStats
 
         assertQuery(
                 "SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey = 1)",
+                "VALUES " +
+                        "   ('regionkey', null, 1.0, 0.0, null, 1, 1), " +
+                        "   ('nationkey', null, 5.0, 0.0, null, 1, 24), " +
+                        "   ('name', 38.0, 5.0, 0.0, null, null, null), " +
+                        "   ('comment', 500.0, 5.0, 0.0, null, null, null), " +
+                        "   (null, null, null, null, 5.0, null, null)");
+
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SHOW STATS FOR (SELECT * FROM nation_partitioned WHERE regionkey = ?)")
+                .build();
+
+        assertQuery(session,
+                "EXECUTE my_query USING 1",
                 "VALUES " +
                         "   ('regionkey', null, 1.0, 0.0, null, 1, 1), " +
                         "   ('nationkey', null, 5.0, 0.0, null, 1, 24), " +
