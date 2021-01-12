@@ -29,6 +29,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test
 public class TestBigQueryIntegrationSmokeTest
@@ -156,5 +157,22 @@ public class TestBigQueryIntegrationSmokeTest
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE bigquery.tpch.orders (\n" +
+                        "   orderkey bigint NOT NULL,\n" +
+                        "   custkey bigint NOT NULL,\n" +
+                        "   orderstatus varchar NOT NULL,\n" +
+                        "   totalprice double NOT NULL,\n" +
+                        "   orderdate date NOT NULL,\n" +
+                        "   orderpriority varchar NOT NULL,\n" +
+                        "   clerk varchar NOT NULL,\n" +
+                        "   shippriority bigint NOT NULL,\n" +
+                        "   comment varchar NOT NULL\n" +
+                        ")");
     }
 }
