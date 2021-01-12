@@ -26,6 +26,7 @@ public class IcebergMetadataFactory
 {
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
+    private final IcebergViewCodec viewCodec;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
 
@@ -34,26 +35,29 @@ public class IcebergMetadataFactory
             IcebergConfig config,
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
+            IcebergViewCodec viewCodec,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskDataJsonCodec)
     {
-        this(metastore, hdfsEnvironment, typeManager, commitTaskDataJsonCodec);
+        this(metastore, hdfsEnvironment, viewCodec, typeManager, commitTaskDataJsonCodec);
     }
 
     public IcebergMetadataFactory(
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
+            IcebergViewCodec viewCodec,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
 
     public IcebergMetadata create()
     {
-        return new IcebergMetadata(metastore, hdfsEnvironment, typeManager, commitTaskCodec);
+        return new IcebergMetadata(metastore, hdfsEnvironment, viewCodec, typeManager, commitTaskCodec);
     }
 }

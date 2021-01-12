@@ -26,9 +26,9 @@ import io.airlift.units.Duration;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveBasicStatistics;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.HiveViewCodec;
 import io.trino.plugin.hive.HiveViewNotSupportedException;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
@@ -126,7 +126,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
-import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
@@ -169,6 +168,7 @@ public class ThriftHiveMetastore
     private final HdfsEnvironment hdfsEnvironment;
     private final HdfsContext hdfsContext;
     private final MetastoreLocator clientProvider;
+    private final HiveViewCodec hiveViewCodec;
     private final double backoffScaleFactor;
     private final Duration minBackoffDelay;
     private final Duration maxBackoffDelay;
@@ -179,7 +179,6 @@ public class ThriftHiveMetastore
     private final boolean authenticationEnabled;
     private final LoadingCache<String, String> delegationTokenCache;
     private final boolean deleteFilesOnDrop;
-    private final boolean translateHiveViews;
 
     private final AtomicInteger chosenGetTableAlternative = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger chosenTableParamAlternative = new AtomicInteger(Integer.MAX_VALUE);
@@ -195,7 +194,7 @@ public class ThriftHiveMetastore
     @Inject
     public ThriftHiveMetastore(
             MetastoreLocator metastoreLocator,
-            HiveConfig hiveConfig,
+            HiveViewCodec hiveViewCodec,
             MetastoreConfig metastoreConfig,
             ThriftMetastoreConfig thriftConfig,
             ThriftMetastoreAuthenticationConfig authenticationConfig,
@@ -203,7 +202,7 @@ public class ThriftHiveMetastore
     {
         this(
                 metastoreLocator,
-                hiveConfig,
+                hiveViewCodec,
                 metastoreConfig,
                 thriftConfig,
                 hdfsEnvironment,
@@ -212,7 +211,7 @@ public class ThriftHiveMetastore
 
     public ThriftHiveMetastore(
             MetastoreLocator metastoreLocator,
-            HiveConfig hiveConfig,
+            HiveViewCodec hiveViewCodec,
             MetastoreConfig metastoreConfig,
             ThriftMetastoreConfig thriftConfig,
             HdfsEnvironment hdfsEnvironment,
@@ -220,6 +219,7 @@ public class ThriftHiveMetastore
     {
         this.hdfsContext = new HdfsContext(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER));
         this.clientProvider = requireNonNull(metastoreLocator, "metastoreLocator is null");
+        this.hiveViewCodec = requireNonNull(hiveViewCodec, "hiveViewCodec is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.backoffScaleFactor = thriftConfig.getBackoffScaleFactor();
         this.minBackoffDelay = thriftConfig.getMinBackoffDelay();
@@ -228,8 +228,6 @@ public class ThriftHiveMetastore
         this.maxRetries = thriftConfig.getMaxRetries();
         this.impersonationEnabled = thriftConfig.isImpersonationEnabled();
         this.deleteFilesOnDrop = thriftConfig.isDeleteFilesOnDrop();
-        requireNonNull(hiveConfig, "hiveConfig is null");
-        this.translateHiveViews = hiveConfig.isTranslateHiveViews();
         requireNonNull(metastoreConfig, "metastoreConfig is null");
         checkArgument(!metastoreConfig.isHideDeltaLakeTables(), "Hiding Delta Lake tables is not supported"); // TODO
         this.maxWaitForLock = thriftConfig.getMaxWaitForTransactionLock();
@@ -930,16 +928,16 @@ public class ThriftHiveMetastore
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
                     .run("getAllViews", stats.getGetAllViews().wrap(() -> {
-                        if (translateHiveViews) {
+                        if (hiveViewCodec.isTranslateHiveView()) {
                             return alternativeCall(
                                     this::createMetastoreClient,
                                     exception -> !isUnknownMethodExceptionalResponse(exception),
                                     chosesGetAllViewsAlternative,
                                     client -> client.getTableNamesByType(databaseName, TableType.VIRTUAL_VIEW.name()),
                                     // fallback to enumerating Presto views only (Hive views will still be executed, but will be listed as tables)
-                                    client -> doGetTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true"));
+                                    client -> doGetTablesWithParameter(databaseName, hiveViewCodec.getPrestoViewFlag(), "true"));
                         }
-                        return doGetTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
+                        return doGetTablesWithParameter(databaseName, hiveViewCodec.getPrestoViewFlag(), "true");
                     }));
         }
         catch (UnknownDBException e) {

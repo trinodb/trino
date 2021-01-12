@@ -217,11 +217,6 @@ import static io.trino.plugin.hive.PartitionAndStatementId.CODEC;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.APPEND;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.NEW;
 import static io.trino.plugin.hive.PartitionUpdate.UpdateMode.OVERWRITE;
-import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.ViewReaderUtil.createViewReader;
-import static io.trino.plugin.hive.ViewReaderUtil.encodeViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.isHiveOrPrestoView;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -284,7 +279,6 @@ public class HiveMetadata
     public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String TABLE_COMMENT = "comment";
-    public static final String STORAGE_TABLE = "storage_table";
     private static final String TRANSACTIONAL = "transactional";
 
     private static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
@@ -309,12 +303,12 @@ public class HiveMetadata
     private final SemiTransactionalHiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
+    private final HiveViewCodec hiveViewCodec;
     private final TypeManager typeManager;
     private final LocationService locationService;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
-    private final boolean translateHiveViews;
     private final boolean hideDeltaLakeTables;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
@@ -325,9 +319,9 @@ public class HiveMetadata
             SemiTransactionalHiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
+            HiveViewCodec hiveViewCodec,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
-            boolean translateHiveViews,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
             LocationService locationService,
@@ -340,12 +334,12 @@ public class HiveMetadata
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
+        this.hiveViewCodec = requireNonNull(hiveViewCodec, "hiveViewCodec is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
-        this.translateHiveViews = translateHiveViews;
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.prestoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -563,7 +557,7 @@ public class HiveMetadata
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        if (!translateHiveViews && isHiveOrPrestoView(table)) {
+        if (!hiveViewCodec.isTranslateHiveView() && hiveViewCodec.canDecodeView(table)) {
             throw new TableNotFoundException(tableName);
         }
 
@@ -1806,7 +1800,7 @@ public class HiveMetadata
         HiveIdentity identity = new HiveIdentity(session);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put(TABLE_COMMENT, "Presto View")
-                .put(PRESTO_VIEW_FLAG, "true")
+                .put(hiveViewCodec.getPrestoViewFlag(), "true")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .build();
@@ -1821,7 +1815,7 @@ public class HiveMetadata
                 .setDataColumns(ImmutableList.of(dummyColumn))
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(properties)
-                .setViewOriginalText(Optional.of(encodeViewData(definition)))
+                .setViewOriginalText(Optional.of(hiveViewCodec.encodeView(definition)))
                 .setViewExpandedText(Optional.of("/* Presto View */"));
 
         tableBuilder.getStorageBuilder()
@@ -1832,7 +1826,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !isPrestoView(existing.get())) {
+            if (!replace || !hiveViewCodec.isPrestoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 
@@ -1926,28 +1920,10 @@ public class HiveMetadata
         if (!filterSchema(viewName.getSchemaName())) {
             return Optional.empty();
         }
-        return metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName())
-                .filter(ViewReaderUtil::canDecodeView)
-                .map(view -> {
-                    if (!translateHiveViews && !isPrestoView(view)) {
-                        throw new HiveViewNotSupportedException(viewName);
-                    }
 
-                    ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager)
-                            .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
-                    // use owner from table metadata if it exists
-                    if (view.getOwner() != null && !definition.isRunAsInvoker()) {
-                        definition = new ConnectorViewDefinition(
-                                definition.getOriginalSql(),
-                                definition.getCatalog(),
-                                definition.getSchema(),
-                                definition.getColumns(),
-                                definition.getComment(),
-                                Optional.of(view.getOwner()),
-                                false);
-                    }
-                    return definition;
-                });
+        return metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName())
+                .filter(hiveViewCodec::canDecodeView)
+                .map(view -> hiveViewCodec.decodeView(metastore, session, view, typeManager, catalogName));
     }
 
     private static boolean filterSchema(String schemaName)

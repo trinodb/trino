@@ -21,6 +21,7 @@ import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
+import io.trino.plugin.hive.HiveViewCodec;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HivePrincipal;
@@ -121,7 +122,13 @@ public class TestCachingHiveMetastore
     private ThriftHiveMetastore createThriftHiveMetastore()
     {
         MetastoreLocator metastoreLocator = new MockMetastoreLocator(mockClient);
-        return new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new MetastoreConfig(), new ThriftMetastoreConfig(), HDFS_ENVIRONMENT, false);
+        return new ThriftHiveMetastore(
+                metastoreLocator,
+                new HiveViewCodec(new HiveConfig()),
+                new MetastoreConfig(),
+                new ThriftMetastoreConfig(),
+                HDFS_ENVIRONMENT,
+                false);
     }
 
     @Test

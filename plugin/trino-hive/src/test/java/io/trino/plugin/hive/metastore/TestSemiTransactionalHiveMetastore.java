@@ -16,8 +16,10 @@ package io.trino.plugin.hive.metastore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.HiveViewCodec;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
@@ -77,6 +79,7 @@ public class TestSemiTransactionalHiveMetastore
     {
         return new SemiTransactionalHiveMetastore(HDFS_ENVIRONMENT,
                 new HiveMetastoreClosure(new TestingHiveMetastore()),
+                new HiveViewCodec(new HiveConfig()),
                 directExecutor(),
                 dropExecutor,
                 directExecutor(),
@@ -114,6 +117,7 @@ public class TestSemiTransactionalHiveMetastore
     {
         return new SemiTransactionalHiveMetastore(HDFS_ENVIRONMENT,
                 new HiveMetastoreClosure(new TestingHiveMetastore()),
+                new HiveViewCodec(new HiveConfig()),
                 directExecutor(),
                 directExecutor(),
                 updateExecutor,

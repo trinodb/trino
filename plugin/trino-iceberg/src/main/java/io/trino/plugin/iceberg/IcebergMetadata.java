@@ -108,12 +108,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
-import static io.trino.plugin.hive.HiveMetadata.STORAGE_TABLE;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
-import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
-import static io.trino.plugin.hive.ViewReaderUtil.PrestoViewReader.decodeMaterializedViewData;
-import static io.trino.plugin.hive.ViewReaderUtil.encodeMaterializedViewData;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
@@ -161,8 +157,11 @@ public class IcebergMetadata
 {
     private static final Logger log = Logger.get(IcebergMetadata.class);
     public static final String DEPENDS_ON_TABLES = "dependsOnTables";
+    public static final String STORAGE_TABLE = "storage_table";
+
     private final HiveMetastore metastore;
     private final HdfsEnvironment hdfsEnvironment;
+    private final IcebergViewCodec viewCodec;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
 
@@ -173,11 +172,13 @@ public class IcebergMetadata
     public IcebergMetadata(
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
+            IcebergViewCodec viewCodec,
             TypeManager typeManager,
             JsonCodec<CommitTaskData> commitTaskCodec)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.viewCodec = requireNonNull(viewCodec, "viewCodec is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
     }
@@ -831,7 +832,7 @@ public class IcebergMetadata
         Map<String, String> viewProperties = ImmutableMap.<String, String>builder()
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(STORAGE_TABLE, storageTableName)
-                .put(PRESTO_VIEW_FLAG, "true")
+                .put(viewCodec.getPrestoViewFlag(), "true")
                 .put(TABLE_COMMENT, "Presto Materialized View")
                 .build();
 
@@ -849,7 +850,7 @@ public class IcebergMetadata
                 .setParameters(viewProperties)
                 .withStorage(storage -> storage.setStorageFormat(VIEW_STORAGE_FORMAT))
                 .withStorage(storage -> storage.setLocation(""))
-                .setViewOriginalText(Optional.of(encodeMaterializedViewData(definition)))
+                .setViewOriginalText(Optional.of(viewCodec.encodeMaterializedView(definition)))
                 .setViewExpandedText(Optional.of("/* Presto Materialized View */"));
         Table table = tableBuilder.build();
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(session.getUser());
@@ -960,22 +961,12 @@ public class IcebergMetadata
             .collect(toImmutableList())));
     }
 
-    private boolean isMaterializedView(Table table)
-    {
-        if (table.getTableType().equals(VIRTUAL_VIEW.name()) &&
-                "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG)) &&
-                table.getParameters().containsKey(STORAGE_TABLE)) {
-            return true;
-        }
-        return false;
-    }
-
     private boolean isMaterializedView(ConnectorSession session, SchemaTableName schemaTableName)
     {
         final HiveIdentity identity = new HiveIdentity(session);
         if (metastore.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName()).isPresent()) {
             Table table = metastore.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName()).get();
-            return isMaterializedView(table);
+            return viewCodec.isMaterializedView(table);
         }
         return false;
     }
@@ -993,7 +984,7 @@ public class IcebergMetadata
 
         Table materializedView = materializedViewOptional.get();
 
-        ConnectorMaterializedViewDefinition definition = decodeMaterializedViewData(materializedView.getViewOriginalText()
+        ConnectorMaterializedViewDefinition definition = viewCodec.decodeMaterializedView(materializedView.getViewOriginalText()
                 .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
 
         String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");

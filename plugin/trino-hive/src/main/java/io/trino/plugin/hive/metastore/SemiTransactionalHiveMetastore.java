@@ -28,6 +28,7 @@ import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.HiveViewCodec;
 import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.PartitionAndStatementId;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -90,7 +91,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_PATH_ALREADY_EXISTS;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
-import static io.trino.plugin.hive.ViewReaderUtil.isPrestoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
@@ -121,6 +121,7 @@ public class SemiTransactionalHiveMetastore
 
     private final HiveMetastoreClosure delegate;
     private final HdfsEnvironment hdfsEnvironment;
+    private final HiveViewCodec hiveViewCodec;
     private final Executor renameExecutor;
     private final Executor dropExecutor;
     private final Executor updateExecutor;
@@ -155,6 +156,7 @@ public class SemiTransactionalHiveMetastore
     public SemiTransactionalHiveMetastore(
             HdfsEnvironment hdfsEnvironment,
             HiveMetastoreClosure delegate,
+            HiveViewCodec hiveViewCodec,
             Executor renameExecutor,
             Executor dropExecutor,
             Executor updateExecutor,
@@ -165,6 +167,7 @@ public class SemiTransactionalHiveMetastore
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.hiveViewCodec = requireNonNull(hiveViewCodec, "hiveViewCodec is null");
         this.renameExecutor = requireNonNull(renameExecutor, "renameExecutor is null");
         this.dropExecutor = requireNonNull(dropExecutor, "dropExecutor is null");
         this.updateExecutor = requireNonNull(updateExecutor, "updateExecutor is null");
@@ -1505,7 +1508,7 @@ public class SemiTransactionalHiveMetastore
                 }
             }
             addTableOperations.add(new CreateTableOperation(tableAndMore.getIdentity(), table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
-            if (!isPrestoView(table)) {
+            if (!hiveViewCodec.isPrestoView(table)) {
                 updateStatisticsOperations.add(new UpdateStatisticsOperation(
                         tableAndMore.getIdentity(),
                         table.getSchemaTableName(),

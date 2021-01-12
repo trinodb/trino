@@ -25,14 +25,16 @@ import io.trino.plugin.hive.metastore.CoralSemiTransactionalHiveMSCAdapter;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
-import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.hadoop.hive.metastore.TableType;
+
+import javax.inject.Inject;
 
 import java.util.Base64;
 import java.util.List;
@@ -41,27 +43,98 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_VIEW_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveSessionProperties.isLegacyHiveViewTranslation;
+import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
 import static io.trino.plugin.hive.util.HiveUtil.checkCondition;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
-public final class ViewReaderUtil
+public final class HiveViewCodec
 {
-    private ViewReaderUtil()
-    {}
+    private static final String VIEW_PREFIX = "/* Presto View: ";
+    private static final String VIEW_SUFFIX = " */";
+    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
+            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
-    public interface ViewReader
+    private final String prestoViewFlag = "presto_view";
+    private final boolean translateHiveViews;
+
+    @Inject
+    public HiveViewCodec(HiveConfig hiveConfig)
+    {
+        requireNonNull(hiveConfig, "hiveConfig is null");
+        this.translateHiveViews = hiveConfig.isTranslateHiveViews();
+    }
+
+    public String encodeView(ConnectorViewDefinition definition)
+    {
+        byte[] bytes = VIEW_CODEC.toJsonBytes(definition);
+        String data = Base64.getEncoder().encodeToString(bytes);
+        return VIEW_PREFIX + data + VIEW_SUFFIX;
+    }
+
+    public ConnectorViewDefinition decodeView(
+            SemiTransactionalHiveMetastore metastore,
+            ConnectorSession session,
+            Table view,
+            TypeManager typeManager,
+            CatalogName catalogName)
+    {
+        if (!translateHiveViews && !isPrestoView(view)) {
+            throw new HiveViewNotSupportedException(new SchemaTableName(view.getDatabaseName(), view.getTableName()));
+        }
+
+        ConnectorViewDefinition definition = createViewReader(metastore, session, view, typeManager)
+                .decodeViewData(view.getViewOriginalText().get(), view, catalogName);
+
+        // use owner from table metadata if it exists
+        if (view.getOwner() != null && !definition.isRunAsInvoker()) {
+            definition = new ConnectorViewDefinition(
+                    definition.getOriginalSql(),
+                    definition.getCatalog(),
+                    definition.getSchema(),
+                    definition.getColumns(),
+                    definition.getComment(),
+                    Optional.of(view.getOwner()),
+                    false);
+        }
+
+        return definition;
+    }
+
+    public boolean canDecodeView(Table table)
+    {
+        // we can decode Hive or Presto view
+        return table.getTableType().equals(VIRTUAL_VIEW.name());
+    }
+
+    public boolean isTranslateHiveView()
+    {
+        return translateHiveViews;
+    }
+
+    public String getPrestoViewFlag()
+    {
+        return prestoViewFlag;
+    }
+
+    public boolean isPrestoView(Table table)
+    {
+        return "true".equals(table.getParameters().get(prestoViewFlag));
+    }
+
+    private interface ViewReader
     {
         ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName);
     }
 
-    public static ViewReader createViewReader(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, TypeManager typemanager)
+    private ViewReader createViewReader(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, TypeManager typemanager)
     {
         if (isPrestoView(table)) {
             return new PrestoViewReader();
@@ -73,51 +146,10 @@ public final class ViewReaderUtil
         return new HiveViewReader(new CoralSemiTransactionalHiveMSCAdapter(metastore, new HiveIdentity(session)), typemanager);
     }
 
-    public static final String PRESTO_VIEW_FLAG = "presto_view";
-    static final String VIEW_PREFIX = "/* Presto View: ";
-    static final String VIEW_SUFFIX = " */";
-    private static final String MATERIALIZED_VIEW_PREFIX = "/* Presto Materialized View: ";
-    private static final String MATERIALIZED_VIEW_SUFFIX = " */";
-    private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
-            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
-
-    private static final JsonCodec<ConnectorMaterializedViewDefinition> MATERIALIZED_VIEW_CODEC =
-            new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorMaterializedViewDefinition.class);
-
-    public static boolean isPrestoView(Table table)
-    {
-        return "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG));
-    }
-
-    public static boolean isHiveOrPrestoView(Table table)
-    {
-        return table.getTableType().equals(TableType.VIRTUAL_VIEW.name());
-    }
-
-    public static boolean canDecodeView(Table table)
-    {
-        // we can decode Hive or Presto view
-        return table.getTableType().equals(VIRTUAL_VIEW.name());
-    }
-
-    public static String encodeViewData(ConnectorViewDefinition definition)
-    {
-        byte[] bytes = VIEW_CODEC.toJsonBytes(definition);
-        String data = Base64.getEncoder().encodeToString(bytes);
-        return VIEW_PREFIX + data + VIEW_SUFFIX;
-    }
-
-    public static String encodeMaterializedViewData(ConnectorMaterializedViewDefinition definition)
-    {
-        byte[] bytes = MATERIALIZED_VIEW_CODEC.toJsonBytes(definition);
-        String data = Base64.getEncoder().encodeToString(bytes);
-        return MATERIALIZED_VIEW_PREFIX + data + MATERIALIZED_VIEW_SUFFIX;
-    }
-
     /**
      * Supports decoding of Presto views
      */
-    public static class PrestoViewReader
+    private static class PrestoViewReader
             implements ViewReader
     {
         @Override
@@ -130,22 +162,12 @@ public final class ViewReaderUtil
             byte[] bytes = Base64.getDecoder().decode(viewData);
             return VIEW_CODEC.fromJson(bytes);
         }
-
-        public static ConnectorMaterializedViewDefinition decodeMaterializedViewData(String data)
-        {
-            checkCondition(data.startsWith(MATERIALIZED_VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "Materialized View data missing prefix: %s", data);
-            checkCondition(data.endsWith(MATERIALIZED_VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "Materialized View data missing suffix: %s", data);
-            data = data.substring(MATERIALIZED_VIEW_PREFIX.length());
-            data = data.substring(0, data.length() - MATERIALIZED_VIEW_SUFFIX.length());
-            byte[] bytes = Base64.getDecoder().decode(data);
-            return MATERIALIZED_VIEW_CODEC.fromJson(bytes);
-        }
     }
 
     /**
      * Class to decode Hive view definitions
      */
-    public static class HiveViewReader
+    private static class HiveViewReader
             implements ViewReader
     {
         private final HiveMetastoreClient metastoreClient;
@@ -220,6 +242,30 @@ public final class ViewReaderUtil
                 default:
                     return type.getSqlTypeName().toString();
             }
+        }
+    }
+
+    /**
+     * Class to decode hive view definitions using a legacy approach
+     */
+    private static class LegacyHiveViewReader
+            implements HiveViewCodec.ViewReader
+    {
+        @Override
+        public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
+        {
+            String viewText = table.getViewExpandedText()
+                    .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view expanded text: " + table.getSchemaTableName()));
+            return new ConnectorViewDefinition(
+                    translateHiveViewToTrino(viewText),
+                    Optional.of(catalogName.toString()),
+                    Optional.ofNullable(table.getDatabaseName()),
+                    table.getDataColumns().stream()
+                            .map(column -> new ConnectorViewDefinition.ViewColumn(column.getName(), TypeId.of(column.getType().getTypeSignature().toString())))
+                            .collect(toImmutableList()),
+                    Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
+                    Optional.of(table.getOwner()),
+                    false); // don't run as invoker
         }
     }
 }
