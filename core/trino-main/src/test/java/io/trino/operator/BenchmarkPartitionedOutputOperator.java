@@ -35,16 +35,13 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
-import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,13 +68,16 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.openjdk.jmh.annotations.Mode.AverageTime;
+import static org.openjdk.jmh.annotations.Scope.Thread;
+import static org.openjdk.jmh.runner.options.VerboseMode.NORMAL;
 
-@State(Scope.Thread)
+@State(Thread)
 @OutputTimeUnit(MILLISECONDS)
 @Fork(2)
 @Warmup(iterations = 20, time = 500, timeUnit = MILLISECONDS)
 @Measurement(iterations = 20, time = 500, timeUnit = MILLISECONDS)
-@BenchmarkMode(Mode.AverageTime)
+@BenchmarkMode(AverageTime)
 public class BenchmarkPartitionedOutputOperator
 {
     @Benchmark
@@ -90,7 +90,7 @@ public class BenchmarkPartitionedOutputOperator
         operator.finish();
     }
 
-    @State(Scope.Thread)
+    @State(Thread)
     public static class BenchmarkData
     {
         private static final int PAGE_COUNT = 5000;
@@ -117,7 +117,8 @@ public class BenchmarkPartitionedOutputOperator
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
             BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
-            PartitionFunction partitionFunction = new LocalPartitionGenerator(new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}, blockTypeOperators), PARTITION_COUNT);
+            PartitionFunction partitionFunction = new LocalPartitionGenerator(
+                    new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}, blockTypeOperators), PARTITION_COUNT);
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false);
             OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
             for (int partition = 0; partition < PARTITION_COUNT; partition++) {
@@ -221,7 +222,7 @@ public class BenchmarkPartitionedOutputOperator
         BenchmarkData data = new BenchmarkData();
         new BenchmarkPartitionedOutputOperator().addPage(data);
         Options options = new OptionsBuilder()
-                .verbosity(VerboseMode.NORMAL)
+                .verbosity(NORMAL)
                 .jvmArgs("-Xmx10g")
                 .include(".*" + BenchmarkPartitionedOutputOperator.class.getSimpleName() + ".*")
                 .build();
