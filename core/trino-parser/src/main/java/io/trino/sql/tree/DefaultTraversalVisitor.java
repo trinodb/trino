@@ -684,6 +684,13 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitShowStats(ShowStats node, C context)
+    {
+        process(node.getRelation(), context);
+        return null;
+    }
+
+    @Override
     protected Void visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, C context)
     {
         process(node.getValue(), context);
