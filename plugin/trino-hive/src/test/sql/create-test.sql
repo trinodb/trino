@@ -77,7 +77,7 @@ CREATE TABLE trino_test_bucketed_by_bigint_boolean (
 )
 COMMENT 'Presto test bucketed table'
 PARTITIONED BY (ds STRING)
-CLUSTERED BY (t_bigint, t_boolean) INTO 32 BUCKETS
+CLUSTERED BY (t_bigint, t_boolean) SORTED BY (t_bigint) INTO 32 BUCKETS
 STORED AS RCFILE
 ;
 

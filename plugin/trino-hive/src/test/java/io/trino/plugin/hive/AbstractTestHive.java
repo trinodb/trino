@@ -91,6 +91,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
@@ -1502,6 +1504,11 @@ public abstract class AbstractTestHive
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
             assertTableIsBucketed(tableHandle, transaction, session);
+            ConnectorTableProperties properties = metadata.getTableProperties(newSession(), tableHandle);
+            assertEquals(properties.getStreamPartitioningColumns(), Optional.of(ImmutableSet.of(
+                    columnHandles.get(columnIndex.get("t_string")),
+                    columnHandles.get(columnIndex.get("t_int")))));
+            assertTrue(properties.getLocalProperties().isEmpty());
 
             String testString = "test";
             Integer testInt = 13;
@@ -1543,6 +1550,13 @@ public abstract class AbstractTestHive
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
             assertTableIsBucketed(tableHandle, transaction, session);
+            ConnectorTableProperties properties = metadata.getTableProperties(newSession(), tableHandle);
+            assertEquals(properties.getStreamPartitioningColumns(), Optional.of(ImmutableSet.of(
+                    columnHandles.get(columnIndex.get("t_bigint")),
+                    columnHandles.get(columnIndex.get("t_boolean")))));
+            assertEquals(properties.getLocalProperties(), ImmutableList.of(new SortingProperty<>(
+                    columnHandles.get(columnIndex.get("t_bigint")),
+                    SortOrder.ASC_NULLS_FIRST)));
 
             String testString = "test";
             Long testBigint = 89L;
@@ -1583,6 +1597,11 @@ public abstract class AbstractTestHive
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
             assertTableIsBucketed(tableHandle, transaction, session);
+            ConnectorTableProperties properties = metadata.getTableProperties(newSession(), tableHandle);
+            assertEquals(properties.getStreamPartitioningColumns(), Optional.of(ImmutableSet.of(
+                    columnHandles.get(columnIndex.get("t_double")),
+                    columnHandles.get(columnIndex.get("t_float")))));
+            assertTrue(properties.getLocalProperties().isEmpty());
 
             ImmutableMap<ColumnHandle, NullableValue> bindings = ImmutableMap.<ColumnHandle, NullableValue>builder()
                     .put(columnHandles.get(columnIndex.get("t_float")), NullableValue.of(REAL, (long) floatToRawIntBits(87.1f)))

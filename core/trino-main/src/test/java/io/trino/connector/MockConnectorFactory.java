@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -70,6 +71,7 @@ public class MockConnectorFactory
     private final ApplyTableScanRedirect applyTableScanRedirect;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
+    private final BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final ListRoleGrants roleGrants;
     private final MockConnectorAccessControl accessControl;
@@ -87,6 +89,7 @@ public class MockConnectorFactory
             ApplyTableScanRedirect applyTableScanRedirect,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
+            BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties,
             Supplier<Iterable<EventListener>> eventListeners,
             ListRoleGrants roleGrants,
             MockConnectorAccessControl accessControl)
@@ -103,6 +106,7 @@ public class MockConnectorFactory
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
+        this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
@@ -136,6 +140,7 @@ public class MockConnectorFactory
                 applyTableScanRedirect,
                 getInsertLayout,
                 getNewTableLayout,
+                getTableProperties,
                 eventListeners,
                 roleGrants,
                 accessControl);
@@ -207,6 +212,7 @@ public class MockConnectorFactory
         private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
+        private BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties = (session, handle) -> new ConnectorTableProperties();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
@@ -293,6 +299,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withGetTableProperties(BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> getTableProperties)
+        {
+            this.getTableProperties = requireNonNull(getTableProperties, "getTableProperties is null");
+            return this;
+        }
+
         public Builder withEventListener(EventListener listener)
         {
             requireNonNull(listener, "listener is null");
@@ -336,6 +348,7 @@ public class MockConnectorFactory
                     applyTableScanRedirect,
                     getInsertLayout,
                     getNewTableLayout,
+                    getTableProperties,
                     eventListeners,
                     roleGrants,
                     new MockConnectorAccessControl(schemaGrants, tableGrants));

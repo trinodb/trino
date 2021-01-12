@@ -74,10 +74,12 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.InMemoryRecordSet;
+import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -2087,6 +2089,8 @@ public class HiveMetadata
         }
 
         Optional<ConnectorTablePartitioning> tablePartitioning = Optional.empty();
+        Optional<Set<ColumnHandle>> streamPartitioningColumns = Optional.empty();
+        List<LocalProperty<ColumnHandle>> sortingProperties = ImmutableList.of();
         if (isBucketExecutionEnabled(session) && hiveTable.getBucketHandle().isPresent()) {
             tablePartitioning = hiveTable.getBucketHandle().map(bucketing -> new ConnectorTablePartitioning(
                     new HivePartitioningHandle(
@@ -2099,14 +2103,25 @@ public class HiveMetadata
                     bucketing.getColumns().stream()
                             .map(ColumnHandle.class::cast)
                             .collect(toImmutableList())));
+
+            streamPartitioningColumns = hiveTable.getBucketHandle().map(bucketing -> ImmutableSet.copyOf(bucketing.getColumns()));
+
+            Map<String, ColumnHandle> columnHandles = getColumnHandles(session, table);
+            sortingProperties = hiveTable.getBucketHandle().map(HiveBucketHandle::getSortedBy)
+                    .orElse(ImmutableList.of())
+                    .stream()
+                    .map(sortingColumn -> new SortingProperty<>(
+                            columnHandles.get(sortingColumn.getColumnName()),
+                            sortingColumn.getOrder().getSortOrder()))
+                    .collect(toImmutableList());
         }
 
         return new ConnectorTableProperties(
                 predicate,
                 tablePartitioning,
-                Optional.empty(),
+                streamPartitioningColumns,
                 discretePredicates,
-                ImmutableList.of());
+                sortingProperties);
     }
 
     @Override
@@ -2335,7 +2350,8 @@ public class HiveMetadata
                         bucketHandle.getColumns(),
                         bucketHandle.getBucketingVersion(),
                         bucketHandle.getTableBucketCount(),
-                        hivePartitioningHandle.getBucketCount())),
+                        hivePartitioningHandle.getBucketCount(),
+                        bucketHandle.getSortedBy())),
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getAnalyzeColumnNames(),

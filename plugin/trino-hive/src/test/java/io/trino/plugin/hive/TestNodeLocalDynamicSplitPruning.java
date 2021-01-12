@@ -116,7 +116,12 @@ public class TestNodeLocalDynamicSplitPruning
                         ImmutableMap.of(),
                         ImmutableList.of(),
                         ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
-                        Optional.of(new HiveBucketHandle(ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE), BUCKETING_V1, 20, 20))),
+                        Optional.of(new HiveBucketHandle(
+                                ImmutableList.of(BUCKET_HIVE_COLUMN_HANDLE),
+                                BUCKETING_V1,
+                                20,
+                                20,
+                                ImmutableList.of()))),
                 transaction,
                 Optional.empty());
 
