@@ -52,7 +52,10 @@ public class BigQueryQueryRunner
             queryRunner.createCatalog("tpch", "tpch");
 
             queryRunner.installPlugin(new BigQueryPlugin());
-            queryRunner.createCatalog("bigquery", "bigquery");
+            queryRunner.createCatalog(
+                    "bigquery",
+                    "bigquery",
+                    ImmutableMap.of("bigquery.views-enabled", "true"));
 
             return queryRunner;
         }
