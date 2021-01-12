@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
@@ -57,26 +58,30 @@ import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public final class HiveViewCodec
 {
-    private static final String VIEW_PREFIX = "/* Presto View: ";
-    private static final String VIEW_SUFFIX = " */";
+    private static final String VIEW_FLAG_PATTERN = "%s_view";
+    private static final String VIEW_PREFIX_PATTERN = "/* %s View: ";
+    private static final String VIEW_SUFFIX_PATTERN = " */";
     private static final JsonCodec<ConnectorViewDefinition> VIEW_CODEC =
             new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(ConnectorViewDefinition.class);
 
-    private final String prestoViewFlag = "presto_view";
     private final boolean translateHiveViews;
+
+    private static final TrinoViewConstants DEFAULT_VIEW_CONSTANTS = TrinoViewConstants.create("Trino");
+    private final Optional<TrinoViewConstants> alternateViewConstants;
 
     @Inject
     public HiveViewCodec(HiveConfig hiveConfig)
     {
         requireNonNull(hiveConfig, "hiveConfig is null");
         this.translateHiveViews = hiveConfig.isTranslateHiveViews();
+        this.alternateViewConstants = hiveConfig.getAlternateViewCodecTag().map(TrinoViewConstants::create);
     }
 
     public String encodeView(ConnectorViewDefinition definition)
     {
         byte[] bytes = VIEW_CODEC.toJsonBytes(definition);
         String data = Base64.getEncoder().encodeToString(bytes);
-        return VIEW_PREFIX + data + VIEW_SUFFIX;
+        return DEFAULT_VIEW_CONSTANTS.prefix() + data + DEFAULT_VIEW_CONSTANTS.suffix();
     }
 
     public ConnectorViewDefinition decodeView(
@@ -86,7 +91,7 @@ public final class HiveViewCodec
             TypeManager typeManager,
             CatalogName catalogName)
     {
-        if (!translateHiveViews && !isPrestoView(view)) {
+        if (!translateHiveViews && !isTrinoView(view)) {
             throw new HiveViewNotSupportedException(new SchemaTableName(view.getDatabaseName(), view.getTableName()));
         }
 
@@ -110,7 +115,7 @@ public final class HiveViewCodec
 
     public boolean canDecodeView(Table table)
     {
-        // we can decode Hive or Presto view
+        // we can decode Hive or Trino view
         return table.getTableType().equals(VIRTUAL_VIEW.name());
     }
 
@@ -119,14 +124,36 @@ public final class HiveViewCodec
         return translateHiveViews;
     }
 
-    public String getPrestoViewFlag()
+    public String getTrinoViewFlag()
     {
-        return prestoViewFlag;
+        return DEFAULT_VIEW_CONSTANTS.flag();
     }
 
-    public boolean isPrestoView(Table table)
+    public Optional<String> getAlternateTrinoViewFlag()
     {
-        return "true".equals(table.getParameters().get(prestoViewFlag));
+        return alternateViewConstants.map(TrinoViewConstants::flag);
+    }
+
+    public boolean isTrinoView(Table table)
+    {
+        return getTrinoViewConstantsFor(table).isPresent();
+    }
+
+    private Optional<TrinoViewConstants> getTrinoViewConstantsFor(Table table)
+    {
+        if ("true".equals(table.getParameters().get(DEFAULT_VIEW_CONSTANTS.flag()))) {
+            return Optional.of(DEFAULT_VIEW_CONSTANTS);
+        }
+
+        if ("true".equals(
+                alternateViewConstants
+                        .map(TrinoViewConstants::flag)
+                        .map(flag -> table.getParameters().get(flag))
+                        .orElse(null))) {
+            return alternateViewConstants;
+        }
+
+        return Optional.empty();
     }
 
     private interface ViewReader
@@ -136,8 +163,8 @@ public final class HiveViewCodec
 
     private ViewReader createViewReader(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table, TypeManager typemanager)
     {
-        if (isPrestoView(table)) {
-            return new PrestoViewReader();
+        if (isTrinoView(table)) {
+            return new TrinoViewReader();
         }
         if (isLegacyHiveViewTranslation(session)) {
             return new LegacyHiveViewReader();
@@ -147,18 +174,22 @@ public final class HiveViewCodec
     }
 
     /**
-     * Supports decoding of Presto views
+     * Supports decoding of Trino views
      */
-    private static class PrestoViewReader
+    private class TrinoViewReader
             implements ViewReader
     {
         @Override
         public ConnectorViewDefinition decodeViewData(String viewData, Table table, CatalogName catalogName)
         {
-            checkCondition(viewData.startsWith(VIEW_PREFIX), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", viewData);
-            checkCondition(viewData.endsWith(VIEW_SUFFIX), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", viewData);
-            viewData = viewData.substring(VIEW_PREFIX.length());
-            viewData = viewData.substring(0, viewData.length() - VIEW_SUFFIX.length());
+            Optional<TrinoViewConstants> optionalTrinoViewConstants = getTrinoViewConstantsFor(table);
+            checkArgument(optionalTrinoViewConstants.isPresent(), "Not a Trino view");
+            TrinoViewConstants viewConstants = optionalTrinoViewConstants.get();
+
+            checkCondition(viewData.startsWith(viewConstants.prefix()), HIVE_INVALID_VIEW_DATA, "View data missing prefix: %s", viewData);
+            checkCondition(viewData.endsWith(viewConstants.suffix()), HIVE_INVALID_VIEW_DATA, "View data missing suffix: %s", viewData);
+            viewData = viewData.substring(viewConstants.prefix().length());
+            viewData = viewData.substring(0, viewData.length() - viewConstants.suffix().length());
             byte[] bytes = Base64.getDecoder().decode(viewData);
             return VIEW_CODEC.fromJson(bytes);
         }
@@ -186,14 +217,14 @@ public final class HiveViewCodec
                 HiveToRelConverter hiveToRelConverter = HiveToRelConverter.create(metastoreClient);
                 RelNode rel = hiveToRelConverter.convertView(table.getDatabaseName(), table.getTableName());
                 RelToPrestoConverter rel2Presto = new RelToPrestoConverter();
-                String prestoSql = rel2Presto.convert(rel);
+                String trinoSql = rel2Presto.convert(rel);
                 RelDataType rowType = rel.getRowType();
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
                                 typeManager.fromSqlType(getTypeString(field.getType())).getTypeId()))
                         .collect(toImmutableList());
-                return new ConnectorViewDefinition(prestoSql,
+                return new ConnectorViewDefinition(trinoSql,
                         Optional.of(catalogName.toString()),
                         Optional.of(table.getDatabaseName()),
                         columns,
@@ -266,6 +297,43 @@ public final class HiveViewCodec
                     Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                     Optional.of(table.getOwner()),
                     false); // don't run as invoker
+        }
+    }
+
+    private static class TrinoViewConstants
+    {
+        private final String flag;
+        private final String prefix;
+        private final String suffix;
+
+        private TrinoViewConstants(String flag, String prefix, String suffix)
+        {
+            this.flag = requireNonNull(flag, "flag is null");
+            this.prefix = requireNonNull(prefix, "prefix is null");
+            this.suffix = requireNonNull(suffix, "suffix is null");
+        }
+
+        public static TrinoViewConstants create(String tag)
+        {
+            return new TrinoViewConstants(
+                    format(VIEW_FLAG_PATTERN, tag.toLowerCase(Locale.ENGLISH)),
+                    format(VIEW_PREFIX_PATTERN, tag),
+                    VIEW_SUFFIX_PATTERN);
+        }
+
+        public String flag()
+        {
+            return flag;
+        }
+
+        public String prefix()
+        {
+            return prefix;
+        }
+
+        public String suffix()
+        {
+            return suffix;
         }
     }
 }

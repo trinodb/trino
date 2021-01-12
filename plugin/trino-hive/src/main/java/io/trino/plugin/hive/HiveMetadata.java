@@ -1799,8 +1799,8 @@ public class HiveMetadata
     {
         HiveIdentity identity = new HiveIdentity(session);
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(TABLE_COMMENT, "Presto View")
-                .put(hiveViewCodec.getPrestoViewFlag(), "true")
+                .put(TABLE_COMMENT, "Trino View")
+                .put(hiveViewCodec.getTrinoViewFlag(), "true")
                 .put(PRESTO_VERSION_NAME, prestoVersion)
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .build();
@@ -1816,7 +1816,7 @@ public class HiveMetadata
                 .setPartitionColumns(ImmutableList.of())
                 .setParameters(properties)
                 .setViewOriginalText(Optional.of(hiveViewCodec.encodeView(definition)))
-                .setViewExpandedText(Optional.of("/* Presto View */"));
+                .setViewExpandedText(Optional.of("/* Trino View */"));
 
         tableBuilder.getStorageBuilder()
                 .setStorageFormat(VIEW_STORAGE_FORMAT)
@@ -1826,7 +1826,7 @@ public class HiveMetadata
 
         Optional<Table> existing = metastore.getTable(identity, viewName.getSchemaName(), viewName.getTableName());
         if (existing.isPresent()) {
-            if (!replace || !hiveViewCodec.isPrestoView(existing.get())) {
+            if (!replace || !hiveViewCodec.isTrinoView(existing.get())) {
                 throw new ViewAlreadyExistsException(viewName);
             }
 

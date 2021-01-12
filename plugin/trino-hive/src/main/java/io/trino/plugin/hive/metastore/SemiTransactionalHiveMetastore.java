@@ -1508,7 +1508,7 @@ public class SemiTransactionalHiveMetastore
                 }
             }
             addTableOperations.add(new CreateTableOperation(tableAndMore.getIdentity(), table, tableAndMore.getPrincipalPrivileges(), tableAndMore.isIgnoreExisting()));
-            if (!hiveViewCodec.isPrestoView(table)) {
+            if (!hiveViewCodec.isTrinoView(table)) {
                 updateStatisticsOperations.add(new UpdateStatisticsOperation(
                         tableAndMore.getIdentity(),
                         table.getSchemaTableName(),

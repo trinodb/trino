@@ -110,6 +110,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -323,7 +324,7 @@ public class ThriftHiveMetastore
                     .stopOn(UnknownDBException.class)
                     .stopOnIllegalExceptions()
                     .run("getTablesWithParameter", stats.getGetTablesWithParameter().wrap(
-                            () -> doGetTablesWithParameter(databaseName, parameterKey, parameterValue)));
+                            () -> doGetTablesWithSingleParameter(databaseName, parameterKey, parameterValue)));
         }
         catch (UnknownDBException e) {
             return ImmutableList.of();
@@ -923,6 +924,16 @@ public class ThriftHiveMetastore
     @Override
     public List<String> getAllViews(String databaseName)
     {
+        Map<String, String> trinoViewParameters;
+        if (hiveViewCodec.getAlternateTrinoViewFlag().isPresent()) {
+            trinoViewParameters = ImmutableMap.of(
+                    hiveViewCodec.getTrinoViewFlag(), "true",
+                    hiveViewCodec.getAlternateTrinoViewFlag().get(), "true");
+        }
+        else {
+            trinoViewParameters = ImmutableMap.of(hiveViewCodec.getTrinoViewFlag(), "true");
+        }
+
         try {
             return retry()
                     .stopOn(UnknownDBException.class)
@@ -935,9 +946,9 @@ public class ThriftHiveMetastore
                                     chosesGetAllViewsAlternative,
                                     client -> client.getTableNamesByType(databaseName, TableType.VIRTUAL_VIEW.name()),
                                     // fallback to enumerating Presto views only (Hive views will still be executed, but will be listed as tables)
-                                    client -> doGetTablesWithParameter(databaseName, hiveViewCodec.getPrestoViewFlag(), "true"));
+                                    client -> doGetTablesWithDisjunctionOfParameters(databaseName, trinoViewParameters));
                         }
-                        return doGetTablesWithParameter(databaseName, hiveViewCodec.getPrestoViewFlag(), "true");
+                        return doGetTablesWithDisjunctionOfParameters(databaseName, trinoViewParameters);
                     }));
         }
         catch (UnknownDBException e) {
@@ -951,25 +962,46 @@ public class ThriftHiveMetastore
         }
     }
 
-    private List<String> doGetTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    private List<String> doGetTablesWithSingleParameter(String databaseName, String parameterKey, String parameterValue)
             throws TException
     {
-        checkArgument(TABLE_PARAMETER_SAFE_KEY_PATTERN.matcher(parameterKey).matches(), "Parameter key contains invalid characters: '%s'", parameterKey);
-        /*
-         * The parameter value is restricted to have only alphanumeric characters so that it's safe
-         * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
-         * value to follow a Java regex pattern or a SQL pattern. And it's hard to predict the
-         * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
-         * of how to quote them when passing within the filter string.
-         */
-        checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(), "Parameter value contains invalid characters: '%s'", parameterValue);
+        return doGetTablesWithDisjunctionOfParameters(databaseName, ImmutableMap.of(parameterKey, parameterValue));
+    }
+
+    private List<String> doGetTablesWithDisjunctionOfParameters(String databaseName, Map<String, String> parameters)
+            throws TException
+    {
+        checkArgument(parameters != null && !parameters.isEmpty(), "There should be at least one parameter");
+
+        parameters.entrySet().stream().forEach(parameter -> {
+            String parameterKey = parameter.getKey();
+            String parameterValue = parameter.getValue();
+
+            checkArgument(TABLE_PARAMETER_SAFE_KEY_PATTERN.matcher(parameterKey).matches(),
+                    "Parameter key contains invalid characters: '%s'", parameterKey);
+            /*
+             * The parameter value is restricted to have only alphanumeric characters so that it's safe
+             * to be used against HMS. When using with a LIKE operator, the HMS may want the parameter
+             * value to follow a Java regex pattern or a SQL pattern. And it's hard to predict the
+             * HMS's behavior from outside. Also, by restricting parameter values, we avoid the problem
+             * of how to quote them when passing within the filter string.
+             */
+            checkArgument(TABLE_PARAMETER_SAFE_VALUE_PATTERN.matcher(parameterValue).matches(),
+                    "Parameter value contains invalid characters: '%s'", parameterValue);
+        });
+
         /*
          * Thrift call `get_table_names_by_filter` may be translated by Metastore to a SQL query against Metastore database.
          * Hive 2.3 on some databases uses CLOB for table parameter value column and some databases disallow `=` predicate over
          * CLOB values. At the same time, they allow `LIKE` predicates over them.
          */
-        String filterWithEquals = HIVE_FILTER_FIELD_PARAMS + parameterKey + " = \"" + parameterValue + "\"";
-        String filterWithLike = HIVE_FILTER_FIELD_PARAMS + parameterKey + " LIKE \"" + parameterValue + "\"";
+        String filterWithEquals = parameters.entrySet().stream()
+                .map(entry -> HIVE_FILTER_FIELD_PARAMS + entry.getKey() + " = \"" + entry.getValue() + "\"")
+                .collect(Collectors.joining(" or "));
+
+        String filterWithLike = parameters.entrySet().stream()
+                .map(entry -> HIVE_FILTER_FIELD_PARAMS + entry.getKey() + " LIKE \"" + entry.getValue() + "\"")
+                .collect(Collectors.joining(" or "));
 
         return alternativeCall(
                 this::createMetastoreClient,
