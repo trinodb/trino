@@ -51,8 +51,7 @@ public final class Trino
                 .registerConverter(HostAndPort.class, HostAndPort::fromString)
                 .registerConverter(Duration.class, Duration::valueOf);
 
-        getConfigFile().ifPresent(file -> commandLine.setDefaultValueProvider(new CommandLine.PropertiesDefaultProvider(file)));
-
+        getConfigFile().ifPresent(file -> ValidatingPropertiesDefaultProvider.attach(commandLine, file));
         return commandLine;
     }
 
