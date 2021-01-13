@@ -296,10 +296,10 @@ public class PruneUnreferencedOutputs
                     .build();
 
             ImmutableSet.Builder<Symbol> leftInputs = ImmutableSet.builder();
-            node.getLeftPartitionSymbol().map(leftInputs::add);
+            node.getLeftPartitionSymbol().ifPresent(leftInputs::add);
 
             ImmutableSet.Builder<Symbol> rightInputs = ImmutableSet.builder();
-            node.getRightPartitionSymbol().map(rightInputs::add);
+            node.getRightPartitionSymbol().ifPresent(rightInputs::add);
 
             PlanNode left = context.rewrite(node.getLeft(), leftInputs.addAll(requiredInputs).build());
             PlanNode right = context.rewrite(node.getRight(), rightInputs.addAll(requiredInputs).build());

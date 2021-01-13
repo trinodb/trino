@@ -134,7 +134,7 @@ public class PrometheusClient
     public byte[] fetchUri(URI uri)
     {
         Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
-        getBearerAuthInfoFromFile().map(bearerToken -> requestBuilder.header("Authorization", "Bearer " + bearerToken));
+        getBearerAuthInfoFromFile().ifPresent(bearerToken -> requestBuilder.header("Authorization", "Bearer " + bearerToken));
 
         Response response;
         try {
