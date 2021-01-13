@@ -37,25 +37,26 @@ public class HiveS3Module
     protected void setup(Binder binder)
     {
         S3FileSystemType type = buildConfigObject(HiveS3TypeConfig.class).getS3FileSystemType();
-        if (type == S3FileSystemType.TRINO) {
-            bindSecurityMapping(binder);
+        switch (type) {
+            case TRINO:
+                bindSecurityMapping(binder);
 
-            newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(TrinoS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
-            configBinder(binder).bindConfig(HiveS3Config.class);
+                newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(TrinoS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
+                configBinder(binder).bindConfig(HiveS3Config.class);
 
-            binder.bind(TrinoS3FileSystemStats.class).toInstance(TrinoS3FileSystem.getFileSystemStats());
-            newExporter(binder).export(TrinoS3FileSystemStats.class)
-                    .as(generator -> generator.generatedNameOf(TrinoS3FileSystem.class));
-        }
-        else if (type == S3FileSystemType.EMRFS) {
-            validateEmrFsClass();
-            newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(EmrFsS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
-        }
-        else if (type == S3FileSystemType.HADOOP_DEFAULT) {
-            // configuration is done using Hadoop configuration files
-        }
-        else {
-            throw new RuntimeException("Unknown file system type: " + type);
+                binder.bind(TrinoS3FileSystemStats.class).toInstance(TrinoS3FileSystem.getFileSystemStats());
+                newExporter(binder).export(TrinoS3FileSystemStats.class)
+                        .as(generator -> generator.generatedNameOf(TrinoS3FileSystem.class));
+                break;
+            case EMRFS:
+                validateEmrFsClass();
+                newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(EmrFsS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
+                break;
+            case HADOOP_DEFAULT:
+                // configuration is done using Hadoop configuration files
+                break;
+            default:
+                throw new RuntimeException("Unknown file system type: " + type);
         }
     }
 

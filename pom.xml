@@ -1778,6 +1778,7 @@
                                     -Xep:ObjectToString:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:UnusedVariable:ERROR
+                                    -Xep:UseEnumSwitch:ERROR
                                 </arg>
                             </compilerArgs>
                             <annotationProcessorPaths>

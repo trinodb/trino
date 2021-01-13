@@ -73,16 +73,17 @@ public class HivePrincipal
     {
         this.type = requireNonNull(type, "type is null");
         requireNonNull(name, "name is null");
-        if (type == PrincipalType.USER) {
-            // In Hive user names are case sensitive
-            this.name = name;
-        }
-        else if (type == PrincipalType.ROLE) {
-            // In Hive role names are case insensitive
-            this.name = name.toLowerCase(ENGLISH);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported type: " + type);
+        switch (type) {
+            case USER:
+                // In Hive user names are case sensitive
+                this.name = name;
+                break;
+            case ROLE:
+                // In Hive role names are case insensitive
+                this.name = name.toLowerCase(ENGLISH);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported type: " + type);
         }
     }
 
