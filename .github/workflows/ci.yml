@@ -218,7 +218,8 @@ jobs:
             !:trino-kudu,
             !:trino-phoenix,!:trino-iceberg,!:trino-druid,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
-            !:trino-test-jdbc-compatibility-old-server'
+            !:trino-test-jdbc-compatibility-old-server,
+            !:trino-bigquery'
 
   test:
     runs-on: ubuntu-latest
@@ -272,6 +273,21 @@ jobs:
           if [ "${MEMSQL_LICENSE}" != "" ]; then
             ./mvnw test ${MAVEN_TEST} -pl :trino-memsql -Dmemsql.license=${MEMSQL_LICENSE}
           fi
+
+  test-bigquery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :trino-bigquery
+      - name: BigQuery Tests
+        run: ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery
 
   pt:
     runs-on: ubuntu-latest
