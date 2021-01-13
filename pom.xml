@@ -1778,6 +1778,7 @@
                                     -Xep:ObjectToString:ERROR
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
+                                    -Xep:UnnecessaryMethodReference:ERROR
                                     -Xep:UnusedVariable:ERROR
                                 </arg>
                             </compilerArgs>
