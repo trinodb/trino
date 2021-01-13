@@ -13,7 +13,6 @@
  */
 package io.trino.memory;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Futures;
@@ -46,6 +45,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -343,7 +343,7 @@ public class TestMemoryPools
     {
         for (Driver driver : drivers) {
             for (OperatorContext operatorContext : driver.getDriverContext().getOperatorContexts()) {
-                if (reason.apply(operatorContext)) {
+                if (reason.test(operatorContext)) {
                     return true;
                 }
             }

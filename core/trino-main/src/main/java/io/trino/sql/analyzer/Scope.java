@@ -13,7 +13,6 @@
  */
 package io.trino.sql.analyzer;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
 import io.trino.sql.tree.AllColumns;
@@ -27,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
