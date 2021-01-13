@@ -183,6 +183,15 @@ public class TestTrinoCli
     }
 
     @Test(groups = CLI, timeOut = TIMEOUT)
+    public void shouldPassSessionUser()
+            throws Exception
+    {
+        launchTrinoCliWithServerArgument("--session-user", "other-user", "--execute", "SELECT current_user;");
+        assertThat(trimLines(trino.readRemainingOutputLines())).contains("\"other-user\"");
+        trino.waitForWithTimeoutAndKill();
+    }
+
+    @Test(groups = CLI, timeOut = TIMEOUT)
     public void shouldUseCatalogAndSchemaOptions()
             throws Exception
     {

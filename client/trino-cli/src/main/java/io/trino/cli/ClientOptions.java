@@ -143,6 +143,9 @@ public class ClientOptions
     @Option(names = "--session", paramLabel = "<session>", description = "Session property (property can be used multiple times; format is key=value; use 'SHOW SESSION' to see available properties)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
 
+    @Option(names = "--session-user", paramLabel = "<user>", description = "Username to impersonate")
+    public Optional<String> sessionUser;
+
     @Option(names = "--extra-credential", paramLabel = "<credential>", description = "Extra credentials (property can be used multiple times; format is key=value)")
     public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
@@ -183,7 +186,7 @@ public class ClientOptions
         return new ClientSession(
                 parseServer(server),
                 user,
-                Optional.empty(), // TODO: https://github.com/trinodb/trino/issues/6567 Add option to specify session user separately from authentication user
+                sessionUser,
                 source,
                 Optional.ofNullable(traceToken),
                 parseClientTags(nullToEmpty(clientTags)),
