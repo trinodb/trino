@@ -54,7 +54,7 @@ public class TestCredentialPassthrough
             queryRunner.createCatalog("mysql", "mysql", properties);
         }
         catch (Exception e) {
-            closeAllSuppress(e, queryRunner, mysqlServer::close);
+            closeAllSuppress(e, queryRunner, mysqlServer);
             throw e;
         }
     }
