@@ -106,7 +106,6 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
@@ -832,7 +831,7 @@ public class IcebergMetadata
         Map<String, String> viewProperties = ImmutableMap.<String, String>builder()
                 .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                 .put(STORAGE_TABLE, storageTableName)
-                .put(viewCodec.getPrestoViewFlag(), "true")
+                .put(viewCodec.getTrinoViewFlag(), "true")
                 .put(TABLE_COMMENT, "Presto Materialized View")
                 .build();
 
@@ -984,8 +983,7 @@ public class IcebergMetadata
 
         Table materializedView = materializedViewOptional.get();
 
-        ConnectorMaterializedViewDefinition definition = viewCodec.decodeMaterializedView(materializedView.getViewOriginalText()
-                .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
+        ConnectorMaterializedViewDefinition definition = viewCodec.decodeMaterializedView(materializedView);
 
         String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");
         return Optional.of(new ConnectorMaterializedViewDefinition(
