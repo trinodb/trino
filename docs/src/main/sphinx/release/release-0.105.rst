@@ -2,16 +2,16 @@
 Release 0.105
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix issue which can cause queries to be blocked permanently.
 * Close connections correctly in JDBC connectors.
 * Add implicit coercions for values of equi-join criteria.
 * Fix detection of window function calls without an ``OVER`` clause.
 
-SPI changes
------------
+SPI
+---
 
 * Remove ``ordinalPosition`` from ``ColumnMetadata``.
 

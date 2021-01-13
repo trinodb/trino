@@ -39,8 +39,8 @@ with the following contents:
 Additionally, update the ``datasources`` property in the config properties file,
 ``etc/config.properties``, for the workers to include ``tpch``.
 
-SPI changes
------------
+SPI
+---
 
 The ``Connector`` interface now has explicit methods for supplying the services
 expected by the query engine. Previously, this was handled by a generic

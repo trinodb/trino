@@ -52,8 +52,8 @@ by advanced users familiar with LIBSVM. The functions are
 ``learn_libsvm_classifier`` and ``learn_libsvm_regressor``. Both take a
 parameters string which has the form ``key=value,key=value``
 
-General changes
----------------
+General
+-------
 
 * New comparison functions: :func:`greatest` and :func:`least`
 
@@ -80,8 +80,8 @@ General changes
 
 * Fix processing of empty or commented out statements in the CLI.
 
-Hive changes
-------------
+Hive
+----
 
 * There are two new configuration options for the Hive connector,
   ``hive.max-initial-split-size``, which configures the size of the

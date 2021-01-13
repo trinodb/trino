@@ -2,8 +2,8 @@
 Release 0.137
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix ``current_date`` to return correct results for all time zones.
 * Fix invalid plans when scalar subqueries use ``GROUP BY``, ``DISTINCT`` or ``JOIN``.
@@ -19,8 +19,8 @@ General changes
   percentiles.
 * Add API to JDBC driver to track query progress.
 
-Hive changes
-------------
+Hive
+----
 
 * Do not allow inserting into tables when the Hive type does not match
   the Presto type. Previously, Presto would insert data that did not

@@ -24,8 +24,8 @@ orders of magnitude faster (due to removal of quadratic behavior).
 This change introduced some minor incompatibilities that are explained
 in the documentation for the functions.
 
-General changes
----------------
+General
+-------
 
 * Add support for partitioned right outer joins, which allows for larger tables to
   be joined on the inner side.
@@ -42,8 +42,8 @@ General changes
 * Implement implicit coercions in ``VALUES`` expressions.
 * Fix potential deadlock in scheduler.
 
-Hive changes
-------------
+Hive
+----
 
 * Collect more metrics from ``PrestoS3FileSystem``.
 * Retry when seeking in ``PrestoS3FileSystem``.

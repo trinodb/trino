@@ -10,8 +10,8 @@ request to ``/v1/info/state`` with the body ``"SHUTTING_DOWN"``. Once instructed
 to shutdown, the worker will no longer receive new tasks, and will exit once
 all existing tasks have completed.
 
-General changes
----------------
+General
+-------
 
 * Fix cast from json to structural types when rows or maps have arrays,
   rows, or maps nested in them.
@@ -23,7 +23,7 @@ General changes
   ``GROUP BY``, ``DISTINCT``, etc. When this triggers, the join may fail to
   produce some of the output rows.
 
-MySQL changes
--------------
+MySQL
+-----
 
 * Fix handling of MySQL database names with underscores.

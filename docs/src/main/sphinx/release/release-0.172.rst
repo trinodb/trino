@@ -2,8 +2,8 @@
 Release 0.172
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix correctness issue in ``ORDER BY`` queries due to improper implicit coercions.
 * Fix planning failure when ``GROUP BY`` queries contain lambda expressions.

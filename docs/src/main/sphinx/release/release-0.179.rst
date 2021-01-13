@@ -2,8 +2,8 @@
 Release 0.179
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix issue which could cause incorrect results when processing dictionary encoded data.
   If the expression can fail on bad input, the results from filtered-out rows containing
@@ -24,17 +24,17 @@ General changes
   for more details.
 * Add support for configuring query runtime and queueing time limits to resource groups.
 
-Hive changes
-------------
+Hive
+----
 
 * Fail queries that access encrypted S3 objects that do not have their unencrypted content lengths set in their metadata.
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Add support for setting query timeout through ``Statement.setQueryTimeout()``.
 
-SPI changes
------------
+SPI
+---
 
 * Add grantee and revokee to ``GRANT`` and ``REVOKE`` security checks.

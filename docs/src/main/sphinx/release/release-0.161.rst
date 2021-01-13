@@ -2,8 +2,8 @@
 Release 0.161
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix correctness issue for queries involving multiple nested EXCEPT clauses.
   A query such as ``a EXCEPT (b EXCEPT c)`` was incorrectly evaluated as

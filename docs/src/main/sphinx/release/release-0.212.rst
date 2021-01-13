@@ -2,8 +2,8 @@
 Release 0.212
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix query failures when the :func:`ST_GeomFromBinary` function is run on multiple rows.
 * Fix memory accounting for the build side of broadcast joins.
@@ -14,8 +14,8 @@ General changes
 * Remove ``round(x, d)`` and ``truncate(x, d)`` functions where ``d`` is a ``BIGINT`` (:issue:`x11462`).
 * Add :func:`ST_LineString` function to form a ``LineString`` from an array of points.
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Prevent ORC writer from writing stripes larger than the max configured size for some rare data
   patterns (:issue:`x11526`).
@@ -25,13 +25,13 @@ Hive connector changes
   statistics can be ignored by setting the ``hive.ignore-corrupted-statistics``
   configuration property or the ``ignore_corrupted_statistics`` session property.
 
-Thrift connector changes
-------------------------
+Thrift connector
+----------------
 
 * Fix retry for network errors that occur while sending a Thrift request.
 * Remove failed connections from connection pool.
 
-Verifier changes
-----------------
+Verifier
+--------
 
 * Record the query ID of the test query regardless of query outcome.

@@ -2,8 +2,8 @@
 Release 0.215
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix regression in 0.214 that could cause queries to produce incorrect results for queries
   using map types.
@@ -31,15 +31,15 @@ General changes
   The default value for the filter factor can be configured with the ``default_filter_factor_enabled``
   session property or the ``optimizer.default-filter-factor-enabled``.
 
-Geospatial changes
-------------------
+Geospatial
+----------
 
 * Add input validation checks to :func:`ST_LineString` to conform with the specification.
 * Improve spatial join performance.
 * Enable spatial joins for join conditions expressed with the :func:`ST_Within` function.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Fix *Capture Snapshot* button for showing current thread stacks.
 * Fix dropdown for expanding stage skew component on the query details page.
@@ -47,13 +47,13 @@ Web UI changes
 * Make the reporting of *Cumulative Memory* usage consistent on the query list and query details pages.
 * Remove legacy thread UI.
 
-Hive changes
-------------
+Hive
+----
 
 * Add predicate pushdown support for the ``DATE`` type to the Parquet reader. This change also fixes
   a bug that may cause queries with predicates on ``DATE`` columns to fail with type mismatch errors.
 
-Redis changes
--------------
+Redis
+-----
 
 * Prevent printing the value of the ``redis.password`` configuration property to log files.
