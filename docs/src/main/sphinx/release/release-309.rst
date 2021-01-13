@@ -2,8 +2,8 @@
 Release 309 (25 Apr 2019)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Fix incorrect match result for :doc:`/functions/regexp` when pattern ends
   with a word boundary matcher. This only affects the default ``JONI`` library.
@@ -11,33 +11,33 @@ General changes
 * Fix failures for queries involving spatial joins. (:issue:`652`)
 * Add support for ``SphericalGeography`` to :func:`ST_Area()`. (:issue:`383`)
 
-Security changes
-----------------
+Security
+--------
 
 * Add option for specifying the Kerberos GSS name type. (:issue:`645`)
 
-Server RPM changes
-------------------
+Server RPM
+----------
 
 * Update default JVM configuration to recommended settings (see :doc:`/installation/deployment`).
   (:issue:`642`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix rare failure when reading ``DECIMAL`` values from ORC files. (:issue:`664`)
 * Add a hidden ``$properties`` table for each table that describes its Hive table
   properties. For example, a table named ``example`` will have an associated
   properties table named ``example$properties``. (:issue:`268`)
 
-MySQL connector changes
------------------------
+MySQL connector
+---------------
 
 * Match schema and table names case insensitively. This behavior can be enabled by setting
   the ``case-insensitive-name-matching`` catalog configuration option to true. (:issue:`614`)
 
-PostgreSQL connector changes
-----------------------------
+PostgreSQL connector
+--------------------
 
 * Add support for ``ARRAY`` type. (:issue:`317`)
 * Add support writing ``TINYINT`` values. (:issue:`317`)
@@ -45,27 +45,27 @@ PostgreSQL connector changes
   the ``case-insensitive-name-matching`` catalog configuration option to true. (:issue:`614`)
 
 
-Redshift connector changes
---------------------------
+Redshift connector
+------------------
 
 * Match schema and table names case insensitively. This behavior can be enabled by setting
   the ``case-insensitive-name-matching`` catalog configuration option to true. (:issue:`614`)
 
 
-SQL Server connector changes
-----------------------------
+SQL Server connector
+--------------------
 
 * Match schema and table names case insensitively. This behavior can be enabled by setting
   the ``case-insensitive-name-matching`` catalog configuration option to true. (:issue:`614`)
 
-Cassandra connector changes
----------------------------
+Cassandra connector
+-------------------
 
 * Allow reading from tables which have Cassandra column types that are not supported by Presto.
   These columns will not be visible in Presto. (:issue:`592`)
 
-SPI changes
------------
+SPI
+---
 
 * Add session parameter to the ``applyFilter()`` and ``applyLimit()`` methods in
   ``ConnectorMetadata``. (:issue:`636`)

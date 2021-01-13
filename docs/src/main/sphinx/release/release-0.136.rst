@@ -2,8 +2,8 @@
 Release 0.136
 =============
 
-General changes
----------------
+General
+-------
 
 * Add ``control.query-types`` and ``test.query-types`` to verifier, which can
   be used to select the type of queries to run.

@@ -2,8 +2,8 @@
 Release 0.123
 =============
 
-General changes
----------------
+General
+-------
 
 * Remove ``node-scheduler.location-aware-scheduling-enabled`` config.
 * Fixed query failures that occur when the ``optimizer.optimize-hash-generation``
@@ -28,8 +28,8 @@ properties, run the following query::
 
     SELECT * FROM system.metadata.table_properties
 
-Hive changes
-------------
+Hive
+----
 
 We have implemented ``INSERT`` and ``DELETE`` for Hive.  Both ``INSERT`` and ``CREATE``
 statements support partitioned tables.  For example, to create a partitioned table

@@ -1,6 +1,6 @@
 # Release 345 (23 Oct 2020)
 
-## General changes
+## General
 
 * Add {func}`concat_ws` function. ({issue}`4680`)
 * Add support for {func}`extract` for `time with time zone` values with precision other than 3. ({issue}`5539`)
@@ -13,18 +13,18 @@
 * Improve performance of encrypted spilling. ({issue}`5557`)
 * Improve performance of queries that use the `decimal` type. ({issue}`5181`)
 
-## Security changes
+## Security
 
 * Add support for JSON Web Key (JWK) to the existing JSON Web Token (JWT) authenticator.  This is enabled by
   setting the `jwt.key-file` configuration property to a `http` or `https` url. ({issue}`5419`)
 * Add column security, column mask and row filter to file-based access controls. ({issue}`5460`)
 * Enforce access control for column references in `USING` clause. ({issue}`5620`)
 
-## JDBC driver changes
+## JDBC driver
 
 * Add `source` parameter for directly setting the source name for a query. ({issue}`4739`)
 
-## Hive connector changes
+## Hive connector
 
 * Add support for `INSERT` and `DELETE` for ACID tables. ({issue}`5402`)
 * Apply `hive.domain-compaction-threshold` to dynamic filters. ({issue}`5365`)
@@ -34,33 +34,33 @@
 * Fix disk space accounting for storage caching. ({issue}`5621`)
 * Fix failure when reading Parquet `timestamp` columns encoded as `int64`. ({issue}`5443`)
 
-## MongoDB connector changes
+## MongoDB connector
 
 * Add support for adding columns. ({issue}`5512`)
 * Fix incorrect result for `IS NULL` predicates on fields that do not exist in the document. ({issue}`5615`)
 
-## MemSQL connector changes
+## MemSQL connector
 
 * Fix representation for many MemSQL types. ({issue}`5495`)
 * Prevent a query failure when table column name contains a semicolon by explicitly forbidding such names. ({issue}`5495`)
 * Add support for case-insensitive table name matching. ({issue}`5495`)
 
-## MySQL connector changes
+## MySQL connector
 
 * Improve performance of queries with aggregations and `LIMIT` clause (but without `ORDER BY`). ({issue}`5261`)
 
-## PostgreSQL connector changes
+## PostgreSQL connector
 
 * Improve performance of queries with aggregations and `LIMIT` clause (but without `ORDER BY`). ({issue}`5261`)
 
-## Redshift connector changes
+## Redshift connector
 
 * Add support for setting column comments. ({issue}`5397`)
 
-## SQL Server connector changes
+## SQL Server connector
 
 * Improve performance of queries with aggregations and `LIMIT` clause (but without `ORDER BY`). ({issue}`5261`)
 
-## Thrift connector changes
+## Thrift connector
 
 * Fix handling of timestamp values. ({issue}`5596`)

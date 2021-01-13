@@ -2,8 +2,8 @@
 Release 0.207
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix a planning issue for queries where correlated references were used in ``VALUES``.
 * Remove support for legacy ``JOIN ... USING`` behavior.
@@ -32,19 +32,19 @@ General changes
   can be reordered at once using cost-based join reordering.
 * Add support for ``char`` type to :func:`approx_distinct`.
 
-Security changes
-----------------
+Security
+--------
 
 * Fail on startup when configuration for file based system access control is invalid.
 * Add support for securing communication between cluster nodes with Kerberos authentication.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Add peak total (user + system) memory to query details UI.
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix handling of ``VARCHAR(length)`` type in the optimized Parquet reader. Previously, predicate pushdown
   failed with ``Mismatched Domain types: varchar(length) vs varchar``.
@@ -55,13 +55,13 @@ Hive connector changes
 * Change collector for columns statistics to only consider a sample of partitions. The sample size can be
   changed by setting the ``hive.partition-statistics-sample-size`` property.
 
-Memory connector changes
-------------------------
+Memory connector
+----------------
 
 * Add support for dropping schemas.
 
-SPI changes
------------
+SPI
+---
 
 * Remove deprecated table/view-level access control methods.
 * Change predicate in constraint for accessing table layout to be optional.

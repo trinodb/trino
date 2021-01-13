@@ -2,8 +2,8 @@
 Release 0.138
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix planning bug with ``NULL`` literal coercions.
 * Reduce query startup time by reducing lock contention in scheduler.

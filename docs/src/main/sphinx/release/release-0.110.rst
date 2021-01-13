@@ -2,8 +2,8 @@
 Release 0.110
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix result truncation bug in window function :func:`row_number` when performing a
   partitioned top-N that chooses the maximum or minimum ``N`` rows. For example::

@@ -2,8 +2,8 @@
 Release 331 (16 Mar 2020)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Prevent query failures when worker is shut down gracefully. (:issue:`2648`)
 * Fix join failures for queries involving ``OR`` predicate with non-comparable functions. (:issue:`2861`)
@@ -22,8 +22,8 @@ General changes
 * Add :doc:`/connector/bigquery`. (:issue:`2532`)
 * Add support for large prepared statements. (:issue:`2719`)
 
-Security changes
-----------------
+Security
+--------
 
 * Remove unused ``internal-communication.jwt.enabled`` configuration property. (:issue:`2709`)
 * Rename JWT configuration properties from ``http.authentication.jwt.*`` to ``http-server.authentication.jwt.*``. (:issue:`2712`)
@@ -31,13 +31,13 @@ Security changes
   configured using :ref:`query_rules` in :doc:`/security/file-system-access-control`. (:issue:`2213`)
 * Hide columns of tables for which the user has no privileges in :doc:`/security/file-system-access-control`. (:issue:`2925`)
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Implement ``PreparedStatement.getMetaData()``. (:issue:`2770`)
 
-Web UI changes
---------------
+Web UI
+------
 
 * Fix copying worker address to clipboard. (:issue:`2865`)
 * Fix copying query ID to clipboard. (:issue:`2872`)
@@ -48,14 +48,14 @@ Web UI changes
 * Add simple form based authentication that utilizes the configured password authenticator. (:issue:`2755`)
 * Allow disabling the UI via the ``web-ui.enabled`` configuration property. (:issue:`2755`)
 
-CLI changes
------------
+CLI
+---
 
 * Fix formatting of ``varbinary`` in nested data types. (:issue:`2858`)
 * Add ``--timezone`` parameter. (:issue:`2961`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix incorrect results for reads from ``information_schema`` tables and
   metadata queries when using a Hive 3.x metastore. (:issue:`3008`)
@@ -75,21 +75,21 @@ Hive connector changes
 * Hide the Hive system schema ``sys`` for security reasons. (:issue:`3008`)
 * Add support for changing the owner of a schema. (:issue:`2673`)
 
-MongoDB connector changes
--------------------------
+MongoDB connector
+-----------------
 
 * Fix incorrect results when queries contain filters on certain data types, such
   as ``real`` or ``decimal``. (:issue:`1781`)
 
-Other connector changes
------------------------
+Other connectors
+----------------
 
 These changes apply to the MemSQL, MySQL, PostgreSQL, Redshift, Phoenix, and SQL Server connectors.
 
 * Add support for dropping schemas. (:issue:`2956`)
 
-SPI changes
------------
+SPI
+---
 
 * Remove deprecated ``Identity`` constructors. (:issue:`2877`)
 * Introduce a builder for ``ConnectorIdentity`` and deprecate its public constructors. (:issue:`2877`)

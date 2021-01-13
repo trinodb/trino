@@ -20,20 +20,20 @@ and can be enabled with the ``distributed-joins-enabled`` flag. It may perform w
 broadcast join implementation because it requires redistributing both tables.
 This feature is still experimental, and should be used with caution.
 
-Hive changes
-------------
+Hive
+----
 * Handle spurious ``AbortedException`` when closing S3 input streams
 * Add support for ORC, DWRF and Parquet in Hive
 * Add support for ``DATE`` type in Hive
 * Fix performance regression in Hive when reading ``VARCHAR`` columns
 
-Kafka changes
--------------
+Kafka
+-----
 * Fix Kafka handling of default port
 * Add support for Kafka messages with a null key
 
-General changes
----------------
+General
+-------
 * Fix race condition in scheduler that could cause queries to hang
 * Add ConnectorPageSource which is a more efficient interface for column-oriented sources
 * Add support for string partition keys in Cassandra

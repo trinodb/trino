@@ -2,8 +2,8 @@
 Release 301 (31 Jan 2019)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Fix reporting of aggregate input data size stats. (:issue:`100`)
 * Add support for role management (see :doc:`/sql/create-role`).  Note, using :doc:`/sql/set-role`
@@ -20,18 +20,18 @@ General changes
 * Improve performance of queries involving ``SYSTEM`` table sampling and computations over the
   columns of the sampled table. (:issue:`29`)
 
-Server RPM changes
-------------------
+Server RPM
+----------
 
 * Do not allow uninstalling RPM while server is still running. (:issue:`67`)
 
-Security changes
-----------------
+Security
+--------
 
 * Support LDAP with anonymous bind disabled. (:issue:`97`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Add procedure for dumping metastore recording to a file. (:issue:`54`)
 * Add Metastore recorder support for Glue. (:issue:`61`)
@@ -43,19 +43,19 @@ Hive connector changes
   staging directory that is used for write operations. The ``${USER}`` placeholder can be used to
   use a different location for each user (e.g., ``/tmp/${USER}``). (:issue:`70`)
 
-Kafka connector changes
------------------------
+Kafka connector
+---------------
 
 * The minimum supported Kafka broker version is now 0.10.0. (:issue:`53`)
 
-Base-JDBC connector library changes
------------------------------------
+Base-JDBC connector library
+---------------------------
 
 * Add support for defining procedures. (:issue:`73`)
 * Add support for providing table statistics. (:issue:`72`)
 
-SPI changes
------------
+SPI
+---
 
 * Include session trace token in ``QueryCreatedEvent`` and ``QueryCompletedEvent``. (:issue:`24`)
 * Fix regression in ``NodeManager`` where node list was not being refreshed on workers.  (:issue:`27`)

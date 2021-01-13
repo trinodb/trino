@@ -2,8 +2,8 @@
 Release 0.174
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix correctness issue for correlated subqueries containing a ``LIMIT`` clause.
 * Fix query failure when :func:`reduce` function is used with lambda expressions
@@ -24,20 +24,20 @@ General changes
 * Add support for escaped unicode sequences in string literals.
 * Add :doc:`/sql/show-grants` and ``information_schema.table_privileges`` table.
 
-Hive changes
-------------
+Hive
+----
 
 * Change default value of ``hive.metastore-cache-ttl`` and ``hive.metastore-refresh-interval`` to 0
   to disable cross-transaction metadata caching.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Fix ES6 compatibility issue with older browsers.
 * Display buffered bytes for every stage in the live plan UI.
 
-SPI changes
------------
+SPI
+---
 
 * Add support for retrieving table grants.
 * Rename SPI access control check from ``checkCanShowTables`` to ``checkCanShowTablesMetadata``,
