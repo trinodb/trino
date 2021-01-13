@@ -116,7 +116,7 @@ public class FunctionCall
         ImmutableList.Builder<Node> nodes = ImmutableList.builder();
         window.ifPresent(nodes::add);
         filter.ifPresent(nodes::add);
-        orderBy.map(OrderBy::getSortItems).map(nodes::addAll);
+        orderBy.map(OrderBy::getSortItems).ifPresent(nodes::addAll);
         nodes.addAll(arguments);
         return nodes.build();
     }

@@ -519,7 +519,7 @@ public abstract class DefaultTraversalVisitor<C>
 
         node.getCriteria()
                 .filter(criteria -> criteria instanceof JoinOn)
-                .map(criteria -> process(((JoinOn) criteria).getExpression(), context));
+                .ifPresent(criteria -> process(((JoinOn) criteria).getExpression(), context));
 
         return null;
     }
