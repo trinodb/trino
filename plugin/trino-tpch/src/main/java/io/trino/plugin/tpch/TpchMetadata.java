@@ -277,7 +277,7 @@ public class TpchMetadata
 
         Map<String, ColumnHandle> columnHandles = getColumnHandles(session, tpchTableHandle);
         return optionalTableStatisticsData
-                .map(tableStatisticsData -> toTableStatistics(optionalTableStatisticsData.get(), tpchTableHandle, columnHandles))
+                .map(tableStatisticsData -> toTableStatistics(tableStatisticsData, tpchTableHandle, columnHandles))
                 .orElse(TableStatistics.empty());
     }
 
