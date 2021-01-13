@@ -15,6 +15,8 @@ import com.google.common.io.Files;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.H2QueryRunner;
+import io.prestosql.testing.QueryAssertions;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
@@ -41,11 +43,13 @@ public class TestPrestoTableStatisticsWithHive
 {
     private DistributedQueryRunner remotePresto;
     private Session remoteSession;
+    private H2QueryRunner h2QueryRunner;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        h2QueryRunner = closeAfterClass(new H2QueryRunner());
         File tempDir = Files.createTempDir();
         closeAfterClass(() -> deleteRecursively(Path.of(tempDir.getPath()), ALLOW_INSECURE));
         remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithHive(
@@ -72,8 +76,8 @@ public class TestPrestoTableStatisticsWithHive
         executeInRemotePresto(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
             // Hive connectors collects stats during write by default
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, '1', '60000')," +
                             "('custkey', null, 990, 0, null, '1', '1499')," +
@@ -99,8 +103,8 @@ public class TestPrestoTableStatisticsWithHive
         executeInRemotePresto(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, '1', '60000')," +
                             "('custkey', null, 990, 0, null, '1', '1499')," +
@@ -126,8 +130,8 @@ public class TestPrestoTableStatisticsWithHive
         computeActual(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', 0, 0, 1, null, null, null)," +
                             "('custkey', 0, 0, 1, null, null, null)," +
@@ -149,8 +153,8 @@ public class TestPrestoTableStatisticsWithHive
         try {
             executeInRemotePresto(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL", tableName));
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', 0, 0, 1, null, null, null)," +
                             "('custkey', 0, 0, 1, null, null, null)," +
@@ -178,8 +182,8 @@ public class TestPrestoTableStatisticsWithHive
         assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 15000");
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, 1, 60000)," +
                             "('custkey', null, 990, 0.3333333333333333, null, 1, 1499)," +
@@ -209,8 +213,8 @@ public class TestPrestoTableStatisticsWithHive
                 "ORDER BY orderkey LIMIT 100");
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 100, 0, null, 1, 388)," +
                             "('v3_in_3', 300, 1, 0, null, null, null)," +
@@ -235,8 +239,8 @@ public class TestPrestoTableStatisticsWithHive
         try {
             gatherStats(tableName);
             // NOTE the null-fraction and NDV stats for partitioned tables do not match the base table because they cannot be aggregated across partitions
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 3065, 0, null, '1', '60000')," +
                             "('custkey', null, 931, 0, null, '1', '1499')," +
@@ -267,8 +271,8 @@ public class TestPrestoTableStatisticsWithHive
         String tableName = "test_stats_view";
         executeInRemotePresto("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
         try {
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, 1, 60000)," +
                             "('custkey', null, 990, 0, null, 1, 1499)," +
@@ -302,8 +306,8 @@ public class TestPrestoTableStatisticsWithHive
                 "FROM orders");
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('case_unquoted_upper', null, 15000, 0, null, '1', '60000')," +
                             "('case_unquoted_lower', null, 990, 0, null, '1', '1499')," +
@@ -352,8 +356,8 @@ public class TestPrestoTableStatisticsWithHive
                         .put("long_decimals_big_integral decimal(38,1)", List.of("-1234567890123456789012345678901234567.8", "1234567890123456789012345678901234567.8"))
                         .build(),
                 "null")) {
-            assertQuery(
-                    "SHOW STATS FOR " + table.getName(),
+            assertLocalAndRemoteStatistics(
+                    table.getName(),
                     "VALUES " +
                             "('only_negative_infinity', null, 1, 0, null, null, null)," +
                             "('only_positive_infinity', null, 1, 0, null, null, null)," +
@@ -369,6 +373,13 @@ public class TestPrestoTableStatisticsWithHive
                             "('long_decimals_big_integral', null, 1.0, 0.5, null, '-1.2345678901234568E36', '1.2345678901234568E36')," +
                             "(null, null, null, null, 4, null, null)");
         }
+    }
+
+    private void assertLocalAndRemoteStatistics(String tableName, String expectedValues)
+    {
+        String showStatsQuery = "SHOW STATS FOR " + tableName;
+        assertQuery(showStatsQuery, expectedValues);
+        QueryAssertions.assertQuery(remotePresto, remoteSession, showStatsQuery, h2QueryRunner, expectedValues, false, false);
     }
 
     private void executeInRemotePresto(String sql)

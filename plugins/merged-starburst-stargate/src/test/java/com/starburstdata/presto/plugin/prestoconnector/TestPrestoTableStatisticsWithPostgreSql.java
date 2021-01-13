@@ -15,6 +15,8 @@ import io.prestosql.Session;
 import io.prestosql.plugin.postgresql.TestingPostgreSqlServer;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
+import io.prestosql.testing.H2QueryRunner;
+import io.prestosql.testing.QueryAssertions;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import org.jdbi.v3.core.HandleConsumer;
@@ -41,11 +43,13 @@ public class TestPrestoTableStatisticsWithPostgreSql
     private TestingPostgreSqlServer postgreSqlServer;
     private DistributedQueryRunner remotePresto;
     private Session remoteSession;
+    private H2QueryRunner h2QueryRunner;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        h2QueryRunner = closeAfterClass(new H2QueryRunner());
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithPostgreSql(
                 postgreSqlServer,
@@ -76,8 +80,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         executeInRemotePresto(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, null, null, null, null, null)," +
                             "('custkey', null, null, null, null, null, null)," +
@@ -103,8 +107,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
         executeInRemotePresto(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, null, null)," +
                             "('custkey', null, 1000, 0, null, null, null)," +
@@ -130,8 +134,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
         executeInRemotePresto(format("CREATE TABLE %s AS SELECT orderkey, custkey, orderpriority, comment FROM tpch.tiny.orders WHERE false", tableName));
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', 0, 0, 1, null, null, null)," +
                             "('custkey', 0, 0, 1, null, null, null)," +
@@ -153,8 +157,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
         try {
             executeInRemotePresto(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL", tableName));
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', 0, 0, 1, null, null, null)," +
                             "('custkey', 0, 0, 1, null, null, null)," +
@@ -182,8 +186,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
         assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 15000");
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, null, null)," +
                             "('custkey', null, 1000, 0.3333333333333333, null, null, null)," +
@@ -213,8 +217,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
                 "ORDER BY orderkey LIMIT 100");
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 100, 0, null, null, null)," +
                             "('v3_in_3', 400, 1, 0, null, null, null)," +
@@ -248,8 +252,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
         String tableName = "test_stats_view";
         executeInPostgres("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
         try {
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, null, null, null, null, null)," +
                             "('custkey', null, null, null, null, null, null)," +
@@ -273,8 +277,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
                 "AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, null, null)," +
                             "('custkey', null, 1000, 0, null, null, null)," +
@@ -302,8 +306,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
                 "FROM orders");
         try {
             gatherStats(tableName);
-            assertQuery(
-                    "SHOW STATS FOR " + tableName,
+            assertLocalAndRemoteStatistics(
+                    tableName,
                     "VALUES " +
                             "('case_unquoted_upper', null, 15000, 0, null, null, null)," +
                             "('case_unquoted_lower', null, 1000, 0, null, null, null)," +
@@ -354,8 +358,8 @@ public class TestPrestoTableStatisticsWithPostgreSql
                         .build(),
                 "null")) {
             gatherStats(table.getName());
-            assertQuery(
-                    "SHOW STATS FOR " + table.getName(),
+            assertLocalAndRemoteStatistics(
+                    table.getName(),
                     "VALUES " +
                             "('only_negative_infinity', null, 1, 0, null, null, null)," +
                             "('only_positive_infinity', null, 1, 0, null, null, null)," +
@@ -371,6 +375,13 @@ public class TestPrestoTableStatisticsWithPostgreSql
                             "('long_decimals_big_integral', null, 2.0, 0.5, null, null, null)," +
                             "(null, null, null, null, 4, null, null)");
         }
+    }
+
+    private void assertLocalAndRemoteStatistics(String tableName, String expectedValues)
+    {
+        String showStatsQuery = "SHOW STATS FOR " + tableName;
+        assertQuery(showStatsQuery, expectedValues);
+        QueryAssertions.assertQuery(remotePresto, remoteSession, showStatsQuery, h2QueryRunner, expectedValues, false, false);
     }
 
     private void executeInRemotePresto(String sql)
