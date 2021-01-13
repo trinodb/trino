@@ -29,6 +29,7 @@ Access control
   :maxdepth: 1
 
   security/built-in-system-access-control
+  security/file-system-access-control
   security/server
   security/cli
 
