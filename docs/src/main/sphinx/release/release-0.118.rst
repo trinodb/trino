@@ -2,8 +2,8 @@
 Release 0.118
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix planning error for ``UNION`` queries that require implicit coercions.
 * Fix null pointer exception when using :func:`checksum`.

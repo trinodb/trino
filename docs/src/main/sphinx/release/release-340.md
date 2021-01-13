@@ -1,6 +1,6 @@
 # Release 340 (8 Aug 2020)
 
-## General changes
+## General
 
 * Add support for query parameters in `LIMIT`, `OFFSET` and `FETCH FIRST` clauses. ({issue}`4529`, {issue}`4601`)
 * Add experimental support for recursive queries. ({issue}`4250`)
@@ -16,20 +16,20 @@
 * Fix failure when `GROUP BY` clause contains duplicate expressions. ({issue}`4609`)
 * Fix potential hang during query planning ({issue}`4635`).
 
-## Security changes
+## Security
 
 * Fix unprivileged access to table's schema via `CREATE TABLE LIKE`. ({issue}`4472`)
 
-## JDBC driver changes
+## JDBC driver
 
 * Fix handling of dates before 1582-10-15. ({issue}`4563`)
 * Fix handling of timestamps before 1900-01-01. ({issue}`4563`)
 
-## Elasticsearch connector changes
+## Elasticsearch connector
 
 * Fix failure when index mapping is missing. ({issue}`4535`)
 
-## Hive connector changes
+## Hive connector
 
 * Allow creating a table with `external_location` when schema's location is not valid. ({issue}`4069`)
 * Add read support for tables that were created as non-transactional and converted to be
@@ -45,27 +45,27 @@
 * Fix query failure when S3 data location contains a `_$folder$` marker object. ({issue}`4552`)
 * Fix failure when referencing nested fields of a `ROW` type when table and partition metadata differs. ({issue}`3967`)
 
-## Kafka connector changes
+## Kafka connector
 
 * Add insert support for Raw data format. ({issue}`4417`)
 * Add insert support for JSON. ({issue}`4477`)
 * Remove unused `kafka.connect-timeout` configuration properties. ({issue}`4664`)
 
-## MongoDB connector changes
+## MongoDB connector
 
 * Add `mongodb.max-connection-idle-time` properties to limit the maximum idle time of a pooled connection. ({issue}`4483`)
 
-## Phoenix connector changes
+## Phoenix connector
 
 * Add table level property to specify data block encoding when creating tables. ({issue}`4617`)
 * Fix query failure when listing schemas. ({issue}`4560`)
 
-## PostgreSQL connector changes
+## PostgreSQL connector
 
 * Push down {func}`count` aggregations over constant expressions.
   For example, `SELECT count(1)`. ({issue}`4362`)
 
-## SPI changes
+## SPI
 
 * Expose information about query type in query Event Listener. ({issue}`4592`)
 * Add support for TopN pushdown via the `ConnectorMetadata.applyLimit()` method. ({issue}`4249`)

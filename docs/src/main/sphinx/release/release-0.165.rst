@@ -2,8 +2,8 @@
 Release 0.165
 =============
 
-General changes
----------------
+General
+-------
 
 * Make ``AT`` a non-reserved keyword.
 * Improve performance of :func:`transform`.
@@ -12,12 +12,12 @@ General changes
   config option.
 * Add input and hash collision statistics to :doc:`/sql/explain-analyze` output.
 
-Hive changes
-------------
+Hive
+----
 
 * Add support for MAP and ARRAY types in optimized Parquet reader.
 
-MySQL and PostgreSQL changes
-----------------------------
+MySQL and PostgreSQL
+--------------------
 
 * Fix connection leak on workers.

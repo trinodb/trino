@@ -17,8 +17,8 @@ The storage format to use when writing data to Hive can now be configured via th
 in your Hive catalog properties file. Valid options are ``RCBINARY``, ``RCTEXT``, ``SEQUENCEFILE`` and ``TEXTFILE``.
 The default format if the property is not set is ``RCBINARY``.
 
-General changes
----------------
+General
+-------
 
 * Show column comments in ``DESCRIBE``
 * Add :func:`try_cast` which works like :func:`cast` but returns ``null`` if the cast fails

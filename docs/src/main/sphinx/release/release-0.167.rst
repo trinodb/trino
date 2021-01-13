@@ -2,8 +2,8 @@
 Release 0.167
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix planning failure when a window function depends on the output of another window function.
 * Fix planning failure for certain aggregation with both ``DISTINCT`` and ``GROUP BY``.
@@ -21,8 +21,8 @@ General changes
 * Add JMX stats for compiler caches.
 * Raise required Java version to 8u92.
 
-Security changes
-----------------
+Security
+--------
 
 * The ``http.server.authentication.enabled`` config option that previously enabled
   Kerberos has been replaced with ``http-server.authentication.type=KERBEROS``.
@@ -31,20 +31,20 @@ Security changes
 * Allow access controls to filter the results of listing catalogs, schemas and tables.
 * Add access control checks for :doc:`/sql/show-schemas` and :doc:`/sql/show-tables`.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Add operator-level performance analysis.
 * Improve visibility of blocked and reserved query states.
 * Lots of minor improvements.
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Allow escaping in ``DatabaseMetaData`` patterns.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix write operations for ``ViewFileSystem`` by using a relative location.
 * Remove support for the ``hive-cdh4`` and ``hive-hadoop1`` connectors which
@@ -53,16 +53,16 @@ Hive changes
 * Remove support for the legacy S3 block-based file system.
 * Add support for KMS-managed keys for S3 server-side encryption.
 
-Cassandra changes
------------------
+Cassandra
+---------
 
 * Add support for Cassandra 3.x by removing the deprecated Thrift interface used to
   connect to Cassandra. The following config options are now defunct and must be removed:
   ``cassandra.thrift-port``, ``cassandra.thrift-connection-factory-class``,
   ``cassandra.transport-factory-options`` and ``cassandra.partitioner``.
 
-SPI changes
------------
+SPI
+---
 
 * Add methods to ``SystemAccessControl`` and ``ConnectorAccessControl`` to
   filter the list of catalogs, schemas and tables.

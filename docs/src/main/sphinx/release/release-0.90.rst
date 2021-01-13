@@ -4,8 +4,8 @@ Release 0.90
 
 .. warning:: This release has a memory leak and should not be used.
 
-General changes
----------------
+General
+-------
 
 * Initial support for partition and placement awareness in the query planner. This can
   result in better plans for queries involving ``JOIN`` and ``GROUP BY`` over the same
@@ -41,16 +41,16 @@ Functions and language features
 * Improve formatting of ``EXPLAIN (TYPE DISTRIBUTED)`` output and include additional
   information such as output layout, task placement policy and partitioning functions.
 
-Hive changes
-------------
+Hive
+----
 * Disable optimized metastore partition fetching for non-string partition keys.
   This fixes an issue were Presto might silently ignore data with non-canonical
   partition values. To enable this option, add ``hive.assume-canonical-partition-keys=true``
   to the coordinator and worker config properties.
 * Don't retry operations against S3 that fail due to lack of permissions.
 
-SPI changes
------------
+SPI
+---
 * Add ``getColumnTypes`` to ``RecordSink``.
 * Use ``Slice`` for table writer fragments.
 * Add ``ConnectorPageSink`` which is a more efficient interface for column-oriented sources.

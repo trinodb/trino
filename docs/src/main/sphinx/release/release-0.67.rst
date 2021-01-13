@@ -8,8 +8,8 @@ Release 0.67
 
 * Fix planning issue with certain queries using window functions
 
-SPI changes
------------
+SPI
+---
 
 The ``ConnectorSplitSource`` interface now extends ``Closeable``.
 

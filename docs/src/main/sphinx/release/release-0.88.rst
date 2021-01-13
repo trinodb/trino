@@ -2,8 +2,8 @@
 Release 0.88
 ============
 
-General changes
----------------
+General
+-------
 
 * Added :func:`arbitrary` aggregation function.
 * Allow using all :doc:`/functions/aggregate` as :doc:`/functions/window`.

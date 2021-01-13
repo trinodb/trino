@@ -2,8 +2,8 @@
 Release 0.201
 =============
 
-General changes
----------------
+General
+-------
 
 * Change grouped aggregations to use ``IS NOT DISTINCT FROM`` semantics rather than equality
   semantics. This fixes incorrect results and degraded performance when grouping on ``NaN``
@@ -21,15 +21,15 @@ General changes
   aggregations for queries that do not benefit.
 * Add support for ``current_user`` (see :doc:`/functions/session`).
 
-Security changes
-----------------
+Security
+--------
 
 * Change rules in the :doc:`/security/built-in-system-access-control` for enforcing matches
   between authentication credentials and a chosen username to allow more fine-grained
   control and ability to define superuser-like credentials.
 
-Hive changes
-------------
+Hive
+----
 
 * Replace ORC writer stripe minimum row configuration ``hive.orc.writer.stripe-min-rows``
   with stripe minimum data size ``hive.orc.writer.stripe-min-size``.
@@ -41,7 +41,7 @@ Hive changes
 * Fix impersonation for the simple HDFS authentication to use login user rather than current
   user.
 
-SPI changes
------------
+SPI
+---
 
 * Support resource group selection based on resource estimates.

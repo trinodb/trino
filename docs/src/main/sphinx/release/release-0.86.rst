@@ -2,8 +2,8 @@
 Release 0.86
 ============
 
-General changes
----------------
+General
+-------
 
 * Add support for inequality ``INNER JOIN`` when each term of the condition refers to only one side of the join.
 * Add :func:`ntile` function.

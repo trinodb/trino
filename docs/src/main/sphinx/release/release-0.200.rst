@@ -2,8 +2,8 @@
 Release 0.200
 =============
 
-General changes
----------------
+General
+-------
 
 * Disable early termination of inner or right joins when the right side
   has zero rows. This optimization can cause indefinite query hangs
@@ -19,8 +19,8 @@ General changes
 * Add :func:`from_ieee754_32` and :func:`from_ieee754_64` functions.
 * Add :func:`ST_GeometryType` geospatial function.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix reading min/max statistics for columns of ``REAL`` type in partitioned tables.
 * Fix failure when reading Parquet files with optimized Parquet reader
@@ -29,8 +29,8 @@ Hive changes
 * Fix failure when reading ORC files that contain UTF-8 Bloom filter streams.
   Such Bloom filters are now ignored.
 
-MySQL changes
--------------
+MySQL
+-----
 
 * Avoid reading extra rows from MySQL at query completion.
   This typically affects queries with a ``LIMIT`` clause.
