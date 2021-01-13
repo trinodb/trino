@@ -417,7 +417,7 @@ public final class Environment
         public Builder configureContainers(Consumer<DockerContainer> configurer)
         {
             requireNonNull(configurer, "configurer is null");
-            containers.values().forEach(configurer::accept);
+            containers.values().forEach(configurer);
             return this;
         }
 

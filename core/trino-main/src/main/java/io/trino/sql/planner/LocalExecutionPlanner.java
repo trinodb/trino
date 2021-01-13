@@ -2021,7 +2021,7 @@ public class LocalExecutionPlanner
             Function<Symbol, Integer> probeChannelGetter = channelGetter(probeSource);
             int probeChannel = probeChannelGetter.apply(probeSymbol);
 
-            Optional<Integer> partitionChannel = node.getLeftPartitionSymbol().map(probeChannelGetter::apply);
+            Optional<Integer> partitionChannel = node.getLeftPartitionSymbol().map(probeChannelGetter);
 
             return new SpatialJoinOperatorFactory(
                     context.getNextOperatorId(),
@@ -2053,7 +2053,7 @@ public class LocalExecutionPlanner
             List<Integer> buildOutputChannels = ImmutableList.copyOf(getChannelsForSymbols(buildOutputSymbols, buildLayout));
             Function<Symbol, Integer> buildChannelGetter = channelGetter(buildSource);
             Integer buildChannel = buildChannelGetter.apply(buildSymbol);
-            Optional<Integer> radiusChannel = radiusSymbol.map(buildChannelGetter::apply);
+            Optional<Integer> radiusChannel = radiusSymbol.map(buildChannelGetter);
 
             Optional<JoinFilterFunctionFactory> filterFunctionFactory = joinFilter
                     .map(filterExpression -> compileJoinFilterFunction(
@@ -2063,7 +2063,7 @@ public class LocalExecutionPlanner
                             context.getTypes(),
                             session));
 
-            Optional<Integer> partitionChannel = node.getRightPartitionSymbol().map(buildChannelGetter::apply);
+            Optional<Integer> partitionChannel = node.getRightPartitionSymbol().map(buildChannelGetter);
 
             SpatialIndexBuilderOperatorFactory builderOperatorFactory = new SpatialIndexBuilderOperatorFactory(
                     buildContext.getNextOperatorId(),
