@@ -2,8 +2,8 @@
 Release 0.144.3
 ===============
 
-General changes
----------------
+General
+-------
 
 * Fix bugs in planner where coercions were not taken into account when computing
   types.
@@ -12,7 +12,7 @@ General changes
 * Fix race condition that can cause queries that process data from non-columnar data
   sources to fail.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix reading symlinks when the target is in a different HDFS instance.

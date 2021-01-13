@@ -2,8 +2,8 @@
 Release 0.147
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix race condition that can cause queries that process data from non-columnar
   data sources to fail.
@@ -32,8 +32,8 @@ General changes
   property replaces the ``task_join_concurrency``, ``task_hash_build_concurrency``, and
   ``task_aggregation_concurrency`` properties.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix reading symlinks when the target is in a different HDFS instance.
 * Fix ``NoClassDefFoundError`` for ``SubnetUtils`` in HDFS client.
@@ -45,19 +45,19 @@ Hive changes
 * Rename table property ``clustered_by`` to ``bucketed_by``.
 * Add support for ``varchar(n)``.
 
-Kafka changes
--------------
+Kafka
+-----
 
 * Fix ``error code 6`` when reading data from Kafka.
 * Add support for ``varchar(n)``.
 
-Redis changes
--------------
+Redis
+-----
 
 * Add support for ``varchar(n)``.
 
-MySQL and PostgreSQL changes
-----------------------------
+MySQL and PostgreSQL
+--------------------
 
 * Cleanup temporary data when a ``CREATE TABLE AS`` fails.
 * Add support for ``varchar(n)``.

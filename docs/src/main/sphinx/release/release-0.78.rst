@@ -40,8 +40,8 @@ For JDBC, the properties can be set by unwrapping the ``Connection`` as follows:
     property values. Additionally, the Presto grammar will be extended to
     allow setting properties via a query.
 
-Hive changes
-------------
+Hive
+----
 
 * Add ``storage_format`` session property to override format used for creating tables.
 * Add write support for ``VARBINARY``, ``DATE`` and ``TIMESTAMP``.
@@ -49,8 +49,8 @@ Hive changes
 * Add support for partition keys with null values (``__HIVE_DEFAULT_PARTITION__``).
 * Fix ``hive.storage-format`` option (see :doc:`release-0.76`).
 
-General changes
----------------
+General
+-------
 
 * Fix expression optimizer, so that it runs in linear time instead of exponential time.
 * Add :func:`cardinality` for maps.

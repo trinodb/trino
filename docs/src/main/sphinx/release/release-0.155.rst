@@ -2,8 +2,8 @@
 Release 0.155
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix incorrect results when queries contain multiple grouping sets that
   resolve to the same set.
@@ -20,15 +20,15 @@ General changes
 * Properly account for time spent creating page source.
 * Various optimizations to reduce coordinator CPU usage.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix schema evolution support in new Parquet reader.
 * Fix ``NoClassDefFoundError`` when using Hadoop KMS.
 * Add support for Avro file format.
 * Always produce dictionary blocks for DWRF dictionary encoded streams.
 
-SPI changes
------------
+SPI
+---
 
 * Remove legacy connector API.

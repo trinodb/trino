@@ -2,8 +2,8 @@
 Release 314 (7 Jun 2019)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Fix incorrect results for ``BETWEEN`` involving ``NULL`` values. (:issue:`877`)
 * Fix query history leak in coordinator. (:issue:`939`, :issue:`944`)
@@ -13,24 +13,24 @@ General changes
 * Add support for positional access to ``ROW`` fields via the subscript
   operator. (:issue:`860`)
 
-CLI changes
------------
+CLI
+---
 
 * Add JSON output format. (:issue:`878`)
 
-Web UI changes
---------------
+Web UI
+------
 
 * Fix queued queries counter in UI. (:issue:`894`)
 
-Server RPM changes
-------------------
+Server RPM
+----------
 
 * Change default location of the ``http-request.log`` to ``/var/log/presto``. Previously,
   the log would be located in ``/var/lib/presto/data/var/log`` by default. (:issue:`919`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix listing tables and views from Hive 2.3+ Metastore on certain databases,
   including Derby and Oracle. This fixes ``SHOW TABLES``, ``SHOW VIEWS`` and
@@ -49,24 +49,24 @@ Hive connector changes
   the split discovery rate, which can reduce load on the file system. (:issue:`534`)
 * Support overwriting unpartitioned tables for insert queries. (:issue:`924`)
 
-PostgreSQL connector changes
-----------------------------
+PostgreSQL connector
+--------------------
 
 * Support PostgreSQL arrays declared using internal type
   name, for example ``_int4`` (rather than ``int[]``). (:issue:`659`)
 
-Elasticsearch connector changes
--------------------------------
+Elasticsearch connector
+-----------------------
 
 * Add support for mixed-case field names. (:issue:`887`)
 
-Base-JDBC connector library changes
------------------------------------
+Base-JDBC connector library
+---------------------------
 
 * Allow connectors to customize how they store ``NULL`` values. (:issue:`918`)
 
-SPI changes
------------
+SPI
+---
 
 * Expose the SQL text of the executed prepared statement to ``EventListener``. (:issue:`908`)
 * Deprecate table layouts for ``ConnectorMetadata.makeCompatiblePartitioning()``. (:issue:`689`)

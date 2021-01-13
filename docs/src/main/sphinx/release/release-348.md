@@ -1,6 +1,6 @@
 # Release 348 (14 Dec 2020)
 
-## General changes
+## General
 
 * Add support for `DISTINCT` clause in aggregations within correlated subqueries. ({issue}`5904`)
 * Support `SHOW STATS` for arbitrary queries. ({issue}`3109`)
@@ -21,7 +21,7 @@
 * Add support for OAuth2 authorization. ({issue}`5355`)
 * Fix invalid operator stats in Stage Performance view. ({issue}`6114`)
 
-## JDBC driver changes
+## JDBC driver
 
 * Allow reading `timestamp with time zone` value as `ZonedDateTime` using `ResultSet.getObject(int column, Class<?> type)` method. ({issue}`307`)
 * Accept `java.time.LocalDate` in `PreparedStatement.setObject(int, Object)`. ({issue}`6301`)
@@ -42,13 +42,13 @@
 * Fix `ResultSetMetaData.getColumnType` for `time with time zone`. Previously the type was miscategorized as `java.sql.Types.TIME`. ({issue}`6251`)
 * Fix failure when an instance of `SphericalGeography` geospatial type is returned in the `ResultSet`. ({issue}`6240`)
 
-## CLI changes
+## CLI
 
 * Fix rendering of `row` values with unnamed fields. Previously they were printed using fake field names like `field0`, `field1`, etc. ({issue}`4587`)
 * Fix query progress reporting. ({issue}`6119`)
 * Fix failure when an instance of `SphericalGeography` geospatial type is returned to the client. ({issue}`6238`)
 
-## Hive connector changes
+## Hive connector
 
 * Allow configuring S3 endpoint in security mapping. ({issue}`3869`)
 * Add support for S3 streaming uploads. Data is uploaded to S3 as it is written, rather
@@ -64,22 +64,22 @@
 * Add deserializer class name to split information exposed to the event listener. ({issue}`6006`)
 * Improve performance when querying tables that contain symlinks. ({issue}`6158`, {issue}`6213`)
 
-## Iceberg connector changes
+## Iceberg connector
 
 * Improve performance of queries containing filters on non-partition columns. Such filters are now used
   for optimizing split generation and table scan.  ({issue}`4932`)
 * Add support for Google Cloud Storage and Azure Storage. ({issue}`6186`)
 
-## Kafka connector changes
+## Kafka connector
 
 * Allow writing `timestamp with time zone` values into columns using `milliseconds-since-epoch` or
   `seconds-since-epoch` JSON encoders. ({issue}`6074`)
 
-## Other connector changes
+## Other connectors
 
 * Fix ineffective table metadata caching for PostgreSQL, MySQL, SQL Server, Redshift, MemSQL and Phoenix connectors. ({issue}`6081`, {issue}`6167`)
 
-## SPI changes
+## SPI
 
 * Change `SystemAccessControl#filterColumns` and `ConnectorAccessControl#filterColumns` methods to accept a set of
   column names, and return a set of visible column names. ({issue}`6084`)

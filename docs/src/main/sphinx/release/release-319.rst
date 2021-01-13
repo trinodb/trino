@@ -2,8 +2,8 @@
 Release 319 (22 Sep 2019)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Fix planning failure for queries involving ``UNION`` and ``DISTINCT`` aggregates. (:issue:`1510`)
 * Fix excessive runtime when parsing expressions involving ``CASE``. (:issue:`1407`)
@@ -34,8 +34,8 @@ General changes
   via the ``node-scheduler.network-topology.type`` configuration property. (:issue:`1500`)
 * Add support for ``SphericalGeography`` to :func:`ST_Length`. (:issue:`1551`)
 
-Security changes
-----------------
+Security
+--------
 
 * Allow configuring read-only access in :doc:`/security/built-in-system-access-control`. (:issue:`1153`)
 * Add missing checks for schema create, rename, and drop in file-based ``SystemAccessControl``. (:issue:`1153`)
@@ -43,20 +43,20 @@ Security changes
   ``X-Forwarded-Proto`` header. This is disabled by default, but can be enabled using the
   ``http-server.authentication.allow-forwarded-https`` configuration property. (:issue:`1442`)
 
-Web UI changes
---------------
+Web UI
+------
 
 * Fix rendering bug in Query Timeline resulting in inconsistency of presented information after
   query finishes. (:issue:`1371`)
 * Show total memory in Query Timeline instead of user memory. (:issue:`1371`)
 
-CLI changes
------------
+CLI
+---
 
 * Add ``--insecure`` option to skip validation of server certificates for debugging. (:issue:`1484`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix reading from ``information_schema``, as well as ``SHOW SCHEMAS``, ``SHOW TABLES``, and
   ``SHOW COLUMNS`` when connecting to a Hive 3.x metastore that contains an ``information_schema``

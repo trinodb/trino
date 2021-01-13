@@ -6,8 +6,8 @@ Release 337 (25 Jun 2020)
    attacker can take advantage of this vulnerability to escalate privileges to internal APIs. We encourage everyone to upgrade as soon
    as possible.
 
-General changes
----------------
+General
+-------
 
 * Fix incorrect results for inequality join involving ``NaN``. (:issue:`4120`)
 * Fix peak non-revocable memory metric in event listener. (:issue:`4096`)
@@ -23,8 +23,8 @@ General changes
 * Add :func:`translate` function. (:issue:`4080`)
 * Reduce worker graceful shutdown duration. (:issue:`4192`)
 
-Security changes
-----------------
+Security
+--------
 
 * Disable insecure authentication over HTTP by default when HTTPS with authentication is enabled. This
   can be overridden via the ``http-server.authentication.allow-insecure-over-http`` configuration property. (:issue:`4199`)
@@ -32,13 +32,13 @@ Security changes
 * Add :ref:`system_information_rules` which control the ability of a user to access to read and write system management information. (:issue:`4199`)
 * Disable user impersonation in default system security. (:issue:`4082`)
 
-Elasticsearch connector changes
--------------------------------
+Elasticsearch connector
+-----------------------
 
 * Add support for password authentication. (:issue:`4165`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix reading CSV tables with ``separatorChar``, ``quoteChar`` or ``escapeChar`` table property
   containing more than one character. For compatibility with Hive, only first character is considered
@@ -57,14 +57,14 @@ Hive connector changes
 * Support ACID data files naming used when direct inserts are enabled in Hive (HIVE-21164).
   Direct inserts is an upcoming feature in Hive 4. (:issue:`4049`)
 
-PostgreSQL connector changes
-----------------------------
+PostgreSQL connector
+--------------------
 
 * Improve performance of aggregation queries by computing aggregations within PostgreSQL database.
   Currently, the following aggregate functions are eligible for pushdown:
   ``count``,  ``min``, ``max``, ``sum`` and ``avg``. (:issue:`3881`)
 
-Base-JDBC connector library changes
------------------------------------
+Base-JDBC connector library
+---------------------------
 
 * Implement framework for aggregation pushdown. (:issue:`3881`)

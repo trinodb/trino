@@ -15,15 +15,15 @@ disable the new reader on a per-query basis by setting the
 the reader by default by setting the Hive catalog property
 ``hive.optimized-reader.enabled=false``.
 
-Hive changes
-------------
+Hive
+----
 
 * The maximum retry time for the Hive S3 file system can be configured
   by setting ``hive.s3.max-retry-time``.
 * Fix Hive partition pruning for null keys (i.e. ``__HIVE_DEFAULT_PARTITION__``).
 
-Cassandra changes
------------------
+Cassandra
+---------
 
 * Update Cassandra driver to 2.1.0.
 * Map Cassandra ``TIMESTAMP`` type to Presto ``TIMESTAMP`` type.
@@ -77,8 +77,8 @@ to the coordinator config properties.
       Hive connector will produce incorrect results if your Hive warehouse
       contains partitions without data.
 
-General changes
----------------
+General
+-------
 
 * Add support implicit joins. The following syntax is now allowed::
 
