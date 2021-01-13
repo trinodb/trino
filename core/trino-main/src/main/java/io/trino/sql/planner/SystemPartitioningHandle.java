@@ -139,17 +139,19 @@ public final class SystemPartitioningHandle
     {
         NodeSelector nodeSelector = nodeScheduler.createNodeSelector(Optional.empty());
         List<InternalNode> nodes;
-        if (partitioning == SystemPartitioning.COORDINATOR_ONLY) {
-            nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
-        }
-        else if (partitioning == SystemPartitioning.SINGLE) {
-            nodes = nodeSelector.selectRandomNodes(1);
-        }
-        else if (partitioning == SystemPartitioning.FIXED) {
-            nodes = nodeSelector.selectRandomNodes(getHashPartitionCount(session));
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);
+
+        switch (partitioning) {
+            case COORDINATOR_ONLY:
+                nodes = ImmutableList.of(nodeSelector.selectCurrentNode());
+                break;
+            case SINGLE:
+                nodes = nodeSelector.selectRandomNodes(1);
+                break;
+            case FIXED:
+                nodes = nodeSelector.selectRandomNodes(getHashPartitionCount(session));
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);
         }
 
         checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");
