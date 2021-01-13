@@ -286,8 +286,15 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $RETRY ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl :trino-bigquery
-      - name: BigQuery Tests
+      - name: Basic BigQuery Tests
         run: ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery
+      - name: Cloud BigQuery Tests
+        env:
+          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
+        run: |
+          if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
+            ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+          fi
 
   pt:
     runs-on: ubuntu-latest
