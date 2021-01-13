@@ -22,8 +22,8 @@ for querying and creating tables in external relational databases. These can
 be used to join or copy data between different systems like MySQL and Hive,
 or between two different MySQL or PostgreSQL instances, or any combination.
 
-Cassandra changes
------------------
+Cassandra
+---------
 
 The :doc:`/connector/cassandra` configuration properties
 ``cassandra.client.read-timeout`` and ``cassandra.client.connect-timeout``
@@ -35,8 +35,8 @@ The retry policy for the Cassandra client is now configurable via the
 ``cassandra.retry-policy`` property. In particular, the custom ``BACKOFF``
 retry policy may be useful.
 
-Hive changes
-------------
+Hive
+----
 
 The new :doc:`/connector/hive` configuration property ``hive.s3.socket-timeout``
 allows changing the socket timeout for queries that read or write to Amazon S3.
@@ -57,8 +57,8 @@ The property ``hive.storage-format`` is broken and has been disabled. It
 sets the storage format on the metadata but always writes the table using
 ``RCBINARY``. This will be implemented in a future release.
 
-General changes
----------------
+General
+-------
 
 * Fix hang in verifier when an exception occurs.
 * Fix :func:`chr` function to work with Unicode code points instead of ASCII code points.

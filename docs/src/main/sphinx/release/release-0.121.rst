@@ -2,8 +2,8 @@
 Release 0.121
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix regression that causes task scheduler to not retry requests in some cases.
 * Throttle task info refresher on errors.

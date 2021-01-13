@@ -2,8 +2,8 @@
 Release 0.140
 =============
 
-General changes
----------------
+General
+-------
 
 * Add the ``TRY`` function to handle specific data exceptions. See
   :doc:`/functions/conditional`.
@@ -22,15 +22,15 @@ General changes
   duplicated columns.
 * Optimize ``NOT IN`` queries to produce more compact predicates.
 
-Hive changes
-------------
+Hive
+----
 
 * Remove bogus "from deserializer" column comments.
 * Change categorization of Hive writer errors to be more specific.
 * Add date and timestamp support to new Parquet Reader
 
-SPI changes
------------
+SPI
+---
 
 * Remove partition key from ``ColumnMetadata``.
 * Change return type of ``ConnectorTableLayout.getDiscretePredicates()``.

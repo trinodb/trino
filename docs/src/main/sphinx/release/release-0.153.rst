@@ -2,8 +2,8 @@
 Release 0.153
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix incorrect results for grouping sets when ``task.concurrency`` is greater than one.
 * Fix silent numeric overflow when casting ``INTEGER`` to large ``DECIMAL`` types.
@@ -60,8 +60,8 @@ configuration file by setting the ``resource-groups.configuration-manager``
 property. See the ``presto-resource-group-managers`` plugin for an example
 and :doc:`/admin/resource-groups` for more details.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Fix rendering failures due to null nested data structures.
 * Do not include coordinator in active worker count on cluster overview page.
@@ -70,18 +70,18 @@ Web UI changes
 * Add option to filter task lists by status on query details page.
 * Add copy button for query text, query ID, and user to query details page.
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Add support for ``real`` data type, which corresponds to the Java ``float`` type.
 
-CLI changes
------------
+CLI
+---
 
 * Add support for configuring the HTTPS Truststore.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix permissions for new tables when using SQL-standard authorization.
 * Improve performance of ORC reader when decoding dictionary encoded :ref:`map_type`.
@@ -117,31 +117,31 @@ Hive changes
 * Allow configuring a custom S3 encryption materials provider using the
   ``hive.s3.encryption-materials-provider`` configuration property.
 
-JMX changes
------------
+JMX
+---
 
 * Make name configuration for history tables case-insensitive.
 
-MySQL changes
--------------
+MySQL
+-----
 
 * Optimize fetching column names when describing a single table.
 * Add support for ``char(x)`` and ``real`` data types.
 
-PostgreSQL changes
-------------------
+PostgreSQL
+----------
 
 * Optimize fetching column names when describing a single table.
 * Add support for ``char(x)`` and ``real`` data types.
 * Add support for querying materialized views.
 
-Blackhole changes
------------------
+Blackhole
+---------
 
 * Add ``page_processing_delay`` table property.
 
-SPI changes
------------
+SPI
+---
 
 * Add ``schemaExists()`` method to ``ConnectorMetadata``.
 * Add transaction to grant/revoke in ``ConnectorAccessControl``.

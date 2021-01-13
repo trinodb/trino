@@ -2,8 +2,8 @@
 Release 0.160
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix planning failure when query has multiple unions with identical underlying columns.
 * Fix planning failure when multiple ``IN`` predicates contain an identical subquery.
@@ -11,8 +11,8 @@ General changes
   comes back before coordinator times out the query.
 * Add :doc:`/functions/lambda`.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix planning failure when inserting into columns of struct types with uppercase field names.
 * Fix resource leak when using Kerberos authentication with impersonation.

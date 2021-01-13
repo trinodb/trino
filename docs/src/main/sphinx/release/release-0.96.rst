@@ -2,8 +2,8 @@
 Release 0.96
 ============
 
-General changes
----------------
+General
+-------
 
 * Fix :func:`try_cast` for ``TIMESTAMP`` and other types that
   need access to session information.
@@ -16,7 +16,7 @@ General changes
 * Fixed "running queries" JMX stat.
 * Add ``distributed_join`` session property to enable/disable distributed joins.
 
-Hive changes
-------------
+Hive
+----
 
 * Add support for tables partitioned by ``DATE``.

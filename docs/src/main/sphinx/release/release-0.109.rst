@@ -2,8 +2,8 @@
 Release 0.109
 =============
 
-General changes
----------------
+General
+-------
 
 * Add :func:`slice`, :func:`md5`, :func:`array_min` and :func:`array_max` functions.
 * Fix bug that could cause queries submitted soon after startup to hang forever.

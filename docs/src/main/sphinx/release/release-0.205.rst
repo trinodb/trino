@@ -2,8 +2,8 @@
 Release 0.205
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix parsing of row types where the field types contain spaces.
   Previously, row expressions that included spaces would fail to parse.
@@ -31,8 +31,8 @@ General changes
 * Do not allow using the ``FILTER`` clause for the ``COALESCE``, ``IF``, or ``NULLIF`` functions.
   The syntax was previously allowed but was otherwise ignored.
 
-Security changes
-----------------
+Security
+--------
 
 * Remove unnecessary check for ``SELECT`` privileges for ``DELETE`` queries.
   Previously, ``DELETE`` queries could fail if the user only has ``DELETE``
@@ -46,29 +46,29 @@ Security changes
 * Improve the error message when access is denied when selecting from a view due to the
   view owner having insufficient permissions to create the view.
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Add support for prepared statements.
 * Add partial query cancellation via ``partialCancel()`` on ``PrestoStatement``.
 * Use ``VARCHAR`` rather than ``LONGNVARCHAR`` for the Presto ``varchar`` type.
 * Use ``VARBINARY`` rather than ``LONGVARBINARY`` for the Presto ``varbinary`` type.
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Improve the performance of ``INSERT`` queries when all partition column values are constants.
 * Improve stripe size estimation for the optimized ORC writer.
   This reduces the number of cases where tiny ORC stripes will be written.
 * Respect the ``skip.footer.line.count`` Hive table property.
 
-CLI changes
------------
+CLI
+---
 
 * Prevent the CLI from crashing when running on certain 256 color terminals.
 
-SPI changes
------------
+SPI
+---
 
 * Add a context parameter to the ``create()`` method in ``SessionPropertyConfigurationManagerFactory``.
 * Disallow non-static methods to be annotated with ``@ScalarFunction``. Non-static SQL function

@@ -2,8 +2,8 @@
 Release 0.180
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix a rare bug where rows containing only ``null`` values are not returned
   to the client. This only occurs when an entire result page contains only
@@ -25,8 +25,8 @@ General changes
   external systems without the need to implement a custom connector.
 * Add experimental ``/v1/resourceGroupState`` REST endpoint on coordinator.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix skipping short decimal values in the optimized Parquet reader
   when they are backed by the ``int32`` or ``int64`` types.
@@ -39,25 +39,25 @@ Hive changes
   writing. Validation is disabled by default, but can be enabled with the
   ``hive.rcfile.writer.validate`` config option.
 
-Cassandra changes
------------------
+Cassandra
+---------
 
 * Add support for ``INSERT``.
 * Add support for pushdown of non-equality predicates on clustering keys.
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Add support for authenticating using Kerberos.
 * Allow configuring SSL/TLS and Kerberos properties on a per-connection basis.
 * Add support for executing queries using a SOCKS or HTTP proxy.
 
-CLI changes
------------
+CLI
+---
 
 * Add support for executing queries using an HTTP proxy.
 
-SPI changes
------------
+SPI
+---
 
 * Add running time limit and queued time limit to ``ResourceGroupInfo``.
