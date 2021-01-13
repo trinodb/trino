@@ -1336,7 +1336,7 @@ public class ExpressionInterpreter
 
         private boolean hasUnresolvedValue(List<Object> values)
         {
-            return values.stream().anyMatch(instanceOf(Expression.class)::apply);
+            return values.stream().anyMatch(instanceOf(Expression.class));
         }
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
