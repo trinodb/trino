@@ -1785,6 +1785,7 @@
                                     -Xep:MissingOverride:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
+                                    -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:UnusedVariable:ERROR
                                     -Xep:UseEnumSwitch:ERROR
