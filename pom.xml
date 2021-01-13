@@ -1780,6 +1780,7 @@
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:UnnecessaryMethodReference:ERROR
+                                    -Xep:UnnecessaryOptionalGet:ERROR
                                     -Xep:UnusedVariable:ERROR
                                 </arg>
                             </compilerArgs>
