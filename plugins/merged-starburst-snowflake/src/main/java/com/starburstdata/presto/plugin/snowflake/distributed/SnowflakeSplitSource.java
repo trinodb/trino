@@ -38,8 +38,8 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
@@ -245,12 +245,12 @@ public class SnowflakeSplitSource
             catch (FailsafeException exception) {
                 if (exception.getCause() instanceof SnowflakeSQLException) {
                     String snowflakeQueryId = ((SnowflakeSQLException) exception.getCause()).getQueryId();
-                    throw new PrestoException(JDBC_ERROR, format("%s (Snowflake query id %s)", exception.getMessage(), snowflakeQueryId), exception);
+                    throw new TrinoException(JDBC_ERROR, format("%s (Snowflake query id %s)", exception.getMessage(), snowflakeQueryId), exception);
                 }
-                throw new PrestoException(JDBC_ERROR, exception);
+                throw new TrinoException(JDBC_ERROR, exception);
             }
             catch (Exception exception) {
-                throw new PrestoException(JDBC_ERROR, exception);
+                throw new TrinoException(JDBC_ERROR, exception);
             }
         }));
     }

@@ -15,8 +15,8 @@ import com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.WriteMapping;
-import io.trino.spi.PrestoException;
 import io.trino.spi.StandardErrorCode;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
@@ -49,7 +49,7 @@ public class StarburstSynapseClient
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
-            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
         }
         String sql = format(
                 "RENAME OBJECT %s TO %s",
@@ -70,7 +70,7 @@ public class StarburstSynapseClient
                 dataType = "nvarchar(" + MAX_NVARCHAR_LENGTH + ")";
             }
             else if (varcharType.getBoundedLength() > MAX_NVARCHAR_LENGTH) {
-                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+                throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
             }
             else {
                 dataType = "nvarchar(" + varcharType.getBoundedLength() + ")";
@@ -82,7 +82,7 @@ public class StarburstSynapseClient
             CharType charType = (CharType) type;
             String dataType;
             if (charType.getLength() > MAX_NCHAR_LENGTH) {
-                throw new PrestoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+                throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
             }
             else {
                 dataType = "nchar(" + charType.getLength() + ")";

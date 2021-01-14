@@ -18,7 +18,7 @@ import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -168,7 +168,7 @@ class SnowflakePageSourceProvider
             return SYMMETRIC_CIPHER_BLOCK_SIZE;
         }
         catch (IOException e) {
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, format("Error during obtaining padding length for Hive split %s: %s", path, e.getMessage()), e);
+            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, format("Error during obtaining padding length for Hive split %s: %s", path, e.getMessage()), e);
         }
     }
 }

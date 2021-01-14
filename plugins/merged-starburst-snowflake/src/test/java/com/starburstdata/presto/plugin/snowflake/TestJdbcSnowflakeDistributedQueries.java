@@ -39,7 +39,7 @@ public class TestJdbcSnowflakeDistributedQueries
     {
         // TODO https://starburstdata.atlassian.net/browse/PRESTO-3389
         // Snowflake's JDBC client has a bug which truncates large double value, adjust the test to use small enough values
-        if (dataMappingTestSetup.getPrestoTypeName().equals("double")) {
+        if (dataMappingTestSetup.getTrinoTypeName().equals("double")) {
             return Optional.of(new DataMappingTestSetup("double", "DOUBLE '123456789012.123'", "DOUBLE '999999999999.999'"));
         }
         return super.filterDataMappingSmokeTestData(dataMappingTestSetup);

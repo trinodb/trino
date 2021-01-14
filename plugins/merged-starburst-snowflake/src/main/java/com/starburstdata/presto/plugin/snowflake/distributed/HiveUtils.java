@@ -18,7 +18,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveHdfsConfiguration;
 import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.s3.HiveS3Config;
-import io.trino.plugin.hive.s3.PrestoS3ConfigurationInitializer;
+import io.trino.plugin.hive.s3.TrinoS3ConfigurationInitializer;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import org.apache.hadoop.conf.Configuration;
 
@@ -31,7 +31,7 @@ import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeEnc
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeHiveTypeTranslator.toHiveType;
 import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SESSION_TOKEN;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SESSION_TOKEN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -68,18 +68,18 @@ final class HiveUtils
     {
         HiveHdfsConfiguration hdfsConfiguration = new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(hdfsConfig, ImmutableSet.of(
-                        getPrestoS3ConfigurationInitializer(s3AwsAccessKey, s3AwsSecretKey),
+                        getTrinoS3ConfigurationInitializer(s3AwsAccessKey, s3AwsSecretKey),
                         new SetS3SessionTokenAndEncryptionMaterials(s3AwsSessionToken, queryStageMasterKey))),
                 ImmutableSet.of());
         return new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
     }
 
-    private static PrestoS3ConfigurationInitializer getPrestoS3ConfigurationInitializer(String s3AwsAccessKey, String s3AwsSecretKey)
+    private static TrinoS3ConfigurationInitializer getTrinoS3ConfigurationInitializer(String s3AwsAccessKey, String s3AwsSecretKey)
     {
         HiveS3Config s3Config = new HiveS3Config()
                 .setS3AwsAccessKey(s3AwsAccessKey)
                 .setS3AwsSecretKey(s3AwsSecretKey);
-        return new PrestoS3ConfigurationInitializer(s3Config);
+        return new TrinoS3ConfigurationInitializer(s3Config);
     }
 
     private static class SetS3SessionTokenAndEncryptionMaterials

@@ -20,8 +20,8 @@ import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
 import io.trino.testing.datatype.SqlDataTypeTest;
-import io.trino.testing.sql.PrestoSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -308,7 +308,7 @@ public class TestSynapseTypeMapping
 
     private DataSetup prestoCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup synapseCreateAndInsert(String tableNamePrefix)

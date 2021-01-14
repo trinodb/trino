@@ -17,7 +17,7 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -62,7 +62,7 @@ public class CachingSnowflakeOauthService
         }
         catch (ExecutionException e) {
             log.error(e, "Failed to retrieve credential for [%s] from the cache", identity);
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 

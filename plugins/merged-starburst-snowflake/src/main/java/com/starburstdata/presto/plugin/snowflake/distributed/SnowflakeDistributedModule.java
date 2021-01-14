@@ -22,8 +22,8 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.s3.PrestoS3FileSystem;
-import io.trino.plugin.hive.s3.PrestoS3FileSystemStats;
+import io.trino.plugin.hive.s3.TrinoS3FileSystem;
+import io.trino.plugin.hive.s3.TrinoS3FileSystemStats;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
 import io.trino.spi.connector.Connector;
@@ -71,9 +71,9 @@ class SnowflakeDistributedModule
         binder.bind(SnowflakeExportStats.class).toInstance(new SnowflakeExportStats());
         newExporter(binder).export(SnowflakeExportStats.class).as(generator -> generator.generatedNameOf(SnowflakeExportStats.class, catalogName));
 
-        binder.bind(PrestoS3FileSystemStats.class).toInstance(PrestoS3FileSystem.getFileSystemStats());
-        newExporter(binder).export(PrestoS3FileSystemStats.class)
-                .as(generator -> generator.generatedNameOf(PrestoS3FileSystem.class));
+        binder.bind(TrinoS3FileSystemStats.class).toInstance(TrinoS3FileSystem.getFileSystemStats());
+        newExporter(binder).export(TrinoS3FileSystemStats.class)
+                .as(generator -> generator.generatedNameOf(TrinoS3FileSystem.class));
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 

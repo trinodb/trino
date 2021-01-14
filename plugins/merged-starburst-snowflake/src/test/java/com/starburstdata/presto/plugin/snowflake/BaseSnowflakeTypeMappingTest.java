@@ -25,8 +25,8 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
-import io.trino.testing.sql.PrestoSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -691,13 +691,13 @@ public abstract class BaseSnowflakeTypeMappingTest
     private DataSetup prestoCreateAsSelect()
     {
         return new CreateAsSelectDataSetup(
-                new PrestoSqlExecutor(getQueryRunner()),
+                new TrinoSqlExecutor(getQueryRunner()),
                 "test_table_" + randomTableSuffix());
     }
 
     private DataSetup prestoCreateAsSelect(Session session)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), "test_table_" + randomTableSuffix());
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), "test_table_" + randomTableSuffix());
     }
 
     private DataSetup snowflakeCreateAsSelect()

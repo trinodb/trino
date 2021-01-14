@@ -12,8 +12,8 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.spi.PrestoException;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 
@@ -51,7 +51,7 @@ public class SnowflakeConnectionManager
             return connection.unwrap(SnowflakeConnectionV1.class);
         }
         catch (SQLException exception) {
-            throw new PrestoException(JDBC_ERROR, exception);
+            throw new TrinoException(JDBC_ERROR, exception);
         }
     }
 
@@ -63,7 +63,7 @@ public class SnowflakeConnectionManager
             }
         }
         catch (SQLException exception) {
-            throw new PrestoException(JDBC_ERROR, exception);
+            throw new TrinoException(JDBC_ERROR, exception);
         }
     }
 }

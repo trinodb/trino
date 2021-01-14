@@ -89,7 +89,7 @@ public class TestSynapseDistributedQueries
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
                 || typeName.equals("timestamp")
                 || typeName.equals("timestamp(3) with time zone")) {

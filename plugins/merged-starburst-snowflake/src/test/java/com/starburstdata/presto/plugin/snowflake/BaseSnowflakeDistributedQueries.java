@@ -75,7 +75,7 @@ public abstract class BaseSnowflakeDistributedQueries
     {
         // Real: Snowflake does not have a REAL type, instead they are mapped to double. The round trip test fails because REAL '567.123' != DOUBLE '567.123'
         // Char: Snowflake does not have a CHAR type. They map it to varchar, which does not have the same fixed width semantics
-        String name = dataMappingTestSetup.getPrestoTypeName();
+        String name = dataMappingTestSetup.getTrinoTypeName();
         if (name.equals("real") || name.startsWith("char")) {
             return Optional.empty();
         }
