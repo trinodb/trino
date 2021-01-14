@@ -9,8 +9,8 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.plugin.jdbc.JdbcHandleResolver;
-import io.prestosql.spi.connector.ConnectorSplit;
+import io.trino.plugin.jdbc.JdbcHandleResolver;
+import io.trino.spi.connector.ConnectorSplit;
 
 public class OracleHandleResolver
         extends JdbcHandleResolver

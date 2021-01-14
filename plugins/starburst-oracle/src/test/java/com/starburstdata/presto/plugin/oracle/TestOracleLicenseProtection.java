@@ -10,13 +10,13 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
-import static io.prestosql.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.NATION;
 
 public class TestOracleLicenseProtection
         extends AbstractTestQueryFramework

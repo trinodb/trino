@@ -11,10 +11,10 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.oracle.AbstractTestOracleTypeMapping;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.tpch.TpchTable;
+import io.trino.plugin.oracle.AbstractTestOracleTypeMapping;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.tpch.TpchTable;
 
 public class TestOracleTypeMapping
         extends AbstractTestOracleTypeMapping

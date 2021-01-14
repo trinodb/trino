@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.testing.AbstractTestQueryFramework;
+import io.trino.testing.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;

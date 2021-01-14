@@ -10,20 +10,20 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseStarburstOracleAggregationPushdownTest

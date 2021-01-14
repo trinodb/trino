@@ -10,10 +10,10 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.oracle.TestRemarksReportingOracleDistributedQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.JdbcSqlExecutor;
-import io.prestosql.testing.sql.SqlExecutor;
+import io.trino.plugin.oracle.TestRemarksReportingOracleDistributedQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.JdbcSqlExecutor;
+import io.trino.testing.sql.SqlExecutor;
 
 import java.util.Properties;
 

@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringLicenseProtectionTest;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
 

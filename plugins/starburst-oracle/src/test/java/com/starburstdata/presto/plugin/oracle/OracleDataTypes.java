@@ -9,12 +9,12 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.RealType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarbinaryType;
-import io.prestosql.testing.datatype.DataType;
+import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.RealType;
+import io.trino.spi.type.TimestampType;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarbinaryType;
+import io.trino.testing.datatype.DataType;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -28,11 +28,11 @@ import java.util.function.IntFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.datatype.DataType.stringDataType;
+import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.datatype.DataType.stringDataType;
 import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;

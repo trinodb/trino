@@ -11,9 +11,9 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.license.LicenseManager;
-import io.prestosql.plugin.jdbc.SessionPropertiesProvider;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.session.PropertyMetadata;
+import io.trino.plugin.jdbc.SessionPropertiesProvider;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
@@ -21,8 +21,8 @@ import java.util.List;
 
 import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
-import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
-import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
+import static io.trino.spi.session.PropertyMetadata.enumProperty;
+import static io.trino.spi.session.PropertyMetadata.integerProperty;
 
 public final class StarburstOracleSessionProperties
         implements SessionPropertiesProvider

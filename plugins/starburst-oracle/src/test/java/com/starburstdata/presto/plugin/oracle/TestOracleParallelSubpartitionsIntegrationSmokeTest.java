@@ -11,8 +11,8 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.plan.LimitNode;
-import io.prestosql.testing.QueryRunner;
+import io.trino.sql.planner.plan.LimitNode;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
@@ -20,10 +20,10 @@ import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.KERBERIZED_
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createStandardUsers;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createUser;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 

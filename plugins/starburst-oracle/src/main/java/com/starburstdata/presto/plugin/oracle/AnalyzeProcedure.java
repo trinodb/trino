@@ -11,14 +11,14 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.JdbcTableHandle;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.procedure.Procedure;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.spi.PrestoException;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Provider;
 
@@ -28,9 +28,9 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Optional;
 
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
-import static io.prestosql.spi.block.MethodHandleUtil.methodHandle;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.spi.block.MethodHandleUtil.methodHandle;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
 public class AnalyzeProcedure

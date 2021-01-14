@@ -9,12 +9,12 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.Session;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
+import io.trino.Session;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import org.testng.annotations.Test;
 
-import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

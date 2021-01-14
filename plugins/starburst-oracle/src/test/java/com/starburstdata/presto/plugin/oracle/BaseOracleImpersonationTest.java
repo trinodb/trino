@@ -9,8 +9,8 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueryFramework;
+import io.trino.Session;
+import io.trino.testing.AbstractTestQueryFramework;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.OracleQueryRunner.createSession;
@@ -22,7 +22,7 @@ import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServe
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.withSynonym;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.withTable;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.withView;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 

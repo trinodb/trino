@@ -12,8 +12,8 @@ package com.starburstdata.presto.plugin.oracle;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.JdbcSplitWithDynamicFilter;
-import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.predicate.TupleDomain;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Optional;

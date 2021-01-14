@@ -9,11 +9,11 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.prestosql.testing.sql.SqlExecutor;
+import io.trino.testing.sql.SqlExecutor;
 
 import java.io.Closeable;
 
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestView

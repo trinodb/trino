@@ -10,8 +10,8 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.starburstdata.presto.license.LicenseManager;
-import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
+import io.trino.plugin.jdbc.JdbcConnectorFactory;
+import io.trino.spi.connector.ConnectorHandleResolver;
 
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;

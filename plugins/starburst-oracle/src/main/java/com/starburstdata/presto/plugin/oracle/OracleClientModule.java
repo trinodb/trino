@@ -19,22 +19,22 @@ import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteri
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.jdbc.ForBaseJdbc;
-import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
-import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
-import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
-import io.prestosql.plugin.oracle.OracleConfig;
-import io.prestosql.plugin.oracle.OracleSessionProperties;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcRecordSetProvider;
+import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.oracle.OracleConfig;
+import io.trino.plugin.oracle.OracleSessionProperties;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.jdbc.JdbcModule.bindProcedure;
-import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
-import static io.prestosql.plugin.oracle.OracleClient.ORACLE_MAX_LIST_EXPRESSIONS;
+import static io.trino.plugin.jdbc.JdbcModule.bindProcedure;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.trino.plugin.oracle.OracleClient.ORACLE_MAX_LIST_EXPRESSIONS;
 import static java.util.Objects.requireNonNull;
 
 public class OracleClientModule
