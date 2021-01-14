@@ -73,6 +73,7 @@ public class DecimalAverageAggregation
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(DecimalAverageAggregation.class, "combine", LongDecimalWithOverflowAndLongState.class, LongDecimalWithOverflowAndLongState.class);
 
     private static final BigInteger TWO = new BigInteger("2");
+    private static final BigInteger OVERFLOW_MULTIPLIER = TWO.shiftLeft(UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 2);
 
     public DecimalAverageAggregation()
     {
@@ -220,8 +221,7 @@ public class DecimalAverageAggregation
 
         long overflow = state.getOverflow();
         if (overflow != 0) {
-            BigInteger overflowMultiplier = TWO.shiftLeft(UNSCALED_DECIMAL_128_SLICE_LENGTH * 8 - 2);
-            sum = sum.add(new BigDecimal(overflowMultiplier.multiply(BigInteger.valueOf(overflow))));
+            sum = sum.add(new BigDecimal(OVERFLOW_MULTIPLIER.multiply(BigInteger.valueOf(overflow))));
         }
         return sum.divide(count, type.getScale(), ROUND_HALF_UP);
     }
