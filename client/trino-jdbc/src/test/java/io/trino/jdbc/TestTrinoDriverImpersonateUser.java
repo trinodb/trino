@@ -38,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestPrestoDriverImpersonateUser
+public class TestTrinoDriverImpersonateUser
 {
     private static final String TEST_USER = "test_user";
     private static final String PASSWORD = "password";
@@ -57,7 +57,7 @@ public class TestPrestoDriverImpersonateUser
                         .build())
                 .build();
 
-        server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestPrestoDriverImpersonateUser::authenticate);
+        server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestTrinoDriverImpersonateUser::authenticate);
     }
 
     private static Principal authenticate(String user, String password)
