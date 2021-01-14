@@ -9,22 +9,22 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.plugin.hive.PartitionStatistics;
-import io.prestosql.plugin.hive.acid.AcidTransaction;
-import io.prestosql.plugin.hive.authentication.HiveIdentity;
-import io.prestosql.plugin.hive.metastore.Database;
-import io.prestosql.plugin.hive.metastore.HiveMetastore;
-import io.prestosql.plugin.hive.metastore.HivePrincipal;
-import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
-import io.prestosql.plugin.hive.metastore.Partition;
-import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
-import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
-import io.prestosql.plugin.hive.metastore.Table;
-import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.security.RoleGrant;
-import io.prestosql.spi.statistics.ColumnStatisticType;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HivePrincipal;
+import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
+import io.trino.plugin.hive.metastore.Partition;
+import io.trino.plugin.hive.metastore.PartitionWithStatistics;
+import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.RoleGrant;
+import io.trino.spi.statistics.ColumnStatisticType;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;

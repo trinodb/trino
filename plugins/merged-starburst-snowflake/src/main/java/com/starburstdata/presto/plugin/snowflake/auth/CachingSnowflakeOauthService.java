@@ -15,15 +15,15 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.credential.CredentialProvider;
-import io.prestosql.spi.PrestoException;
+import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.spi.PrestoException;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.lang.String.format;
 import static java.time.Duration.ofMinutes;
 import static java.util.Objects.requireNonNull;

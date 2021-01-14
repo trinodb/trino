@@ -9,10 +9,10 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
+import io.trino.tpch.TpchTable;
 
 import java.util.Map;
 import java.util.Optional;

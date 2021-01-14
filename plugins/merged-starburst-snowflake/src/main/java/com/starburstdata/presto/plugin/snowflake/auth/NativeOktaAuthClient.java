@@ -12,7 +12,7 @@ package com.starburstdata.presto.plugin.snowflake.auth;
 import com.starburstdata.presto.okta.OktaAuthenticationResult;
 import com.starburstdata.presto.okta.OktaClient;
 import io.airlift.log.Logger;
-import io.prestosql.spi.security.AccessDeniedException;
+import io.trino.spi.security.AccessDeniedException;
 import net.jodah.failsafe.Failsafe;
 import okhttp3.Call;
 import okhttp3.HttpUrl;

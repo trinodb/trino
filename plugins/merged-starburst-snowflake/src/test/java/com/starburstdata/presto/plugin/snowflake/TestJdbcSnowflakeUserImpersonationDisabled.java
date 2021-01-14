@@ -9,8 +9,8 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.util.Optional;

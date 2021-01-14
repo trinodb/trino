@@ -9,12 +9,12 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
-import io.prestosql.plugin.hive.HiveType;
-import io.prestosql.spi.type.Type;
+import io.trino.plugin.hive.HiveType;
+import io.trino.spi.type.Type;
 
-import static io.prestosql.plugin.hive.HiveType.HIVE_TIMESTAMP;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.plugin.hive.HiveType.HIVE_TIMESTAMP;
+import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 
 /**
  * The distributed Snowflake connector is relying on the Hive connector, but

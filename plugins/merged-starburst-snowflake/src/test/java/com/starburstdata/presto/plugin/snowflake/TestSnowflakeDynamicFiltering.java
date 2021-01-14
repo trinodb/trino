@@ -10,8 +10,8 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testng.services.Flaky;
+import io.trino.testing.QueryRunner;
+import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;

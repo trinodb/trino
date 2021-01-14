@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationEnabled;

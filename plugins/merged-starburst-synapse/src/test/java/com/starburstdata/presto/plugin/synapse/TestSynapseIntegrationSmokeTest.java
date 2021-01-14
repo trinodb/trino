@@ -9,13 +9,13 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
-import io.prestosql.Session;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
-import io.prestosql.tpch.TpchTable;
+import io.trino.Session;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
+import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 

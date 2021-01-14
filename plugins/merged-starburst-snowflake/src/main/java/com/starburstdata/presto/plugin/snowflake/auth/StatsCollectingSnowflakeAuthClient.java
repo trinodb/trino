@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake.auth;
 
-import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.trino.plugin.jdbc.JdbcIdentity;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 

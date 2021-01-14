@@ -10,15 +10,15 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.JdbcMetadata;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorNewTableLayout;
-import io.prestosql.spi.connector.ConnectorOutputTableHandle;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableHandle;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadata;
+import io.trino.spi.QueryId;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTableMetadata;
 
 import java.util.Optional;
 

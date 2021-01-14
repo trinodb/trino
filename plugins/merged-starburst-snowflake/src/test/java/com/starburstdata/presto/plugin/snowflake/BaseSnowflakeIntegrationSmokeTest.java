@@ -10,15 +10,15 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.sql.planner.plan.ProjectNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.TestingSession;
-import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.Session;
+import io.trino.spi.type.TimeZoneKey;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.TestingSession;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
@@ -28,11 +28,11 @@ import java.time.ZoneOffset;
 
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;

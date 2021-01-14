@@ -9,17 +9,17 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import io.prestosql.spi.type.VarcharType;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.datatype.DataTypeTest;
+import io.trino.spi.type.VarcharType;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.datatype.DataTypeTest;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.datatype.DataType.stringDataType;
-import static io.prestosql.testing.datatype.DataType.varcharDataType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.datatype.DataType.stringDataType;
+import static io.trino.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 
 public class TestDistributedSnowflakeTypeMapping

@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorFactory;
 
 import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 

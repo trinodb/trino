@@ -9,10 +9,10 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.Session;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -20,12 +20,12 @@ import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.MaterializedResult.resultBuilder;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 
 public abstract class BaseSnowflakeDistributedQueries

@@ -14,7 +14,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.DataSize;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
-import io.prestosql.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.HiveConfig;
 
 import javax.validation.constraints.NotNull;
 

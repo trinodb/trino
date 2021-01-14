@@ -11,10 +11,10 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.QueryId;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.spi.PrestoException;
+import io.trino.spi.QueryId;
+import io.trino.spi.connector.ConnectorSession;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 
 import javax.annotation.concurrent.ThreadSafe;
@@ -23,7 +23,7 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
 /**

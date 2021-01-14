@@ -10,9 +10,9 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.spi.security.Identity;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
@@ -20,8 +20,8 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.dis
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.oktaImpersonationEnabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_PASSWORD;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_USER;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestDistributedSnowflakeOktaIntegrationSmokeTest

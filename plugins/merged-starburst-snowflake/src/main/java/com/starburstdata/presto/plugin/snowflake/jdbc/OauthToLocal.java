@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.snowflake.auth.SnowflakeOauthService;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.trino.plugin.jdbc.JdbcIdentity;
 
 import static java.util.Objects.requireNonNull;
 

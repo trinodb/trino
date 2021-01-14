@@ -16,10 +16,10 @@ import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.license.LicenseManagerProvider;
 import com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedConnectorFactory;
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
-import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
-import io.prestosql.plugin.jdbc.JdbcConnectorFactory.JdbcModuleProvider;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.plugin.jdbc.JdbcConnectorFactory;
+import io.trino.plugin.jdbc.JdbcConnectorFactory.JdbcModuleProvider;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 import java.util.List;
 

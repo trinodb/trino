@@ -19,7 +19,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.util.Base64;
 import java.util.Map;
 
-import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
+import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static java.util.Objects.requireNonNull;
 
 public class SnowflakeEncryptionMaterialsProvider

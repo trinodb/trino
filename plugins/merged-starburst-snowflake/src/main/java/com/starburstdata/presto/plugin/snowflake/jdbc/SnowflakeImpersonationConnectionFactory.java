@@ -12,9 +12,9 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.spi.connector.ConnectorSession;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 

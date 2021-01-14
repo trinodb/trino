@@ -12,7 +12,7 @@ package com.starburstdata.presto.plugin.snowflake.auth;
 import com.jayway.jsonpath.DocumentContext;
 import com.jayway.jsonpath.JsonPath;
 import io.airlift.log.Logger;
-import io.prestosql.spi.security.AccessDeniedException;
+import io.trino.spi.security.AccessDeniedException;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import okhttp3.Call;

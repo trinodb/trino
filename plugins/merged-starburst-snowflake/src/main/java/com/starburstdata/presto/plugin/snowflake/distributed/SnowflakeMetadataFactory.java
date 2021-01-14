@@ -10,10 +10,10 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import io.airlift.units.Duration;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.CachingJdbcClient;
-import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.CachingJdbcClient;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcMetadataConfig;
 
 import javax.inject.Inject;
 

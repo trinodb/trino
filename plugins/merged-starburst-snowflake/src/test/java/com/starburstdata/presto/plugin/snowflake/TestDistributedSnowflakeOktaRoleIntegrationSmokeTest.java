@@ -10,16 +10,16 @@
 package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.spi.security.Identity;
+import io.trino.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.oktaImpersonationEnabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_PASSWORD;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_USER;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDistributedSnowflakeOktaRoleIntegrationSmokeTest
         extends BaseSnowflakeIntegrationSmokeTest

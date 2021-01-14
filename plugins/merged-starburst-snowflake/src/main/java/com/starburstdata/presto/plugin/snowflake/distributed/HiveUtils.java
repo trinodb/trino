@@ -10,16 +10,16 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
-import io.prestosql.plugin.hive.HdfsConfig;
-import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
-import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveColumnHandle;
-import io.prestosql.plugin.hive.HiveHdfsConfiguration;
-import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
-import io.prestosql.plugin.hive.s3.HiveS3Config;
-import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
-import io.prestosql.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.hive.ConfigurationInitializer;
+import io.trino.plugin.hive.HdfsConfig;
+import io.trino.plugin.hive.HdfsConfigurationInitializer;
+import io.trino.plugin.hive.HdfsEnvironment;
+import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveHdfsConfiguration;
+import io.trino.plugin.hive.authentication.NoHdfsAuthentication;
+import io.trino.plugin.hive.s3.HiveS3Config;
+import io.trino.plugin.hive.s3.PrestoS3ConfigurationInitializer;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.List;
@@ -29,9 +29,9 @@ import java.util.stream.IntStream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeEncryptionMaterialsProvider.setQueryStageMasterKey;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeHiveTypeTranslator.toHiveType;
-import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
-import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SESSION_TOKEN;
+import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
+import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
+import static io.trino.plugin.hive.s3.PrestoS3FileSystem.S3_SESSION_TOKEN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 

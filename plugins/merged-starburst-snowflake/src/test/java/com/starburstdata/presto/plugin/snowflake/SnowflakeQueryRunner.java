@@ -11,13 +11,13 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
-import io.prestosql.Session;
-import io.prestosql.plugin.jmx.JmxPlugin;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.Session;
+import io.trino.plugin.jmx.JmxPlugin;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.security.Identity;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
 import java.util.Map;
 import java.util.Optional;
@@ -39,9 +39,9 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.TEST_WAR
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.USER;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.QueryAssertions.copyTable;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTable;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;

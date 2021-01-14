@@ -10,8 +10,8 @@
 package com.starburstdata.presto.plugin.synapse;
 
 import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTableScanRedirectionTest;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.CATALOG;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.TEST_SCHEMA;

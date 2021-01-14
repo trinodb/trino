@@ -12,8 +12,8 @@ package com.starburstdata.presto.plugin.snowflake.jdbc;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.snowflake.auth.OauthCredential;
 import com.starburstdata.presto.plugin.snowflake.auth.SnowflakeOauthService;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.credential.CredentialPropertiesProvider;
+import io.trino.plugin.jdbc.JdbcIdentity;
+import io.trino.plugin.jdbc.credential.CredentialPropertiesProvider;
 
 import java.util.Map;
 

@@ -24,23 +24,23 @@ import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModu
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.sqlserver.SqlServerImpersonatingConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.DriverConnectionFactory;
-import io.prestosql.plugin.jdbc.ForBaseJdbc;
-import io.prestosql.plugin.jdbc.JdbcClient;
-import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
-import io.prestosql.plugin.jdbc.JdbcSplitManager;
-import io.prestosql.plugin.jdbc.MaxDomainCompactionThreshold;
-import io.prestosql.plugin.jdbc.credential.CredentialProvider;
-import io.prestosql.plugin.jdbc.credential.CredentialProviderModule;
-import io.prestosql.spi.connector.ConnectorRecordSetProvider;
-import io.prestosql.spi.connector.ConnectorSplitManager;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.JdbcRecordSetProvider;
+import io.trino.plugin.jdbc.JdbcSplitManager;
+import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.prestosql.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
+import static io.trino.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 
 public class StarburstSynapseClientModule
         extends AbstractConfigurationAwareModule

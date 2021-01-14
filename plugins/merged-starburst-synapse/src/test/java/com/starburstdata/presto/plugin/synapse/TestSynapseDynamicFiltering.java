@@ -10,13 +10,13 @@
 package com.starburstdata.presto.plugin.synapse;
 
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
-import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.ORDERS;
 
 public class TestSynapseDynamicFiltering
         extends AbstractDynamicFilteringTest

@@ -12,12 +12,12 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 import com.google.inject.Injector;
 import com.starburstdata.presto.license.LicenseManager;
 import io.airlift.bootstrap.Bootstrap;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
-import io.prestosql.spi.connector.Connector;
-import io.prestosql.spi.connector.ConnectorContext;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.connector.ConnectorHandleResolver;
-import io.prestosql.spi.type.TypeManager;
+import io.trino.spi.classloader.ThreadContextClassLoader;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorContext;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Map;
 

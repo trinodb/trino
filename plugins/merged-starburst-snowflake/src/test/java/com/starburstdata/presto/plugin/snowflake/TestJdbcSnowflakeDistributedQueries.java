@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.Optional;
 
