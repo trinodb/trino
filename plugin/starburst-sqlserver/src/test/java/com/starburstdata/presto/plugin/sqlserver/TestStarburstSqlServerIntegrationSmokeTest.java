@@ -9,15 +9,15 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import io.prestosql.plugin.sqlserver.TestSqlServerIntegrationSmokeTest;
-import io.prestosql.plugin.sqlserver.TestingSqlServer;
-import io.prestosql.testing.QueryRunner;
+import io.trino.plugin.sqlserver.TestSqlServerIntegrationSmokeTest;
+import io.trino.plugin.sqlserver.TestingSqlServer;
+import io.trino.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 
 public class TestStarburstSqlServerIntegrationSmokeTest
         extends TestSqlServerIntegrationSmokeTest

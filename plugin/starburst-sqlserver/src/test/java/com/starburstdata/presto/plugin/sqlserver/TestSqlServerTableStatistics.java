@@ -11,10 +11,10 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.sqlserver.TestingSqlServer;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.plugin.sqlserver.TestingSqlServer;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
@@ -27,8 +27,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.testing.sql.TestTable.fromColumns;
-import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.testing.sql.TestTable.fromColumns;
+import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
 public class TestSqlServerTableStatistics

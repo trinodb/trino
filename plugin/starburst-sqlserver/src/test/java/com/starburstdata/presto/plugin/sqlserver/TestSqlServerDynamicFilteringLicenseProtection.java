@@ -10,8 +10,8 @@
 package com.starburstdata.presto.plugin.sqlserver;
 
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringLicenseProtectionTest;
-import io.prestosql.plugin.sqlserver.TestingSqlServer;
-import io.prestosql.testing.QueryRunner;
+import io.trino.plugin.sqlserver.TestingSqlServer;
+import io.trino.testing.QueryRunner;
 
 import java.util.List;
 import java.util.Map;

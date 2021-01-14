@@ -11,15 +11,15 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.jmx.JmxPlugin;
-import io.prestosql.plugin.sqlserver.TestingSqlServer;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
-import io.prestosql.spi.security.Identity;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.Session;
+import io.trino.plugin.jmx.JmxPlugin;
+import io.trino.plugin.sqlserver.TestingSqlServer;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.security.Identity;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -28,9 +28,9 @@ import java.util.function.Function;
 
 import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.QueryAssertions.copyTpchTables;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 public final class StarburstSqlServerQueryRunner

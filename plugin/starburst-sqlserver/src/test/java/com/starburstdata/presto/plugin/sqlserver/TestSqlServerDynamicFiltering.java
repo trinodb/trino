@@ -10,15 +10,15 @@
 package com.starburstdata.presto.plugin.sqlserver;
 
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
-import io.prestosql.plugin.sqlserver.TestingSqlServer;
-import io.prestosql.testing.QueryRunner;
+import io.trino.plugin.sqlserver.TestingSqlServer;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
-import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.ORDERS;
 
 public class TestSqlServerDynamicFiltering
         extends AbstractDynamicFilteringTest
