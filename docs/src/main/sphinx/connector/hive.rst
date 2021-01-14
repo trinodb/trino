@@ -370,6 +370,23 @@ Property Name                                                   Description     
                                                                 Possible values are ``NONE`` or ``KERBEROS``
                                                                 (defaults to ``NONE``).
 
+``hive.metastore.thrift.assume-canonical-partition-keys``       Assume that partition keys for non-string types are          ``false``
+                                                                represented in their canonical form in the metastore.
+                                                                Without this assumption, filters on such columns cannot be
+                                                                pushed into the metastore. However, if the assumption is
+                                                                violated, the query may incorrectly skip data that should
+                                                                be present, or it may fail entirely. Thus, you should only
+                                                                set this value to true if you are certain that your
+                                                                partition keys are always stored in canonical form.
+                                                                As background, the Hive metastore uses strings for
+                                                                partition keys for all data types, but does not enforce a
+                                                                canonical representation of values. For example, a
+                                                                partition column of type int can have the value 42, but be
+                                                                stored as '0042' in the metastore. If a query has a filter
+                                                                on value 42, then the Hive connector will ask the metastore
+                                                                for partitions matching the string '42', which will fail to
+                                                                match the actual partition value of '0042'.
+
 ``hive.metastore.thrift.impersonation.enabled``                 Enable Hive metastore end user impersonation.
 
 ``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.           ``1h``
