@@ -34,7 +34,7 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
 import io.trino.plugin.oracle.OracleConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import oracle.jdbc.driver.OracleDriver;
 import oracle.net.ano.AnoServices;
 
@@ -248,7 +248,7 @@ public class OracleAuthenticationModule
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, OracleConfig oracleConfig, StarburstOracleConfig starburstOracleConfig, KerberosManager kerberosManager)
         {
             if (oracleConfig.isConnectionPoolEnabled()) {
-                throw new PrestoException(CONFIGURATION_INVALID, "Connection pooling cannot be used with Kerberos pass-through authentication");
+                throw new TrinoException(CONFIGURATION_INVALID, "Connection pooling cannot be used with Kerberos pass-through authentication");
             }
 
             DriverConnectionFactory connectionFactory = new DriverConnectionFactory(

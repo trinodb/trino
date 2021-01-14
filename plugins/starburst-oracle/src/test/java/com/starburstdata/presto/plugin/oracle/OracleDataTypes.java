@@ -208,7 +208,7 @@ public final class OracleDataTypes
 
     /**
      * Create a number type using the same transformation as
-     * OracleClient.toPrestoType to handle negative scale.
+     * OracleClient.toColumnMapping to handle negative scale.
      */
     public static DataType<BigDecimal> numberDataType(int precision, int scale)
     {
@@ -336,9 +336,9 @@ public final class OracleDataTypes
     /* Utility */
 
     private static <T> DataType<T> dataType(String insertType, Type prestoResultType,
-            Function<T, String> toLiteral, Function<T, ?> toPrestoQueryResult)
+            Function<T, String> toLiteral, Function<T, ?> toTrinoQueryResult)
     {
-        return DataType.dataType(insertType, prestoResultType, toLiteral, toPrestoQueryResult);
+        return DataType.dataType(insertType, prestoResultType, toLiteral, toTrinoQueryResult);
     }
 
     private static <T> DataType<T> dataType(String insertType, Type prestoResultType,

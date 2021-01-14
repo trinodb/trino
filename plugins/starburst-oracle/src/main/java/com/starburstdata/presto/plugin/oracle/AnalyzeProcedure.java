@@ -14,7 +14,7 @@ import com.google.inject.Inject;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -66,7 +66,7 @@ public class AnalyzeProcedure
     }
 
     public void analyze(ConnectorSession session, String schemaName, String tableName)
-            throws PrestoException
+            throws TrinoException
     {
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
         Optional<JdbcTableHandle> tableHandle = client.getTableHandle(session, schemaTableName);
@@ -81,7 +81,7 @@ public class AnalyzeProcedure
             statement.execute();
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 }

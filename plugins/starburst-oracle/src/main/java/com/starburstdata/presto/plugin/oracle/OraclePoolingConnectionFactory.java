@@ -15,7 +15,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.oracle.OracleConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolAdapter;
@@ -100,11 +100,11 @@ public class OraclePoolingConnectionFactory
     private static void verifyPassThroughDataSourceConfiguration(PoolDataSource dataSource)
     {
         if (dataSource.getUser() == null || dataSource.getUser().isEmpty()) {
-            throw new PrestoException(CONFIGURATION_INVALID, "Password pass-through mode requires connection-user to discover cluster topology");
+            throw new TrinoException(CONFIGURATION_INVALID, "Password pass-through mode requires connection-user to discover cluster topology");
         }
 
         if (dataSource.getPassword() == null || dataSource.getPassword().isEmpty()) {
-            throw new PrestoException(CONFIGURATION_INVALID, "Password pass-through mode requires connection-password to discover cluster topology");
+            throw new TrinoException(CONFIGURATION_INVALID, "Password pass-through mode requires connection-password to discover cluster topology");
         }
     }
 
@@ -143,7 +143,7 @@ public class OraclePoolingConnectionFactory
         String password = identity.getExtraCredentials().getOrDefault(PASSWORD_PASSTHROUGH_CREDENTIAL, "");
 
         if (username.isEmpty() || password.isEmpty()) {
-            throw new PrestoException(GENERIC_USER_ERROR, "Password pass-through authentication requires user credentials");
+            throw new TrinoException(GENERIC_USER_ERROR, "Password pass-through authentication requires user credentials");
         }
 
         return dataSource.getConnection(username, password);
@@ -173,7 +173,7 @@ public class OraclePoolingConnectionFactory
 
     private static RuntimeException fail(Exception e)
     {
-        return new PrestoException(JDBC_ERROR, "Failed to create Oracle Universal Connection Pool", e);
+        return new TrinoException(JDBC_ERROR, "Failed to create Oracle Universal Connection Pool", e);
     }
 
     @FunctionalInterface

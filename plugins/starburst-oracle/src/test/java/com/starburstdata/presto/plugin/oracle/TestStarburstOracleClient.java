@@ -169,7 +169,7 @@ public class TestStarburstOracleClient
         else {
             assertThat(result).isPresent();
             assertEquals(result.get().getExpression(), expectedExpression.get());
-            Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toPrestoType(SESSION, null, result.get().getJdbcTypeHandle());
+            Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
             assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
             assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
         }

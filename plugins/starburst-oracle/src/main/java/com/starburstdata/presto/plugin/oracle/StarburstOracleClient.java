@@ -37,7 +37,7 @@ import io.trino.plugin.jdbc.expression.ImplementMinMax;
 import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.plugin.oracle.OracleClient;
 import io.trino.plugin.oracle.OracleConfig;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -167,7 +167,7 @@ public class StarburstOracleClient
     {
         if (name.contains("\"")) {
             // ORA-03001: unimplemented feature
-            throw new PrestoException(JDBC_NON_TRANSIENT_ERROR, "Oracle does not support escaping '\"' in identifiers");
+            throw new TrinoException(JDBC_NON_TRANSIENT_ERROR, "Oracle does not support escaping '\"' in identifiers");
         }
         return identifierQuote + name + identifierQuote;
     }
@@ -191,7 +191,7 @@ public class StarburstOracleClient
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName().toUpperCase(ENGLISH))) {
-            throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
         }
 
         super.renameTable(session, catalogName, schemaName, tableName, newTable);
@@ -224,7 +224,7 @@ public class StarburstOracleClient
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
                             Optional.empty());
-                    Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
+                    Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         String columnName = resultSet.getString("COLUMN_NAME");
@@ -239,7 +239,7 @@ public class StarburstOracleClient
             }
         }
         catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
@@ -255,7 +255,7 @@ public class StarburstOracleClient
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle type)
+    public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle type)
     {
         if (type.getJdbcType() == PRESTO_BIGINT_TYPE) {
             // Synthetic column
@@ -267,7 +267,7 @@ public class StarburstOracleClient
             return mappingToVarchar;
         }
 
-        return super.toPrestoType(session, connection, type);
+        return super.toColumnMapping(session, connection, type);
     }
 
     @Override
@@ -299,7 +299,7 @@ public class StarburstOracleClient
     // TODO: migrate to OSS?
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 
     @Override

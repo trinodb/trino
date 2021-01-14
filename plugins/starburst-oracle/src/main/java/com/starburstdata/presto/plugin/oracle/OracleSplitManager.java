@@ -17,7 +17,7 @@ import com.starburstdata.presto.license.LicenseManager;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -134,7 +134,7 @@ public class OracleSplitManager
                     .list();
         }
         catch (JdbiException e) {
-            throw new PrestoException(JDBC_ERROR, e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 }
