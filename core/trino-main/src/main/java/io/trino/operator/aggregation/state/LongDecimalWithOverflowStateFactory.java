@@ -75,10 +75,10 @@ public class LongDecimalWithOverflowStateFactory
         public void setLongDecimal(Slice value)
         {
             requireNonNull(value, "value is null");
-            if (getLongDecimal() == null) {
+            boolean existed = unscaledDecimals.replace(getGroupId(), value);
+            if (!existed) {
                 numberOfElements++;
             }
-            unscaledDecimals.set(getGroupId(), value);
         }
 
         @Override
@@ -91,6 +91,14 @@ public class LongDecimalWithOverflowStateFactory
         public void setOverflow(long overflow)
         {
             overflows.set(getGroupId(), overflow);
+        }
+
+        @Override
+        public void addOverflow(long overflow)
+        {
+            if (overflow != 0) {
+                overflows.add(getGroupId(), overflow);
+            }
         }
 
         @Override
@@ -131,6 +139,12 @@ public class LongDecimalWithOverflowStateFactory
         public void setOverflow(long overflow)
         {
             this.overflow = overflow;
+        }
+
+        @Override
+        public void addOverflow(long overflow)
+        {
+            this.overflow += overflow;
         }
 
         @Override
