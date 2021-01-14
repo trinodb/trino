@@ -71,6 +71,12 @@ public abstract class BasePrestoConnectorDistributedQueriesWithoutWrites
     }
 
     @Override
+    public void testInsertArray()
+    {
+        throw new SkipException("Arrays are not yet implemented - https://starburstdata.atlassian.net/browse/PRESTO-4832");
+    }
+
+    @Override
     public void testInsertUnicode()
     {
         // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
