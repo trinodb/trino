@@ -9,10 +9,10 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.util.List;

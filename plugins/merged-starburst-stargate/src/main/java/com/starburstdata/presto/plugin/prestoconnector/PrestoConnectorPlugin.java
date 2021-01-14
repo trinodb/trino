@@ -15,8 +15,8 @@ import com.starburstdata.presto.license.LicenceCheckingConnectorFactory;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.license.LicenseManagerProvider;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
-import io.prestosql.spi.Plugin;
-import io.prestosql.spi.connector.ConnectorFactory;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 
 import static com.starburstdata.presto.license.StarburstPrestoFeature.STARBURST_CONNECTOR;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;

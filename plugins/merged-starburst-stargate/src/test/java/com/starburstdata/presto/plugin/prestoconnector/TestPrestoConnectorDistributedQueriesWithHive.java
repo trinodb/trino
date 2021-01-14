@@ -11,9 +11,9 @@
 package com.starburstdata.presto.plugin.prestoconnector;
 
 import com.google.common.io.Files;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
 import java.io.File;
 import java.nio.file.Path;

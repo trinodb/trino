@@ -9,18 +9,18 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcExpression;
-import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule;
-import io.prestosql.spi.connector.AggregateFunction;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.SortOrder;
-import io.prestosql.spi.expression.ConnectorExpression;
-import io.prestosql.spi.expression.Variable;
-import io.prestosql.spi.type.Type;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SortOrder;
+import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Variable;
+import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;

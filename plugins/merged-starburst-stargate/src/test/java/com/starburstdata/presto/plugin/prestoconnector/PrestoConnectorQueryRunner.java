@@ -14,14 +14,14 @@ import com.google.common.io.Files;
 import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.prestosql.Session;
-import io.prestosql.plugin.hive.HiveHadoop2Plugin;
-import io.prestosql.plugin.jmx.JmxPlugin;
-import io.prestosql.plugin.memory.MemoryPlugin;
-import io.prestosql.plugin.postgresql.TestingPostgreSqlServer;
-import io.prestosql.plugin.tpch.TpchPlugin;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.Session;
+import io.trino.plugin.hive.HiveHadoop2Plugin;
+import io.trino.plugin.jmx.JmxPlugin;
+import io.trino.plugin.memory.MemoryPlugin;
+import io.trino.plugin.postgresql.TestingPostgreSqlServer;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.tpch.TpchTable;
 
 import java.io.File;
 import java.net.URI;
@@ -31,9 +31,9 @@ import java.util.Objects;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.testing.Closeables.closeAllSuppress;
-import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.prestosql.testing.QueryAssertions.copyTpchTables;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 
 public final class PrestoConnectorQueryRunner

@@ -11,14 +11,14 @@ package com.starburstdata.presto.plugin.prestoconnector;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.plugin.postgresql.TestingPostgreSqlServer;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.H2QueryRunner;
-import io.prestosql.testing.QueryAssertions;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.Session;
+import io.trino.plugin.postgresql.TestingPostgreSqlServer;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.H2QueryRunner;
+import io.trino.testing.QueryAssertions;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.testng.SkipException;
@@ -32,10 +32,10 @@ import java.util.Properties;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createPrestoConnectorQueryRunner;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.createRemotePrestoQueryRunnerWithPostgreSql;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
-import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.testing.sql.TestTable.fromColumns;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.sql.TestTable.fromColumns;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
 public class TestPrestoTableStatisticsWithPostgreSql

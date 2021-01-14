@@ -9,8 +9,8 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import io.prestosql.testing.AbstractTestDistributedQueries;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,7 +50,7 @@ public abstract class BasePrestoConnectorDistributedQueries
     {
         assertThatThrownBy(super::testCommentTable)
                 .hasMessage("This connector does not support setting table comments")
-                .hasStackTraceContaining("io.prestosql.spi.connector.ConnectorMetadata.setTableComment"); // not overridden, so we know this is not a remote exception
+                .hasStackTraceContaining("io.trino.spi.connector.ConnectorMetadata.setTableComment"); // not overridden, so we know this is not a remote exception
         throw new SkipException("not supported");
     }
 }

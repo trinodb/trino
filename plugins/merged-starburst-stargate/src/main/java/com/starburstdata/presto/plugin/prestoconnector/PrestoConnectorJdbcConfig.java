@@ -9,8 +9,8 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import io.prestosql.jdbc.PrestoDriverUri;
-import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.trino.jdbc.PrestoDriverUri;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
 
 import javax.validation.constraints.AssertTrue;
 

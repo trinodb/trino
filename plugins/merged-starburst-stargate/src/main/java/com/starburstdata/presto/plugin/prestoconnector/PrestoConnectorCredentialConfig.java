@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import io.prestosql.plugin.jdbc.credential.CredentialConfig;
+import io.trino.plugin.jdbc.credential.CredentialConfig;
 
 import javax.validation.constraints.AssertTrue;
 

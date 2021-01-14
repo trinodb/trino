@@ -9,11 +9,11 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import io.prestosql.plugin.postgresql.TestingPostgreSqlServer;
-import io.prestosql.testing.DistributedQueryRunner;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.SqlExecutor;
-import io.prestosql.tpch.TpchTable;
+import io.trino.plugin.postgresql.TestingPostgreSqlServer;
+import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
+import io.trino.tpch.TpchTable;
 
 import java.util.Map;
 
