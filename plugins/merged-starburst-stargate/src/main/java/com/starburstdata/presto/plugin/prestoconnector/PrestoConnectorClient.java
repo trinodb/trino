@@ -31,7 +31,7 @@ import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
-import io.trino.spi.PrestoException;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -197,7 +197,7 @@ public class PrestoConnectorClient
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
         if (!enableWrites) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector does not support inserts");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
         }
         return super.beginInsertTable(session, tableHandle, columns);
     }
@@ -206,7 +206,7 @@ public class PrestoConnectorClient
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         if (!enableWrites) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
         }
         super.createTable(session, tableMetadata);
     }
@@ -215,7 +215,7 @@ public class PrestoConnectorClient
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         if (!enableWrites) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
         }
         return super.beginCreateTable(session, tableMetadata);
     }
@@ -224,7 +224,7 @@ public class PrestoConnectorClient
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
         if (!enableWrites) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping tables");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
         }
         super.dropTable(session, handle);
     }
@@ -233,7 +233,7 @@ public class PrestoConnectorClient
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         if (!enableWrites) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming tables");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables");
         }
         super.renameTable(session, handle, newTableName);
     }
@@ -242,7 +242,7 @@ public class PrestoConnectorClient
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         if (!enableWrites) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector does not support renaming columns");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
         }
         super.renameColumn(session, handle, jdbcColumn, newColumnName);
     }
@@ -251,13 +251,13 @@ public class PrestoConnectorClient
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
         if (!enableWrites) {
-            throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping columns");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping columns");
         }
         super.dropColumn(session, handle, column);
     }
 
     @Override
-    public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         Optional<ColumnMapping> columnMapping = convertToPrestoType(session, typeHandle);
         columnMapping.ifPresent(mapping -> {
@@ -520,7 +520,7 @@ public class PrestoConnectorClient
             return prestoTimestampWithTimeZoneWriteMapping((TimestampWithTimeZoneType) type);
         }
 
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
     @Override

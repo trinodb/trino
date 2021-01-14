@@ -14,7 +14,7 @@ import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.jdbc.PrestoDriver;
+import io.trino.jdbc.TrinoDriver;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
@@ -57,7 +57,7 @@ public class PrestoConnectorAuthenticationModule
         @ForBaseJdbc
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig config)
         {
-            return new DriverConnectionFactory(new PrestoDriver(), config, new PassThroughCredentialProvider());
+            return new DriverConnectionFactory(new TrinoDriver(), config, new PassThroughCredentialProvider());
         }
     }
 
@@ -76,7 +76,7 @@ public class PrestoConnectorAuthenticationModule
         @ForBaseJdbc
         public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
         {
-            return new DriverConnectionFactory(new PrestoDriver(), config, credentialProvider);
+            return new DriverConnectionFactory(new TrinoDriver(), config, credentialProvider);
         }
     }
 }

@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.prestoconnector;
 
-import io.trino.jdbc.PrestoDriverUri;
+import io.trino.jdbc.TrinoDriverUri;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 
 import javax.validation.constraints.AssertTrue;
@@ -24,7 +24,7 @@ public class PrestoConnectorJdbcConfig
     public boolean isValidConnectionUrl()
     {
         try {
-            PrestoDriverUri.create(getConnectionUrl(), getUserProperties());
+            TrinoDriverUri.create(getConnectionUrl(), getUserProperties());
             return true;
         }
         catch (SQLException e) {
@@ -36,7 +36,7 @@ public class PrestoConnectorJdbcConfig
     public boolean isValidConnectionUrlCatalog()
     {
         try {
-            PrestoDriverUri driverUri = PrestoDriverUri.create(getConnectionUrl(), getUserProperties());
+            TrinoDriverUri driverUri = TrinoDriverUri.create(getConnectionUrl(), getUserProperties());
             return driverUri.getCatalog().isPresent();
         }
         catch (SQLException e) {
@@ -46,7 +46,7 @@ public class PrestoConnectorJdbcConfig
 
     private static Properties getUserProperties()
     {
-        // connection user is required by PrestoDriverUri validations
+        // connection user is required by TrinoDriverUri validations
         Properties properties = new Properties();
         properties.put("user", "presto");
         return properties;

@@ -17,12 +17,12 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
-import io.trino.testing.datatype.CreateAndPrestoInsertDataSetup;
+import io.trino.testing.datatype.CreateAndTrinoInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
-import io.trino.testing.sql.PrestoSqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.JsonType;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -72,7 +72,7 @@ public class TestPrestoConnectorTypeMapping
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
 
     private DistributedQueryRunner remotePresto;
-    private PrestoSqlExecutor remoteExecutor;
+    private TrinoSqlExecutor remoteExecutor;
 
     private final ZoneId jvmZone = ZoneId.systemDefault();
     private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
@@ -117,7 +117,7 @@ public class TestPrestoConnectorTypeMapping
 
         checkIsGap(kathmandu, timeGapInKathmandu);
 
-        remoteExecutor = new PrestoSqlExecutor(
+        remoteExecutor = new TrinoSqlExecutor(
                 remotePresto,
                 Session.builder(remotePresto.getDefaultSession())
                         .setCatalog("memory")
@@ -829,7 +829,7 @@ public class TestPrestoConnectorTypeMapping
 
     private DataSetup remotePrestoCreatedPrestoConnectorInserted(Session session, String tableNamePrefix)
     {
-        return new CreateAndPrestoInsertDataSetup(remoteExecutor, new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndTrinoInsertDataSetup(remoteExecutor, new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup prestoConnectorCreateAsSelect(String tableNamePrefix)
@@ -839,7 +839,7 @@ public class TestPrestoConnectorTypeMapping
 
     private DataSetup prestoConnectorCreateAsSelect(Session session, String tableNamePrefix)
     {
-        return new CreateAsSelectDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private DataSetup prestoConnectorCreateAndInsert(String tableNamePrefix)
@@ -849,7 +849,7 @@ public class TestPrestoConnectorTypeMapping
 
     private DataSetup prestoConnectorCreateAndInsert(Session session, String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(new PrestoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
