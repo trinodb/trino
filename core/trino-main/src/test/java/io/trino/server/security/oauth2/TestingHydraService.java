@@ -23,6 +23,8 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.utility.MountableFile;
 
 import java.time.Duration;
 
@@ -40,7 +42,7 @@ public class TestingHydraService
             .withNetwork(network)
             .withNetworkAliases("consent")
             .withExposedPorts(3000)
-            .withEnv("HYDRA_ADMIN_URL", "http://hydra:4445")
+            .withEnv("HYDRA_ADMIN_URL", "https://hydra:4445")
             .withEnv("NODE_TLS_REJECT_UNAUTHORIZED", "0")
             .waitingFor(Wait.forHttp("/").forStatusCode(200));
 
@@ -48,13 +50,18 @@ public class TestingHydraService
             .withNetworkAliases("hydra")
             .withExposedPorts(4444, 4445)
             .withEnv("DSN", "memory")
-            .withEnv("URLS_SELF_ISSUER", "http://hydra:4444/")
+            .withEnv("URLS_SELF_ISSUER", "https://hydra:4444/")
             .withEnv("URLS_CONSENT", "http://consent:3000/consent")
             .withEnv("URLS_LOGIN", "http://consent:3000/login")
+            .withEnv("SERVE_TLS_KEY_PATH", "/tmp/certs/localhost.pem")
+            .withEnv("SERVE_TLS_CERT_PATH", "/tmp/certs/localhost.pem")
             .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
             .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
-            .withCommand("serve all --dangerous-force-http")
-            .waitingFor(Wait.forHttp("/health/ready").forPort(4444).forStatusCode(200));
+            .withCommand("serve", "all")
+            .withCopyFileToContainer(MountableFile.forClasspathResource("/cert"), "/tmp/certs")
+            .waitingFor(new WaitAllStrategy()
+                    .withStrategy(Wait.forLogMessage(".*Setting up http server on :4444.*", 1))
+                    .withStrategy(Wait.forLogMessage(".*Setting up http server on :4445.*", 1)));
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
@@ -85,7 +92,8 @@ public class TestingHydraService
     {
         createHydraContainer()
                 .withCommand("clients", "create",
-                        "--endpoint", "http://hydra:4445",
+                        "--endpoint", "https://hydra:4445",
+                        "--skip-tls-verify",
                         "--id", clientId,
                         "--secret", clientSecret,
                         "--audience", audience,
@@ -101,11 +109,12 @@ public class TestingHydraService
     public String getToken(String clientId, String clientSecret, String audience)
     {
         FixedHostPortGenericContainer<?> container = createHydraContainer()
-                .withCommand("token client " +
-                        "--endpoint http://hydra:4444 " +
-                        "--client-id " + clientId + " " +
-                        "--client-secret " + clientSecret + " " +
-                        "--audience " + audience)
+                .withCommand("token", "client",
+                        "--endpoint", "https://hydra:4444",
+                        "--skip-tls-verify",
+                        "--client-id", clientId,
+                        "--client-secret", clientSecret,
+                        "--audience", audience)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)));
         container.start();
         return container.getLogs(OutputFrame.OutputType.STDOUT).replaceAll("\\s+", "");
@@ -138,7 +147,7 @@ public class TestingHydraService
             service.hydraContainer
                     .withFixedExposedPort(9001, 4444)
                     .withFixedExposedPort(9002, 4445)
-                    .withEnv("URLS_SELF_ISSUER", "http://localhost:9001/")
+                    .withEnv("URLS_SELF_ISSUER", "https://localhost:9001/")
                     .withEnv("URLS_CONSENT", "http://localhost:9020/consent")
                     .withEnv("URLS_LOGIN", "http://localhost:9020/login")
                     .withEnv("TTL_ACCESS_TOKEN", "30m");
@@ -160,13 +169,14 @@ public class TestingHydraService
                                     .put("http-server.https.enabled", "true")
                                     .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
                                     .put("http-server.https.keystore.key", "")
-                                    .put("http-server.authentication.oauth2.auth-url", "http://localhost:9001/oauth2/auth")
-                                    .put("http-server.authentication.oauth2.token-url", "http://localhost:9001/oauth2/token")
-                                    .put("http-server.authentication.oauth2.jwks-url", "http://localhost:9001/.well-known/jwks.json")
+                                    .put("http-server.authentication.oauth2.auth-url", "https://localhost:9001/oauth2/auth")
+                                    .put("http-server.authentication.oauth2.token-url", "https://localhost:9001/oauth2/token")
+                                    .put("http-server.authentication.oauth2.jwks-url", "https://localhost:9001/.well-known/jwks.json")
                                     .put("http-server.authentication.oauth2.client-id", "trino-client")
                                     .put("http-server.authentication.oauth2.client-secret", "trino-secret")
                                     .put("http-server.authentication.oauth2.audience", "https://localhost:8443/ui")
                                     .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
+                                    .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                                     .build())
                     .build()) {
                 Thread.sleep(Long.MAX_VALUE);

@@ -16,6 +16,7 @@ package io.trino.server.security.oauth2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
+import io.airlift.http.client.HttpClientConfig;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.log.Logging;
 import io.airlift.testing.Closeables;
@@ -140,13 +141,14 @@ public class TestOAuth2WebUiAuthenticationFilter
                         .put("http-server.https.enabled", "true")
                         .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
                         .put("http-server.https.keystore.key", "")
-                        .put("http-server.authentication.oauth2.auth-url", "http://hydra:4444/oauth2/auth")
-                        .put("http-server.authentication.oauth2.token-url", format("http://localhost:%s/oauth2/token", testingHydraService.getHydraPort()))
-                        .put("http-server.authentication.oauth2.jwks-url", format("http://localhost:%s/.well-known/jwks.json", testingHydraService.getHydraPort()))
+                        .put("http-server.authentication.oauth2.auth-url", "https://hydra:4444/oauth2/auth")
+                        .put("http-server.authentication.oauth2.token-url", format("https://localhost:%s/oauth2/token", testingHydraService.getHydraPort()))
+                        .put("http-server.authentication.oauth2.jwks-url", format("https://localhost:%s/.well-known/jwks.json", testingHydraService.getHydraPort()))
                         .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
                         .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)
                         .put("http-server.authentication.oauth2.audience", format("https://host.testcontainers.internal:%d/ui", HTTPS_PORT))
                         .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
+                        .put("oauth2-jwk.http-client.trust-store-path", Resources.getResource("cert/localhost.pem").getPath())
                         .build())
                 .build();
         server.waitForNodeRefresh(Duration.ofSeconds(10));
@@ -201,7 +203,7 @@ public class TestOAuth2WebUiAuthenticationFilter
                                         .put("client_id", TRINO_CLIENT_ID)
                                         .put("exp", now + 60L)
                                         .put("iat", now)
-                                        .put("iss", "http://hydra:4444/")
+                                        .put("iss", "https://hydra:4444/")
                                         .put("jti", UUID.randomUUID())
                                         .put("nbf", now)
                                         .put("scp", ImmutableList.of("openid"))
@@ -330,8 +332,9 @@ public class TestOAuth2WebUiAuthenticationFilter
         assertThat(cookie.getValue()).isNotBlank();
         Jws<Claims> jwt = Jwts.parser()
                 .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
-                        new JwtAuthenticatorConfig().setKeyFile("http://localhost:" + testingHydraService.getHydraPort() + "/.well-known/jwks.json"),
-                        new JettyHttpClient())))
+                        new JwtAuthenticatorConfig().setKeyFile("https://localhost:" + testingHydraService.getHydraPort() + "/.well-known/jwks.json"),
+                        new JettyHttpClient(new HttpClientConfig()
+                                .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
                 .parseClaimsJws(cookie.getValue());
         assertLessThan(Duration.between(cookie.getExpiry().toInstant(), jwt.getBody().getExpiration().toInstant()), Duration.ofSeconds(5));
         assertAccessToken(jwt);
@@ -341,7 +344,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     {
         assertThat(jwt.getBody().getSubject()).isEqualTo("foo@bar.com");
         assertThat(jwt.getBody().get("client_id")).isEqualTo(TRINO_CLIENT_ID);
-        assertThat(jwt.getBody().getIssuer()).isEqualTo("http://hydra:4444/");
+        assertThat(jwt.getBody().getIssuer()).isEqualTo("https://hydra:4444/");
     }
 
     private void assertUICallWithCookie(Cookie cookie)
@@ -415,7 +418,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         URL location = new URL(redirectUrl);
         HttpUrl url = HttpUrl.parse(redirectUrl);
         assertThat(url).isNotNull();
-        assertThat(location.getProtocol()).isEqualTo("http");
+        assertThat(location.getProtocol()).isEqualTo("https");
         assertThat(location.getHost()).isEqualTo("hydra");
         assertThat(location.getPort()).isEqualTo(4444);
         assertThat(location.getPath()).isEqualTo("/oauth2/auth");
