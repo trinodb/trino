@@ -9,28 +9,28 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
-import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcExpression;
-import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule;
-import io.prestosql.spi.connector.AggregateFunction;
-import io.prestosql.spi.expression.Variable;
-import io.prestosql.spi.type.BigintType;
+import io.trino.matching.Capture;
+import io.trino.matching.Captures;
+import io.trino.matching.Pattern;
+import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
+import io.trino.spi.connector.AggregateFunction;
+import io.trino.spi.expression.Variable;
+import io.trino.spi.type.BigintType;
 
 import java.sql.Types;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
-import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.expressionType;
-import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.functionName;
-import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.singleInput;
-import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.variable;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.trino.matching.Capture.newCapture;
+import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
+import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.expressionType;
+import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.functionName;
+import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.singleInput;
+import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.variable;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.String.format;
 
 public class ImplementAvgBigint

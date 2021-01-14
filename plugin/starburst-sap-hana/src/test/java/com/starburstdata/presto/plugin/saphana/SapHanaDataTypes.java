@@ -9,28 +9,28 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
-import io.prestosql.spi.type.Type;
-import io.prestosql.testing.datatype.DataType;
+import io.trino.spi.type.Type;
+import io.trino.testing.datatype.DataType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TimeType.createTimeType;
-import static io.prestosql.spi.type.TimestampType.createTimestampType;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.datatype.DataType.charDataType;
-import static io.prestosql.testing.datatype.DataType.dataType;
-import static io.prestosql.testing.datatype.DataType.doubleDataType;
-import static io.prestosql.testing.datatype.DataType.realDataType;
-import static io.prestosql.testing.datatype.DataType.stringDataType;
-import static io.prestosql.testing.datatype.DataType.timeDataType;
-import static io.prestosql.testing.datatype.DataType.timestampDataType;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.datatype.DataType.charDataType;
+import static io.trino.testing.datatype.DataType.dataType;
+import static io.trino.testing.datatype.DataType.doubleDataType;
+import static io.trino.testing.datatype.DataType.realDataType;
+import static io.trino.testing.datatype.DataType.stringDataType;
+import static io.trino.testing.datatype.DataType.timeDataType;
+import static io.trino.testing.datatype.DataType.timestampDataType;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;

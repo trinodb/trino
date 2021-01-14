@@ -12,10 +12,10 @@ package com.starburstdata.presto.plugin.saphana;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.ORDERS;
 
 public class TestSapHanaDynamicFiltering
         extends AbstractDynamicFilteringTest

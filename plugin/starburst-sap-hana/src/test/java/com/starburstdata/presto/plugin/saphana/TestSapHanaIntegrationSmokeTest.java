@@ -11,18 +11,18 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.plan.AggregationNode;
-import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test

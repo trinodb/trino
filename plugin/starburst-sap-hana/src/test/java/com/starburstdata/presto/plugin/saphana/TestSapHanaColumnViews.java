@@ -11,10 +11,10 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.MaterializedResult;
-import io.prestosql.testing.QueryRunner;
+import io.trino.Session;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -23,11 +23,11 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
-import static io.prestosql.tpch.TpchTable.NATION;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test

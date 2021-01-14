@@ -11,9 +11,9 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.AbstractTestQueryFramework;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.sql.TestTable;
+import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -21,8 +21,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static io.prestosql.testing.sql.TestTable.fromColumns;
-import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.trino.testing.sql.TestTable.fromColumns;
+import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
 public abstract class AbstractTestSapHanaTableStatistics

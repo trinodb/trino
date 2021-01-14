@@ -10,8 +10,8 @@
 package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.QueryRunner;
-import io.prestosql.tpch.TpchTable;
+import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 

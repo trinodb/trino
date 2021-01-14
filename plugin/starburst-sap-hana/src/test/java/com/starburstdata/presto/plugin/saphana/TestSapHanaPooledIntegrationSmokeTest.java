@@ -11,14 +11,14 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.testing.QueryRunner;
+import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static io.prestosql.tpch.TpchTable.CUSTOMER;
-import static io.prestosql.tpch.TpchTable.NATION;
-import static io.prestosql.tpch.TpchTable.ORDERS;
-import static io.prestosql.tpch.TpchTable.REGION;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 
 @Test
 public class TestSapHanaPooledIntegrationSmokeTest
