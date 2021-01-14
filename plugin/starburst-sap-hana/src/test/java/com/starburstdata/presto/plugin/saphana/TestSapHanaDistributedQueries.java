@@ -83,12 +83,12 @@ public class TestSapHanaDistributedQueries
     @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        switch (dataMappingTestSetup.getPrestoTypeName()) {
+        switch (dataMappingTestSetup.getTrinoTypeName()) {
             case "time":
                 verify(dataMappingTestSetup.getHighValueLiteral().equals("TIME '23:59:59.999'"), "super has changed high value for TIME");
                 return Optional.of(
                         new DataMappingTestSetup(
-                                dataMappingTestSetup.getPrestoTypeName(),
+                                dataMappingTestSetup.getTrinoTypeName(),
                                 dataMappingTestSetup.getSampleValueLiteral(),
                                 "TIME '23:59:59.000'")); // SAP HANA does not store second fraction, so 23:59:59.999 would became 00:00:00
 
