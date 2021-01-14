@@ -24,9 +24,9 @@ import java.util.List;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Class to adapt Presto's {@link SemiTransactionalHiveMetastore} to Coral's
+ * Class to adapt Trino's {@link SemiTransactionalHiveMetastore} to Coral's
  * {@link HiveMetastoreClient}. This allows reuse of the hive metastore instantiated by
- * Presto, based on configuration, inside Coral.
+ * Trino, based on configuration, inside Coral.
  */
 public class CoralSemiTransactionalHiveMSCAdapter
         implements HiveMetastoreClient

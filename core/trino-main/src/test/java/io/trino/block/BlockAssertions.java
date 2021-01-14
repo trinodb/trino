@@ -335,7 +335,7 @@ public final class BlockAssertions
         BlockBuilder builder = BIGINT.createBlockBuilder(null, 100);
 
         for (int value : values) {
-            BIGINT.writeLong(builder, (long) value);
+            BIGINT.writeLong(builder, value);
         }
 
         return builder.build();
@@ -494,7 +494,7 @@ public final class BlockAssertions
         BlockBuilder builder = DOUBLE.createFixedSizeBlockBuilder(end - start);
 
         for (int i = start; i < end; i++) {
-            DOUBLE.writeDouble(builder, (double) i);
+            DOUBLE.writeDouble(builder, i);
         }
 
         return builder.build();

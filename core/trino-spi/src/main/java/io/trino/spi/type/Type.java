@@ -76,7 +76,7 @@ public interface Type
      * Gets the Java class type used to represent this value on the stack during
      * expression execution.
      * <p>
-     * Currently, this must be boolean, long, double, Slice or Block.
+     * Currently, this can be {@code boolean}, {@code long}, {@code double}, or a non-primitive type.
      */
     Class<?> getJavaType();
 

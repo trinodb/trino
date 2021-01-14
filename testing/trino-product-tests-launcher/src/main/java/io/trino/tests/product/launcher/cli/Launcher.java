@@ -14,6 +14,7 @@
 package io.trino.tests.product.launcher.cli;
 
 import com.google.common.io.Resources;
+import io.airlift.units.Duration;
 import io.trino.tests.product.launcher.Extensions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -24,6 +25,8 @@ import picocli.CommandLine.Option;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ListResourceBundle;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -66,6 +69,8 @@ public class Launcher
         IFactory factory = createFactory(launcher.getExtensions());
         System.exit(new CommandLine(launcher, factory)
                 .setCaseInsensitiveEnumValuesAllowed(true)
+                .registerConverter(Duration.class, Duration::valueOf)
+                .registerConverter(Path.class, Paths::get)
                 .setResourceBundle(new LauncherBundle()).execute(args));
     }
 

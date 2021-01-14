@@ -33,7 +33,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.plugin.tpcds.TpcdsMetadata.getPrestoType;
+import static io.trino.plugin.tpcds.TpcdsMetadata.getTrinoType;
 import static io.trino.spi.type.Chars.trimTrailingSpaces;
 import static io.trino.spi.type.Decimals.rescale;
 import static java.lang.Double.parseDouble;
@@ -57,7 +57,7 @@ public class TpcdsRecordSet
         this.columns = ImmutableList.copyOf(columns);
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         for (Column column : columns) {
-            columnTypes.add(getPrestoType(column.getType()));
+            columnTypes.add(getTrinoType(column.getType()));
         }
         this.columnTypes = columnTypes.build();
     }
@@ -103,7 +103,7 @@ public class TpcdsRecordSet
         @Override
         public Type getType(int field)
         {
-            return getPrestoType(columns.get(field).getType());
+            return getTrinoType(columns.get(field).getType());
         }
 
         @Override

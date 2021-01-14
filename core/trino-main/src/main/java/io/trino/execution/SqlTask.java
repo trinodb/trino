@@ -203,6 +203,16 @@ public class SqlTask
         return taskHolderReference.get().getIoStats();
     }
 
+    public TaskState getTaskState()
+    {
+        return taskStateMachine.getState();
+    }
+
+    public DateTime getTaskCreatedTime()
+    {
+        return taskStateMachine.getCreatedTime();
+    }
+
     public TaskId getTaskId()
     {
         return taskStateMachine.getTaskId();
@@ -567,5 +577,14 @@ public class SqlTask
     public QueryContext getQueryContext()
     {
         return queryContext;
+    }
+
+    public Optional<TaskContext> getTaskContext()
+    {
+        SqlTaskExecution taskExecution = taskHolderReference.get().getTaskExecution();
+        if (taskExecution == null) {
+            return Optional.empty();
+        }
+        return Optional.of(taskExecution.getTaskContext());
     }
 }

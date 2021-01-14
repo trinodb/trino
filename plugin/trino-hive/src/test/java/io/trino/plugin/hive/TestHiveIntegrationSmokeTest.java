@@ -2199,8 +2199,7 @@ public class TestHiveIntegrationSmokeTest
     {
         String tableName = "test_create_invalid_bucketed_table";
 
-        try {
-            computeActual("" +
+        assertThatThrownBy(() -> computeActual("" +
                     "CREATE TABLE " + tableName + " (" +
                     "  a BIGINT," +
                     "  b DOUBLE," +
@@ -2210,15 +2209,10 @@ public class TestHiveIntegrationSmokeTest
                     "partitioned_by = ARRAY[ 'p' ], " +
                     "bucketed_by = ARRAY[ 'a', 'c' ], " +
                     "bucket_count = 11 " +
-                    ")");
-            fail();
-        }
-        catch (Exception e) {
-            assertEquals(e.getMessage(), "Bucketing columns [c] not present in schema");
-        }
+                    ")"))
+                .hasMessage("Bucketing columns [c] not present in schema");
 
-        try {
-            computeActual("" +
+        assertThatThrownBy(() -> computeActual("" +
                     "CREATE TABLE " + tableName + " " +
                     "WITH (" +
                     "format = '" + storageFormat + "', " +
@@ -2228,12 +2222,8 @@ public class TestHiveIntegrationSmokeTest
                     ") " +
                     "AS " +
                     "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
-                    "FROM tpch.tiny.orders");
-            fail();
-        }
-        catch (Exception e) {
-            assertEquals(e.getMessage(), "Bucketing columns [custkey3] not present in schema");
-        }
+                    "FROM tpch.tiny.orders"))
+                .hasMessage("Bucketing columns [custkey3] not present in schema");
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }

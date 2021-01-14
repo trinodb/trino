@@ -22,6 +22,7 @@ import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 
@@ -29,13 +30,14 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 
+import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static java.time.Duration.ofMinutes;
 
 public class TestingHydraService
         implements AutoCloseable
 {
     static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
-    private static final String HYDRA_IMAGE = "oryd/hydra:v1.4.2";
+    private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0";
     private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -49,7 +51,7 @@ public class TestingHydraService
             .withDatabaseName("hydra");
 
     private final GenericContainer<?> migrationContainer = createHydraContainer()
-            .withCommand("migrate sql --yes " + DSN)
+            .withCommand("migrate", "sql", "--yes", DSN)
             .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(ofMinutes(5)));
 
     private final FixedHostPortGenericContainer<?> consentContainer = new FixedHostPortGenericContainer<>("oryd/hydra-login-consent-node:v1.4.2")
@@ -68,7 +70,7 @@ public class TestingHydraService
             .withEnv("URLS_SELF_ISSUER", "http://hydra:4444/")
             .withEnv("URLS_CONSENT", "http://consent:3000/consent")
             .withEnv("URLS_LOGIN", "http://consent:3000/login")
-            .withEnv("OAUTH2_ACCESS_TOKEN_STRATEGY", "jwt")
+            .withEnv("STRATEGIES_ACCESS_TOKEN", "jwt")
             .withEnv("TTL_ACCESS_TOKEN", TTL_ACCESS_TOKEN_IN_SECONDS + "s")
             .withCommand("serve all --dangerous-force-http")
             .waitingFor(Wait.forHttp("/health/ready").forPort(4444).forStatusCode(200));
@@ -97,19 +99,39 @@ public class TestingHydraService
         return new FixedHostPortGenericContainer<>(HYDRA_IMAGE).withNetwork(network);
     }
 
-    public void createConsumer(String callback)
+    public void createClient(
+            String clientId,
+            String clientSecret,
+            TokenEndpointAuthMethod tokenEndpointAuthMethod,
+            String audience,
+            String callbackUrl)
     {
         createHydraContainer()
-                .withCommand("clients create " +
-                        "--endpoint http://hydra:4445 " +
-                        "--id another-consumer " +
-                        "--secret consumer-secret " +
-                        "-g authorization_code,refresh_token " +
-                        "-r token,code,id_token " +
-                        "--scope openid,offline " +
-                        "--callbacks " + callback)
+                .withCommand("clients", "create",
+                        "--endpoint", "http://hydra:4445",
+                        "--id", clientId,
+                        "--secret", clientSecret,
+                        "--audience", audience,
+                        "-g", "authorization_code,refresh_token,client_credentials",
+                        "-r", "token,code,id_token",
+                        "--scope", "openid,offline",
+                        "--token-endpoint-auth-method", tokenEndpointAuthMethod.getValue(),
+                        "--callbacks", callbackUrl)
                 .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)))
                 .start();
+    }
+
+    public String getToken(String clientId, String clientSecret, String audience)
+    {
+        FixedHostPortGenericContainer<?> container = createHydraContainer()
+                .withCommand("token client " +
+                        "--endpoint http://hydra:4444 " +
+                        "--client-id " + clientId + " " +
+                        "--client-secret " + clientSecret + " " +
+                        "--audience " + audience)
+                .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(Duration.ofSeconds(30)));
+        container.start();
+        return container.getLogs(OutputFrame.OutputType.STDOUT).replaceAll("\\s+", "");
     }
 
     public Network getNetwork()
@@ -151,7 +173,12 @@ public class TestingHydraService
                     .withEnv("URLS_LOGIN", "http://localhost:9020/login")
                     .withEnv("TTL_ACCESS_TOKEN", "30m");
             service.start();
-            service.createConsumer("https://localhost:8443/oauth2/callback");
+            service.createClient(
+                    "trino-client",
+                    "trino-secret",
+                    CLIENT_SECRET_BASIC,
+                    "https://localhost:8443/ui",
+                    "https://localhost:8443/oauth2/callback");
             try (TestingTrinoServer ignored = TestingTrinoServer.builder()
                     .setCoordinator(true)
                     .setAdditionalModule(new WebUiModule())
@@ -166,8 +193,9 @@ public class TestingHydraService
                                     .put("http-server.authentication.oauth2.auth-url", "http://localhost:9001/oauth2/auth")
                                     .put("http-server.authentication.oauth2.token-url", "http://localhost:9001/oauth2/token")
                                     .put("http-server.authentication.oauth2.jwks-url", "http://localhost:9001/.well-known/jwks.json")
-                                    .put("http-server.authentication.oauth2.client-id", "another-consumer")
-                                    .put("http-server.authentication.oauth2.client-secret", "consumer-secret")
+                                    .put("http-server.authentication.oauth2.client-id", "trino-client")
+                                    .put("http-server.authentication.oauth2.client-secret", "trino-secret")
+                                    .put("http-server.authentication.oauth2.audience", "https://localhost:8443/ui")
                                     .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
                                     .build())
                     .build()) {

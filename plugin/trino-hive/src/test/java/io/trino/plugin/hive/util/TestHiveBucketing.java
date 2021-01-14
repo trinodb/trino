@@ -243,16 +243,16 @@ public class TestHiveBucketing
         List<TypeInfo> hiveTypeInfos = hiveTypes.stream()
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
-        List<Type> prestoTypes = hiveTypes.stream()
+        List<Type> trinoTypes = hiveTypes.stream()
                 .map(type -> type.getType(TYPE_MANAGER))
                 .collect(toImmutableList());
 
         ImmutableList.Builder<List<NullableValue>> values = ImmutableList.builder();
         for (int i = 0; i < hiveValues.size(); i++) {
             List<Object> valueList = hiveValues.get(i);
-            Type prestoType = prestoTypes.get(i);
+            Type trinoType = trinoTypes.get(i);
             values.add(valueList.stream()
-                    .map(value -> new NullableValue(prestoType, toNativeContainerValue(prestoType, value)))
+                    .map(value -> new NullableValue(trinoType, toNativeContainerValue(trinoType, value)))
                     .collect(toImmutableList()));
         }
 
@@ -288,7 +288,7 @@ public class TestHiveBucketing
                 .map(HiveType::getTypeInfo)
                 .collect(toImmutableList());
 
-        assertEquals(computePresto(bucketingVersion, hiveTypeStrings, hiveValues, hiveTypes, hiveTypeInfos), expectedHashCode);
+        assertEquals(computeTrino(bucketingVersion, hiveTypeStrings, hiveValues, hiveTypes, hiveTypeInfos), expectedHashCode);
         assertEquals(computeHive(bucketingVersion, hiveTypeStrings, hiveValues, hiveTypeInfos), expectedHashCode);
 
         for (int bucketCount : new int[] {1, 2, 500, 997}) {
@@ -311,7 +311,7 @@ public class TestHiveBucketing
         return getHiveBucketHashCode(bucketingVersion, columnBindingsBuilder.build());
     }
 
-    private static int computePresto(BucketingVersion bucketingVersion, List<String> hiveTypeStrings, List<Object> hiveValues, List<HiveType> hiveTypes, List<TypeInfo> hiveTypeInfos)
+    private static int computeTrino(BucketingVersion bucketingVersion, List<String> hiveTypeStrings, List<Object> hiveValues, List<HiveType> hiveTypes, List<TypeInfo> hiveTypeInfos)
     {
         ImmutableList.Builder<Block> blockListBuilder = ImmutableList.builder();
         Object[] nativeContainerValues = new Object[hiveValues.size()];

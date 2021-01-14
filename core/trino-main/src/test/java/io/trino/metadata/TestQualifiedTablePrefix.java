@@ -17,10 +17,10 @@ import io.airlift.json.JsonCodec;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestQualifiedTablePrefix
 {
@@ -62,15 +62,11 @@ public class TestQualifiedTablePrefix
     }
 
     @Test
-    public void testBadTable()
+    public void testNullSchema()
     {
-        try {
-            new QualifiedTablePrefix("catalog", null, "table");
-            fail();
-        }
-        catch (RuntimeException e) {
-            // ok
-        }
+        assertThatThrownBy(() -> new QualifiedTablePrefix("catalog", null, "table"))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("schemaName is null");
     }
 
     @Test

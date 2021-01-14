@@ -40,8 +40,7 @@ import static io.trino.tests.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseLdapJdbcTest
         extends ProductTest
@@ -83,13 +82,9 @@ public abstract class BaseLdapJdbcTest
 
     protected void expectQueryToFail(String user, String password, String message)
     {
-        try {
-            executeLdapQuery(NATION_SELECT_ALL_QUERY, user, password);
-            fail();
-        }
-        catch (SQLException exception) {
-            assertEquals(exception.getMessage(), message);
-        }
+        assertThatThrownBy(() -> executeLdapQuery(NATION_SELECT_ALL_QUERY, user, password))
+                .isInstanceOf(SQLException.class)
+                .hasMessage(message);
     }
 
     protected QueryResult executeLdapQuery(String query, String name, String password)

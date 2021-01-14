@@ -33,6 +33,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -55,9 +56,7 @@ public class TestSortedRangeSet
         assertTrue(Iterables.isEmpty(rangeSet.getOrderedRanges()));
         assertEquals(rangeSet.getRangeCount(), 0);
         assertEquals(rangeSet.complement(), SortedRangeSet.all(BIGINT));
-        assertFalse(rangeSet.includesMarker(Marker.lowerUnbounded(BIGINT)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
-        assertFalse(rangeSet.includesMarker(Marker.upperUnbounded(BIGINT)));
+        assertFalse(rangeSet.containsValue(0L));
     }
 
     @Test
@@ -70,9 +69,7 @@ public class TestSortedRangeSet
         assertFalse(rangeSet.isSingleValue());
         assertEquals(rangeSet.getRangeCount(), 1);
         assertEquals(rangeSet.complement(), SortedRangeSet.none(BIGINT));
-        assertTrue(rangeSet.includesMarker(Marker.lowerUnbounded(BIGINT)));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
-        assertTrue(rangeSet.includesMarker(Marker.upperUnbounded(BIGINT)));
+        assertTrue(rangeSet.containsValue(0L));
     }
 
     @Test
@@ -89,10 +86,8 @@ public class TestSortedRangeSet
         assertTrue(Iterables.elementsEqual(rangeSet.getOrderedRanges(), ImmutableList.of(Range.equal(BIGINT, 10L))));
         assertEquals(rangeSet.getRangeCount(), 1);
         assertEquals(rangeSet.complement(), complement);
-        assertFalse(rangeSet.includesMarker(Marker.lowerUnbounded(BIGINT)));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 10L)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 9L)));
-        assertFalse(rangeSet.includesMarker(Marker.upperUnbounded(BIGINT)));
+        assertTrue(rangeSet.containsValue(10L));
+        assertFalse(rangeSet.containsValue(9L));
     }
 
     @Test
@@ -125,12 +120,10 @@ public class TestSortedRangeSet
         assertEquals(rangeSet, SortedRangeSet.copyOf(BIGINT, normalizedResult));
         assertEquals(rangeSet.getRangeCount(), 3);
         assertEquals(rangeSet.complement(), complement);
-        assertFalse(rangeSet.includesMarker(Marker.lowerUnbounded(BIGINT)));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 1L)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 7L)));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 9L)));
-        assertFalse(rangeSet.includesMarker(Marker.upperUnbounded(BIGINT)));
+        assertTrue(rangeSet.containsValue(0L));
+        assertFalse(rangeSet.containsValue(1L));
+        assertFalse(rangeSet.containsValue(7L));
+        assertTrue(rangeSet.containsValue(9L));
     }
 
     @Test
@@ -161,11 +154,9 @@ public class TestSortedRangeSet
         assertEquals(rangeSet, SortedRangeSet.copyOf(BIGINT, normalizedResult));
         assertEquals(rangeSet.getRangeCount(), 3);
         assertEquals(rangeSet.complement(), complement);
-        assertTrue(rangeSet.includesMarker(Marker.lowerUnbounded(BIGINT)));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
-        assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 4L)));
-        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 7L)));
-        assertTrue(rangeSet.includesMarker(Marker.upperUnbounded(BIGINT)));
+        assertTrue(rangeSet.containsValue(0L));
+        assertTrue(rangeSet.containsValue(4L));
+        assertFalse(rangeSet.containsValue(7L));
     }
 
     @Test
@@ -320,6 +311,21 @@ public class TestSortedRangeSet
     }
 
     @Test
+    public void testContainsValueRejectNull()
+    {
+        SortedRangeSet all = SortedRangeSet.all(BIGINT);
+        SortedRangeSet none = SortedRangeSet.none(BIGINT);
+        SortedRangeSet someRange = SortedRangeSet.of(Range.range(BIGINT, 10L, false, 41L, false));
+
+        assertThatThrownBy(() -> all.containsValue(null))
+                .hasMessage("value is null");
+        assertThatThrownBy(() -> none.containsValue(null))
+                .hasMessage("value is null");
+        assertThatThrownBy(() -> someRange.containsValue(null))
+                .hasMessage("value is null");
+    }
+
+    @Test
     public void testIntersect()
     {
         assertEquals(
@@ -391,6 +397,16 @@ public class TestSortedRangeSet
                 SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)),
                 SortedRangeSet.of(Range.lessThan(BIGINT, 0L)),
                 SortedRangeSet.of(BIGINT, 0L).complement());
+
+        assertUnion(
+                SortedRangeSet.of(Range.range(BIGINT, 0L, true, 10L, false)),
+                SortedRangeSet.of(Range.equal(BIGINT, 9L)),
+                SortedRangeSet.of(Range.range(BIGINT, 0L, true, 10L, false)));
+
+        assertUnion(
+                SortedRangeSet.of(Range.range(createVarcharType(25), utf8Slice("LARGE PLATED "), true, utf8Slice("LARGE PLATED!"), false)),
+                SortedRangeSet.of(Range.equal(createVarcharType(25), utf8Slice("LARGE PLATED NICKEL"))),
+                SortedRangeSet.of(Range.range(createVarcharType(25), utf8Slice("LARGE PLATED "), true, utf8Slice("LARGE PLATED!"), false)));
     }
 
     @Test

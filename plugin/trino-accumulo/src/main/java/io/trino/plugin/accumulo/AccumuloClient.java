@@ -81,7 +81,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This class is the main access point for the Presto connector to interact with Accumulo.
+ * This class is the main access point for the Trino connector to interact with Accumulo.
  * It is responsible for creating tables, dropping tables, retrieving table metadata, and getting the ConnectorSplits from a table.
  */
 public class AccumuloClient
@@ -279,7 +279,7 @@ public class AccumuloClient
      * Gets the row ID based on a table properties or the first column name.
      *
      * @param meta ConnectorTableMetadata
-     * @return Lowercase Presto column name mapped to the Accumulo row ID
+     * @return Lowercase Trino column name mapped to the Accumulo row ID
      */
     private static String getRowIdColumn(ConnectorTableMetadata meta)
     {
@@ -404,10 +404,10 @@ public class AccumuloClient
     }
 
     /**
-     * Auto-generates the mapping of Presto column name to Accumulo family/qualifier, respecting the locality groups (if any).
+     * Auto-generates the mapping of Trino column name to Accumulo family/qualifier, respecting the locality groups (if any).
      *
-     * @param columns Presto columns for the table
-     * @param groups Mapping of locality groups to a set of Presto columns, or null if none
+     * @param columns Trino columns for the table
+     * @param groups Mapping of locality groups to a set of Trino columns, or null if none
      * @return Column mappings
      */
     private static Map<String, Pair<String, String>> autoGenerateMapping(List<ColumnMetadata> columns, Optional<Map<String, Set<String>>> groups)
@@ -444,7 +444,7 @@ public class AccumuloClient
     {
         SchemaTableName tableName = new SchemaTableName(table.getSchema(), table.getTable());
 
-        // Remove the table metadata from Presto
+        // Remove the table metadata from Trino
         if (metaManager.getTable(tableName) != null) {
             metaManager.deleteTableMetadata(tableName);
         }
@@ -651,7 +651,7 @@ public class AccumuloClient
      * @param rowIdDomain Domain for the row ID
      * @param constraints Column constraints for the query
      * @param serializer Instance of a row serializer
-     * @return List of TabletSplitMetadata objects for Presto
+     * @return List of TabletSplitMetadata objects for Trino
      */
     public List<TabletSplitMetadata> getTabletSplits(
             ConnectorSession session,
@@ -675,7 +675,7 @@ public class AccumuloClient
                 Authorizations auths = getScanAuthorizations(session, schema, table);
 
                 // Check the secondary index based on the column constraints
-                // If this returns true, return the tablet splits to Presto
+                // If this returns true, return the tablet splits to Trino
                 if (indexLookup.applyIndex(schema, table, session, constraints, rowIdRanges, tabletSplits, serializer, auths)) {
                     return tabletSplits;
                 }
@@ -889,7 +889,7 @@ public class AccumuloClient
     }
 
     /**
-     * Gets a collection of Accumulo Range objects from the given Presto domain.
+     * Gets a collection of Accumulo Range objects from the given Trino domain.
      * This maps the column constraints of the given Domain to an Accumulo Range scan.
      *
      * @param domain Domain, can be null (returns (-inf, +inf) Range)
@@ -907,43 +907,43 @@ public class AccumuloClient
 
         ImmutableSet.Builder<Range> rangeBuilder = ImmutableSet.builder();
         for (io.trino.spi.predicate.Range range : domain.get().getValues().getRanges().getOrderedRanges()) {
-            rangeBuilder.add(getRangeFromPrestoRange(range, serializer));
+            rangeBuilder.add(getRangeFromTrinoRange(range, serializer));
         }
 
         return rangeBuilder.build();
     }
 
-    private static Range getRangeFromPrestoRange(io.trino.spi.predicate.Range prestoRange, AccumuloRowSerializer serializer)
+    private static Range getRangeFromTrinoRange(io.trino.spi.predicate.Range trinoRange, AccumuloRowSerializer serializer)
             throws TableNotFoundException
     {
         Range accumuloRange;
-        if (prestoRange.isAll()) {
+        if (trinoRange.isAll()) {
             accumuloRange = new Range();
         }
-        else if (prestoRange.isSingleValue()) {
-            Text split = new Text(serializer.encode(prestoRange.getType(), prestoRange.getSingleValue()));
+        else if (trinoRange.isSingleValue()) {
+            Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getSingleValue()));
             accumuloRange = new Range(split);
         }
         else {
-            if (prestoRange.getLow().isLowerUnbounded()) {
+            if (trinoRange.getLow().isLowerUnbounded()) {
                 // If low is unbounded, then create a range from (-inf, value), checking inclusivity
-                boolean inclusive = prestoRange.getHigh().getBound() == Bound.EXACTLY;
-                Text split = new Text(serializer.encode(prestoRange.getType(), prestoRange.getHigh().getValue()));
+                boolean inclusive = trinoRange.getHigh().getBound() == Bound.EXACTLY;
+                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHigh().getValue()));
                 accumuloRange = new Range(null, false, split, inclusive);
             }
-            else if (prestoRange.getHigh().isUpperUnbounded()) {
+            else if (trinoRange.getHigh().isUpperUnbounded()) {
                 // If high is unbounded, then create a range from (value, +inf), checking inclusivity
-                boolean inclusive = prestoRange.getLow().getBound() == Bound.EXACTLY;
-                Text split = new Text(serializer.encode(prestoRange.getType(), prestoRange.getLow().getValue()));
+                boolean inclusive = trinoRange.getLow().getBound() == Bound.EXACTLY;
+                Text split = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLow().getValue()));
                 accumuloRange = new Range(split, inclusive, null, false);
             }
             else {
                 // If high is unbounded, then create a range from low to high, checking inclusivity
-                boolean startKeyInclusive = prestoRange.getLow().getBound() == Bound.EXACTLY;
-                Text startSplit = new Text(serializer.encode(prestoRange.getType(), prestoRange.getLow().getValue()));
+                boolean startKeyInclusive = trinoRange.getLow().getBound() == Bound.EXACTLY;
+                Text startSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getLow().getValue()));
 
-                boolean endKeyInclusive = prestoRange.getHigh().getBound() == Bound.EXACTLY;
-                Text endSplit = new Text(serializer.encode(prestoRange.getType(), prestoRange.getHigh().getValue()));
+                boolean endKeyInclusive = trinoRange.getHigh().getBound() == Bound.EXACTLY;
+                Text endSplit = new Text(serializer.encode(trinoRange.getType(), trinoRange.getHigh().getValue()));
                 accumuloRange = new Range(startSplit, startKeyInclusive, endSplit, endKeyInclusive);
             }
         }

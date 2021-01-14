@@ -74,12 +74,12 @@ public final class RedisQueryRunner
 
             installRedisPlugin(redisServer, queryRunner, tableDescriptions);
 
-            TestingTrinoClient prestoClient = queryRunner.getClient();
+            TestingTrinoClient trinoClient = queryRunner.getClient();
 
             log.info("Loading data...");
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
-                loadTpchTable(redisServer, prestoClient, table, dataFormat);
+                loadTpchTable(redisServer, trinoClient, table, dataFormat);
             }
             log.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
             redisServer.destroyJedisPool();
@@ -91,13 +91,13 @@ public final class RedisQueryRunner
         }
     }
 
-    private static void loadTpchTable(RedisServer redisServer, TestingTrinoClient prestoClient, TpchTable<?> table, String dataFormat)
+    private static void loadTpchTable(RedisServer redisServer, TestingTrinoClient trinoClient, TpchTable<?> table, String dataFormat)
     {
         long start = System.nanoTime();
         log.info("Running import for %s", table.getTableName());
         RedisTestUtils.loadTpchTable(
                 redisServer,
-                prestoClient,
+                trinoClient,
                 redisTableName(table),
                 new QualifiedObjectName("tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH)),
                 dataFormat);

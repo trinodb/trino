@@ -101,7 +101,7 @@ public class ResolvedFunction
 
         // json can be large so use zstd to compress
         ZstdCompressor compressor = new ZstdCompressor();
-        byte[] compressed = new byte[toIntExact(compressor.maxCompressedLength(json.length))];
+        byte[] compressed = new byte[compressor.maxCompressedLength(json.length)];
         int outputSize = compressor.compress(json, 0, json.length, compressed, 0, compressed.length);
 
         // names are case insensitive, so use base32 instead of base64

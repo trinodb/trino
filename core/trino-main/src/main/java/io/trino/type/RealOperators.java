@@ -110,7 +110,7 @@ public final class RealOperators
         if (Float.isNaN(floatValue)) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to bigint");
         }
-        return (long) MathFunctions.round((double) floatValue);
+        return (long) MathFunctions.round(floatValue);
     }
 
     @ScalarOperator(CAST)
@@ -122,7 +122,7 @@ public final class RealOperators
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to integer");
         }
         try {
-            return toIntExact((long) MathFunctions.round((double) floatValue));
+            return toIntExact((long) MathFunctions.round(floatValue));
         }
         catch (ArithmeticException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for integer: " + floatValue, e);
@@ -138,7 +138,7 @@ public final class RealOperators
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to smallint");
         }
         try {
-            return Shorts.checkedCast((long) MathFunctions.round((double) floatValue));
+            return Shorts.checkedCast((long) MathFunctions.round(floatValue));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for smallint: " + floatValue, e);
@@ -154,7 +154,7 @@ public final class RealOperators
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Cannot cast real NaN to tinyint");
         }
         try {
-            return SignedBytes.checkedCast((long) MathFunctions.round((double) floatValue));
+            return SignedBytes.checkedCast((long) MathFunctions.round(floatValue));
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Out of range for tinyint: " + floatValue, e);
@@ -165,7 +165,7 @@ public final class RealOperators
     @SqlType(StandardTypes.DOUBLE)
     public static double castToDouble(@SqlType(StandardTypes.REAL) long value)
     {
-        return (double) intBitsToFloat((int) value);
+        return intBitsToFloat((int) value);
     }
 
     @ScalarOperator(CAST)

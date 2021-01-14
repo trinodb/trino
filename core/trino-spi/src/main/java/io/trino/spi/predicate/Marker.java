@@ -13,8 +13,6 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
@@ -63,11 +61,7 @@ public final class Marker
      * LOWER UNBOUNDED is specified with an empty value and a ABOVE bound
      * UPPER UNBOUNDED is specified with an empty value and a BELOW bound
      */
-    @JsonCreator
-    public Marker(
-            @JsonProperty("type") Type type,
-            @JsonProperty("valueBlock") Optional<Block> valueBlock,
-            @JsonProperty("bound") Bound bound)
+    public Marker(Type type, Optional<Block> valueBlock, Bound bound)
     {
         requireNonNull(type, "type is null");
         requireNonNull(valueBlock, "valueBlock is null");
@@ -131,13 +125,11 @@ public final class Marker
         return create(type, Optional.of(value), Bound.BELOW);
     }
 
-    @JsonProperty
     public Type getType()
     {
         return type;
     }
 
-    @JsonProperty
     public Optional<Block> getValueBlock()
     {
         return valueBlock;
@@ -159,7 +151,6 @@ public final class Marker
         return type.getObjectValue(session, valueBlock.get(), 0);
     }
 
-    @JsonProperty
     public Bound getBound()
     {
         return bound;

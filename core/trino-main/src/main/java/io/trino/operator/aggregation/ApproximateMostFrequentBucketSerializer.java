@@ -17,5 +17,5 @@ import io.airlift.slice.DynamicSliceOutput;
 
 public interface ApproximateMostFrequentBucketSerializer<K>
 {
-    public void serialize(K key, long count, DynamicSliceOutput output);
+    void serialize(K key, long count, DynamicSliceOutput output);
 }

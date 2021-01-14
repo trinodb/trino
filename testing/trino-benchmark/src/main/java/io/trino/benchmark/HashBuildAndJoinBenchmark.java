@@ -136,6 +136,7 @@ public class HashBuildAndJoinBenchmark
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
                 sourceTypes,
+                false,
                 Ints.asList(0),
                 hashChannel,
                 Optional.empty(),

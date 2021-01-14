@@ -41,7 +41,7 @@ public class StatsCalculatorAssertion
     private final PlanNode planNode;
     private final TypeProvider types;
 
-    private Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
+    private final Map<PlanNode, PlanNodeStatsEstimate> sourcesStats;
 
     public StatsCalculatorAssertion(StatsCalculator statsCalculator, Session session, PlanNode planNode, TypeProvider types)
     {

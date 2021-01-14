@@ -68,8 +68,8 @@ import static java.util.stream.Collectors.toList;
 
 /**
  * Dynamic filters are supported only right after TableScan and only if the subtree is on
- *  1. the probe side of some downstream JoinNode or
- *  2. the source side of some downstream SemiJoinNode node
+ * 1. the probe side of some downstream JoinNode or
+ * 2. the source side of some downstream SemiJoinNode node
  * Dynamic filters are removed from JoinNode/SemiJoinNode if there is no consumer for it on probe/source side
  */
 public class RemoveUnsupportedDynamicFilters
@@ -163,6 +163,7 @@ public class RemoveUnsupportedDynamicFilters
                         node.getCriteria(),
                         node.getLeftOutputSymbols(),
                         node.getRightOutputSymbols(),
+                        node.isMaySkipOutputDuplicates(),
                         filter,
                         node.getLeftHashSymbol(),
                         node.getRightHashSymbol(),

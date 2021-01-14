@@ -761,7 +761,7 @@ public abstract class IcebergMetadata
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         Optional<TableToken> currentToken = getTableToken(session, handle);
 
-        if (!tableToken.isPresent() || !currentToken.isPresent()) {
+        if (tableToken.isEmpty() || currentToken.isEmpty()) {
             return false;
         }
 
@@ -798,7 +798,7 @@ public abstract class IcebergMetadata
     {
         Map<String, Optional<TableToken>> viewToken = new HashMap<>();
         Optional<ConnectorMaterializedViewDefinition> materializedViewDefinition = getMaterializedView(session, name);
-        if (!materializedViewDefinition.isPresent()) {
+        if (materializedViewDefinition.isEmpty()) {
             return viewToken;
         }
 

@@ -164,8 +164,8 @@ public class PlanBuilder
     public class OutputBuilder
     {
         private PlanNode source;
-        private List<String> columnNames = new ArrayList<>();
-        private List<Symbol> outputs = new ArrayList<>();
+        private final List<String> columnNames = new ArrayList<>();
+        private final List<Symbol> outputs = new ArrayList<>();
 
         public OutputBuilder source(PlanNode source)
         {
@@ -211,7 +211,7 @@ public class PlanBuilder
         return values(
                 id,
                 ImmutableList.copyOf(columns),
-                nElements(rows, row -> nElements(columns.length, cell -> (Expression) new NullLiteral())));
+                nElements(rows, row -> nElements(columns.length, cell -> new NullLiteral())));
     }
 
     public ValuesNode values(List<Symbol> columns, List<List<Expression>> rows)
@@ -837,6 +837,7 @@ public class PlanBuilder
                 criteria,
                 leftOutputSymbols,
                 rightOutputSymbols,
+                false,
                 filter,
                 leftHashSymbol,
                 rightHashSymbol,

@@ -226,7 +226,7 @@ abstract class SimulationSplit
         private final ScheduledExecutorService executorService;
 
         private SettableFuture<?> future = SettableFuture.create();
-        private SettableFuture<?> doneFuture = SettableFuture.create();
+        private final SettableFuture<?> doneFuture = SettableFuture.create();
 
         public IntermediateSplit(SimulationTask task, long scheduledTimeNanos, long wallTimeNanos, long numQuantas, long perQuantaNanos, long betweenQuantaNanos, ScheduledExecutorService executorService)
         {

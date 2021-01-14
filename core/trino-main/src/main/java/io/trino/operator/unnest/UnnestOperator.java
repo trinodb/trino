@@ -109,13 +109,12 @@ public class UnnestOperator
     private int currentPosition;
 
     private final List<Unnester> unnesters;
-    private final int unnestOutputChannelCount;
 
     private final List<ReplicatedBlockBuilder> replicatedBlockBuilders;
 
     private BlockBuilder ordinalityBlockBuilder;
 
-    private int outputChannelCount;
+    private final int outputChannelCount;
 
     public UnnestOperator(OperatorContext operatorContext, List<Integer> replicateChannels, List<Type> replicateTypes, List<Integer> unnestChannels, List<Type> unnestTypes, boolean withOrdinality, boolean outer)
     {
@@ -134,7 +133,7 @@ public class UnnestOperator
         this.unnesters = unnestTypes.stream()
                 .map(UnnestOperator::createUnnester)
                 .collect(toImmutableList());
-        this.unnestOutputChannelCount = unnesters.stream().mapToInt(Unnester::getChannelCount).sum();
+        int unnestOutputChannelCount = unnesters.stream().mapToInt(Unnester::getChannelCount).sum();
 
         this.withOrdinality = withOrdinality;
         this.outer = outer;

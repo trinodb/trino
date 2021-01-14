@@ -275,10 +275,10 @@ public class Field
     }
 
     /**
-     * Convert Presto native value (stack representation) of given type to Accumulo equivalent.
+     * Convert Trino native value (stack representation) of given type to Accumulo equivalent.
      *
      * @param value Object to convert
-     * @param type Destination Presto type
+     * @param type Destination Trino type
      */
     private static Object convert(Object value, Type type)
     {

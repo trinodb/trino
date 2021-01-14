@@ -29,7 +29,7 @@ final aggregation over ()
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan item
                     single aggregation over (ss_customer_sk_32)
-                        cross join:
+                        cross join (can skip output duplicates):
                             final aggregation over (ss_customer_sk_32)
                                 local exchange (GATHER, SINGLE, [])
                                     partial aggregation over (ss_customer_sk_32)
@@ -86,7 +86,7 @@ final aggregation over ()
                                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                                         scan item
                     single aggregation over (ss_customer_sk_237)
-                        cross join:
+                        cross join (can skip output duplicates):
                             final aggregation over (ss_customer_sk_237)
                                 local exchange (GATHER, SINGLE, [])
                                     partial aggregation over (ss_customer_sk_237)

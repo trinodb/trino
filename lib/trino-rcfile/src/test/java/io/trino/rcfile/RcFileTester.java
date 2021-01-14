@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.hadoop.compression.lzo.LzoCodec;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -253,13 +252,6 @@ public class RcFileTester
             Optional<String> getCodecName()
             {
                 return Optional.of(SnappyCodec.class.getName());
-            }
-        },
-        LZO {
-            @Override
-            Optional<String> getCodecName()
-            {
-                return Optional.of(LzoCodec.class.getName());
             }
         },
         LZ4 {
@@ -835,7 +827,7 @@ public class RcFileTester
         else if (actualValue instanceof HiveDecimalWritable) {
             DecimalType decimalType = (DecimalType) type;
             HiveDecimalWritable writable = (HiveDecimalWritable) actualValue;
-            // writable messes with the scale so rescale the values to the Presto type
+            // writable messes with the scale so rescale the values to the Trino type
             BigInteger rescaledValue = rescale(writable.getHiveDecimal().unscaledValue(), writable.getScale(), decimalType.getScale());
             actualValue = new SqlDecimal(rescaledValue, decimalType.getPrecision(), decimalType.getScale());
         }

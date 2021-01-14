@@ -22,7 +22,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.util.Objects.requireNonNull;
 
 /**
- * This Class maintains all the details of Kinesis stream like name, fields of data, Presto table stream is mapping to, tables's schema name
+ * This Class maintains all the details of Kinesis stream like name, fields of data, Trino table stream is mapping to, tables's schema name
  */
 public class KinesisStreamDescription
 {

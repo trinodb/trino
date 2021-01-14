@@ -11,25 +11,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.launcher.cli;
+package io.trino.server.security.oauth2;
 
-import com.google.common.base.Strings;
-import picocli.CommandLine;
+import static java.util.Objects.requireNonNull;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Optional;
-
-public class OptionalPathConverter
-        implements CommandLine.ITypeConverter<Optional<Path>>
+public enum TokenEndpointAuthMethod
 {
-    @Override
-    public Optional<Path> convert(String value)
-    {
-        if (Strings.isNullOrEmpty(value)) {
-            return Optional.empty();
-        }
+    CLIENT_SECRET_POST("client_secret_post"),
+    CLIENT_SECRET_BASIC("client_secret_basic"),
+    PRIVATE_KEY_JWT("private_key_jwt"),
+    NONE("none");
 
-        return Optional.of(Paths.get(value));
+    private final String value;
+
+    TokenEndpointAuthMethod(String value)
+    {
+        this.value = requireNonNull(value, "value is null");
+    }
+
+    public String getValue()
+    {
+        return value;
     }
 }

@@ -340,13 +340,13 @@ public class ParquetTester
             }
         }
 
-        // write presto parquet
+        // write Trino parquet
         for (CompressionCodecName compressionCodecName : writerCompressions) {
             for (ConnectorSession session : sessions) {
                 try (TempFile tempFile = new TempFile("test", "parquet")) {
                     OptionalInt min = stream(writeValues).mapToInt(Iterables::size).min();
                     checkState(min.isPresent());
-                    writeParquetColumnPresto(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
+                    writeParquetColumnTrino(tempFile.getFile(), columnTypes, columnNames, getIterators(readValues), min.getAsInt(), compressionCodecName);
                     assertFileContents(
                             session,
                             tempFile.getFile(),
@@ -704,7 +704,7 @@ public class ParquetTester
         return type.getObjectValue(SESSION, block, position);
     }
 
-    private static void writeParquetColumnPresto(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
+    private static void writeParquetColumnTrino(File outputFile, List<Type> types, List<String> columnNames, Iterator<?>[] values, int size, CompressionCodecName compressionCodecName)
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);

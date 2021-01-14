@@ -10,7 +10,7 @@ local exchange (GATHER, SINGLE, [])
                                     local exchange (GATHER, SINGLE, [])
                                         remote exchange (REPARTITION, HASH, ["ws_bill_customer_sk"])
                                             partial aggregation over (ws_bill_customer_sk)
-                                                join (INNER, REPLICATED):
+                                                join (INNER, REPLICATED, can skip output duplicates):
                                                     scan web_sales
                                                     local exchange (GATHER, SINGLE, [])
                                                         remote exchange (REPLICATE, BROADCAST, [])
@@ -27,7 +27,7 @@ local exchange (GATHER, SINGLE, [])
                                                             local exchange (GATHER, SINGLE, [])
                                                                 remote exchange (REPARTITION, HASH, ["ss_customer_sk"])
                                                                     partial aggregation over (ss_customer_sk)
-                                                                        join (INNER, REPLICATED):
+                                                                        join (INNER, REPLICATED, can skip output duplicates):
                                                                             scan store_sales
                                                                             local exchange (GATHER, SINGLE, [])
                                                                                 remote exchange (REPLICATE, BROADCAST, [])
@@ -43,7 +43,7 @@ local exchange (GATHER, SINGLE, [])
                                 local exchange (GATHER, SINGLE, [])
                                     remote exchange (REPARTITION, HASH, ["cs_ship_customer_sk"])
                                         partial aggregation over (cs_ship_customer_sk)
-                                            join (INNER, REPLICATED):
+                                            join (INNER, REPLICATED, can skip output duplicates):
                                                 scan catalog_sales
                                                 local exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])

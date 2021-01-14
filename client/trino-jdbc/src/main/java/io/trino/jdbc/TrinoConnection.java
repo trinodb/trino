@@ -89,6 +89,7 @@ public class TrinoConnection
     private final URI jdbcUri;
     private final URI httpUri;
     private final String user;
+    private final Optional<String> sessionUser;
     private final boolean compressionDisabled;
     private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
@@ -106,9 +107,10 @@ public class TrinoConnection
         requireNonNull(uri, "uri is null");
         this.jdbcUri = uri.getJdbcUri();
         this.httpUri = uri.getHttpUri();
-        uri.getSchema().ifPresent(value -> schema.set(value));
-        uri.getCatalog().ifPresent(value -> catalog.set(value));
+        uri.getSchema().ifPresent(schema::set);
+        uri.getCatalog().ifPresent(catalog::set);
         this.user = uri.getUser();
+        this.sessionUser = uri.getSessionUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
@@ -707,6 +709,7 @@ public class TrinoConnection
         ClientSession session = new ClientSession(
                 httpUri,
                 user,
+                sessionUser,
                 source,
                 Optional.ofNullable(clientInfo.get(TRACE_TOKEN)),
                 ImmutableSet.copyOf(clientTags),

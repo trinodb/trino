@@ -46,6 +46,17 @@ public class TestParameterExtractor
     }
 
     @Test
+    public void testShowStats()
+    {
+        Statement statement = sqlParser.createStatement("SHOW STATS FOR (SELECT c1, c2 FROM test_table WHERE c1 = ? AND c2 > ?)", new ParsingOptions());
+        assertThat(ParameterExtractor.getParameters(statement))
+                .containsExactly(
+                        new Parameter(new NodeLocation(1, 57), 0),
+                        new Parameter(new NodeLocation(1, 68), 1));
+        assertThat(ParameterExtractor.getParameterCount(statement)).isEqualTo(2);
+    }
+
+    @Test
     public void testLambda()
     {
         Statement statement = sqlParser.createStatement("SELECT * FROM test_table WHERE any_match(items, x -> x > ?)", new ParsingOptions());

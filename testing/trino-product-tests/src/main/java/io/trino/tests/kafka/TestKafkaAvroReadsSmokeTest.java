@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
+import io.airlift.units.Duration;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.fulfillment.table.TableManager;
 import io.trino.tempto.fulfillment.table.kafka.KafkaMessage;
@@ -52,8 +53,10 @@ import static io.trino.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilde
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.KAFKA;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.trino.tests.utils.QueryAssertions.assertEventually;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 @Test(singleThreaded = true)
 public class TestKafkaAvroReadsSmokeTest
@@ -103,12 +106,16 @@ public class TestKafkaAvroReadsSmokeTest
                 "a_boolean", true);
         String topicName = ALL_DATATYPES_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
         createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_DATATYPES_AVRO_TOPIC_NAME, topicName, record, messageSerializer);
-        QueryResult queryResult = query(format("select * from %s.%s", kafkaCatalog.getCatalogName(), KAFKA_SCHEMA + "." + topicName));
-        assertThat(queryResult).containsOnly(row(
-                "foobar",
-                127,
-                234.567,
-                true));
+        assertEventually(
+                new Duration(30, SECONDS),
+                () -> {
+                    QueryResult queryResult = query(format("select * from %s.%s", kafkaCatalog.getCatalogName(), KAFKA_SCHEMA + "." + topicName));
+                    assertThat(queryResult).containsOnly(row(
+                            "foobar",
+                            127,
+                            234.567,
+                            true));
+                });
     }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
@@ -116,12 +123,16 @@ public class TestKafkaAvroReadsSmokeTest
     {
         String topicName = ALL_NULL_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
         createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TOPIC_NAME, topicName, ImmutableMap.of(), messageSerializer);
-        QueryResult queryResult = query(format("select * from %s.%s", kafkaCatalog.getCatalogName(), KAFKA_SCHEMA + "." + topicName));
-        assertThat(queryResult).containsOnly(row(
-                null,
-                null,
-                null,
-                null));
+        assertEventually(
+                new Duration(30, SECONDS),
+                () -> {
+                    QueryResult queryResult = query(format("select * from %s.%s", kafkaCatalog.getCatalogName(), KAFKA_SCHEMA + "." + topicName));
+                    assertThat(queryResult).containsOnly(row(
+                            null,
+                            null,
+                            null,
+                            null));
+                });
     }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
@@ -132,13 +143,17 @@ public class TestKafkaAvroReadsSmokeTest
                 "a_map", ImmutableMap.of("key1", "value1"));
         String topicName = STRUCTURAL_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
         createAvroTable(STRUCTURAL_SCHEMA_PATH, STRUCTURAL_AVRO_TOPIC_NAME, topicName, record, messageSerializer);
-        QueryResult queryResult = query(format(
-                "SELECT a[1], a[2], m['key1'] FROM (SELECT %s as a, %s as m FROM %s.%s) t",
-                kafkaCatalog.isColumnMappingSupported() ? "c_array" : "a_array",
-                kafkaCatalog.isColumnMappingSupported() ? "c_map" : "a_map",
-                kafkaCatalog.getCatalogName(),
-                KAFKA_SCHEMA + "." + topicName));
-        assertThat(queryResult).containsOnly(row(100, 102, "value1"));
+        assertEventually(
+                new Duration(30, SECONDS),
+                () -> {
+                    QueryResult queryResult = query(format(
+                            "SELECT a[1], a[2], m['key1'] FROM (SELECT %s as a, %s as m FROM %s.%s) t",
+                            kafkaCatalog.isColumnMappingSupported() ? "c_array" : "a_array",
+                            kafkaCatalog.isColumnMappingSupported() ? "c_map" : "a_map",
+                            kafkaCatalog.getCatalogName(),
+                            KAFKA_SCHEMA + "." + topicName));
+                    assertThat(queryResult).containsOnly(row(100, 102, "value1"));
+                });
     }
 
     @DataProvider

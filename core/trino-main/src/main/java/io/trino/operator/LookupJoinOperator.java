@@ -77,9 +77,11 @@ public class LookupJoinOperator
     private final SpillingJoinProcessor joinProcessor;
     private final JoinStatisticsCounter statisticsCounter;
 
-    LookupJoinOperator(List<Type> probeTypes,
+    LookupJoinOperator(
+            List<Type> probeTypes,
             List<Type> buildOutputTypes,
             JoinType joinType,
+            boolean outputSingleMatch,
             LookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
@@ -99,6 +101,7 @@ public class LookupJoinOperator
                 probeTypes,
                 buildOutputTypes,
                 joinType,
+                outputSingleMatch,
                 hashGenerator,
                 joinProbeFactory,
                 lookupSourceFactory,
@@ -161,6 +164,7 @@ public class LookupJoinOperator
         private final LookupJoinPageBuilder pageBuilder;
         private final Map<Integer, SavedRow> spilledRows = new HashMap<>();
         private final boolean probeOnOuterSide;
+        private final boolean outputSingleMatch;
 
         @Nullable
         private LookupSourceProvider lookupSourceProvider;
@@ -179,6 +183,7 @@ public class LookupJoinOperator
                 List<Type> probeTypes,
                 List<Type> buildOutputTypes,
                 JoinType joinType,
+                boolean outputSingleMatch,
                 HashGenerator hashGenerator,
                 JoinProbeFactory joinProbeFactory,
                 LookupSourceFactory lookupSourceFactory,
@@ -199,6 +204,7 @@ public class LookupJoinOperator
             this.savedRows = requireNonNull(savedRows, "savedRows is null");
             this.partitionGenerator = memoize(() -> new LocalPartitionGenerator(hashGenerator, lookupSourceFactory.partitions()));
             this.pageBuilder = new LookupJoinPageBuilder(buildOutputTypes);
+            this.outputSingleMatch = outputSingleMatch;
 
             // Cannot use switch case here, because javac will synthesize an inner class and cause IllegalAccessError
             probeOnOuterSide = joinType == PROBE_OUTER || joinType == FULL_OUTER;
@@ -336,8 +342,13 @@ public class LookupJoinOperator
                     joinSourcePositions++;
                 }
 
-                // get next position on lookup side for this probe row
-                joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
+                if (outputSingleMatch && currentProbePositionProducedRow) {
+                    joinPosition = -1;
+                }
+                else {
+                    // get next position on lookup side for this probe row
+                    joinPosition = lookupSource.getNextJoinPosition(joinPosition, probe.getPosition(), probe.getPage());
+                }
 
                 if (yieldSignal.isSet() || pageBuilder.isFull()) {
                     return false;
@@ -506,6 +517,7 @@ public class LookupJoinOperator
         private final List<Type> probeTypes;
         private final List<Type> buildOutputTypes;
         private final JoinType joinType;
+        private final boolean outputSingleMatch;
         private final HashGenerator hashGenerator;
         private final JoinProbeFactory joinProbeFactory;
         private final LookupSourceFactory lookupSourceFactory;
@@ -531,6 +543,7 @@ public class LookupJoinOperator
                 List<Type> probeTypes,
                 List<Type> buildOutputTypes,
                 JoinType joinType,
+                boolean outputSingleMatch,
                 HashGenerator hashGenerator,
                 JoinProbeFactory joinProbeFactory,
                 LookupSourceFactory lookupSourceFactory,
@@ -545,6 +558,7 @@ public class LookupJoinOperator
             this.probeTypes = requireNonNull(probeTypes, "probeTypes is null");
             this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
             this.joinType = requireNonNull(joinType, "joinType is null");
+            this.outputSingleMatch = outputSingleMatch;
             this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
             this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
             this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
@@ -554,6 +568,7 @@ public class LookupJoinOperator
                     probeTypes,
                     buildOutputTypes,
                     joinType,
+                    outputSingleMatch,
                     hashGenerator,
                     joinProbeFactory,
                     lookupSourceFactory,
@@ -624,6 +639,7 @@ public class LookupJoinOperator
                     probeTypes,
                     buildOutputTypes,
                     joinType,
+                    outputSingleMatch,
                     hashGenerator,
                     joinProbeFactory,
                     lookupSourceFactory,

@@ -11,17 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests.product.launcher.cli;
+package io.trino.client.auth.external;
 
-import io.airlift.units.Duration;
-import picocli.CommandLine;
+import java.net.URI;
 
-public class DurationConverter
-        implements CommandLine.ITypeConverter<Duration>
+public interface RedirectHandler
 {
-    @Override
-    public Duration convert(String value)
-    {
-        return Duration.valueOf(value);
-    }
+    void redirectTo(URI uri)
+            throws RedirectException;
 }

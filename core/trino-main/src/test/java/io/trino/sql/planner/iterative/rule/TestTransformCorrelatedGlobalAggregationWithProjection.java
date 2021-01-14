@@ -91,9 +91,9 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
                         p.project(
-                                Assignments.of(p.symbol("expr_2"), p.expression("expr - 1")),
+                                Assignments.of(p.symbol("expr_2"), PlanBuilder.expression("expr - 1")),
                                 p.project(
-                                        Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
+                                        Assignments.of(p.symbol("expr"), PlanBuilder.expression("sum + 1")),
                                         p.aggregation(ab -> ab
                                                 .source(p.values(p.symbol("a"), p.symbol("b")))
                                                 .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
@@ -122,7 +122,7 @@ public class TestTransformCorrelatedGlobalAggregationWithProjection
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        p.project(Assignments.of(p.symbol("expr"), p.expression("sum + 1")),
+                        p.project(Assignments.of(p.symbol("expr"), PlanBuilder.expression("sum + 1")),
                                 p.aggregation(ab -> ab
                                         .source(p.values(p.symbol("a"), p.symbol("b")))
                                         .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))

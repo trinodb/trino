@@ -379,6 +379,7 @@ public class HashGenerationOptimizer
                             node.getCriteria(),
                             newLeftOutputSymbols,
                             newRightOutputSymbols,
+                            node.isMaySkipOutputDuplicates(),
                             node.getFilter(),
                             leftHashSymbol,
                             rightHashSymbol,

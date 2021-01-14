@@ -92,12 +92,7 @@ public class TestUrlFunctions
     {
         assertFunction("url_extract_protocol('" + url + "')", createVarcharType(url.length()), protocol);
         assertFunction("url_extract_host('" + url + "')", createVarcharType(url.length()), host);
-        if (port == null) {
-            assertFunction("url_extract_port('" + url + "')", BIGINT, null);
-        }
-        else {
-            assertFunction("url_extract_port('" + url + "')", BIGINT, port);
-        }
+        assertFunction("url_extract_port('" + url + "')", BIGINT, port);
         assertFunction("url_extract_path('" + url + "')", createVarcharType(url.length()), path);
         assertFunction("url_extract_query('" + url + "')", createVarcharType(url.length()), query);
         assertFunction("url_extract_fragment('" + url + "')", createVarcharType(url.length()), fragment);

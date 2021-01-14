@@ -66,6 +66,7 @@ import io.trino.sql.planner.iterative.rule.MergeLimitWithTopN;
 import io.trino.sql.planner.iterative.rule.MergeLimits;
 import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
+import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneApplyColumns;
@@ -701,7 +702,12 @@ public class PlanOptimizers
                 ruleStats,
                 statsCalculator,
                 costCalculator,
-                ImmutableSet.of(new PushDeleteIntoConnector(metadata)))); // Must run before AddExchanges
+                ImmutableSet.of(
+                        // Must run before AddExchanges
+                        new PushDeleteIntoConnector(metadata),
+                        // Must run after join reordering because join reordering creates
+                        // new join nodes without JoinNode.maySkipOutputDuplicates flag set
+                        new OptimizeDuplicateInsensitiveJoins(metadata))));
 
         if (!forceSingleNode) {
             builder.add(new ReplicateSemiJoinInDelete()); // Must run before AddExchanges

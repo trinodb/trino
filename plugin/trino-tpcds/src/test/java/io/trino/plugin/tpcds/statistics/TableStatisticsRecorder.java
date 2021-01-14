@@ -50,7 +50,7 @@ class TableStatisticsRecorder
         while (recordCursor.advanceNextPosition()) {
             rowCount++;
             for (int columnId = 0; columnId < columns.size(); columnId++) {
-                Comparable<?> value = getPrestoValue(recordCursor, columns, columnId);
+                Comparable<?> value = getTrinoValue(recordCursor, columns, columnId);
                 statisticsRecorders.get(columnId).record(value);
             }
         }
@@ -70,7 +70,7 @@ class TableStatisticsRecorder
                 .collect(toImmutableList());
     }
 
-    private Comparable<?> getPrestoValue(RecordCursor recordCursor, List<Column> columns, int columnId)
+    private Comparable<?> getTrinoValue(RecordCursor recordCursor, List<Column> columns, int columnId)
     {
         if (recordCursor.isNull(columnId)) {
             return null;

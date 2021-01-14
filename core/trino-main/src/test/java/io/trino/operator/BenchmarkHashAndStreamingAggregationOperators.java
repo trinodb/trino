@@ -20,7 +20,9 @@ import io.trino.metadata.Metadata;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.spi.Page;
+import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.SpillerFactory;
 import io.trino.sql.gen.JoinCompiler;
@@ -62,9 +64,9 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.BenchmarkHashAndStreamingAggregationOperators.Context.ROWS_PER_PAGE;
 import static io.trino.operator.BenchmarkHashAndStreamingAggregationOperators.Context.TOTAL_PAGES;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -77,7 +79,7 @@ import static org.testng.Assert.assertEquals;
 @OutputTimeUnit(MILLISECONDS)
 @BenchmarkMode(AverageTime)
 @Fork(3)
-@Warmup(iterations = 5)
+@Warmup(iterations = 10)
 @Measurement(iterations = 10, time = 2, timeUnit = SECONDS)
 public class BenchmarkHashAndStreamingAggregationOperators
 {
@@ -101,6 +103,9 @@ public class BenchmarkHashAndStreamingAggregationOperators
         @Param({"streaming", "hash"})
         public String operatorType;
 
+        @Param({"bigint", "varchar", "mixed"})
+        public String groupByTypes;
+
         private ExecutorService executor;
         private ScheduledExecutorService scheduledExecutor;
         private OperatorFactory operatorFactory;
@@ -116,23 +121,99 @@ public class BenchmarkHashAndStreamingAggregationOperators
 
             boolean hashAggregation = operatorType.equalsIgnoreCase("hash");
 
-            RowPagesBuilder pagesBuilder = RowPagesBuilder.rowPagesBuilder(hashAggregation, ImmutableList.of(0), VARCHAR, BIGINT);
+            List<Type> hashTypes;
+            List<Integer> hashChannels;
+            int sumChannel;
+            switch (groupByTypes) {
+                case "bigint":
+                    hashTypes = ImmutableList.of(BIGINT);
+                    hashChannels = ImmutableList.of(0);
+                    sumChannel = 1;
+                    break;
+
+                case "varchar":
+                    hashTypes = ImmutableList.of(VARCHAR);
+                    hashChannels = ImmutableList.of(0);
+                    sumChannel = 1;
+                    break;
+
+                case "mixed":
+                    hashTypes = ImmutableList.of(BIGINT, VARCHAR, DOUBLE);
+                    hashChannels = ImmutableList.of(0, 1, 2);
+                    sumChannel = 3;
+                    break;
+
+                default:
+                    throw new IllegalStateException();
+            }
+
+            RowPagesBuilder pagesBuilder = RowPagesBuilder.rowPagesBuilder(
+                    hashAggregation,
+                    hashChannels,
+                    ImmutableList.<Type>builder()
+                            .addAll(hashTypes)
+                            .add(BIGINT)
+                            .build());
             for (int i = 0; i < TOTAL_PAGES; i++) {
-                BlockBuilder blockBuilder = VARCHAR.createBlockBuilder(null, ROWS_PER_PAGE);
+                BlockBuilder bigintBlockBuilder = BIGINT.createBlockBuilder(null, ROWS_PER_PAGE);
+                BlockBuilder varcharBlockBuilder = VARCHAR.createBlockBuilder(null, ROWS_PER_PAGE);
+                BlockBuilder doubleBlockBuilder = DOUBLE.createBlockBuilder(null, ROWS_PER_PAGE);
+
                 for (int j = 0; j < groupsPerPage; j++) {
-                    String groupKey = format("%s", i * groupsPerPage + j);
-                    repeatToStringBlock(groupKey, rowsPerGroup, blockBuilder);
+                    long groupKey = i * groupsPerPage + j;
+
+                    switch (groupByTypes) {
+                        case "bigint":
+                            repeatToBigintBlock(groupKey, rowsPerGroup, bigintBlockBuilder);
+                            break;
+
+                        case "varchar":
+                            repeatToStringBlock(Long.toString(groupKey), rowsPerGroup, varcharBlockBuilder);
+                            break;
+
+                        case "mixed":
+                            repeatToBigintBlock(groupKey, rowsPerGroup, bigintBlockBuilder);
+                            repeatToStringBlock(Long.toString(groupKey), rowsPerGroup, varcharBlockBuilder);
+                            repeatToDoubleBlock(groupKey, rowsPerGroup, doubleBlockBuilder);
+                            break;
+
+                        default:
+                            throw new IllegalStateException();
+                    }
                 }
-                pagesBuilder.addBlocksPage(blockBuilder.build(), createLongSequenceBlock(0, ROWS_PER_PAGE));
+
+                List<Block> blocks;
+                switch (groupByTypes) {
+                    case "bigint":
+                        blocks = ImmutableList.of(bigintBlockBuilder.build());
+                        break;
+
+                    case "varchar":
+                        blocks = ImmutableList.of(varcharBlockBuilder.build());
+                        break;
+
+                    case "mixed":
+                        blocks = ImmutableList.of(bigintBlockBuilder.build(), varcharBlockBuilder.build(), doubleBlockBuilder.build());
+                        break;
+
+                    default:
+                        throw new IllegalStateException();
+                }
+
+                pagesBuilder.addBlocksPage(
+                        ImmutableList.<Block>builder()
+                                .addAll(blocks)
+                                .add(createLongSequenceBlock(0, ROWS_PER_PAGE))
+                                .build());
             }
 
             pages = pagesBuilder.build();
 
             if (hashAggregation) {
-                operatorFactory = createHashAggregationOperatorFactory(pagesBuilder.getHashChannel());
+                operatorFactory = createHashAggregationOperatorFactory(pagesBuilder.getHashChannel(), hashTypes, hashChannels, sumChannel);
             }
             else {
-                operatorFactory = createStreamingAggregationOperatorFactory();
+                operatorFactory = createStreamingAggregationOperatorFactory(hashTypes, hashChannels, sumChannel);
             }
         }
 
@@ -143,34 +224,43 @@ public class BenchmarkHashAndStreamingAggregationOperators
             scheduledExecutor.shutdownNow();
         }
 
-        private OperatorFactory createStreamingAggregationOperatorFactory()
+        private OperatorFactory createStreamingAggregationOperatorFactory(
+                List<Type> hashTypes,
+                List<Integer> hashChannels,
+                int sumChannel)
         {
             return StreamingAggregationOperator.createOperatorFactory(
                     0,
                     new PlanNodeId("test"),
-                    ImmutableList.of(VARCHAR),
-                    ImmutableList.of(VARCHAR),
-                    ImmutableList.of(0),
+                    hashTypes,
+                    hashTypes,
+                    hashChannels,
                     AggregationNode.Step.SINGLE,
-                    ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                            LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
+                    ImmutableList.of(
+                            COUNT.bind(ImmutableList.of(0), Optional.empty()),
+                            LONG_SUM.bind(ImmutableList.of(sumChannel), Optional.empty())),
                     JOIN_COMPILER);
         }
 
-        private OperatorFactory createHashAggregationOperatorFactory(Optional<Integer> hashChannel)
+        private OperatorFactory createHashAggregationOperatorFactory(
+                Optional<Integer> hashChannel,
+                List<Type> hashTypes,
+                List<Integer> hashChannels,
+                int sumChannel)
         {
             SpillerFactory spillerFactory = (types, localSpillContext, aggregatedMemoryContext) -> null;
 
             return new HashAggregationOperatorFactory(
                     0,
                     new PlanNodeId("test"),
-                    ImmutableList.of(VARCHAR),
-                    ImmutableList.of(0),
+                    hashTypes,
+                    hashChannels,
                     ImmutableList.of(),
                     AggregationNode.Step.SINGLE,
                     false,
-                    ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
-                            LONG_SUM.bind(ImmutableList.of(1), Optional.empty())),
+                    ImmutableList.of(
+                            COUNT.bind(ImmutableList.of(0), Optional.empty()),
+                            LONG_SUM.bind(ImmutableList.of(sumChannel), Optional.empty())),
                     hashChannel,
                     Optional.empty(),
                     100_000,
@@ -184,10 +274,24 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     false);
         }
 
+        private static void repeatToBigintBlock(long value, int count, BlockBuilder blockBuilder)
+        {
+            for (int i = 0; i < count; ++i) {
+                BIGINT.writeLong(blockBuilder, value);
+            }
+        }
+
         private static void repeatToStringBlock(String value, int count, BlockBuilder blockBuilder)
         {
             for (int i = 0; i < count; i++) {
                 VARCHAR.writeString(blockBuilder, value);
+            }
+        }
+
+        private static void repeatToDoubleBlock(double value, int count, BlockBuilder blockBuilder)
+        {
+            for (int i = 0; i < count; ++i) {
+                DOUBLE.writeDouble(blockBuilder, value);
             }
         }
 
@@ -241,24 +345,25 @@ public class BenchmarkHashAndStreamingAggregationOperators
     @Test
     public void verifyStreaming()
     {
-        verify(1, "streaming");
-        verify(10, "streaming");
-        verify(1000, "streaming");
+        verify(1, "streaming", "bigint");
+        verify(10, "streaming", "varchar");
+        verify(1000, "streaming", "mixed");
     }
 
     @Test
     public void verifyHash()
     {
-        verify(1, "hash");
-        verify(10, "hash");
-        verify(1000, "hash");
+        verify(1, "hash", "bigint");
+        verify(10, "hash", "varchar");
+        verify(1000, "hash", "mixed");
     }
 
-    private void verify(int rowsPerGroup, String operatorType)
+    private void verify(int rowsPerGroup, String operatorType, String groupByTypes)
     {
         Context context = new Context();
         context.operatorType = operatorType;
         context.rowsPerGroup = rowsPerGroup;
+        context.groupByTypes = groupByTypes;
         context.setup();
 
         assertEquals(TOTAL_PAGES, context.getPages().size());

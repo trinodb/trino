@@ -31,7 +31,7 @@ public class TestDoubleStdDevAggregation
     {
         BlockBuilder blockBuilder = DOUBLE.createBlockBuilder(null, length);
         for (int i = start; i < start + length; i++) {
-            DOUBLE.writeDouble(blockBuilder, (double) i);
+            DOUBLE.writeDouble(blockBuilder, i);
         }
         return new Block[] {blockBuilder.build()};
     }

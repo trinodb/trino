@@ -199,6 +199,7 @@ public class PartitionedOutputOperator
     private final PagePartitioner partitionFunction;
     private final LocalMemoryContext systemMemoryContext;
     private final long partitionsInitialRetainedSize;
+    private ListenableFuture<?> isBlocked = NOT_BLOCKED;
     private boolean finished;
 
     public PartitionedOutputOperator(
@@ -261,8 +262,14 @@ public class PartitionedOutputOperator
     @Override
     public ListenableFuture<?> isBlocked()
     {
-        ListenableFuture<?> blocked = partitionFunction.isFull();
-        return blocked.isDone() ? NOT_BLOCKED : blocked;
+        // Avoid re-synchronizing on the output buffer when operator is already blocked
+        if (isBlocked.isDone()) {
+            isBlocked = partitionFunction.isFull();
+            if (isBlocked.isDone()) {
+                isBlocked = NOT_BLOCKED;
+            }
+        }
+        return isBlocked;
     }
 
     @Override
@@ -313,7 +320,7 @@ public class PartitionedOutputOperator
         private final AtomicLong rowsAdded = new AtomicLong();
         private final AtomicLong pagesAdded = new AtomicLong();
         private boolean hasAnyRowBeenReplicated;
-        private OperatorContext operatorContext;
+        private final OperatorContext operatorContext;
 
         public PagePartitioner(
                 PartitionFunction partitionFunction,

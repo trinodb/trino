@@ -13,28 +13,16 @@
  */
 package io.trino.spi.predicate;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-import io.airlift.json.ObjectMapperProvider;
-import io.trino.spi.block.Block;
-import io.trino.spi.block.TestingBlockEncodingSerde;
-import io.trino.spi.block.TestingBlockJsonSerde;
-import io.trino.spi.type.TestingTypeDeserializer;
-import io.trino.spi.type.TestingTypeManager;
-import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -179,37 +167,5 @@ public class TestMarker
         assertThatThrownBy(() -> Marker.above(REAL, (long) floatToIntBits(Float.NaN))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> Marker.exactly(REAL, (long) floatToIntBits(Float.NaN))).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> Marker.below(REAL, (long) floatToIntBits(Float.NaN))).isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    public void testJsonSerialization()
-            throws Exception
-    {
-        TestingTypeManager typeManager = new TestingTypeManager();
-        TestingBlockEncodingSerde blockEncodingSerde = new TestingBlockEncodingSerde();
-
-        ObjectMapper mapper = new ObjectMapperProvider().get()
-                .registerModule(new SimpleModule()
-                        .addDeserializer(Type.class, new TestingTypeDeserializer(typeManager))
-                        .addSerializer(Block.class, new TestingBlockJsonSerde.Serializer(blockEncodingSerde))
-                        .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
-
-        Marker marker = Marker.above(BIGINT, 0L);
-        assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
-
-        marker = Marker.exactly(VARCHAR, utf8Slice("abc"));
-        assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
-
-        marker = Marker.below(DOUBLE, 0.123);
-        assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
-
-        marker = Marker.exactly(BOOLEAN, true);
-        assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
-
-        marker = Marker.upperUnbounded(BIGINT);
-        assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
-
-        marker = Marker.lowerUnbounded(BIGINT);
-        assertEquals(marker, mapper.readValue(mapper.writeValueAsString(marker), Marker.class));
     }
 }

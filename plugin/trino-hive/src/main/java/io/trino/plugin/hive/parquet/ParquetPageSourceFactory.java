@@ -274,13 +274,13 @@ public class ParquetPageSourceFactory
                 .map(column -> getParquetType(column, fileSchema, useColumnNames))
                 .map(Optional::ofNullable)
                 .collect(toImmutableList());
-        ImmutableList.Builder<Type> prestoTypes = ImmutableList.builder();
+        ImmutableList.Builder<Type> trinoTypes = ImmutableList.builder();
         ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
         for (int columnIndex = 0; columnIndex < baseColumns.size(); columnIndex++) {
             HiveColumnHandle column = baseColumns.get(columnIndex);
             Optional<org.apache.parquet.schema.Type> parquetField = parquetFields.get(columnIndex);
 
-            prestoTypes.add(column.getBaseType());
+            trinoTypes.add(column.getBaseType());
 
             internalFields.add(parquetField.flatMap(field -> {
                 String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
@@ -288,7 +288,7 @@ public class ParquetPageSourceFactory
             }));
         }
 
-        ConnectorPageSource parquetPageSource = new ParquetPageSource(parquetReader, prestoTypes.build(), internalFields.build());
+        ConnectorPageSource parquetPageSource = new ParquetPageSource(parquetReader, trinoTypes.build(), internalFields.build());
         return new ReaderPageSource(parquetPageSource, readerProjections);
     }
 

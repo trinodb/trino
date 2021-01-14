@@ -82,13 +82,15 @@ public final class EnvironmentUp
 
     public static class EnvironmentUpOptions
     {
-        @Option(names = "--background", description = "Keep containers running in the background once they are started")
+        private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+
+        @Option(names = "--background", description = "Keep containers running in the background once they are started " + DEFAULT_VALUE)
         public boolean background;
 
         @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
 
-        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory", converter = OptionalPathConverter.class, defaultValue = "")
+        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE)
         public Optional<Path> logsDirBase;
 
         public Module toModule()

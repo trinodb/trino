@@ -11,20 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.tests;
+package io.trino.client.auth.external;
 
-import org.testng.annotations.Test;
+import java.net.URI;
+import java.time.Duration;
 
-import java.time.ZoneId;
-
-import static org.testng.Assert.assertEquals;
-
-public class TestVerifyPrestoTestsTestSetup
+public interface TokenPoller
 {
-    @Test
-    public void testJvmZone()
-    {
-        // Ensure that the zone defined in the POM is correctly set in the test JVM
-        assertEquals(ZoneId.systemDefault().getId(), "America/Bahia_Banderas");
-    }
+    TokenPollResult pollForToken(URI tokenUri, Duration timeout);
 }

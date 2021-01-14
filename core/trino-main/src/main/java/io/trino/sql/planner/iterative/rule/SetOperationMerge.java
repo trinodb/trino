@@ -37,7 +37,7 @@ class SetOperationMerge
 {
     private final Context context;
     private final SetOperationNode node;
-    private List<PlanNode> newSources;
+    private final List<PlanNode> newSources;
 
     public SetOperationMerge(SetOperationNode node, Context context)
     {

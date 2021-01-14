@@ -52,6 +52,7 @@ public class JoinNode
     private final List<EquiJoinClause> criteria;
     private final List<Symbol> leftOutputSymbols;
     private final List<Symbol> rightOutputSymbols;
+    private final boolean maySkipOutputDuplicates;
     private final Optional<Expression> filter;
     private final Optional<Symbol> leftHashSymbol;
     private final Optional<Symbol> rightHashSymbol;
@@ -71,6 +72,7 @@ public class JoinNode
             @JsonProperty("criteria") List<EquiJoinClause> criteria,
             @JsonProperty("leftOutputSymbols") List<Symbol> leftOutputSymbols,
             @JsonProperty("rightOutputSymbols") List<Symbol> rightOutputSymbols,
+            @JsonProperty("maySkipOutputDuplicates") boolean maySkipOutputDuplicates,
             @JsonProperty("filter") Optional<Expression> filter,
             @JsonProperty("leftHashSymbol") Optional<Symbol> leftHashSymbol,
             @JsonProperty("rightHashSymbol") Optional<Symbol> rightHashSymbol,
@@ -98,6 +100,7 @@ public class JoinNode
         this.criteria = ImmutableList.copyOf(criteria);
         this.leftOutputSymbols = ImmutableList.copyOf(leftOutputSymbols);
         this.rightOutputSymbols = ImmutableList.copyOf(rightOutputSymbols);
+        this.maySkipOutputDuplicates = maySkipOutputDuplicates;
         this.filter = filter;
         this.leftHashSymbol = leftHashSymbol;
         this.rightHashSymbol = rightHashSymbol;
@@ -145,6 +148,7 @@ public class JoinNode
                 flipJoinCriteria(criteria),
                 rightOutputSymbols,
                 leftOutputSymbols,
+                maySkipOutputDuplicates,
                 filter,
                 rightHashSymbol,
                 leftHashSymbol,
@@ -302,6 +306,12 @@ public class JoinNode
         return spillable;
     }
 
+    @JsonProperty("maySkipOutputDuplicates")
+    public boolean isMaySkipOutputDuplicates()
+    {
+        return maySkipOutputDuplicates;
+    }
+
     @JsonProperty
     public Map<DynamicFilterId, Symbol> getDynamicFilters()
     {
@@ -324,22 +334,27 @@ public class JoinNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         checkArgument(newChildren.size() == 2, "expected newChildren to contain 2 nodes");
-        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, reorderJoinStatsAndCost);
+        return new JoinNode(getId(), type, newChildren.get(0), newChildren.get(1), criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, reorderJoinStatsAndCost);
     }
 
     public JoinNode withDistributionType(DistributionType distributionType)
     {
-        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType), spillable, dynamicFilters, reorderJoinStatsAndCost);
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, leftHashSymbol, rightHashSymbol, Optional.of(distributionType), spillable, dynamicFilters, reorderJoinStatsAndCost);
     }
 
     public JoinNode withSpillable(boolean spillable)
     {
-        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.of(spillable), dynamicFilters, reorderJoinStatsAndCost);
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, leftHashSymbol, rightHashSymbol, distributionType, Optional.of(spillable), dynamicFilters, reorderJoinStatsAndCost);
+    }
+
+    public JoinNode withMaySkipOutputDuplicates()
+    {
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, true, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, reorderJoinStatsAndCost);
     }
 
     public JoinNode withReorderJoinStatsAndCost(PlanNodeStatsAndCostSummary statsAndCost)
     {
-        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost));
+        return new JoinNode(getId(), type, left, right, criteria, leftOutputSymbols, rightOutputSymbols, maySkipOutputDuplicates, filter, leftHashSymbol, rightHashSymbol, distributionType, spillable, dynamicFilters, Optional.of(statsAndCost));
     }
 
     public boolean isCrossJoin()

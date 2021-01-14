@@ -161,7 +161,7 @@ public final class IntegerOperators
     @SqlType(StandardTypes.REAL)
     public static long castToReal(@SqlType(StandardTypes.INTEGER) long value)
     {
-        return (long) floatToRawIntBits((float) value);
+        return floatToRawIntBits((float) value);
     }
 
     @ScalarOperator(CAST)

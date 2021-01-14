@@ -57,18 +57,21 @@ import java.net.URL;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
 import static io.trino.server.security.oauth2.TestingHydraService.TTL_ACCESS_TOKEN_IN_SECONDS;
+import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
+import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_POST;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
 import static java.lang.String.format;
-import static javax.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static javax.ws.rs.core.HttpHeaders.LOCATION;
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.SEE_OTHER;
+import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable;
 
@@ -76,6 +79,15 @@ import static org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClick
 public class TestOAuth2WebUiAuthenticationFilter
 {
     private static final int HTTPS_PORT = findAvailablePort();
+    private static final String EXPOSED_SERVER_URL = format("https://host.testcontainers.internal:%d", HTTPS_PORT);
+    private static final String TRINO_CLIENT_ID = "trino-client";
+    private static final String TRINO_CLIENT_SECRET = "trino-secret";
+    private static final String TRINO_AUDIENCE = EXPOSED_SERVER_URL + "/ui";
+    private static final String TRUSTED_CLIENT_ID = "trusted-client";
+    private static final String TRUSTED_CLIENT_SECRET = "trusted-secret";
+    private static final String UNTRUSTED_CLIENT_ID = "untrusted-client";
+    private static final String UNTRUSTED_CLIENT_SECRET = "untrusted-secret";
+    private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
 
     private final TestingHydraService testingHydraService = new TestingHydraService();
     private final OkHttpClient httpClient;
@@ -99,7 +111,24 @@ public class TestOAuth2WebUiAuthenticationFilter
 
         Testcontainers.exposeHostPorts(HTTPS_PORT);
         testingHydraService.start();
-        testingHydraService.createConsumer(format("https://host.testcontainers.internal:%d/oauth2/callback", HTTPS_PORT));
+        testingHydraService.createClient(
+                TRINO_CLIENT_ID,
+                TRINO_CLIENT_SECRET,
+                CLIENT_SECRET_BASIC,
+                TRINO_AUDIENCE,
+                EXPOSED_SERVER_URL + "/oauth2/callback");
+        testingHydraService.createClient(
+                TRUSTED_CLIENT_ID,
+                TRUSTED_CLIENT_SECRET,
+                CLIENT_SECRET_POST,
+                TRINO_AUDIENCE,
+                EXPOSED_SERVER_URL + "/oauth2/callback");
+        testingHydraService.createClient(
+                UNTRUSTED_CLIENT_ID,
+                UNTRUSTED_CLIENT_SECRET,
+                CLIENT_SECRET_POST,
+                UNTRUSTED_CLIENT_AUDIENCE,
+                "https://untrusted.com/callback");
 
         server = TestingTrinoServer.builder()
                 .setCoordinator(true)
@@ -114,9 +143,10 @@ public class TestOAuth2WebUiAuthenticationFilter
                         .put("http-server.authentication.oauth2.auth-url", "http://hydra:4444/oauth2/auth")
                         .put("http-server.authentication.oauth2.token-url", format("http://localhost:%s/oauth2/token", testingHydraService.getHydraPort()))
                         .put("http-server.authentication.oauth2.jwks-url", format("http://localhost:%s/.well-known/jwks.json", testingHydraService.getHydraPort()))
-                        .put("http-server.authentication.oauth2.client-id", "another-consumer")
-                        .put("http-server.authentication.oauth2.client-secret", "consumer-secret")
-                        .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
+                        .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
+                        .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)
+                        .put("http-server.authentication.oauth2.audience", format("https://host.testcontainers.internal:%d/ui", HTTPS_PORT))
+                        .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)(@.*)?")
                         .build())
                 .build();
         server.waitForNodeRefresh(Duration.ofSeconds(10));
@@ -137,7 +167,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         try (Response response = httpClient
                 .newCall(uiCall().build())
                 .execute()) {
-            assertUnauthorizedUICall(response);
+            assertRedirectResponse(response);
         }
     }
 
@@ -148,17 +178,18 @@ public class TestOAuth2WebUiAuthenticationFilter
         try (Response response = httpClient
                 .newCall(uiCall().build())
                 .execute()) {
-            assertUnauthorizedUICall(response);
+            assertRedirectResponse(response);
         }
     }
 
     @Test
-    public void testInvalidToken()
+    public void testUnsignedToken()
             throws NoSuchAlgorithmException, IOException
     {
         KeyPairGenerator keyGenerator = KeyPairGenerator.getInstance("RSA");
         SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.RS256;
         keyGenerator.initialize(4096);
+        long now = Instant.now().getEpochSecond();
         String token = Jwts.builder()
                 .setHeaderParam("alg", "RS256")
                 .setHeaderParam("kid", "public:f467aa08-1c1b-4cde-ba45-84b0ef5d2ba8")
@@ -167,28 +198,47 @@ public class TestOAuth2WebUiAuthenticationFilter
                         new DefaultClaims(
                                 ImmutableMap.<String, Object>builder()
                                         .put("aud", ImmutableList.of())
-                                        .put("client_id", "another-consumer")
-                                        .put("exp", System.currentTimeMillis() / 1000L + 60L)
-                                        .put("iat", System.currentTimeMillis())
+                                        .put("client_id", TRINO_CLIENT_ID)
+                                        .put("exp", now + 60L)
+                                        .put("iat", now)
                                         .put("iss", "http://hydra:4444/")
                                         .put("jti", UUID.randomUUID())
-                                        .put("nbf", System.currentTimeMillis() - 60L)
+                                        .put("nbf", now)
                                         .put("scp", ImmutableList.of("openid"))
                                         .put("sub", "foo@bar.com")
                                         .build()))
                 .signWith(signatureAlgorithm, keyGenerator.generateKeyPair().getPrivate())
                 .compact();
 
-        try (Response response = httpClient.newCall(
-                uiCall()
-                        .header(AUTHORIZATION, "Bearer " + token)
-                        .build())
+        try (Response response = httpClientUsingCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build())
+                .newCall(uiCall().build())
                 .execute()) {
-            assertUnauthorizedUICall(response);
+            assertRedirectResponse(response);
         }
     }
 
     @Test
+    public void testTokenWithInvalidAudience()
+            throws IOException
+    {
+        String token = testingHydraService.getToken(UNTRUSTED_CLIENT_ID, UNTRUSTED_CLIENT_SECRET, UNTRUSTED_CLIENT_AUDIENCE);
+        try (Response response = httpClientUsingCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build())
+                .newCall(uiCall().build())
+                .execute()) {
+            assertUnauthorizedResponse(response);
+        }
+    }
+
+    @Test
+    public void testTokenFromTrustedClient()
+            throws IOException
+    {
+        String token = testingHydraService.getToken(TRUSTED_CLIENT_ID, TRUSTED_CLIENT_SECRET, TRINO_AUDIENCE);
+        assertUICallWithCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build());
+    }
+
+    @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = OAUTH2_COOKIE + " is missing")
     public void testSuccessfulFlow()
             throws Exception
     {
@@ -208,12 +258,8 @@ public class TestOAuth2WebUiAuthenticationFilter
             Cookie cookie = driver.manage().getCookieNamed(OAUTH2_COOKIE);
             assertThat(cookie).withFailMessage(OAUTH2_COOKIE + " is missing").isNotNull();
             Thread.sleep((TTL_ACCESS_TOKEN_IN_SECONDS + 1) * 1000L); // wait for the token expiration
-            try (Response response = httpClient.newCall(
-                    uiCall()
-                            .header(AUTHORIZATION, "Bearer " + cookie.getValue())
-                            .build())
-                    .execute()) {
-                assertUnauthorizedUICall(response);
+            try (Response response = httpClientUsingCookie(cookie).newCall(uiCall().build()).execute()) {
+                assertRedirectResponse(response);
             }
         }));
     }
@@ -295,12 +341,22 @@ public class TestOAuth2WebUiAuthenticationFilter
     private void assertAccessToken(Jws<Claims> jwt)
     {
         assertThat(jwt.getBody().getSubject()).isEqualTo("foo@bar.com");
-        assertThat(jwt.getBody().get("client_id")).isEqualTo("another-consumer");
+        assertThat(jwt.getBody().get("client_id")).isEqualTo(TRINO_CLIENT_ID);
         assertThat(jwt.getBody().getIssuer()).isEqualTo("http://hydra:4444/");
     }
 
     private void assertUICallWithCookie(Cookie cookie)
             throws IOException
+    {
+        OkHttpClient httpClient = httpClientUsingCookie(cookie);
+        // pass access token in Trino UI cookie
+        assertThat(httpClient.newCall(uiCall().build())
+                .execute()
+                .code())
+                .isEqualTo(OK.getStatusCode());
+    }
+
+    private static OkHttpClient httpClientUsingCookie(Cookie cookie)
     {
         OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
         setupInsecureSsl(httpClientBuilder);
@@ -325,12 +381,7 @@ public class TestOAuth2WebUiAuthenticationFilter
                         .build());
             }
         });
-
-        // pass access token in Presto UI cookie
-        assertThat(httpClientBuilder.build().newCall(uiCall().build())
-                .execute()
-                .code())
-                .isEqualTo(OK.getStatusCode());
+        return httpClientBuilder.build();
     }
 
     private static int findAvailablePort()
@@ -343,11 +394,19 @@ public class TestOAuth2WebUiAuthenticationFilter
         }
     }
 
-    private static void assertUnauthorizedUICall(Response response)
+    private static void assertRedirectResponse(Response response)
             throws MalformedURLException
     {
         assertThat(response.code()).isEqualTo(SEE_OTHER.getStatusCode());
         assertRedirectUrl(response.header(LOCATION));
+    }
+
+    private static void assertUnauthorizedResponse(Response response)
+            throws IOException
+    {
+        assertThat(response.code()).isEqualTo(UNAUTHORIZED.getStatusCode());
+        assertThat(response.body()).isNotNull();
+        assertThat(response.body().string()).isEqualTo("Unauthorized");
     }
 
     private static void assertRedirectUrl(String redirectUrl)
@@ -364,7 +423,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         assertThat(url.queryParameterValues("response_type")).isEqualTo(ImmutableList.of("code"));
         assertThat(url.queryParameterValues("scope")).isEqualTo(ImmutableList.of("openid"));
         assertThat(url.queryParameterValues("redirect_uri")).isEqualTo(ImmutableList.of(format("https://127.0.0.1:%s/oauth2/callback", HTTPS_PORT)));
-        assertThat(url.queryParameterValues("client_id")).isEqualTo(ImmutableList.of("another-consumer"));
+        assertThat(url.queryParameterValues("client_id")).isEqualTo(ImmutableList.of(TRINO_CLIENT_ID));
         assertThat(url.queryParameterValues("state")).isNotNull();
     }
 

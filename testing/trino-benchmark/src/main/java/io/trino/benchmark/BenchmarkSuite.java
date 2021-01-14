@@ -141,7 +141,7 @@ public class BenchmarkSuite
                                         new JsonBenchmarkResultWriter(jsonOut),
                                         new JsonAvgBenchmarkResultWriter(jsonAvgOut),
                                         new SimpleLineBenchmarkResultWriter(csvOut),
-                                        new OdsBenchmarkResultWriter("presto.benchmark." + benchmark.getBenchmarkName(), odsOut))));
+                                        new OdsBenchmarkResultWriter("trino.benchmark." + benchmark.getBenchmarkName(), odsOut))));
             }
         }
     }

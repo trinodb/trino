@@ -96,7 +96,7 @@ public class TestPrometheusIntegrationMetrics
         // prometheus connector assumes that the table handle and column handle are
         // properly formed, so it will return a metadata object for any
         // PrometheusTableHandle and PrometheusColumnHandle passed in.  This is on because
-        // it is not possible for the Presto Metadata system to create the handles
+        // it is not possible for the Trino Metadata system to create the handles
         // directly.
     }
 

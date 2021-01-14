@@ -123,6 +123,7 @@ public final class SystemSessionProperties
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String ITERATIVE_COLUMN_PRUNING = "iterative_rule_based_column_pruning";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
+    public static final String OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS = "optimize_duplicate_insensitive_joins";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
@@ -547,6 +548,11 @@ public final class SystemSessionProperties
                         FILTERING_SEMI_JOIN_TO_INNER,
                         "Rewrite semi join in filtering context to inner join",
                         featuresConfig.isRewriteFilteringSemiJoinToInnerJoin(),
+                        false),
+                booleanProperty(
+                        OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS,
+                        "Optimize duplicate insensitive joins",
+                        featuresConfig.isOptimizeDuplicateInsensitiveJoins(),
                         false),
                 integerProperty(
                         REQUIRED_WORKERS_COUNT,
@@ -998,6 +1004,11 @@ public final class SystemSessionProperties
     public static boolean isRewriteFilteringSemiJoinToInnerJoin(Session session)
     {
         return session.getSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, Boolean.class);
+    }
+
+    public static boolean isOptimizeDuplicateInsensitiveJoins(Session session)
+    {
+        return session.getSystemProperty(OPTIMIZE_DUPLICATE_INSENSITIVE_JOINS, Boolean.class);
     }
 
     public static int getRequiredWorkers(Session session)

@@ -60,7 +60,7 @@ public class TestOrderByOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private DummySpillerFactory spillerFactory;
-    private TypeOperators typeOperators = new TypeOperators();
+    private final TypeOperators typeOperators = new TypeOperators();
 
     @DataProvider
     public static Object[][] spillEnabled()

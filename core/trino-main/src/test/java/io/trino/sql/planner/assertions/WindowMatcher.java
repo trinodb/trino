@@ -135,7 +135,7 @@ public final class WindowMatcher
         private Optional<Set<SymbolAlias>> prePartitionedInputs = Optional.empty();
         private Optional<ExpectedValueProvider<WindowNode.Specification>> specification = Optional.empty();
         private Optional<Integer> preSortedOrderPrefix = Optional.empty();
-        private List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
+        private final List<AliasMatcher> windowFunctionMatchers = new LinkedList<>();
         private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
 
         Builder(PlanMatchPattern source)

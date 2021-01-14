@@ -66,14 +66,14 @@ public final class ElasticsearchQueryRunner
 
             installElasticsearchPlugin(address, queryRunner, testFactory, extraConnectorProperties);
 
-            TestingTrinoClient prestoClient = queryRunner.getClient();
+            TestingTrinoClient trinoClient = queryRunner.getClient();
 
             LOG.info("Loading data...");
 
             client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())));
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
-                loadTpchTopic(client, prestoClient, table);
+                loadTpchTopic(client, trinoClient, table);
             }
             LOG.info("Loading complete in %s", nanosSince(startTime).toString(SECONDS));
 
@@ -104,11 +104,11 @@ public final class ElasticsearchQueryRunner
         queryRunner.createCatalog("elasticsearch", "elasticsearch", config);
     }
 
-    private static void loadTpchTopic(RestHighLevelClient client, TestingTrinoClient prestoClient, TpchTable<?> table)
+    private static void loadTpchTopic(RestHighLevelClient client, TestingTrinoClient trinoClient, TpchTable<?> table)
     {
         long start = System.nanoTime();
         LOG.info("Running import for %s", table.getTableName());
-        ElasticsearchLoader loader = new ElasticsearchLoader(client, table.getTableName().toLowerCase(ENGLISH), prestoClient.getServer(), prestoClient.getDefaultSession());
+        ElasticsearchLoader loader = new ElasticsearchLoader(client, table.getTableName().toLowerCase(ENGLISH), trinoClient.getServer(), trinoClient.getDefaultSession());
         loader.execute(format("SELECT * from %s", new QualifiedObjectName(TPCH_SCHEMA, TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH))));
         LOG.info("Imported %s in %s", table.getTableName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }

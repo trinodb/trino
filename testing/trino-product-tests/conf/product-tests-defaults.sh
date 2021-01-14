@@ -1,2 +1,2 @@
 export DOCKER_IMAGES_VERSION=${DOCKER_IMAGES_VERSION:-32}
-export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-prestodev/hdp2.6-hive}"
+export HADOOP_BASE_IMAGE="${HADOOP_BASE_IMAGE:-ghcr.io/trinodb/testing/hdp2.6-hive}"

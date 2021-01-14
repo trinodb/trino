@@ -33,6 +33,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
+import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 
 public class TestPruneOrderByInAggregation
@@ -72,8 +73,8 @@ public class TestPruneOrderByInAggregation
         List<Symbol> sourceSymbols = ImmutableList.of(input, key, keyHash, mask);
         return planBuilder.aggregation(aggregationBuilder -> aggregationBuilder
                 .singleGroupingSet(key)
-                .addAggregation(avg, planBuilder.expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
-                .addAggregation(arrayAgg, planBuilder.expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(avg, expression("avg(input order by input)"), ImmutableList.of(BIGINT), mask)
+                .addAggregation(arrayAgg, expression("array_agg(input order by input)"), ImmutableList.of(BIGINT), mask)
                 .hashSymbol(keyHash)
                 .source(planBuilder.values(sourceSymbols, ImmutableList.of())));
     }

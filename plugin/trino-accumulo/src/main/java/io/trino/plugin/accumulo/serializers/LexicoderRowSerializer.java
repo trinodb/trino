@@ -54,7 +54,7 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
- * Implementation of {@link AccumuloRowSerializer} that uses Accumulo lexicoders to serialize the values of the Presto columns.
+ * Implementation of {@link AccumuloRowSerializer} that uses Accumulo lexicoders to serialize the values of the Trino columns.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class LexicoderRowSerializer

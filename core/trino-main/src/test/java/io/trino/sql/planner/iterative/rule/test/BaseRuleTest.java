@@ -29,7 +29,7 @@ import static io.trino.sql.planner.iterative.rule.test.RuleTester.defaultRuleTes
 public abstract class BaseRuleTest
 {
     private RuleTester tester;
-    private List<Plugin> plugins;
+    private final List<Plugin> plugins;
 
     public BaseRuleTest(Plugin... plugins)
     {

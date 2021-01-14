@@ -29,7 +29,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestMergeHashSort
 {
-    private BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
 
     @Test
     public void testBinaryMergeIteratorOverEmptyPage()

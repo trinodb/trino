@@ -25,8 +25,8 @@ import java.util.Optional;
  * The row decoder for the 'dummy' format. For an unstructured row format (bag
  * of bytes), a specific decoder for a topic must exist. To start developing
  * such a decoder, it is beneficial to be able to configure an arbitrary topic
- * to be available through presto without any decoding at all (not even line
- * parsing) and examine the internal rows that are exposed by Presto. By adding
+ * to be available through Trino without any decoding at all (not even line
+ * parsing) and examine the internal rows that are exposed by Trino. By adding
  * a table name to the catalog configuration file and not having and specific
  * topic description JSON file (or by omitting the 'dataFormat' field in the
  * table description file), this decoder should be selected by the appropriate

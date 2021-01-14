@@ -209,7 +209,7 @@ public final class BytecodeUtils
     private static Function<Optional<Class<?>>, BytecodeNode> simpleArgument(BytecodeNode argument)
     {
         return lambdaInterface -> {
-            checkArgument(!lambdaInterface.isPresent(), "Simple method invocation can not be used with functions that have lambda arguments");
+            checkArgument(lambdaInterface.isEmpty(), "Simple method invocation can not be used with functions that have lambda arguments");
             return argument;
         };
     }

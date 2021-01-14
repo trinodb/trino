@@ -117,7 +117,7 @@ public class TestMySqlTypeMapping
     }
 
     @Test
-    public void testPrestoCreatedParameterizedVarchar()
+    public void testTrinoCreatedParameterizedVarchar()
     {
         DataTypeTest.create()
                 .addRoundTrip(stringDataType("varchar(10)", createVarcharType(255)), "text_a")
@@ -161,7 +161,7 @@ public class TestMySqlTypeMapping
     }
 
     @Test
-    public void testPrestoCreatedParameterizedChar()
+    public void testTrinoCreatedParameterizedChar()
     {
         mysqlCharTypeTest()
                 .execute(getQueryRunner(), trinoCreateAsSelect("mysql_test_parameterized_char"));
@@ -204,7 +204,7 @@ public class TestMySqlTypeMapping
     }
 
     @Test
-    public void testPrestoCreatedDecimal()
+    public void testTrinoCreatedDecimal()
     {
         decimalTests()
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));

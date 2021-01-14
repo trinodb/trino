@@ -21,6 +21,7 @@ import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPhoenixDistributedQueries
         extends AbstractTestDistributedQueries
@@ -53,7 +54,7 @@ public class TestPhoenixDistributedQueries
     @Override
     protected boolean supportsArrays()
     {
-        return false;
+        return true;
     }
 
     @Override
@@ -124,6 +125,17 @@ public class TestPhoenixDistributedQueries
                 "SELECT 2 * count(*) FROM orders");
 
         assertUpdate("DROP TABLE test_insert");
+    }
+
+    @Override
+    public void testInsertArray()
+    {
+        assertThatThrownBy(super::testInsertArray)
+                // TODO (https://github.com/trinodb/trino/issues/6421) array with double null stored as array with 0
+                .hasMessageContaining("Actual rows (up to 100 of 1 extra rows shown, 2 rows in total):\n" +
+                        "    [0.0, null]\n" +
+                        "Expected rows (up to 100 of 1 missing rows shown, 2 rows in total):\n" +
+                        "    [null, null]");
     }
 
     @Override

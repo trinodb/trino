@@ -27,7 +27,7 @@ import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Redis specific implementation of the Presto Connector SPI. This is a read only connector.
+ * Redis specific implementation of the Trino Connector SPI. This is a read only connector.
  */
 public class RedisConnector
         implements Connector
