@@ -19,40 +19,22 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.ui.WebUiModule;
 import io.trino.util.AutoCloseableCloser;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 
-import java.security.SecureRandom;
 import java.time.Duration;
-import java.util.Base64;
 
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
-import static java.time.Duration.ofMinutes;
 
 public class TestingHydraService
         implements AutoCloseable
 {
     static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
-    private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0";
-    private static final String DSN = "postgres://hydra:mysecretpassword@database:5432/hydra?sslmode=disable";
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0-sqlite";
 
     private final Network network = Network.newNetwork();
-
-    private final PostgreSQLContainer<?> databaseContainer = new PostgreSQLContainer<>()
-            .withNetwork(network)
-            .withNetworkAliases("database")
-            .withUsername("hydra")
-            .withPassword("mysecretpassword")
-            .withDatabaseName("hydra");
-
-    private final GenericContainer<?> migrationContainer = createHydraContainer()
-            .withCommand("migrate", "sql", "--yes", DSN)
-            .withStartupCheckStrategy(new OneShotStartupCheckStrategy().withTimeout(ofMinutes(5)));
 
     private final FixedHostPortGenericContainer<?> consentContainer = new FixedHostPortGenericContainer<>("oryd/hydra-login-consent-node:v1.4.2")
             .withNetwork(network)
@@ -65,8 +47,7 @@ public class TestingHydraService
     private final FixedHostPortGenericContainer<?> hydraContainer = createHydraContainer()
             .withNetworkAliases("hydra")
             .withExposedPorts(4444, 4445)
-            .withEnv("SECRETS_SYSTEM", generateSecret())
-            .withEnv("DSN", DSN)
+            .withEnv("DSN", "memory")
             .withEnv("URLS_SELF_ISSUER", "http://hydra:4444/")
             .withEnv("URLS_CONSENT", "http://consent:3000/consent")
             .withEnv("URLS_LOGIN", "http://consent:3000/login")
@@ -80,16 +61,12 @@ public class TestingHydraService
     TestingHydraService()
     {
         closer.register(network);
-        closer.register(databaseContainer);
-        closer.register(migrationContainer);
         closer.register(consentContainer);
         closer.register(hydraContainer);
     }
 
     public void start()
     {
-        databaseContainer.start();
-        migrationContainer.start();
         consentContainer.start();
         hydraContainer.start();
     }
@@ -149,13 +126,6 @@ public class TestingHydraService
             throws Exception
     {
         closer.close();
-    }
-
-    private static String generateSecret()
-    {
-        byte[] randomBytes = new byte[32];
-        SECURE_RANDOM.nextBytes(randomBytes);
-        return Base64.getEncoder().encodeToString(randomBytes);
     }
 
     public static void main(String[] args)
