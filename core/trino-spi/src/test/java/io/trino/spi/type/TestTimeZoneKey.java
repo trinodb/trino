@@ -24,11 +24,11 @@ import java.util.SortedSet;
 import static io.trino.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.util.Comparator.comparingInt;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestTimeZoneKey
 {
@@ -223,12 +223,8 @@ public class TestTimeZoneKey
 
     public void assertTimeZoneNotSupported(String zoneId)
     {
-        try {
-            TimeZoneKey.getTimeZoneKey(zoneId);
-            fail("expect TimeZoneNotSupportedException");
-        }
-        catch (TimeZoneNotSupportedException e) {
-            // expected
-        }
+        assertThatThrownBy(() -> TimeZoneKey.getTimeZoneKey(zoneId))
+                .isInstanceOf(TimeZoneNotSupportedException.class)
+                .hasMessageStartingWith("Time zone not supported: ");
     }
 }

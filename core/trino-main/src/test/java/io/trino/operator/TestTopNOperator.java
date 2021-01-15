@@ -43,10 +43,10 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestTopNOperator
@@ -198,13 +198,10 @@ public class TestTopNOperator
                 100,
                 ImmutableList.of(0),
                 ImmutableList.of(ASC_NULLS_LAST));
-        try (Operator operator = operatorFactory.createOperator(smallDiverContext)) {
-            operator.addInput(input.get(0));
-            operator.getOutput();
-            fail("must fail because of exceeding local memory limit");
-        }
-        catch (ExceededMemoryLimitException ignore) {
-        }
+        Operator operator = operatorFactory.createOperator(smallDiverContext);
+        assertThatThrownBy(() -> operator.addInput(input.get(0)))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageStartingWith("Query exceeded per-node user memory limit of ");
     }
 
     private OperatorFactory topNOperatorFactory(

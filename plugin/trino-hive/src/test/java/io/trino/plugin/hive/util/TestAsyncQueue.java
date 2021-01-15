@@ -30,11 +30,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.Assertions.assertContains;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestAsyncQueue
 {
@@ -221,13 +220,9 @@ public class TestAsyncQueue
             }));
         };
 
-        try {
-            executor.submit(runnable).get();
-            fail("expected failure");
-        }
-        catch (ExecutionException e) {
-            assertContains(e.getMessage(), "test fail");
-        }
+        assertThatThrownBy(() -> executor.submit(runnable).get())
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("test fail");
 
         ListenableFuture<?> future2 = queue.offer(7);
         assertFalse(future1.isDone());
@@ -237,13 +232,9 @@ public class TestAsyncQueue
         future2.get();
         assertTrue(queue.offer(8).isDone());
 
-        try {
-            executor.submit(runnable).get();
-            fail("expected failure");
-        }
-        catch (ExecutionException e) {
-            assertContains(e.getMessage(), "test fail");
-        }
+        assertThatThrownBy(() -> executor.submit(runnable).get())
+                .isInstanceOf(ExecutionException.class)
+                .hasMessageContaining("test fail");
 
         assertTrue(queue.offer(9).isDone());
 

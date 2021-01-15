@@ -216,7 +216,9 @@ import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -359,13 +361,15 @@ public class TestSqlParser
         assertExpression("ARRAY [1, 2][1]", new SubscriptExpression(
                 new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))),
                 new LongLiteral("1")));
-        try {
-            assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", null);
-            fail();
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
+
+        assertExpression("CASE WHEN TRUE THEN ARRAY[1,2] END[1]", new SubscriptExpression(
+                new SearchedCaseExpression(
+                        ImmutableList.of(
+                                new WhenClause(
+                                        new BooleanLiteral("true"),
+                                        new ArrayConstructor(ImmutableList.of(new LongLiteral("1"), new LongLiteral("2"))))),
+                        Optional.empty()),
+                new LongLiteral("1")));
     }
 
     @Test
@@ -1880,23 +1884,15 @@ public class TestSqlParser
                         new PathElement(Optional.of(new Identifier("schemas,with")), new Identifier("grammar.in")),
                         new PathElement(Optional.empty(), new Identifier("their!names"))))));
 
-        try {
-            assertStatement("SET PATH one.too.many, qualifiers",
-                    new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
-                            new PathElement(Optional.empty(), new Identifier("dummyValue"))))));
-            fail();
-        }
-        catch (RuntimeException e) {
-            //expected - schema can only be qualified by catalog
-        }
+        assertThatThrownBy(() -> assertStatement("SET PATH one.too.many, qualifiers",
+                new SetPath(new PathSpecification(Optional.empty(), ImmutableList.of(
+                        new PathElement(Optional.empty(), new Identifier("dummyValue")))))))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage("line 1:17: mismatched input '.'. Expecting: ',', <EOF>");
 
-        try {
-            SQL_PARSER.createStatement("SET PATH ", new ParsingOptions());
-            fail();
-        }
-        catch (RuntimeException e) {
-            //expected - some form of parameter is required
-        }
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("SET PATH ", new ParsingOptions()))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage("line 1:10: mismatched input '<EOF>'. Expecting: <identifier>");
     }
 
     @Test
@@ -2916,19 +2912,14 @@ public class TestSqlParser
 
     private static void assertInvalidStatement(String statement, String expectedErrorMessageRegex)
     {
-        try {
-            Statement result = SQL_PARSER.createStatement(statement, new ParsingOptions());
-            fail("Expected to throw ParsingException for input:[" + statement + "], but got: " + result);
-        }
-        catch (ParsingException e) {
-            if (!e.getErrorMessage().matches(expectedErrorMessageRegex)) {
-                fail(format("Expected error message to match '%s', but was: '%s'", expectedErrorMessageRegex, e.getErrorMessage()));
-            }
-        }
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(statement, new ParsingOptions()))
+                .isInstanceOfSatisfying(ParsingException.class, e -> assertTrue(e.getErrorMessage().matches(expectedErrorMessageRegex)));
     }
 
     private static void assertExpression(String expression, Expression expected)
     {
+        requireNonNull(expression, "expression is null");
+        requireNonNull(expected, "expected is null");
         assertParsed(expression, expected, SQL_PARSER.createExpression(expression, new ParsingOptions(AS_DECIMAL)));
     }
 
@@ -2944,15 +2935,8 @@ public class TestSqlParser
 
     private static void assertInvalidExpression(String expression, String expectedErrorMessageRegex)
     {
-        try {
-            Expression result = createExpression(expression);
-            fail("Expected to throw ParsingException for input:[" + expression + "], but got: " + result);
-        }
-        catch (ParsingException e) {
-            if (!e.getErrorMessage().matches(expectedErrorMessageRegex)) {
-                fail(format("Expected error message to match '%s', but was: '%s'", expectedErrorMessageRegex, e.getErrorMessage()));
-            }
-        }
+        assertThatThrownBy(() -> createExpression(expression))
+                .isInstanceOfSatisfying(ParsingException.class, e -> assertTrue(e.getErrorMessage().matches(expectedErrorMessageRegex)));
     }
 
     private static String indent(String value)

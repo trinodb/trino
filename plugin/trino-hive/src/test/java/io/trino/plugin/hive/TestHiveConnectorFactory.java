@@ -24,10 +24,9 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
-import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.spi.transaction.IsolationLevel.READ_UNCOMMITTED;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveConnectorFactory
 {
@@ -61,12 +60,8 @@ public class TestHiveConnectorFactory
 
     private static void assertCreateConnectorFails(String metastoreUri, String exceptionString)
     {
-        try {
-            assertCreateConnector(metastoreUri);
-            fail("expected connector creation to fail:" + metastoreUri);
-        }
-        catch (RuntimeException e) {
-            assertContains(e.getMessage(), exceptionString);
-        }
+        assertThatThrownBy(() -> assertCreateConnector(metastoreUri))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining(exceptionString);
     }
 }

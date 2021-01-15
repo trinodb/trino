@@ -21,7 +21,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.spi.TrinoException;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -36,8 +35,7 @@ import org.testng.annotations.Test;
 import static io.trino.spi.StandardErrorCode.OPTIMIZER_TIMEOUT;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 
 public class TestIterativeOptimizer
 {
@@ -77,16 +75,9 @@ public class TestIterativeOptimizer
                 queryRunner.getCostCalculator(),
                 ImmutableSet.of(new AddIdentityOverTableScan(), new RemoveRedundantIdentityProjections()));
 
-        try {
-            queryRunner.inTransaction(transactionSession -> {
-                queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP);
-                fail("The optimizer should not converge");
-                return null;
-            });
-        }
-        catch (TrinoException ex) {
-            assertEquals(ex.getErrorCode(), OPTIMIZER_TIMEOUT.toErrorCode());
-        }
+        assertTrinoExceptionThrownBy(() -> queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP)))
+                .hasErrorCode(OPTIMIZER_TIMEOUT)
+                .hasMessage("The optimizer exhausted the time limit of 1 ms");
     }
 
     private static class AddIdentityOverTableScan

@@ -26,11 +26,12 @@ import org.testng.annotations.Test;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestDictionaryBlock
         extends AbstractTestBlock
@@ -230,34 +231,23 @@ public class TestDictionaryBlock
         assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
 
         // out of range
+        final Block finalDictionaryBlock = dictionaryBlock;
         for (int position : ImmutableList.of(-1, 6)) {
-            try {
-                dictionaryBlock.getPositions(new int[] {position}, 0, 1);
-                fail("Expected to fail");
-            }
-            catch (IllegalArgumentException e) {
-                assertTrue(e.getMessage().startsWith("Invalid position"));
-            }
+            assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {position}, 0, 1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(format("Invalid position %d in block with %d positions", position, finalDictionaryBlock.getPositionCount()));
         }
 
         for (int offset : ImmutableList.of(-1, 6)) {
-            try {
-                dictionaryBlock.getPositions(new int[] {0}, offset, 1);
-                fail("Expected to fail");
-            }
-            catch (IndexOutOfBoundsException e) {
-                assertTrue(e.getMessage().startsWith("Invalid offset"));
-            }
+            assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {0}, offset, 1))
+                    .isInstanceOf(IndexOutOfBoundsException.class)
+                    .hasMessage(format("Invalid offset %d and length 1 in array with 1 elements", offset));
         }
 
         for (int length : ImmutableList.of(-1, 6)) {
-            try {
-                dictionaryBlock.getPositions(new int[] {0}, 0, length);
-                fail("Expected to fail");
-            }
-            catch (IndexOutOfBoundsException e) {
-                assertTrue(e.getMessage().startsWith("Invalid offset"));
-            }
+            assertThatThrownBy(() -> finalDictionaryBlock.getPositions(new int[] {0}, 0, length))
+                    .isInstanceOf(IndexOutOfBoundsException.class)
+                    .hasMessage(format("Invalid offset 0 and length %d in array with 1 elements", length));
         }
     }
 

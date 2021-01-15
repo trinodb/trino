@@ -109,11 +109,11 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestHashJoinOperator
@@ -420,13 +420,9 @@ public class TestHashJoinOperator
             default:
                 throw new IllegalArgumentException(format("Unsupported option: %s", whenSpillFails));
         }
-        try {
-            innerJoinWithSpill(probeHashEnabled, whenSpill, buildSpillerFactory, partitioningSpillerFactory);
-            fail("Exception not thrown");
-        }
-        catch (RuntimeException exception) {
-            assertEquals(exception.getMessage(), expectedMessage);
-        }
+        assertThatThrownBy(() -> innerJoinWithSpill(probeHashEnabled, whenSpill, buildSpillerFactory, partitioningSpillerFactory))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage(expectedMessage);
     }
 
     private void innerJoinWithSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, SingleStreamSpillerFactory buildSpillerFactory, PartitioningSpillerFactory joinSpillerFactory)

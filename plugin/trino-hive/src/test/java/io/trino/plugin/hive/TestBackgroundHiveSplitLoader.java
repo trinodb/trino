@@ -97,6 +97,7 @@ import static io.trino.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveStorageFormat.AVRO;
 import static io.trino.plugin.hive.HiveStorageFormat.CSV;
@@ -125,7 +126,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestBackgroundHiveSplitLoader
 {
@@ -231,18 +231,15 @@ public class TestBackgroundHiveSplitLoader
                 table,
                 Optional.empty());
 
-        hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
-        backgroundHiveSplitLoader.start(hiveSplitSource);
-
-        try {
-            drainSplits(hiveSplitSource);
-            fail("Expected split generation to call isSplittable and fail");
-        }
-        catch (TrinoException e) {
-            Throwable cause = Throwables.getRootCause(e);
-            assertTrue(cause instanceof IllegalStateException);
-            assertEquals(cause.getMessage(), "isSplittable called");
-        }
+        HiveSplitSource finalHiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(finalHiveSplitSource);
+        assertTrinoExceptionThrownBy(() -> drainSplits(finalHiveSplitSource))
+                .hasErrorCode(HIVE_UNKNOWN_ERROR)
+                .isInstanceOfSatisfying(TrinoException.class, e -> {
+                    Throwable cause = Throwables.getRootCause(e);
+                    assertTrue(cause instanceof IllegalStateException);
+                    assertEquals(cause.getMessage(), "isSplittable called");
+                });
     }
 
     public static final class TestSplittableFailureInputFormat

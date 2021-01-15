@@ -28,10 +28,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static io.trino.block.BlockAssertions.assertBlockEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestBlockBuilder
 {
@@ -129,15 +130,8 @@ public class TestBlockBuilder
 
     private static void assertInvalidGetPositions(Block block, int[] positions, int offset, int length)
     {
-        try {
-            block.getPositions(positions, offset, length).getLong(0, 0);
-            fail("Expected to fail");
-        }
-        catch (IllegalArgumentException e) {
-            assertTrue(e.getMessage().startsWith("position is not valid"));
-        }
-        catch (IndexOutOfBoundsException e) {
-            assertTrue(e.getMessage().startsWith("Invalid offset"));
-        }
+        assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
+                .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
+                .hasMessageMatching(format("(position is not valid|Invalid offset %d and length %d in array with %d elements)", offset, length, positions.length));
     }
 }

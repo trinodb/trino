@@ -24,10 +24,10 @@ import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestAllOrNoneValueSet
 {
@@ -41,12 +41,8 @@ public class TestAllOrNoneValueSet
         assertFalse(valueSet.isSingleValue());
         assertTrue(valueSet.containsValue(Slices.EMPTY_SLICE));
 
-        try {
-            valueSet.getSingleValue();
-            fail();
-        }
-        catch (Exception ignored) {
-        }
+        assertThatThrownBy(valueSet::getSingleValue)
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -59,12 +55,8 @@ public class TestAllOrNoneValueSet
         assertFalse(valueSet.isSingleValue());
         assertFalse(valueSet.containsValue(Slices.EMPTY_SLICE));
 
-        try {
-            valueSet.getSingleValue();
-            fail();
-        }
-        catch (Exception ignored) {
-        }
+        assertThatThrownBy(valueSet::getSingleValue)
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test

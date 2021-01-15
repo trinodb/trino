@@ -88,7 +88,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestCreateTableTask
@@ -148,16 +147,10 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        try {
-            getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
-            fail("expected exception");
-        }
-        catch (RuntimeException e) {
-            // Expected
-            assertTrue(e instanceof TrinoException);
-            TrinoException trinoException = (TrinoException) e;
-            assertEquals(trinoException.getErrorCode(), ALREADY_EXISTS.toErrorCode());
-        }
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
+                .hasErrorCode(ALREADY_EXISTS)
+                .hasMessage("Table already exists");
+
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
 

@@ -69,6 +69,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -430,13 +431,9 @@ public class TestTrinoDriver
         try (Connection connection = createConnection("blackhole", "blackhole")) {
             try (Statement statement = connection.createStatement()) {
                 String sql = "SELECT 123 x, 'foo' y, CAST(NULL AS bigint) z";
-                try {
-                    statement.executeUpdate(sql);
-                    fail("expected exception");
-                }
-                catch (SQLException e) {
-                    assertEquals(e.getMessage(), "SQL is not an update statement: " + sql);
-                }
+                assertThatThrownBy(() -> statement.executeUpdate(sql))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(format("SQL is not an update statement: %s", sql));
             }
         }
     }
@@ -448,13 +445,9 @@ public class TestTrinoDriver
         try (Connection connection = createConnection("blackhole", "blackhole")) {
             try (Statement statement = connection.createStatement()) {
                 String sql = "INSERT INTO test_table VALUES (1)";
-                try {
-                    statement.executeQuery(sql);
-                    fail("expected exception");
-                }
-                catch (SQLException e) {
-                    assertEquals(e.getMessage(), "SQL statement is not a query: " + sql);
-                }
+                assertThatThrownBy(() -> statement.executeQuery(sql))
+                        .isInstanceOf(SQLException.class)
+                        .hasMessage(format("SQL statement is not a query: %s", sql));
             }
         }
     }

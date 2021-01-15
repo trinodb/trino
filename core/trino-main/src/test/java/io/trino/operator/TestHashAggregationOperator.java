@@ -54,7 +54,6 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -88,9 +87,9 @@ import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestHashAggregationOperator
@@ -682,15 +681,10 @@ public class TestHashAggregationOperator
                 blockTypeOperators,
                 false);
 
-        try {
-            toPages(operatorFactory, driverContext, input);
-            fail("An exception was expected");
-        }
-        catch (RuntimeException expected) {
-            if (!nullToEmpty(expected.getMessage()).matches(".* Failed to spill")) {
-                fail("Exception other than expected was thrown", expected);
-            }
-        }
+        assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))
+                .isInstanceOf(RuntimeException.class)
+                .hasCauseInstanceOf(IOException.class)
+                .hasMessageEndingWith("Failed to spill");
     }
 
     @Test

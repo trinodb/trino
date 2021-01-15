@@ -65,12 +65,12 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestSqlTask
@@ -305,13 +305,9 @@ public class TestSqlTask
         assertEquals(sqlTask.getTaskInfo(taskStatusVersion).get().getTaskStatus().getState(), TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
-        try {
-            assertTrue(bufferResult.get(1, SECONDS).isBufferComplete());
-            fail("expected TimeoutException");
-        }
-        catch (TimeoutException expected) {
-            // expected
-        }
+        assertThatThrownBy(() -> bufferResult.get(1, SECONDS))
+                .isInstanceOf(TimeoutException.class)
+                .hasMessageContaining("Waited 1 seconds");
         assertFalse(sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).isDone());
     }
 

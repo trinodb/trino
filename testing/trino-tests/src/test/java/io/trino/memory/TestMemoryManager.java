@@ -44,12 +44,12 @@ import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 // run single threaded to avoid creating multiple query runners at once
 @Test(singleThreaded = true)
@@ -92,13 +92,9 @@ public class TestMemoryManager
                 .build();
 
         try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
-            try {
-                queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
-                fail();
-            }
-            catch (RuntimeException e) {
-                // expected
-            }
+            assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageStartingWith("Query exceeded per-node total memory limit of ");
             Session session = testSessionBuilder()
                     .setCatalog("tpch")
                     .setSchema("tiny")
