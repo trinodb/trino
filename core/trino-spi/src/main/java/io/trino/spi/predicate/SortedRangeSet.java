@@ -26,7 +26,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -894,7 +893,7 @@ public final class SortedRangeSet
 
         SortedRangeSet build()
         {
-            ranges.sort(Comparator.comparing(Range::getLow));
+            ranges.sort(Range::compareLowBound);
 
             List<Range> result = new ArrayList<>(ranges.size());
 
@@ -905,8 +904,9 @@ public final class SortedRangeSet
                     continue;
                 }
 
-                if (current.overlaps(next) || current.getHigh().isAdjacent(next.getLow())) {
-                    current = current.span(next);
+                Optional<Range> merged = current.tryMergeWithNext(next);
+                if (merged.isPresent()) {
+                    current = merged.get();
                 }
                 else {
                     result.add(current);
@@ -931,20 +931,10 @@ public final class SortedRangeSet
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, Range range)
     {
-        inclusive[2 * rangeIndex] = range.getLow().getBound() == Marker.Bound.EXACTLY;
-        inclusive[2 * rangeIndex + 1] = range.getHigh().getBound() == Marker.Bound.EXACTLY;
-        if (range.getLow().getValueBlock().isEmpty()) {
-            blockBuilder.appendNull();
-        }
-        else {
-            type.appendTo(range.getLow().getValueBlock().get(), 0, blockBuilder);
-        }
-        if (range.getHigh().getValueBlock().isEmpty()) {
-            blockBuilder.appendNull();
-        }
-        else {
-            type.appendTo(range.getHigh().getValueBlock().get(), 0, blockBuilder);
-        }
+        inclusive[2 * rangeIndex] = range.isLowInclusive();
+        inclusive[2 * rangeIndex + 1] = range.isHighInclusive();
+        writeNativeValue(type, blockBuilder, range.getLowValue().orElse(null));
+        writeNativeValue(type, blockBuilder, range.getHighValue().orElse(null));
     }
 
     private static void writeRange(Type type, BlockBuilder blockBuilder, boolean[] inclusive, int rangeIndex, RangeView range)
