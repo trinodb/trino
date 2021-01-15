@@ -359,6 +359,21 @@ public class TestSparkCompatibility
         assertThat(sparkResult).containsOnly(row);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPrestoShowingSparkCreatedTables()
+    {
+        String tableName = "test_presto_showing_spark_created_table";
+        String sparkCatalogSchemaTableName = sparkTableName(tableName);
+        String prestoCatalogSchemaTableName = prestoTableName(tableName);
+        String prestoCatalogSchemaName = prestoCatalogSchemaTableName.substring(0, prestoCatalogSchemaTableName.lastIndexOf('.'));
+
+        onSpark().executeQuery(format("CREATE TABLE %s (_integer INTEGER ) USING ICEBERG", sparkCatalogSchemaTableName));
+
+        assertThat(onPresto().executeQuery(format("SHOW TABLES FROM %s LIKE '%s'", prestoCatalogSchemaName, tableName))).containsExactlyInOrder(row(tableName));
+
+        onSpark().executeQuery("DROP TABLE " + sparkCatalogSchemaTableName);
+    }
+
     private static String sparkTableName(String tableName)
     {
         return format("%s.default.%s", SPARK_CATALOG, tableName);

@@ -92,6 +92,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -101,6 +102,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -354,10 +356,11 @@ public class IcebergMetadata
         List<SchemaTableName> tablesList = schemaName.map(Collections::singletonList)
                 .orElseGet(metastore::getAllDatabases)
                 .stream()
-                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE).stream()
-                        .map(table -> new SchemaTableName(schema, table))
-                        .collect(toList())
-                        .stream())
+                .flatMap(schema -> Stream.concat(
+                        metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toLowerCase(Locale.ENGLISH)).stream()
+                                .map(table -> new SchemaTableName(schema, table)),
+                        metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(Locale.ENGLISH)).stream()
+                                .map(table -> new SchemaTableName(schema, table))))
                 .collect(toList());
 
         schemaName.map(Collections::singletonList)
