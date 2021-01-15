@@ -977,7 +977,7 @@ public interface ConnectorMetadata
      *      assignments = {a = CH0, b = CH1, c = CH2}
      * </pre>
      * </p>
-     *
+     * <p>
      * Assuming the connector knows how to handle {@code agg_fn1(...)} and {@code agg_fn2(...)}, it would return:
      * <pre>
      *
@@ -990,7 +990,7 @@ public interface ConnectorMetadata
      *      }
      * }
      * </pre>
-     *
+     * <p>
      * if the connector only knows how to handle {@code agg_fn1(...)}, but not {@code agg_fn2}, it should return {@link Optional#empty()}.
      *
      * <p>
@@ -1057,8 +1057,8 @@ public interface ConnectorMetadata
     /**
      * Create the specified materialized view. The view definition is intended to
      * be serialized by the connector for permanent storage.
-     * @throws TrinoException with {@code ALREADY_EXISTS} if the object already exists and {@param ignoreExisting} is not set
      *
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the object already exists and {@param ignoreExisting} is not set
      */
     default void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {
