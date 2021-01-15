@@ -157,6 +157,10 @@ The security mapping must provide one or more configuration settings:
   to use many roles, but a specific user should only be allowed to use a subset
   of those roles.
 
+* ``kmsKeyId``: Id KMS-managed key to be used for  client-side encryption.
+
+* ``sseKmsKeyId``: Id KMS-managed key to be used for server-side encryption.
+
 The security mapping entries are processed in the order listed in the configuration
 file. More specific mappings should thus be specified before less specific mappings.
 For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed by
@@ -201,6 +205,11 @@ Example JSON configuration file:
           "prefix": "s3://special-bucket/",
           "accessKey": "AKIAxxxaccess",
           "secretKey": "iXbXxxxsecret"
+        },
+        {
+          "prefix": "s3://encrypted-bucket/",
+          "kmsKeyId": "kmsKey_10",
+          "sseKmsKeyId": "sseKmsKey_15"
         },
         {
           "user": "test.*",

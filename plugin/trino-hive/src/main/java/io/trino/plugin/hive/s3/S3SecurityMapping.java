@@ -38,6 +38,8 @@ public class S3SecurityMapping
     private final Predicate<URI> prefix;
     private final List<String> allowedIamRoles;
     private final Optional<String> iamRole;
+    private final Optional<String> kmsKeyId;
+    private final Optional<String> sseKmsKeyId;
     private final Optional<BasicAWSCredentials> credentials;
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
@@ -51,6 +53,8 @@ public class S3SecurityMapping
             @JsonProperty("allowedIamRoles") Optional<List<String>> allowedIamRoles,
             @JsonProperty("accessKey") Optional<String> accessKey,
             @JsonProperty("secretKey") Optional<String> secretKey,
+            @JsonProperty("kmsKeyId") Optional<String> kmsKeyId,
+            @JsonProperty("sseKmsKeyId") Optional<String> sseKmsKeyId,
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
             @JsonProperty("endpoint") Optional<String> endpoint)
     {
@@ -70,6 +74,9 @@ public class S3SecurityMapping
         this.allowedIamRoles = requireNonNull(allowedIamRoles, "allowedIamRoles is null")
                 .orElse(ImmutableList.of());
 
+        this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
+        this.sseKmsKeyId = requireNonNull(sseKmsKeyId, "sseKmsKeyId is null");
+
         requireNonNull(accessKey, "accessKey is null");
         requireNonNull(secretKey, "secretKey is null");
         checkArgument(accessKey.isPresent() == secretKey.isPresent(), "accessKey and secretKey must be provided together");
@@ -79,6 +86,9 @@ public class S3SecurityMapping
                 .orElse(false);
         boolean roleOrCredentialsArePresent = !this.allowedIamRoles.isEmpty() || iamRole.isPresent() || credentials.isPresent();
         checkArgument(this.useClusterDefault ^ roleOrCredentialsArePresent, "must either allow useClusterDefault role or provide role and/or credentials");
+
+        boolean encryptionKeysPresent = this.kmsKeyId.isPresent() || this.sseKmsKeyId.isPresent();
+        checkArgument(!(this.useClusterDefault && encryptionKeysPresent), "encryption keys cannot be provided together with useClusterDefault");
 
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
     }
@@ -98,6 +108,16 @@ public class S3SecurityMapping
     public List<String> getAllowedIamRoles()
     {
         return allowedIamRoles;
+    }
+
+    public Optional<String> getKmsKeyId()
+    {
+        return kmsKeyId;
+    }
+
+    public Optional<String> getSseKmsKeyId()
+    {
+        return sseKmsKeyId;
     }
 
     public Optional<BasicAWSCredentials> getCredentials()
@@ -124,6 +144,8 @@ public class S3SecurityMapping
                 .add("prefix", prefix)
                 .add("iamRole", iamRole)
                 .add("allowedIamRoles", allowedIamRoles)
+                .add("kmsKeyId", kmsKeyId)
+                .add("sseKmsKeyId", sseKmsKeyId)
                 .add("credentials", credentials)
                 .add("useClusterDefault", useClusterDefault)
                 .add("endpoint", endpoint.orElse(null))

@@ -23,7 +23,9 @@
     {
       "prefix": "s3://foo",
       "accessKey": "AKIAxxxaccess",
-      "secretKey": "iXbXxxxsecret"
+      "secretKey": "iXbXxxxsecret",
+      "kmsKeyId": "kmsKey_10",
+      "sseKmsKeyId": "sseKmsKey_15"
     },
     {
       "user": "alice",
