@@ -15,6 +15,8 @@ package io.trino.plugin.sqlserver;
 
 import com.google.common.base.Enums;
 import com.google.common.base.Joiner;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
@@ -63,6 +65,7 @@ import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -94,6 +97,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.DATA_COMPRESSION;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompression;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -110,6 +114,7 @@ import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.Duration.ofMinutes;
 import static java.util.stream.Collectors.joining;
 
 public class SqlServerClient
@@ -119,6 +124,11 @@ public class SqlServerClient
     public static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
+
+    private final Cache<SnapshotIsolationEnabledCacheKey, Boolean> snapshotIsolationEnabled = CacheBuilder.newBuilder()
+            .maximumSize(1)
+            .expireAfterWrite(ofMinutes(5))
+            .build();
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
 
@@ -387,12 +397,14 @@ public class SqlServerClient
         return configureConnectionTransactionIsolation(super.getConnection(session, split));
     }
 
-    private static Connection configureConnectionTransactionIsolation(Connection connection)
+    private Connection configureConnectionTransactionIsolation(Connection connection)
             throws SQLException
     {
         try {
-            // SQL Server's READ COMMITTED + SNAPSHOT ISOLATION is equivalent to ordinary READ COMMITTED in e.g. Oracle, PostgreSQL.
-            connection.setTransactionIsolation(TRANSACTION_SNAPSHOT);
+            if (hasSnapshotIsolationEnabled(connection)) {
+                // SQL Server's READ COMMITTED + SNAPSHOT ISOLATION is equivalent to ordinary READ COMMITTED in e.g. Oracle, PostgreSQL.
+                connection.setTransactionIsolation(TRANSACTION_SNAPSHOT);
+            }
         }
         catch (SQLException e) {
             connection.close();
@@ -400,6 +412,24 @@ public class SqlServerClient
         }
 
         return connection;
+    }
+
+    private boolean hasSnapshotIsolationEnabled(Connection connection)
+            throws SQLException
+    {
+        try {
+            return snapshotIsolationEnabled.get(SnapshotIsolationEnabledCacheKey.INSTANCE, () -> {
+                Handle handle = Jdbi.open(connection);
+                return handle.createQuery("SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = :name")
+                        .bind("name", connection.getCatalog())
+                        .mapTo(Boolean.class)
+                        .findOne()
+                        .orElse(false);
+            });
+        }
+        catch (ExecutionException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+        }
     }
 
     private static String singleQuote(String... objects)
@@ -457,5 +487,12 @@ public class SqlServerClient
                 .mapTo(String.class)
                 .findOne()
                 .flatMap(dataCompression -> Enums.getIfPresent(DataCompression.class, dataCompression).toJavaUtil());
+    }
+
+    private enum SnapshotIsolationEnabledCacheKey
+    {
+        // The snapshot isolation can be enabled or disabled on database level. We connect to single
+        // database, so from our perspective, this is a global property.
+        INSTANCE
     }
 }
