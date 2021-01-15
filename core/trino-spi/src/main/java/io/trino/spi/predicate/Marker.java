@@ -40,6 +40,7 @@ import static java.util.Objects.requireNonNull;
  * A point on the continuous space defined by the specified type.
  * Each point may be just below, exact, or just above the specified value according to the Bound.
  */
+@Deprecated
 public final class Marker
         implements Comparable<Marker>
 {
