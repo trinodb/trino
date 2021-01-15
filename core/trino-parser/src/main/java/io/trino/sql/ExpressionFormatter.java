@@ -98,13 +98,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.PrimitiveIterator;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.SqlFormatter.formatName;
 import static io.trino.sql.SqlFormatter.formatSql;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
 public final class ExpressionFormatter
@@ -712,7 +712,7 @@ public final class ExpressionFormatter
         {
             return node.getFields().stream()
                     .map(this::process)
-                    .collect(Collectors.joining(", ", "ROW(", ")"));
+                    .collect(joining(", ", "ROW(", ")"));
         }
 
         @Override
@@ -739,7 +739,7 @@ public final class ExpressionFormatter
             if (!node.getArguments().isEmpty()) {
                 result.append(node.getArguments().stream()
                         .map(this::process)
-                        .collect(Collectors.joining(", ", "(", ")")));
+                        .collect(joining(", ", "(", ")")));
             }
 
             return result.toString();
