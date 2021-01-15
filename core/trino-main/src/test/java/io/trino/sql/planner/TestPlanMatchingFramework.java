@@ -41,7 +41,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPlanMatchingFramework
         extends BasePlanTest
@@ -209,13 +209,8 @@ public class TestPlanMatchingFramework
      */
     private void assertFails(Runnable runnable)
     {
-        try {
-            runnable.run();
-            fail("Plans should not have matched!");
-        }
-        catch (AssertionError e) {
-            //ignored
-        }
+        assertThatThrownBy(runnable::run)
+                .isInstanceOf(AssertionError.class);
     }
 
     @Test

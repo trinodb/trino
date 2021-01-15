@@ -18,9 +18,9 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestSqlParserErrorHandling
 {
@@ -198,40 +198,29 @@ public class TestSqlParserErrorHandling
     @Test(dataProvider = "statements")
     public void testStatement(String sql, String error)
     {
-        try {
-            SQL_PARSER.createStatement(sql, PARSING_OPTIONS);
-            fail("Expected parsing to fail");
-        }
-        catch (ParsingException e) {
-            assertEquals(e.getMessage(), error, "Error message mismatch for query:\n\n" + sql + "\n\n");
-        }
+        assertThatThrownBy(() -> SQL_PARSER.createStatement(sql, PARSING_OPTIONS))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage(error);
     }
 
     @Test(dataProvider = "expressions")
     public void testExpression(String sql, String error)
     {
-        try {
-            SQL_PARSER.createExpression(sql, PARSING_OPTIONS);
-            fail("Expected parsing to fail");
-        }
-        catch (ParsingException e) {
-            assertEquals(e.getMessage(), error, "Error message mismatch for expression:\n\n" + sql + "\n\n");
-        }
+        assertThatThrownBy(() -> SQL_PARSER.createExpression(sql, PARSING_OPTIONS))
+                .isInstanceOf(ParsingException.class)
+                .hasMessage(error);
     }
 
     @Test
     public void testParsingExceptionPositionInfo()
     {
-        try {
-            SQL_PARSER.createStatement("select *\nfrom x\nwhere from", PARSING_OPTIONS);
-            fail("expected exception");
-        }
-        catch (ParsingException e) {
-            assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
-            assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
-            assertEquals(e.getLineNumber(), 3);
-            assertEquals(e.getColumnNumber(), 7);
-        }
+        assertThatThrownBy(() -> SQL_PARSER.createStatement("select *\nfrom x\nwhere from", PARSING_OPTIONS))
+                .isInstanceOfSatisfying(ParsingException.class, e -> {
+                    assertTrue(e.getMessage().startsWith("line 3:7: mismatched input 'from'"));
+                    assertTrue(e.getErrorMessage().startsWith("mismatched input 'from'"));
+                    assertEquals(e.getLineNumber(), 3);
+                    assertEquals(e.getColumnNumber(), 7);
+                });
     }
 
     @Test(expectedExceptions = ParsingException.class, expectedExceptionsMessageRegExp = "line 1:1: expression is too large \\(stack overflow while parsing\\)")

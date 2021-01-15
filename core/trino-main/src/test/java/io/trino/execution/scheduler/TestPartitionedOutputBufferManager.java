@@ -22,10 +22,10 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestPartitionedOutputBufferManager
 {
@@ -46,21 +46,15 @@ public class TestPartitionedOutputBufferManager
         assertOutputBuffers(outputBufferTarget.get());
 
         // try to a buffer out side of the partition range, which should result in an error
-        try {
-            hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(5)), false);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(5)), false))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Unexpected new output buffer 5");
         assertOutputBuffers(outputBufferTarget.get());
 
         // try to a buffer out side of the partition range, which should result in an error
-        try {
-            hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(6)), true);
-            fail("Expected IllegalStateException");
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> hashOutputBufferManager.addOutputBuffers(ImmutableList.of(new OutputBufferId(6)), true))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Unexpected new output buffer 6");
         assertOutputBuffers(outputBufferTarget.get());
     }
 

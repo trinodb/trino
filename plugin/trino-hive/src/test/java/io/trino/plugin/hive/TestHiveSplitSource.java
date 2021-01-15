@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
 import org.testng.annotations.Test;
@@ -32,15 +31,16 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
-import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
 import static io.trino.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.Math.toIntExact;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestHiveSplitSource
 {
@@ -136,13 +136,9 @@ public class TestHiveSplitSource
         assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4);
 
         // try to remove a split and verify we got the expected exception
-        try {
-            getSplits(hiveSplitSource, 1);
-            fail("expected RuntimeException");
-        }
-        catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "test");
-        }
+        assertThatThrownBy(() -> getSplits(hiveSplitSource, 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("test");
         assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4); // 3 splits + poison
 
         // attempt to add another split and verify it does not work
@@ -154,13 +150,9 @@ public class TestHiveSplitSource
         assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 4); // 3 splits + poison
 
         // try to remove a split and verify we got the first exception
-        try {
-            getSplits(hiveSplitSource, 1);
-            fail("expected RuntimeException");
-        }
-        catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "test");
-        }
+        assertThatThrownBy(() -> getSplits(hiveSplitSource, 1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("test");
     }
 
     @Test
@@ -246,13 +238,9 @@ public class TestHiveSplitSource
             hiveSplitSource.addToQueue(new TestSplit(i));
             assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), i + 1);
         }
-        try {
-            hiveSplitSource.addToQueue(new TestSplit(0));
-            fail("expect failure");
-        }
-        catch (TrinoException e) {
-            assertContains(e.getMessage(), "Split buffering for database.table exceeded memory limit");
-        }
+        assertTrinoExceptionThrownBy(() -> hiveSplitSource.addToQueue(new TestSplit(0)))
+                .hasErrorCode(HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT)
+                .hasMessageContaining("Split buffering for database.table exceeded memory limit");
     }
 
     @Test

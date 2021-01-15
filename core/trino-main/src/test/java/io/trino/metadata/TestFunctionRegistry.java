@@ -48,12 +48,11 @@ import static io.trino.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.trino.type.UnknownType.UNKNOWN;
-import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestFunctionRegistry
 {
@@ -323,18 +322,9 @@ public class TestFunctionRegistry
 
         public ResolveFunctionAssertion failsWithMessage(String... messages)
         {
-            try {
-                resolveSignature();
-                fail("didn't fail as expected");
-            }
-            catch (RuntimeException e) {
-                String actualMessage = e.getMessage();
-                for (String expectedMessage : messages) {
-                    if (!actualMessage.contains(expectedMessage)) {
-                        fail(format("%s doesn't contain %s", actualMessage, expectedMessage));
-                    }
-                }
-            }
+            assertThatThrownBy(this::resolveSignature)
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContainingAll(messages);
             return this;
         }
 

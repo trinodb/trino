@@ -30,13 +30,11 @@ import static io.trino.jdbc.ConnectionProperties.SSL_VERIFICATION;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.FULL;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.NONE;
-import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestTrinoDriverUri
 {
@@ -399,15 +397,8 @@ public class TestTrinoDriverUri
 
     private static void assertInvalid(String url, String prefix)
     {
-        try {
-            createDriverUri(url);
-            fail("expected exception");
-        }
-        catch (SQLException e) {
-            assertNotNull(e.getMessage());
-            if (!e.getMessage().startsWith(prefix)) {
-                fail(format("expected:<%s> to start with <%s>", e.getMessage(), prefix));
-            }
-        }
+        assertThatThrownBy(() -> createDriverUri(url))
+                .isInstanceOf(SQLException.class)
+                .hasMessageStartingWith(prefix);
     }
 }

@@ -46,6 +46,7 @@ import static io.trino.execution.buffer.BufferTestUtils.sizeOfPages;
 import static io.trino.execution.buffer.SerializedPageReference.dereferencePages;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -402,13 +403,9 @@ public class TestClientBuffer
 
     private static void assertInvalidSequenceId(ClientBuffer buffer, int sequenceId)
     {
-        try {
-            buffer.getPages(sequenceId, sizeOfPages(10));
-            fail("Expected " + INVALID_SEQUENCE_ID);
-        }
-        catch (IllegalArgumentException e) {
-            assertEquals(e.getMessage(), INVALID_SEQUENCE_ID);
-        }
+        assertThatThrownBy(() -> buffer.getPages(sequenceId, sizeOfPages(10)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(INVALID_SEQUENCE_ID);
     }
 
     private static BufferResult getBufferResult(ClientBuffer buffer, long sequenceId, DataSize maxSize, Duration maxWait)

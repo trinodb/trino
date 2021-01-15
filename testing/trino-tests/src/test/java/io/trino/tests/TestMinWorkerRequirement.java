@@ -32,6 +32,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -110,16 +111,13 @@ public class TestMinWorkerRequirement
             queryRunner.execute("SELECT COUNT(*) from lineitem");
             assertEquals(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size(), 4);
 
-            try {
-                // Query should not be allowed to run if active workers drop down below the minimum required nodes
+            assertThatThrownBy(() -> {
                 queryRunner.getServers().get(0).close();
                 assertEquals(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size(), 3);
                 queryRunner.execute("SELECT COUNT(*) from lineitem");
-                fail("Expected exception due to insufficient active worker nodes");
-            }
-            catch (RuntimeException e) {
-                assertEquals(e.getMessage(), "Insufficient active worker nodes. Waited 1.00ns for at least 4 workers, but only 3 workers are active");
-            }
+            })
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Insufficient active worker nodes. Waited 1.00ns for at least 4 workers, but only 3 workers are active");
         }
     }
 
@@ -168,13 +166,10 @@ public class TestMinWorkerRequirement
             session = Session.builder(session)
                     .setSystemProperty(REQUIRED_WORKERS_COUNT, "6")
                     .build();
-            try {
-                queryRunner.execute(session, "SELECT COUNT(*) from lineitem");
-                fail("Expected exception due to insufficient active worker nodes");
-            }
-            catch (RuntimeException e) {
-                assertEquals(e.getMessage(), "Insufficient active worker nodes. Waited 1.00ns for at least 6 workers, but only 4 workers are active");
-            }
+            Session finalSession = session;
+            assertThatThrownBy(() -> queryRunner.execute(finalSession, "SELECT COUNT(*) from lineitem"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Insufficient active worker nodes. Waited 1.00ns for at least 6 workers, but only 4 workers are active");
 
             // After adding 2 nodes, query should run
             queryRunner.addServers(2);

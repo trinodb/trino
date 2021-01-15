@@ -3284,13 +3284,9 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");
 
-        try {
-            getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1");
-            fail("expected exception");
-        }
-        catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "Deletes must match whole partitions for non-transactional tables");
-        }
+        assertThatThrownBy(() -> getQueryRunner().execute("DELETE FROM test_metadata_delete WHERE ORDER_KEY=1"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Deletes must match whole partitions for non-transactional tables");
 
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");
 

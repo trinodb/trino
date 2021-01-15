@@ -21,6 +21,7 @@ import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
+import io.trino.sql.parser.ParsingException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -41,11 +42,11 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestTypeSignature
 {
@@ -325,23 +326,15 @@ public class TestTypeSignature
 
     private void assertSignatureFail(String typeName)
     {
-        try {
-            parseTypeSignature(typeName, ImmutableSet.of());
-            fail("Type signatures with zero parameters should fail to parse");
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
+        assertThatThrownBy(() -> parseTypeSignature(typeName, ImmutableSet.of()))
+                .isInstanceOf(ParsingException.class)
+                .hasMessageMatching("line [1-9][0-9]*:[1-9][0-9]*: mismatched input '.*'\\. Expecting: .*");
     }
 
     private void assertSignatureFail(String typeName, Set<String> literalCalculationParameters)
     {
-        try {
-            parseTypeSignature(typeName, literalCalculationParameters);
-            fail("Type signatures with zero parameters should fail to parse");
-        }
-        catch (RuntimeException e) {
-            // Expected
-        }
+        assertThatThrownBy(() -> parseTypeSignature(typeName, literalCalculationParameters))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Base type name cannot be a type variable");
     }
 }

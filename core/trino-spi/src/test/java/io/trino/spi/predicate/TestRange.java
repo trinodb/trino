@@ -25,7 +25,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestRange
 {
@@ -211,12 +210,9 @@ public class TestRange
     public void testGetSingleValue()
     {
         assertEquals(Range.equal(BIGINT, 0L).getSingleValue(), 0L);
-        try {
-            Range.lessThan(BIGINT, 0L).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> Range.lessThan(BIGINT, 0L).getSingleValue())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Range does not have just a single value");
     }
 
     @Test

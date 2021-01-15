@@ -55,7 +55,6 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
-import static io.airlift.testing.Assertions.assertContains;
 import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
@@ -67,12 +66,12 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestLocalExchange
@@ -680,13 +679,9 @@ public class TestLocalExchange
                 UNGROUPED_EXECUTION,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
-        try {
-            ungroupedLocalExchangeFactory.getLocalExchange(Lifespan.driverGroup(3));
-            fail("expected failure");
-        }
-        catch (IllegalArgumentException e) {
-            assertContains(e.getMessage(), "Driver-group exchange cannot be created.");
-        }
+        assertThatThrownBy(() -> ungroupedLocalExchangeFactory.getLocalExchange(Lifespan.driverGroup(3)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("LocalExchangeFactory is declared as UNGROUPED_EXECUTION. Driver-group exchange cannot be created.");
 
         LocalExchangeFactory groupedLocalExchangeFactory = new LocalExchangeFactory(
                 nodePartitioningManager,
@@ -699,13 +694,9 @@ public class TestLocalExchange
                 GROUPED_EXECUTION,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
                 TYPE_OPERATOR_FACTORY);
-        try {
-            groupedLocalExchangeFactory.getLocalExchange(Lifespan.taskWide());
-            fail("expected failure");
-        }
-        catch (IllegalArgumentException e) {
-            assertContains(e.getMessage(), "Task-wide exchange cannot be created.");
-        }
+        assertThatThrownBy(() -> groupedLocalExchangeFactory.getLocalExchange(Lifespan.taskWide()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("LocalExchangeFactory is declared as GROUPED_EXECUTION. Task-wide exchange cannot be created.");
     }
 
     private void run(LocalExchangeFactory localExchangeFactory, PipelineExecutionStrategy pipelineExecutionStrategy, Consumer<LocalExchange> test)

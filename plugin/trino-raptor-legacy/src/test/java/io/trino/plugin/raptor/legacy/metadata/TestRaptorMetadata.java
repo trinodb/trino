@@ -76,6 +76,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -766,13 +767,9 @@ public class TestRaptorMetadata
         assertFalse(transactionSuccessful(transactionId));
 
         // commit table creation
-        try {
-            metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of()))
+                .hasErrorCode(TRANSACTION_CONFLICT)
+                .hasMessage("Transaction commit failed. Please retry the operation.");
     }
 
     private boolean transactionExists(long transactionId)

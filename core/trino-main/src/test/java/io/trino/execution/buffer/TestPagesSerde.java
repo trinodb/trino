@@ -30,9 +30,9 @@ import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.fail;
 
 public class TestPagesSerde
 {
@@ -114,13 +114,9 @@ public class TestPagesSerde
         PagesSerde.PagesSerdeContext context = serde.newContext();
         context.close();
 
-        try {
-            serde.serialize(context, new Page(1));
-            fail("Expected failure from closed context");
-        }
-        catch (IllegalStateException e) {
-            assertEquals(e.getMessage(), "PagesSerdeContext is already closed");
-        }
+        assertThatThrownBy(() -> serde.serialize(context, new Page(1)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("PagesSerdeContext is already closed");
     }
 
     private static int serializedSize(List<? extends Type> types, Page expectedPage)

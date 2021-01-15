@@ -55,12 +55,13 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
+import static java.lang.String.format;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public abstract class AbstractTestType
 {
@@ -189,24 +190,17 @@ public abstract class AbstractTestType
             assertFalse(distinctFromOperator.isDistinctFrom(expectedBlock, 0, block, position));
         }
         else {
-            try {
-                typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
-                fail("Expected UnsupportedOperationException");
-            }
-            catch (UnsupportedOperationException expected) {
-            }
-            try {
-                typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
-                fail("Expected UnsupportedOperationException");
-            }
-            catch (UnsupportedOperationException expected) {
-            }
-            try {
-                typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-                fail("Expected UnsupportedOperationException");
-            }
-            catch (UnsupportedOperationException expected) {
-            }
+            assertThatThrownBy(() -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("is not comparable");
+
+            assertThatThrownBy(() -> typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION)))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("is not comparable");
+
+            assertThatThrownBy(() -> typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("is not comparable");
         }
 
         assertEquals(block.isNull(position), expectedStackValue == null);
@@ -218,12 +212,9 @@ public abstract class AbstractTestType
             assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, DESC_NULLS_LAST).order(block, position, expectedBlock, 0) == 0);
         }
         else {
-            try {
-                typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
-                fail("Expected UnsupportedOperationException");
-            }
-            catch (UnsupportedOperationException expected) {
-            }
+            assertThatThrownBy(() -> typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL)))
+                    .isInstanceOf(UnsupportedOperationException.class)
+                    .hasMessageContaining("is not orderable");
         }
 
         verifyInvalidPositionHandling(block);
@@ -249,88 +240,28 @@ public abstract class AbstractTestType
 
         if (type.getJavaType() == boolean.class) {
             assertEquals(type.getBoolean(block, position), expectedStackValue);
-            try {
-                type.getLong(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getDouble(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getObject(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
+            assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
         }
         else if (type.getJavaType() == long.class) {
             assertEquals(type.getLong(block, position), expectedStackValue);
-            try {
-                type.getBoolean(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getDouble(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getObject(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
+            assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
         }
         else if (type.getJavaType() == double.class) {
             assertEquals(type.getDouble(block, position), expectedStackValue);
-            try {
-                type.getBoolean(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getLong(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getObject(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
+            assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getObject(block, position)).isInstanceOf(UnsupportedOperationException.class);
         }
         else if (type.getJavaType() == Slice.class) {
             assertEquals(type.getSlice(block, position), expectedStackValue);
             assertEquals(type.getObject(block, position), expectedStackValue);
-            try {
-                type.getBoolean(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getLong(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getDouble(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
+            assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
         }
         else if (type.getJavaType() == Block.class) {
             SliceOutput actualSliceOutput = new DynamicSliceOutput(100);
@@ -338,196 +269,112 @@ public abstract class AbstractTestType
             SliceOutput expectedSliceOutput = new DynamicSliceOutput(actualSliceOutput.size());
             writeBlock(blockEncodingSerde, expectedSliceOutput, (Block) expectedStackValue);
             assertEquals(actualSliceOutput.slice(), expectedSliceOutput.slice());
-            try {
-                type.getBoolean(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getLong(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getDouble(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getSlice(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
+            assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getSlice(block, position)).isInstanceOf(UnsupportedOperationException.class);
         }
         else {
             assertEquals(type.getObject(block, position), expectedStackValue);
-            try {
-                type.getBoolean(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getLong(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
-            try {
-                type.getDouble(block, position);
-                fail("Expected IllegalStateException or UnsupportedOperationException");
-            }
-            catch (IllegalStateException | UnsupportedOperationException expected) {
-            }
+            assertThatThrownBy(() -> type.getBoolean(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getLong(block, position)).isInstanceOf(UnsupportedOperationException.class);
+            assertThatThrownBy(() -> type.getDouble(block, position)).isInstanceOf(UnsupportedOperationException.class);
         }
     }
 
     private void verifyInvalidPositionHandling(Block block)
     {
-        try {
-            type.getObjectValue(SESSION, block, -1);
-            fail("expected RuntimeException");
-        }
-        catch (RuntimeException expected) {
-        }
-        try {
-            type.getObjectValue(SESSION, block, block.getPositionCount());
-            fail("expected RuntimeException");
-        }
-        catch (RuntimeException expected) {
-        }
+        assertThatThrownBy(() -> type.getObjectValue(SESSION, block, -1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+
+        assertThatThrownBy(() -> type.getObjectValue(SESSION, block, block.getPositionCount()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
 
         if (type.isComparable()) {
-            try {
-                hashCodeOperator.hashCode(block, -1);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                hashCodeOperator.hashCode(block, block.getPositionCount());
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                xxHash64Operator.xxHash64(block, -1);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                xxHash64Operator.xxHash64(block, block.getPositionCount());
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
+            assertThatThrownBy(() -> hashCodeOperator.hashCode(block, -1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+
+            assertThatThrownBy(() -> hashCodeOperator.hashCode(block, block.getPositionCount()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
+
+            assertThatThrownBy(() -> xxHash64Operator.xxHash64(block, -1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+
+            assertThatThrownBy(() -> xxHash64Operator.xxHash64(block, block.getPositionCount()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
         }
 
         if (type.isComparable() && !(type instanceof UnknownType)) {
             Block other = toBlock(getNonNullValue());
-            try {
-                equalOperator.equal(block, -1, other, 0);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                equalOperator.equal(block, block.getPositionCount(), other, 0);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
+            assertThatThrownBy(() -> equalOperator.equal(block, -1, other, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
 
-            try {
-                distinctFromOperator.isDistinctFrom(block, -1, other, 0);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                distinctFromOperator.isDistinctFrom(block, block.getPositionCount(), other, 0);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
+            assertThatThrownBy(() -> equalOperator.equal(block, block.getPositionCount(), other, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
+
+            assertThatThrownBy(() -> distinctFromOperator.isDistinctFrom(block, -1, other, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+
+            assertThatThrownBy(() -> distinctFromOperator.isDistinctFrom(block, block.getPositionCount(), other, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
         }
 
         if (type.isOrderable() && !(type instanceof UnknownType)) {
             Block other = toBlock(getNonNullValue());
-            try {
-                blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, -1, other, 0);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, block.getPositionCount(), other, 0);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
+            assertThatThrownBy(() -> blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, -1, other, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+
+            assertThatThrownBy(() -> blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, block.getPositionCount(), other, 0))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
         }
 
         if (type.getJavaType() == boolean.class) {
-            try {
-                type.getBoolean(block, -1);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                type.getBoolean(block, block.getPositionCount());
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
+            assertThatThrownBy(() -> type.getBoolean(block, -1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("position is not valid");
+
+            assertThatThrownBy(() -> type.getBoolean(block, block.getPositionCount()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("position is not valid");
         }
         else if (type.getJavaType() == long.class) {
-            try {
-                type.getLong(block, -1);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                type.getLong(block, block.getPositionCount());
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
+            assertThatThrownBy(() -> type.getLong(block, -1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("position is not valid");
+
+            assertThatThrownBy(() -> type.getLong(block, block.getPositionCount()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("position is not valid");
         }
         else if (type.getJavaType() == double.class) {
-            try {
-                type.getDouble(block, -1);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                type.getDouble(block, block.getPositionCount());
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
+            assertThatThrownBy(() -> type.getDouble(block, -1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("position is not valid");
+
+            assertThatThrownBy(() -> type.getDouble(block, block.getPositionCount()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("position is not valid");
         }
         else if (type.getJavaType() == Slice.class) {
-            try {
-                type.getSlice(block, -1);
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
-            try {
-                type.getSlice(block, block.getPositionCount());
-                fail("expected RuntimeException");
-            }
-            catch (RuntimeException expected) {
-            }
+            assertThatThrownBy(() -> type.getSlice(block, -1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position -1 in block with %d positions)", block.getPositionCount()));
+
+            assertThatThrownBy(() -> type.getSlice(block, block.getPositionCount()))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageMatching(format("(position is not valid|Invalid position %d in block with %d positions)", block.getPositionCount(), block.getPositionCount()));
         }
     }
 
