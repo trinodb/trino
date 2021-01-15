@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.server;
+package io.trino.tests;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
@@ -27,12 +27,15 @@ import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
+import io.trino.plugin.memory.MemoryPlugin;
+import io.trino.server.BasicQueryInfo;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
+import io.trino.testing.TestingTrinoClient;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.URI;
@@ -41,6 +44,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -63,8 +67,11 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.INCOMPATIBLE_CLIENT;
+import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.Response.Status.OK;
 import static javax.ws.rs.core.Response.Status.SEE_OTHER;
@@ -72,6 +79,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.fail;
 
 public class TestServer
 {
@@ -87,6 +95,10 @@ public class TestServer
                         .put("http-server.process-forwarded", "true")
                         .build())
                 .build();
+
+        server.installPlugin(new MemoryPlugin());
+        server.createCatalog("memory", "memory");
+
         client = new JettyHttpClient();
     }
 
@@ -148,7 +160,7 @@ public class TestServer
         assertThat(data).isPresent();
 
         QueryResults results = data.orElseThrow();
-        assertThat(results.getData()).containsOnly(ImmutableList.of("system"));
+        assertThat(results.getData()).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
     }
 
     @Test
@@ -201,9 +213,8 @@ public class TestServer
                 .put("foo", "select * from bar")
                 .build());
 
-        // only the system catalog exists by default
         List<List<Object>> rows = data.build();
-        assertEquals(rows, ImmutableList.of(ImmutableList.of("system")));
+        assertEquals(rows, ImmutableList.of(ImmutableList.of("memory"), ImmutableList.of("system")));
     }
 
     @Test
@@ -230,8 +241,45 @@ public class TestServer
         assertEquals(queryResults.getError().getErrorCode(), INCOMPATIBLE_CLIENT.toErrorCode().getCode());
     }
 
-    @Test(dataProvider = "testVersionOnErrorDataProvider")
-    public void testVersionOnError(String query)
+    @Test
+    public void testVersionOnError()
+    {
+        // fails during parsing
+        checkVersionOnError("SELECT query that fails parsing", "ParsingException: line 1:19: mismatched input 'fails'. Expecting");
+        // fails during analysis
+        checkVersionOnError("SELECT foo FROM some_catalog.some_schema.no_such_table", "TrinoException: line 1:17: Catalog 'some_catalog' does not exist");
+        // fails during optimization
+        checkVersionOnError("SELECT 1 / 0", "TrinoException: Division by zero(?s:.*)at io.trino.sql.planner.iterative.rule.SimplifyExpressions");
+        // fails during execution
+        checkVersionOnError("select 1 / a from (values 0) t(a)", "TrinoException: Division by zero(?s:.*)at io.trino.operator.Driver.processInternal");
+    }
+
+    @Test
+    public void testVersionOnCompilerFailedError()
+    {
+        int numberColumns = 170;
+        String tableName = "memory.default.test_version_on_compiler_failed";
+        try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().build())) {
+            testingClient.execute("DROP TABLE IF EXISTS " + tableName);
+            testingClient.execute("CREATE TABLE " + tableName + " AS SELECT " +
+                    IntStream.range(0, numberColumns)
+                            .mapToObj(columnNumber -> format("'' AS f%s", columnNumber))
+                            .collect(joining(", ")));
+
+            String pivotQuery = "SELECT x, y " +
+                    "FROM " + tableName + " " +
+                    "CROSS JOIN UNNEST(" +
+                    IntStream.range(0, numberColumns)
+                            .mapToObj(Integer::toString)
+                            .collect(joining(", ", "ARRAY[", "]")) + "," +
+                    IntStream.range(0, numberColumns)
+                            .mapToObj(columnNumber -> format("f%s", columnNumber))
+                            .collect(joining(", ", "ARRAY[", "]")) + ") t(x, y)";
+            checkVersionOnError(pivotQuery, "TrinoException: Compiler failed(?s:.*)at io.trino.sql.gen.PageFunctionCompiler.compileProjection");
+        }
+    }
+
+    private void checkVersionOnError(String query, @Language("RegExp") String proofOfOrigin)
     {
         QueryResults queryResults = postQuery(request -> request
                 .setBodyGenerator(createStaticBodyGenerator(query, UTF_8)))
@@ -242,22 +290,14 @@ public class TestServer
 
         assertNull(queryResults.getNextUri());
         QueryError queryError = queryResults.getError();
-        List<String> stackTrace = Splitter.on("\n").splitToList(getStackTraceAsString(queryError.getFailureInfo().toException()));
-        long versionLines = stackTrace.stream()
+        String stackTrace = getStackTraceAsString(queryError.getFailureInfo().toException());
+        assertThat(stackTrace).containsPattern(proofOfOrigin);
+        long versionLines = Splitter.on("\n").splitToStream(stackTrace)
                 .filter(line -> line.contains("at io.trino.$gen.Trino_testversion____"))
                 .count();
-        assertEquals(versionLines, 1, "Number of times version is embedded in stacktrace");
-    }
-
-    @DataProvider
-    public Object[][] testVersionOnErrorDataProvider()
-    {
-        return new Object[][] {
-                {"SELECT query that fails parsing"}, // fails during parsing
-                {"SELECT foo FROM no.such.table"}, // fails during analysis
-                {"SELECT 1 / 0"}, // fails during optimization
-                {"select 1 / a from (values 0) t(a)"}, // fails during execution
-        };
+        if (versionLines != 1) {
+            fail(format("Expected version embedded in the stacktrace exactly once, but was %s: %s", versionLines, stackTrace));
+        }
     }
 
     @Test
