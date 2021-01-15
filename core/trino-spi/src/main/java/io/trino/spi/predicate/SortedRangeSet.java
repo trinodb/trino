@@ -1026,45 +1026,25 @@ public final class SortedRangeSet
         private int compareLowBound(RangeView that)
         {
             if (this.isLowUnbounded() || that.isLowUnbounded()) {
-                int compare = Boolean.compare(!this.isLowUnbounded(), !that.isLowUnbounded());
-                if (compare != 0) {
-                    return compare;
-                }
+                return Boolean.compare(!this.isLowUnbounded(), !that.isLowUnbounded());
             }
-            else {
-                int compare = compareValues(comparisonOperator, this.lowValueBlock, this.lowValuePosition, that.lowValueBlock, that.lowValuePosition);
-                if (compare != 0) {
-                    return compare;
-                }
-                compare = Boolean.compare(!this.lowInclusive, !that.lowInclusive);
-                if (compare != 0) {
-                    return compare;
-                }
+            int compare = compareValues(comparisonOperator, this.lowValueBlock, this.lowValuePosition, that.lowValueBlock, that.lowValuePosition);
+            if (compare != 0) {
+                return compare;
             }
-
-            return 0;
+            return Boolean.compare(!this.lowInclusive, !that.lowInclusive);
         }
 
         private int compareHighBound(RangeView that)
         {
             if (this.isHighUnbounded() || that.isHighUnbounded()) {
-                int compare = Boolean.compare(this.isHighUnbounded(), that.isHighUnbounded());
-                if (compare != 0) {
-                    return compare;
-                }
+                return Boolean.compare(this.isHighUnbounded(), that.isHighUnbounded());
             }
-            else {
-                int compare = compareValues(comparisonOperator, this.highValueBlock, this.highValuePosition, that.highValueBlock, that.highValuePosition);
-                if (compare != 0) {
-                    return compare;
-                }
-                compare = Boolean.compare(this.highInclusive, that.highInclusive);
-                if (compare != 0) {
-                    return compare;
-                }
+            int compare = compareValues(comparisonOperator, this.highValueBlock, this.highValuePosition, that.highValueBlock, that.highValuePosition);
+            if (compare != 0) {
+                return compare;
             }
-
-            return 0;
+            return Boolean.compare(this.highInclusive, that.highInclusive);
         }
 
         /**
