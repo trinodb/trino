@@ -16,7 +16,6 @@ package io.trino.tests.hive;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -26,8 +25,6 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
-import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
@@ -65,14 +62,12 @@ public class TestCsv
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateCsvTableAs()
     {
         testCreateCsvTableAs("");
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateCsvTableAsWithCustomProperties()
     {
         testCreateCsvTableAs(", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
@@ -97,14 +92,12 @@ public class TestCsv
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedCsvTable()
     {
         testInsertIntoPartitionedCsvTable("test_partitioned_csv_table", "");
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedCsvTableWithCustomProperties()
     {
         testInsertIntoPartitionedCsvTable("test_partitioned_csv_table_with_custom_parameters", ", csv_escape = 'e', csv_separator = 's', csv_quote = 'q'");
@@ -131,14 +124,12 @@ public class TestCsv
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedCsvTableAs()
     {
         testCreatePartitionedCsvTableAs("storage_formats_test_create_table_as_select_partitioned_csv", "");
     }
 
     @Test(groups = STORAGE_FORMATS)
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedCsvTableAsWithCustomParamters()
     {
         testCreatePartitionedCsvTableAs(
