@@ -988,6 +988,26 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Attempt to push down the join operation.
+     * <p>
+     * Connectors can indicate whether they don't support join pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * <p>
+     * <b>Warning</b>: this is an experimental API and it will change in the future.
+     */
+    default Optional<JoinApplicationResult> applyJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            ConnectorTableHandle left,
+            ConnectorTableHandle right,
+            List<JoinCondition> joinConditions,
+            Map<String, ColumnHandle> leftAssignments,
+            Map<String, ColumnHandle> rightAssignments)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Attempt to push down the TopN into the table scan.
      * <p>
      * Connectors can indicate whether they don't support topN pushdown or that the action had no effect
