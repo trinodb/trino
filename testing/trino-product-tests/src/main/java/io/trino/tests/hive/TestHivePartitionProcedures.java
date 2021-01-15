@@ -20,7 +20,6 @@ import io.trino.tempto.fulfillment.table.hive.HiveDataSource;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.trino.tempto.query.QueryResult;
-import io.trino.testng.services.Flaky;
 import org.testng.annotations.Test;
 
 import java.net.URISyntaxException;
@@ -32,8 +31,6 @@ import static io.trino.tempto.fulfillment.table.hive.InlineDataSource.createReso
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.HIVE_PARTITIONING;
 import static io.trino.tests.TestGroups.SMOKE;
-import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
-import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.hive.util.TableLocationUtils.getTablePath;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +50,6 @@ public class TestHivePartitionProcedures
     private HdfsDataSourceWriter hdfsDataSourceWriter;
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testUnregisterPartition()
             throws URISyntaxException
     {
@@ -72,7 +68,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testUnregisterViewTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -83,7 +78,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testUnregisterMissingTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -93,7 +87,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testUnregisterUnpartitionedTableShouldFail()
     {
         createUnpartitionedTable(SECOND_TABLE);
@@ -103,7 +96,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testUnregisterInvalidPartitionColumnsShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -113,7 +105,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testUnregisterMissingPartitionShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -123,7 +114,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartitionMissingTableShouldFail()
     {
         QueryAssert.assertThat(() -> addPartition("missing_table", "col", "f", "/"))
@@ -131,7 +121,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterUnpartitionedTableShouldFail()
     {
         createUnpartitionedTable(SECOND_TABLE);
@@ -141,7 +130,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterViewTableShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -152,7 +140,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartitionCollisionShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -162,7 +149,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartitionInvalidPartitionColumnsShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -172,7 +158,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartitionInvalidLocationShouldFail()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -182,7 +167,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartitionWithDefaultPartitionLocation()
     {
         createPartitionedTable(FIRST_TABLE);
@@ -200,7 +184,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartition()
             throws URISyntaxException
     {
@@ -221,7 +204,6 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
-    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testRegisterPartitionFromAnyLocation()
     {
         createPartitionedTable(FIRST_TABLE);
