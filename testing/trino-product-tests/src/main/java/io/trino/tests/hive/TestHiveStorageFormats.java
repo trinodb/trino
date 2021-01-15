@@ -23,6 +23,7 @@ import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
 import io.trino.tests.utils.JdbcDriverUtils;
 import org.assertj.core.api.SoftAssertions;
+import org.assertj.core.util.Streams;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -237,6 +238,16 @@ public class TestHiveStorageFormats
         return Stream.of(storageFormats())
                 // everything but Avro supports nanoseconds
                 .filter(format -> !"AVRO".equals(format.getName()))
+                .iterator();
+    }
+
+    @DataProvider
+    public static Iterator<StorageFormat> storageFormatsWithNanosecondPrecisionExceptParquet()
+    {
+        return Streams.stream(storageFormatsWithNanosecondPrecision())
+                // TODO: Parquet doesn't support writing timestamps in arrays/maps/structs
+                //   See https://github.com/trinodb/trino/issues/6760
+                .filter(format -> !"PARQUET".equals(format.getName()))
                 .iterator();
     }
 
@@ -507,11 +518,11 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS)
-    public void testStructTimestamps(StorageFormat format)
+    public void testStructTimestampsFromHive(StorageFormat format)
     {
+        String tableName = createStructTimestampTable("hive_struct_timestamp", format);
         setAdminRole(onPresto().getConnection());
         ensureDummyExists();
-        String tableName = createStructTimestampTable("test_struct_timestamp_precision", format);
 
         // Insert one at a time because inserting with UNION ALL sometimes makes
         // data invisible to Trino (see https://github.com/trinodb/trino/issues/6485)
@@ -533,6 +544,35 @@ public class TestHiveStorageFormats
         }
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_HIVE);
+        onPresto().executeQuery(format("DROP TABLE %s", tableName));
+    }
+
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecisionExceptParquet", groups = STORAGE_FORMATS)
+    public void testStructTimestampsFromTrino(StorageFormat format)
+    {
+        String tableName = createStructTimestampTable("trino_struct_timestamp", format);
+        setAdminRole(onPresto().getConnection());
+
+        // Insert data grouped by write-precision so it rounds as expected
+        TIMESTAMPS_FROM_TRINO.stream()
+                .collect(Collectors.groupingBy(TimestampAndPrecision::getPrecision))
+                .forEach((precision, data) -> {
+                    setTimestampPrecision(precision);
+                    onPresto().executeQuery(format(
+                            "INSERT INTO %s VALUES (%s)",
+                            tableName,
+                            data.stream().map(entry -> format(
+                                    "%s,"
+                                            + " array[%2$s],"
+                                            + " map(array[%2$s], array[%2$s]),"
+                                            + " row(%2$s),"
+                                            + " array[map(array[%2$s], array[row(array[%2$s])])]",
+                                    entry.getId(),
+                                    format("TIMESTAMP '%s'", entry.getWriteValue())))
+                                    .collect(Collectors.joining("), ("))));
+                });
+
+        assertStructTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
         onPresto().executeQuery(format("DROP TABLE %s", tableName));
     }
 
