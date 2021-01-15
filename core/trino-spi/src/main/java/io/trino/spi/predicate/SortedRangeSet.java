@@ -15,24 +15,19 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -41,7 +36,6 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -49,7 +43,6 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.trino.spi.predicate.Utils.handleThrowable;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
-import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -58,7 +51,6 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Collections.unmodifiableList;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -1175,60 +1167,6 @@ public final class SortedRangeSet
                     type.getObjectValue(ToStringSession.INSTANCE, lowValueBlock, lowValuePosition),
                     type.getObjectValue(ToStringSession.INSTANCE, highValueBlock, highValuePosition),
                     highInclusive ? "]" : ")");
-        }
-    }
-
-    private enum ToStringSession
-            implements ConnectorSession
-    {
-        INSTANCE;
-
-        @Override
-        public String getQueryId()
-        {
-            return "to_string";
-        }
-
-        @Override
-        public Optional<String> getSource()
-        {
-            return Optional.of("to_string");
-        }
-
-        @Override
-        public ConnectorIdentity getIdentity()
-        {
-            return ConnectorIdentity.ofUser("to_string");
-        }
-
-        @Override
-        public TimeZoneKey getTimeZoneKey()
-        {
-            return UTC_KEY;
-        }
-
-        @Override
-        public Locale getLocale()
-        {
-            return ENGLISH;
-        }
-
-        @Override
-        public Instant getStart()
-        {
-            return Instant.ofEpochMilli(0);
-        }
-
-        @Override
-        public Optional<String> getTraceToken()
-        {
-            return Optional.empty();
-        }
-
-        @Override
-        public <T> T getProperty(String name, Class<T> type)
-        {
-            throw new TrinoException(INVALID_SESSION_PROPERTY, "Unknown session property " + name);
         }
     }
 }
