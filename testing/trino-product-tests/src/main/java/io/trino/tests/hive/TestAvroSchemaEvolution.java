@@ -16,14 +16,13 @@ package io.trino.tests.hive;
 import io.trino.tempto.AfterTestWithContext;
 import io.trino.tempto.BeforeTestWithContext;
 import io.trino.tempto.ProductTest;
-import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
-import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.AVRO;
+import static io.trino.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 
 public class TestAvroSchemaEvolution
@@ -149,7 +148,7 @@ public class TestAvroSchemaEvolution
         assertThat(query(SELECT_STAR))
                 .containsExactly(row("string0", 0));
 
-        executeHiveQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", TABLE_NAME));
+        onHive().executeQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", TABLE_NAME));
         assertThat(query(COLUMNS_IN_TABLE))
                 .containsExactly(
                         row("dummy_col", "varchar", "", ""));
@@ -173,11 +172,6 @@ public class TestAvroSchemaEvolution
 
     private void alterTableSchemaTo(String schema)
     {
-        executeHiveQuery(format("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.url'='%s')", TABLE_NAME, schema));
-    }
-
-    private static void executeHiveQuery(String query)
-    {
-        testContext().getDependency(QueryExecutor.class, "hive").executeQuery(query);
+        onHive().executeQuery(format("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.url'='%s')", TABLE_NAME, schema));
     }
 }
