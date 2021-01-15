@@ -35,6 +35,7 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.sql.TestTable.fromColumns;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
@@ -55,7 +56,7 @@ public class TestPrestoTableStatisticsWithHive
         remotePresto = closeAfterClass(createRemotePrestoQueryRunnerWithHive(
                 tempDir,
                 Map.of(),
-                ImmutableList.of(ORDERS)));
+                ImmutableList.of(ORDERS, NATION)));
         remoteSession = testSessionBuilder()
                 .setCatalog("hive")
                 .setSchema("tiny")
@@ -77,7 +78,7 @@ public class TestPrestoTableStatisticsWithHive
         try {
             // Hive connectors collects stats during write by default
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, '1', '60000')," +
                             "('custkey', null, 990, 0, null, '1', '1499')," +
@@ -104,7 +105,7 @@ public class TestPrestoTableStatisticsWithHive
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, '1', '60000')," +
                             "('custkey', null, 990, 0, null, '1', '1499')," +
@@ -131,7 +132,7 @@ public class TestPrestoTableStatisticsWithHive
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', 0, 0, 1, null, null, null)," +
                             "('custkey', 0, 0, 1, null, null, null)," +
@@ -154,7 +155,7 @@ public class TestPrestoTableStatisticsWithHive
             executeInRemotePresto(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL", tableName));
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', 0, 0, 1, null, null, null)," +
                             "('custkey', 0, 0, 1, null, null, null)," +
@@ -183,7 +184,7 @@ public class TestPrestoTableStatisticsWithHive
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, 1, 60000)," +
                             "('custkey', null, 990, 0.3333333333333333, null, 1, 1499)," +
@@ -214,7 +215,7 @@ public class TestPrestoTableStatisticsWithHive
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 100, 0, null, 1, 388)," +
                             "('v3_in_3', 300, 1, 0, null, null, null)," +
@@ -240,7 +241,7 @@ public class TestPrestoTableStatisticsWithHive
             gatherStats(tableName);
             // NOTE the null-fraction and NDV stats for partitioned tables do not match the base table because they cannot be aggregated across partitions
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 3065, 0, null, '1', '60000')," +
                             "('custkey', null, 931, 0, null, '1', '1499')," +
@@ -272,7 +273,7 @@ public class TestPrestoTableStatisticsWithHive
         executeInRemotePresto("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
         try {
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, 1, 60000)," +
                             "('custkey', null, 990, 0, null, 1, 1499)," +
@@ -307,7 +308,7 @@ public class TestPrestoTableStatisticsWithHive
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('case_unquoted_upper', null, 15000, 0, null, '1', '60000')," +
                             "('case_unquoted_lower', null, 990, 0, null, '1', '1499')," +
@@ -357,7 +358,7 @@ public class TestPrestoTableStatisticsWithHive
                         .build(),
                 "null")) {
             assertLocalAndRemoteStatistics(
-                    table.getName(),
+                    "SHOW STATS FOR " + table.getName(),
                     "VALUES " +
                             "('only_negative_infinity', null, 1, 0, null, null, null)," +
                             "('only_positive_infinity', null, 1, 0, null, null, null)," +
@@ -375,9 +376,30 @@ public class TestPrestoTableStatisticsWithHive
         }
     }
 
-    private void assertLocalAndRemoteStatistics(String tableName, String expectedValues)
+    @Test
+    public void testShowStatsWithWhere()
     {
-        String showStatsQuery = "SHOW STATS FOR " + tableName;
+        assertLocalAndRemoteStatistics(
+                "SHOW STATS FOR nation",
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, 0, 24), " +
+                        "('name', 177.0, 25.0, 0.0, null, null, null), " +
+                        "('regionkey', null, 5.0, 0.0, null, 0, 4), " +
+                        "('comment', 1857.0, 25.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        assertLocalAndRemoteStatistics(
+                "SHOW STATS FOR (SELECT * FROM nation WHERE regionkey = 1)",
+                "VALUES " +
+                        "('nationkey', null, 5.0, 0.0, null, 0, 24), " +
+                        "('name', 35.4, 5.0, 0.0, null, null, null), " +
+                        "('regionkey', null, 1.0, 0.0, null, 1, 1), " +
+                        "('comment', 371.4, 5.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 5.0, null, null)");
+    }
+
+    private void assertLocalAndRemoteStatistics(String showStatsQuery, String expectedValues)
+    {
         assertQuery(showStatsQuery, expectedValues);
         QueryAssertions.assertQuery(remotePresto, remoteSession, showStatsQuery, h2QueryRunner, expectedValues, false, false);
     }

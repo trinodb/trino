@@ -34,6 +34,7 @@ import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQue
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoConnectorQueryRunner.prestoConnectorConnectionUrl;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.sql.TestTable.fromColumns;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 
@@ -59,7 +60,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
                         "connection-user", postgreSqlServer.getUser(),
                         "connection-password", postgreSqlServer.getPassword(),
                         "case-insensitive-name-matching", "true"),
-                ImmutableList.of(ORDERS)));
+                ImmutableList.of(ORDERS, NATION)));
         remoteSession = testSessionBuilder()
                 .setCatalog("postgresql")
                 .setSchema("tiny")
@@ -81,7 +82,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
         executeInRemotePresto(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, null, null, null, null, null)," +
                             "('custkey', null, null, null, null, null, null)," +
@@ -108,7 +109,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, null, null)," +
                             "('custkey', null, 1000, 0, null, null, null)," +
@@ -135,7 +136,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', 0, 0, 1, null, null, null)," +
                             "('custkey', 0, 0, 1, null, null, null)," +
@@ -158,7 +159,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
             executeInRemotePresto(format("INSERT INTO %s (orderkey) VALUES NULL, NULL, NULL", tableName));
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', 0, 0, 1, null, null, null)," +
                             "('custkey', 0, 0, 1, null, null, null)," +
@@ -187,7 +188,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, null, null)," +
                             "('custkey', null, 1000, 0.3333333333333333, null, null, null)," +
@@ -218,7 +219,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 100, 0, null, null, null)," +
                             "('v3_in_3', 400, 1, 0, null, null, null)," +
@@ -253,7 +254,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
         executeInPostgres("CREATE OR REPLACE VIEW " + tableName + " AS SELECT orderkey, custkey, orderpriority, comment FROM orders");
         try {
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, null, null, null, null, null)," +
                             "('custkey', null, null, null, null, null, null)," +
@@ -278,7 +279,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('orderkey', null, 15000, 0, null, null, null)," +
                             "('custkey', null, 1000, 0, null, null, null)," +
@@ -307,7 +308,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
         try {
             gatherStats(tableName);
             assertLocalAndRemoteStatistics(
-                    tableName,
+                    "SHOW STATS FOR " + tableName,
                     "VALUES " +
                             "('case_unquoted_upper', null, 15000, 0, null, null, null)," +
                             "('case_unquoted_lower', null, 1000, 0, null, null, null)," +
@@ -359,7 +360,7 @@ public class TestPrestoTableStatisticsWithPostgreSql
                 "null")) {
             gatherStats(table.getName());
             assertLocalAndRemoteStatistics(
-                    table.getName(),
+                    "SHOW STATS FOR " + table.getName(),
                     "VALUES " +
                             "('only_negative_infinity', null, 1, 0, null, null, null)," +
                             "('only_positive_infinity', null, 1, 0, null, null, null)," +
@@ -377,9 +378,33 @@ public class TestPrestoTableStatisticsWithPostgreSql
         }
     }
 
-    private void assertLocalAndRemoteStatistics(String tableName, String expectedValues)
+    @Test
+    public void testShowStatsWithWhere()
     {
-        String showStatsQuery = "SHOW STATS FOR " + tableName;
+        gatherStats("nation");
+
+        assertLocalAndRemoteStatistics(
+                "SHOW STATS FOR nation",
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, null, null), " +
+                        "('name', 200.0, 25.0, 0.0, null, null, null), " +
+                        "('regionkey', null, 5.0, 0.0, null, null, null), " +
+                        "('comment', 1875.0, 25.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 25.0, null, null)");
+
+        // TODO: Fix values after adding filter handling to PostgreSQL connector stats (https://github.com/trinodb/trino/pull/844)
+        assertLocalAndRemoteStatistics(
+                "SHOW STATS FOR (SELECT * FROM nation WHERE regionkey = 1)",
+                "VALUES " +
+                        "('nationkey', null, 25.0, 0.0, null, null, null), " +
+                        "('name', 200.0, 25.0, 0.0, null, null, null), " +
+                        "('regionkey', null, 5.0, 0.0, null, null, null), " +
+                        "('comment', 1875.0, 25.0, 0.0, null, null, null), " +
+                        "(null, null, null, null, 25.0, null, null)");
+    }
+
+    private void assertLocalAndRemoteStatistics(String showStatsQuery, String expectedValues)
+    {
         assertQuery(showStatsQuery, expectedValues);
         QueryAssertions.assertQuery(remotePresto, remoteSession, showStatsQuery, h2QueryRunner, expectedValues, false, false);
     }

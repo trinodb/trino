@@ -27,6 +27,7 @@ import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
@@ -71,6 +72,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoDateColumnMapping;
@@ -618,12 +620,12 @@ public class PrestoConnectorClient
             return Optional.empty();
         }
 
-        Map<String, JdbcColumnHandle> columnHandles = getColumns(session, table).stream()
+        List<JdbcColumnHandle> jdbcColumnHandles = getColumns(session, table);
+        Map<String, JdbcColumnHandle> columnHandles = jdbcColumnHandles.stream()
                 .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
 
-        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5011) respect table#getConstraint()
         try (Connection connection = connectionFactory.openConnection(session);
-                PreparedStatement statement = connection.prepareStatement("SHOW STATS FOR " + quoted(table.getRemoteTableName()));
+                PreparedStatement statement = getShowStatsStatement(session, connection, table, jdbcColumnHandles);
                 ResultSet resultSet = statement.executeQuery()) {
             TableStatistics.Builder tableStatisticsBuilder = TableStatistics.builder();
 
@@ -660,6 +662,21 @@ public class PrestoConnectorClient
 
             return Optional.of(tableStatisticsBuilder.build());
         }
+    }
+
+    private PreparedStatement getShowStatsStatement(ConnectorSession session, Connection connection, JdbcTableHandle table, List<JdbcColumnHandle> jdbcColumnHandles)
+            throws SQLException
+    {
+        checkArgument(table.getGroupingSets().isEmpty(), "table grouping sets should be empty: %s", table.getGroupingSets());
+        return new QueryBuilder(this).buildSql(
+                session,
+                connection,
+                table.getRemoteTableName(),
+                table.getGroupingSets(),
+                jdbcColumnHandles,
+                table.getConstraint(),
+                Optional.empty(),
+                sql -> "SHOW STATS FOR (" + sql + ")");
     }
 
     private static Estimate toEstimate(Optional<Double> value)
