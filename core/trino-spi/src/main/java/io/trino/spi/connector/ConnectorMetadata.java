@@ -1023,6 +1023,41 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Attempt to push down the join operation.
+     * <p>
+     * Connectors can indicate whether they don't support join pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * </p>
+     * <b>Warning</b>: this is an experimental API and it will change in the future.
+     * <p>
+     * Join condition conjuncts are passed via joinConditions list. For current implementation connector may
+     * assume that leftExpression and rightExpression in each of the conjucts are instances of {@link Variable}.
+     * This may be relaxed in the future.
+     * </p>
+     * <p>
+     * The leftAssignments and rightAssignments lists provide mappings from variable names, used in joinConditions to input tables column handles.
+     * It is guaranteed that all the required mappings will be provided but not necessarily *all* the column handles of tables which are join inputs.
+     * </p>
+     *
+     * <p>
+     * If the method returns a result the returned table handle will be used in place of join and input table scans.
+     * Returned result must provide mapping from old column handles to new ones via leftColumnHandles and rightColumnHandles fields of the result.
+     * It is required that mapping is provided for *all* column handles exposed previously by both left and right join sources.
+     * </p>
+     */
+    default Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            ConnectorTableHandle left,
+            ConnectorTableHandle right,
+            List<JoinCondition> joinConditions,
+            Map<String, ColumnHandle> leftAssignments,
+            Map<String, ColumnHandle> rightAssignments)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Attempt to push down the TopN into the table scan.
      * <p>
      * Connectors can indicate whether they don't support topN pushdown or that the action had no effect
