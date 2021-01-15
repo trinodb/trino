@@ -25,7 +25,6 @@ import static io.trino.spi.type.Chars.padSpaces;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestChars
 {
@@ -121,12 +120,9 @@ public class TestChars
 
     private static void assertByteCountWithoutTrailingSpaceFailure(String string, int offset, int maxLength)
     {
-        try {
-            byteCountWithoutTrailingSpace(utf8Slice(string), offset, maxLength);
-            fail("Expected exception");
-        }
-        catch (IllegalArgumentException expected) {
-        }
+        assertThatThrownBy(() -> byteCountWithoutTrailingSpace(utf8Slice(string), offset, maxLength))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("invalid offset/length|length must be greater than or equal to zero");
     }
 
     private static void assertByteCountWithoutTrailingSpace(String actual, int offset, int length, String expected)

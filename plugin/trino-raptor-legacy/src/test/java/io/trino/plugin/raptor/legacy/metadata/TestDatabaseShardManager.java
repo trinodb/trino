@@ -29,7 +29,6 @@ import io.trino.plugin.raptor.legacy.NodeSupplier;
 import io.trino.plugin.raptor.legacy.RaptorColumnHandle;
 import io.trino.plugin.raptor.legacy.util.DaoSupplier;
 import io.trino.spi.Node;
-import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -87,13 +86,13 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestDatabaseShardManager
@@ -155,13 +154,9 @@ public class TestDatabaseShardManager
         long transactionId = shardManager.beginTransaction();
         shardManager.rollbackTransaction(transactionId);
 
-        try {
-            shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
-        }
+        assertTrinoExceptionThrownBy(() -> shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0))
+                .hasErrorCode(TRANSACTION_CONFLICT)
+                .hasMessage("Transaction commit failed. Please retry the operation.");
     }
 
     @Test
@@ -180,13 +175,9 @@ public class TestDatabaseShardManager
         ShardNodes actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
         assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
 
-        try {
-            shardManager.replaceShardAssignment(tableId, shard, "node2", true);
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), SERVER_STARTING_UP.toErrorCode());
-        }
+        assertTrinoExceptionThrownBy(() -> shardManager.replaceShardAssignment(tableId, shard, "node2", true))
+                .hasErrorCode(SERVER_STARTING_UP)
+                .hasMessage("Cannot reassign shards while server is starting");
 
         // replace shard assignment to another node
         shardManager.replaceShardAssignment(tableId, shard, "node2", false);
@@ -331,14 +322,11 @@ public class TestDatabaseShardManager
 
         // verify that conflicting updates are handled
         newShards = ImmutableList.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
-        try {
-            transactionId = shardManager.beginTransaction();
-            shardManager.replaceShardUuids(transactionId, tableId, columns, replacedUuids, newShards, OptionalLong.of(0));
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
-        }
+        List<ShardInfo> finalNewShards = newShards;
+        long newTransactionId = shardManager.beginTransaction();
+        assertTrinoExceptionThrownBy(() -> shardManager.replaceShardUuids(newTransactionId, tableId, columns, replacedUuids, finalNewShards, OptionalLong.of(0)))
+                .hasErrorCode(TRANSACTION_CONFLICT)
+                .hasMessage("Table was updated by a different transaction. Please retry the operation.");
     }
 
     @Test
@@ -357,14 +345,11 @@ public class TestDatabaseShardManager
 
         shards = ImmutableList.of(shardInfo(UUID.randomUUID(), "node1"));
 
-        try {
-            transactionId = shardManager.beginTransaction();
-            shardManager.commitShards(transactionId, tableId, columns, shards, externalBatchId, 0);
-            fail("expected external batch exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS.toErrorCode());
-        }
+        List<ShardInfo> finalShards = shards;
+        long newTransactionId = shardManager.beginTransaction();
+        assertTrinoExceptionThrownBy(() -> shardManager.commitShards(newTransactionId, tableId, columns, finalShards, externalBatchId, 0))
+                .hasErrorCode(RAPTOR_EXTERNAL_BATCH_ALREADY_EXISTS)
+                .hasMessage("External batch already exists: foo");
     }
 
     @Test
@@ -391,13 +376,10 @@ public class TestDatabaseShardManager
         Set<Node> newNodes = ImmutableSet.of(node1, node3);
         shardManager = createShardManager(dbi, () -> newNodes, ticker);
 
-        try {
-            shardManager.getBucketAssignments(distributionId);
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), SERVER_STARTING_UP.toErrorCode());
-        }
+        ShardManager finalShardManager = shardManager;
+        assertTrinoExceptionThrownBy(() -> finalShardManager.getBucketAssignments(distributionId))
+                .hasErrorCode(SERVER_STARTING_UP)
+                .hasMessage("Cannot reassign buckets while server is starting");
 
         ticker.increment(2, DAYS);
         assignments = shardManager.getBucketAssignments(distributionId);
@@ -694,14 +676,9 @@ public class TestDatabaseShardManager
         dbi.onDemand(MetadataDao.class).blockMaintenance(tableId);
 
         long transactionId = shardManager.beginTransaction();
-        try {
-            shardManager.replaceShardUuids(transactionId, tableId, columns, oldShards, ImmutableSet.of(), OptionalLong.empty());
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
-            assertEquals(e.getMessage(), "Maintenance is blocked for table");
-        }
+        assertTrinoExceptionThrownBy(() -> shardManager.replaceShardUuids(transactionId, tableId, columns, oldShards, ImmutableSet.of(), OptionalLong.empty()))
+                .hasErrorCode(TRANSACTION_CONFLICT)
+                .hasMessage("Maintenance is blocked for table");
     }
 
     private Set<ShardNodes> getShardNodes(long tableId, TupleDomain<RaptorColumnHandle> predicate)

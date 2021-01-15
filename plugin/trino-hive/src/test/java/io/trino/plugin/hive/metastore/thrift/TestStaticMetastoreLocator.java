@@ -25,11 +25,9 @@ import java.net.SocketTimeoutException;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.airlift.testing.Assertions.assertContains;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestStaticMetastoreLocator
 {
@@ -187,13 +185,9 @@ public class TestStaticMetastoreLocator
 
     private static void assertGetTableException(ThriftMetastoreClient client)
     {
-        try {
-            client.getTable("foo", "bar");
-            fail("Expected getTable to throw an exception");
-        }
-        catch (TException e) {
-            assertContains(e.getMessage(), "Read timeout");
-        }
+        assertThatThrownBy(() -> client.getTable("foo", "bar"))
+                .isInstanceOf(TException.class)
+                .hasMessageContaining("Read timeout");
     }
 
     private static void assertCreateClientFails(MetastoreLocator locator, String message)

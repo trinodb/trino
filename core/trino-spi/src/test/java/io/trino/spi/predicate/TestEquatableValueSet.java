@@ -35,7 +35,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestEquatableValueSet
 {
@@ -141,12 +140,9 @@ public class TestEquatableValueSet
     public void testGetSingleValue()
     {
         assertEquals(EquatableValueSet.of(ID, 0L).getSingleValue(), 0L);
-        try {
-            EquatableValueSet.all(ID).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException ignored) {
-        }
+        assertThatThrownBy(() -> EquatableValueSet.all(ID).getSingleValue())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("EquatableValueSet does not have just a single value");
     }
 
     @Test

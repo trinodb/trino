@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_TOTAL_MEMORY_PER_NODE;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMemorySessionProperties
         extends AbstractTestQueryFramework
@@ -42,13 +42,9 @@ public class TestMemorySessionProperties
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "1kB")
                 .build();
-        try {
-            getQueryRunner().execute(session, sql);
-            fail("Expected query to fail due to low query_max_memory_per_node.");
-        }
-        catch (RuntimeException e) {
-            // expected
-        }
+        assertThatThrownBy(() -> getQueryRunner().execute(session, sql))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageStartingWith("Query exceeded per-node user memory limit of ");
     }
 
     @Test(timeOut = 240_000)
@@ -58,12 +54,8 @@ public class TestMemorySessionProperties
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(QUERY_MAX_TOTAL_MEMORY_PER_NODE, "1kB")
                 .build();
-        try {
-            getQueryRunner().execute(session, sql);
-            fail("Expected query to fail due to low query_max_memory_per_node.");
-        }
-        catch (RuntimeException e) {
-            // expected
-        }
+        assertThatThrownBy(() -> getQueryRunner().execute(session, sql))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageStartingWith("Query exceeded per-node total memory limit of ");
     }
 }

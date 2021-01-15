@@ -54,11 +54,11 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestMemoryPools
@@ -178,13 +178,9 @@ public class TestMemoryPools
         setUpCountStarFromOrdersWithJoin();
         ListenableFuture<?> future = userPool.reserve(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
         assertTrue(!future.isDone());
-        try {
-            future.cancel(true);
-            fail("cancel should fail");
-        }
-        catch (UnsupportedOperationException e) {
-            assertEquals(e.getMessage(), "cancellation is not supported");
-        }
+        assertThatThrownBy(() -> future.cancel(true))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("cancellation is not supported");
         userPool.free(fakeQueryId, "test", TEN_MEGABYTES.toBytes());
         assertTrue(future.isDone());
     }

@@ -16,9 +16,9 @@ package io.trino.util;
 import org.testng.annotations.Test;
 
 import static com.google.common.base.Throwables.propagateIfPossible;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestAutoCloseableCloser
 {
@@ -57,17 +57,14 @@ public class TestAutoCloseableCloser
         closer.register(failingCloseable(runtimeException));
         closer.register(failingCloseable(runtimeException));
 
-        try {
-            closer.close();
-            fail("expected to fail");
-        }
-        catch (Throwable t) {
-            assertSame(t, runtimeException);
-            assertSame(t.getSuppressed()[0], exception);
-            assertSame(t.getSuppressed()[1], exception);
-            assertSame(t.getSuppressed()[2], error);
-            assertSame(t.getSuppressed()[3], error);
-        }
+        assertThatThrownBy(closer::close)
+                .isInstanceOfSatisfying(Exception.class, t -> {
+                    assertSame(t, runtimeException);
+                    assertSame(t.getSuppressed()[0], exception);
+                    assertSame(t.getSuppressed()[1], exception);
+                    assertSame(t.getSuppressed()[2], error);
+                    assertSame(t.getSuppressed()[3], error);
+                });
     }
 
     private static void assertAllClosed(TestAutoCloseable... closeables)

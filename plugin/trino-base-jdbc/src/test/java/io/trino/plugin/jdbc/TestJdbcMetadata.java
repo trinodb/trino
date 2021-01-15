@@ -16,7 +16,6 @@ package io.trino.plugin.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
@@ -49,12 +48,14 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static java.lang.String.format;
 import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestJdbcMetadata
@@ -111,12 +112,9 @@ public class TestJdbcMetadata
 
     private void unknownTableColumnHandle(JdbcTableHandle tableHandle)
     {
-        try {
-            metadata.getColumnHandles(SESSION, tableHandle);
-            fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
-        }
-        catch (TableNotFoundException ignored) {
-        }
+        assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, tableHandle))
+                .isInstanceOf(TableNotFoundException.class)
+                .hasMessage(format("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName()));
     }
 
     @Test
@@ -146,12 +144,9 @@ public class TestJdbcMetadata
 
     private void unknownTableMetadata(JdbcTableHandle tableHandle)
     {
-        try {
-            metadata.getTableMetadata(SESSION, tableHandle);
-            fail("Expected getTableMetadata of unknown table to throw a TableNotFoundException");
-        }
-        catch (TableNotFoundException ignored) {
-        }
+        assertThatThrownBy(() -> metadata.getTableMetadata(SESSION, tableHandle))
+                .isInstanceOf(TableNotFoundException.class)
+                .hasMessage(format("Table '%s' has no supported columns (all 0 columns are not supported)", tableHandle.getSchemaTableName()));
     }
 
     @Test
@@ -228,24 +223,16 @@ public class TestJdbcMetadata
     @Test
     public void testDropTableTable()
     {
-        try {
-            metadata.dropTable(SESSION, tableHandle);
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.dropTable(SESSION, tableHandle))
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("DROP TABLE is disabled in this catalog");
 
         metadata = new JdbcMetadata(database.getJdbcClient(), true);
         metadata.dropTable(SESSION, tableHandle);
 
-        try {
-            metadata.getTableMetadata(SESSION, tableHandle);
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), NOT_FOUND.toErrorCode());
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.getTableMetadata(SESSION, tableHandle))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessageMatching("Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)");
     }
 
     @Test

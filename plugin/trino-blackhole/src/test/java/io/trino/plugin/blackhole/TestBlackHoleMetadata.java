@@ -16,7 +16,6 @@ package io.trino.plugin.blackhole;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
@@ -30,9 +29,9 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestBlackHoleMetadata
 {
@@ -77,14 +76,9 @@ public class TestBlackHoleMetadata
     public void testCreateTableInNotExistSchema()
     {
         SchemaTableName schemaTableName = new SchemaTableName("schema1", "test_table");
-        try {
-            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty());
-            fail("Should fail because schema does not exist");
-        }
-        catch (TrinoException ex) {
-            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
-            assertEquals(ex.getMessage(), "Schema schema1 not found");
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty()))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessage("Schema schema1 not found");
     }
 
     private void assertThatNoTableIsCreated()

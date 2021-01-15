@@ -51,7 +51,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestMemoryTracking
@@ -152,13 +151,9 @@ public class TestMemoryTracking
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, 100, 0);
         systemMemoryContext.setBytes(queryMaxTotalMemory.toBytes());
         assertOperatorMemoryAllocations(operatorContext.getOperatorMemoryContext(), 0, queryMaxTotalMemory.toBytes(), 0);
-        try {
-            systemMemoryContext.setBytes(queryMaxTotalMemory.toBytes() + 1);
-            fail("allocation should hit the per-node total memory limit");
-        }
-        catch (ExceededMemoryLimitException e) {
-            assertEquals(e.getMessage(), format("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test=%1$s}]", queryMaxTotalMemory));
-        }
+        assertThatThrownBy(() -> systemMemoryContext.setBytes(queryMaxTotalMemory.toBytes() + 1))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessage(format("Query exceeded per-node total memory limit of %1$s [Allocated: %1$s, Delta: 1B, Top Consumers: {test=%1$s}]", queryMaxTotalMemory));
     }
 
     @Test

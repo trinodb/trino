@@ -23,10 +23,10 @@ import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.Sta
 import static io.trino.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.Integer.MIN_VALUE;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestDateStatisticsBuilder
         extends AbstractStatisticsBuilderTest<DateStatisticsBuilder, Integer>
@@ -60,19 +60,13 @@ public class TestDateStatisticsBuilder
     @Test
     public void testValueOutOfRange()
     {
-        try {
-            new DateStatisticsBuilder(new NoOpBloomFilterBuilder()).addValue(MAX_VALUE + 1L);
-            fail("Expected ArithmeticException");
-        }
-        catch (ArithmeticException expected) {
-        }
+        assertThatThrownBy(() -> new DateStatisticsBuilder(new NoOpBloomFilterBuilder()).addValue(MAX_VALUE + 1L))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("integer overflow");
 
-        try {
-            new DateStatisticsBuilder(new NoOpBloomFilterBuilder()).addValue(MIN_VALUE - 1L);
-            fail("Expected ArithmeticException");
-        }
-        catch (ArithmeticException expected) {
-        }
+        assertThatThrownBy(() -> new DateStatisticsBuilder(new NoOpBloomFilterBuilder()).addValue(MIN_VALUE - 1L))
+                .isInstanceOf(ArithmeticException.class)
+                .hasMessage("integer overflow");
     }
 
     @Test

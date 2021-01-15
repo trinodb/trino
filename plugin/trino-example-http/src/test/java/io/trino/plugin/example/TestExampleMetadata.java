@@ -32,10 +32,10 @@ import static io.trino.plugin.example.MetadataUtil.CATALOG_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestExampleMetadata
@@ -77,18 +77,12 @@ public class TestExampleMetadata
                 "value", new ExampleColumnHandle("value", BIGINT, 1)));
 
         // unknown table
-        try {
-            metadata.getColumnHandles(SESSION, new ExampleTableHandle("unknown", "unknown"));
-            fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
-        }
-        catch (TableNotFoundException expected) {
-        }
-        try {
-            metadata.getColumnHandles(SESSION, new ExampleTableHandle("example", "unknown"));
-            fail("Expected getColumnHandle of unknown table to throw a TableNotFoundException");
-        }
-        catch (TableNotFoundException expected) {
-        }
+        assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, new ExampleTableHandle("unknown", "unknown")))
+                .isInstanceOf(TableNotFoundException.class)
+                .hasMessage("Table 'unknown.unknown' not found");
+        assertThatThrownBy(() -> metadata.getColumnHandles(SESSION, new ExampleTableHandle("example", "unknown")))
+                .isInstanceOf(TableNotFoundException.class)
+                .hasMessage("Table 'example.unknown' not found");
     }
 
     @Test

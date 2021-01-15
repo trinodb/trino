@@ -41,9 +41,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertFile;
 
 @Test(singleThreaded = true)
@@ -115,15 +115,12 @@ public class TestBackupManager
         File file = new File(temporary, "failure");
         Files.write("hello world", file, UTF_8);
 
-        try {
-            backupManager.submit(FAILURE_UUID, file).get(10, SECONDS);
-            fail("expected exception");
-        }
-        catch (ExecutionException wrapper) {
-            TrinoException e = (TrinoException) wrapper.getCause();
-            assertEquals(e.getErrorCode(), RAPTOR_BACKUP_ERROR.toErrorCode());
-            assertEquals(e.getMessage(), "Backup failed for testing");
-        }
+        assertThatThrownBy(() -> backupManager.submit(FAILURE_UUID, file).get(10, SECONDS))
+                .isInstanceOfSatisfying(ExecutionException.class, wrapper -> {
+                    TrinoException e = (TrinoException) wrapper.getCause();
+                    assertEquals(e.getErrorCode(), RAPTOR_BACKUP_ERROR.toErrorCode());
+                    assertEquals(e.getMessage(), "Backup failed for testing");
+                });
 
         assertBackupStats(0, 1, 0);
         assertEmptyStagingDirectory();
@@ -139,15 +136,12 @@ public class TestBackupManager
         File file = new File(temporary, "corrupt");
         Files.write("hello world", file, UTF_8);
 
-        try {
-            backupManager.submit(CORRUPTION_UUID, file).get(10, SECONDS);
-            fail("expected exception");
-        }
-        catch (ExecutionException wrapper) {
-            TrinoException e = (TrinoException) wrapper.getCause();
-            assertEquals(e.getErrorCode(), RAPTOR_BACKUP_CORRUPTION.toErrorCode());
-            assertEquals(e.getMessage(), "Backup is corrupt after write: " + CORRUPTION_UUID);
-        }
+        assertThatThrownBy(() -> backupManager.submit(CORRUPTION_UUID, file).get(10, SECONDS))
+                .isInstanceOfSatisfying(ExecutionException.class, wrapper -> {
+                    TrinoException e = (TrinoException) wrapper.getCause();
+                    assertEquals(e.getErrorCode(), RAPTOR_BACKUP_CORRUPTION.toErrorCode());
+                    assertEquals(e.getMessage(), "Backup is corrupt after write: " + CORRUPTION_UUID);
+                });
 
         File quarantineBase = storageService.getQuarantineFile(CORRUPTION_UUID);
         assertFile(new File(quarantineBase.getPath() + ".original"));

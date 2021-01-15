@@ -39,6 +39,7 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
@@ -86,26 +87,16 @@ public class TestMemoryMetadata
         SchemaTableName test2Table = new SchemaTableName("default", "test2");
         metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
 
-        try {
-            metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
-            fail("Should fail because table already exists");
-        }
-        catch (TrinoException ex) {
-            assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
-            assertEquals(ex.getMessage(), "Table [default.test1] already exists");
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false))
+                .hasErrorCode(ALREADY_EXISTS)
+                .hasMessage("Table [default.test1] already exists");
 
         ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table);
         metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()), false);
 
-        try {
-            metadata.renameTable(SESSION, test1TableHandle, test2Table);
-            fail("Should fail because table already exists");
-        }
-        catch (TrinoException ex) {
-            assertEquals(ex.getErrorCode(), ALREADY_EXISTS.toErrorCode());
-            assertEquals(ex.getMessage(), "Table [default.test2] already exists");
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.renameTable(SESSION, test1TableHandle, test2Table))
+                .hasErrorCode(ALREADY_EXISTS)
+                .hasMessage("Table [default.test2] already exists");
     }
 
     @Test
@@ -283,36 +274,21 @@ public class TestMemoryMetadata
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));
 
         SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
-        try {
-            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()), Optional.empty());
-            fail("Should fail because schema does not exist");
-        }
-        catch (TrinoException ex) {
-            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
-            assertEquals(ex.getMessage(), "Schema test1 not found");
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()), Optional.empty()))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessage("Schema test1 not found");
         assertNull(metadata.getTableHandle(SESSION, table1));
 
         SchemaTableName view2 = new SchemaTableName("test2", "test_schema_view2");
-        try {
-            metadata.createView(SESSION, view2, testingViewDefinition("aaa"), false);
-            fail("Should fail because schema does not exist");
-        }
-        catch (TrinoException ex) {
-            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
-            assertEquals(ex.getMessage(), "Schema test2 not found");
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, view2, testingViewDefinition("aaa"), false))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessage("Schema test2 not found");
         assertNull(metadata.getTableHandle(SESSION, view2));
 
         SchemaTableName view3 = new SchemaTableName("test3", "test_schema_view3");
-        try {
-            metadata.createView(SESSION, view3, testingViewDefinition("bbb"), true);
-            fail("Should fail because schema does not exist");
-        }
-        catch (TrinoException ex) {
-            assertEquals(ex.getErrorCode(), NOT_FOUND.toErrorCode());
-            assertEquals(ex.getMessage(), "Schema test3 not found");
-        }
+        assertTrinoExceptionThrownBy(() -> metadata.createView(SESSION, view3, testingViewDefinition("bbb"), true))
+                .hasErrorCode(NOT_FOUND)
+                .hasMessage("Schema test3 not found");
         assertNull(metadata.getTableHandle(SESSION, view3));
 
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableList.of("default"));

@@ -18,7 +18,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
-import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import org.testng.annotations.DataProvider;
@@ -32,11 +31,10 @@ import java.util.stream.Stream;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_VIEW_TRANSLATION_ERROR;
 import static io.trino.plugin.hive.HiveToTrinoTranslator.translateHiveViewToTrino;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestHiveQlTranslation
 {
@@ -271,13 +269,8 @@ public class TestHiveQlTranslation
 
     private void assertViewTranslationError(String badHiveQl, String expectMessage)
     {
-        try {
-            translateHiveViewToTrino(badHiveQl);
-            fail("Expected Hive translation to throw an exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), HIVE_VIEW_TRANSLATION_ERROR.toErrorCode());
-            assertTrue(e.getRawMessage().contains(expectMessage));
-        }
+        assertTrinoExceptionThrownBy(() -> translateHiveViewToTrino(badHiveQl))
+                .hasErrorCode(HIVE_VIEW_TRANSLATION_ERROR)
+                .hasMessageContaining(expectMessage);
     }
 }
