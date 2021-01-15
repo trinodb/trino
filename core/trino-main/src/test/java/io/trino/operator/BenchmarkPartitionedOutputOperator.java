@@ -25,7 +25,6 @@ import io.trino.operator.exchange.LocalPartitionGenerator;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -43,7 +42,6 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -97,8 +95,7 @@ public class BenchmarkPartitionedOutputOperator
         private static final int PARTITION_COUNT = 512;
         private static final int ENTRIES_PER_PAGE = 256;
         private static final DataSize MAX_MEMORY = DataSize.of(1, GIGABYTE);
-        private static final RowType rowType = RowType.anonymous(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR));
-        private static final List<Type> TYPES = ImmutableList.of(BIGINT, rowType, rowType, rowType);
+        private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, VARCHAR, VARCHAR);
         private static final ExecutorService EXECUTOR = newCachedThreadPool(daemonThreadsNamed("BenchmarkPartitionedOutputOperator-executor-%s"));
         private static final ScheduledExecutorService SCHEDULER = newScheduledThreadPool(1, daemonThreadsNamed("BenchmarkPartitionedOutputOperator-scheduledExecutor-%s"));
 
@@ -142,48 +139,32 @@ public class BenchmarkPartitionedOutputOperator
 
         private Page createPage()
         {
-            List<Object>[] testRows = generateTestRows(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR, VARCHAR), ENTRIES_PER_PAGE);
+            Object[][] testRows = generateTestData(ImmutableList.of(VARCHAR, VARCHAR, VARCHAR), ENTRIES_PER_PAGE);
             PageBuilder pageBuilder = new PageBuilder(TYPES);
             BlockBuilder bigintBlockBuilder = pageBuilder.getBlockBuilder(0);
-            BlockBuilder rowBlockBuilder = pageBuilder.getBlockBuilder(1);
-            BlockBuilder rowBlockBuilder2 = pageBuilder.getBlockBuilder(2);
-            BlockBuilder rowBlockBuilder3 = pageBuilder.getBlockBuilder(3);
+            BlockBuilder varcharBlockBuilder = pageBuilder.getBlockBuilder(1);
+            BlockBuilder varcharBlockBuilder2 = pageBuilder.getBlockBuilder(2);
+            BlockBuilder varcharBlockBuilder3 = pageBuilder.getBlockBuilder(3);
             for (int i = 0; i < ENTRIES_PER_PAGE; i++) {
                 BIGINT.writeLong(bigintBlockBuilder, i);
-                writeRow(testRows[i], rowBlockBuilder);
-                writeRow(testRows[i], rowBlockBuilder2);
-                writeRow(testRows[i], rowBlockBuilder3);
+                VARCHAR.writeSlice(varcharBlockBuilder, utf8Slice((String) testRows[0][i]));
+                VARCHAR.writeSlice(varcharBlockBuilder2, utf8Slice((String) testRows[1][i]));
+                VARCHAR.writeSlice(varcharBlockBuilder3, utf8Slice((String) testRows[2][i]));
             }
             pageBuilder.declarePositions(ENTRIES_PER_PAGE);
             return pageBuilder.build();
         }
 
-        private void writeRow(List<Object> testRow, BlockBuilder rowBlockBuilder)
+        private Object[][] generateTestData(List<Type> fieldTypes, int numRows)
         {
-            BlockBuilder singleRowBlockWriter = rowBlockBuilder.beginBlockEntry();
-            for (Object fieldValue : testRow) {
-                if (fieldValue instanceof String) {
-                    VARCHAR.writeSlice(singleRowBlockWriter, utf8Slice((String) fieldValue));
-                }
-                else {
-                    throw new UnsupportedOperationException();
-                }
-            }
-            rowBlockBuilder.closeEntry();
-        }
-
-        // copied & modifed from TestRowBlock
-        private List<Object>[] generateTestRows(List<Type> fieldTypes, int numRows)
-        {
-            @SuppressWarnings("unchecked")
-            List<Object>[] testRows = new List[numRows];
-            for (int i = 0; i < numRows; i++) {
-                List<Object> testRow = new ArrayList<>(fieldTypes.size());
-                for (int j = 0; j < fieldTypes.size(); j++) {
-                    if (fieldTypes.get(j) == VARCHAR) {
+            Object[][] testRows = new Object[fieldTypes.size()][];
+            for (int i = 0; i < fieldTypes.size(); i++) {
+                Object[] testRow = new Object[numRows];
+                for (int j = 0; j < numRows; j++) {
+                    if (fieldTypes.get(i) == VARCHAR) {
                         byte[] data = new byte[ThreadLocalRandom.current().nextInt(128)];
                         ThreadLocalRandom.current().nextBytes(data);
-                        testRow.add(new String(data, ISO_8859_1));
+                        testRow[j] = new String(data, ISO_8859_1);
                     }
                     else {
                         throw new UnsupportedOperationException();
