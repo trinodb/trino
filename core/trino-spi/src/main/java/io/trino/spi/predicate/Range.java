@@ -197,17 +197,7 @@ public final class Range
     @Override
     public String toString()
     {
-        if (isSingleValue()) {
-            return "?";
-        }
-
-        StringBuilder buffer = new StringBuilder();
-        buffer.append((low.getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-        buffer.append(low.isLowerUnbounded() ? "<min>" : "?");
-        buffer.append(", ");
-        buffer.append(high.isUpperUnbounded() ? "<max>" : "?");
-        buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
-        return buffer.toString();
+        return toString(ToStringSession.INSTANCE);
     }
 
     public String toString(ConnectorSession session)
