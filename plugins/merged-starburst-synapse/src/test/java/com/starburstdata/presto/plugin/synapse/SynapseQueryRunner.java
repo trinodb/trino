@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.synapse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.microsoft.sqlserver.jdbc.SQLServerException;
 import io.airlift.log.Logger;
 import io.prestosql.Session;
 import io.prestosql.metadata.QualifiedObjectName;
@@ -41,6 +42,9 @@ public final class SynapseQueryRunner
     private SynapseQueryRunner() {}
 
     private static final Logger log = Logger.get(SynapseQueryRunner.class);
+
+    private static final int ERROR_USER_EXISTS = 15023;
+    private static final int ERROR_OBJECT_EXISTS = 2714;
 
     public static final String CATALOG = "synapse";
     public static final String TEST_SCHEMA = "dbo";
@@ -96,20 +100,22 @@ public final class SynapseQueryRunner
             connectorProperties.putIfAbsent("connection-password", PASSWORD);
             connectorProperties.putIfAbsent("allow-drop-table", "true");
 
-            synapseServer.execute(format("DROP USER %s", ALICE_USER));
-            synapseServer.execute(format("DROP USER %s", BOB_USER));
-            synapseServer.execute(format("DROP USER %s", CHARLIE_USER));
             createUser(synapseServer, ALICE_USER, TEST_SCHEMA);
             createUser(synapseServer, BOB_USER, TEST_SCHEMA);
             createUser(synapseServer, CHARLIE_USER, TEST_SCHEMA);
 
-            // CREATE OR ALTER VIEW not supported
-            synapseServer.execute(format("DROP VIEW %s.user_context", TEST_SCHEMA));
-            synapseServer.execute(format(
-                    "CREATE VIEW %s.user_context AS SELECT " +
-                            "SESSION_USER AS session_user_column," +
-                            "CURRENT_USER AS current_user_column",
-                    TEST_SCHEMA));
+            try {
+                synapseServer.execute(format(
+                        "CREATE VIEW %s.user_context AS SELECT " +
+                                "SESSION_USER AS session_user_column," +
+                                "CURRENT_USER AS current_user_column",
+                        TEST_SCHEMA));
+            }
+            catch (RuntimeException e) {
+                if (e.getCause() instanceof SQLServerException && ((SQLServerException) e.getCause()).getErrorCode() != ERROR_OBJECT_EXISTS) {
+                    throw e;
+                }
+            }
 
             synapseServer.execute(format("GRANT SELECT ON %s.user_context to %s", TEST_SCHEMA, ALICE_USER));
             synapseServer.execute(format("GRANT SELECT ON %s.user_context to %s", TEST_SCHEMA, BOB_USER));
@@ -133,7 +139,14 @@ public final class SynapseQueryRunner
 
     private static void createUser(SynapseServer synapseServer, String user, String schema)
     {
-        synapseServer.execute(format("CREATE USER %s WITHOUT LOGIN WITH DEFAULT_SCHEMA = %s", user, schema));
+        try {
+            synapseServer.execute(format("CREATE USER %s WITHOUT LOGIN WITH DEFAULT_SCHEMA = %s", user, schema));
+        }
+        catch (RuntimeException e) {
+            if (e.getCause() instanceof SQLServerException && ((SQLServerException) e.getCause()).getErrorCode() != ERROR_USER_EXISTS) {
+                throw e;
+            }
+        }
     }
 
     public static Session createSession(String user)
