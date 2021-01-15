@@ -18,13 +18,27 @@ import org.testcontainers.utility.DockerImageName;
 
 import java.sql.Connection;
 import java.sql.Statement;
+import java.util.UUID;
+
+import static java.lang.String.format;
 
 public final class TestingSqlServer
         extends MSSQLServerContainer<TestingSqlServer>
 {
+    private final boolean snapshotIsolationEnabled;
+    private final String databaseName;
+
     public TestingSqlServer()
     {
+        this(true);
+    }
+
+    public TestingSqlServer(boolean snapshotIsolationEnabled)
+    {
         super(DockerImageName.parse("microsoft/mssql-server-linux:2017-CU13").asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server:2017-CU12"));
+        this.snapshotIsolationEnabled = snapshotIsolationEnabled;
+        this.databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
+
         addEnv("ACCEPT_EULA", "yes");
     }
 
@@ -37,5 +51,24 @@ public final class TestingSqlServer
         catch (Exception e) {
             throw new RuntimeException("Failed to execute statement: " + sql, e);
         }
+    }
+
+    @Override
+    public void start()
+    {
+        super.start();
+        setUpDatabase();
+    }
+
+    private void setUpDatabase()
+    {
+        execute("CREATE DATABASE " + databaseName);
+
+        if (snapshotIsolationEnabled) {
+            execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
+            execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
+        }
+
+        this.withUrlParam("database", this.databaseName);
     }
 }
