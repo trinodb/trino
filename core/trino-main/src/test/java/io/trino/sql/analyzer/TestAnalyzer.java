@@ -651,7 +651,7 @@ public class TestAnalyzer
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
         assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN b PRECEDING AND a PRECEDING) FROM t1 GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
-        assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN a PRECEDING AND UNBOUNDED PRECEDING) FROM t1 GROUP BY b")
+        assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN a PRECEDING AND UNBOUNDED FOLLOWING) FROM t1 GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
     }
 
