@@ -166,7 +166,7 @@ public class MockThriftMetastoreClient
     @Override
     public List<FieldSchema> getFields(String databaseName, String tableName)
     {
-        return ImmutableList.of(new FieldSchema("key", "string", null));
+        return ImmutableList.of(new FieldSchema(TEST_COLUMN, "bigint", null));
     }
 
     @Override

@@ -103,6 +103,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaParseException;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
@@ -180,6 +182,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.hive.HiveTableProperties.ANALYZE_COLUMNS_PROPERTY;
+import static io.trino.plugin.hive.HiveTableProperties.AVRO_SCHEMA_LITERAL;
 import static io.trino.plugin.hive.HiveTableProperties.AVRO_SCHEMA_URL;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
@@ -198,6 +201,7 @@ import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR;
 import static io.trino.plugin.hive.HiveTableProperties.TEXTFILE_FIELD_SEPARATOR_ESCAPE;
 import static io.trino.plugin.hive.HiveTableProperties.getAnalyzeColumns;
+import static io.trino.plugin.hive.HiveTableProperties.getAvroSchemaLiteral;
 import static io.trino.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.trino.plugin.hive.HiveTableProperties.getBucketProperty;
 import static io.trino.plugin.hive.HiveTableProperties.getExternalLocation;
@@ -298,6 +302,7 @@ public class HiveMetadata
     private static final String NULL_FORMAT_KEY = serdeConstants.SERIALIZATION_NULL_FORMAT;
 
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
+    public static final String AVRO_SCHEMA_LITERAL_KEY = "avro.schema.literal";
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
     public static final String DELTA_LAKE_PROVIDER = "delta";
 
@@ -625,6 +630,10 @@ public class HiveMetadata
         if (avroSchemaUrl != null) {
             properties.put(AVRO_SCHEMA_URL, avroSchemaUrl);
         }
+        String avroSchemaLiteral = table.getParameters().get(AVRO_SCHEMA_LITERAL_KEY);
+        if (avroSchemaLiteral != null) {
+            properties.put(AVRO_SCHEMA_LITERAL, avroSchemaLiteral);
+        }
 
         // Textfile and CSV specific properties
         getSerdeProperty(table, SKIP_HEADER_COUNT_KEY)
@@ -852,6 +861,10 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
         }
 
+        if ((bucketProperty.isPresent() || !partitionedBy.isEmpty()) && getAvroSchemaLiteral(tableMetadata.getProperties()) != null) {
+            throw new TrinoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema literal is set");
+        }
+
         validateTimestampColumns(tableMetadata.getColumns(), getTimestampPrecision(session));
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
@@ -933,9 +946,15 @@ public class HiveMetadata
 
         // Avro specific properties
         String avroSchemaUrl = getAvroSchemaUrl(tableMetadata.getProperties());
+        String avroSchemaLiteral = getAvroSchemaLiteral(tableMetadata.getProperties());
         if (avroSchemaUrl != null) {
+            checkState(avroSchemaLiteral == null, "avro_schema_url and avro_schema_literal cannot both be set");
             checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.AVRO, AVRO_SCHEMA_URL);
             tableProperties.put(AVRO_SCHEMA_URL_KEY, validateAndNormalizeAvroSchemaUrl(avroSchemaUrl, hdfsContext));
+        }
+        else if (avroSchemaLiteral != null) {
+            checkFormatForProperty(hiveStorageFormat, HiveStorageFormat.AVRO, AVRO_SCHEMA_LITERAL);
+            tableProperties.put(AVRO_SCHEMA_LITERAL_KEY, validateAvroSchemaLiteral(avroSchemaLiteral));
         }
 
         // Textfile and CSV specific properties
@@ -1050,6 +1069,17 @@ public class HiveMetadata
         }
         catch (IOException e) {
             throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot open Avro schema file: " + url, e);
+        }
+    }
+
+    private String validateAvroSchemaLiteral(String avroSchemaLiteral)
+    {
+        try {
+            new Schema.Parser().parse(avroSchemaLiteral);
+            return avroSchemaLiteral;
+        }
+        catch (SchemaParseException e) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, "Failed to parse Avro schema: " + avroSchemaLiteral, e);
         }
     }
 
@@ -1188,6 +1218,9 @@ public class HiveMetadata
         if (table.getParameters().containsKey(AVRO_SCHEMA_URL_KEY) || table.getStorage().getSerdeParameters().containsKey(AVRO_SCHEMA_URL_KEY)) {
             throw new TrinoException(NOT_SUPPORTED, "ALTER TABLE not supported when Avro schema url is set");
         }
+        if (table.getParameters().containsKey(AVRO_SCHEMA_LITERAL_KEY) || table.getStorage().getSerdeParameters().containsKey(AVRO_SCHEMA_LITERAL_KEY)) {
+            throw new TrinoException(NOT_SUPPORTED, "ALTER TABLE not supported when Avro schema literal is set");
+        }
     }
 
     @Override
@@ -1308,6 +1341,10 @@ public class HiveMetadata
 
         if (getAvroSchemaUrl(tableMetadata.getProperties()) != null) {
             throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS not supported when Avro schema url is set");
+        }
+
+        if (getAvroSchemaLiteral(tableMetadata.getProperties()) != null) {
+            throw new TrinoException(NOT_SUPPORTED, "CREATE TABLE AS not supported when Avro schema literal is set");
         }
 
         HiveStorageFormat tableStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());

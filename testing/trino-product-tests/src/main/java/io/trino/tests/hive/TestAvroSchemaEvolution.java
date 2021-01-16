@@ -19,6 +19,11 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
@@ -29,54 +34,70 @@ import static java.lang.String.format;
 public class TestAvroSchemaEvolution
         extends ProductTest
 {
-    private static final String TABLE_NAME = "product_tests_avro_table";
+    private static final String TABLE_WITH_SCHEMA_URL = "product_tests_avro_table_with_schema_url";
+    private static final String TABLE_WITH_SCHEMA_LITERAL = "product_tests_avro_table_with_schema_literal";
     // TODO move Avro schema files to classpath and use tempto SshClient to upload them
-    private static final String ORIGINAL_SCHEMA = "file:///docker/presto-product-tests/avro/original_schema.avsc";
-    private static final String CREATE_TABLE = format("" +
-                    "CREATE TABLE %s (dummy_col VARCHAR)" +
-                    "WITH (" +
-                    "format='AVRO', " +
-                    "avro_schema_url='%s'" +
-                    ")",
-            TABLE_NAME,
-            ORIGINAL_SCHEMA);
-    private static final String RENAMED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/rename_column_schema.avsc";
-    private static final String REMOVED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/remove_column_schema.avsc";
-    private static final String ADDED_COLUMN_SCHEMA = "file:///docker/presto-product-tests/avro/add_column_schema.avsc";
-    private static final String CHANGE_COLUMN_TYPE_SCHEMA = "file:///docker/presto-product-tests/avro/change_column_type_schema.avsc";
-    private static final String INCOMPATIBLE_TYPE_SCHEMA = "file:///docker/presto-product-tests/avro/incompatible_type_schema.avsc";
-    private static final String SELECT_STAR = "SELECT * FROM " + TABLE_NAME;
-    private static final String COLUMNS_IN_TABLE = "SHOW COLUMNS IN " + TABLE_NAME;
+    private static final String ORIGINAL_SCHEMA_URL = "file:///docker/presto-product-tests/avro/original_schema.avsc";
+    private static final String RENAMED_COLUMN_SCHEMA_URL = "file:///docker/presto-product-tests/avro/rename_column_schema.avsc";
+    private static final String REMOVED_COLUMN_SCHEMA_URL = "file:///docker/presto-product-tests/avro/remove_column_schema.avsc";
+    private static final String ADDED_COLUMN_SCHEMA_URL = "file:///docker/presto-product-tests/avro/add_column_schema.avsc";
+    private static final String CHANGE_COLUMN_TYPE_SCHEMA_URL = "file:///docker/presto-product-tests/avro/change_column_type_schema.avsc";
+    private static final String INCOMPATIBLE_TYPE_SCHEMA_URL = "file:///docker/presto-product-tests/avro/incompatible_type_schema.avsc";
 
     @BeforeTestWithContext
     public void createAndLoadTable()
+            throws IOException
     {
-        query(CREATE_TABLE);
-        query(format("INSERT INTO %s VALUES ('string0', 0)", TABLE_NAME));
+        query(format("" +
+                        "CREATE TABLE %s (dummy_col VARCHAR)" +
+                        "WITH (" +
+                        "format='AVRO', " +
+                        "avro_schema_url='%s'" +
+                        ")",
+                TABLE_WITH_SCHEMA_URL,
+                ORIGINAL_SCHEMA_URL));
+        query(format("" +
+                        "CREATE TABLE %s (dummy_col VARCHAR)" +
+                        "WITH (" +
+                        "format='AVRO', " +
+                        "avro_schema_literal='%s'" +
+                        ")",
+                TABLE_WITH_SCHEMA_LITERAL,
+                readSchemaLiteralFromUrl(ORIGINAL_SCHEMA_URL)));
+        query(format("INSERT INTO %s VALUES ('string0', 0)", TABLE_WITH_SCHEMA_URL));
+        query(format("INSERT INTO %s VALUES ('string0', 0)", TABLE_WITH_SCHEMA_LITERAL));
     }
 
     @AfterTestWithContext
     public void dropTestTable()
     {
-        query(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
+        query(format("DROP TABLE IF EXISTS %s", TABLE_WITH_SCHEMA_URL));
+        query(format("DROP TABLE IF EXISTS %s", TABLE_WITH_SCHEMA_LITERAL));
     }
 
     @Test(groups = AVRO)
     public void testSelectTable()
     {
-        assertThat(query(format("SELECT string_col FROM %s", TABLE_NAME)))
-                .containsExactly(row("string0"));
+        assertUnmodified();
     }
 
     @Test(groups = AVRO)
     public void testInsertAfterSchemaEvolution()
+            throws IOException
     {
-        assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+        assertUnmodified();
 
-        alterTableSchemaTo(ADDED_COLUMN_SCHEMA);
-        query(format("INSERT INTO %s VALUES ('string1', 1, 101)", TABLE_NAME));
-        assertThat(query(SELECT_STAR))
+        alterTableSchemaUrl(TABLE_WITH_SCHEMA_URL, ADDED_COLUMN_SCHEMA_URL);
+        alterTableSchemaLiteral(TABLE_WITH_SCHEMA_LITERAL, readSchemaLiteralFromUrl(ADDED_COLUMN_SCHEMA_URL));
+
+        query(format("INSERT INTO %s VALUES ('string1', 1, 101)", TABLE_WITH_SCHEMA_URL));
+        query(format("INSERT INTO %s VALUES ('string1', 1, 101)", TABLE_WITH_SCHEMA_LITERAL));
+
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_URL))
+                .containsOnly(
+                        row("string0", 0, 100),
+                        row("string1", 1, 101));
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_LITERAL))
                 .containsOnly(
                         row("string0", 0, 100),
                         row("string1", 1, 101));
@@ -84,74 +105,107 @@ public class TestAvroSchemaEvolution
 
     @Test(groups = AVRO)
     public void testSchemaEvolutionWithIncompatibleType()
+            throws IOException
     {
-        assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+        assertUnmodified();
 
-        alterTableSchemaTo(INCOMPATIBLE_TYPE_SCHEMA);
-        assertThat(() -> query(SELECT_STAR))
+        alterTableSchemaUrl(TABLE_WITH_SCHEMA_URL, INCOMPATIBLE_TYPE_SCHEMA_URL);
+        alterTableSchemaLiteral(TABLE_WITH_SCHEMA_LITERAL, readSchemaLiteralFromUrl(INCOMPATIBLE_TYPE_SCHEMA_URL));
+
+        assertThat(() -> query("SELECT * FROM " + TABLE_WITH_SCHEMA_URL))
+                .failsWithMessage("Found int, expecting string");
+        assertThat(() -> query("SELECT * FROM " + TABLE_WITH_SCHEMA_URL))
                 .failsWithMessage("Found int, expecting string");
     }
 
     @Test(groups = AVRO)
     public void testSchemaEvolution()
+            throws IOException
     {
-        assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+        assertUnmodified();
 
-        alterTableSchemaTo(CHANGE_COLUMN_TYPE_SCHEMA);
-        assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+        alterTableSchemaUrl(TABLE_WITH_SCHEMA_URL, CHANGE_COLUMN_TYPE_SCHEMA_URL);
+        alterTableSchemaLiteral(TABLE_WITH_SCHEMA_LITERAL, readSchemaLiteralFromUrl(CHANGE_COLUMN_TYPE_SCHEMA_URL));
+
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_URL))
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "bigint", "", ""));
-        assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsExactlyInOrder(
+                        row("string_col", "varchar", "", ""),
+                        row("int_col", "bigint", "", ""));
 
-        alterTableSchemaTo(ADDED_COLUMN_SCHEMA);
-        assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_URL))
+                .containsOnly(row("string0", 0));
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsOnly(row("string0", 0));
+
+        alterTableSchemaUrl(TABLE_WITH_SCHEMA_URL, ADDED_COLUMN_SCHEMA_URL);
+        alterTableSchemaLiteral(TABLE_WITH_SCHEMA_LITERAL, readSchemaLiteralFromUrl(ADDED_COLUMN_SCHEMA_URL));
+
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_URL))
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""),
                         row("int_col_added", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0, 100));
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsExactlyInOrder(
+                        row("string_col", "varchar", "", ""),
+                        row("int_col", "integer", "", ""),
+                        row("int_col_added", "integer", "", ""));
 
-        alterTableSchemaTo(REMOVED_COLUMN_SCHEMA);
-        assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(row("int_col", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
-                .containsExactly(row(0));
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_URL))
+                .containsOnly(row("string0", 0, 100));
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsOnly(row("string0", 0, 100));
 
-        alterTableSchemaTo(RENAMED_COLUMN_SCHEMA);
-        assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+        alterTableSchemaUrl(TABLE_WITH_SCHEMA_URL, REMOVED_COLUMN_SCHEMA_URL);
+        alterTableSchemaLiteral(TABLE_WITH_SCHEMA_LITERAL, readSchemaLiteralFromUrl(REMOVED_COLUMN_SCHEMA_URL));
+
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_URL))
+                .containsExactlyInOrder(
+                        row("int_col", "integer", "", ""));
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsExactlyInOrder(
+                        row("int_col", "integer", "", ""));
+
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_URL))
+                .containsOnly(row(0));
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsOnly(row(0));
+
+        alterTableSchemaUrl(TABLE_WITH_SCHEMA_URL, RENAMED_COLUMN_SCHEMA_URL);
+        alterTableSchemaLiteral(TABLE_WITH_SCHEMA_LITERAL, readSchemaLiteralFromUrl(RENAMED_COLUMN_SCHEMA_URL));
+
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_URL))
+                .containsExactlyInOrder(
                         row("string_col", "varchar", "", ""),
                         row("int_col_renamed", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", null));
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsExactlyInOrder(
+                        row("string_col", "varchar", "", ""),
+                        row("int_col_renamed", "integer", "", ""));
+
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_URL))
+                .containsOnly(row("string0", null));
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsOnly(row("string0", null));
     }
 
     @Test(groups = AVRO)
     public void testSchemaWhenUrlIsUnset()
     {
-        assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
-                        row("string_col", "varchar", "", ""),
-                        row("int_col", "integer", "", ""));
-        assertThat(query(SELECT_STAR))
-                .containsExactly(row("string0", 0));
+        assertUnmodified();
 
-        executeHiveQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", TABLE_NAME));
-        assertThat(query(COLUMNS_IN_TABLE))
-                .containsExactly(
+        executeHiveQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.url')", TABLE_WITH_SCHEMA_URL));
+        executeHiveQuery(format("ALTER TABLE %s UNSET TBLPROPERTIES('avro.schema.literal')", TABLE_WITH_SCHEMA_LITERAL));
+
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_URL))
+                .containsExactlyInOrder(
+                        row("dummy_col", "varchar", "", ""));
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsExactlyInOrder(
                         row("dummy_col", "varchar", "", ""));
     }
 
@@ -162,22 +216,61 @@ public class TestAvroSchemaEvolution
         query(format(
                 "CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)",
                 createTableLikeName,
-                TABLE_NAME));
+                TABLE_WITH_SCHEMA_URL));
 
         query(format("INSERT INTO %s VALUES ('string0', 0)", createTableLikeName));
 
         assertThat(query(format("SELECT string_col FROM %s", createTableLikeName)))
-                .containsExactly(row("string0"));
+                .containsExactlyInOrder(row("string0"));
+        query("DROP TABLE IF EXISTS " + createTableLikeName);
+
+        query(format(
+                "CREATE TABLE %s (LIKE %s INCLUDING PROPERTIES)",
+                createTableLikeName,
+                TABLE_WITH_SCHEMA_LITERAL));
+
+        query(format("INSERT INTO %s VALUES ('string0', 0)", createTableLikeName));
+
+        assertThat(query(format("SELECT string_col FROM %s", createTableLikeName)))
+                .containsExactlyInOrder(row("string0"));
         query("DROP TABLE IF EXISTS " + createTableLikeName);
     }
 
-    private void alterTableSchemaTo(String schema)
+    private void assertUnmodified()
     {
-        executeHiveQuery(format("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.url'='%s')", TABLE_NAME, schema));
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_URL))
+                .containsExactlyInOrder(
+                        row("string_col", "varchar", "", ""),
+                        row("int_col", "integer", "", ""));
+        assertThat(query("SHOW COLUMNS IN " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsExactlyInOrder(
+                        row("string_col", "varchar", "", ""),
+                        row("int_col", "integer", "", ""));
+
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_URL))
+                .containsOnly(row("string0", 0));
+        assertThat(query("SELECT * FROM " + TABLE_WITH_SCHEMA_LITERAL))
+                .containsOnly(row("string0", 0));
+    }
+
+    private static void alterTableSchemaUrl(String tableName, String newUrl)
+    {
+        executeHiveQuery(format("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.url'='%s')", tableName, newUrl));
+    }
+
+    private static void alterTableSchemaLiteral(String tableName, String newLiteral)
+    {
+        executeHiveQuery(format("ALTER TABLE %s SET TBLPROPERTIES('avro.schema.literal'='%s')", tableName, newLiteral));
     }
 
     private static void executeHiveQuery(String query)
     {
         testContext().getDependency(QueryExecutor.class, "hive").executeQuery(query);
+    }
+
+    private static String readSchemaLiteralFromUrl(String url)
+            throws IOException
+    {
+        return Files.readString(Path.of(URI.create(url)));
     }
 }
