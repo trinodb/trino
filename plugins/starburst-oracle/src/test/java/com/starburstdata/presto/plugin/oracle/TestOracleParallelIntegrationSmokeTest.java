@@ -77,16 +77,16 @@ public class TestOracleParallelIntegrationSmokeTest
         // with aggregation
         assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
         assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5"))
-                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                // TODO https://github.com/trinodb/trino/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
                 .isNotFullyPushedDown(LimitNode.class);
         assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isNotFullyPushedDown(LimitNode.class);
 
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3"))
-                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                // TODO https://github.com/trinodb/trino/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
                 .isNotFullyPushedDown(LimitNode.class);
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3"))
-                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                // TODO https://github.com/trinodb/trino/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
                 .isNotFullyPushedDown(LimitNode.class);
     }
 }

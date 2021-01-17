@@ -172,16 +172,16 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
         assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")) // global aggregation, LIMIT removed
                 .isNotFullyPushedDown(AggregationNode.class);
         assertThat(query("SELECT regionkey, max(name) FROM nation GROUP BY regionkey LIMIT 5"))
-                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                // TODO https://github.com/trinodb/trino/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
                 .isNotFullyPushedDown(ProjectNode.class);
         assertThat(query("SELECT DISTINCT regionkey FROM nation LIMIT 5")).isNotFullyPushedDown(ProjectNode.class); // requires aggregation pushdown, which is disabled by default
 
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3"))
-                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                // TODO https://github.com/trinodb/trino/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
                 .isNotFullyPushedDown(ProjectNode.class);
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3"))
-                // TODO https://github.com/prestosql/presto/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
+                // TODO https://github.com/trinodb/trino/issues/5541 .isNotFullyPushedDown ProjectNode.class, LimitNode
                 .isNotFullyPushedDown(ProjectNode.class);
     }
 
