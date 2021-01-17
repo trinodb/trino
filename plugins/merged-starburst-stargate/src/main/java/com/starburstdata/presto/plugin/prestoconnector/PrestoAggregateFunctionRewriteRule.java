@@ -143,7 +143,7 @@ class PrestoAggregateFunctionRewriteRule
         throw new UnsupportedOperationException("Unknown SortOrder: " + sortOrder);
     }
 
-    // TODO simplify with https://github.com/prestosql/presto/pull/6125
+    // TODO simplify with https://github.com/trinodb/trino/pull/6125
     private static JdbcColumnHandle getAssignment(RewriteContext context, String name)
     {
         requireNonNull(name, "name is null");

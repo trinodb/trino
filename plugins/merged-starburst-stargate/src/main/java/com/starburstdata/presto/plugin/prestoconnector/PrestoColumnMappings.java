@@ -93,7 +93,7 @@ final class PrestoColumnMappings
                             throws SQLException
                     {
                         // resultSet.getObject fails for certain dates
-                        // TODO simplify this read function once https://github.com/prestosql/presto/issues/6242 is fixed
+                        // TODO simplify this read function once https://github.com/trinodb/trino/issues/6242 is fixed
                         resultSet.getString(columnIndex);
                         return resultSet.wasNull();
                     }
