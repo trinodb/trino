@@ -115,7 +115,7 @@ public class TestOracleCaseInsensitiveMapping
                         AutoCloseable ignore2 = withSchema(otherSchemaName);
                         AutoCloseable ignore3 = withTable(schemaName + ".some_table_name", "(c varchar(5))")) {
                     assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains("casesensitivename");
-                    assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.prestosql.plugin.jdbc.JdbcClient.getSchemaNames to return a List
+                    assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn().filter("casesensitivename"::equals)).hasSize(1); // TODO change io.trino.plugin.jdbc.JdbcClient.getSchemaNames to return a List
                     assertQueryFails("SHOW TABLES FROM casesensitivename", "Failed to find remote schema name:.*Multiple entries with same key.*");
                     assertQueryFails("SELECT * FROM casesensitivename.some_table_name", "Failed to find remote schema name:.*Multiple entries with same key.*");
                 }

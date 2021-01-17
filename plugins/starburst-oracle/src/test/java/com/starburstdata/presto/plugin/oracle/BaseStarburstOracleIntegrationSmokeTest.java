@@ -113,7 +113,7 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
      * This test covers only predicate pushdown for Oracle (it doesn't test timestamp semantics).
      *
      * @see com.starburstdata.presto.plugin.oracle.TestOracleTypeMapping
-     * @see io.prestosql.testing.AbstractTestDistributedQueries
+     * @see io.trino.testing.AbstractTestDistributedQueries
      */
     @Test
     public void testPredicatePushdownForTimestamps()
