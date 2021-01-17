@@ -121,7 +121,7 @@ class SnowflakePageSourceProvider
         TupleDomain<HiveColumnHandle> filePredicate = TupleDomain.withColumnDomains(
                 dynamicFilter.getDomains().orElseThrow(() -> new IllegalArgumentException("NONE dynamic filter should be handled by engine"))
                         .entrySet().stream()
-                        // TODO use https://github.com/prestosql/presto/pull/3538 APIs
+                        // TODO use https://github.com/trinodb/trino/pull/3538 APIs
                         .filter(entry -> {
                             // We transform the values, so the domain would need to be translated.
                             return !(entry.getValue().getType() instanceof TimestampWithTimeZoneType);

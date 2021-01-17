@@ -49,7 +49,7 @@ final class HiveUtils
         return new HiveColumnHandle(
                 // Snowflake supports case-sensitive column names, but does not allow collisions when compared case-insensitively.
                 // The export creates Parquet files with lower-case column names.
-                // TODO lowercasing is a workaround for https://github.com/prestosql/presto/issues/3574. Remove
+                // TODO lowercasing is a workaround for https://github.com/trinodb/trino/issues/3574. Remove
                 jdbcColumnHandle.getColumnName().toLowerCase(ENGLISH),
                 columnIndex,
                 toHiveType(jdbcColumnHandle.getColumnType()),

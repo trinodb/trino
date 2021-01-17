@@ -31,7 +31,7 @@ public class TestSnowflakeDynamicFiltering
 
     @Override
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: .*expected:<2> to be greater than <2>")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "java.lang.AssertionError: .*expected:<2> to be greater than <2>")
     public void testDynamicFiltering()
     {
         super.testDynamicFiltering();
@@ -39,7 +39,7 @@ public class TestSnowflakeDynamicFiltering
 
     @Override
     @Test
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/5172", match = "java.lang.AssertionError: expected \\[\\d] but found \\[\\d]")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "java.lang.AssertionError: expected \\[\\d] but found \\[\\d]")
     public void testDynamicFilteringWithLimit()
     {
         super.testDynamicFilteringWithLimit();
