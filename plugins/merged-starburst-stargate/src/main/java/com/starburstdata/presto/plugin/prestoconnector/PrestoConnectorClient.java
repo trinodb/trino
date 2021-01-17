@@ -405,7 +405,7 @@ public class PrestoConnectorClient
         }
 
         if (type instanceof VarcharType) {
-            // See io.prestosql.connector.system.jdbc.ColumnJdbcTable#columnSize
+            // See io.trino.connector.system.jdbc.ColumnJdbcTable#columnSize
             int columnSize = ((VarcharType) type).getLength().orElse(VarcharType.UNBOUNDED_LENGTH);
             return Optional.of(jdbcTypeHandleWithColumnSize(Types.VARCHAR, columnSize));
         }
