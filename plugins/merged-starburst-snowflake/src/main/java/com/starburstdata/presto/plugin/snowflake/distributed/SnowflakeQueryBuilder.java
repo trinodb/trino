@@ -30,14 +30,14 @@ import static java.util.stream.Collectors.joining;
  * The builder generates an expression that encodes the information storing the milliseconds
  * in the upper 52 bits and the offset (in minutes) in the lower 12 bits (as 2048 + number of
  * offset minutes, to make it easier to deal with negative numbers).  Note that the millisecond
- * representation is compatible with Presto's encoding of {@link io.prestosql.spi.type.TimestampWithTimeZoneType},
+ * representation is compatible with Presto's encoding of {@link io.trino.spi.type.TimestampWithTimeZoneType},
  * so this encoding has the same precision as Presto's type (the least significant 12 bits
  * have a different meaning there - they represent a timezone id, so a translation is necessary).
  */
 public class SnowflakeQueryBuilder
         extends QueryBuilder
 {
-    // Similar to io.prestosql.spi.type.DateTimeEncoding#MILLIS_SHIFT
+    // Similar to io.trino.spi.type.DateTimeEncoding#MILLIS_SHIFT
     public static final int TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT = 12;
     public static final int TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK = 0xFFF;
     public static final int ZONE_OFFSET_MINUTES_BIAS = 2048;

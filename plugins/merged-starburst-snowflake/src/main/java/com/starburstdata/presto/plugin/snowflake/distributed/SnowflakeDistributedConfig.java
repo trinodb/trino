@@ -25,7 +25,7 @@ public class SnowflakeDistributedConfig
 {
     private String stageSchema;
 
-    // defaults copied from io.prestosql.plugin.hive.HiveConfig
+    // defaults copied from io.trino.plugin.hive.HiveConfig
     private DataSize maxInitialSplitSize;
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private DataSize parquetMaxReadBlockSize = DataSize.of(16, MEGABYTE);

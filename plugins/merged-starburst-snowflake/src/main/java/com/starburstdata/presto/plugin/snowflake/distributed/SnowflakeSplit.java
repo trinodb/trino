@@ -24,7 +24,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-// Snowflake split contains some fields from io.prestosql.plugin.hive.HiveSplit
+// Snowflake split contains some fields from io.trino.plugin.hive.HiveSplit
 public class SnowflakeSplit
         implements ConnectorSplit
 {

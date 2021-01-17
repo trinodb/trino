@@ -54,7 +54,7 @@ public class SnowflakeDistributedSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return ImmutableList.of(
-                // Hive session properties copied from io.prestosql.plugin.hive.HiveSessionProperties
+                // Hive session properties copied from io.trino.plugin.hive.HiveSessionProperties
                 dataSizeProperty(
                         MAX_INITIAL_SPLIT_SIZE,
                         "Max initial split size",
