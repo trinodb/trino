@@ -39,16 +39,46 @@ public class TestPrestoConnectorPlugin
     public void testCreateConnector()
     {
         createTestingPlugin(ImmutableMap.of("connection-url", "jdbc:presto://localhost:8080/test", "connection-user", "presto"));
+    }
 
-        assertThatThrownBy(() -> createTestingPlugin(ImmutableMap.of("connection-url", "jdbc:presto://localhost:8080/", "connection-user", "presto")))
+    @Test
+    public void testValidateConnectionUrl()
+    {
+        // connection-url not set
+        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-user", "presto")))
                 .isInstanceOf(ApplicationConfigurationException.class)
-                .hasMessageContaining("Invalid Presto JDBC URL: catalog and/or schema is not provided");
+                .hasMessageContaining("Invalid configuration property connection-url: may not be null");
 
-        assertThatThrownBy(() -> createTestingPlugin(ImmutableMap.of("connection-url", "test", "connection-user", "presto")))
+        // connection-url is empty
+        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "", "connection-user", "presto")))
                 .isInstanceOf(ApplicationConfigurationException.class)
-                .hasMessageContaining("Invalid Presto JDBC URL");
+                // We need only one validation error, but we currently have more than one.
+                .hasMessageContaining("Invalid configuration property connection-url: must match the following regular expression:")
+                .hasMessageContaining("Invalid configuration property with prefix '': Invalid Starburst JDBC URL");
 
-        assertThatThrownBy(() -> createTestingPlugin(ImmutableMap.of("connection-url", "jdbc:presto://localhost:8080/test", "starburst.authentication.type", "PASSWORD")))
+        // connection-url is bogus
+        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "test", "connection-user", "presto")))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                // We need only one validation error, but we currently have more than one.
+                .hasMessageContaining("Invalid configuration property connection-url: must match the following regular expression:")
+                .hasMessageContaining("Invalid configuration property with prefix '': Invalid Starburst JDBC URL");
+
+        // catalog not set
+        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "jdbc:presto://localhost:8080/", "connection-user", "presto")))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Invalid Starburst JDBC URL: catalog is not provided");
+    }
+
+    @Test
+    public void testValidateConnectionUser()
+    {
+        // PASSWORD used per default
+        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "jdbc:presto://localhost:8080/test")))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Connection user is not configured");
+
+        // PASSWORD authentication explicitly enabled
+        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "jdbc:presto://localhost:8080/test", "starburst.authentication.type", "PASSWORD")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Connection user is not configured");
     }

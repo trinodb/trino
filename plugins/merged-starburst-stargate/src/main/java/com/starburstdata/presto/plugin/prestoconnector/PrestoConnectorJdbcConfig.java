@@ -20,11 +20,16 @@ import java.util.Properties;
 public class PrestoConnectorJdbcConfig
         extends BaseJdbcConfig
 {
-    @AssertTrue(message = "Invalid Presto JDBC url")
+    @AssertTrue(message = "Invalid Starburst JDBC URL")
     public boolean isValidConnectionUrl()
     {
+        String connectionUrl = getConnectionUrl();
+        if (connectionUrl == null) {
+            // It's other validations responsibility to determine whether the property is required
+            return true;
+        }
         try {
-            TrinoDriverUri.create(getConnectionUrl(), getUserProperties());
+            TrinoDriverUri.create(connectionUrl, getUserProperties());
             return true;
         }
         catch (SQLException e) {
@@ -32,15 +37,21 @@ public class PrestoConnectorJdbcConfig
         }
     }
 
-    @AssertTrue(message = "Invalid Presto JDBC URL: catalog and/or schema is not provided")
-    public boolean isValidConnectionUrlCatalog()
+    @AssertTrue(message = "Invalid Starburst JDBC URL: catalog is not provided")
+    public boolean isConnectionUrlCatalogValid()
     {
+        String connectionUrl = getConnectionUrl();
+        if (connectionUrl == null) {
+            // It's other validations responsibility to determine whether the property is required
+            return true;
+        }
         try {
-            TrinoDriverUri driverUri = TrinoDriverUri.create(getConnectionUrl(), getUserProperties());
+            TrinoDriverUri driverUri = TrinoDriverUri.create(connectionUrl, getUserProperties());
             return driverUri.getCatalog().isPresent();
         }
         catch (SQLException e) {
-            return false;
+            // It's #isValidConnectionUrl() responsibility to determine whether the property is well-formed
+            return true;
         }
     }
 
@@ -48,7 +59,7 @@ public class PrestoConnectorJdbcConfig
     {
         // connection user is required by TrinoDriverUri validations
         Properties properties = new Properties();
-        properties.put("user", "presto");
+        properties.put("user", "fake_username");
         return properties;
     }
 }
