@@ -70,7 +70,6 @@ import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPS
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
-import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -191,14 +190,8 @@ public class SqlServerClient
             return mapping;
         }
 
-        // TODO how to provide SIMPLIFY_UNSUPPORTED_PUSHDOWN in most readable & maintainable way?
         return toColumnMapping(typeHandle)
-                .or(() -> legacyToPrestoType(session, connection, typeHandle))
-                .map(columnMapping -> new ColumnMapping(
-                        columnMapping.getType(),
-                        columnMapping.getReadFunction(),
-                        columnMapping.getWriteFunction(),
-                        FULL_PUSHDOWN));
+                .or(() -> legacyToPrestoType(session, connection, typeHandle));
     }
 
     private Optional<ColumnMapping> toColumnMapping(JdbcTypeHandle typeHandle)
