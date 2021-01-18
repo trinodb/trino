@@ -11,11 +11,10 @@ install --directory --mode=755 /var/log/trino
 sed -i "s/\$(uuid-generated-nodeid)/$(uuidgen)/g" /etc/trino/node.properties
 
 # move the trino_env.sh created during pre-install to Trino config location
-if [ -e /tmp/trino_env.sh ]
-then
+if [ -e /tmp/trino_env.sh ]; then
     mv /tmp/trino_env.sh /etc/trino/env.sh
 else
-    echo "#JAVA_HOME=" > /etc/trino/env.sh
+    echo "#JAVA_HOME=" >/etc/trino/env.sh
 fi
 
 chown -R trino:trino /var/lib/trino
