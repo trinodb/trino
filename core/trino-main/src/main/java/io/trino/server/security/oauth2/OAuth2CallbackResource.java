@@ -20,14 +20,15 @@ import io.trino.server.ui.OAuth2WebUiInstalled;
 import io.trino.server.ui.OAuthWebUiCookie;
 
 import javax.inject.Inject;
+import javax.ws.rs.CookieParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
 import java.net.URI;
@@ -35,6 +36,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.trino.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.util.Objects.requireNonNull;
@@ -68,8 +70,8 @@ public class OAuth2CallbackResource
             @QueryParam("error") String error,
             @QueryParam("error_description") String errorDescription,
             @QueryParam("error_uri") String errorUri,
-            @Context UriInfo uriInfo,
-            @Context SecurityContext securityContext)
+            @CookieParam(NONCE_COOKIE) Cookie nonce,
+            @Context UriInfo uriInfo)
     {
         // Note: the Web UI may be disabled, so REST requests can not redirect to a success or error page inside of the Web UI
 
@@ -87,7 +89,11 @@ public class OAuth2CallbackResource
 
         OAuthResult result;
         try {
-            result = service.finishChallenge(state, code, uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT));
+            result = service.finishChallenge(
+                    state,
+                    code,
+                    uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
+                    NonceCookie.read(nonce));
         }
         catch (ChallengeFailedException | RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified: state=%s", state);
@@ -100,7 +106,7 @@ public class OAuth2CallbackResource
         if (authId.isEmpty()) {
             return Response
                     .seeOther(URI.create(UI_LOCATION))
-                    .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()))
+                    .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()), NonceCookie.delete())
                     .build();
         }
 

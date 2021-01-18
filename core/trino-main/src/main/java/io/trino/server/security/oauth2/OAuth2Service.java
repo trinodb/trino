@@ -14,10 +14,11 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.Ordering;
+import com.google.common.hash.Hashing;
+import com.google.common.io.BaseEncoding;
 import com.google.common.io.Resources;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
-import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.SigningKeyResolver;
@@ -27,12 +28,15 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.TemporalAmount;
 import java.util.Date;
 import java.util.Optional;
+import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -43,16 +47,23 @@ import static java.util.Objects.requireNonNull;
 
 public class OAuth2Service
 {
+    public static final String REDIRECT_URI = "redirect_uri";
+    public static final String STATE = "state";
+    public static final String NONCE = "nonce";
+    public static final String OPENID_SCOPE = "openid";
+
     private static final String STATE_AUDIENCE_UI = "trino_oauth_ui";
     private static final String STATE_AUDIENCE_REST = "trino_oauth_rest";
     private static final String FAILURE_REPLACEMENT_TEXT = "<!-- ERROR_MESSAGE -->";
+    private static final Random SECURE_RANDOM = new SecureRandom();
 
     private final OAuth2Client client;
-    private final JwtParser jwtParser;
+    private final SigningKeyResolver signingKeyResolver;
 
     private final String successHtml;
     private final String failureHtml;
 
+    private final Set<String> scopes;
     private final TemporalAmount challengeTimeout;
     private final byte[] stateHmac;
 
@@ -61,7 +72,7 @@ public class OAuth2Service
             throws IOException
     {
         this.client = requireNonNull(client, "client is null");
-        this.jwtParser = Jwts.parser().setSigningKeyResolver(signingKeyResolver);
+        this.signingKeyResolver = requireNonNull(signingKeyResolver, "signingKeyResolver is null");
 
         this.successHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/success.html"), UTF_8);
         this.failureHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/failure.html"), UTF_8);
@@ -75,15 +86,25 @@ public class OAuth2Service
                 .orElseGet(() -> secureRandomBytes(32));
     }
 
-    public URI startWebUiChallenge(URI callbackUri)
+    public OAuthChallenge startWebUiChallenge(URI callbackUri)
     {
+        Instant challengeExpiration = Instant.now().plus(challengeTimeout);
         String state = Jwts.builder()
                 .signWith(SignatureAlgorithm.HS256, stateHmac)
                 .setAudience(STATE_AUDIENCE_UI)
-                .setExpiration(Date.from(Instant.now().plus(challengeTimeout)))
+                .setExpiration(Date.from(challengeExpiration))
                 .compact();
 
-        return client.getAuthorizationUri(state, callbackUri);
+        Optional<String> nonce;
+        // add nonce parameter to the authorization challenge only if `openid` scope is going to be requested
+        // since this scope is required in order to obtain the ID token which carriers the nonce back to the server
+        if (scopes.contains(OPENID_SCOPE)) {
+            nonce = Optional.of(randomNonce());
+        }
+        else {
+            nonce = Optional.empty();
+        }
+        return new OAuthChallenge(client.getAuthorizationUri(state, callbackUri, nonce.map(OAuth2Service::hashNonce)), challengeExpiration, nonce);
     }
 
     public URI startRestChallenge(URI callbackUri, UUID authId)
@@ -94,11 +115,10 @@ public class OAuth2Service
                 .setAudience(STATE_AUDIENCE_REST)
                 .setExpiration(Date.from(Instant.now().plus(challengeTimeout)))
                 .compact();
-
-        return client.getAuthorizationUri(state, callbackUri);
+        return client.getAuthorizationUri(state, callbackUri, Optional.empty());
     }
 
-    public OAuthResult finishChallenge(String state, String code, URI callbackUri)
+    public OAuthResult finishChallenge(String state, String code, URI callbackUri, Optional<String> nonce)
             throws ChallengeFailedException
     {
         requireNonNull(callbackUri, "callbackUri is null");
@@ -127,7 +147,21 @@ public class OAuth2Service
         AccessToken accessToken = client.getAccessToken(code, callbackUri);
 
         // validate access token is trusted by this server
-        Claims parsedToken = jwtParser.parseClaimsJws(accessToken.getAccessToken()).getBody();
+        Claims parsedToken = Jwts.parser()
+                .setSigningKeyResolver(signingKeyResolver)
+                .parseClaimsJws(accessToken.getAccessToken())
+                .getBody();
+
+        // user did not grant the requested scope `openid` so we don't have the ID token and therefore can't validate the nonce
+        // or the ID token is present but the nonce is not which means that someone is trying to obtain the token which he is not supposed to get
+        if (nonce.isPresent() != accessToken.getIdToken().isPresent()) {
+            throw new ChallengeFailedException("Cannot validate nonce parameter");
+        }
+        // validate nonce from the ID token
+        nonce.ifPresent(n -> Jwts.parser()
+                .setSigningKeyResolver(signingKeyResolver)
+                .require(NONCE, hashNonce(n))
+                .parseClaimsJws(accessToken.getIdToken().get()));
 
         // determine expiration
         Instant validUntil = accessToken.getValidUntil()
@@ -153,7 +187,9 @@ public class OAuth2Service
 
     public Jws<Claims> parseClaimsJws(String token)
     {
-        return jwtParser.parseClaimsJws(token);
+        return Jwts.parser()
+                .setSigningKeyResolver(signingKeyResolver)
+                .parseClaimsJws(token);
     }
 
     public String getSuccessHtml()
@@ -174,7 +210,7 @@ public class OAuth2Service
     private static byte[] secureRandomBytes(int count)
     {
         byte[] bytes = new byte[count];
-        new SecureRandom().nextBytes(bytes);
+        SECURE_RANDOM.nextBytes(bytes);
         return bytes;
     }
 
@@ -191,6 +227,49 @@ public class OAuth2Service
                 return "OAuth2 server is temporarily unavailable";
             default:
                 return "OAuth2 unknown error code: " + errorCode;
+        }
+    }
+
+    private static String randomNonce()
+    {
+        // https://developers.login.gov/oidc/#authorization
+        // min 22 chars so 24 chars obtained by encoding random 18 bytes using Base64 should be enough
+        return BaseEncoding.base64Url().encode(secureRandomBytes(18));
+    }
+
+    private static String hashNonce(String nonce)
+    {
+        return Hashing.sha256()
+                .hashString(nonce, StandardCharsets.UTF_8)
+                .toString();
+    }
+
+    public static class OAuthChallenge
+    {
+        private final URI redirectUrl;
+        private final Instant challengeExpiration;
+        private final Optional<String> nonce;
+
+        public OAuthChallenge(URI redirectUrl, Instant challengeExpiration, Optional<String> nonce)
+        {
+            this.redirectUrl = requireNonNull(redirectUrl, "redirectUrl is null");
+            this.challengeExpiration = requireNonNull(challengeExpiration, "challengeExpiration is null");
+            this.nonce = requireNonNull(nonce, "nonce is null");
+        }
+
+        public URI getRedirectUrl()
+        {
+            return redirectUrl;
+        }
+
+        public Instant getChallengeExpiration()
+        {
+            return challengeExpiration;
+        }
+
+        public Optional<String> getNonce()
+        {
+            return nonce;
         }
     }
 

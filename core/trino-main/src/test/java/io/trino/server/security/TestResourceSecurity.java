@@ -430,7 +430,7 @@ public class TestResourceSecurity
                         .toInstance(new OAuth2Client()
                         {
                             @Override
-                            public URI getAuthorizationUri(String state, URI callbackUri)
+                            public URI getAuthorizationUri(String state, URI callbackUri, Optional<String> nonceHash)
                             {
                                 return URI.create("http://example.com/authorize?" + state);
                             }
@@ -441,7 +441,7 @@ public class TestResourceSecurity
                                 if (!"TEST_CODE".equals(code)) {
                                     throw new IllegalArgumentException("Expected TEST_CODE");
                                 }
-                                return new AccessToken(token, Optional.empty());
+                                return new AccessToken(token, Optional.empty(), Optional.empty());
                             }
                         }))
                 .build()) {
