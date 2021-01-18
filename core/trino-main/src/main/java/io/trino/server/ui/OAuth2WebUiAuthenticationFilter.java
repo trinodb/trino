@@ -20,16 +20,18 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.trino.server.security.UserMapping;
 import io.trino.server.security.UserMappingException;
+import io.trino.server.security.oauth2.NonceCookie;
 import io.trino.server.security.oauth2.OAuth2Config;
 import io.trino.server.security.oauth2.OAuth2Service;
+import io.trino.server.security.oauth2.OAuth2Service.OAuthChallenge;
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
 
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
 
-import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
@@ -121,8 +123,10 @@ public class OAuth2WebUiAuthenticationFilter
 
     private void needAuthentication(ContainerRequestContext request)
     {
-        URI redirectLocation = service.startWebUiChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
-        request.abortWith(Response.seeOther(redirectLocation).build());
+        OAuthChallenge challenge = service.startWebUiChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
+        ResponseBuilder response = Response.seeOther(challenge.getRedirectUrl());
+        challenge.getNonce().ifPresent(nonce -> response.cookie(NonceCookie.create(nonce, challenge.getChallengeExpiration())));
+        request.abortWith(response.build());
     }
 
     private boolean hasValidAudience(Object audience)

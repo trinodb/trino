@@ -163,7 +163,7 @@ public class OAuth2Config
     }
 
     @Config("http-server.authentication.oauth2.challenge-timeout")
-    @ConfigDescription("Maximum duration of OAuth2 login challenge")
+    @ConfigDescription("Maximum duration of OAuth2 authorization challenge")
     public OAuth2Config setChallengeTimeout(Duration challengeTimeout)
     {
         this.challengeTimeout = challengeTimeout;
