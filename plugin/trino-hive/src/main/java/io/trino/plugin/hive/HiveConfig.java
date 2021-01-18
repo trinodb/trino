@@ -109,6 +109,7 @@ public class HiveConfig
 
     private boolean bucketExecutionEnabled = true;
     private boolean sortedWritingEnabled = true;
+    private boolean propagateTableScanSortingProperties;
 
     private boolean optimizeMismatchedBucketCount;
     private boolean writesToNonManagedTablesEnabled;
@@ -789,6 +790,19 @@ public class HiveConfig
     public HiveConfig setSortedWritingEnabled(boolean sortedWritingEnabled)
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
+        return this;
+    }
+
+    public boolean isPropagateTableScanSortingProperties()
+    {
+        return propagateTableScanSortingProperties;
+    }
+
+    @Config("hive.propagate-table-scan-sorting-properties")
+    @ConfigDescription("Use sorted table layout to generate more efficient execution plans. May lead to incorrect results if files are not sorted as per table definition.")
+    public HiveConfig setPropagateTableScanSortingProperties(boolean propagateTableScanSortingProperties)
+    {
+        this.propagateTableScanSortingProperties = propagateTableScanSortingProperties;
         return this;
     }
 

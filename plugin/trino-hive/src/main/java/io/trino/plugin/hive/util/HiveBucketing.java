@@ -25,6 +25,7 @@ import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.Page;
 import io.trino.spi.StandardErrorCode;
@@ -207,7 +208,8 @@ public final class HiveBucketing
 
         BucketingVersion bucketingVersion = hiveBucketProperty.get().getBucketingVersion();
         int bucketCount = hiveBucketProperty.get().getBucketCount();
-        return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount));
+        List<SortingColumn> sortedBy = hiveBucketProperty.get().getSortedBy();
+        return Optional.of(new HiveBucketHandle(bucketColumns.build(), bucketingVersion, bucketCount, bucketCount, sortedBy));
     }
 
     public static Optional<HiveBucketFilter> getHiveBucketFilter(HiveTableHandle hiveTable, TupleDomain<ColumnHandle> effectivePredicate)

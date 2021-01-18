@@ -82,6 +82,7 @@ public final class HiveSessionProperties
     private static final String MAX_INITIAL_SPLIT_SIZE = "max_initial_split_size";
     private static final String RCFILE_OPTIMIZED_WRITER_VALIDATE = "rcfile_optimized_writer_validate";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
+    private static final String PROPAGATE_TABLE_SCAN_SORTING_PROPERTIES = "propagate_table_scan_sorting_properties";
     private static final String STATISTICS_ENABLED = "statistics_enabled";
     private static final String PARTITION_STATISTICS_SAMPLE_SIZE = "partition_statistics_sample_size";
     private static final String IGNORE_CORRUPTED_STATISTICS = "ignore_corrupted_statistics";
@@ -323,6 +324,11 @@ public final class HiveSessionProperties
                         SORTED_WRITING_ENABLED,
                         "Enable writing to bucketed sorted tables",
                         hiveConfig.isSortedWritingEnabled(),
+                        false),
+                booleanProperty(
+                        PROPAGATE_TABLE_SCAN_SORTING_PROPERTIES,
+                        "Use sorted table layout to generate more efficient execution plans. May lead to incorrect results if files are not sorted as per table definition.",
+                        hiveConfig.isPropagateTableScanSortingProperties(),
                         false),
                 booleanProperty(
                         STATISTICS_ENABLED,
@@ -593,6 +599,11 @@ public final class HiveSessionProperties
     public static boolean isSortedWritingEnabled(ConnectorSession session)
     {
         return session.getProperty(SORTED_WRITING_ENABLED, Boolean.class);
+    }
+
+    public static boolean isPropagateTableScanSortingProperties(ConnectorSession session)
+    {
+        return session.getProperty(PROPAGATE_TABLE_SCAN_SORTING_PROPERTIES, Boolean.class);
     }
 
     public static boolean isS3SelectPushdownEnabled(ConnectorSession session)
