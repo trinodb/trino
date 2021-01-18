@@ -28,11 +28,11 @@ public class TestWindowOperatorStats
 
         WindowOperatorStats stats = WindowOperatorStats.create(info);
 
-        assertThat(stats.getIndexSizeStdDev()).isEqualTo(Double.NaN);
-        assertThat(stats.getIndexPositionsStdDev()).isEqualTo(Double.NaN);
-        assertThat(stats.getIndexCountPerDriverStdDev()).isEqualTo(Double.NaN);
-        assertThat(stats.getPartitionRowsStdDev()).isEqualTo(Double.NaN);
-        assertThat(stats.getRowsPerDriverStdDev()).isEqualTo(Double.NaN);
+        assertThat(stats.getIndexSizeStdDev()).isNaN();
+        assertThat(stats.getIndexPositionsStdDev()).isNaN();
+        assertThat(stats.getIndexCountPerDriverStdDev()).isNaN();
+        assertThat(stats.getPartitionRowsStdDev()).isNaN();
+        assertThat(stats.getRowsPerDriverStdDev()).isNaN();
         assertThat(stats.getActiveDrivers()).isEqualTo(0);
         assertThat(stats.getTotalDrivers()).isEqualTo(0);
     }
