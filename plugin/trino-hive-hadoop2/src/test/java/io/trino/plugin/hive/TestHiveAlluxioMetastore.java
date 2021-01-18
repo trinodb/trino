@@ -83,6 +83,12 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testBucketedSortedTableEvolution()
+    {
+        // Alluxio metastore does not support create/insert/update operations
+    }
+
+    @Override
     public void testBucketedTableValidation()
             throws Exception
     {
