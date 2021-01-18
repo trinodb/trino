@@ -68,6 +68,7 @@ public class OAuth2Service
         verify(failureHtml.contains(FAILURE_REPLACEMENT_TEXT), "login.html does not contain the replacement text");
 
         requireNonNull(oauth2Config, "oauth2Config is null");
+        this.scopes = oauth2Config.getScopes();
         this.challengeTimeout = Duration.ofMillis(oauth2Config.getChallengeTimeout().toMillis());
         this.stateHmac = oauth2Config.getStateKey()
                 .map(key -> sha256().hashString(key, UTF_8).asBytes())

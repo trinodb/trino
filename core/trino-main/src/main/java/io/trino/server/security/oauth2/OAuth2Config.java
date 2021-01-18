@@ -13,6 +13,8 @@
  */
 package io.trino.server.security.oauth2;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.validation.FileExists;
@@ -23,7 +25,11 @@ import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.server.security.oauth2.OAuth2Service.OPENID_SCOPE;
 
 public class OAuth2Config
 {
@@ -34,6 +40,7 @@ public class OAuth2Config
     private String clientId;
     private String clientSecret;
     private Optional<String> audience = Optional.empty();
+    private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
@@ -131,6 +138,20 @@ public class OAuth2Config
     public OAuth2Config setAudience(String audience)
     {
         this.audience = Optional.ofNullable(audience);
+        return this;
+    }
+
+    @NotNull
+    public Set<String> getScopes()
+    {
+        return scopes;
+    }
+
+    @Config("http-server.authentication.oauth2.scopes")
+    @ConfigDescription("Scopes requested by the server during OAuth2 authorization challenge")
+    public OAuth2Config setScopes(String scopes)
+    {
+        this.scopes = Splitter.on(',').trimResults().omitEmptyStrings().splitToStream(scopes).collect(toImmutableSet());
         return this;
     }
 

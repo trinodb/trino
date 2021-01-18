@@ -19,6 +19,7 @@ import com.github.scribejava.core.model.OAuthConstants;
 import com.github.scribejava.core.model.OAuthRequest;
 import com.github.scribejava.core.oauth.AccessTokenRequestParams;
 import com.github.scribejava.core.oauth.OAuth20Service;
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 
 import javax.inject.Inject;
@@ -76,7 +77,7 @@ public class ScribeJavaOAuth2Client
                     config.getClientId(),
                     config.getClientSecret(),
                     null,
-                    "openid",
+                    Joiner.on(",").join(config.getScopes()),
                     "code",
                     null,
                     null,
