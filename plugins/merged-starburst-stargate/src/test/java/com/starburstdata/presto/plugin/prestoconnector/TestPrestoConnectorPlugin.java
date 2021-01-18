@@ -67,6 +67,11 @@ public class TestPrestoConnectorPlugin
         assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "jdbc:presto://localhost:8080/", "connection-user", "presto")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Invalid Starburst JDBC URL: catalog is not provided");
+
+        // schema is set
+        assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "jdbc:presto://localhost:8080/test/some_schema", "connection-user", "presto")))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Invalid Starburst JDBC URL: schema must not be provided");
     }
 
     @Test

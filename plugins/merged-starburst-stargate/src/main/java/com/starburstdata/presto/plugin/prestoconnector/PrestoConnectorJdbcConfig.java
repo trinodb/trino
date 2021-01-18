@@ -55,6 +55,24 @@ public class PrestoConnectorJdbcConfig
         }
     }
 
+    @AssertTrue(message = "Invalid Starburst JDBC URL: schema must not be provided")
+    public boolean isConnectionUrlSchemaValid()
+    {
+        String connectionUrl = getConnectionUrl();
+        if (connectionUrl == null) {
+            // It's other validations responsibility to determine whether the property is required
+            return true;
+        }
+        try {
+            TrinoDriverUri driverUri = TrinoDriverUri.create(connectionUrl, getUserProperties());
+            return driverUri.getSchema().isEmpty();
+        }
+        catch (SQLException e) {
+            // It's #isValidConnectionUrl() responsibility to determine whether the property is well-formed
+            return true;
+        }
+    }
+
     private static Properties getUserProperties()
     {
         // connection user is required by TrinoDriverUri validations
