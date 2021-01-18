@@ -412,9 +412,15 @@ public class PartitionedOutputOperator
             if (page.getPositionCount() == 0) {
                 return;
             }
+            int partitionCount = partitionFunction.getPartitionCount();
+            if (partitionCount == 1) {
+                try (PagesSerde.PagesSerdeContext context = serde.newContext()) {
+                    flushPartition(context, 0, page);
+                }
+                return;
+            }
 
             Page partitionFunctionArgs = getPartitionFunctionArguments(page);
-            int partitionCount = partitionFunction.getPartitionCount();
             int[] partitions = new int[page.getPositionCount()];
             int[] rowCount = new int[partitionCount];
             int replicatedRowCount = 0;
@@ -503,14 +509,19 @@ public class PartitionedOutputOperator
                         Page pagePartition = partitionPageBuilder.build();
                         partitionPageBuilder.reset();
 
-                        operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
-
-                        outputBuffer.enqueue(partition, splitAndSerializePage(context, pagePartition));
-                        pagesAdded.incrementAndGet();
-                        rowsAdded.addAndGet(pagePartition.getPositionCount());
+                        flushPartition(context, partition, pagePartition);
                     }
                 }
             }
+        }
+
+        private void flushPartition(PagesSerde.PagesSerdeContext context, int partition, Page pagePartition)
+        {
+            operatorContext.recordOutput(pagePartition.getSizeInBytes(), pagePartition.getPositionCount());
+
+            outputBuffer.enqueue(partition, splitAndSerializePage(context, pagePartition));
+            pagesAdded.incrementAndGet();
+            rowsAdded.addAndGet(pagePartition.getPositionCount());
         }
 
         private List<SerializedPage> splitAndSerializePage(PagesSerde.PagesSerdeContext context, Page page)
