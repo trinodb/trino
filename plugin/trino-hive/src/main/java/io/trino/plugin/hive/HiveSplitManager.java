@@ -25,8 +25,10 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.trino.plugin.hive.metastore.SortingColumn;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveBucketing.HiveBucketFilter;
+import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.ConnectorSession;
@@ -57,6 +59,7 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Iterables.transform;
@@ -68,6 +71,7 @@ import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
 import static io.trino.plugin.hive.HiveSessionProperties.getDynamicFilteringProbeBlockingTimeout;
 import static io.trino.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.trino.plugin.hive.HiveSessionProperties.isOptimizeSymlinkListing;
+import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSortingProperties;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.trino.plugin.hive.HiveStorageFormat.getHiveStorageFormat;
@@ -371,6 +375,18 @@ public class HiveSplitManager
                                 partitionBucketColumns,
                                 partitionBucketCount));
                     }
+                    if (isPropagateTableScanSortingProperties(session)) {
+                        List<SortingColumn> tableSortedColumns = bucketProperty.get().getSortedBy();
+                        List<SortingColumn> partitionSortedColumns = partitionBucketProperty.get().getSortedBy();
+                        if (!isSortingCompatible(tableSortedColumns, partitionSortedColumns)) {
+                            throw new TrinoException(HIVE_PARTITION_SCHEMA_MISMATCH, format(
+                                    "Hive table (%s) sorting by %s is not compatible with partition (%s) sorting by %s. This restriction can be avoided by disabling propagate_table_scan_sorting_properties.",
+                                    hivePartition.getTableName(),
+                                    tableSortedColumns.stream().map(HiveUtil::sortingColumnToString).collect(toImmutableList()),
+                                    hivePartition.getPartitionId(),
+                                    partitionSortedColumns.stream().map(HiveUtil::sortingColumnToString).collect(toImmutableList())));
+                        }
+                    }
                 }
 
                 results.add(new HivePartitionMetadata(hivePartition, Optional.of(partition), tableToPartitionMapping));
@@ -473,6 +489,23 @@ public class HiveSplitManager
         }
         // ratio must be power of two
         return Integer.bitCount(larger / smaller) == 1;
+    }
+
+    private static boolean isSortingCompatible(List<SortingColumn> tableSortedColumns, List<SortingColumn> partitionSortedColumns)
+    {
+        // When propagate_table_scan_sorting_properties is enabled, all files are assumed to be sorted by tableSortedColumns
+        // Therefore, sorting of each partition must satisfy the sorting criteria of the table
+        if (tableSortedColumns.size() > partitionSortedColumns.size()) {
+            return false;
+        }
+        for (int i = 0; i < tableSortedColumns.size(); i++) {
+            SortingColumn tableSortingColumn = tableSortedColumns.get(i);
+            SortingColumn partitionSortingColumn = partitionSortedColumns.get(i);
+            if (!tableSortingColumn.equals(partitionSortingColumn)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
