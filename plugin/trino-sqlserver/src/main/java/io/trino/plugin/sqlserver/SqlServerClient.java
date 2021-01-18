@@ -190,14 +190,6 @@ public class SqlServerClient
             return mapping;
         }
 
-        return toColumnMapping(typeHandle)
-                .or(() -> legacyToPrestoType(session, connection, typeHandle));
-    }
-
-    private Optional<ColumnMapping> toColumnMapping(JdbcTypeHandle typeHandle)
-    {
-        // TODO (https://github.com/trinodb/trino/issues/4593) implement proper type mapping
-
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
@@ -263,7 +255,8 @@ public class SqlServerClient
                 return Optional.of(timestampColumnMappingUsingSqlTimestamp(TIMESTAMP));
         }
 
-        return Optional.empty();
+        // TODO (https://github.com/trinodb/trino/issues/4593) implement proper type mapping
+        return legacyToPrestoType(session, connection, typeHandle);
     }
 
     @Override
