@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
 
 public interface OAuth2Client
 {
-    URI getAuthorizationUri(String state, URI callbackUri);
+    URI getAuthorizationUri(String state, URI callbackUri, Optional<String> nonceHash);
 
     AccessToken getAccessToken(String code, URI callbackUri)
             throws ChallengeFailedException;
@@ -30,11 +30,13 @@ public interface OAuth2Client
     {
         private final String accessToken;
         private final Optional<Instant> validUntil;
+        private final Optional<String> idToken;
 
-        public AccessToken(String accessToken, Optional<Instant> validUntil)
+        public AccessToken(String accessToken, Optional<Instant> validUntil, Optional<String> idToken)
         {
             this.accessToken = requireNonNull(accessToken, "accessToken is null");
             this.validUntil = requireNonNull(validUntil, "validUntil is null");
+            this.idToken = requireNonNull(idToken, "idToken is null");
         }
 
         public String getAccessToken()
@@ -45,6 +47,11 @@ public interface OAuth2Client
         public Optional<Instant> getValidUntil()
         {
             return validUntil;
+        }
+
+        public Optional<String> getIdToken()
+        {
+            return idToken;
         }
     }
 }

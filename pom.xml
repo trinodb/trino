@@ -54,6 +54,7 @@
         <dep.jdbi3.version>3.17.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
+        <dep.scribejava.version>6.9.0</dep.scribejava.version>
         <dep.selenium.version>3.141.59</dep.selenium.version>
         <dep.tempto.version>183</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
@@ -971,8 +972,14 @@
 
             <dependency>
                 <groupId>com.github.scribejava</groupId>
+                <artifactId>scribejava-apis</artifactId>
+                <version>${dep.scribejava.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.scribejava</groupId>
                 <artifactId>scribejava-core</artifactId>
-                <version>6.9.0</version>
+                <version>${dep.scribejava.version}</version>
             </dependency>
 
             <dependency>
