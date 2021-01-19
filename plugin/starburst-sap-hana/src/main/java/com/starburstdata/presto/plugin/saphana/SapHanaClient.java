@@ -1004,6 +1004,7 @@ public class SapHanaClient
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
                 escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5147) provide list via an extension point
                 new String[] {"TABLE", "VIEW", "CALC VIEW"});
         return tables;
     }
