@@ -40,7 +40,7 @@ public class RestUtils<T>
             return json.read(path);
         }
         catch (RuntimeException e) {
-            log.error(e, "Failed to find JSON path [%s] in: %s", path, json.jsonString());
+            log.error(e, "Failed to find JSON path [%s] in: %s", path, json.json());
             throw e;
         }
     }
