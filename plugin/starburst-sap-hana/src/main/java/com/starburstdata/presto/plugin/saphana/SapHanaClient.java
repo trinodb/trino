@@ -20,6 +20,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
+import io.prestosql.plugin.jdbc.DoubleWriteFunction;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -66,6 +67,8 @@ import javax.inject.Inject;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -97,8 +100,6 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
@@ -376,6 +377,14 @@ public class SapHanaClient
         return Optional.empty();
     }
 
+    private ColumnMapping doubleColumnMapping()
+    {
+        return ColumnMapping.doubleMapping(
+                DOUBLE,
+                ResultSet::getDouble,
+                new SmalldecimalWriteFunction());
+    }
+
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
@@ -400,7 +409,7 @@ public class SapHanaClient
             return WriteMapping.longMapping("real", realWriteFunction());
         }
         if (type == DOUBLE) {
-            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+            return WriteMapping.doubleMapping("double precision", new SmalldecimalWriteFunction());
         }
 
         if (type instanceof DecimalType) {
@@ -460,6 +469,31 @@ public class SapHanaClient
         }
 
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    private static class SmalldecimalWriteFunction
+            implements DoubleWriteFunction
+    {
+        @Override
+        public String getBindExpression()
+        {
+            return "CAST(? AS SMALLDECIMAL)";
+        }
+
+        @Override
+        public void set(PreparedStatement statement, int index, double value)
+                throws SQLException
+        {
+            if (Double.isNaN(value) || Double.isInfinite(value)) {
+                // We want to fail with a meaningful error message since NaN and infinity are not supported by SAP HANA
+                statement.setDouble(index, value);
+            }
+            else {
+                // For all other values we avoid setDouble because SAP HANA JDBC driver tries to read them as a SAP HANA
+                // DECIMAL without scale thus limiting the value to precision of 34.
+                statement.setString(index, String.valueOf(value));
+            }
+        }
     }
 
     @Override

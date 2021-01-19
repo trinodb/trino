@@ -24,6 +24,7 @@ import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.datatype.SqlDataTypeTest;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -53,7 +54,6 @@ import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaNv
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaSeconddateDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaShortFloatDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaShorttextDataType;
-import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaSmalldecimalDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaTextDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaTimeDataType;
 import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaTimestampDataType;
@@ -61,6 +61,7 @@ import static com.starburstdata.presto.plugin.saphana.SapHanaDataTypes.sapHanaVa
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -249,28 +250,39 @@ public class TestSapHanaTypeMapping
     @Test
     public void testSmalldecimal()
     {
-        DataType<BigDecimal> dataType = sapHanaSmalldecimalDataType();
-        DataTypeTest.create()
-                .addRoundTrip(dataType, null)
-                .addRoundTrip(dataType, new BigDecimal("193"))
-                .addRoundTrip(dataType, new BigDecimal("19"))
-                .addRoundTrip(dataType, new BigDecimal("-193"))
-                .addRoundTrip(dataType, new BigDecimal("10.0"))
-                .addRoundTrip(dataType, new BigDecimal("10.1"))
-                .addRoundTrip(dataType, new BigDecimal("-10.1"))
-                .addRoundTrip(dataType, new BigDecimal("2"))
-                .addRoundTrip(dataType, new BigDecimal("2.3"))
-                .addRoundTrip(dataType, new BigDecimal("2"))
-                .addRoundTrip(dataType, new BigDecimal("2.3"))
-                .addRoundTrip(dataType, new BigDecimal("123456789.3"))
+        SqlDataTypeTest.create()
+                .addRoundTrip("smalldecimal", "NULL", DOUBLE, "CAST(NULL AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('193' AS SMALLDECIMAL)", DOUBLE, "CAST('193.0' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('19' AS SMALLDECIMAL)", DOUBLE, "CAST('19.0' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('-193' AS SMALLDECIMAL)", DOUBLE, "CAST('-193.0' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('10.0' AS SMALLDECIMAL)", DOUBLE, "CAST('10.0' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('10.1' AS SMALLDECIMAL)", DOUBLE, "CAST('10.1' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('-10.1' AS SMALLDECIMAL)", DOUBLE, "CAST('-10.1' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('2' AS SMALLDECIMAL)", DOUBLE, "CAST('2.0' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('2.3' AS SMALLDECIMAL)", DOUBLE, "CAST('2.3' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('2' AS SMALLDECIMAL)", DOUBLE, "CAST('2.0' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('2.3' AS SMALLDECIMAL)", DOUBLE, "CAST('2.3' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('123456789.3' AS SMALLDECIMAL)", DOUBLE, "CAST('123456789.3' AS DOUBLE)")
                 // up to 16 decimal digits
-                .addRoundTrip(dataType, new BigDecimal("12345678901234.31"))
-                .addRoundTrip(dataType, new BigDecimal("3141592653589793000000000.00000"))
-                .addRoundTrip(dataType, new BigDecimal("-3141592653589793000000000.00000"))
+                .addRoundTrip("smalldecimal", "CAST('12345678901234.31' AS SMALLDECIMAL)", DOUBLE, "CAST('12345678901234.31' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('3141592653589793000000000.00000' AS SMALLDECIMAL)", DOUBLE, "CAST('3141592653589793000000000.00000' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('-3141592653589793000000000.00000' AS SMALLDECIMAL)", DOUBLE, "CAST('-3141592653589793000000000.00000' AS DOUBLE)")
                 // large number
-                .addRoundTrip(dataType, new BigDecimal("1234" + "0".repeat(100)))
-                .addRoundTrip(dataType, new BigDecimal("-234" + "0".repeat(100)))
+                .addRoundTrip("smalldecimal", "CAST('1.234E103' AS SMALLDECIMAL)", DOUBLE, "CAST('1.234E103' AS DOUBLE)")
+                .addRoundTrip("smalldecimal", "CAST('-2.34E102' AS SMALLDECIMAL)", DOUBLE, "CAST('-2.34E102' AS DOUBLE)")
                 .execute(getQueryRunner(), sapHanaCreateAndInsert("tpch.test_smalldecimal"));
+
+        try (TestTable table = new TestTable(server::execute, "tpch.test_unsupported_smalldecimal", "(col SMALLDECIMAL)")) {
+            testSapHanaUnsupportedValue(table.getName(), "nan()", "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: NaN");
+            testSapHanaUnsupportedValue(table.getName(), "-infinity()", "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: -Infinity");
+            testSapHanaUnsupportedValue(table.getName(), "infinity()", "com.sap.db.jdbc.exceptions.SQLDataExceptionSapDB: Invalid number: Infinity");
+        }
+    }
+
+    private void testSapHanaUnsupportedValue(String table, String literal, String expectedMessage)
+    {
+        assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO " + table + " VALUES (" + literal + ")"))
+                .hasStackTraceContaining(expectedMessage);
     }
 
     @Test
