@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.connector.ColumnHandle;
@@ -85,6 +86,7 @@ public class QueryBuilder
                         remoteTableName),
                 groupingSets,
                 columns,
+                ImmutableMap.of(),
                 tupleDomain,
                 additionalPredicate);
         preparedQuery = preparedQuery.transformQuery(sqlFunction);
@@ -97,12 +99,22 @@ public class QueryBuilder
             JdbcRelationHandle baseRelation,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<String> additionalPredicate)
     {
+        if (!tupleDomain.isNone()) {
+            Map<ColumnHandle, Domain> domains = tupleDomain.getDomains().orElseThrow();
+            columns.stream()
+                    .filter(domains::containsKey)
+                    .filter(column -> columnExpressions.containsKey(column.getColumnName()))
+                    .findFirst()
+                    .ifPresent(column -> { throw new IllegalArgumentException(format("Column %s has an expression and a constraint attached at the same time", column)); });
+        }
+
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
 
-        String sql = "SELECT " + getProjection(columns);
+        String sql = "SELECT " + getProjection(columns, columnExpressions);
         if (baseRelation instanceof JdbcNamedRelationHandle) {
             sql += " FROM " + getRelation(((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());
         }
@@ -175,7 +187,7 @@ public class QueryBuilder
         return client.quoted(remoteTableName);
     }
 
-    protected String getProjection(List<JdbcColumnHandle> columns)
+    protected String getProjection(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
     {
         if (columns.isEmpty()) {
             return "1 x";
@@ -183,10 +195,10 @@ public class QueryBuilder
         return columns.stream()
                 .map(jdbcColumnHandle -> {
                     String columnAlias = client.quoted(jdbcColumnHandle.getColumnName());
-                    if (jdbcColumnHandle.getExpression().isEmpty()) {
+                    String expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
+                    if (expression == null) {
                         return columnAlias;
                     }
-                    String expression = jdbcColumnHandle.toSqlExpression(client::quoted);
                     return format("%s AS %s", expression, columnAlias);
                 })
                 .collect(joining(", "));

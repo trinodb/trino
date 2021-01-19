@@ -91,6 +91,13 @@ public interface JdbcClient
         // most drivers do not need this
     }
 
+    PreparedQuery prepareQuery(
+            ConnectorSession session,
+            JdbcTableHandle table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions);
+
     PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException;
 

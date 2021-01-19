@@ -29,7 +29,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
@@ -41,13 +40,10 @@ public final class JdbcTableHandle
 
     private final TupleDomain<ColumnHandle> constraint;
 
-    // semantically aggregation is applied after constraint
-    private final Optional<List<List<JdbcColumnHandle>>> groupingSets;
-
-    // semantically limit is applied after aggregation
+    // semantically limit is applied after constraint
     private final OptionalLong limit;
 
-    // columns of the relation described by this handle, after projections, aggregations, etc.
+    // columns of the relation described by this handle
     private final Optional<List<JdbcColumnHandle>> columns;
 
     @Deprecated
@@ -61,7 +57,6 @@ public final class JdbcTableHandle
         this(
                 new JdbcNamedRelationHandle(schemaTableName, remoteTableName),
                 TupleDomain.all(),
-                Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty());
     }
@@ -70,21 +65,15 @@ public final class JdbcTableHandle
     public JdbcTableHandle(
             @JsonProperty("relationHandle") JdbcRelationHandle relationHandle,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("groupingSets") Optional<List<List<JdbcColumnHandle>>> groupingSets,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
 
-        requireNonNull(groupingSets, "groupingSets is null");
-        checkArgument(groupingSets.isEmpty() || !groupingSets.get().isEmpty(), "Global aggregation should be represented by [[]]");
-        this.groupingSets = groupingSets.map(JdbcTableHandle::copy);
-
         this.limit = requireNonNull(limit, "limit is null");
 
         requireNonNull(columns, "columns is null");
-        checkArgument(groupingSets.isEmpty() || columns.isPresent(), "columns should be present when groupingSets is present");
         this.columns = columns.map(ImmutableList::copyOf);
     }
 
@@ -133,12 +122,6 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
-    public Optional<List<List<JdbcColumnHandle>>> getGroupingSets()
-    {
-        return groupingSets;
-    }
-
-    @JsonProperty
     public OptionalLong getLimit()
     {
         return limit;
@@ -159,7 +142,7 @@ public final class JdbcTableHandle
     @JsonIgnore
     public boolean isSynthetic()
     {
-        return !isNamedRelation() || !constraint.isAll() || groupingSets.isPresent() || limit.isPresent();
+        return !isNamedRelation() || !constraint.isAll() || limit.isPresent();
     }
 
     @JsonIgnore
@@ -180,7 +163,6 @@ public final class JdbcTableHandle
         JdbcTableHandle o = (JdbcTableHandle) obj;
         return Objects.equals(this.relationHandle, o.relationHandle) &&
                 Objects.equals(this.constraint, o.constraint) &&
-                Objects.equals(this.groupingSets, o.groupingSets) &&
                 Objects.equals(this.limit, o.limit) &&
                 Objects.equals(this.columns, o.columns);
     }
@@ -188,7 +170,7 @@ public final class JdbcTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(relationHandle, constraint, groupingSets, limit, columns);
+        return Objects.hash(relationHandle, constraint, limit, columns);
     }
 
     @Override
@@ -198,7 +180,6 @@ public final class JdbcTableHandle
         builder.append(relationHandle);
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         columns.ifPresent(value -> builder.append(" columns=").append(value));
-        groupingSets.ifPresent(value -> builder.append(" groupingSets=").append(value));
         return builder.toString();
     }
 

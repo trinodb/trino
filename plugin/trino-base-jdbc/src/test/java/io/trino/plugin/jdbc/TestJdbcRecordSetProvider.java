@@ -186,7 +186,6 @@ public class TestJdbcRecordSetProvider
         jdbcTableHandle = new JdbcTableHandle(
                 jdbcTableHandle.getRelationHandle(),
                 domain,
-                Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty());
 

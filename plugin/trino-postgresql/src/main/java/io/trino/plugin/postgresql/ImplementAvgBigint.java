@@ -58,7 +58,7 @@ public class ImplementAvgBigint
         verify(aggregateFunction.getOutputType() == DOUBLE);
 
         return Optional.of(new JdbcExpression(
-                format("avg(CAST(%s AS double precision))", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("avg(CAST(%s AS double precision))", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 new JdbcTypeHandle(Types.DOUBLE, Optional.of("double"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty())));
     }
 }

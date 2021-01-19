@@ -86,7 +86,7 @@ public class PhoenixSplitManager
                     session,
                     connection,
                     tableHandle.getRemoteTableName(),
-                    tableHandle.getGroupingSets(),
+                    Optional.empty(),
                     columns,
                     tableHandle.getConstraint(),
                     Optional.empty(),
