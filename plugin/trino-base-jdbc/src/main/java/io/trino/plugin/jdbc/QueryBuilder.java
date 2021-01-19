@@ -60,6 +60,10 @@ public class QueryBuilder
         this.client = requireNonNull(client, "jdbcClient is null");
     }
 
+    /**
+     * @deprecated Use #prepareSql and #prepareStatement instead.
+     */
+    @Deprecated
     public PreparedStatement buildSql(
             ConnectorSession session,
             Connection connection,
