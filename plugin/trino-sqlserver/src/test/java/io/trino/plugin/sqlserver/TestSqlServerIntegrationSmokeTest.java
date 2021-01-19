@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
@@ -108,6 +109,14 @@ public class TestSqlServerIntegrationSmokeTest
 
         assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
 
+        // GROUP BY above WHERE and LIMIT
+        assertThat(query("" +
+                "SELECT regionkey, sum(nationkey) " +
+                "FROM (SELECT * FROM nation WHERE regionkey < 3 LIMIT 11) " +
+                "GROUP BY regionkey"))
+                .isNotFullyPushedDown(AggregationNode.class);
+
+        // decimals
         try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
             sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (100.000, 100000000.000000000, 'ala')");
             sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (123.321, 123456789.987654321, 'kot')");
@@ -253,9 +262,63 @@ public class TestSqlServerIntegrationSmokeTest
     }
 
     @Test
-    public void testDecimalPredicatePushdown()
+    public void testPredicatePushdown()
             throws Exception
     {
+        // varchar equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar range
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // varchar different case
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
+                // TODO https://github.com/trinodb/trino/issues/6671: .returnsEmptyResult()
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                // TODO https://github.com/trinodb/trino/issues/6671: isNotFullyPushedDown(FilterNode.class)
+                .isFullyPushedDown();
+
+        // bigint equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // bigint equality with small compaction threshold
+        assertThat(query(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty("sqlserver", "domain_compaction_threshold", "1")
+                        .build(),
+                "SELECT regionkey, nationkey, name FROM nation WHERE nationkey IN (19, 21)"))
+                .matches("VALUES " +
+                        "(BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25))), " +
+                        "(BIGINT '2', BIGINT '21', CAST('VIETNAM' AS varchar(25)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // bigint range, with decimal to bigint simplification
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
+                .isFullyPushedDown();
+
+        // date equality
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
+                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
+                .isFullyPushedDown();
+
+        // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
+        assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
+                .matches("VALUES (BIGINT '3', BIGINT '77')")
+                .isFullyPushedDown();
+
+        // predicate over aggregation result
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
+                .matches("VALUES (BIGINT '3', BIGINT '77')")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // decimals
         try (AutoCloseable ignoreTable = withTable("test_decimal_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             sqlServer.execute("INSERT INTO test_decimal_pushdown VALUES (123.321, 123456789.987654321)");

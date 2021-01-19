@@ -245,6 +245,16 @@ public class TestPostgreSqlIntegrationSmokeTest
         assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
                 .isFullyPushedDown();
+
+        // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
+        assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
+                .matches("VALUES (BIGINT '3', BIGINT '77')")
+                .isFullyPushedDown();
+
+        // predicate over aggregation result
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
+                .matches("VALUES (BIGINT '3', BIGINT '77')")
+                .isNotFullyPushedDown(FilterNode.class);
     }
 
     @Test
@@ -385,6 +395,13 @@ public class TestPostgreSqlIntegrationSmokeTest
         // GROUP BY and WHERE on varchar column
         // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY above WHERE and LIMIT
+        assertThat(query("" +
+                "SELECT regionkey, sum(nationkey) " +
+                "FROM (SELECT * FROM nation WHERE regionkey < 3 LIMIT 11) " +
+                "GROUP BY regionkey"))
+                .isNotFullyPushedDown(AggregationNode.class);
 
         // decimals
         try (AutoCloseable ignore = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {

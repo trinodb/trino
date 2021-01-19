@@ -15,7 +15,9 @@ package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.SqlExecutor;
@@ -121,6 +123,16 @@ public abstract class BaseOracleIntegrationSmokeTest
         assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
                 .matches("VALUES CAST(1250 AS DECIMAL(19,0)), 34406, 38436, 57570")
                 .isFullyPushedDown();
+
+        // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
+        assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
+                .matches("VALUES (CAST(3 AS decimal(19,0)), CAST(77 AS decimal(38,0)))")
+                .isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+
+        // predicate over aggregation result
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
+                .matches("VALUES (CAST(3 AS decimal(19,0)), CAST(77 AS decimal(38,0)))")
+                .isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
     }
 
     @Test
