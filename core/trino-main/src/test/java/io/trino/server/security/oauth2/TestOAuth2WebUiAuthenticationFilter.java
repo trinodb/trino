@@ -243,7 +243,7 @@ public class TestOAuth2WebUiAuthenticationFilter
             throws Exception
     {
         withSuccessfulAuthentication((driver, wait) -> {
-            Cookie cookie = driver.manage().getCookieNamed(OAUTH2_COOKIE);
+            Cookie cookie = getCookieNamed(driver, OAUTH2_COOKIE);
             assertTrinoCookie(cookie);
             assertUICallWithCookie(cookie);
         });
@@ -255,8 +255,7 @@ public class TestOAuth2WebUiAuthenticationFilter
             throws Exception
     {
         withSuccessfulAuthentication(((driver, wait) -> {
-            Cookie cookie = driver.manage().getCookieNamed(OAUTH2_COOKIE);
-            assertThat(cookie).withFailMessage(OAUTH2_COOKIE + " is missing").isNotNull();
+            Cookie cookie = getCookieNamed(driver, OAUTH2_COOKIE);
             Thread.sleep((TTL_ACCESS_TOKEN_IN_SECONDS + 1) * 1000L); // wait for the token expiration
             try (Response response = httpClientUsingCookie(cookie).newCall(uiCall().build()).execute()) {
                 assertRedirectResponse(response);
@@ -431,5 +430,12 @@ public class TestOAuth2WebUiAuthenticationFilter
     {
         void assertWith(WebDriver driver, WebDriverWait wait)
                 throws Exception;
+    }
+
+    private static Cookie getCookieNamed(WebDriver driver, String name)
+    {
+        Cookie cookie = driver.manage().getCookieNamed(name);
+        assertThat(cookie).withFailMessage(name + " is missing").isNotNull();
+        return cookie;
     }
 }
