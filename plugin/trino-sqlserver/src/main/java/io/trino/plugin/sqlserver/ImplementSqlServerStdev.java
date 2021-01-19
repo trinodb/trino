@@ -63,7 +63,7 @@ public class ImplementSqlServerStdev
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("STDEV(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("STDEV(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }
