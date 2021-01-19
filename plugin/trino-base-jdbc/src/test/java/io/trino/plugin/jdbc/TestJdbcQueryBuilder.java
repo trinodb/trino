@@ -81,7 +81,6 @@ import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
-import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
@@ -98,31 +97,13 @@ public class TestJdbcQueryBuilder
 
     private List<JdbcColumnHandle> columns;
 
-    private String lastQuery;
-
     @BeforeMethod
     public void setup()
             throws SQLException
     {
         database = new TestingDatabase();
 
-        JdbcClient jdbcClient = database.getJdbcClient();
-        this.jdbcClient = new ForwardingJdbcClient()
-        {
-            @Override
-            protected JdbcClient delegate()
-            {
-                return jdbcClient;
-            }
-
-            @Override
-            public PreparedStatement getPreparedStatement(Connection connection, String sql)
-                    throws SQLException
-            {
-                lastQuery = sql;
-                return super.getPreparedStatement(connection, sql);
-            }
-        };
+        jdbcClient = database.getJdbcClient();
 
         CharType charType = CharType.createCharType(0);
 
@@ -238,8 +219,10 @@ public class TestJdbcQueryBuilder
                 .build());
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -278,16 +261,17 @@ public class TestJdbcQueryBuilder
                 .build());
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 SESSION,
                 connection,
                 TEST_TABLE,
                 Optional.empty(),
                 List.of(columns.get(0), columns.get(3), columns.get(9)),
                 tupleDomain,
-                Optional.empty(),
-                identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+                Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_3\" AS \"col_3\", \"col_9\" AS \"col_9\" " +
                     "FROM \"test_table\" " +
                     "WHERE (NOT (\"col_0\" IN (?,?,?)) OR \"col_0\" IS NULL) " +
@@ -316,8 +300,10 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -348,8 +334,10 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -382,8 +370,10 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -421,8 +411,10 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -460,8 +452,10 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -490,8 +484,11 @@ public class TestJdbcQueryBuilder
     {
         Connection connection = database.getConnection();
         Function<String, String> function = sql -> sql + " LIMIT 10";
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, TupleDomain.all(), Optional.empty(), function)) {
-            assertThat(lastQuery).isEqualTo("" +
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, TupleDomain.all(), Optional.empty());
+        preparedQuery = preparedQuery.transformQuery(function);
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -515,8 +512,10 @@ public class TestJdbcQueryBuilder
                 columns.get(1), Domain.onlyNull(DOUBLE)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
                     "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
                     "FROM \"test_table\" " +
@@ -542,16 +541,17 @@ public class TestJdbcQueryBuilder
                         Optional.empty()));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 SESSION,
                 connection,
                 TEST_TABLE,
                 Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
                 projectedColumns,
                 TupleDomain.all(),
-                Optional.empty(),
-                identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+                Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +
                     "GROUP BY \"col_2\"");
@@ -584,16 +584,17 @@ public class TestJdbcQueryBuilder
                         Optional.empty()));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(
+        QueryBuilder queryBuilder = new QueryBuilder(jdbcClient);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 SESSION,
                 connection,
                 TEST_TABLE,
                 Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
                 projectedColumns,
                 tupleDomain,
-                Optional.empty(),
-                identity())) {
-            assertThat(lastQuery).isEqualTo("" +
+                Optional.empty());
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
                     "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +
                     "WHERE (\"col_1\" < ? OR \"col_1\" IS NULL) " +
