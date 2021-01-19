@@ -307,7 +307,15 @@ public class TestJdbcMetadata
         JdbcTableHandle tableHandleWithFilter = applyFilter(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, secondDomain))));
         assertEquals(
                 tableHandleWithFilter.getConstraint().getDomains(),
-                Optional.of(ImmutableMap.of(groupByColumn, Domain.singleValue(VARCHAR, utf8Slice("one")))));
+                // The query effectively intersects firstDomain and secondDomain, but this is not visible in JdbcTableHandle.constraint,
+                // as firstDomain has been converted into a PreparedQuery
+                Optional.of(ImmutableMap.of(groupByColumn, secondDomain)));
+        assertEquals(
+                ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
+                "SELECT \"TEXT\", count(*) AS \"_pfgnrtd_1\" " +
+                        "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
+                        "WHERE \"TEXT\" IN (?,?) " +
+                        "GROUP BY \"TEXT\"");
     }
 
     @Test
@@ -324,11 +332,18 @@ public class TestJdbcMetadata
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(groupByColumn)));
 
         Domain domain = Domain.singleValue(BIGINT, 123L);
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> filterResult = metadata.applyFilter(
+        JdbcTableHandle tableHandleWithFilter = applyFilter(
                 session,
                 aggregatedTable,
                 new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(nonGroupByColumn, domain))));
-        assertThat(filterResult).isEmpty();
+        assertEquals(
+                tableHandleWithFilter.getConstraint().getDomains(),
+                Optional.of(ImmutableMap.of(nonGroupByColumn, domain)));
+        assertEquals(
+                ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
+                "SELECT \"TEXT\", count(*) AS \"_pfgnrtd_1\" " +
+                        "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
+                        "GROUP BY \"TEXT\"");
     }
 
     @Test
@@ -346,11 +361,18 @@ public class TestJdbcMetadata
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(textColumn, valueColumn), ImmutableList.of(textColumn)));
 
         Domain domain = Domain.singleValue(BIGINT, 123L);
-        Optional<ConstraintApplicationResult<ConnectorTableHandle>> filterResult = metadata.applyFilter(
+        JdbcTableHandle tableHandleWithFilter = applyFilter(
                 session,
                 aggregatedTable,
                 new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(valueColumn, domain))));
-        assertThat(filterResult).isEmpty();
+        assertEquals(
+                tableHandleWithFilter.getConstraint().getDomains(),
+                Optional.of(ImmutableMap.of(valueColumn, domain)));
+        assertEquals(
+                ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
+                "SELECT \"TEXT\", \"VALUE\", count(*) AS \"_pfgnrtd_1\" " +
+                        "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
+                        "GROUP BY GROUPING SETS ((\"TEXT\", \"VALUE\"), (\"TEXT\"))");
     }
 
     private JdbcTableHandle applyCountAggregation(ConnectorSession session, ConnectorTableHandle tableHandle, List<List<ColumnHandle>> groupByColumns)

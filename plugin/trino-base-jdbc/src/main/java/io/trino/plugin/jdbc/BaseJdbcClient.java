@@ -421,6 +421,32 @@ public abstract class BaseJdbcClient
     }
 
     @Override
+    public PreparedQuery prepareQuery(
+            ConnectorSession session,
+            JdbcTableHandle table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            PreparedQuery preparedQuery = new QueryBuilder(this).prepareQuery(
+                    session,
+                    connection,
+                    table.getRelationHandle(),
+                    groupingSets,
+                    columns,
+                    columnExpressions,
+                    table.getConstraint(),
+                    Optional.empty());
+            preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
+            return preparedQuery;
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
@@ -429,8 +455,9 @@ public abstract class BaseJdbcClient
                 session,
                 connection,
                 table.getRelationHandle(),
-                table.getGroupingSets(),
+                Optional.empty(),
                 columns,
+                ImmutableMap.of(),
                 table.getConstraint(),
                 split.getAdditionalPredicate());
         preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));

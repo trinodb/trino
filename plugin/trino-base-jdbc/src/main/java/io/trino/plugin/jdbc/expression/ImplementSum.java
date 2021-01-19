@@ -79,7 +79,7 @@ public class ImplementSum
         }
 
         return Optional.of(new JdbcExpression(
-                format("sum(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("sum(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 resultTypeHandle));
     }
 }

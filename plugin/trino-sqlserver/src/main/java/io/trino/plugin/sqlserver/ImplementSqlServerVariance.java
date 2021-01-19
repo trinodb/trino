@@ -63,7 +63,7 @@ public class ImplementSqlServerVariance
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("VAR(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("VAR(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }
