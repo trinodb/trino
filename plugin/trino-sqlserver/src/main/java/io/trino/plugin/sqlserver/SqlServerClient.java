@@ -367,6 +367,9 @@ public class SqlServerClient
     @Override
     public Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle)
     {
+        if (!tableHandle.isNamedRelation()) {
+            return ImmutableMap.of();
+        }
         try (Connection connection = configureConnectionTransactionIsolation(connectionFactory.openConnection(session));
                 Handle handle = Jdbi.open(connection)) {
             return getTableDataCompression(handle, tableHandle)

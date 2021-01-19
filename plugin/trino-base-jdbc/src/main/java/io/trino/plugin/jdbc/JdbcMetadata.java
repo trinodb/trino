@@ -166,8 +166,7 @@ public class JdbcMetadata
         }
 
         handle = new JdbcTableHandle(
-                handle.getSchemaTableName(),
-                handle.getRemoteTableName(),
+                handle.getRelationHandle(),
                 newDomain,
                 handle.getGroupingSets(),
                 handle.getLimit(),
@@ -195,8 +194,7 @@ public class JdbcMetadata
 
         return Optional.of(new ProjectionApplicationResult<>(
                 new JdbcTableHandle(
-                        handle.getSchemaTableName(),
-                        handle.getRemoteTableName(),
+                        handle.getRelationHandle(),
                         handle.getConstraint(),
                         handle.getGroupingSets(),
                         handle.getLimit(),
@@ -280,8 +278,7 @@ public class JdbcMetadata
         }
 
         handle = new JdbcTableHandle(
-                handle.getSchemaTableName(),
-                handle.getRemoteTableName(),
+                handle.getRelationHandle(),
                 handle.getConstraint(),
                 Optional.of(groupingSets.stream()
                         .map(groupingSet -> groupingSet.stream()
@@ -308,8 +305,7 @@ public class JdbcMetadata
         }
 
         handle = new JdbcTableHandle(
-                handle.getSchemaTableName(),
-                handle.getRemoteTableName(),
+                handle.getRelationHandle(),
                 handle.getConstraint(),
                 handle.getGroupingSets(),
                 OptionalLong.of(limit),
@@ -346,7 +342,11 @@ public class JdbcMetadata
         for (JdbcColumnHandle column : jdbcClient.getColumns(session, handle)) {
             columnMetadata.add(column.getColumnMetadata());
         }
-        return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata.build(), jdbcClient.getTableProperties(session, handle));
+        SchemaTableName schemaTableName = handle.isNamedRelation()
+                ? handle.getSchemaTableName()
+                // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
+                : new SchemaTableName("_prepared", "query");
+        return new ConnectorTableMetadata(schemaTableName, columnMetadata.build(), jdbcClient.getTableProperties(session, handle));
     }
 
     @Override
