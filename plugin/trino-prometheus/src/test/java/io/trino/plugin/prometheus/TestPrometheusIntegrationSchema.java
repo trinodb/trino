@@ -60,9 +60,12 @@ public class TestPrometheusIntegrationSchema
 
     @BeforeClass
     protected void createQueryRunner()
+            throws Exception
     {
         this.server = new PrometheusServer();
         this.client = createPrometheusClient(server);
+
+        PrometheusServer.checkServerReady(this.client);
     }
 
     @AfterClass(alwaysRun = true)
@@ -73,13 +76,11 @@ public class TestPrometheusIntegrationSchema
 
     @Test
     public void testRetrieveUpValue()
-            throws Exception
     {
-        PrometheusServer.checkServerReady(this.client);
         assertTrue(client.getTableNames("default").contains("up"), "Prometheus' own `up` metric should be available in default");
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testMetadata()
     {
         assertTrue(client.getTableNames("default").contains("up"));
@@ -92,7 +93,7 @@ public class TestPrometheusIntegrationSchema
                 new PrometheusColumn("value", DOUBLE)));
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testGetTableHandle()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -102,7 +103,7 @@ public class TestPrometheusIntegrationSchema
         assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("unknown", "unknown")));
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testGetColumnHandles()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -127,7 +128,7 @@ public class TestPrometheusIntegrationSchema
         }
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testGetTableMetadata()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -145,7 +146,7 @@ public class TestPrometheusIntegrationSchema
         assertNull(metadata.getTableMetadata(SESSION, new PrometheusTableHandle("unknown", "numbers")));
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testListTables()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -157,7 +158,7 @@ public class TestPrometheusIntegrationSchema
                 .hasMessageContaining("Prometheus did no return metrics list (table names): ");
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testCorrectNumberOfSplitsCreated()
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
