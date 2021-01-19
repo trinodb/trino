@@ -424,15 +424,17 @@ public abstract class BaseJdbcClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
-        return new QueryBuilder(this).buildSql(
+        QueryBuilder queryBuilder = new QueryBuilder(this);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 session,
                 connection,
                 table.getRemoteTableName(),
                 table.getGroupingSets(),
                 columns,
                 table.getConstraint(),
-                split.getAdditionalPredicate(),
-                tryApplyLimit(table.getLimit()));
+                split.getAdditionalPredicate());
+        preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
+        return queryBuilder.prepareStatement(session, connection, preparedQuery);
     }
 
     @Override
