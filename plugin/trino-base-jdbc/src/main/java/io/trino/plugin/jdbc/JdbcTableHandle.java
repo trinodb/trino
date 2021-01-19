@@ -30,14 +30,15 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcTableHandle
         implements ConnectorTableHandle
 {
-    private final SchemaTableName schemaTableName;
-    private final RemoteTableName remoteTableName;
+    private final JdbcRelationHandle relationHandle;
+
     private final TupleDomain<ColumnHandle> constraint;
 
     // semantically aggregation is applied after constraint
@@ -58,8 +59,7 @@ public final class JdbcTableHandle
     public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
         this(
-                schemaTableName,
-                remoteTableName,
+                new JdbcNamedRelationHandle(schemaTableName, remoteTableName),
                 TupleDomain.all(),
                 Optional.empty(),
                 OptionalLong.empty(),
@@ -68,15 +68,13 @@ public final class JdbcTableHandle
 
     @JsonCreator
     public JdbcTableHandle(
-            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
-            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
+            @JsonProperty("relationHandle") JdbcRelationHandle relationHandle,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("groupingSets") Optional<List<List<JdbcColumnHandle>>> groupingSets,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns)
     {
-        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        this.remoteTableName = requireNonNull(remoteTableName, "remoteTable is null");
+        this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
 
         requireNonNull(groupingSets, "groupingSets is null");
@@ -90,36 +88,42 @@ public final class JdbcTableHandle
         this.columns = columns.map(ImmutableList::copyOf);
     }
 
-    @JsonProperty
+    @JsonIgnore
     public SchemaTableName getSchemaTableName()
     {
-        return schemaTableName;
+        return getNamedRelation().getSchemaTableName();
+    }
+
+    @JsonIgnore
+    public RemoteTableName getRemoteTableName()
+    {
+        return getNamedRelation().getRemoteTableName();
     }
 
     @JsonProperty
-    public RemoteTableName getRemoteTableName()
+    public JdbcRelationHandle getRelationHandle()
     {
-        return remoteTableName;
+        return relationHandle;
     }
 
     @Deprecated
     @Nullable
     public String getCatalogName()
     {
-        return remoteTableName.getCatalogName().orElse(null);
+        return getRemoteTableName().getCatalogName().orElse(null);
     }
 
     @Deprecated
     @Nullable
     public String getSchemaName()
     {
-        return remoteTableName.getSchemaName().orElse(null);
+        return getRemoteTableName().getSchemaName().orElse(null);
     }
 
     @Deprecated
     public String getTableName()
     {
-        return remoteTableName.getTableName();
+        return getRemoteTableName().getTableName();
     }
 
     @JsonProperty
@@ -146,10 +150,22 @@ public final class JdbcTableHandle
         return columns;
     }
 
+    private JdbcNamedRelationHandle getNamedRelation()
+    {
+        checkState(isNamedRelation(), "The table handle does not represent a named relation: %s", this);
+        return (JdbcNamedRelationHandle) relationHandle;
+    }
+
     @JsonIgnore
     public boolean isSynthetic()
     {
-        return !constraint.isAll() || groupingSets.isPresent() || limit.isPresent();
+        return !isNamedRelation() || !constraint.isAll() || groupingSets.isPresent() || limit.isPresent();
+    }
+
+    @JsonIgnore
+    public boolean isNamedRelation()
+    {
+        return relationHandle instanceof JdbcNamedRelationHandle;
     }
 
     @Override
@@ -162,7 +178,7 @@ public final class JdbcTableHandle
             return false;
         }
         JdbcTableHandle o = (JdbcTableHandle) obj;
-        return Objects.equals(this.schemaTableName, o.schemaTableName) &&
+        return Objects.equals(this.relationHandle, o.relationHandle) &&
                 Objects.equals(this.constraint, o.constraint) &&
                 Objects.equals(this.groupingSets, o.groupingSets) &&
                 Objects.equals(this.limit, o.limit) &&
@@ -172,15 +188,14 @@ public final class JdbcTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(schemaTableName, constraint, groupingSets, limit, columns);
+        return Objects.hash(relationHandle, constraint, groupingSets, limit, columns);
     }
 
     @Override
     public String toString()
     {
         StringBuilder builder = new StringBuilder();
-        builder.append(schemaTableName).append(" ");
-        builder.append(remoteTableName);
+        builder.append(relationHandle);
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         columns.ifPresent(value -> builder.append(" columns=").append(value));
         groupingSets.ifPresent(value -> builder.append(" groupingSets=").append(value));
