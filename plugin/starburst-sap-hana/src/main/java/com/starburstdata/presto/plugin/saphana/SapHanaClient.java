@@ -67,6 +67,7 @@ import javax.inject.Inject;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -992,5 +993,18 @@ public class SapHanaClient
         {
             return max;
         }
+    }
+
+    @Override
+    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
+            throws SQLException
+    {
+        DatabaseMetaData metadata = connection.getMetaData();
+        ResultSet tables = metadata.getTables(
+                connection.getCatalog(),
+                escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
+                new String[] {"TABLE", "VIEW", "CALC VIEW"});
+        return tables;
     }
 }
