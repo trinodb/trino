@@ -77,5 +77,7 @@ public class IcebergModule
 
         Multibinder<Procedure> procedures = newSetBinder(binder, Procedure.class);
         procedures.addBinding().toProvider(RollbackToSnapshotProcedure.class).in(Scopes.SINGLETON);
+
+        binder.bind(IcebergViewCodec.class).in(Scopes.SINGLETON);
     }
 }

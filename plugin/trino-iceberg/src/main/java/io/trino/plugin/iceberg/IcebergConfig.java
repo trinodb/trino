@@ -14,10 +14,13 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
 import javax.validation.constraints.NotNull;
+
+import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
@@ -26,6 +29,8 @@ public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
+    // TODO: Change this to Optional.empty() along with other such Trino migration changes
+    private Optional<String> alternateViewCodecTag = Optional.of("Presto");
 
     @NotNull
     public FileFormat getFileFormat()
@@ -50,6 +55,20 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    public Optional<String> getAlternateViewCodecTag()
+    {
+        return alternateViewCodecTag;
+    }
+
+    @Deprecated
+    @Config("iceberg.alternate-view-codec-tag")
+    @ConfigDescription("Enable reading views encoded with a tag other than Trino")
+    public IcebergConfig setAlternateViewCodecTag(String alternateViewCodecTag)
+    {
+        this.alternateViewCodecTag = Optional.ofNullable(alternateViewCodecTag);
         return this;
     }
 }

@@ -741,7 +741,7 @@ public abstract class AbstractTestHive
         HiveMetastore metastore = cachingHiveMetastore(
                 new BridgingHiveMetastore(new ThriftHiveMetastore(
                         metastoreLocator,
-                        hiveConfig,
+                        new HiveViewCodec(hiveConfig),
                         new MetastoreConfig(),
                         new ThriftMetastoreConfig(),
                         hdfsEnvironment,
@@ -768,6 +768,7 @@ public abstract class AbstractTestHive
                 metastoreClient,
                 hdfsEnvironment,
                 partitionManager,
+                new HiveViewCodec(hiveConfig),
                 10,
                 10,
                 10,
@@ -775,7 +776,6 @@ public abstract class AbstractTestHive
                 false,
                 false,
                 true,
-                false,
                 1000,
                 Optional.empty(),
                 true,

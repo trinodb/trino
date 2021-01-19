@@ -87,6 +87,7 @@ public class HiveModule
 
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
+        binder.bind(HiveViewCodec.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(TransactionalMetadataFactory.class).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
