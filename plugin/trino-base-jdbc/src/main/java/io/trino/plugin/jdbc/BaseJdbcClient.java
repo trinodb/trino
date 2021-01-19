@@ -428,7 +428,7 @@ public abstract class BaseJdbcClient
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 session,
                 connection,
-                table.getRemoteTableName(),
+                table.getRelationHandle(),
                 table.getGroupingSets(),
                 columns,
                 table.getConstraint(),
