@@ -184,8 +184,7 @@ public class TestJdbcRecordSetProvider
     private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
         jdbcTableHandle = new JdbcTableHandle(
-                jdbcTableHandle.getSchemaTableName(),
-                jdbcTableHandle.getRemoteTableName(),
+                jdbcTableHandle.getRelationHandle(),
                 domain,
                 Optional.empty(),
                 OptionalLong.empty(),
