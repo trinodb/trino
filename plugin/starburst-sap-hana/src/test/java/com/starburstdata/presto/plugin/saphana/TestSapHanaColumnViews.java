@@ -184,6 +184,55 @@ public class TestSapHanaColumnViews
         assertThat(computeActual("SHOW TABLES FROM _SYS_BIC").getOnlyColumnAsSet()).contains(viewName);
     }
 
+    @Test
+    public void testSelectFromAttributeJoinView()
+            throws Exception
+    {
+        // We use slash in the table name is it convention SAP HANA uses when views are being
+        // activated based on object model. The part before slash denotes package in which view is defined
+        // and part after slash actual view name.
+        String viewName = "views/attribute_join_view_" + randomTableSuffix();
+
+        // Despite saying COLUMN VIEW it actually creates JOIN VIEW (reported as CALC VIEW in JDBC metadata); actual view type is determined by parameters.
+        server.execute("" +
+                "CREATE COLUMN VIEW \"_SYS_BIC\".\"" + viewName + "\" WITH PARAMETERS (indexType=6,\n" +
+                " joinIndex=\"TPCH\".\"NATION\",\n" +
+                "joinIndexType=0,\n" +
+                "joinIndexEstimation=0,\n" +
+                " viewAttribute=('NATIONKEY',\n" +
+                "\"TPCH\".\"NATION\",\n" +
+                " \"NATIONKEY\",\n" +
+                "'',\n" +
+                "'V_NATION',\n" +
+                "'attribute',\n" +
+                "'',\n" +
+                "'" + viewName + "$NATIONKEY'),\n" +
+                " calculatedViewAttribute=('NATIONKEY2',\n" +
+                "'\"NATIONKEY\"*2',\n" +
+                "BIGINT,\n" +
+                "'" + viewName + "$NATIONKEY2'),\n" +
+                " view=('V_NATION',\n" +
+                "\"TPCH\".\"NATION\"),\n" +
+                "defaultView='V_NATION',\n" +
+                "'REGISTERVIEWFORAPCHECK'='1',\n" +
+                "OPTIMIZEMETAMODEL=0)");
+
+        assertThat(getViewType(viewName)).isEqualTo("JOIN");
+
+        String testQuery = "SELECT * FROM _SYS_BIC.\"" + viewName + "\"";
+        assertThat(query(testQuery)).matches("SELECT nationkey, nationkey * 2 FROM tpch.tiny.nation");
+
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("test_query", testQuery)
+                .build();
+        MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(10), createVarcharType(7), createVarcharType(8), createVarcharType(31), createVarcharType(6), INTEGER, BOOLEAN)
+                .row("nationkey", "saphana", "_sys_bic", viewName, "bigint", 8, false)
+                .build();
+        assertThat(query(session, "DESCRIBE OUTPUT test_query")).containsAll(expected);
+
+        assertThat(computeActual("SHOW TABLES FROM _SYS_BIC").getOnlyColumnAsSet()).contains(viewName);
+    }
+
     private String getViewType(String viewName)
             throws Exception
     {
