@@ -75,7 +75,6 @@ operator. This shows you that the pushdown was successful.
 
 A number of factors can prevent a push down:
 
-* adding a condition to the query
 * using a different aggregate function that cannot be pushed down into the connector
 * using a connector without pushdown support for the specific function
 
