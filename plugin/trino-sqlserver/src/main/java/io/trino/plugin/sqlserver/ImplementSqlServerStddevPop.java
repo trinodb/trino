@@ -60,7 +60,7 @@ public class ImplementSqlServerStddevPop
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("STDEVP(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("STDEVP(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

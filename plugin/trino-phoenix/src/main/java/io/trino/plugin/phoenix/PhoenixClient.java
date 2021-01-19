@@ -247,7 +247,7 @@ public class PhoenixClient
                 session,
                 connection,
                 table.getRemoteTableName(),
-                table.getGroupingSets(),
+                Optional.empty(),
                 columnHandles,
                 phoenixSplit.getConstraint(),
                 split.getAdditionalPredicate(),

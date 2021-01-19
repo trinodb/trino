@@ -61,7 +61,7 @@ public class ImplementAvgDecimal
         verify(aggregateFunction.getOutputType().equals(type));
 
         return Optional.of(new JdbcExpression(
-                format("CAST(avg(%s) AS decimal(%s, %s))", columnHandle.toSqlExpression(context.getIdentifierQuote()), type.getPrecision(), type.getScale()),
+                format("CAST(avg(%s) AS decimal(%s, %s))", context.getIdentifierQuote().apply(columnHandle.getColumnName()), type.getPrecision(), type.getScale()),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

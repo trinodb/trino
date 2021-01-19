@@ -56,7 +56,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Functions.identity;
@@ -114,21 +113,6 @@ public class JdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        if (handle.getGroupingSets().isPresent()) {
-            if (constraint.getSummary().isNone()) {
-                return Optional.empty();
-            }
-
-            Set<ColumnHandle> constraintColumns = constraint.getSummary().getDomains().orElseThrow().keySet();
-            List<List<JdbcColumnHandle>> groupingSets = handle.getGroupingSets().get();
-            boolean canPushDown = groupingSets.stream()
-                    .allMatch(groupingSet -> ImmutableSet.copyOf(groupingSet).containsAll(constraintColumns));
-
-            if (!canPushDown) {
-                return Optional.empty();
-            }
-        }
-
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
 
@@ -168,11 +152,21 @@ public class JdbcMetadata
         handle = new JdbcTableHandle(
                 handle.getRelationHandle(),
                 newDomain,
-                handle.getGroupingSets(),
                 handle.getLimit(),
                 handle.getColumns());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter));
+    }
+
+    private JdbcTableHandle flushAttributesAsQuery(ConnectorSession session, JdbcTableHandle handle)
+    {
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
+        PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), columns, ImmutableMap.of());
+        return new JdbcTableHandle(
+                new JdbcQueryRelationHandle(preparedQuery),
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                Optional.of(columns));
     }
 
     @Override
@@ -196,7 +190,6 @@ public class JdbcMetadata
                 new JdbcTableHandle(
                         handle.getRelationHandle(),
                         handle.getConstraint(),
-                        handle.getGroupingSets(),
                         handle.getLimit(),
                         Optional.of(newColumns)),
                 projections,
@@ -222,13 +215,10 @@ public class JdbcMetadata
 
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        if (handle.getLimit().isPresent()) {
-            // handle's limit is applied after aggregations, so we cannot apply aggregations if limit is already set
-            return Optional.empty();
-        }
+        // Global aggregation is represented by [[]]
+        verify(!groupingSets.isEmpty(), "No grouping sets provided");
 
-        if (handle.getGroupingSets().isPresent()) {
-            // table handle cannot express aggregation on top of aggregation
+        if (groupingSets.size() > 1 && !jdbcClient.supportsGroupingSets()) {
             return Optional.empty();
         }
 
@@ -237,11 +227,8 @@ public class JdbcMetadata
             return Optional.empty();
         }
 
-        // Global aggregation is represented by [[]]
-        verify(!groupingSets.isEmpty(), "No grouping sets provided");
-
-        if (groupingSets.size() > 1 && !jdbcClient.supportsGroupingSets()) {
-            return Optional.empty();
+        if (handle.getLimit().isPresent()) {
+            handle = flushAttributesAsQuery(session, handle);
         }
 
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
@@ -253,6 +240,7 @@ public class JdbcMetadata
         ImmutableList.Builder<JdbcColumnHandle> newColumns = ImmutableList.builder();
         ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
         ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
+        ImmutableMap.Builder<String, String> expressions = ImmutableMap.builder();
         for (AggregateFunction aggregate : aggregates) {
             Optional<JdbcExpression> expression = jdbcClient.implementAggregation(session, aggregate, assignments);
             if (expression.isEmpty()) {
@@ -263,30 +251,47 @@ public class JdbcMetadata
                 syntheticNextIdentifier++;
             }
 
+            String columnName = SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier;
             JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
-                    .setExpression(Optional.of(expression.get().getExpression()))
-                    .setColumnName(SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier)
+                    .setColumnName(columnName)
                     .setJdbcTypeHandle(expression.get().getJdbcTypeHandle())
                     .setColumnType(aggregate.getOutputType())
                     .setComment(Optional.of("synthetic"))
                     .build();
-            syntheticNextIdentifier++;
 
             newColumns.add(newColumn);
             projections.add(new Variable(newColumn.getColumnName(), aggregate.getOutputType()));
             resultAssignments.add(new Assignment(newColumn.getColumnName(), newColumn, aggregate.getOutputType()));
+            expressions.put(columnName, expression.get().getExpression());
+
+            syntheticNextIdentifier++;
         }
 
+        List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
+                .map(groupingSet -> groupingSet.stream()
+                        .map(JdbcColumnHandle.class::cast)
+                        .collect(toImmutableList()))
+                .collect(toImmutableList());
+
+        List<JdbcColumnHandle> newColumnsList = newColumns.build();
+
+        PreparedQuery preparedQuery = jdbcClient.prepareQuery(
+                session,
+                handle,
+                Optional.of(groupingSetsAsJdbcColumnHandles),
+                ImmutableList.<JdbcColumnHandle>builder()
+                        .addAll(groupingSetsAsJdbcColumnHandles.stream()
+                                .flatMap(List::stream)
+                                .distinct()
+                                .iterator())
+                        .addAll(newColumnsList)
+                        .build(),
+                expressions.build());
         handle = new JdbcTableHandle(
-                handle.getRelationHandle(),
-                handle.getConstraint(),
-                Optional.of(groupingSets.stream()
-                        .map(groupingSet -> groupingSet.stream()
-                                .map(JdbcColumnHandle.class::cast)
-                                .collect(toImmutableList()))
-                        .collect(toImmutableList())),
-                OptionalLong.empty(), // limit
-                Optional.of(newColumns.build()));
+                new JdbcQueryRelationHandle(preparedQuery),
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                Optional.of(newColumnsList));
 
         return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
     }
@@ -307,7 +312,6 @@ public class JdbcMetadata
         handle = new JdbcTableHandle(
                 handle.getRelationHandle(),
                 handle.getConstraint(),
-                handle.getGroupingSets(),
                 OptionalLong.of(limit),
                 handle.getColumns());
 
