@@ -161,6 +161,8 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
+    // tests sometimes fail with "Trino-OAuth2-Token is missing", but sometimes they fail with NPE
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^")
     public void testUnauthorizedApiCall()
             throws IOException
     {
@@ -172,6 +174,8 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
+    // tests sometimes fail with "Trino-OAuth2-Token is missing", but sometimes they fail with NPE
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^")
     public void testUnauthorizedUICall()
             throws IOException
     {
@@ -183,6 +187,8 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
+    // tests sometimes fail with "Trino-OAuth2-Token is missing", but sometimes they fail with NPE
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^")
     public void testUnsignedToken()
             throws NoSuchAlgorithmException, IOException
     {
@@ -218,6 +224,8 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
+    // tests sometimes fail with "Trino-OAuth2-Token is missing", but sometimes they fail with NPE
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^")
     public void testTokenWithInvalidAudience()
             throws IOException
     {
@@ -230,6 +238,8 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
+    // tests sometimes fail with "Trino-OAuth2-Token is missing", but sometimes they fail with NPE
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^")
     public void testTokenFromTrustedClient()
             throws IOException
     {
@@ -238,7 +248,8 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = OAUTH2_COOKIE + " is missing")
+    // tests sometimes fail with "Trino-OAuth2-Token is missing", but sometimes they fail with NPE
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^")
     public void testSuccessfulFlow()
             throws Exception
     {
@@ -250,7 +261,8 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = OAUTH2_COOKIE + " is missing")
+    // tests sometimes fail with "Trino-OAuth2-Token is missing", but sometimes they fail with NPE
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^")
     public void testExpiredAccessToken()
             throws Exception
     {
