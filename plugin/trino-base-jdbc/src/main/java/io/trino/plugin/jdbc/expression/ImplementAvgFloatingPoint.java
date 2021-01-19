@@ -61,7 +61,7 @@ public class ImplementAvgFloatingPoint
         verify(aggregateFunction.getOutputType() == columnHandle.getColumnType());
 
         return Optional.of(new JdbcExpression(
-                format("avg(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("avg(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

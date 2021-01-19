@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -114,7 +113,7 @@ public class TestSqlServerIntegrationSmokeTest
                 "SELECT regionkey, sum(nationkey) " +
                 "FROM (SELECT * FROM nation WHERE regionkey < 3 LIMIT 11) " +
                 "GROUP BY regionkey"))
-                .isNotFullyPushedDown(AggregationNode.class);
+                .isFullyPushedDown();
 
         // decimals
         try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
@@ -148,9 +147,9 @@ public class TestSqlServerIntegrationSmokeTest
             assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown WHERE varchar_column ='ala'")).isFullyPushedDown();
 
             // not supported yet
-            assertThat(query("SELECT min(DISTINCT short_decimal) FROM test_aggregation_pushdown")).isNotFullyPushedDown(AggregationNode.class);
+            assertThat(query("SELECT min(DISTINCT short_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
             assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal"))
-                    .isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+                    .isFullyPushedDown();
         }
 
         // array_agg returns array, which is not supported
@@ -316,7 +315,7 @@ public class TestSqlServerIntegrationSmokeTest
         // predicate over aggregation result
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
 
         // decimals
         try (AutoCloseable ignoreTable = withTable("test_decimal_pushdown",

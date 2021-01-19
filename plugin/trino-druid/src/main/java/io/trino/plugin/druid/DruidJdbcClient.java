@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -44,6 +45,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -157,8 +159,19 @@ public class DruidJdbcClient
     }
 
     @Override
+    public PreparedQuery prepareQuery(ConnectorSession session, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
+    {
+        return super.prepareQuery(session, prepareTableHandleForQuery(table), groupingSets, columns, columnExpressions);
+    }
+
+    @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
+    {
+        return super.buildSql(session, connection, split, prepareTableHandleForQuery(table), columns);
+    }
+
+    private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)
     {
         if (table.isNamedRelation()) {
             String schemaName = table.getSchemaName();
@@ -170,12 +183,11 @@ public class DruidJdbcClient
                             // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
                             new RemoteTableName(Optional.empty(), table.getRemoteTableName().getSchemaName(), table.getRemoteTableName().getTableName())),
                     table.getConstraint(),
-                    table.getGroupingSets(),
                     table.getLimit(),
                     table.getColumns());
         }
 
-        return super.buildSql(session, connection, split, table, columns);
+        return table;
     }
 
     /*
