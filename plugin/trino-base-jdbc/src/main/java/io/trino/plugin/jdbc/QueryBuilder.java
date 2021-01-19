@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -78,7 +79,10 @@ public class QueryBuilder
         PreparedQuery preparedQuery = prepareQuery(
                 session,
                 connection,
-                remoteTableName,
+                new JdbcNamedRelationHandle(
+                        // This dummy SchemaTableName is not used for anything here. It's provided only to implement the deprecated buildSql() method
+                        new SchemaTableName(remoteTableName.getSchemaName().orElse(""), remoteTableName.getTableName()),
+                        remoteTableName),
                 groupingSets,
                 columns,
                 tupleDomain,
@@ -90,16 +94,26 @@ public class QueryBuilder
     public PreparedQuery prepareQuery(
             ConnectorSession session,
             Connection connection,
-            RemoteTableName remoteTableName,
+            JdbcRelationHandle baseRelation,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<String> additionalPredicate)
     {
-        String sql = "SELECT " + getProjection(columns);
-        sql += " FROM " + getRelation(remoteTableName);
-
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
+
+        String sql = "SELECT " + getProjection(columns);
+        if (baseRelation instanceof JdbcNamedRelationHandle) {
+            sql += " FROM " + getRelation(((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());
+        }
+        else if (baseRelation instanceof JdbcQueryRelationHandle) {
+            PreparedQuery preparedQuery = ((JdbcQueryRelationHandle) baseRelation).getPreparedQuery();
+            sql += " FROM (" + preparedQuery.getQuery() + ") o";
+            accumulator.addAll(preparedQuery.getParameters());
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
+        }
 
         List<String> clauses = toConjuncts(client, session, connection, tupleDomain, accumulator::add);
         if (additionalPredicate.isPresent()) {

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -87,7 +88,9 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestJdbcQueryBuilder
 {
-    private static final RemoteTableName TEST_TABLE = new RemoteTableName(Optional.empty(), Optional.empty(), "test_table");
+    private static final JdbcNamedRelationHandle TEST_TABLE = new JdbcNamedRelationHandle(new SchemaTableName(
+            "some_test_schema", "test_table"),
+            new RemoteTableName(Optional.empty(), Optional.empty(), "test_table"));
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
             .build();
