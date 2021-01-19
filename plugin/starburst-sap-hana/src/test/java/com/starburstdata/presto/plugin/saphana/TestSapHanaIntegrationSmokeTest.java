@@ -19,6 +19,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -261,5 +262,14 @@ public class TestSapHanaIntegrationSmokeTest
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
+    }
+
+    @Test
+    public void testSelectFromStandardView()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        String viewName = schemaName + ".nation_view_" + randomTableSuffix();
+        server.execute("CREATE VIEW " + viewName + " AS SELECT nationkey FROM " + schemaName + ".nation WHERE name = 'ROMANIA'");
+        assertThat(query("SELECT * FROM " + viewName)).matches("VALUES BIGINT '19'");
     }
 }
