@@ -126,6 +126,7 @@ public class TestAvroDecoder
                     break;
                 case NULL:
                     genericDefault.withDefault(null);
+                    break;
                 default:
                     genericDefault.noDefault();
             }
