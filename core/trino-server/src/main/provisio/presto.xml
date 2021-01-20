@@ -56,6 +56,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/clickhouse">
+        <artifact id="${project.groupId}:trino-clickhouse:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/example-http">
         <artifact id="${project.groupId}:trino-example-http:zip:${project.version}">
             <unpack />
