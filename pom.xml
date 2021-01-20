@@ -1778,6 +1778,7 @@
                                     -Xep:CompareToZero:ERROR
                                     -Xep:ComparingThisWithNull:ERROR
                                     -Xep:EqualsIncompatibleType:ERROR
+                                    -Xep:FallThrough:ERROR
                                     -Xep:FormatString:ERROR
                                     -Xep:GetClassOnClass:ERROR
                                     -Xep:ImmutableSetForContains:ERROR
