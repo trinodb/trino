@@ -144,16 +144,22 @@ public class BooleanInputStream
             switch (count) {
                 case 7:
                     vector[offset++] = (byte) ((value & 64) >>> 6);
+                    // fall through
                 case 6:
                     vector[offset++] = (byte) ((value & 32) >>> 5);
+                    // fall through
                 case 5:
                     vector[offset++] = (byte) ((value & 16) >>> 4);
+                    // fall through
                 case 4:
                     vector[offset++] = (byte) ((value & 8) >>> 3);
+                    // fall through
                 case 3:
                     vector[offset++] = (byte) ((value & 4) >>> 2);
+                    // fall through
                 case 2:
                     vector[offset++] = (byte) ((value & 2) >>> 1);
+                    // fall through
                 case 1:
                     vector[offset++] = (byte) ((value & 1) >>> 0);
             }
@@ -187,16 +193,22 @@ public class BooleanInputStream
             switch (remaining) {
                 case 7:
                     vector[offset++] = (byte) ((value & 64) >>> 6);
+                    // fall through
                 case 6:
                     vector[offset++] = (byte) ((value & 32) >>> 5);
+                    // fall through
                 case 5:
                     vector[offset++] = (byte) ((value & 16) >>> 4);
+                    // fall through
                 case 4:
                     vector[offset++] = (byte) ((value & 8) >>> 3);
+                    // fall through
                 case 3:
                     vector[offset++] = (byte) ((value & 4) >>> 2);
+                    // fall through
                 case 2:
                     vector[offset++] = (byte) ((value & 2) >>> 1);
+                    // fall through
                 case 1:
                     vector[offset++] = (byte) ((value & 1) >>> 0);
             }
@@ -223,16 +235,22 @@ public class BooleanInputStream
             switch (count) {
                 case 7:
                     vector[offset++] = (value & 64) == 0;
+                    // fall through
                 case 6:
                     vector[offset++] = (value & 32) == 0;
+                    // fall through
                 case 5:
                     vector[offset++] = (value & 16) == 0;
+                    // fall through
                 case 4:
                     vector[offset++] = (value & 8) == 0;
+                    // fall through
                 case 3:
                     vector[offset++] = (value & 4) == 0;
+                    // fall through
                 case 2:
                     vector[offset++] = (value & 2) == 0;
+                    // fall through
                 case 1:
                     vector[offset++] = (value & 1) == 0;
             }
@@ -268,16 +286,22 @@ public class BooleanInputStream
             switch (remaining) {
                 case 7:
                     vector[offset++] = (value & 64) == 0;
+                    // fall through
                 case 6:
                     vector[offset++] = (value & 32) == 0;
+                    // fall through
                 case 5:
                     vector[offset++] = (value & 16) == 0;
+                    // fall through
                 case 4:
                     vector[offset++] = (value & 8) == 0;
+                    // fall through
                 case 3:
                     vector[offset++] = (value & 4) == 0;
+                    // fall through
                 case 2:
                     vector[offset++] = (value & 2) == 0;
+                    // fall through
                 case 1:
                     vector[offset++] = (value & 1) == 0;
             }
