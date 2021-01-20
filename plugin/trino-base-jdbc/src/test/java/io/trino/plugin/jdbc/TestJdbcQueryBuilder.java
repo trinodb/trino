@@ -223,8 +223,8 @@ public class TestJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
-                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "WHERE (\"col_0\" < ? OR (\"col_0\" >= ? AND \"col_0\" <= ?) OR \"col_0\" > ? OR \"col_0\" IN (?,?)) " +
                     "AND ((\"col_1\" >= ? AND \"col_1\" <= ?) OR (\"col_1\" >= ? AND \"col_1\" <= ?) OR \"col_1\" IN (?,?,?,?)) " +
@@ -272,7 +272,7 @@ public class TestJdbcQueryBuilder
                 Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_3\" AS \"col_3\", \"col_9\" AS \"col_9\" " +
+                    "SELECT \"col_0\", \"col_3\", \"col_9\" " +
                     "FROM \"test_table\" " +
                     "WHERE (NOT (\"col_0\" IN (?,?,?)) OR \"col_0\" IS NULL) " +
                     "AND NOT (\"col_1\" IN (?,?,?)) " +
@@ -304,8 +304,8 @@ public class TestJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
-                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "WHERE \"col_10\" IN (?,?,?)");
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
@@ -338,8 +338,8 @@ public class TestJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
-                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "WHERE ((\"col_3\" >= ? AND \"col_3\" < ?) OR \"col_3\" IN (?,?))");
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -374,8 +374,8 @@ public class TestJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
-                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "WHERE ((\"col_11\" >= ? AND \"col_11\" < ?) OR \"col_11\" IN (?,?))");
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
@@ -415,8 +415,8 @@ public class TestJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
-                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "WHERE ((\"col_4\" >= ? AND \"col_4\" < ?) OR \"col_4\" IN (?,?)) AND ((\"col_5\" > ? AND \"col_5\" <= ?) OR \"col_5\" IN (?,?))");
             ImmutableSet.Builder<Date> dateBuilder = ImmutableSet.builder();
@@ -456,8 +456,8 @@ public class TestJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
-                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "WHERE ((\"col_6\" > ? AND \"col_6\" <= ?) OR \"col_6\" IN (?,?))");
             ImmutableSet.Builder<Timestamp> builder = ImmutableSet.builder();
@@ -489,8 +489,8 @@ public class TestJdbcQueryBuilder
         preparedQuery = preparedQuery.transformQuery(function);
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
-                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "LIMIT 10");
             long count = 0;
@@ -516,8 +516,8 @@ public class TestJdbcQueryBuilder
         PreparedQuery preparedQuery = queryBuilder.prepareQuery(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_0\" AS \"col_0\", \"col_1\" AS \"col_1\", \"col_2\" AS \"col_2\", \"col_3\" AS \"col_3\", \"col_4\" AS \"col_4\", \"col_5\" AS \"col_5\", " +
-                    "\"col_6\" AS \"col_6\", \"col_7\" AS \"col_7\", \"col_8\" AS \"col_8\", \"col_9\" AS \"col_9\", \"col_10\" AS \"col_10\", \"col_11\" AS \"col_11\" " +
+                    "SELECT \"col_0\", \"col_1\", \"col_2\", \"col_3\", \"col_4\", \"col_5\", " +
+                    "\"col_6\", \"col_7\", \"col_8\", \"col_9\", \"col_10\", \"col_11\" " +
                     "FROM \"test_table\" " +
                     "WHERE \"col_1\" IS NULL");
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -552,7 +552,7 @@ public class TestJdbcQueryBuilder
                 Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
+                    "SELECT \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +
                     "GROUP BY \"col_2\"");
 
@@ -595,7 +595,7 @@ public class TestJdbcQueryBuilder
                 Optional.empty());
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(SESSION, connection, preparedQuery)) {
             assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT \"col_2\" AS \"col_2\", sum(\"col_0\") AS \"s\" " +
+                    "SELECT \"col_2\", sum(\"col_0\") AS \"s\" " +
                     "FROM \"test_table\" " +
                     "WHERE (\"col_1\" < ? OR \"col_1\" IS NULL) " +
                     "GROUP BY \"col_2\"");
