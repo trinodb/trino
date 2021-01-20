@@ -15,8 +15,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-
         <server.tar.package>trino-server-${project.version}</server.tar.package>
+        <javaversion>${air.java.version}</javaversion>
     </properties>
 
     <dependencies>
@@ -142,7 +142,6 @@
 
                 <configuration>
                     <performCheckingForExtraFiles>false</performCheckingForExtraFiles>
-
                     <packages>
                         <package>
                             <name>trino-server-rpm</name>

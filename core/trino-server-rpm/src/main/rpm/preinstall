@@ -1,7 +1,20 @@
 # Pre installation script
 
-# Ensure that the proper version of Java exists on the system
+# Returns:
+# 1 when actual version >= expected
+# 0 otherwise
+version_ge() {
+    local expected="${1}"
+    local actual="${2}"
 
+    if [  "$expected" = $(echo -e "$actual\n$expected" | sort -V | head -n 1) ]; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+# Ensure that the proper version of Java exists on the system
 java_version() {
 # The one argument is the location of java (either $JAVA_HOME or a potential
 # candidate for JAVA_HOME.
@@ -21,9 +34,7 @@ check_if_correct_java_version() {
 # The one argument is the location of java (either $JAVA_HOME or a potential
 # candidate for JAVA_HOME).
   JAVA_VERSION=$(java_version "$1")
-  JAVA_UPDATE=$(echo $JAVA_VERSION | cut -d'_' -f2)
-  JAVA_MAJOR=$(echo $JAVA_VERSION | cut -d'.' -f1)
-  if [[ ("$JAVA_MAJOR" -ge "11") ]]; then
+  if [ $(version_ge "${project.properties.javaversion}" "$JAVA_VERSION") -eq "1" ]; then
     echo "JAVA_HOME=$1" > /tmp/trino_env.sh
     return 0
   else
@@ -54,7 +65,7 @@ fi
 if [ "$java_found" = false ]; then
   cat 1>&2 <<EOF
 +======================================================================+
-|      Error: Required Java version could not be found                 |
+|      Error: Required Java version ${project.properties.javaversion} could not be found          |
 +----------------------------------------------------------------------+
 | Please install JDK 11. On RHEL/CentOS, use java-11-openjdk-devel.    |
 |                                                                      |
