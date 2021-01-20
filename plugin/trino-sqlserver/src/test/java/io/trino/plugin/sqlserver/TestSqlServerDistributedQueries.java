@@ -93,7 +93,6 @@ public class TestSqlServerDistributedQueries
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp")
                 || typeName.equals("timestamp(3) with time zone")) {
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
