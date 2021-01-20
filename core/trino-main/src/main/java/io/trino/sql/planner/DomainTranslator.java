@@ -774,6 +774,7 @@ public final class DomainTranslator
                     if (coercedValueIsLessThanOriginal) {
                         return new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
                     }
+                    throw new AssertionError("Unreachable");
                 case LESS_THAN_OR_EQUAL:
                 case LESS_THAN:
                     if (coercedValueIsLessThanOriginal) {
@@ -785,6 +786,7 @@ public final class DomainTranslator
                     if (coercedValueIsGreaterThanOriginal) {
                         return new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
                     }
+                    throw new AssertionError("Unreachable");
                 case EQUAL:
                     if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral);
