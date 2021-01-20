@@ -436,7 +436,6 @@ public class JdbcMetadata
         verify(!((JdbcTableHandle) tableHandle).isSynthetic(), "Not a table reference: %s", tableHandle);
         List<JdbcColumnHandle> columnHandles = columns.stream()
                 .map(JdbcColumnHandle.class::cast)
-                .peek(columnHandle -> verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle))
                 .collect(toImmutableList());
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
         setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
@@ -463,7 +462,6 @@ public class JdbcMetadata
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
-        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
         jdbcClient.setColumnComment(session, tableHandle, columnHandle, comment);
     }
 
@@ -481,7 +479,6 @@ public class JdbcMetadata
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
-        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
         jdbcClient.dropColumn(session, tableHandle, columnHandle);
     }
 
@@ -491,7 +488,6 @@ public class JdbcMetadata
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
-        verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
         jdbcClient.renameColumn(session, tableHandle, columnHandle, target);
     }
 
