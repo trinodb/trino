@@ -14,7 +14,6 @@
 package io.trino.plugin.jdbc;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import io.trino.spi.connector.ColumnHandle;
@@ -107,12 +106,6 @@ public final class JdbcColumnHandle
     public Optional<String> getComment()
     {
         return comment;
-    }
-
-    @JsonIgnore
-    public boolean isSynthetic()
-    {
-        return expression.isPresent();
     }
 
     public ColumnMetadata getColumnMetadata()
