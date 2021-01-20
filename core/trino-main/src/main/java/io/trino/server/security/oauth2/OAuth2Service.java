@@ -118,30 +118,12 @@ public class OAuth2Service
         return client.getAuthorizationUri(state, callbackUri, Optional.empty());
     }
 
-    public OAuthResult finishChallenge(String state, String code, URI callbackUri, Optional<String> nonce)
+    public OAuthResult finishChallenge(Optional<UUID> authId, String code, URI callbackUri, Optional<String> nonce)
             throws ChallengeFailedException
     {
         requireNonNull(callbackUri, "callbackUri is null");
-        requireNonNull(state, "state is null");
+        requireNonNull(authId, "authId is null");
         requireNonNull(code, "code is null");
-
-        Claims stateClaims = parseState(state);
-        Optional<UUID> authId;
-        if (STATE_AUDIENCE_UI.equals(stateClaims.getAudience())) {
-            authId = Optional.empty();
-        }
-        else if (STATE_AUDIENCE_REST.equals(stateClaims.getAudience())) {
-            try {
-                authId = Optional.of(UUID.fromString(stateClaims.getId()));
-            }
-            catch (IllegalArgumentException e) {
-                throw new ChallengeFailedException("State is does not contain an auth ID");
-            }
-        }
-        else {
-            // this is very unlikely, but is a good safety check
-            throw new ChallengeFailedException("Unexpected state audience");
-        }
 
         // fetch access token
         AccessToken accessToken = client.getAccessToken(code, callbackUri);
@@ -152,7 +134,7 @@ public class OAuth2Service
                 .parseClaimsJws(accessToken.getAccessToken())
                 .getBody();
 
-        validateNonce(stateClaims, accessToken, nonce);
+        validateNonce(authId, accessToken, nonce);
 
         // determine expiration
         Instant validUntil = accessToken.getValidUntil()
@@ -160,6 +142,25 @@ public class OAuth2Service
                 .orElse(parsedToken.getExpiration().toInstant());
 
         return new OAuthResult(authId, accessToken.getAccessToken(), validUntil);
+    }
+
+    public Optional<UUID> getAuthId(String state)
+            throws ChallengeFailedException
+    {
+        Claims stateClaims = parseState(state);
+        if (STATE_AUDIENCE_UI.equals(stateClaims.getAudience())) {
+            return Optional.empty();
+        }
+        if (STATE_AUDIENCE_REST.equals(stateClaims.getAudience())) {
+            try {
+                return Optional.of(UUID.fromString(stateClaims.getId()));
+            }
+            catch (IllegalArgumentException e) {
+                throw new ChallengeFailedException("State is does not contain an auth ID");
+            }
+        }
+        // this is very unlikely, but is a good safety check
+        throw new ChallengeFailedException("Unexpected state audience");
     }
 
     private Claims parseState(String state)
@@ -198,10 +199,11 @@ public class OAuth2Service
         return failureHtml.replace(FAILURE_REPLACEMENT_TEXT, nullToEmpty(errorMessage));
     }
 
-    private void validateNonce(Claims stateClaims, AccessToken accessToken, Optional<String> nonce)
+    private void validateNonce(Optional<UUID> authId, AccessToken accessToken, Optional<String> nonce)
             throws ChallengeFailedException
     {
-        if (STATE_AUDIENCE_REST.equals(stateClaims.getAudience())) {
+        if (authId.isPresent()) {
+            // authId is available only for REST API calls.
             // do not validate nonce if it's a REST challenge
             // the challenge was not started by a web browser therefore it is expected that the cookie is missing
             return;
