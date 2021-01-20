@@ -167,7 +167,14 @@ public class QueryBuilder
             return "1";
         }
         return columns.stream()
-                .map(jdbcColumnHandle -> format("%s AS %s", jdbcColumnHandle.toSqlExpression(client::quoted), client.quoted(jdbcColumnHandle.getColumnName())))
+                .map(jdbcColumnHandle -> {
+                    String columnAlias = client.quoted(jdbcColumnHandle.getColumnName());
+                    if (jdbcColumnHandle.getExpression().isEmpty()) {
+                        return columnAlias;
+                    }
+                    String expression = jdbcColumnHandle.toSqlExpression(client::quoted);
+                    return format("%s AS %s", expression, columnAlias);
+                })
                 .collect(joining(", "));
     }
 
