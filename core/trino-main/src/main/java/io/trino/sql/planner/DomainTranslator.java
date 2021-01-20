@@ -764,7 +764,7 @@ public final class DomainTranslator
 
             switch (comparisonOperator) {
                 case GREATER_THAN_OR_EQUAL:
-                case GREATER_THAN: {
+                case GREATER_THAN:
                     if (coercedValueIsGreaterThanOriginal) {
                         return new ComparisonExpression(GREATER_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
@@ -774,9 +774,8 @@ public final class DomainTranslator
                     if (coercedValueIsLessThanOriginal) {
                         return new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral);
                     }
-                }
                 case LESS_THAN_OR_EQUAL:
-                case LESS_THAN: {
+                case LESS_THAN:
                     if (coercedValueIsLessThanOriginal) {
                         return new ComparisonExpression(LESS_THAN_OR_EQUAL, symbolExpression, coercedLiteral);
                     }
@@ -786,23 +785,20 @@ public final class DomainTranslator
                     if (coercedValueIsGreaterThanOriginal) {
                         return new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral);
                     }
-                }
-                case EQUAL: {
+                case EQUAL:
                     if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral);
                     }
                     // Return something that is false for all non-null values
                     return and(new ComparisonExpression(GREATER_THAN, symbolExpression, coercedLiteral),
                             new ComparisonExpression(LESS_THAN, symbolExpression, coercedLiteral));
-                }
-                case NOT_EQUAL: {
+                case NOT_EQUAL:
                     if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
                     }
                     // Return something that is true for all non-null values
                     return or(new ComparisonExpression(EQUAL, symbolExpression, coercedLiteral),
                             new ComparisonExpression(NOT_EQUAL, symbolExpression, coercedLiteral));
-                }
                 case IS_DISTINCT_FROM: {
                     if (coercedValueIsEqualToOriginal) {
                         return new ComparisonExpression(comparisonOperator, symbolExpression, coercedLiteral);
