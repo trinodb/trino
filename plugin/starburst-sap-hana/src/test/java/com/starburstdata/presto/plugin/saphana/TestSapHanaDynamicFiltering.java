@@ -13,7 +13,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
 import io.prestosql.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -27,18 +26,12 @@ public class TestSapHanaDynamicFiltering
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = new TestingSapHanaServer();
+        server = closeAfterClass(new TestingSapHanaServer());
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of(ORDERS));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        server.close();
     }
 
     @Override

@@ -15,7 +15,6 @@ import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -35,7 +34,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sapHanaServer = new TestingSapHanaServer();
+        sapHanaServer = closeAfterClass(new TestingSapHanaServer());
         return createSapHanaQueryRunner(
                 sapHanaServer,
                 ImmutableMap.<String, String>builder()
@@ -43,12 +42,6 @@ public abstract class AbstractTestSapHanaTableStatistics
                         .build(),
                 ImmutableMap.of(),
                 ImmutableList.of(ORDERS));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        sapHanaServer.close();
     }
 
     @Test

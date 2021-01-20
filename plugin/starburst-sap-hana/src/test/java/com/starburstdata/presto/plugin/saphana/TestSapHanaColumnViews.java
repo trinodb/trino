@@ -15,7 +15,6 @@ import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -41,7 +40,7 @@ public class TestSapHanaColumnViews
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = new TestingSapHanaServer();
+        server = closeAfterClass(new TestingSapHanaServer());
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.<String, String>builder()
@@ -52,12 +51,6 @@ public class TestSapHanaColumnViews
                         .build(),
                 ImmutableMap.of(),
                 ImmutableList.of(NATION));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        server.close();
     }
 
     @Test

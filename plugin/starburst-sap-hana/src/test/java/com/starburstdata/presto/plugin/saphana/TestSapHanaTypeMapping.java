@@ -25,7 +25,6 @@ import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.datatype.SqlDataTypeTest;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -122,18 +121,12 @@ public class TestSapHanaTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = new TestingSapHanaServer();
+        server = closeAfterClass(new TestingSapHanaServer());
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        server.close();
     }
 
     @BeforeClass

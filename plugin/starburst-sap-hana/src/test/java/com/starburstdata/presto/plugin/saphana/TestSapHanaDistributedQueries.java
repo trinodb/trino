@@ -14,7 +14,6 @@ import io.prestosql.testing.AbstractTestDistributedQueries;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
 import io.prestosql.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
 
 import java.util.Optional;
 
@@ -30,18 +29,12 @@ public class TestSapHanaDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = new TestingSapHanaServer();
+        server = closeAfterClass(new TestingSapHanaServer());
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 TpchTable.getTables());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        server.close();
     }
 
     @Override

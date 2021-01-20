@@ -15,7 +15,6 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.sql.TestTable;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
@@ -36,7 +35,7 @@ public class TestSapHanaIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = new TestingSapHanaServer();
+        server = closeAfterClass(new TestingSapHanaServer());
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.<String, String>builder()
@@ -45,12 +44,6 @@ public class TestSapHanaIntegrationSmokeTest
                         .build(),
                 ImmutableMap.of(),
                 ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        server.close();
     }
 
     @Test
