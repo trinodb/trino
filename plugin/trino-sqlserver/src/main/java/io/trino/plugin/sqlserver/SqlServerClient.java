@@ -50,6 +50,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -86,11 +87,13 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -106,10 +109,12 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME;
-import static io.trino.spi.type.TimestampType.TIMESTAMP;
+import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
@@ -130,6 +135,8 @@ public class SqlServerClient
             .build();
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
+
+    private static final int MAX_SUPPORTED_TIMESTAMP_PRECISION = 7;
 
     @Inject
     public SqlServerClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
@@ -233,7 +240,7 @@ public class SqlServerClient
             case Types.NUMERIC:
             case Types.DECIMAL: {
                 int columnSize = typeHandle.getRequiredColumnSize();
-                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int decimalDigits = typeHandle.getRequiredDecimalDigits();
                 // TODO does sql server support negative scale?
                 int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
                 if (precision > Decimals.MAX_PRECISION) {
@@ -262,7 +269,8 @@ public class SqlServerClient
                 return Optional.of(timeColumnMapping(TIME));
 
             case Types.TIMESTAMP:
-                return Optional.of(timestampColumnMappingUsingSqlTimestamp(TIMESTAMP));
+                int precision = typeHandle.getRequiredDecimalDigits();
+                return Optional.of(timestampColumnMapping(createTimestampType(precision)));
         }
 
         // TODO (https://github.com/trinodb/trino/issues/4593) implement proper type mapping
@@ -323,6 +331,15 @@ public class SqlServerClient
 
         if (type == DATE) {
             return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            String dataType = format("datetime2(%d)", min(timestampType.getPrecision(), MAX_SUPPORTED_TIMESTAMP_PRECISION));
+            if (timestampType.getPrecision() <= MAX_SHORT_PRECISION) {
+                return WriteMapping.longMapping(dataType, timestampWriteFunction(timestampType));
+            }
+            return WriteMapping.objectMapping(dataType, longTimestampWriteFunction(timestampType));
         }
 
         // TODO implement proper type mapping
