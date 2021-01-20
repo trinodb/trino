@@ -86,14 +86,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <dependency>
-            <!-- TODO remove this after fixing https://github.com/trinodb/trino/issues/5718 -->
-            <groupId>org.checkerframework</groupId>
-            <artifactId>checker-qual</artifactId>
-            <scope>runtime</scope>
-            <version>3.5.0</version>
-        </dependency>
-
         <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
