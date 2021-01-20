@@ -13,6 +13,11 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.cronutils.descriptor.CronDescriptor;
+import com.cronutils.model.definition.CronDefinition;
+import com.cronutils.model.definition.CronDefinitionBuilder;
+import com.cronutils.model.time.ExecutionTime;
+import com.cronutils.parser.CronParser;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.InvalidCodePointException;
 import io.airlift.slice.InvalidUtf8Exception;
@@ -36,8 +41,12 @@ import io.prestosql.type.Constraint;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 
 import java.text.Normalizer;
+import java.time.ZonedDateTime;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.cronutils.model.CronType.UNIX;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
@@ -912,6 +921,48 @@ public final class StringFunctions
             return false;
         }
         return source.compareTo(0, prefix.length(), prefix, 0, prefix.length()) == 0;
+    }
+    
+    @Description("Describes a cron expression in english")
+    @ScalarFunction("cron_to_english")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice cronEnglish(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        //change Locale UTC?
+        CronDescriptor descriptor = CronDescriptor.instance(Locale.UK);
+        CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(UNIX);
+        CronParser parser = new CronParser(cronDefinition);
+        String cronexp = slice.toStringUtf8();
+        String description = descriptor.describe(parser.parse(cronexp));
+        return utf8Slice(description);
+    }
+
+    @Description("Get last execution time of a cron expression")
+    @ScalarFunction("cron_last_time")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice cronLast(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(UNIX);
+        CronParser parser = new CronParser(cronDefinition);
+        String cronexp = slice.toStringUtf8();
+        ZonedDateTime now = ZonedDateTime.now();
+        ExecutionTime executionTime = ExecutionTime.forCron(parser.parse(cronexp));
+        Optional<ZonedDateTime> lastExecution = executionTime.lastExecution(now);
+        return utf8Slice(lastExecution.get().toString());
+    }
+
+    @Description("Get next execution time of a cron expression")
+    @ScalarFunction("cron_next_time")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice cronNext(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(UNIX);
+        CronParser parser = new CronParser(cronDefinition);
+        String cronexp = slice.toStringUtf8();
+        ZonedDateTime now = ZonedDateTime.now();
+        ExecutionTime executionTime = ExecutionTime.forCron(parser.parse(cronexp));
+        Optional<ZonedDateTime> nextExecution = executionTime.nextExecution(now);
+        return utf8Slice(nextExecution.get().toString());
     }
 
     @Description("Translate characters from the source string based on original and translations strings")
