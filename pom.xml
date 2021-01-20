@@ -1742,8 +1742,7 @@
         </profile>
 
         <profile>
-            <!-- airbase defines "errorprone-compiler" profile but set up this ourselves -->
-            <id>errorprone-compiler-trino</id>
+            <id>errorprone-compiler</id>
             <build>
                 <plugins>
                     <plugin>
