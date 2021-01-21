@@ -181,7 +181,7 @@ public class TestSparkCompatibility
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
     public void testPrestoReadsSparkPartitionedTable()
     {
-        String baseTableName = "test_spark_reads_presto_partitioned_table";
+        String baseTableName = "test_presto_reads_spark_partitioned_table";
         String sparkTableName = sparkTableName(baseTableName);
         onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string)", sparkTableName));
         onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", sparkTableName));
