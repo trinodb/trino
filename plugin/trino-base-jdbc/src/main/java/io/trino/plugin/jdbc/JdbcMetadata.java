@@ -71,7 +71,7 @@ import static java.util.Objects.requireNonNull;
 public class JdbcMetadata
         implements ConnectorMetadata
 {
-    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_presto_generated_";
+    private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
 
     private final JdbcClient jdbcClient;
     private final boolean allowDropTable;
