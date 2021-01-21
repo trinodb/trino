@@ -44,6 +44,7 @@ import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.client.auth.external.ExternalAuthenticator.TOKEN_URI_FIELD;
 import static io.trino.client.auth.external.ExternalAuthenticator.toAuthentication;
+import static io.trino.client.auth.external.MockTokenPoller.onPoll;
 import static io.trino.client.auth.external.TokenPollResult.successful;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_UNAUTHORIZED;
@@ -244,7 +245,7 @@ public class TestExternalAuthenticator
 
         List<Future<Request>> requests = times(
                 2,
-                () -> new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1))
+                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))
                         .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());
@@ -264,13 +265,13 @@ public class TestExternalAuthenticator
         MockRedirectHandler redirectHandler = new MockRedirectHandler()
                 .sleepOnRedirect(Duration.ofMinutes(1));
 
-        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1));
+        ExternalAuthenticator authenticator = new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1));
         Future<Request> interruptedAuthentication = interruptableThreadPool.submit(
                 () -> authenticator.authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")));
         Thread.sleep(100); //It's here to make sure that authentication will start before the other threads.
         List<Future<Request>> requests = times(
                 2,
-                () -> new ExternalAuthenticator(redirectHandler, (uri, duration) -> TokenPollResult.pending(uri), KnownToken.memoryCached(), Duration.ofMillis(1))
+                () -> new ExternalAuthenticator(redirectHandler, onPoll(TokenPollResult::pending), KnownToken.memoryCached(), Duration.ofMillis(1))
                         .authenticate(null, getUnauthorizedResponse("Bearer x_token_server=\"http://token.uri\", x_redirect_server=\"http://redirect.uri\"")))
                 .map(executor::submit)
                 .collect(toImmutableList());

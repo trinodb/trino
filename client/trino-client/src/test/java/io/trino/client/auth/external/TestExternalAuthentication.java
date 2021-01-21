@@ -39,7 +39,7 @@ public class TestExternalAuthentication
     {
         MockRedirectHandler redirectHandler = new MockRedirectHandler();
 
-        TokenPoller poller = new MockTokenPoller()
+        MockTokenPoller poller = new MockTokenPoller()
                 .withResult(TOKEN_URI, TokenPollResult.successful(new Token(AUTH_TOKEN)));
 
         Optional<Token> token = new ExternalAuthentication(TOKEN_URI, Optional.of(REDIRECT_URI))
@@ -47,6 +47,7 @@ public class TestExternalAuthentication
 
         assertThat(redirectHandler.redirectedTo()).isEqualTo(REDIRECT_URI);
         assertThat(token).map(Token::token).hasValue(AUTH_TOKEN);
+        assertThat(poller.tokenReceivedUri()).isEqualTo(TOKEN_URI);
     }
 
     @Test
@@ -55,7 +56,7 @@ public class TestExternalAuthentication
         RedirectHandler redirectHandler = new MockRedirectHandler();
 
         URI nextTokenUri = TOKEN_URI.resolve("/next");
-        TokenPoller poller = new MockTokenPoller()
+        MockTokenPoller poller = new MockTokenPoller()
                 .withResult(TOKEN_URI, TokenPollResult.pending(nextTokenUri))
                 .withResult(nextTokenUri, TokenPollResult.successful(new Token(AUTH_TOKEN)));
 
@@ -63,6 +64,7 @@ public class TestExternalAuthentication
                 .obtainToken(TIMEOUT, redirectHandler, poller);
 
         assertThat(token).map(Token::token).hasValue(AUTH_TOKEN);
+        assertThat(poller.tokenReceivedUri()).isEqualTo(nextTokenUri);
     }
 
     @Test
@@ -70,10 +72,10 @@ public class TestExternalAuthentication
     {
         RedirectHandler redirectHandler = new MockRedirectHandler();
 
-        TokenPoller poller = (tokenUri, timeout) -> {
+        TokenPoller poller = MockTokenPoller.onPoll((tokenUri) -> {
             sleepUninterruptibly(Duration.ofMillis(20));
             return TokenPollResult.pending(TOKEN_URI);
-        };
+        });
 
         Optional<Token> token = new ExternalAuthentication(TOKEN_URI, Optional.of(REDIRECT_URI))
                 .obtainToken(TIMEOUT, redirectHandler, poller);
@@ -100,9 +102,9 @@ public class TestExternalAuthentication
     {
         RedirectHandler redirectHandler = new MockRedirectHandler();
 
-        TokenPoller poller = (tokenUri, timeout) -> {
+        TokenPoller poller = MockTokenPoller.onPoll(uri -> {
             throw new UncheckedIOException(new IOException("polling error"));
-        };
+        });
 
         assertThatThrownBy(() -> new ExternalAuthentication(TOKEN_URI, Optional.of(REDIRECT_URI))
                 .obtainToken(TIMEOUT, redirectHandler, poller))
