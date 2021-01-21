@@ -36,6 +36,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
+import okhttp3.OkHttpClient;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -102,6 +103,11 @@ public class TestingTrinoClient
     public TestingTrinoClient(TestingTrinoServer trinoServer, Session defaultSession)
     {
         super(trinoServer, defaultSession);
+    }
+
+    public TestingTrinoClient(TestingTrinoServer trinoServer, Session defaultSession, OkHttpClient httpClient)
+    {
+        super(trinoServer, defaultSession, httpClient);
     }
 
     @Override
