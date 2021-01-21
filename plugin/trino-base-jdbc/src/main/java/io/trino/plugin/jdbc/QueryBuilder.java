@@ -147,7 +147,7 @@ public class QueryBuilder
     protected String getProjection(List<JdbcColumnHandle> columns)
     {
         if (columns.isEmpty()) {
-            return "1";
+            return "1 x";
         }
         return columns.stream()
                 .map(jdbcColumnHandle -> format("%s AS %s", jdbcColumnHandle.toSqlExpression(client::quoted), client.quoted(jdbcColumnHandle.getColumnName())))
