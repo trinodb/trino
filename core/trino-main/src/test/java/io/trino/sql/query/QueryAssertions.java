@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
@@ -43,6 +44,7 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
@@ -379,22 +381,27 @@ public class QueryAssertions
          * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
          * when pushdown capabilities are improved.
          */
-        public QueryAssert isNotFullyPushedDown(Class<? extends PlanNode> retainedNode)
+        public QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
+            checkArgument(retainedNodes.length > 0, "No retainedNodes");
+
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
             verifyResultsWithPushdownDisabled();
 
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
+                        for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
+                            expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
+                        }
+                        expectedPlan = PlanMatchPattern.anyTree(expectedPlan);
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
                                 (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
                                 plan,
-                                PlanMatchPattern.anyTree(
-                                        PlanMatchPattern.node(retainedNode,
-                                                PlanMatchPattern.node(TableScanNode.class))));
+                                expectedPlan);
                     });
 
             return this;
