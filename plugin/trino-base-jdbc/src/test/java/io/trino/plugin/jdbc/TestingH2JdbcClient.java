@@ -25,6 +25,7 @@ import io.trino.spi.type.VarcharType;
 
 import java.sql.Connection;
 import java.sql.Types;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -72,9 +73,10 @@ class TestingH2JdbcClient
     }
 
     @Override
-    public boolean supportsGroupingSets()
+    public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
     {
-        return false;
+        // GROUP BY with GROUPING SETS is not supported
+        return groupingSets.size() == 1;
     }
 
     @Override
