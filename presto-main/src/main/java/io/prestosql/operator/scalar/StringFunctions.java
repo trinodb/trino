@@ -964,6 +964,20 @@ public final class StringFunctions
         Optional<ZonedDateTime> nextExecution = executionTime.nextExecution(now);
         return utf8Slice(nextExecution.get().toString());
     }
+    
+    @Description("Get 2nd last execution time of a cron expression")
+    @ScalarFunction("cron_2nd_last_time")
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice cronSecondLast(@SqlType(StandardTypes.VARCHAR) Slice slice)
+    {
+        CronDefinition cronDefinition = CronDefinitionBuilder.instanceDefinitionFor(UNIX);
+        CronParser parser = new CronParser(cronDefinition);
+        String cronexp = slice.toStringUtf8();
+        ZonedDateTime now = ZonedDateTime.now();
+        ExecutionTime executionTime = ExecutionTime.forCron(parser.parse(cronexp));
+        Optional<ZonedDateTime> secondLastExecution = executionTime.lastExecution(executionTime.lastExecution(now).get());
+        return utf8Slice(secondLastExecution.get().toString());
+    }
 
     @Description("Translate characters from the source string based on original and translations strings")
     @ScalarFunction
