@@ -140,8 +140,8 @@ public class TestSqlServerIntegrationSmokeTest
 
             // not supported yet
             assertThat(query("SELECT min(DISTINCT short_decimal) FROM test_aggregation_pushdown")).isNotFullyPushedDown(AggregationNode.class);
-            // TODO: Improve assertion framework. Here min(long_decimal) is pushed down. There remains ProjectNode above it which relates to DISTINCT in the query.
-            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal")).isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal"))
+                    .isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
         }
 
         // array_agg returns array, which is not supported
