@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.execution.buffer.BufferResult.emptyResults;
@@ -264,7 +263,7 @@ class ClientBuffer
      */
     private boolean loadPagesIfNecessary(PagesSupplier pagesSupplier, DataSize maxSize)
     {
-        checkState(!Thread.holdsLock(this), "Cannot load pages while holding a lock on this");
+        assertNotHoldsLock("Cannot load pages while holding a lock on this");
 
         boolean dataAddedOrNoMorePages;
         List<SerializedPageReference> pageReferences;
@@ -300,7 +299,7 @@ class ClientBuffer
 
     private void processRead(PendingRead pendingRead)
     {
-        checkState(!Thread.holdsLock(this), "Cannot process pending read while holding a lock on this");
+        assertNotHoldsLock("Cannot process pending read while holding a lock on this");
 
         if (pendingRead.getResultFuture().isDone()) {
             return;
@@ -414,6 +413,12 @@ class ClientBuffer
         }
         //  Dereference pages outside of synchronized block to trigger callbacks
         dereferencePages(removedPages.build(), onPagesReleased);
+    }
+
+    @SuppressWarnings("checkstyle:IllegalToken")
+    private void assertNotHoldsLock(String message)
+    {
+        assert !Thread.holdsLock(this) : message;
     }
 
     @Override
