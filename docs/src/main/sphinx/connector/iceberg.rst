@@ -102,7 +102,7 @@ Transform                             Description
 In this example, the table is partitioned by the month of ``order_date``, a hash of
 ``account_number`` (with 10 buckets), and ``country``::
 
-    CREATE TABLE iceberg.testdb.sample_partitioned (
+    CREATE TABLE iceberg.testdb.customer_orders (
         order_id BIGINT,
         order_date DATE,
         account_number BIGINT,
@@ -118,14 +118,14 @@ partitions if the ``WHERE`` clause specifies filters only on the identity-transf
 partitioning columns, that can match entire partitions. Given the table definition
 above, this SQL will delete all partitions for which ``country`` is ``US``::
 
-    DELETE FROM iceberg.testdb.sample_partitioned
+    DELETE FROM iceberg.testdb.customer_orders
     WHERE country = 'US'
 
 Currently, the Iceberg connector only supports deletion by partition.
 This SQL below will fail because the ``WHERE`` clause selects only some of the rows
 in the partition::
 
-    DELETE FROM iceberg.testdb.sample_partitioned
+    DELETE FROM iceberg.testdb.customer_orders
     WHERE country = 'US' AND customer = 'Freds Foods'
 
 Rolling back to a previous snapshot
@@ -136,14 +136,14 @@ identified by an snapshot IDs.
 
 The connector provides a system snapshots table for each Iceberg table.  Snapshots are
 identified by BIGINT snapshot IDs.  You can find the latest snapshot ID for table
-``customer_accounts`` by running the following command::
+``customer_orders`` by running the following command::
 
-    SELECT snapshot_id FROM "customer_accounts$snapshots" ORDER BY committed_at DESC LIMIT 1
+    SELECT snapshot_id FROM iceberg.testdb."customer_orders$snapshots" ORDER BY committed_at DESC LIMIT 1
 
 A SQL procedure ``system.rollback_to_snapshot`` allows the caller to roll back
 the state of the table to a previous snapshot id::
 
-    CALL system.rollback_to_snapshot(schema_name, table_name, snapshot_id)
+    CALL iceberg.system.rollback_to_snapshot('testdb', 'customer_orders', 8954597067493422955)
 
 Schema evolution
 ----------------
@@ -163,8 +163,8 @@ need to use either the Iceberg API or Spark.
 System tables and columns
 -------------------------
 
-The connector supports queries of the table partitions.  Given a table ``customer_accounts``,
-``SELECT * FROM customer_acccounts$partitions`` shows the table partitions, including the minimum
+The connector supports queries of the table partitions.  Given a table ``customer_orders``,
+``SELECT * FROM iceberg.testdb."customer_orders$partitions"`` shows the table partitions, including the minimum
 and maximum values for the partition columns.
 
 Iceberg table properties
