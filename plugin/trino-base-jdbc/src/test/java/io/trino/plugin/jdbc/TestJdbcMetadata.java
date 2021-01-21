@@ -392,12 +392,6 @@ public class TestJdbcMetadata
         }
 
         @Override
-        public boolean supportsGroupingSets()
-        {
-            return true;
-        }
-
-        @Override
         public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
         {
             // disable aggregation pushdown for any table named no_agg_pushdown
