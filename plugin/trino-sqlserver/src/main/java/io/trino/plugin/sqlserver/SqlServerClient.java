@@ -65,7 +65,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
@@ -334,11 +333,7 @@ public class SqlServerClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> {
-            String start = "SELECT ";
-            checkArgument(sql.startsWith(start));
-            return "SELECT TOP " + limit + " " + sql.substring(start.length());
-        });
+        return Optional.of((sql, limit) -> format("SELECT TOP %s * FROM (%s) o", limit, sql));
     }
 
     @Override
