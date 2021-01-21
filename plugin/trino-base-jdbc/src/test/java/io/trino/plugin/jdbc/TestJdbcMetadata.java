@@ -284,7 +284,7 @@ public class TestJdbcMetadata
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, baseTableHandle, ImmutableList.of(ImmutableList.of(groupByColumn)));
 
         Domain domain = Domain.singleValue(VARCHAR, utf8Slice("one"));
-        JdbcTableHandle tableHandleWithFilter = applyConstraint(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, domain))));
+        JdbcTableHandle tableHandleWithFilter = applyFilter(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, domain))));
 
         assertEquals(tableHandleWithFilter.getConstraint().getDomains(), Optional.of(ImmutableMap.of(groupByColumn, domain)));
     }
@@ -299,12 +299,12 @@ public class TestJdbcMetadata
         ConnectorTableHandle baseTableHandle = metadata.getTableHandle(session, new SchemaTableName("example", "numbers"));
 
         Domain firstDomain = Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("one"), utf8Slice("two")));
-        JdbcTableHandle filterResult = applyConstraint(session, baseTableHandle, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, firstDomain))));
+        JdbcTableHandle filterResult = applyFilter(session, baseTableHandle, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, firstDomain))));
 
         ConnectorTableHandle aggregatedTable = applyCountAggregation(session, filterResult, ImmutableList.of(ImmutableList.of(groupByColumn)));
 
         Domain secondDomain = Domain.multipleValues(VARCHAR, ImmutableList.of(utf8Slice("one"), utf8Slice("three")));
-        JdbcTableHandle tableHandleWithFilter = applyConstraint(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, secondDomain))));
+        JdbcTableHandle tableHandleWithFilter = applyFilter(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, secondDomain))));
         assertEquals(
                 tableHandleWithFilter.getConstraint().getDomains(),
                 Optional.of(ImmutableMap.of(groupByColumn, Domain.singleValue(VARCHAR, utf8Slice("one")))));
@@ -365,7 +365,7 @@ public class TestJdbcMetadata
         return (JdbcTableHandle) aggResult.get().getHandle();
     }
 
-    private JdbcTableHandle applyConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    private JdbcTableHandle applyFilter(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         Optional<ConstraintApplicationResult<ConnectorTableHandle>> filterResult = metadata.applyFilter(
                 session,
