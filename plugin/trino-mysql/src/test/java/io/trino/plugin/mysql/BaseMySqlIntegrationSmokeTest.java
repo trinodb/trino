@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -261,6 +263,72 @@ abstract class BaseMySqlIntegrationSmokeTest
 
         // approx_set returns HyperLogLog, which is not supported
         assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+    }
+
+    @Test
+    public void testStddevPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "4", "5"))) {
+            // Test non-whole number results
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testVariancePushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "3", "4", "5"))) {
+            // Test non-whole number results
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
     }
 
     @Test
