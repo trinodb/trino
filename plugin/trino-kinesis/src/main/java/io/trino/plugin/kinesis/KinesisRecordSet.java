@@ -383,6 +383,9 @@ public class KinesisRecordSet
         private Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeMessage(byte[] messageData)
         {
             KinesisCompressionCodec kinesisCompressionCodec = split.getCompressionCodec();
+            if (kinesisCompressionCodec == UNCOMPRESSED) {
+                return messageDecoder.decodeRow(messageData);
+            }
             if (isGZipped(messageData)) {
                 if (!canUseGzip(kinesisCompressionCodec)) {
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, format("A %s message was found that did not match the required %s compression codec. Consider using %s or %s compressionCodec in table description", GZIP, kinesisCompressionCodec, GZIP, AUTOMATIC));
@@ -396,7 +399,7 @@ public class KinesisRecordSet
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
                 }
             }
-            if (kinesisCompressionCodec == UNCOMPRESSED || kinesisCompressionCodec == AUTOMATIC) {
+            if (kinesisCompressionCodec == AUTOMATIC) {
                 return messageDecoder.decodeRow(messageData);
             }
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("A message was found that did not match the required %s compression codec. Consider using %s or %s compressionCodec in table description", kinesisCompressionCodec, UNCOMPRESSED, AUTOMATIC));
