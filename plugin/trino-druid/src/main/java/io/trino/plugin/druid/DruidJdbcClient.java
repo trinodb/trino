@@ -23,7 +23,6 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -156,24 +155,23 @@ public class DruidJdbcClient
         return legacyToWriteMapping(session, type);
     }
 
-    // Druid doesn't like table names to be qualified with catalog names in the SQL query.
-    // Hence, overriding this method to pass catalog as null.
     @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
         String schemaName = table.getSchemaName();
         checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
-        return new QueryBuilder(this)
-                .buildSql(
-                        session,
-                        connection,
-                        new RemoteTableName(Optional.empty(), table.getRemoteTableName().getSchemaName(), table.getRemoteTableName().getTableName()),
-                        table.getGroupingSets(),
-                        columns,
-                        table.getConstraint(),
-                        split.getAdditionalPredicate(),
-                        tryApplyLimit(table.getLimit()));
+
+        table = new JdbcTableHandle(
+                table.getSchemaTableName(),
+                // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
+                new RemoteTableName(Optional.empty(), table.getRemoteTableName().getSchemaName(), table.getRemoteTableName().getTableName()),
+                table.getConstraint(),
+                table.getGroupingSets(),
+                table.getLimit(),
+                table.getColumns());
+
+        return super.buildSql(session, connection, split, table, columns);
     }
 
     /*
