@@ -66,8 +66,6 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
-import org.apache.iceberg.TableMetadata;
-import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.CloseableIterable;
@@ -106,7 +104,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
-import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTable;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
@@ -226,7 +223,7 @@ public abstract class IcebergMetadata
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(session, table.getSchemaTableName());
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
 

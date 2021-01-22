@@ -374,11 +374,10 @@ public class IcebergHiveMetadata
         return false;
     }
 
-    @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         Optional<Table> materializedViewOptional = metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName());
-        if (!materializedViewOptional.isPresent()) {
+        if (materializedViewOptional.isEmpty()) {
             return Optional.empty();
         }
         if (!isMaterializedView(session, viewName)) {
@@ -392,13 +391,13 @@ public class IcebergHiveMetadata
 
         String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");
         return Optional.of(new ConnectorMaterializedViewDefinition(
-                definition.getOriginalSql(),
-                storageTable,
-                definition.getCatalog(),
-                Optional.of(viewName.getSchemaName()),
-                definition.getColumns(),
-                definition.getComment(),
-                Optional.of(materializedView.getOwner()),
-                new HashMap<>(materializedView.getParameters())));
+            definition.getOriginalSql(),
+            storageTable,
+            definition.getCatalog(),
+            Optional.of(viewName.getSchemaName()),
+            definition.getColumns(),
+            definition.getComment(),
+            Optional.of(materializedView.getOwner()),
+            new HashMap<>(materializedView.getParameters())));
     }
 }
