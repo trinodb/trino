@@ -19,6 +19,7 @@ import io.trino.matching.Pattern;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRule.RewriteContext;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DoubleType;
@@ -26,6 +27,7 @@ import io.trino.spi.type.DoubleType;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.expressionType;
@@ -44,7 +46,7 @@ public class ImplementSqlServerStddevPop
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().equalTo("stddev_pop"))
+                .with(functionName().matching(name -> name.equalsIgnoreCase("stddev_pop")))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))
@@ -52,10 +54,11 @@ public class ImplementSqlServerStddevPop
     }
 
     @Override
-    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, AggregateFunctionRule.RewriteContext context)
+    public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        verifyNotNull(columnHandle, "Unbound variable: %s", input);
         verify(columnHandle.getColumnType().equals(DOUBLE));
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 

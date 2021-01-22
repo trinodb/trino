@@ -26,6 +26,7 @@ import io.trino.spi.type.DoubleType;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.jdbc.expression.AggregateFunctionPatterns.expressionType;
@@ -44,7 +45,7 @@ public class ImplementSqlServerVariancePop
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().equalTo("var_pop"))
+                .with(functionName().matching(name -> name.equalsIgnoreCase("var_pop")))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))
@@ -56,6 +57,7 @@ public class ImplementSqlServerVariancePop
     {
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(input.getName());
+        verifyNotNull(columnHandle, "Unbound variable: %s", input);
         verify(columnHandle.getColumnType().equals(DOUBLE));
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
