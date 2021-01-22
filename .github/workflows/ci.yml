@@ -82,6 +82,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Shell checks
         uses: ludeeus/action-shellcheck@1.0.0
+        env:
+          SHELLCHECK_OPTS: -x -e SC1090,SC2034,SC1091,SC2148,SC2044
 
   test-jdbc-compatibility:
     runs-on: ubuntu-latest

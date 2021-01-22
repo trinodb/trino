@@ -30,11 +30,11 @@ exit_code=0
 failed_versions=()
 
 for version in ${tested_versions[*]}; do
-    if ! time env TRINO_JDBC_VERSION_UNDER_TEST="${version}" ${maven_run_tests} -Ddep.presto-jdbc-under-test="${version}"; then
+    if ! time env TRINO_JDBC_VERSION_UNDER_TEST="${version}" "${maven_run_tests}" -Ddep.presto-jdbc-under-test="${version}"; then
         exit_code=1
         failed_versions+=("${version}")
     fi
 done
 
-echo "$0: exiting with ${exit_code}, failed versions: ${failed_versions[@]+\"${failed_versions[@]}\"}"
+echo "$0: exiting with ${exit_code}, failed versions: " ${failed_versions[@]+\"${failed_versions[@]}\"}
 exit "${exit_code}"

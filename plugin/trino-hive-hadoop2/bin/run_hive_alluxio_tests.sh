@@ -15,7 +15,7 @@ function check_alluxio() {
 
 function run_in_alluxio() {
     docker exec -e ALLUXIO_JAVA_OPTS=" -Dalluxio.master.hostname=localhost" \
-           "$(alluxio_master_container)" $@
+           "$(alluxio_master_container)" "$@"
 }
 
 # Arguments:
@@ -54,7 +54,7 @@ function main () {
     run_in_alluxio alluxio table ls default
 
     # run product tests
-    pushd ${PROJECT_ROOT}
+    pushd "${PROJECT_ROOT}"
     set +e
     ./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-alluxio \
            -Dhive.hadoop2.alluxio.host=localhost \

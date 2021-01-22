@@ -28,7 +28,7 @@ create_test_tables \
 
 stop_unnecessary_hadoop_services
 
-pushd $PROJECT_ROOT
+pushd "$PROJECT_ROOT"
 set +e
 ./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-abfs-oauth \
     -DHADOOP_USER_NAME=hive \

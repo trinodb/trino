@@ -26,17 +26,17 @@ create_test_tables "wasb://${WASB_CONTAINER}@${WASB_ACCOUNT}.blob.core.windows.n
 stop_unnecessary_hadoop_services
 
 # run product tests
-pushd $PROJECT_ROOT
+pushd "$PROJECT_ROOT"
 set +e
 ./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-wasb \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \
     -Dhive.hadoop2.databaseName=default \
-    -Dhive.hadoop2.wasb.container=${WASB_CONTAINER} \
-    -Dhive.hadoop2.wasb.account=${WASB_ACCOUNT} \
-    -Dhive.hadoop2.wasb.accessKey=${WASB_ACCESS_KEY} \
-    -Dhive.hadoop2.wasb.testDirectory=${test_directory}
+    -Dhive.hadoop2.wasb.container="${WASB_CONTAINER}" \
+    -Dhive.hadoop2.wasb.account="${WASB_ACCOUNT}" \
+    -Dhive.hadoop2.wasb.accessKey="${WASB_ACCESS_KEY}" \
+    -Dhive.hadoop2.wasb.testDirectory="${test_directory}"
 EXIT_CODE=$?
 set -e
 popd

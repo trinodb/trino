@@ -27,18 +27,18 @@ create_test_tables "adl://${ADL_NAME}.azuredatalakestore.net/${test_directory}"
 stop_unnecessary_hadoop_services
 
 # run product tests
-pushd $PROJECT_ROOT
+pushd "$PROJECT_ROOT"
 set +e
 ./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-adl \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \
     -Dhive.hadoop2.databaseName=default \
-    -Dhive.hadoop2.adl.name=${ADL_NAME} \
-    -Dhive.hadoop2.adl.clientId=${ADL_CLIENT_ID} \
-    -Dhive.hadoop2.adl.credential=${ADL_CREDENTIAL} \
-    -Dhive.hadoop2.adl.refreshUrl=${ADL_REFRESH_URL} \
-    -Dhive.hadoop2.adl.testDirectory=${test_directory}
+    -Dhive.hadoop2.adl.name="${ADL_NAME}" \
+    -Dhive.hadoop2.adl.clientId="${ADL_CLIENT_ID}" \
+    -Dhive.hadoop2.adl.credential="${ADL_CREDENTIAL}" \
+    -Dhive.hadoop2.adl.refreshUrl="${ADL_REFRESH_URL}" \
+    -Dhive.hadoop2.adl.testDirectory="${test_directory}"
 EXIT_CODE=$?
 set -e
 popd

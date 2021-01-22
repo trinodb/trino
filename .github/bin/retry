@@ -10,9 +10,9 @@ x() {
 max_retry_time_seconds=$(( 30 * 60 ))
 retry_delay_seconds=10
 
-END=$(( $(date +%s) + ${max_retry_time_seconds} ))
+END=$(( $(date +%s) + max_retry_time_seconds ))
 
-while (( $(date +%s) < $END )); do
+while (( $(date +%s) < END )); do
     x "$@" && exit 0
     sleep "${retry_delay_seconds}"
 done
