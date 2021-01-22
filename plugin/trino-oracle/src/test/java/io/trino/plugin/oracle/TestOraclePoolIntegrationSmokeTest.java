@@ -22,6 +22,8 @@ import org.testng.annotations.AfterClass;
 
 import java.io.IOException;
 
+import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
+import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -37,7 +39,18 @@ public class TestOraclePoolIntegrationSmokeTest
             throws Exception
     {
         oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION), true, false);
+        return OracleQueryRunner.createOracleQueryRunner(
+                oracleServer,
+                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", oracleServer.getJdbcUrl())
+                        .put("connection-user", TEST_USER)
+                        .put("connection-password", TEST_PASS)
+                        .put("allow-drop-table", "true")
+                        .put("oracle.connection-pool.enabled", "true")
+                        .put("oracle.remarks-reporting.enabled", "false")
+                        .build(),
+                ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
     }
 
     @AfterClass(alwaysRun = true)
