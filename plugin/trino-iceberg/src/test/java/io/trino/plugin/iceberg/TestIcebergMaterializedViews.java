@@ -185,7 +185,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_refresh");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testCreateRefreshSelect()
     {
         Session session = getSession();
@@ -271,7 +271,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testDetectStaleness()
     {
         // Base tables and materialized views for staleness check
@@ -325,7 +325,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_join_part_stale");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testSqlFeatures()
     {
         Session session = getSession();
@@ -380,7 +380,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_subquery");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testReplace()
     {
         // Materialized view to test 'replace' feature
@@ -397,7 +397,7 @@ public class TestIcebergMaterializedViews
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_replace");
     }
 
-    @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
+    @Test
     public void testNestedMaterializedViews()
     {
         // Base table and materialized views for nested materialized view testing
