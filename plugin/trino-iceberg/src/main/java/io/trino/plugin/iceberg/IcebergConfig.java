@@ -14,9 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
@@ -27,6 +29,7 @@ public class IcebergConfig
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
+    private int maxPartitionsPerWriter = 100;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -72,6 +75,20 @@ public class IcebergConfig
     public IcebergConfig setUseFileSizeFromMetadata(boolean useFileSizeFromMetadata)
     {
         this.useFileSizeFromMetadata = useFileSizeFromMetadata;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionsPerWriter()
+    {
+        return maxPartitionsPerWriter;
+    }
+
+    @Config("iceberg.max-partitions-per-writer")
+    @ConfigDescription("Maximum number of partitions per writer")
+    public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
+    {
+        this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
     }
 }
