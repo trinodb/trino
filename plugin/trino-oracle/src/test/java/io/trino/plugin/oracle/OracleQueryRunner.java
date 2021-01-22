@@ -21,7 +21,6 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -39,10 +38,8 @@ public final class OracleQueryRunner
     public static DistributedQueryRunner createOracleQueryRunner(
             TestingOracleServer server,
             Map<String, String> extraProperties,
-            Iterable<TpchTable<?>> tables,
-            // TODO(https://github.com/trinodb/trino/issues/5721) use extraConnectorProperties instead individual parameters
-            boolean connectionPoolEnabled,
-            boolean remarksReportingEnabled)
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -53,14 +50,6 @@ public final class OracleQueryRunner
 
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-
-            Map<String, String> connectorProperties = new HashMap<>();
-            connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
-            connectorProperties.putIfAbsent("connection-user", TEST_USER);
-            connectorProperties.putIfAbsent("connection-password", TEST_PASS);
-            connectorProperties.putIfAbsent("allow-drop-table", "true");
-            connectorProperties.putIfAbsent("oracle.connection-pool.enabled", String.valueOf(connectionPoolEnabled));
-            connectorProperties.putIfAbsent("oracle.remarks-reporting.enabled", String.valueOf(remarksReportingEnabled));
 
             queryRunner.installPlugin(new OraclePlugin());
             queryRunner.createCatalog("oracle", "oracle", connectorProperties);
@@ -83,17 +72,34 @@ public final class OracleQueryRunner
                 .build();
     }
 
+    public static Map<String, String> connectionProperties(TestingOracleServer server)
+    {
+        return ImmutableMap.<String, String>builder()
+                .put("connection-url", server.getJdbcUrl())
+                .put("connection-user", TEST_USER)
+                .put("connection-password", TEST_PASS)
+                .put("allow-drop-table", "true")
+                .build();
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
 
+        TestingOracleServer server = new TestingOracleServer();
         DistributedQueryRunner queryRunner = createOracleQueryRunner(
-                new TestingOracleServer(),
+                server,
                 ImmutableMap.of("http-server.http.port", "8080"),
-                TpchTable.getTables(),
-                false,
-                false);
+                ImmutableMap.<String, String>builder()
+                        .put("connection-url", server.getJdbcUrl())
+                        .put("connection-user", TEST_USER)
+                        .put("connection-password", TEST_PASS)
+                        .put("allow-drop-table", "true")
+                        .put("oracle.connection-pool.enabled", "false")
+                        .put("oracle.remarks-reporting.enabled", "false")
+                        .build(),
+                TpchTable.getTables());
 
         Logger log = Logger.get(OracleQueryRunner.class);
         log.info("======== SERVER STARTED ========");
