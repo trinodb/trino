@@ -75,6 +75,14 @@ jobs:
       - name: Web UI Checks
         run: core/trino-main/bin/check_webui.sh
 
+  shell-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Shell checks
+        uses: ludeeus/action-shellcheck@1.0.0
+
   test-jdbc-compatibility:
     runs-on: ubuntu-latest
     timeout-minutes: 30
