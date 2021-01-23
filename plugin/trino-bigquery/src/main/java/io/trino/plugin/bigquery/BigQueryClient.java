@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.bigquery.BigQueryUtil.convertToBigQueryException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.UUID.randomUUID;
@@ -133,8 +134,13 @@ class BigQueryClient
 
     TableResult query(String sql)
     {
+        JobInfo jobInfo = JobInfo.of(QueryJobConfiguration.of(sql));
         try {
-            return bigQuery.query(QueryJobConfiguration.of(sql));
+            Job job = bigQuery.create(jobInfo).waitFor();
+            if (job.getStatus().getError() != null) {
+                throw convertToBigQueryException(job.getStatus().getError());
+            }
+            return job.getQueryResults();
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();

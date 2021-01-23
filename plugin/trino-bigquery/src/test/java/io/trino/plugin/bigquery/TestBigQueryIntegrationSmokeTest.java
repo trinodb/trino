@@ -133,6 +133,20 @@ public class TestBigQueryIntegrationSmokeTest
                 "VALUES (1)");
     }
 
+    @Test(description = "regression test for https://github.com/trinodb/trino/issues/6696")
+    public void testRepeatCountAggregationView()
+    {
+        BigQuery client = createBigQueryClient();
+
+        String viewName = "test.repeat_count_aggregation_view";
+
+        executeBigQuerySql(client, "DROP VIEW IF EXISTS " + viewName);
+        executeBigQuerySql(client, "CREATE VIEW " + viewName + " AS SELECT 1 AS col1");
+
+        assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
+        assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
+    }
+
     private static void executeBigQuerySql(BigQuery bigquery, String query)
     {
         QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query)
