@@ -884,10 +884,7 @@ public final class DomainTranslator
         protected ExtractionResult visitLikePredicate(LikePredicate node, Boolean complement)
         {
             Optional<ExtractionResult> result = tryVisitLikePredicate(node, complement);
-            if (result.isPresent()) {
-                return result.get();
-            }
-            return super.visitLikePredicate(node, complement);
+            return result.orElseGet(() -> super.visitLikePredicate(node, complement));
         }
 
         private Optional<ExtractionResult> tryVisitLikePredicate(LikePredicate node, Boolean complement)
