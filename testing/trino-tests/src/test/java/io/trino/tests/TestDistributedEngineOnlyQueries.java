@@ -20,6 +20,7 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.time.ZonedDateTime;
+import java.util.regex.Pattern;
 
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -135,6 +136,14 @@ public class TestDistributedEngineOnlyQueries
         assertQuery(
                 "SELECT cast(row(1) AS row(\"cross\" bigint)).\"cross\"",
                 "VALUES 1");
+    }
+
+    @Test
+    public void testExplain()
+    {
+        assertExplain(
+                "explain select name from nation where abs(nationkey) = 22",
+                Pattern.quote("abs(\"nationkey\")"));
     }
 
     // explain analyze can only run on coordinator
