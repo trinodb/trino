@@ -321,6 +321,16 @@ public abstract class AbstractTestQueryFramework
         assertEquals(actual, expected);
     }
 
+    protected void assertExplain(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
+    {
+        assertExplain(getSession(), query, expectedExplainRegExps);
+    }
+
+    protected void assertExplain(Session session, @Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
+    {
+        assertExplainAnalyze(false, session, query, expectedExplainRegExps);
+    }
+
     protected void assertExplainAnalyze(@Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
     {
         assertExplainAnalyze(getSession(), query, expectedExplainRegExps);
@@ -328,11 +338,22 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertExplainAnalyze(Session session, @Language("SQL") String query, @Language("RegExp") String... expectedExplainRegExps)
     {
+        assertExplainAnalyze(true, session, query, expectedExplainRegExps);
+    }
+
+    private void assertExplainAnalyze(
+            boolean analyze,
+            Session session,
+            @Language("SQL") String query,
+            @Language("RegExp") String... expectedExplainRegExps)
+    {
         String value = (String) computeActual(session, query).getOnlyValue();
 
-        // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
-        // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
-        assertThat(value).containsPattern("CPU:.*, Input:.*, Output");
+        if (analyze) {
+            // TODO: check that rendered plan is as expected, once stats are collected in a consistent way
+            // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
+            assertThat(value).containsPattern("CPU:.*, Input:.*, Output");
+        }
 
         for (String expectedExplainRegExp : expectedExplainRegExps) {
             assertThat(value).containsPattern(expectedExplainRegExp);
