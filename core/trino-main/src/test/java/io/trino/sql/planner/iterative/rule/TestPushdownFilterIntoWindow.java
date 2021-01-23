@@ -44,17 +44,23 @@ public class TestPushdownFilterIntoWindow
     @Test
     public void testEliminateFilter()
     {
-        ResolvedFunction rowNumber = tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes());
+        assertEliminateFilter("row_number");
+        assertEliminateFilter("rank");
+    }
+
+    private void assertEliminateFilter(String rankingFunctionName)
+    {
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
                 .on(p -> {
-                    Symbol rowNumberSymbol = p.symbol("row_number_1");
+                    Symbol rankSymbol = p.symbol("rank_1");
                     Symbol a = p.symbol("a", BIGINT);
                     OrderingScheme orderingScheme = new OrderingScheme(
                             ImmutableList.of(a),
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
-                    return p.filter(expression("row_number_1 < cast(100 as bigint)"), p.window(
+                    return p.filter(expression("rank_1 < cast(100 as bigint)"), p.window(
                             new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
-                            ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(rowNumber, a)),
+                            ImmutableMap.of(rankSymbol, newWindowNodeFunction(ranking, a)),
                             p.values(p.symbol("a"))));
                 })
                 .matches(topNRanking(pattern -> pattern
@@ -66,7 +72,13 @@ public class TestPushdownFilterIntoWindow
     @Test
     public void testKeepFilter()
     {
-        ResolvedFunction rowNumber = tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes());
+        assertKeepFilter("row_number");
+        assertKeepFilter("rank");
+    }
+
+    private void assertKeepFilter(String rankingFunctionName)
+    {
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -76,18 +88,18 @@ public class TestPushdownFilterIntoWindow
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(expression("cast(3 as bigint) < row_number_1 and row_number_1 < cast(100 as bigint)"), p.window(
                             new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
-                            ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(rowNumber, a)),
+                            ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                             p.values(p.symbol("a"))));
                 })
                 .matches(filter(
                         "cast(3 as bigint) < row_number_1 and row_number_1 < cast(100 as bigint)",
                         topNRanking(pattern -> pattern
-                                .partial(false)
-                                .maxRankingPerPartition(99)
-                                .specification(
-                                        ImmutableList.of("a"),
-                                        ImmutableList.of("a"),
-                                        ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST)),
+                                        .partial(false)
+                                        .maxRankingPerPartition(99)
+                                        .specification(
+                                                ImmutableList.of("a"),
+                                                ImmutableList.of("a"),
+                                                ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST)),
                                 values("a")).withAlias("row_number_1", new TopNRankingSymbolMatcher())));
 
         tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
@@ -99,7 +111,7 @@ public class TestPushdownFilterIntoWindow
                             ImmutableMap.of(a, SortOrder.ASC_NULLS_FIRST));
                     return p.filter(expression("row_number_1 < cast(100 as bigint) and a = 1"), p.window(
                             new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
-                            ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(rowNumber, a)),
+                            ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                             p.values(p.symbol("a"))));
                 })
                 .matches(filter(
@@ -117,7 +129,13 @@ public class TestPushdownFilterIntoWindow
     @Test
     public void testNoUpperBound()
     {
-        ResolvedFunction rowNumber = tester().getMetadata().resolveFunction(QualifiedName.of("row_number"), fromTypes());
+        assertNoUpperBound("row_number");
+        assertNoUpperBound("rank");
+    }
+
+    private void assertNoUpperBound(String rankingFunctionName)
+    {
+        ResolvedFunction ranking = tester().getMetadata().resolveFunction(QualifiedName.of(rankingFunctionName), fromTypes());
         tester().assertThat(new PushdownFilterIntoWindow(tester().getMetadata(), new TypeOperators()))
                 .on(p -> {
                     Symbol rowNumberSymbol = p.symbol("row_number_1");
@@ -129,7 +147,7 @@ public class TestPushdownFilterIntoWindow
                             expression("cast(3 as bigint) < row_number_1"),
                             p.window(
                                     new WindowNode.Specification(ImmutableList.of(a), Optional.of(orderingScheme)),
-                                    ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(rowNumber, a)),
+                                    ImmutableMap.of(rowNumberSymbol, newWindowNodeFunction(ranking, a)),
                                     p.values(a)));
                 })
                 .doesNotFire();
