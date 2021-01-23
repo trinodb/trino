@@ -26,16 +26,16 @@ create_test_tables "abfs://${ABFS_CONTAINER}@${ABFS_ACCOUNT}.dfs.core.windows.ne
 stop_unnecessary_hadoop_services
 
 # run product tests
-pushd $PROJECT_ROOT
+pushd "$PROJECT_ROOT"
 set +e
 ./mvnw -B -pl :trino-hive-hadoop2 test -P test-hive-hadoop2-abfs-access-key \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \
     -Dhive.hadoop2.databaseName=default \
-    -Dhive.hadoop2.abfs.container=${ABFS_CONTAINER} \
-    -Dhive.hadoop2.abfs.account=${ABFS_ACCOUNT} \
-    -Dhive.hadoop2.abfs.accessKey=${ABFS_ACCESS_KEY} \
+    -Dhive.hadoop2.abfs.container="${ABFS_CONTAINER}" \
+    -Dhive.hadoop2.abfs.account="${ABFS_ACCOUNT}" \
+    -Dhive.hadoop2.abfs.accessKey="${ABFS_ACCESS_KEY}" \
     -Dhive.hadoop2.abfs.testDirectory="${test_directory}"
 EXIT_CODE=$?
 set -e

@@ -6,7 +6,7 @@ function retry() {
 
     END=$(($(date +%s) + 600))
 
-    while (( $(date +%s) < $END )); do
+    while (( $(date +%s) < END )); do
         set +e
         "$@"
         EXIT_CODE=$?
@@ -27,27 +27,27 @@ function hadoop_master_container(){
 
 function hadoop_master_ip() {
     HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-    docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $HADOOP_MASTER_CONTAINER
+    docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$HADOOP_MASTER_CONTAINER"
 }
 
 function check_hadoop() {
     HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-    docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-server2 | grep -i running &> /dev/null &&
-        docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status hive-metastore | grep -i running &> /dev/null &&
-        docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -i 0.0.0.0:10000 &> /dev/null &&
-        docker exec ${HADOOP_MASTER_CONTAINER} netstat -lpn | grep -i 0.0.0.0:9083 &> /dev/null
+    docker exec "${HADOOP_MASTER_CONTAINER}" supervisorctl status hive-server2 | grep -i running &> /dev/null &&
+        docker exec "${HADOOP_MASTER_CONTAINER}" supervisorctl status hive-metastore | grep -i running &> /dev/null &&
+        docker exec "${HADOOP_MASTER_CONTAINER}" netstat -lpn | grep -i 0.0.0.0:10000 &> /dev/null &&
+        docker exec "${HADOOP_MASTER_CONTAINER}" netstat -lpn | grep -i 0.0.0.0:9083 &> /dev/null
 }
 
 function exec_in_hadoop_master_container() {
     HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-    docker exec ${HADOOP_MASTER_CONTAINER} "$@"
+    docker exec "${HADOOP_MASTER_CONTAINER}" "$@"
 }
 
 function stop_unnecessary_hadoop_services() {
     HADOOP_MASTER_CONTAINER=$(hadoop_master_container)
-    docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl status
-    docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-resourcemanager
-    docker exec ${HADOOP_MASTER_CONTAINER} supervisorctl stop yarn-nodemanager
+    docker exec "${HADOOP_MASTER_CONTAINER}" supervisorctl status
+    docker exec "${HADOOP_MASTER_CONTAINER}" supervisorctl stop yarn-resourcemanager
+    docker exec "${HADOOP_MASTER_CONTAINER}" supervisorctl stop yarn-nodemanager
 }
 
 # Expands docker compose file paths files into the format "-f $1 -f $2 ...."
@@ -56,15 +56,18 @@ function stop_unnecessary_hadoop_services() {
 function expand_compose_args() {
     local files=( "${@}" )
     local compose_args=""
-    for file in ${files[@]}; do
+    for file in "${files[@]}"; do
         compose_args+=" -f ${file}"
     done
     echo "${compose_args}"
 }
 
 function cleanup_docker_containers() {
-    local compose_args="$(expand_compose_args "$@")"
+    local compose_args
+    # shellcheck disable=SC2068
+    compose_args="$(expand_compose_args $@)"
     # stop containers started with "up"
+    # shellcheck disable=SC2086
     docker-compose ${compose_args} down --remove-orphans
 
     # docker logs processes are being terminated as soon as docker container are stopped
@@ -95,7 +98,7 @@ docker version
 # extract proxy IP
 if [ -n "${DOCKER_MACHINE_NAME:-}" ]
 then
-    PROXY=`docker-machine ip`
+    PROXY=$(docker-machine ip)
 else
     PROXY=127.0.0.1
 fi
@@ -104,22 +107,27 @@ fi
 # Arguments:
 #   $1, $2, ...: A list of docker-compose files used to start containers
 function start_docker_containers() {
-    local compose_args="$(expand_compose_args $@)"
+    local compose_args
+    # shellcheck disable=SC2068
+    compose_args="$(expand_compose_args $@)"
     # Purposefully don't surround ${compose_args} with quotes so that docker-compose infers multiple arguments
     # stop already running containers
+    # shellcheck disable=SC2086
     docker-compose ${compose_args} down || true
 
     # catch terminate signals
     # trap arguments are not expanded until the trap is called, so they must be in a global variable
-    TRAP_ARGS="$@"
+    TRAP_ARGS=( "$@" )
     trap 'termination_handler $TRAP_ARGS' INT TERM
 
     # pull docker images
     if [[ "${CONTINUOUS_INTEGRATION:-false}" == 'true' ]]; then
+        # shellcheck disable=SC2086
         docker-compose ${compose_args} pull --quiet
     fi
 
     # start containers
+    # shellcheck disable=SC2086
     docker-compose ${compose_args} up -d
 }
 
@@ -190,6 +198,6 @@ function deploy_core_site_xml() {
         args+=(-e "s|%$name%|$value|g")
     done
     exec_in_hadoop_master_container bash -c \
-        'sed "${@:2}" "/docker/files/$1" > /etc/hadoop/conf/core-site.xml' \
+        "sed \"${*:2}\" \"/docker/files/$1\" > /etc/hadoop/conf/core-site.xml'" \
         bash "$template" "${args[@]}"
 }

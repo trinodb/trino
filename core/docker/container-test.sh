@@ -5,7 +5,7 @@ set -euxo pipefail
 CONTAINER_ID=
 
 function cleanup {
-    if [[ ! -z ${CONTAINER_ID:-} ]]; then
+    if [[ -n ${CONTAINER_ID:-} ]]; then
         docker stop "${CONTAINER_ID}"
     fi
 }
@@ -39,10 +39,11 @@ function test_javahome {
     # Check if JAVA_HOME works
     docker run --rm "${CONTAINER_NAME}" /bin/bash -c '$JAVA_HOME/bin/java -version' &> /dev/null
 
+    # shellcheck disable=SC2181
     [[ "$?" == "0" ]]
 }
 
 function test_container {
     local CONTAINER_NAME=$1
-    test_javahome ${CONTAINER_NAME} && test_trino_starts ${CONTAINER_NAME}
+    test_javahome "${CONTAINER_NAME}" && test_trino_starts "${CONTAINER_NAME}"
 }

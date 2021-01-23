@@ -12,4 +12,4 @@ if [[ ${NODE_ID_EXISTS} != 0 ]] ; then
     NODE_ID="-Dnode.id=${HOSTNAME}"
 fi
 
-exec /usr/lib/trino/bin/launcher run --etc-dir /etc/trino ${NODE_ID} "$@"
+exec /usr/lib/trino/bin/launcher run --etc-dir /etc/trino "${NODE_ID}" "$@"
