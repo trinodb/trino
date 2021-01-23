@@ -813,9 +813,7 @@ public class PlanPrinter
                     ImmutableList.of(),
                     Optional.empty());
 
-            if (projectNode.isPresent()) {
-                printAssignments(nodeOutput, projectNode.get().getAssignments());
-            }
+            projectNode.ifPresent(value -> printAssignments(nodeOutput, value.getAssignments()));
 
             if (scanNode.isPresent()) {
                 printTableScanInfo(nodeOutput, scanNode.get());
