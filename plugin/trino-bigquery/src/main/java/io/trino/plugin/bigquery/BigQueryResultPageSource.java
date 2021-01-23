@@ -65,7 +65,6 @@ import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class BigQueryResultPageSource
         implements ConnectorPageSource
@@ -87,10 +86,10 @@ public class BigQueryResultPageSource
             BigQuerySplit split,
             List<BigQueryColumnHandle> columns)
     {
-        this.bigQueryStorageClient = requireNonNull(bigQueryStorageClientFactory, "bigQueryStorageClientFactory is null").createBigQueryStorageClient();
-        this.split = requireNonNull(split, "split is null");
+        this.bigQueryStorageClient = bigQueryStorageClientFactory.createBigQueryStorageClient();
+        this.split = split;
         this.readBytes = new AtomicLong();
-        this.columnTypes = requireNonNull(columns, "columns is null").stream()
+        this.columnTypes = columns.stream()
                 .map(BigQueryColumnHandle::getTrinoType)
                 .collect(toImmutableList());
         this.pageBuilder = new PageBuilder(columnTypes);
