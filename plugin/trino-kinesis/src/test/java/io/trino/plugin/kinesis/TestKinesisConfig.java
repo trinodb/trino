@@ -33,7 +33,7 @@ public class TestKinesisConfig
                 .setAccessKey(null)
                 .setSecretKey(null)
                 .setAwsRegion("us-east-1")
-                .setTableDescriptionRefreshInterval(new Duration(1, TimeUnit.MINUTES))
+                .setTableDescriptionRefreshInterval(new Duration(2, TimeUnit.MINUTES))
                 .setSleepTime(new Duration(1000, TimeUnit.MILLISECONDS))
                 .setFetchAttempts(2)
                 .setMaxBatches(600)
@@ -44,7 +44,7 @@ public class TestKinesisConfig
                 .setCheckpointEnabled(false)
                 .setDynamoReadCapacity(50)
                 .setDynamoWriteCapacity(10)
-                .setCheckpointInterval(new Duration(500, TimeUnit.MILLISECONDS))
+                .setCheckpointInterval(new Duration(60000, TimeUnit.MILLISECONDS))
                 .setLogicalProcessName("process1")
                 .setIteratorNumber(0));
     }

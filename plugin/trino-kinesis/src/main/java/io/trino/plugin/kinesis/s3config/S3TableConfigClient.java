@@ -101,7 +101,7 @@ public class S3TableConfigClient
     {
         if (this.bucketUrl.isPresent()) {
             ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, tableDescriptionRefreshInterval.toMillis(), TimeUnit.MILLISECONDS);
+            this.updateTaskHandle = scheduler.scheduleAtFixedRate(this::updateTablesFromS3, 5, tableDescriptionRefreshInterval.toMillis(), TimeUnit.SECONDS);
         }
     }
 
