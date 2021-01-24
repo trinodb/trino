@@ -28,6 +28,7 @@ import static io.trino.plugin.bigquery.BigQueryQueryRunner.createBigQueryClient;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -131,6 +132,25 @@ public class TestBigQueryIntegrationSmokeTest
         assertQuery(
                 "SELECT count(a) FROM " + viewName + " WHERE b = 2",
                 "VALUES (1)");
+    }
+
+    /**
+     * regression test for https://github.com/trinodb/trino/issues/6696
+     */
+    @Test
+    public void testRepeatCountAggregationView()
+    {
+        BigQuery client = createBigQueryClient();
+
+        String viewName = "test.repeat_count_aggregation_view_" + randomTableSuffix();
+
+        executeBigQuerySql(client, "DROP VIEW IF EXISTS " + viewName);
+        executeBigQuerySql(client, "CREATE VIEW " + viewName + " AS SELECT 1 AS col1");
+
+        assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
+        assertQuery("SELECT count(*) FROM " + viewName, "VALUES (1)");
+
+        executeBigQuerySql(client, "DROP VIEW " + viewName);
     }
 
     private static void executeBigQuerySql(BigQuery bigquery, String query)
