@@ -59,21 +59,16 @@ import static io.trino.plugin.oracle.OracleDataTypes.MAX_NCHAR;
 import static io.trino.plugin.oracle.OracleDataTypes.MAX_NVARCHAR2;
 import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_READ;
 import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_WRITE;
-import static io.trino.plugin.oracle.OracleDataTypes.binaryDoubleDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.binaryFloatDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.booleanDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.charDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.clobDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.doubleDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.integerDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.ncharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.nclobDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.numberDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.nvarchar2DataType;
-import static io.trino.plugin.oracle.OracleDataTypes.oracleFloatDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.realDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.tooLargeCharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
@@ -81,6 +76,8 @@ import static io.trino.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.varchar2DataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -147,35 +144,51 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testFloatingPointMappings()
     {
-        testTypeMapping("floats",
-                floatTests(realDataType()),
-                doubleTests(doubleDataType()));
+        SqlDataTypeTest.create()
+                .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
+                .addRoundTrip("real", "nan()", REAL, "CAST(nan() AS real)")
+                .addRoundTrip("real", "+infinity()", REAL, "CAST(+infinity() AS real)")
+                .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
+                .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
+                .addRoundTrip("double", "1.0E100", DOUBLE, "double '1.0E100'")
+                .addRoundTrip("double", "nan()", DOUBLE, "CAST(nan() AS double)")
+                .addRoundTrip("double", "+infinity()", DOUBLE, "CAST(+infinity() AS double)")
+                .addRoundTrip("double", "-infinity()", DOUBLE, "CAST(-infinity() AS double)")
+                .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("floats"));
     }
 
     @Test
     public void testOracleFloatingPointMappings()
     {
-        testTypeReadMapping("oracle_float",
-                DataTypeTest.create()
-                        .addRoundTrip(oracleFloatDataType(), 1e100d)
-                        .addRoundTrip(oracleFloatDataType(), 1.0)
-                        .addRoundTrip(oracleFloatDataType(), 123456.123456)
-                        .addRoundTrip(oracleFloatDataType(), null)
-                        .addRoundTrip(oracleFloatDataType(126), 1e100d)
-                        .addRoundTrip(oracleFloatDataType(126), 1.0)
-                        // to test the bounds of this type we would need to go via BigDecimal or String
-                        .addRoundTrip(oracleFloatDataType(126), 1234567890123456789.0123456789)
-                        .addRoundTrip(oracleFloatDataType(126), null)
-                        .addRoundTrip(oracleFloatDataType(1), 100000.0)
-                        .addRoundTrip(oracleFloatDataType(7), 123000.0));
+        SqlDataTypeTest.create()
+                .addRoundTrip("float", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float", "123456.123456", DOUBLE, "double '123456.123456'")
+                .addRoundTrip("float", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("float(126)", "1E100", DOUBLE, "double '1E100'")
+                .addRoundTrip("float(126)", "1.0", DOUBLE, "double '1.0'")
+                .addRoundTrip("float(126)", "1234567890123456789.0123456789", DOUBLE, "double '1234567890123456789.0123456789'")
+                .addRoundTrip("float(126)", "NULL", DOUBLE, "CAST(NULL AS double)")
+                .addRoundTrip("float(1)", "100000.0", DOUBLE, "double '100000.0'")
+                .addRoundTrip("float(7)", "123000.0", DOUBLE, "double '123000.0'")
+                .execute(getQueryRunner(), oracleCreateAndInsert("oracle_float"));
     }
 
     @Test
     public void testFloatingPointReadMappings()
     {
-        testTypeReadMapping("read_floats",
-                floatTests(binaryFloatDataType()),
-                doubleTests(binaryDoubleDataType()));
+        SqlDataTypeTest.create()
+                .addRoundTrip("binary_float", "123.45", REAL, "REAL '123.45'")
+                .addRoundTrip("binary_float", "'nan'", REAL, "CAST(nan() AS REAL)")
+                .addRoundTrip("binary_float", "'infinity'", REAL, "CAST(+infinity() AS REAL)")
+                .addRoundTrip("binary_float", "'-infinity'", REAL, "CAST(-infinity() AS REAL)")
+                .addRoundTrip("binary_float", "NULL", REAL, "CAST(NULL AS REAL)")
+                .addRoundTrip("binary_double", "1.0E100", DOUBLE, "double '1.0E100'")
+                .addRoundTrip("binary_double", "'nan'", DOUBLE, "CAST(nan() AS double)")
+                .addRoundTrip("binary_double", "'infinity'", DOUBLE, "CAST(+infinity() AS double)")
+                .addRoundTrip("binary_double", "'-infinity'", DOUBLE, "CAST(-infinity() AS double)")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_floats"));
     }
 
     private static DataTypeTest floatTests(DataType<Float> floatType)
