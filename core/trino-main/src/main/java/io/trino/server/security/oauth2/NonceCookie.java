@@ -28,7 +28,7 @@ import static javax.ws.rs.core.NewCookie.DEFAULT_MAX_AGE;
 public final class NonceCookie
 {
     // prefix according to: https://tools.ietf.org/html/draft-ietf-httpbis-rfc6265bis-05#section-4.1.3.1
-    public static final String NONCE_COOKIE = "__Secure-Trino-OAuth2-Token";
+    public static final String NONCE_COOKIE = "__Secure-Trino-Nonce";
 
     private NonceCookie() {}
 
