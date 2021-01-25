@@ -218,7 +218,7 @@ public class MySqlClient
                 schemaName.orElse(null),
                 null,
                 escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                new String[] {"TABLE", "VIEW"});
+                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
     }
 
     @Override
