@@ -27,19 +27,14 @@ public final class QueryExecutors
 {
     public static QueryExecutor onPresto()
     {
-        return testContext().getDependency(QueryExecutor.class, "presto");
+        return connectToPresto("presto");
     }
 
     public static QueryExecutor connectToPresto(String prestoConfig)
     {
-        return testContext().getDependency(QueryExecutor.class, prestoConfig);
-    }
-
-    public static QueryExecutor onHive()
-    {
         return new QueryExecutor()
         {
-            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, "hive");
+            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, prestoConfig);
 
             @Override
             public QueryResult executeQuery(String sql, QueryParam... params)
@@ -61,6 +56,11 @@ public final class QueryExecutors
                 delegate.close();
             }
         };
+    }
+
+    public static QueryExecutor onHive()
+    {
+        return testContext().getDependency(QueryExecutor.class, "hive");
     }
 
     public static QueryExecutor onSqlServer()
