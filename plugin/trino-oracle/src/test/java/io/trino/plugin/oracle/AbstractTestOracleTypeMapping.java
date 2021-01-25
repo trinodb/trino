@@ -70,6 +70,7 @@ import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneD
 import static io.trino.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -341,17 +342,37 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testCharMapping()
     {
-        testTypeMapping("char",
-                basicCharacterTests(DataType::charDataType, MAX_CHAR_ON_WRITE));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(10)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
+                .addRoundTrip("char(20)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE), "'string max size'",
+                        createCharType(MAX_CHAR_ON_WRITE), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_WRITE))
+                .addRoundTrip("char(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("char"));
     }
 
     @Test
     public void testCharReadMapping()
     {
-        testTypeReadMapping("read_char",
-                basicCharacterTests(charDataType(CHAR), MAX_CHAR_ON_READ),
-                basicCharacterTests(charDataType(BYTE), MAX_CHAR_ON_READ),
-                basicCharacterTests(ncharDataType(), MAX_NCHAR));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(5 char)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
+                .addRoundTrip("char(10 char)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
+                .addRoundTrip("char(20 char)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
+                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ), "'string max size'",
+                        createCharType(MAX_CHAR_ON_READ), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
+
+                .addRoundTrip("char(5 byte)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
+                .addRoundTrip("char(10 byte)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
+                .addRoundTrip("char(20 byte)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
+                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ), "'string max size'",
+                        createCharType(MAX_CHAR_ON_READ), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_READ))
+
+                .addRoundTrip("nchar(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
+                .addRoundTrip("nchar(10)", "'string 010'", createCharType(10), "CAST('string 010' AS CHAR(10))")
+                .addRoundTrip("nchar(20)", "'string 20'", createCharType(20), "CAST('string 20' AS CHAR(20))")
+                .addRoundTrip(format("nchar(%d)", MAX_NCHAR), "'string max size'",
+                        createCharType(MAX_NCHAR), format("CAST('string max size' AS CHAR(%d))", MAX_NCHAR))
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_char"));
     }
 
     // TODO: Replace this to not take maxSize
