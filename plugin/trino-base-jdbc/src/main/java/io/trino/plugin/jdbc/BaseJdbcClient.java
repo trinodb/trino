@@ -774,7 +774,12 @@ public abstract class BaseJdbcClient
                 connection.getCatalog(),
                 escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
                 escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                new String[] {"TABLE", "VIEW"});
+                getTableTypes().map(types -> types.toArray(String[]::new)).orElse(null));
+    }
+
+    protected Optional<List<String>> getTableTypes()
+    {
+        return Optional.of(ImmutableList.of("TABLE", "VIEW"));
     }
 
     protected String getTableSchemaName(ResultSet resultSet)

@@ -80,7 +80,6 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.sql.Array;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -184,7 +183,6 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
-import static java.util.Collections.addAll;
 import static java.util.Objects.requireNonNull;
 
 public class PostgreSqlClient
@@ -204,7 +202,7 @@ public class PostgreSqlClient
     private final Type jsonType;
     private final Type uuidType;
     private final MapType varcharMapType;
-    private final String[] tableTypes;
+    private final List<String> tableTypes;
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
 
     @Inject
@@ -219,12 +217,12 @@ public class PostgreSqlClient
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
 
-        List<String> tableTypes = new ArrayList<>();
-        addAll(tableTypes, "TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
+        ImmutableList.Builder<String> tableTypes = ImmutableList.builder();
+        tableTypes.add("TABLE", "VIEW", "MATERIALIZED VIEW", "FOREIGN TABLE");
         if (postgreSqlConfig.isIncludeSystemTables()) {
-            addAll(tableTypes, "SYSTEM TABLE", "SYSTEM VIEW");
+            tableTypes.add("SYSTEM TABLE", "SYSTEM VIEW");
         }
-        this.tableTypes = tableTypes.toArray(new String[0]);
+        this.tableTypes = tableTypes.build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
@@ -277,15 +275,9 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
+    protected Optional<List<String>> getTableTypes()
     {
-        DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(
-                connection.getCatalog(),
-                escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                tableTypes.clone());
+        return Optional.of(tableTypes);
     }
 
     @Override
