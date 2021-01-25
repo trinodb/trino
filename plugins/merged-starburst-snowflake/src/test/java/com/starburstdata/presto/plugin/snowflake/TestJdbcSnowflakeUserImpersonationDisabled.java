@@ -19,6 +19,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdb
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.PUBLIC_DB;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.USER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class TestJdbcSnowflakeUserImpersonationDisabled
         extends AbstractTestQueryFramework
@@ -39,6 +40,6 @@ public class TestJdbcSnowflakeUserImpersonationDisabled
     @Test
     public void testUsesUserDefaultRole()
     {
-        assertQuery("SELECT * FROM public.user_context", format("VALUES ('%s', 'TEST_DEFAULT_ROLE')", USER.toUpperCase()));
+        assertQuery("SELECT * FROM public.user_context", format("VALUES ('%s', 'TEST_DEFAULT_ROLE')", USER.toUpperCase(ENGLISH)));
     }
 }

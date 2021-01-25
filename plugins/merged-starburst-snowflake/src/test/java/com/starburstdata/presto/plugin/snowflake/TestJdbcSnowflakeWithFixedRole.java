@@ -23,6 +23,7 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.PUBLIC_D
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.ROLE;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.USER;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 
 public class TestJdbcSnowflakeWithFixedRole
         extends AbstractTestQueryFramework
@@ -47,6 +48,6 @@ public class TestJdbcSnowflakeWithFixedRole
         assertQuery(
                 createSessionForUser(ALICE_USER, false),
                 "SELECT * FROM public.user_context",
-                format("VALUES ('%s', '%s')", USER.toUpperCase(), ROLE.toUpperCase()));
+                format("VALUES ('%s', '%s')", USER.toUpperCase(ENGLISH), ROLE.toUpperCase(ENGLISH)));
     }
 }
