@@ -81,6 +81,7 @@ import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
@@ -586,9 +587,9 @@ public class TestWebUi
         URI baseUri = httpServerInfo.getHttpsUri();
         testRootRedirect(baseUri, client);
         assertRedirect(client, getUiLocation(baseUri), "http://example.com/authorize", false);
-        assertRedirect(client, getValidApiLocation(baseUri), "http://example.com/authorize", false);
+        assertResponseCode(client, getValidApiLocation(baseUri), UNAUTHORIZED.getStatusCode());
         assertRedirect(client, getLocation(baseUri, "/ui/unknown"), "http://example.com/authorize", false);
-        assertRedirect(client, getLocation(baseUri, "/ui/api/unknown"), "http://example.com/authorize", false);
+        assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), UNAUTHORIZED.getStatusCode());
 
         // login with the callback endpoint
         assertRedirect(
