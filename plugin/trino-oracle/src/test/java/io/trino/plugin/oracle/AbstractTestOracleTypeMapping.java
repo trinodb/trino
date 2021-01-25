@@ -67,13 +67,11 @@ import static io.trino.plugin.oracle.OracleDataTypes.integerDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.ncharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.nclobDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.numberDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.nvarchar2DataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.tooLargeCharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.varchar2DataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -256,17 +254,43 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testVarcharUnicodeMapping()
     {
-        testTypeMapping("varchar_unicode",
-                unicodeTests(DataType::varcharDataType, codePoints(), MAX_VARCHAR2_ON_WRITE));
+        // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
+                .addRoundTrip("varchar(13)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE), "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip("varchar(1)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
+                .addRoundTrip("varchar(6)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("varchar_unicode"));
     }
 
     @Test
     public void testVarcharUnicodeReadMapping()
     {
-        testTypeReadMapping("read_varchar_unicode",
-                unicodeTests(varchar2DataType(CHAR), codePoints(), MAX_VARCHAR2_ON_READ),
-                unicodeTests(varchar2DataType(BYTE), utf8Bytes(), MAX_VARCHAR2_ON_READ),
-                unicodeTests(nvarchar2DataType(), String::length, MAX_NVARCHAR2));
+        SqlDataTypeTest.create()
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addRoundTrip("varchar2(5 char)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
+                .addRoundTrip("varchar2(13 char)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
+                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_READ), "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip("varchar2(1 char)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
+                .addRoundTrip("varchar2(6 char)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
+                // the number of bytes using charset UTF-8 in 攻殻機動隊 is 15, and in '😂' is 4.
+                .addRoundTrip("varchar2(15 byte)", "'攻殻機動隊'", createVarcharType(15), "CAST('攻殻機動隊' AS varchar(15))")
+                .addRoundTrip("varchar2(23 byte)", "'攻殻機動隊'", createVarcharType(23), "CAST('攻殻機動隊' AS varchar(23))")
+                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ), "'攻殻機動隊'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip("varchar2(4 byte)", "'😂'", createVarcharType(4), "CAST('😂' AS varchar(4))")
+                .addRoundTrip("varchar2(9 byte)", "'😂'", createVarcharType(9), "CAST('😂' AS varchar(9))")
+                // the length of string in 攻殻機動隊 is 5, and in 😂 is 2.
+                .addRoundTrip("nvarchar2(5)", "'攻殻機動隊'", createVarcharType(5), "CAST('攻殻機動隊' AS varchar(5))")
+                .addRoundTrip("nvarchar2(13)", "'攻殻機動隊'", createVarcharType(13), "CAST('攻殻機動隊' AS varchar(13))")
+                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2), "'攻殻機動隊'",
+                        createVarcharType(MAX_NVARCHAR2), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_NVARCHAR2))
+                .addRoundTrip("nvarchar2(2)", "'😂'", createVarcharType(2), "CAST('😂' AS varchar(2))")
+                .addRoundTrip("nvarchar2(7)", "'😂'", createVarcharType(7), "CAST('😂' AS varchar(7))")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_varchar_unicode"));
     }
 
     @Test
