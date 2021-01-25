@@ -306,7 +306,7 @@ public class TestHiveViews
         assertThat(() -> executor.executeQuery("SELECT count(*) FROM no_catalog_schema_view"))
                 .failsWithMessageMatching(".*Schema must be specified when session schema is not set.*");
         assertThat(executor.executeQuery("SELECT count(*) FROM hive.default.no_catalog_schema_view"))
-                .containsExactly(row(1L));
+                .containsOnly(row(1L));
     }
 
     @Test
@@ -321,30 +321,30 @@ public class TestHiveViews
         unsetSessionProperty("hive.timestamp_precision");
         unsetSessionProperty("hive_timestamp_nanos.timestamp_precision");
 
-        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
+        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
         assertThatThrownBy(
                 // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
+                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
 
         setSessionProperty("hive.timestamp_precision", "'MILLISECONDS'");
         setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'MILLISECONDS'");
 
-        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
+        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
         assertThatThrownBy(
                 // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"))
+                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"))
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
 
         setSessionProperty("hive.timestamp_precision", "'NANOSECONDS'");
         setSessionProperty("hive_timestamp_nanos.timestamp_precision", "'NANOSECONDS'");
 
         // TODO(https://github.com/prestosql/presto/issues/6295) timestamp_precision has no effect on Hive views
-        // should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
-        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123"));
+        // should be: assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
+        assertThat(query("SELECT CAST(ts AS varchar) FROM timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123"));
         assertThatThrownBy(
                 // TODO(https://github.com/prestosql/presto/issues/6295) it is not possible to query Hive view with timestamps if hive.timestamp-precision=NANOSECONDS
-                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsExactly(row("1990-01-02 12:13:14.123456789"))
+                () -> assertThat(query("SELECT CAST(ts AS varchar) FROM hive_timestamp_nanos.default.timestamp_hive_view")).containsOnly(row("1990-01-02 12:13:14.123456789"))
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
     }
 
