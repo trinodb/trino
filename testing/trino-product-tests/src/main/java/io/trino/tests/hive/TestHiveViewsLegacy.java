@@ -132,4 +132,12 @@ public class TestHiveViewsLegacy
         executor.executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
         return executor;
     }
+
+    @Override
+    @Test
+    public void testCurrentUser()
+    {
+        assertThatThrownBy(super::testCurrentUser)
+                .hasMessageContaining("Failed parsing stored view 'hive.default.current_user_hive_view': line 1:20: mismatched input '('");
+    }
 }
