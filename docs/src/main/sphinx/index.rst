@@ -17,6 +17,7 @@ Trino documentation
     sql
     migration
     develop
+    faq
 
 .. toctree::
     :titlesonly:
