@@ -21,6 +21,7 @@ import io.trino.tempto.ProductTest;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.query.QueryExecutor.QueryParam;
 import io.trino.tempto.query.QueryResult;
+import io.trino.testng.services.Flaky;
 import io.trino.tests.utils.JdbcDriverUtils;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -51,6 +52,8 @@ import static io.trino.tempto.query.QueryExecutor.defaultQueryExecutor;
 import static io.trino.tempto.query.QueryExecutor.param;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.utils.QueryExecutors.onHive;
@@ -239,6 +242,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
@@ -310,6 +314,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties
@@ -354,6 +359,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormatsWithNullFormat", groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testInsertAndSelectWithNullFormat(StorageFormat storageFormat)
     {
         String nullFormat = "null_value";
@@ -409,6 +415,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storageFormats", groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreatePartitionedTableAs(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties

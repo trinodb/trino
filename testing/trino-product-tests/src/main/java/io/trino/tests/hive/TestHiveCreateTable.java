@@ -14,6 +14,7 @@
 package io.trino.tests.hive;
 
 import io.trino.tempto.ProductTest;
+import io.trino.testng.services.Flaky;
 import org.assertj.core.api.Assertions;
 import org.testng.annotations.Test;
 
@@ -27,6 +28,8 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.HDP3_ONLY;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.utils.QueryExecutors.onHive;
 import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static java.util.Objects.requireNonNull;
@@ -35,6 +38,7 @@ public class TestHiveCreateTable
         extends ProductTest
 {
     @Test(groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateTable()
             throws SQLException
     {
@@ -55,6 +59,7 @@ public class TestHiveCreateTable
     }
 
     @Test(groups = STORAGE_FORMATS)
+    @Flaky(issue = ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE, match = ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
     public void testCreateTableAsSelect()
             throws SQLException
     {
