@@ -61,15 +61,11 @@ import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_READ;
 import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_WRITE;
 import static io.trino.plugin.oracle.OracleDataTypes.booleanDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.charDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.clobDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.integerDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.ncharDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.nclobDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.numberDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.tooLargeCharDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
@@ -79,9 +75,9 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
-import static io.trino.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_EVEN;
 import static java.math.RoundingMode.HALF_UP;
@@ -296,18 +292,37 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testUnboundedVarcharMapping()
     {
-        testTypeMapping("unbounded",
-                unboundedVarcharTests(varcharDataType()),
-                unboundedVarcharTests(tooLargeVarcharDataType()),
-                unboundedVarcharTests(tooLargeCharDataType()));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip("varchar", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
+                .addRoundTrip("varchar", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip("varchar", "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
+                .execute(getQueryRunner(), trinoCreateAsSelect("unbounded"));
     }
 
     @Test
     public void testUnboundedVarcharReadMapping()
     {
-        testTypeReadMapping("read_unbounded",
-                unboundedVarcharTests(clobDataType()).addRoundTrip(clobDataType(), ""),
-                unboundedVarcharTests(nclobDataType()).addRoundTrip(nclobDataType(), ""));
+        SqlDataTypeTest.create()
+                .addRoundTrip("clob", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS VARCHAR)")
+                .addRoundTrip("clob", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS VARCHAR)")
+                .addRoundTrip("clob", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS VARCHAR)")
+                .addRoundTrip("clob", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("clob", "empty_clob()", createUnboundedVarcharType(), "CAST('' AS VARCHAR)")
+                .addRoundTrip("nclob", "'攻殻機動隊'", createUnboundedVarcharType(), "CAST('攻殻機動隊' AS VARCHAR)")
+                .addRoundTrip("nclob", "'😂'", createUnboundedVarcharType(), "CAST('😂' AS VARCHAR)")
+                .addRoundTrip("nclob", "'clob'", createUnboundedVarcharType(), "CAST('clob' AS VARCHAR)")
+                .addRoundTrip("nclob", "NULL", createUnboundedVarcharType(), "CAST(NULL AS VARCHAR)")
+                .addRoundTrip("nclob", "empty_clob()", createUnboundedVarcharType(), "CAST('' AS VARCHAR)")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_unbounded"));
         // The tests on empty strings are read-only because Oracle treats empty
         // strings as NULL. The empty clob is generated by an Oracle function.
     }
