@@ -169,6 +169,7 @@ public class TestingHydraService
                                     .put("http-server.https.enabled", "true")
                                     .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
                                     .put("http-server.https.keystore.key", "")
+                                    .put("http-server.authentication.type", "oauth2")
                                     .put("http-server.authentication.oauth2.auth-url", "https://localhost:9001/oauth2/auth")
                                     .put("http-server.authentication.oauth2.token-url", "https://localhost:9001/oauth2/token")
                                     .put("http-server.authentication.oauth2.jwks-url", "https://localhost:9001/.well-known/jwks.json")
