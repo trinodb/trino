@@ -123,6 +123,11 @@ public class OAuth2WebUiAuthenticationFilter
 
     private void needAuthentication(ContainerRequestContext request)
     {
+        // send 401 to REST api calls and redirect to others
+        if (request.getUriInfo().getRequestUri().getPath().startsWith("/ui/api/")) {
+            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of(TRINO_FORM_LOGIN));
+            return;
+        }
         OAuthChallenge challenge = service.startWebUiChallenge(request.getUriInfo().getBaseUri().resolve(CALLBACK_ENDPOINT));
         ResponseBuilder response = Response.seeOther(challenge.getRedirectUrl());
         challenge.getNonce().ifPresent(nonce -> response.cookie(NonceCookie.create(nonce, challenge.getChallengeExpiration())));

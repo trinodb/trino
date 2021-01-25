@@ -167,9 +167,9 @@ public class TestOAuth2WebUiAuthenticationFilter
             throws IOException
     {
         try (Response response = httpClient
-                .newCall(uiCall().build())
+                .newCall(apiCall().build())
                 .execute()) {
-            assertRedirectResponse(response);
+            assertUnauthorizedResponse(response);
         }
     }
 
@@ -269,6 +269,13 @@ public class TestOAuth2WebUiAuthenticationFilter
     {
         return new Request.Builder()
                 .url(serverUri.resolve("/ui/").toString())
+                .get();
+    }
+
+    private Request.Builder apiCall()
+    {
+        return new Request.Builder()
+                .url(serverUri.resolve("/ui/api/cluster").toString())
                 .get();
     }
 
