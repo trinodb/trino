@@ -81,6 +81,7 @@ import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static io.trino.testing.datatype.DataType.varcharDataType;
 import static java.lang.String.format;
@@ -216,17 +217,35 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testVarcharMapping()
     {
-        testTypeMapping("varchar",
-                basicCharacterTests(DataType::varcharDataType, MAX_VARCHAR2_ON_WRITE));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar(10)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
+                .addRoundTrip("varchar(20)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
+                .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE), "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip("varchar(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("varchar"));
     }
 
     @Test
     public void testVarcharReadMapping()
     {
-        testTypeReadMapping("read_varchar",
-                basicCharacterTests(varchar2DataType(CHAR), MAX_VARCHAR2_ON_READ),
-                basicCharacterTests(varchar2DataType(BYTE), MAX_VARCHAR2_ON_READ),
-                basicCharacterTests(nvarchar2DataType(), MAX_NVARCHAR2));
+        SqlDataTypeTest.create()
+                .addRoundTrip("varchar2(5 char)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
+                .addRoundTrip("varchar2(10 char)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
+                .addRoundTrip("varchar2(20 char)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
+                .addRoundTrip(format("varchar2(%d char)", MAX_VARCHAR2_ON_WRITE), "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
+                .addRoundTrip("varchar2(5 byte)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
+                .addRoundTrip("varchar2(10 byte)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
+                .addRoundTrip("varchar2(20 byte)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
+                .addRoundTrip(format("varchar2(%d byte)", MAX_VARCHAR2_ON_READ), "'string max size'",
+                        createVarcharType(MAX_VARCHAR2_ON_READ), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_READ))
+                .addRoundTrip("nvarchar2(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
+                .addRoundTrip("nvarchar2(10)", "'string 010'", createVarcharType(10), "CAST('string 010' AS VARCHAR(10))")
+                .addRoundTrip("nvarchar2(20)", "'string 20'", createVarcharType(20), "CAST('string 20' AS VARCHAR(20))")
+                .addRoundTrip(format("nvarchar2(%d)", MAX_NVARCHAR2), "'string max size'",
+                        createVarcharType(MAX_NVARCHAR2), format("CAST('string max size' AS VARCHAR(%d))", MAX_NVARCHAR2))
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_varchar"));
     }
 
     /*
