@@ -152,16 +152,7 @@ public class OAuth2Service
                 .parseClaimsJws(accessToken.getAccessToken())
                 .getBody();
 
-        // user did not grant the requested scope `openid` so we don't have the ID token and therefore can't validate the nonce
-        // or the ID token is present but the nonce is not which means that someone is trying to obtain the token which he is not supposed to get
-        if (nonce.isPresent() != accessToken.getIdToken().isPresent()) {
-            throw new ChallengeFailedException("Cannot validate nonce parameter");
-        }
-        // validate nonce from the ID token
-        nonce.ifPresent(n -> Jwts.parser()
-                .setSigningKeyResolver(signingKeyResolver)
-                .require(NONCE, hashNonce(n))
-                .parseClaimsJws(accessToken.getIdToken().get()));
+        validateNonce(stateClaims, accessToken, nonce);
 
         // determine expiration
         Instant validUntil = accessToken.getValidUntil()
@@ -205,6 +196,28 @@ public class OAuth2Service
     public String getInternalFailureHtml(String errorMessage)
     {
         return failureHtml.replace(FAILURE_REPLACEMENT_TEXT, nullToEmpty(errorMessage));
+    }
+
+    private void validateNonce(Claims stateClaims, AccessToken accessToken, Optional<String> nonce)
+            throws ChallengeFailedException
+    {
+        if (STATE_AUDIENCE_REST.equals(stateClaims.getAudience())) {
+            // do not validate nonce if it's a REST challenge
+            // the challenge was not started by a web browser therefore it is expected that the cookie is missing
+            return;
+        }
+
+        // user did not grant the requested scope `openid` so we don't have the ID token and therefore can't validate the nonce
+        // or the ID token is present but the nonce is not which means that someone is trying to obtain the token which he is not supposed to get
+        if (nonce.isPresent() != accessToken.getIdToken().isPresent()) {
+            throw new ChallengeFailedException("Cannot validate nonce parameter");
+        }
+
+        // validate nonce from the ID token
+        nonce.ifPresent(n -> Jwts.parser()
+                .setSigningKeyResolver(signingKeyResolver)
+                .require(NONCE, hashNonce(n))
+                .parseClaimsJws(accessToken.getIdToken().get()));
     }
 
     private static byte[] secureRandomBytes(int count)
