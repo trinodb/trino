@@ -1721,7 +1721,6 @@
                                     -Xep:ArrayEquals:ERROR
                                     -Xep:ArrayHashCode:ERROR
                                     -Xep:ArrayToString:ERROR
-                                    -Xep:ArrayToString:ERROR
                                     -Xep:ArraysAsListPrimitiveArray:ERROR
                                     -Xep:BadInstanceof:ERROR
                                     -Xep:BoxedPrimitiveConstructor:ERROR
