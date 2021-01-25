@@ -80,6 +80,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static io.trino.SystemSessionProperties.getMergePagesMaxSmallPagesRowRatio;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -246,7 +247,8 @@ public abstract class AbstractOperatorBenchmark
                 () -> new PageProcessor(Optional.empty(), projections.build()),
                 ImmutableList.copyOf(Iterables.concat(types, ImmutableList.of(BIGINT))),
                 getFilterAndProjectMinOutputPageSize(session),
-                getFilterAndProjectMinOutputPageRowCount(session));
+                getFilterAndProjectMinOutputPageRowCount(session),
+                getMergePagesMaxSmallPagesRowRatio(session));
     }
 
     protected abstract List<Driver> createDrivers(TaskContext taskContext);

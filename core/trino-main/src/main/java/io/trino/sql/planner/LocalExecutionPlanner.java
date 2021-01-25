@@ -261,6 +261,7 @@ import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
+import static io.trino.SystemSessionProperties.getMergePagesMaxSmallPagesRowRatio;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
@@ -602,7 +603,8 @@ public class LocalExecutionPlanner
             return WorkProcessorPipelineSourceOperator.convertOperators(
                     operatorFactories,
                     getFilterAndProjectMinOutputPageSize(taskContext.getSession()),
-                    getFilterAndProjectMinOutputPageRowCount(taskContext.getSession()));
+                    getFilterAndProjectMinOutputPageRowCount(taskContext.getSession()),
+                    getMergePagesMaxSmallPagesRowRatio(taskContext.getSession()));
         }
 
         private void addLookupOuterDrivers(boolean isOutputDriver, List<OperatorFactory> operatorFactories)
@@ -1698,7 +1700,8 @@ public class LocalExecutionPlanner
                             dynamicFilter,
                             getTypes(projections, expressionTypes),
                             getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                            getFilterAndProjectMinOutputPageRowCount(session),
+                            getMergePagesMaxSmallPagesRowRatio(session));
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context, stageExecutionDescriptor.isScanGroupedExecution(sourceNode.getId()) ? GROUPED_EXECUTION : UNGROUPED_EXECUTION);
                 }
@@ -1711,7 +1714,8 @@ public class LocalExecutionPlanner
                             pageProcessor,
                             getTypes(projections, expressionTypes),
                             getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                            getFilterAndProjectMinOutputPageRowCount(session),
+                            getMergePagesMaxSmallPagesRowRatio(session));
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context, source);
                 }

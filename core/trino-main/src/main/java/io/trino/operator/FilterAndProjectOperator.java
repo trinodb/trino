@@ -48,6 +48,7 @@ public class FilterAndProjectOperator
             List<Type> types,
             DataSize minOutputPageSize,
             int minOutputPageRowCount,
+            double maxSmallPagesRowRatio,
             boolean avoidPageMaterialization)
     {
         AggregatedMemoryContext localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
@@ -60,7 +61,7 @@ public class FilterAndProjectOperator
                         outputMemoryContext,
                         page,
                         avoidPageMaterialization))
-                .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
+                .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, maxSmallPagesRowRatio, processor, localAggregatedMemoryContext))
                 .withProcessStateMonitor(state -> memoryTrackingContext.localSystemMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }
 
@@ -76,7 +77,8 @@ public class FilterAndProjectOperator
             Supplier<PageProcessor> processor,
             List<Type> types,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            double maxSmallPagesRowRatio)
     {
         return createAdapterOperatorFactory(new Factory(
                 operatorId,
@@ -84,7 +86,8 @@ public class FilterAndProjectOperator
                 processor,
                 types,
                 minOutputPageSize,
-                minOutputPageRowCount));
+                minOutputPageRowCount,
+                maxSmallPagesRowRatio));
     }
 
     private static class Factory
@@ -96,6 +99,7 @@ public class FilterAndProjectOperator
         private final List<Type> types;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
+        private final double maxSmallPagesRowRatio;
         private boolean closed;
 
         private Factory(
@@ -104,7 +108,8 @@ public class FilterAndProjectOperator
                 Supplier<PageProcessor> processor,
                 List<Type> types,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+                int minOutputPageRowCount,
+                double maxSmallPagesRowRatio)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -112,6 +117,7 @@ public class FilterAndProjectOperator
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.maxSmallPagesRowRatio = maxSmallPagesRowRatio;
         }
 
         @Override
@@ -127,6 +133,7 @@ public class FilterAndProjectOperator
                     types,
                     minOutputPageSize,
                     minOutputPageRowCount,
+                    maxSmallPagesRowRatio,
                     true);
         }
 
@@ -143,6 +150,7 @@ public class FilterAndProjectOperator
                     types,
                     minOutputPageSize,
                     minOutputPageRowCount,
+                    maxSmallPagesRowRatio,
                     false);
         }
 
@@ -173,7 +181,7 @@ public class FilterAndProjectOperator
         @Override
         public BasicAdapterWorkProcessorOperatorFactory duplicate()
         {
-            return new Factory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
+            return new Factory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount, maxSmallPagesRowRatio);
         }
     }
 }

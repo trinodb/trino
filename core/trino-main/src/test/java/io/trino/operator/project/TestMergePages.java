@@ -51,6 +51,7 @@ public class TestMergePages
                 page.getSizeInBytes(),
                 Integer.MAX_VALUE,
                 Integer.MAX_VALUE,
+                1.0,
                 pagesSource(page),
                 newSimpleAggregatedMemoryContext());
 
@@ -68,6 +69,7 @@ public class TestMergePages
                 1024 * 1024,
                 page.getPositionCount(),
                 Integer.MAX_VALUE,
+                1.0,
                 pagesSource(page),
                 newSimpleAggregatedMemoryContext());
 
@@ -78,29 +80,45 @@ public class TestMergePages
     @Test
     public void testMinRowCountThresholdWithLazyPages()
     {
-        Page page = createSequencePage(TYPES, 10);
-
-        LazyBlock channel1 = lazyWrapper(page.getBlock(0));
-        LazyBlock channel2 = lazyWrapper(page.getBlock(1));
-        LazyBlock channel3 = lazyWrapper(page.getBlock(2));
-        page = new Page(channel1, channel2, channel3);
+        Page firstPage = lazyWrapper(createSequencePage(TYPES, 10));
+        Page secondPage = lazyWrapper(createSequencePage(TYPES, 20));
+        Page thirdPage = lazyWrapper(createSequencePage(TYPES, 300));
+        Page fourthPage = lazyWrapper(createSequencePage(TYPES, 20));
 
         WorkProcessor<Page> mergePages = mergePages(
                 TYPES,
                 1024 * 1024,
-                page.getPositionCount() * 2,
+                200,
                 Integer.MAX_VALUE,
-                pagesSource(page),
+                0.1,
+                pagesSource(firstPage, secondPage, thirdPage, fourthPage),
                 newSimpleAggregatedMemoryContext());
 
         assertTrue(mergePages.process());
         assertFalse(mergePages.isFinished());
 
+        // if the lazy page is first, then it should be passed through
         Page result = mergePages.getResult();
-        assertFalse(channel1.isLoaded());
-        assertFalse(channel2.isLoaded());
-        assertFalse(channel3.isLoaded());
-        assertPageEquals(TYPES, result, page);
+        assertFalse(isLoaded(result));
+        // load lazy page fully, it's positions should be accounted for as for small page
+        assertPageEquals(TYPES, result, firstPage);
+
+        // second page should be loaded because it was accumulated (since maxSmallPagesRowRatio was exceeded)
+        assertTrue(mergePages.process());
+        result = mergePages.getResult();
+        assertTrue(isLoaded(result));
+        assertPageEquals(TYPES, result, secondPage);
+
+        // third page is passed through as it's number of rows is equal to minRowCount
+        assertTrue(mergePages.process());
+        result = mergePages.getResult();
+        assertFalse(isLoaded(result));
+
+        // fourth page is passed though as maxSmallPagesRowRatio is not exceeded
+        assertTrue(mergePages.process());
+        result = mergePages.getResult();
+        assertFalse(isLoaded(result));
+        assertPageEquals(TYPES, result, fourthPage);
     }
 
     @Test
@@ -115,6 +133,7 @@ public class TestMergePages
                 page.getSizeInBytes() + 1,
                 page.getPositionCount() + 1,
                 Integer.MAX_VALUE,
+                1.0,
                 pagesSource(splits.get(0), splits.get(1)),
                 newSimpleAggregatedMemoryContext());
 
@@ -133,6 +152,7 @@ public class TestMergePages
                 bigPage.getSizeInBytes(),
                 bigPage.getPositionCount(),
                 Integer.MAX_VALUE,
+                1.0,
                 pagesSource(smallPage, bigPage),
                 newSimpleAggregatedMemoryContext());
 
@@ -154,12 +174,23 @@ public class TestMergePages
                 page.getSizeInBytes() / 2 + 1,
                 page.getPositionCount() / 2 + 1,
                 toIntExact(page.getSizeInBytes()),
+                1.0,
                 pagesSource(splits.get(0), splits.get(1), splits.get(0), splits.get(1)),
                 newSimpleAggregatedMemoryContext());
 
         validateResult(mergePages, actualPage -> assertPageEquals(types, actualPage, page));
         validateResult(mergePages, actualPage -> assertPageEquals(types, actualPage, page));
         assertFinishes(mergePages);
+    }
+
+    private static Page lazyWrapper(Page page)
+    {
+        Block[] lazyBlocks = new Block[page.getChannelCount()];
+        for (int channel = 0; channel < page.getChannelCount(); ++channel) {
+            lazyBlocks[channel] = lazyWrapper(page.getBlock(channel));
+        }
+
+        return new Page(lazyBlocks);
     }
 
     private static LazyBlock lazyWrapper(Block block)
@@ -170,5 +201,16 @@ public class TestMergePages
     private static WorkProcessor<Page> pagesSource(Page... pages)
     {
         return WorkProcessor.fromIterable(ImmutableList.copyOf(pages));
+    }
+
+    private static boolean isLoaded(Page page)
+    {
+        for (int channel = 0; channel < page.getChannelCount(); ++channel) {
+            if (!page.getBlock(channel).isLoaded()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

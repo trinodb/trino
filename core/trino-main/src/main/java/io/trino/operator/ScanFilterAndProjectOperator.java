@@ -97,6 +97,7 @@ public class ScanFilterAndProjectOperator
             Iterable<Type> types,
             DataSize minOutputPageSize,
             int minOutputPageRowCount,
+            double maxSmallPagesRowRatio,
             boolean avoidPageMaterialization)
     {
         pages = splits.flatTransform(
@@ -113,6 +114,7 @@ public class ScanFilterAndProjectOperator
                         requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateSystemMemoryContext(),
                         minOutputPageSize,
                         minOutputPageRowCount,
+                        maxSmallPagesRowRatio,
                         avoidPageMaterialization));
     }
 
@@ -210,6 +212,7 @@ public class ScanFilterAndProjectOperator
         final LocalMemoryContext outputMemoryContext;
         final DataSize minOutputPageSize;
         final int minOutputPageRowCount;
+        final double maxSmallPagesRowRatio;
         final boolean avoidPageMaterialization;
 
         SplitToPages(
@@ -225,6 +228,7 @@ public class ScanFilterAndProjectOperator
                 AggregatedMemoryContext aggregatedMemoryContext,
                 DataSize minOutputPageSize,
                 int minOutputPageRowCount,
+                double maxSmallPagesRowRatio,
                 boolean avoidPageMaterialization)
         {
             this.session = requireNonNull(session, "session is null");
@@ -242,6 +246,7 @@ public class ScanFilterAndProjectOperator
             this.outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.maxSmallPagesRowRatio = maxSmallPagesRowRatio;
             this.avoidPageMaterialization = avoidPageMaterialization;
         }
 
@@ -296,7 +301,7 @@ public class ScanFilterAndProjectOperator
                             outputMemoryContext,
                             page,
                             avoidPageMaterialization))
-                    .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
+                    .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, maxSmallPagesRowRatio, processor, localAggregatedMemoryContext))
                     .withProcessStateMonitor(state -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
     }
@@ -432,6 +437,7 @@ public class ScanFilterAndProjectOperator
         private final List<Type> types;
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
+        private final double maxSmallPagesRowRatio;
         private boolean closed;
 
         public ScanFilterAndProjectOperatorFactory(
@@ -446,7 +452,8 @@ public class ScanFilterAndProjectOperator
                 DynamicFilter dynamicFilter,
                 List<Type> types,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+                int minOutputPageRowCount,
+                double maxSmallPagesRowRatio)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -460,6 +467,7 @@ public class ScanFilterAndProjectOperator
             this.types = requireNonNull(types, "types is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.maxSmallPagesRowRatio = maxSmallPagesRowRatio;
         }
 
         @Override
@@ -535,6 +543,7 @@ public class ScanFilterAndProjectOperator
                     types,
                     minOutputPageSize,
                     minOutputPageRowCount,
+                    maxSmallPagesRowRatio,
                     avoidPageMaterialization);
         }
 

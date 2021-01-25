@@ -89,7 +89,7 @@ public class DynamicTupleFilterFactory
     public OperatorFactory filterWithTuple(Page tuplePage)
     {
         Supplier<PageProcessor> processor = createPageProcessor(tuplePage.getColumns(tupleFilterChannels), OptionalInt.empty());
-        return FilterAndProjectOperator.createOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, DataSize.ofBytes(0), 0);
+        return FilterAndProjectOperator.createOperatorFactory(filterOperatorId, planNodeId, processor, outputTypes, DataSize.ofBytes(0), 0, 1.0);
     }
 
     @VisibleForTesting

@@ -20,12 +20,12 @@ import io.trino.operator.WorkProcessor;
 import io.trino.operator.WorkProcessor.TransformationState;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.WorkProcessor.TransformationState.finished;
 import static io.trino.operator.WorkProcessor.TransformationState.needsMoreData;
 import static io.trino.operator.WorkProcessor.TransformationState.ofResult;
@@ -54,6 +54,12 @@ import static java.util.Objects.requireNonNull;
 public final class MergePages
 {
     private static final int MAX_MIN_PAGE_SIZE = 1024 * 1024;
+    /**
+     * Consider small page to be materialized when most of it's channels
+     * are loaded. This prevents outputting a lot of small pages, where there
+     * is potentially little benefit from late materialization.
+     */
+    private static final double LOADED_CHANNELS_RATIO_THRESHOLD = 0.5;
 
     private MergePages() {}
 
@@ -61,10 +67,11 @@ public final class MergePages
             Iterable<? extends Type> types,
             long minPageSizeInBytes,
             int minRowCount,
+            double maxSmallPagesRowRatio,
             WorkProcessor<Page> pages,
             AggregatedMemoryContext memoryContext)
     {
-        return mergePages(types, minPageSizeInBytes, minRowCount, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, pages, memoryContext);
+        return mergePages(types, minPageSizeInBytes, minRowCount, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, maxSmallPagesRowRatio, pages, memoryContext);
     }
 
     public static WorkProcessor<Page> mergePages(
@@ -72,6 +79,7 @@ public final class MergePages
             long minPageSizeInBytes,
             int minRowCount,
             int maxPageSizeInBytes,
+            double maxSmallPagesRowRatio,
             WorkProcessor<Page> pages,
             AggregatedMemoryContext memoryContext)
     {
@@ -80,6 +88,7 @@ public final class MergePages
                 minPageSizeInBytes,
                 minRowCount,
                 maxPageSizeInBytes,
+                maxSmallPagesRowRatio,
                 memoryContext.newLocalMemoryContext(MergePages.class.getSimpleName())));
     }
 
@@ -89,12 +98,22 @@ public final class MergePages
         private final List<Type> types;
         private final long minPageSizeInBytes;
         private final int minRowCount;
+        private final double maxSmallPagesRowRatio;
         private final LocalMemoryContext memoryContext;
         private final PageBuilder pageBuilder;
 
         private Page queuedPage;
+        private Page smallLazyOutputPage;
+        private long smallLazyPagesPositions;
+        private long totalPositions;
 
-        private MergePagesTransformation(Iterable<? extends Type> types, long minPageSizeInBytes, int minRowCount, int maxPageSizeInBytes, LocalMemoryContext memoryContext)
+        private MergePagesTransformation(
+                Iterable<? extends Type> types,
+                long minPageSizeInBytes,
+                int minRowCount,
+                int maxPageSizeInBytes,
+                double maxSmallPagesRowRatio,
+                LocalMemoryContext memoryContext)
         {
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             checkArgument(minPageSizeInBytes >= 0, "minPageSizeInBytes must be greater or equal than zero");
@@ -102,8 +121,10 @@ public final class MergePages
             checkArgument(maxPageSizeInBytes > 0, "maxPageSizeInBytes must be greater than zero");
             checkArgument(maxPageSizeInBytes >= minPageSizeInBytes, "maxPageSizeInBytes must be greater or equal than minPageSizeInBytes");
             checkArgument(minPageSizeInBytes <= MAX_MIN_PAGE_SIZE, "minPageSizeInBytes must be less or equal than %s", MAX_MIN_PAGE_SIZE);
+            checkArgument(maxSmallPagesRowRatio >= 0, "maxSmallPagesRowRatio must be greater than zero");
             this.minPageSizeInBytes = minPageSizeInBytes;
             this.minRowCount = minRowCount;
+            this.maxSmallPagesRowRatio = maxSmallPagesRowRatio;
             this.memoryContext = requireNonNull(memoryContext, "memoryContext is null");
             pageBuilder = PageBuilder.withMaxPageSize(maxPageSizeInBytes, this.types);
         }
@@ -112,10 +133,18 @@ public final class MergePages
         public TransformationState<Page> process(Page inputPage)
         {
             if (queuedPage != null) {
+                checkState(smallLazyOutputPage == null || smallLazyOutputPage == queuedPage);
                 Page output = queuedPage;
                 queuedPage = null;
                 memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
                 return ofResult(output);
+            }
+
+            if (smallLazyOutputPage != null) {
+                if (isPartiallyLoaded(smallLazyOutputPage)) {
+                    smallLazyPagesPositions += smallLazyOutputPage.getPositionCount();
+                }
+                smallLazyOutputPage = null;
             }
 
             boolean inputFinished = inputPage == null;
@@ -128,8 +157,19 @@ public final class MergePages
                 return ofResult(flush(), false);
             }
 
-            // TODO: merge low cardinality blocks lazily
-            if (inputPage.getPositionCount() >= minRowCount || !isLoaded(inputPage) || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
+            totalPositions += inputPage.getPositionCount();
+            boolean isPartiallyLoaded = isPartiallyLoaded(inputPage);
+            // passthrough small lazy page only when total number of rows from such pages is below threshold
+            boolean passthroughSmallLazyPage = !isPartiallyLoaded && (totalPositions == 0 || ((double) smallLazyPagesPositions / totalPositions) <= maxSmallPagesRowRatio);
+            if (inputPage.getPositionCount() >= minRowCount || passthroughSmallLazyPage || inputPage.getSizeInBytes() >= minPageSizeInBytes) {
+                if (inputPage.getPositionCount() < minRowCount && !isPartiallyLoaded) {
+                    // Store small lazy page to check if it was materialized later on.
+                    // Ideally, we should account for page memory. However, downstream
+                    // operators could also retain such page so this would lead to double
+                    // memory accounting.
+                    smallLazyOutputPage = inputPage;
+                }
+
                 if (pageBuilder.isEmpty()) {
                     return ofResult(inputPage);
                 }
@@ -154,6 +194,7 @@ public final class MergePages
 
         private void appendPage(Page page)
         {
+            page = page.getLoadedPage();
             pageBuilder.declarePositions(page.getPositionCount());
             for (int channel = 0; channel < types.size(); channel++) {
                 Type type = types.get(channel);
@@ -170,18 +211,17 @@ public final class MergePages
             memoryContext.setBytes(pageBuilder.getRetainedSizeInBytes());
             return output;
         }
+    }
 
-        private static boolean isLoaded(Page page)
-        {
-            // TODO: provide better heuristics there, e.g check if last produced page was materialized
-            for (int channel = 0; channel < page.getChannelCount(); ++channel) {
-                Block block = page.getBlock(channel);
-                if (!block.isLoaded()) {
-                    return false;
-                }
+    private static boolean isPartiallyLoaded(Page page)
+    {
+        int loadedBlockCount = 0;
+        for (int channel = 0; channel < page.getChannelCount(); ++channel) {
+            if (page.getBlock(channel).isLoaded()) {
+                loadedBlockCount++;
             }
-
-            return true;
         }
+
+        return (double) loadedBlockCount / page.getChannelCount() > LOADED_CHANNELS_RATIO_THRESHOLD;
     }
 }

@@ -79,7 +79,8 @@ public class HandTpchQuery6
                 () -> new PageProcessor(Optional.of(new TpchQuery6Filter()), ImmutableList.of(projection.get())),
                 ImmutableList.of(DOUBLE),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                1.0);
 
         AggregationOperatorFactory aggregationOperator = new AggregationOperatorFactory(
                 2,

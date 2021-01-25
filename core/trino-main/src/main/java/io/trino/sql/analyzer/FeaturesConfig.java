@@ -139,6 +139,7 @@ public class FeaturesConfig
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
+    private double mergePagesMaxSmallPagesRowRatio = 0.1;
     private int maxGroupingSets = 2048;
 
     public enum JoinReorderingStrategy
@@ -912,6 +913,19 @@ public class FeaturesConfig
     public FeaturesConfig setFilterAndProjectMinOutputPageRowCount(int filterAndProjectMinOutputPageRowCount)
     {
         this.filterAndProjectMinOutputPageRowCount = filterAndProjectMinOutputPageRowCount;
+        return this;
+    }
+
+    @Min(0)
+    public double getMergePagesMaxSmallPagesRowRatio()
+    {
+        return mergePagesMaxSmallPagesRowRatio;
+    }
+
+    @Config("experimental.merge-pages-small-pages-row-ratio-threshold")
+    public FeaturesConfig setMergePagesMaxSmallPagesRowRatio(double mergePagesMaxSmallPagesRowRatio)
+    {
+        this.mergePagesMaxSmallPagesRowRatio = mergePagesMaxSmallPagesRowRatio;
         return this;
     }
 
