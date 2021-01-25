@@ -151,6 +151,7 @@ public class SqlServerClient
                         .add(new ImplementSqlServerStddevPop())
                         .add(new ImplementSqlServerVariance())
                         .add(new ImplementSqlServerVariancePop())
+                        // SQL Server doesn't have covar_samp and covar_pop functions so we can't implement pushdown for them
                         .build());
     }
 
