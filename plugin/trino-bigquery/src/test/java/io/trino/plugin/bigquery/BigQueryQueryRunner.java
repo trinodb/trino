@@ -16,12 +16,14 @@ package io.trino.plugin.bigquery;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.sql.SqlExecutor;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -33,7 +35,7 @@ import java.util.Map;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class BigQueryQueryRunner
+public final class BigQueryQueryRunner
 {
     private static final String TPCH_SCHEMA = "tpch";
 
@@ -65,26 +67,49 @@ public class BigQueryQueryRunner
         }
     }
 
-    public static BigQuery createBigQueryClient()
-    {
-        try {
-            InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(System.getProperty("bigquery.credentials-key")));
-            return BigQueryOptions.newBuilder()
-                    .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
-                    .build()
-                    .getService();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     public static Session createSession()
     {
         return testSessionBuilder()
                 .setCatalog("bigquery")
                 .setSchema(TPCH_SCHEMA)
                 .build();
+    }
+
+    public static class BigQuerySqlExecutor
+            implements SqlExecutor
+    {
+        private final BigQuery bigQuery;
+
+        public BigQuerySqlExecutor()
+        {
+            this.bigQuery = createBigQueryClient();
+        }
+
+        @Override
+        public void execute(String sql)
+        {
+            try {
+                bigQuery.query(QueryJobConfiguration.of(sql));
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+
+        private static BigQuery createBigQueryClient()
+        {
+            try {
+                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(System.getProperty("bigquery.credentials-key")));
+                return BigQueryOptions.newBuilder()
+                        .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
+                        .build()
+                        .getService();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 
     public static void main(String[] args)
