@@ -348,6 +348,17 @@ public abstract class AbstractTestHiveViews
         ).hasMessageContaining("timestamp(9) projected from query view at position 0 cannot be coerced to column [ts] of type timestamp(3) stored in view definition");
     }
 
+    @Test
+    public void testCurrentUser()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS current_user_hive_view");
+        onHive().executeQuery("CREATE VIEW current_user_hive_view as SELECT current_user() AS cu FROM nation LIMIT 1");
+
+        String testQuery = "SELECT cu FROM current_user_hive_view";
+        assertThat(query(testQuery)).containsOnly(row("hive"));
+        assertThat(connectToPresto("alice@presto").executeQuery(testQuery)).containsOnly(row("alice"));
+    }
+
     protected static void assertViewQuery(String query, Consumer<QueryAssert> assertion)
     {
         // Ensure Hive and Presto view compatibility by comparing the results
