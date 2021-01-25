@@ -50,7 +50,7 @@ public class TestSqlServerTableStatistics
                     ImmutableList.of(ORDERS));
         }
         catch (Throwable e) {
-            closeAllSuppress(e, sqlServer::close);
+            closeAllSuppress(e, sqlServer);
             throw e;
         }
     }
