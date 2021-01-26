@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
@@ -62,7 +63,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME;
-import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_DAY;
@@ -91,6 +91,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
 public final class StandardColumnMappings
 {
+    private static final int MAX_LOCAL_DATE_TIME_PRECISION = 9;
+
     private StandardColumnMappings() {}
 
     public static ColumnMapping booleanColumnMapping()
@@ -439,7 +441,7 @@ public final class StandardColumnMappings
     public static ColumnMapping timestampColumnMappingUsingSqlTimestamp(TimestampType timestampType)
     {
         // TODO support higher precision
-        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return ColumnMapping.longMapping(
                 timestampType,
                 (resultSet, columnIndex) -> {
@@ -457,17 +459,32 @@ public final class StandardColumnMappings
 
     public static ColumnMapping timestampColumnMapping(TimestampType timestampType)
     {
-        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return ColumnMapping.longMapping(
+        if (timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
+            return ColumnMapping.longMapping(
+                    timestampType,
+                    timestampReadFunction(timestampType),
+                    timestampWriteFunction(timestampType));
+        }
+        checkArgument(timestampType.getPrecision() <= MAX_LOCAL_DATE_TIME_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return ColumnMapping.objectMapping(
                 timestampType,
-                timestampReadFunction(timestampType),
-                timestampWriteFunction(timestampType));
+                longTimestampReadFunction(timestampType),
+                longTimestampWriteFunction(timestampType));
     }
 
     public static LongReadFunction timestampReadFunction(TimestampType timestampType)
     {
-        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return (resultSet, columnIndex) -> toPrestoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
+    }
+
+    private static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION && timestampType.getPrecision() < MAX_LOCAL_DATE_TIME_PRECISION,
+                "Precision is out of range: %s", timestampType.getPrecision());
+        return ObjectReadFunction.of(
+                LongTimestamp.class,
+                (resultSet, columnIndex) -> toLongTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class)));
     }
 
     /**
@@ -479,22 +496,51 @@ public final class StandardColumnMappings
     @Deprecated
     public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)
     {
-        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromPrestoTimestamp(value)));
     }
 
     public static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
     {
-        checkArgument(timestampType.getPrecision() <= MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
         return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(value));
+    }
+
+    public static ObjectWriteFunction longTimestampWriteFunction(TimestampType timestampType)
+    {
+        checkArgument(timestampType.getPrecision() > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
+        return ObjectWriteFunction.of(
+                LongTimestamp.class,
+                (statement, index, value) -> statement.setObject(index, fromLongTimestamp(value, timestampType.getPrecision())));
     }
 
     public static long toPrestoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
     {
         long precision = timestampType.getPrecision();
-        checkArgument(precision <= MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
+        checkArgument(precision <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
         Instant instant = localDateTime.atZone(UTC).toInstant();
-        return instant.getEpochSecond() * MICROSECONDS_PER_SECOND + roundDiv(instant.getNano(), NANOSECONDS_PER_MICROSECOND);
+        long epochMicros = instant.getEpochSecond() * MICROSECONDS_PER_SECOND + roundDiv(instant.getNano(), NANOSECONDS_PER_MICROSECOND);
+        verify(
+                epochMicros == round(epochMicros, TimestampType.MAX_SHORT_PRECISION - timestampType.getPrecision()),
+                "Invalid value of epochMicros for precision %s: %s",
+                timestampType.getPrecision(),
+                epochMicros);
+        return epochMicros;
+    }
+
+    public static LongTimestamp toLongTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    {
+        long precision = timestampType.getPrecision();
+        checkArgument(precision > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
+        Instant instant = localDateTime.atZone(UTC).toInstant();
+        long epochMicros = instant.getEpochSecond() * MICROSECONDS_PER_SECOND + floorDiv(instant.getNano(), NANOSECONDS_PER_MICROSECOND);
+        int picosOfMicro = (instant.getNano() % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
+        verify(
+                picosOfMicro == round(picosOfMicro, TimestampType.MAX_PRECISION - timestampType.getPrecision()),
+                "Invalid value of picosOfMicro for precision %s: %s",
+                timestampType.getPrecision(),
+                picosOfMicro);
+        return new LongTimestamp(epochMicros, picosOfMicro);
     }
 
     public static LocalDateTime fromPrestoTimestamp(long epochMicros)
@@ -502,6 +548,17 @@ public final class StandardColumnMappings
         long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
         int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
         Instant instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
+        return LocalDateTime.ofInstant(instant, UTC);
+    }
+
+    public static LocalDateTime fromLongTimestamp(LongTimestamp timestamp, int precision)
+    {
+        long epochSeconds = floorDiv(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
+        int microsOfSecond = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
+        long picosOfMicro = round(timestamp.getPicosOfMicro(), TimestampType.MAX_PRECISION - precision);
+        int nanosOfSecond = (microsOfSecond * NANOSECONDS_PER_MICROSECOND) + toIntExact(picosOfMicro / PICOSECONDS_PER_NANOSECOND);
+
+        Instant instant = Instant.ofEpochSecond(epochSeconds, nanosOfSecond);
         return LocalDateTime.ofInstant(instant, UTC);
     }
 
