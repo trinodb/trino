@@ -45,17 +45,18 @@ public class TestingPostgreSqlServer
     }
 
     public void execute(String sql)
-            throws SQLException
     {
         execute(getJdbcUrl(), getProperties(), sql);
     }
 
     private static void execute(String url, Properties properties, String sql)
-            throws SQLException
     {
         try (Connection connection = DriverManager.getConnection(url, properties);
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 
