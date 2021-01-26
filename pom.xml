@@ -78,6 +78,34 @@
         <air.test.jvmsize>3g</air.test.jvmsize>
 
         <air.javadoc.lint>-missing</air.javadoc.lint>
+
+        <error.prone.checks>
+            -Xep:ArrayEquals:ERROR
+            -Xep:ArrayHashCode:ERROR
+            -Xep:ArrayToString:ERROR
+            -Xep:ArraysAsListPrimitiveArray:ERROR
+            -Xep:BadInstanceof:ERROR
+            -Xep:BoxedPrimitiveConstructor:ERROR
+            -Xep:ClassCanBeStatic:ERROR
+            -Xep:CompareToZero:ERROR
+            -Xep:ComparingThisWithNull:ERROR
+            -Xep:EqualsIncompatibleType:ERROR
+            -Xep:FallThrough:ERROR
+            -Xep:FormatString:ERROR
+            -Xep:GetClassOnClass:ERROR
+            -Xep:ImmutableSetForContains:ERROR
+            -Xep:InconsistentHashCode:ERROR
+            -Xep:InjectOnConstructorOfAbstractClass:ERROR
+            -Xep:MissingOverride:ERROR
+            -Xep:NullOptional:ERROR
+            -Xep:ObjectToString:ERROR
+            -Xep:OptionalMapUnusedValue:ERROR
+            -Xep:StaticQualifiedUsingExpression:ERROR
+            -Xep:UnnecessaryMethodReference:ERROR
+            -Xep:UnnecessaryOptionalGet:ERROR
+            -Xep:UnusedVariable:ERROR
+            -Xep:UseEnumSwitch:ERROR
+        </error.prone.checks>
     </properties>
 
     <modules>
@@ -1716,31 +1744,7 @@
                                     -Xplugin:ErrorProne
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
                                     -XepDisableAllChecks
-                                    -Xep:ArrayEquals:ERROR
-                                    -Xep:ArrayHashCode:ERROR
-                                    -Xep:ArrayToString:ERROR
-                                    -Xep:ArraysAsListPrimitiveArray:ERROR
-                                    -Xep:BadInstanceof:ERROR
-                                    -Xep:BoxedPrimitiveConstructor:ERROR
-                                    -Xep:ClassCanBeStatic:ERROR
-                                    -Xep:CompareToZero:ERROR
-                                    -Xep:ComparingThisWithNull:ERROR
-                                    -Xep:EqualsIncompatibleType:ERROR
-                                    -Xep:FallThrough:ERROR
-                                    -Xep:FormatString:ERROR
-                                    -Xep:GetClassOnClass:ERROR
-                                    -Xep:ImmutableSetForContains:ERROR
-                                    -Xep:InconsistentHashCode:ERROR
-                                    -Xep:InjectOnConstructorOfAbstractClass:ERROR
-                                    -Xep:MissingOverride:ERROR
-                                    -Xep:NullOptional:ERROR
-                                    -Xep:ObjectToString:ERROR
-                                    -Xep:OptionalMapUnusedValue:ERROR
-                                    -Xep:StaticQualifiedUsingExpression:ERROR
-                                    -Xep:UnnecessaryMethodReference:ERROR
-                                    -Xep:UnnecessaryOptionalGet:ERROR
-                                    -Xep:UnusedVariable:ERROR
-                                    -Xep:UseEnumSwitch:ERROR
+                                    ${error.prone.checks}
                                 </arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
