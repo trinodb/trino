@@ -150,6 +150,19 @@ public class TestHiveViews
                         row("two", 11),
                         row("two", 22),
                         row("one", 42)));
+
+        onHive().executeQuery("DROP VIEW IF EXISTS hive_lateral_view_outer_explode");
+        onHive().executeQuery("CREATE VIEW hive_lateral_view_outer_explode as " +
+                "SELECT pageid, adid FROM pageAds LATERAL VIEW OUTER explode(adid_list) adTable AS adid");
+
+        assertViewQuery(
+                "SELECT * FROM hive_lateral_view_outer_explode",
+                queryAssert -> queryAssert.containsOnly(
+                        row("two", 11),
+                        row("two", 22),
+                        row("one", 42),
+                        row("nothing", null),
+                        row("zero", null)));
     }
 
     /**
