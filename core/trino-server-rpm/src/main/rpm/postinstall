@@ -1,0 +1,23 @@
+# Post installation script
+
+# Dynamically populated directories that we expect to exist but do
+# not want to remove when removing the RPM. Ideally, we would do this
+# via the RPM building plugin, but adding empty directories is not
+# supported.
+install --directory --mode=755 /var/lib/trino
+install --directory --mode=755 /var/log/trino
+
+# Populate node.id from uuidgen by replacing template with the node uuid
+sed -i "s/\$(uuid-generated-nodeid)/$(uuidgen)/g" /etc/trino/node.properties
+
+# move the trino_env.sh created during pre-install to Trino config location
+if [ -e /tmp/trino_env.sh ]
+then
+    mv /tmp/trino_env.sh /etc/trino/env.sh
+else
+    echo "#JAVA_HOME=" > /etc/trino/env.sh
+fi
+
+chown -R trino:trino /var/lib/trino
+chown -R trino:trino /var/log/trino
+chown -R trino:trino /etc/trino

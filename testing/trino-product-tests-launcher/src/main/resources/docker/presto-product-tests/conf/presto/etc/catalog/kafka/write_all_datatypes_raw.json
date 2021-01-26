@@ -1,0 +1,64 @@
+{
+  "tableName": "write_all_datatypes_raw",
+  "schemaName": "product_tests",
+  "topicName": "write_all_datatypes_raw",
+  "message": {
+    "dataFormat": "raw",
+    "fields": [
+      {
+        "name": "c_varchar",
+        "type": "VARCHAR",
+        "mapping": "0:5"
+      },
+
+
+
+      {
+        "name": "c_long_bigint",
+        "dataFormat": "LONG",
+        "type": "BIGINT",
+        "mapping": "5"
+      },
+      {
+        "name": "c_int_integer",
+        "dataFormat": "INT",
+        "type": "INTEGER",
+        "mapping": "13"
+      },
+      {
+        "name": "c_short_smallint",
+        "dataFormat": "SHORT",
+        "type": "SMALLINT",
+        "mapping": "17"
+      },
+      {
+        "name": "c_byte_tinyint",
+        "dataFormat": "BYTE",
+        "type": "TINYINT",
+        "mapping": "19"
+      },
+
+
+
+      {
+        "name": "c_double_double",
+        "dataFormat": "DOUBLE",
+        "type": "DOUBLE",
+        "mapping": "20"
+      },
+
+
+
+      {
+        "name": "c_byte_boolean",
+        "dataFormat": "BYTE",
+        "type": "BOOLEAN",
+        "mapping": "28"
+      }
+    ]
+  },
+  "key": {
+    "dataFormat": "raw",
+    "fields": []
+  }
+}

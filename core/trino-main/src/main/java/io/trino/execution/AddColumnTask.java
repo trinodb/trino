@@ -1,0 +1,125 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.trino.execution;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.Session;
+import io.trino.connector.CatalogName;
+import io.trino.metadata.Metadata;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.TableHandle;
+import io.trino.security.AccessControl;
+import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeNotFoundException;
+import io.trino.sql.tree.AddColumn;
+import io.trino.sql.tree.ColumnDefinition;
+import io.trino.sql.tree.Expression;
+import io.trino.transaction.TransactionManager;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.TYPE_NOT_FOUND;
+import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
+import static io.trino.sql.NodeUtils.mapFromProperties;
+import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
+import static io.trino.type.UnknownType.UNKNOWN;
+import static java.util.Locale.ENGLISH;
+
+public class AddColumnTask
+        implements DataDefinitionTask<AddColumn>
+{
+    @Override
+    public String getName()
+    {
+        return "ADD COLUMN";
+    }
+
+    @Override
+    public ListenableFuture<?> execute(AddColumn statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    {
+        Session session = stateMachine.getSession();
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+        if (tableHandle.isEmpty()) {
+            if (!statement.isTableExists()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
+        }
+
+        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
+
+        accessControl.checkCanAddColumns(session.toSecurityContext(), tableName);
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
+
+        ColumnDefinition element = statement.getColumn();
+        Type type;
+        try {
+            type = metadata.getType(toTypeSignature(element.getType()));
+        }
+        catch (TypeNotFoundException e) {
+            throw semanticException(TYPE_NOT_FOUND, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+        }
+        if (type.equals(UNKNOWN)) {
+            throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
+        }
+        if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
+            if (!statement.isColumnNotExists()) {
+                throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
+            }
+            return immediateFuture(null);
+        }
+        if (!element.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
+            throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogName.getCatalogName(), element.getName());
+        }
+
+        Map<String, Expression> sqlProperties = mapFromProperties(element.getProperties());
+        Map<String, Object> columnProperties = metadata.getColumnPropertyManager().getProperties(
+                catalogName,
+                tableName.getCatalogName(),
+                sqlProperties,
+                session,
+                metadata,
+                accessControl,
+                parameterExtractor(statement, parameters));
+
+        ColumnMetadata column = ColumnMetadata.builder()
+                .setName(element.getName().getValue())
+                .setType(type)
+                .setNullable(element.isNullable())
+                .setComment(element.getComment())
+                .setProperties(columnProperties)
+                .build();
+
+        metadata.addColumn(session, tableHandle.get(), column);
+
+        return immediateFuture(null);
+    }
+}
