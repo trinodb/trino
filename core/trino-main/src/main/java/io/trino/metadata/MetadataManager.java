@@ -73,6 +73,9 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.JoinApplicationResult;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
@@ -1321,6 +1324,65 @@ public final class MetadataManager
                             result.getAssignments(),
                             result.getGroupingColumnMapping());
                 });
+    }
+
+    @Override
+    public Optional<JoinApplicationResult<TableHandle>> applyJoin(
+            Session session,
+            JoinType joinType,
+            TableHandle left,
+            TableHandle right,
+            List<JoinCondition> joinConditions,
+            Map<String, ColumnHandle> leftAssignments,
+            Map<String, ColumnHandle> rightAssignments)
+    {
+        if (!right.getCatalogName().equals(left.getCatalogName())) {
+            // Exact comparison is fine as catalog name here is passed from CatalogMetadata and is normalized to lowercase
+            return Optional.empty();
+        }
+        CatalogName catalogName = left.getCatalogName();
+
+        ConnectorTransactionHandle transaction = left.getTransaction();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+
+        Optional<JoinApplicationResult<ConnectorTableHandle>> connectorResult =
+                metadata.applyJoin(
+                        connectorSession,
+                        joinType,
+                        left.getConnectorHandle(),
+                        right.getConnectorHandle(),
+                        joinConditions,
+                        leftAssignments,
+                        rightAssignments);
+
+        return connectorResult.map(result -> {
+            Set<ColumnHandle> leftColumnHandles = ImmutableSet.copyOf(getColumnHandles(session, left).values());
+            Set<ColumnHandle> rightColumnHandles = ImmutableSet.copyOf(getColumnHandles(session, right).values());
+            Set<ColumnHandle> leftColumnHandlesMappingKeys = result.getLeftColumnHandles().keySet();
+            Set<ColumnHandle> rightColumnHandlesMappingKeys = result.getRightColumnHandles().keySet();
+
+            if (leftColumnHandlesMappingKeys.size() != leftColumnHandles.size()
+                    || rightColumnHandlesMappingKeys.size() != rightColumnHandles.size()
+                    || !leftColumnHandlesMappingKeys.containsAll(leftColumnHandles)
+                    || !rightColumnHandlesMappingKeys.containsAll(rightColumnHandles)) {
+                throw new IllegalStateException(format(
+                        "Column handle mappings do not match old column handles: left=%s; right=%s; newLeft=%s, newRight=%s",
+                        leftColumnHandles,
+                        rightColumnHandles,
+                        leftColumnHandlesMappingKeys,
+                        rightColumnHandlesMappingKeys));
+            }
+
+            return new JoinApplicationResult<>(
+                    new TableHandle(
+                            catalogName,
+                            result.getTableHandle(),
+                            transaction,
+                            Optional.empty()),
+                    result.getLeftColumnHandles(),
+                    result.getRightColumnHandles());
+        });
     }
 
     @Override
