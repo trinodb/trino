@@ -33,7 +33,7 @@ public class TestKinesisConfig
                 .setAccessKey(null)
                 .setSecretKey(null)
                 .setAwsRegion("us-east-1")
-                .setTableDescriptionRefreshInterval(new Duration(2, TimeUnit.MINUTES))
+                .setTableDescriptionRefreshInterval(new Duration(1, TimeUnit.MINUTES))
                 .setSleepTime(new Duration(1000, TimeUnit.MILLISECONDS))
                 .setFetchAttempts(2)
                 .setMaxBatches(600)
