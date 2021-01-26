@@ -27,7 +27,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleParallelIntegrationSmokeTest
-        extends BaseStarburstOracleIntegrationSmokeTest
+        extends BaseLicensedStarburstOracleIntegrationSmokeTest
 {
     public static final String PARTITIONED_USER = "partitioned_user";
 

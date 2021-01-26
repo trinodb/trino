@@ -28,7 +28,7 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleParallelSubpartitionsIntegrationSmokeTest
-        extends BaseStarburstOracleIntegrationSmokeTest
+        extends BaseLicensedStarburstOracleIntegrationSmokeTest
 {
     private static final String SUBPARTITIONED_USER = "subpartitioned";
 

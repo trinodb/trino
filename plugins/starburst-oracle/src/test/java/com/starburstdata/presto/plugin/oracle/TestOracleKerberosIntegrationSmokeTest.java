@@ -24,7 +24,7 @@ import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleKerberosIntegrationSmokeTest
-        extends BaseStarburstOracleIntegrationSmokeTest
+        extends BaseLicensedStarburstOracleIntegrationSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
