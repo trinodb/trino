@@ -278,6 +278,16 @@ public final class Patterns
         {
             return property("type", JoinNode::getType);
         }
+
+        public static Property<JoinNode, Lookup, PlanNode> left()
+        {
+            return property("left", (JoinNode joinNode, Lookup lookup) -> lookup.resolve(joinNode.getLeft()));
+        }
+
+        public static Property<JoinNode, Lookup, PlanNode> right()
+        {
+            return property("right", (JoinNode joinNode, Lookup lookup) -> lookup.resolve(joinNode.getRight()));
+        }
     }
 
     public static final class CorrelatedJoin
