@@ -10,4 +10,4 @@ fi
 PID=$(jps | grep TrinoServer | cut -f1 -d ' ')
 
 # Dump process information for debugging purposes
-jstack -l $PID > /var/presto/var/log/stack.log || true
+jstack -l $PID > /var/trino/var/log/stack.log || true
