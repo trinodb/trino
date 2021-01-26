@@ -13,11 +13,13 @@
  */
 package io.trino.plugin.postgresql;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -367,7 +369,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @Test
     public void testAggregationPushdown()
-            throws Exception
     {
         // TODO support aggregation pushdown with GROUPING SETS
         // TODO support aggregation over expressions
@@ -404,14 +405,15 @@ public class TestPostgreSqlIntegrationSmokeTest
                 .isFullyPushedDown();
 
         // decimals
-        try (AutoCloseable ignore = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
-            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
-
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(postgreSqlServer::execute,
+                schemaName + ".test_aggregation_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
+                ImmutableList.of("100.000, 100000000.000000000", "123.321, 123456789.987654321"))) {
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // TODO array_agg returns array, so it could be supported
@@ -425,6 +427,72 @@ public class TestPostgreSqlIntegrationSmokeTest
 
         // approx_set returns HyperLogLog, which is not supported
         assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+    }
+
+    @Test
+    public void testStddevPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "4", "5"))) {
+            // Test non-whole number results
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testVariancePushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(postgreSqlServer::execute, schemaName + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "3", "4", "5"))) {
+            // Test non-whole number results
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
     }
 
     @Test
