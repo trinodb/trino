@@ -33,6 +33,9 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.JoinApplicationResult;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -69,6 +72,7 @@ public class MockConnector
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final MockConnectorFactory.ApplyProjection applyProjection;
     private final MockConnectorFactory.ApplyAggregation applyAggregation;
+    private final MockConnectorFactory.ApplyJoin applyJoin;
     private final MockConnectorFactory.ApplyTopN applyTopN;
     private final MockConnectorFactory.ApplyFilter applyFilter;
     private final MockConnectorFactory.ApplyTableScanRedirect applyTableScanRedirect;
@@ -86,6 +90,7 @@ public class MockConnector
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             MockConnectorFactory.ApplyProjection applyProjection,
             MockConnectorFactory.ApplyAggregation applyAggregation,
+            MockConnectorFactory.ApplyJoin applyJoin,
             MockConnectorFactory.ApplyTopN applyTopN,
             MockConnectorFactory.ApplyFilter applyFilter,
             MockConnectorFactory.ApplyTableScanRedirect applyTableScanRedirect,
@@ -102,6 +107,7 @@ public class MockConnector
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
+        this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
@@ -170,6 +176,19 @@ public class MockConnector
                 List<List<ColumnHandle>> groupingSets)
         {
             return applyAggregation.apply(session, handle, aggregates, assignments, groupingSets);
+        }
+
+        @Override
+        public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
+                ConnectorSession session,
+                JoinType joinType,
+                ConnectorTableHandle left,
+                ConnectorTableHandle right,
+                List<JoinCondition> joinConditions,
+                Map<String, ColumnHandle> leftAssignments,
+                Map<String, ColumnHandle> rightAssignments)
+        {
+            return applyJoin.apply(session, joinType, left, right, joinConditions, leftAssignments, rightAssignments);
         }
 
         @Override
