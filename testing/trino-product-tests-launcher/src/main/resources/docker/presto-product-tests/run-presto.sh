@@ -24,5 +24,5 @@ export PATH="${JAVA_HOME}/bin:${PATH}"
 exec /docker/presto-server/bin/launcher \
   -Dnode.id="${HOSTNAME}" \
   --etc-dir="/docker/presto-product-tests/conf/presto/etc" \
-  --data-dir=/var/presto \
+  --data-dir=/var/trino \
   run
