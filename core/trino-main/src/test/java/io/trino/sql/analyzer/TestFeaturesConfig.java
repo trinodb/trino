@@ -108,7 +108,8 @@ public class TestFeaturesConfig
                 .setRewriteFilteringSemiJoinToInnerJoin(true)
                 .setOptimizeDuplicateInsensitiveJoins(true)
                 .setUseLegacyWindowFilterPushdown(false)
-                .setPlanWithTableNodePartitioning(true));
+                .setPlanWithTableNodePartitioning(true)
+                .setJoinPushdownMode(FeaturesConfig.JoinPushdownMode.DISABLED));
     }
 
     @Test
@@ -182,6 +183,7 @@ public class TestFeaturesConfig
                 .put("optimizer.optimize-duplicate-insensitive-joins", "false")
                 .put("optimizer.use-legacy-window-filter-pushdown", "true")
                 .put("optimizer.plan-with-table-node-partitioning", "false")
+                .put("optimizer.join-pushdown", "EAGER")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -251,7 +253,8 @@ public class TestFeaturesConfig
                 .setRewriteFilteringSemiJoinToInnerJoin(false)
                 .setOptimizeDuplicateInsensitiveJoins(false)
                 .setUseLegacyWindowFilterPushdown(true)
-                .setPlanWithTableNodePartitioning(false);
+                .setPlanWithTableNodePartitioning(false)
+                .setJoinPushdownMode(FeaturesConfig.JoinPushdownMode.EAGER);
         assertFullMapping(properties, expected);
     }
 }

@@ -25,6 +25,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.sql.analyzer.FeaturesConfig;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.trino.sql.analyzer.FeaturesConfig.JoinPushdownMode;
 import io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
 
 import javax.inject.Inject;
@@ -129,6 +130,7 @@ public final class SystemSessionProperties
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
     public static final String OMIT_DATETIME_TYPE_PRECISION = "omit_datetime_type_precision";
     public static final String USE_LEGACY_WINDOW_FILTER_PUSHDOWN = "use_legacy_window_filter_pushdown";
+    public static final String JOIN_PUSHDOWN_MODE = "join_pushdown";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -579,6 +581,12 @@ public final class SystemSessionProperties
                         USE_LEGACY_WINDOW_FILTER_PUSHDOWN,
                         "Use legacy window filter pushdown optimizer",
                         featuresConfig.isUseLegacyWindowFilterPushdown(),
+                        false),
+                enumProperty(
+                        JOIN_PUSHDOWN_MODE,
+                        "Join pushdown mode",
+                        JoinPushdownMode.class,
+                        featuresConfig.getJoinPushdownMode(),
                         false));
     }
 
@@ -1040,5 +1048,10 @@ public final class SystemSessionProperties
     public static boolean useLegacyWindowFilterPushdown(Session session)
     {
         return session.getSystemProperty(USE_LEGACY_WINDOW_FILTER_PUSHDOWN, Boolean.class);
+    }
+
+    public static JoinPushdownMode getJoinPushdownMode(Session session)
+    {
+        return session.getSystemProperty(JOIN_PUSHDOWN_MODE, JoinPushdownMode.class);
     }
 }

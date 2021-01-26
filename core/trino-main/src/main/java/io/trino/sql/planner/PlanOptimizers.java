@@ -133,6 +133,7 @@ import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughSort;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopN;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughTopNRanking;
 import io.trino.sql.planner.iterative.rule.PushDownDereferencesThroughWindow;
+import io.trino.sql.planner.iterative.rule.PushJoinIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitIntoTableScan;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughMarkDistinct;
 import io.trino.sql.planner.iterative.rule.PushLimitThroughOffset;
@@ -582,6 +583,7 @@ public class PlanOptimizers
                         .add(new PushLimitIntoTableScan(metadata))
                         .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
                         .add(new PushSampleIntoTableScan(metadata))
+                        .add(new PushJoinIntoTableScan(metadata))
                         .add(new PushAggregationIntoTableScan(metadata))
                         .add(new PushDistinctLimitIntoTableScan(metadata))
                         .build());
@@ -678,7 +680,8 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))),
+                        ImmutableSet.of(
+                                new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))),
                 columnPruningOptimizer,
                 new IterativeOptimizer(
                         ruleStats,
