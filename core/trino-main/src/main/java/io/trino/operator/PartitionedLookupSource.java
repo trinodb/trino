@@ -84,6 +84,7 @@ public class PartitionedLookupSource
     private final LocalPartitionGenerator partitionGenerator;
     private final int partitionMask;
     private final int shiftSize;
+    private final boolean supportsCaching;
     @Nullable
     private final OuterPositionTracker outerPositionTracker;
 
@@ -104,6 +105,7 @@ public class PartitionedLookupSource
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
         this.outerPositionTracker = outerPositionTracker.orElse(null);
+        this.supportsCaching = lookupSources.stream().allMatch(LookupSource::supportsCaching);
     }
 
     @Override
@@ -151,6 +153,70 @@ public class PartitionedLookupSource
     }
 
     @Override
+    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage)
+    {
+        if (!supportsCaching()) {
+            return LookupSource.super.getJoinPositions(positions, hashChannelsPage, allChannelsPage);
+        }
+
+        long[] rawHashes = new long[positions.length];
+        for (int i = 0; i < positions.length; i++) {
+            rawHashes[i] = partitionGenerator.getRawHash(hashChannelsPage, positions[i]);
+        }
+
+        return getJoinPositions(positions, hashChannelsPage, allChannelsPage, rawHashes);
+    }
+
+    @Override
+    public long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    {
+        if (!supportsCaching()) {
+            return LookupSource.super.getJoinPositions(positions, hashChannelsPage, allChannelsPage, rawHashes);
+        }
+        long[] result = new long[positions.length];
+
+        // Determine the partition of each element of positions array
+        int[] partitions = new int[positions.length];
+        int[] partitionCount = new int[lookupSources.length];
+        for (int i = 0; i < positions.length; i++) {
+            int partition = partitionGenerator.getPartition(rawHashes[i]);
+            partitions[i] = partition;
+            partitionCount[partition]++;
+        }
+
+        // Split positions array into partitions
+        int[][] partitionedPositions = new int[lookupSources.length][];
+        long[][] partitionedRawHashes = new long[lookupSources.length][];
+        for (int i = 0; i < lookupSources.length; i++) {
+            partitionedPositions[i] = new int[partitionCount[i]];
+            partitionedRawHashes[i] = new long[partitionCount[i]];
+        }
+        Arrays.fill(partitionCount, 0);
+
+        for (int i = 0; i < positions.length; i++) {
+            int partition = partitions[i];
+            partitionedPositions[partition][partitionCount[partition]] = positions[i];
+            partitionedRawHashes[partition][partitionCount[partition]] = rawHashes[i];
+            partitionCount[partition]++;
+        }
+
+        // Execute getJoinPositions per every partition
+        long[][] partitionedResults = new long[lookupSources.length][];
+        for (int i = 0; i < lookupSources.length; i++) {
+            partitionedResults[i] = lookupSources[i].getJoinPositions(partitionedPositions[i], hashChannelsPage, allChannelsPage, partitionedRawHashes[i]);
+        }
+        Arrays.fill(partitionCount, 0);
+
+        // Merge the results
+        for (int i = 0; i < positions.length; i++) {
+            int partition = partitions[i];
+            result[i] = encodePartitionedJoinPosition(partition, toIntExact(partitionedResults[partition][partitionCount[partition]++]));
+        }
+
+        return result;
+    }
+
+    @Override
     public long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage)
     {
         int partition = decodePartition(currentJoinPosition);
@@ -187,6 +253,12 @@ public class PartitionedLookupSource
     public long joinPositionWithinPartition(long joinPosition)
     {
         return decodeJoinPosition(joinPosition);
+    }
+
+    @Override
+    public boolean supportsCaching()
+    {
+        return supportsCaching;
     }
 
     @Override

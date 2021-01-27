@@ -20,6 +20,8 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.Closeable;
 
+import static com.google.common.base.Verify.verify;
+
 @NotThreadSafe
 public interface LookupSource
         extends Closeable
@@ -36,6 +38,29 @@ public interface LookupSource
 
     long getJoinPosition(int position, Page hashChannelsPage, Page allChannelsPage);
 
+    default long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes)
+    {
+        verify(positions.length == rawHashes.length, "Number of positions must match number of hashes");
+        long[] result = new long[positions.length];
+
+        for (int i = 0; i < positions.length; i++) {
+            result[i] = getJoinPosition(positions[i], hashChannelsPage, allChannelsPage, rawHashes[i]);
+        }
+
+        return result;
+    }
+
+    default long[] getJoinPositions(int[] positions, Page hashChannelsPage, Page allChannelsPage)
+    {
+        long[] result = new long[positions.length];
+
+        for (int i = 0; i < positions.length; i++) {
+            result[i] = getJoinPosition(positions[i], hashChannelsPage, allChannelsPage);
+        }
+
+        return result;
+    }
+
     long getNextJoinPosition(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
 
     void appendTo(long position, PageBuilder pageBuilder, int outputChannelOffset);
@@ -43,6 +68,18 @@ public interface LookupSource
     boolean isJoinPositionEligible(long currentJoinPosition, int probePosition, Page allProbeChannelsPage);
 
     boolean isEmpty();
+
+    /**
+     * In some implementations, like {@link io.trino.operator.index.IndexLookupSource}, the result of
+     * getJoinPosition method relies on appendTo invocations beforehand. In that case any attempt to
+     * cache join positions may results in incorrect values being returned
+     *
+     * @return Whether this lookup source supports caching values returned by getJoinPosition method
+     */
+    default boolean supportsCaching()
+    {
+        return false;
+    }
 
     @Override
     void close();
