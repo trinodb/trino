@@ -77,6 +77,7 @@ import static io.trino.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_NAMED_QUERY;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.DUPLICATE_WINDOW_NAME;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_AGGREGATE;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
@@ -89,9 +90,11 @@ import static io.trino.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
 import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.StandardErrorCode.INVALID_ORDER_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
+import static io.trino.spi.StandardErrorCode.INVALID_PARTITION_BY;
 import static io.trino.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
+import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_REFERENCE;
 import static io.trino.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
 import static io.trino.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.trino.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
@@ -651,7 +654,7 @@ public class TestAnalyzer
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
         assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN b PRECEDING AND a PRECEDING) FROM t1 GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
-        assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN a PRECEDING AND UNBOUNDED PRECEDING) FROM t1 GROUP BY b")
+        assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN a PRECEDING AND UNBOUNDED FOLLOWING) FROM t1 GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
     }
 
@@ -877,6 +880,250 @@ public class TestAnalyzer
     }
 
     @Test
+    public void testWindowClause()
+    {
+        assertFails("SELECT * FROM t1 WINDOW w AS (PARTITION BY a), w AS (PARTITION BY a)")
+                .hasErrorCode(DUPLICATE_WINDOW_NAME);
+
+        assertFails("SELECT * FROM t1 WINDOW w AS (PARTITION BY a), w AS (ORDER BY b)")
+                .hasErrorCode(DUPLICATE_WINDOW_NAME);
+
+        assertFails("SELECT * FROM t1 WINDOW w AS (), w1 as (), w AS (w)")
+                .hasErrorCode(DUPLICATE_WINDOW_NAME);
+    }
+
+    @Test
+    public void testWindowNames()
+    {
+        // window names are compared using SQL identifier semantics
+        assertFails("SELECT * FROM t1 WINDOW w AS (), W AS ()")
+                .hasErrorCode(DUPLICATE_WINDOW_NAME);
+
+        analyze("SELECT * FROM t1 WINDOW w AS (), \"w\" AS ()");
+
+        analyze("SELECT * FROM t1 WINDOW W AS (), \"w\" AS ()");
+
+        assertFails("SELECT * FROM t1 WINDOW w AS (), \"W\" AS ()")
+                .hasErrorCode(DUPLICATE_WINDOW_NAME);
+
+        analyze("SELECT * FROM t1 WINDOW \"W\" AS (), \"w\" AS ()");
+
+        assertFails("SELECT * FROM t1 WINDOW \"w\" AS (), \"w\" AS ()")
+                .hasErrorCode(DUPLICATE_WINDOW_NAME);
+
+        analyze("SELECT avg(b) OVER w FROM t1 WINDOW \"W\" AS (PARTITION BY a)");
+
+        analyze("SELECT avg(b) OVER \"W\" FROM t1 WINDOW w AS (PARTITION BY a)");
+
+        assertFails("SELECT avg(b) OVER w FROM t1 WINDOW \"w\" AS (PARTITION BY a)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE);
+
+        analyze("SELECT avg(b) OVER (W ROWS CURRENT ROW) FROM t1 WINDOW \"W\" AS (PARTITION BY a)");
+
+        assertFails("SELECT avg(b) OVER (W ROWS CURRENT ROW) FROM t1 WINDOW \"w\" AS (PARTITION BY a)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE);
+    }
+
+    @Test
+    public void testNamedWindowScope()
+    {
+        // window definitions with the same names are allowed in different query specifications (in this case, outer and inner query)
+        analyze("SELECT * FROM (SELECT * FROM t1 WINDOW w AS (PARTITION BY a)) " +
+                "WINDOW w AS (PARTITION BY a)");
+
+        // window definition of inner query is not visible in outer query
+        assertFails("SELECT avg(b) OVER w FROM (SELECT * FROM t1 WINDOW w AS (PARTITION BY a)) ")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:20: Cannot resolve WINDOW name w");
+
+        // window definition of outer query is not visible in inner query
+        assertFails("SELECT * FROM (SELECT avg(b) OVER w FROM t1) WINDOW w AS (PARTITION BY a) ")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:35: Cannot resolve WINDOW name w");
+
+        // window definitions are visible in following window definitions of WINDOW clause
+        analyze("SELECT * FROM t1 WINDOW w AS (PARTITION BY a), w1 AS (w ORDER BY b)");
+
+        assertFails("SELECT * FROM t1 WINDOW w1 AS (w ORDER BY b), w AS (PARTITION BY a)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:32: Cannot resolve WINDOW name w");
+
+        // window definitions are visible in SELECT clause
+        analyze("SELECT count(*) OVER w FROM t1 WINDOW w AS (PARTITION BY a)");
+
+        // window definitions are visible in ORDER BY clause
+        analyze("SELECT * FROM t1 WINDOW w AS (PARTITION BY a) ORDER BY (count(*) OVER w)");
+    }
+
+    @Test
+    public void testWindowDefinition()
+    {
+        analyze("SELECT * FROM t1 " +
+                "WINDOW " +
+                "w1 AS (PARTITION BY a), " +
+                "w2 AS (w1 ORDER BY b), " +
+                "w3 AS (w2 RANGE c PRECEDING)," +
+                "w4 AS (w1 ROWS c PRECEDING)");
+
+        assertFails("SELECT * FROM t1 WINDOW w AS (w1 ORDER BY a)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:31: Cannot resolve WINDOW name w1");
+
+        assertFails("SELECT * FROM t1 WINDOW w2 AS (w1 ORDER BY a), w1 AS (PARTITION BY b)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:32: Cannot resolve WINDOW name w1");
+
+        assertFails("SELECT * FROM t1 WINDOW w1 AS (ORDER BY a), w2 AS (w1 PARTITION BY b)")
+                .hasErrorCode(INVALID_PARTITION_BY)
+                .hasMessage("line 1:68: WINDOW specification with named WINDOW reference cannot specify PARTITION BY");
+
+        assertFails("SELECT * FROM t1 WINDOW w1 AS (ORDER BY a), w2 AS (w1 ORDER BY b)")
+                .hasErrorCode(INVALID_ORDER_BY)
+                .hasMessage("line 1:55: Cannot specify ORDER BY if referenced named WINDOW specifies ORDER BY");
+
+        assertFails("SELECT * FROM t1 WINDOW w1 AS (RANGE CURRENT ROW), w2 AS (w1 ORDER BY b)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:59: Cannot reference named WINDOW containing frame specification");
+    }
+
+    @Test
+    public void testWindowSpecification()
+    {
+        // analyze PARTITION BY
+        assertFails("SELECT * FROM (VALUES approx_set(1)) t(a) WINDOW w AS (PARTITION BY a)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:69: HyperLogLog is not comparable, and therefore cannot be used in window function PARTITION BY");
+
+        // analyze ORDER BY
+        assertFails("SELECT * FROM (VALUES approx_set(1)) t(a) WINDOW w AS (ORDER BY a)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:65: HyperLogLog is not orderable, and therefore cannot be used in window function ORDER BY");
+
+        // analyze window frame
+        assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (RANGE UNBOUNDED FOLLOWING)")
+                .hasErrorCode(INVALID_WINDOW_FRAME)
+                .hasMessage("line 1:44: Window frame start cannot be UNBOUNDED FOLLOWING");
+
+        assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (ROWS a PRECEDING)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:51: Window frame ROWS start value type must be INTEGER or BIGINT (actual varchar(1))");
+
+        assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (RANGE a PRECEDING)")
+                .hasErrorCode(MISSING_ORDER_BY)
+                .hasMessage("line 1:46: Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
+
+        assertFails("SELECT * FROM (VALUES (1, 2, 3)) t(a, b, c) WINDOW w AS (ORDER BY a, b RANGE c PRECEDING)")
+                .hasErrorCode(INVALID_ORDER_BY)
+                .hasMessage("line 1:58: Window frame of type RANGE PRECEDING or FOLLOWING requires single sort item in ORDER BY (actual: 2)");
+
+        assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (GROUPS a PRECEDING)")
+                .hasErrorCode(MISSING_ORDER_BY)
+                .hasMessage("line 1:46: Window frame of type GROUPS PRECEDING or FOLLOWING requires ORDER BY");
+
+        assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (ROWS a PRECEDING)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:51: Window frame ROWS start value type must be INTEGER or BIGINT (actual varchar(1))");
+
+        // nested window
+        assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (PARTITION BY count(a) OVER ())")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:57: Cannot nest window functions inside window specification");
+
+        assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (ORDER BY count(a) OVER ())")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:53: Cannot nest window functions inside window specification");
+
+        assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (ROWS count(a) OVER () PRECEDING)")
+                .hasErrorCode(NESTED_WINDOW)
+                .hasMessage("line 1:49: Cannot nest window functions inside window specification");
+    }
+
+    @Test
+    public void testWindowInFunctionCall()
+    {
+        // in SELECT expression
+        analyze("SELECT max(b) OVER w FROM t1 WINDOW w AS (PARTITION BY a)");
+        analyze("SELECT max(b) OVER w3 FROM t1 WINDOW w1 AS (PARTITION BY a), w2 AS (w1 ORDER BY b), w3 AS (w2 RANGE c PRECEDING)");
+
+        assertFails("SELECT max(b) OVER w FROM t1 WINDOW w1 AS (PARTITION BY a)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:20: Cannot resolve WINDOW name w");
+
+        assertFails("SELECT max(c) OVER (w PARTITION BY a) FROM t1 WINDOW w AS (ORDER BY b)")
+                .hasErrorCode(INVALID_PARTITION_BY)
+                .hasMessage("line 1:36: WINDOW specification with named WINDOW reference cannot specify PARTITION BY");
+
+        assertFails("SELECT max(c) OVER (w ORDER BY a) FROM t1 WINDOW w AS (ORDER BY b)")
+                .hasErrorCode(INVALID_ORDER_BY)
+                .hasMessage("line 1:23: Cannot specify ORDER BY if referenced named WINDOW specifies ORDER BY");
+
+        assertFails("SELECT max(c) OVER (w ORDER BY a) FROM t1 WINDOW w AS (ROWS b PRECEDING)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:21: Cannot reference named WINDOW containing frame specification");
+
+        analyze("SELECT max(c) OVER w FROM t1 WINDOW w AS (ROWS b PRECEDING)");
+
+        // in ORDER BY
+        analyze("SELECT * FROM t1 WINDOW w AS (PARTITION BY a) ORDER BY max(b) OVER w");
+        analyze("SELECT * FROM t1 WINDOW w1 AS (PARTITION BY a), w2 AS (w1 ORDER BY b), w3 AS (w2 RANGE c PRECEDING) ORDER BY max(b) OVER w3");
+
+        assertFails("SELECT * FROM t1 WINDOW w1 AS (PARTITION BY a) ORDER BY max(b) OVER w")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:69: Cannot resolve WINDOW name w");
+
+        assertFails("SELECT * FROM t1 WINDOW w AS (ORDER BY b) ORDER BY max(c) OVER (w PARTITION BY a)")
+                .hasErrorCode(INVALID_PARTITION_BY)
+                .hasMessage("line 1:80: WINDOW specification with named WINDOW reference cannot specify PARTITION BY");
+
+        assertFails("SELECT * FROM t1 WINDOW w AS (ORDER BY b) ORDER BY max(c) OVER (w ORDER BY a)")
+                .hasErrorCode(INVALID_ORDER_BY)
+                .hasMessage("line 1:67: Cannot specify ORDER BY if referenced named WINDOW specifies ORDER BY");
+
+        assertFails("SELECT * FROM t1 WINDOW w AS (ROWS b PRECEDING) ORDER BY max(c) OVER (w ORDER BY a)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:71: Cannot reference named WINDOW containing frame specification");
+
+        analyze("SELECT * FROM t1 WINDOW w AS (ROWS b PRECEDING) ORDER BY max(c) OVER w");
+
+        // named window reference in subquery
+        assertFails("SELECT (SELECT count(*) OVER w FROM (VALUES 2)) FROM (VALUES 1) t(x) WINDOW w AS (PARTITION BY x)")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:30: Cannot resolve WINDOW name w");
+
+        assertFails("SELECT * FROM (VALUES 1) t(x) WINDOW w AS (PARTITION BY x) ORDER BY (SELECT count(*) OVER w FROM (VALUES 2))")
+                .hasErrorCode(INVALID_WINDOW_REFERENCE)
+                .hasMessage("line 1:91: Cannot resolve WINDOW name w");
+    }
+
+    @Test
+    public void testWindowSpecificationWithMixedScopes()
+    {
+        // window ORDER BY item refers to output column (integer)
+        analyze("SELECT a old_a, b a FROM (SELECT 'a', 1) t(a, b) WINDOW w AS (PARTITION BY a) ORDER BY max(b) OVER (w ORDER BY a RANGE 1 PRECEDING)");
+
+        // window ORDER BY item refers to source column (varchar(1))
+        assertFails("SELECT a old_a, b a FROM (SELECT 'a', 1) t(a, b) WINDOW w AS (PARTITION BY a ORDER BY a) ORDER BY max(b) OVER (w RANGE 1 PRECEDING)")
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:87: Window frame of type RANGE PRECEDING or FOLLOWING requires that sort item type be numeric, datetime or interval (actual: varchar(1))");
+    }
+
+    @Test
+    public void testWindowWithGroupBy()
+    {
+        assertFails("SELECT max(a) FROM (values (1,2)) t(a,b) GROUP BY b WINDOW w AS (ORDER BY a)")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:75: 'a' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT max(a) FROM (values (1,2)) t(a,b) GROUP BY b WINDOW w AS (PARTITION BY a)")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:79: 'a' must be an aggregate expression or appear in GROUP BY clause");
+
+        assertFails("SELECT max(a) FROM (values (1,2)) t(a,b) GROUP BY b WINDOW w AS (ROWS a PRECEDING)")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("line 1:71: 'a' must be an aggregate expression or appear in GROUP BY clause");
+    }
+
+    @Test
     public void testNestedWindowFunctions()
     {
         assertFails("SELECT avg(sum(a) OVER ()) FROM t1")
@@ -990,7 +1237,7 @@ public class TestAnalyzer
 
         assertFails("SELECT array_agg(x) OVER (RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(MISSING_ORDER_BY)
-                .hasMessage("line 1:21: Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
+                .hasMessage("line 1:27: Window frame of type RANGE PRECEDING or FOLLOWING requires ORDER BY");
 
         assertFails("SELECT array_agg(x) OVER (ORDER BY x DESC, x ASC RANGE BETWEEN 1 PRECEDING AND 1 FOLLOWING) FROM (VALUES 1) T(x)")
                 .hasErrorCode(INVALID_ORDER_BY)

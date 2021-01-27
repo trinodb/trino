@@ -61,6 +61,7 @@ import io.trino.sql.tree.Statement;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.Table;
 import io.trino.sql.tree.Unnest;
+import io.trino.sql.tree.WindowFrame;
 import io.trino.transaction.TransactionId;
 
 import javax.annotation.Nullable;
@@ -131,6 +132,13 @@ public class Analysis
     private final Map<NodeRef<Node>, List<Expression>> orderByExpressions = new LinkedHashMap<>();
     private final Set<NodeRef<OrderBy>> redundantOrderBy = new HashSet<>();
     private final Map<NodeRef<Node>, List<SelectExpression>> selectExpressions = new LinkedHashMap<>();
+
+    // Store resolved window specifications defined in WINDOW clause
+    private final Map<NodeRef<QuerySpecification>, Map<CanonicalizationAware<Identifier>, ResolvedWindow>> windowDefinitions = new LinkedHashMap<>();
+
+    // Store resolved window specifications for window functions
+    private final Map<NodeRef<FunctionCall>, ResolvedWindow> windows = new LinkedHashMap<>();
+
     private final Map<NodeRef<QuerySpecification>, List<FunctionCall>> windowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<OrderBy>, List<FunctionCall>> orderByWindowFunctions = new LinkedHashMap<>();
     private final Map<NodeRef<Offset>, Long> offset = new LinkedHashMap<>();
@@ -447,6 +455,32 @@ public class Analysis
     public List<QuantifiedComparisonExpression> getQuantifiedComparisonSubqueries(Node node)
     {
         return unmodifiableList(quantifiedComparisonSubqueries.get(NodeRef.of(node)));
+    }
+
+    public void addWindowDefinition(QuerySpecification query, CanonicalizationAware<Identifier> name, ResolvedWindow window)
+    {
+        windowDefinitions.computeIfAbsent(NodeRef.of(query), key -> new LinkedHashMap<>())
+                .put(name, window);
+    }
+
+    public ResolvedWindow getWindowDefinition(QuerySpecification query, CanonicalizationAware<Identifier> name)
+    {
+        Map<CanonicalizationAware<Identifier>, ResolvedWindow> windows = windowDefinitions.get(NodeRef.of(query));
+        if (windows != null) {
+            return windows.get(name);
+        }
+
+        return null;
+    }
+
+    public void setWindow(FunctionCall functionCall, ResolvedWindow window)
+    {
+        windows.put(NodeRef.of(functionCall), window);
+    }
+
+    public ResolvedWindow getWindow(FunctionCall functionCall)
+    {
+        return windows.get(NodeRef.of(functionCall));
     }
 
     public void setWindowFunctions(QuerySpecification node, List<FunctionCall> functions)
@@ -1196,6 +1230,56 @@ public class Analysis
         public Optional<Field> getOrdinalityField()
         {
             return ordinalityField;
+        }
+    }
+
+    public static class ResolvedWindow
+    {
+        private final List<Expression> partitionBy;
+        private final Optional<OrderBy> orderBy;
+        private final Optional<WindowFrame> frame;
+        private final boolean partitionByInherited;
+        private final boolean orderByInherited;
+        private final boolean frameInherited;
+
+        public ResolvedWindow(List<Expression> partitionBy, Optional<OrderBy> orderBy, Optional<WindowFrame> frame, boolean partitionByInherited, boolean orderByInherited, boolean frameInherited)
+        {
+            this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
+            this.orderBy = requireNonNull(orderBy, "orderBy is null");
+            this.frame = requireNonNull(frame, "frame is null");
+            this.partitionByInherited = partitionByInherited;
+            this.orderByInherited = orderByInherited;
+            this.frameInherited = frameInherited;
+        }
+
+        public List<Expression> getPartitionBy()
+        {
+            return partitionBy;
+        }
+
+        public Optional<OrderBy> getOrderBy()
+        {
+            return orderBy;
+        }
+
+        public Optional<WindowFrame> getFrame()
+        {
+            return frame;
+        }
+
+        public boolean isPartitionByInherited()
+        {
+            return partitionByInherited;
+        }
+
+        public boolean isOrderByInherited()
+        {
+            return orderByInherited;
+        }
+
+        public boolean isFrameInherited()
+        {
+            return frameInherited;
         }
     }
 

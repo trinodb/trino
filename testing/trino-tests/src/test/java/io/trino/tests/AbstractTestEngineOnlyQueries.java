@@ -4289,6 +4289,126 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testWindow()
+    {
+        // reference to named window
+        assertQuery(
+                "SELECT array_agg(b) OVER w " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a)",
+                "VALUES ARRAY['a', 'b'], ARRAY['a', 'b'], ARRAY['c']");
+
+        assertQuery(
+                "SELECT first_value(b) OVER w " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a ORDER BY b DESC)",
+                "VALUES 'b', 'b', 'c'");
+
+        assertQuery(
+                "SELECT first_value(b) OVER w " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a ORDER BY b DESC ROWS CURRENT ROW)",
+                "VALUES 'a', 'b', 'c'");
+
+        assertQuery(
+                "SELECT first_value(b) OVER w " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a ORDER BY b DESC ROWS CURRENT ROW)",
+                "VALUES 'a', 'b', 'c'");
+
+        // in-line window specification based on named window in SELECT expression
+        assertQuery(
+                "SELECT first_value(b) OVER (w ORDER BY b DESC ROWS CURRENT ROW) " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a)",
+                "VALUES 'a', 'b', 'c'");
+
+        assertQuery(
+                "SELECT first_value(b) OVER (w ROWS CURRENT ROW) " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a ORDER BY b DESC)",
+                "VALUES 'a', 'b', 'c'");
+
+        // in-line window specification based on named window in ORDER BY expression
+        assertQueryOrdered(
+                "SELECT * " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (2, 'c'), (2, 'd')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a) " +
+                        "ORDER BY row_number() OVER (w ORDER BY b DESC), b",
+                "VALUES (1, 'b'), (2, 'd'), (1, 'a'), (2, 'c')");
+
+        assertQueryOrdered(
+                "SELECT * " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (2, 'c'), (2, 'd')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a) " +
+                        "ORDER BY max(b) OVER (w ROWS CURRENT ROW), b",
+                "VALUES (1, 'a'), (1, 'b'), (2, 'c'), (2, 'd')");
+
+        // in-line window specification based on named window in ORDER BY expression, resolved against output scope
+        assertQueryOrdered(
+                "SELECT -a a, b " +
+                        "FROM (VALUES (1, 'a'), (2, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS () " +
+                        "ORDER BY row_number() OVER (w ORDER BY a)",
+                "VALUES (-3, 'c'), (-2, 'b'), (-1, 'a')");
+
+        assertQueryOrdered(
+                "SELECT a old_a, 2 a " +
+                        "FROM (VALUES -100, -99, -98) t(a) " +
+                        "WINDOW w AS (ORDER BY a) " +
+                        "ORDER BY count(*) OVER (w RANGE BETWEEN CURRENT ROW AND a FOLLOWING)",
+                "VALUES (-98, 2), (-99, 2), (-100, 2)");
+
+        // two syntactically identical window specifications in different scopes
+        assertQueryOrdered(
+                "SELECT array_agg(a) OVER (w ORDER BY a), -a a " +
+                        "FROM (VALUES 1, 2, 3) t(a) " +
+                        "WINDOW w AS () " +
+                        "ORDER BY lead(a, 0) OVER (w ORDER BY a)",
+                "VALUES (ARRAY[1, 2, 3], -3), (ARRAY[1, 2], -2), (ARRAY[1], -1)");
+
+        // test window names resolution
+        assertQuery(
+                "SELECT array_agg(c) OVER W " +
+                        "FROM (VALUES (1, 1, 'x'), (2, 3, 'y'), (3, 2, 'z')) t(a, b, c) " +
+                        "WINDOW \"w\" AS (ORDER BY a), w AS (ORDER BY b) ",
+                "VALUES ARRAY['x'], ARRAY['x', 'z'], ARRAY['x', 'z', 'y']");
+
+        // subquery in window specification
+        assertQuery(
+                "SELECT array_agg(b) OVER w " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a - (SELECT 1))",
+                "VALUES ARRAY['a', 'b'], ARRAY['a', 'b'], ARRAY['c']");
+
+        assertQuery(
+                "SELECT array_agg(b) OVER w " +
+                        "FROM (VALUES (1, 10), (1, 20), (3, 30)) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a ORDER BY b * (SELECT -1))",
+                "VALUES ARRAY[20], ARRAY[20, 10], ARRAY[30]");
+
+        assertQuery(
+                "SELECT array_agg(b) OVER w " +
+                        "FROM (VALUES (1, 10), (1, 20), (3, 30)) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a ORDER BY b ROWS BETWEEN UNBOUNDED PRECEDING AND (SELECT 1) FOLLOWING)",
+                "VALUES ARRAY[10, 20], ARRAY[10, 20], ARRAY[30]");
+
+        assertQuery(
+                "SELECT array_agg(b) OVER w " +
+                        "FROM (VALUES (1, 'a'), (1, 'b'), (3, 'c')) t(a, b) " +
+                        "WINDOW w AS (PARTITION BY a - (SELECT 1 WHERE 'x' IN (SELECT 'x')))",
+                "VALUES ARRAY['a', 'b'], ARRAY['a', 'b'], ARRAY['c']");
+
+        // with GROUP BY
+        assertQuery(
+                "SELECT array_agg(b) OVER w " +
+                        "FROM (VALUES ('x', 1), ('x', 1), ('y', 1), ('y', 2)) t(a, b) " +
+                        "GROUP BY b " +
+                        "WINDOW w AS (PARTITION BY count(a))",
+                "VALUES ARRAY[1], ARRAY[2]");
+    }
+
+    @Test
     public void testShowSession()
     {
         Session session = new Session(
