@@ -33,7 +33,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.Chars;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
@@ -306,7 +305,7 @@ public class OracleClient
                 return Optional.of(ColumnMapping.sliceMapping(
                         charType,
                         charReadFunction(charType),
-                        oracleCharWriteFunction(charType),
+                        oracleCharWriteFunction(),
                         FULL_PUSHDOWN));
 
             case OracleTypes.VARCHAR:
@@ -420,11 +419,10 @@ public class OracleClient
         return ((statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryDouble(index, value));
     }
 
-    private SliceWriteFunction oracleCharWriteFunction(CharType charType)
+    private SliceWriteFunction oracleCharWriteFunction()
     {
-        return (statement, index, value) -> {
-            statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
-        };
+        return (statement, index, value) ->
+                ((OraclePreparedStatement) statement).setFixedCHAR(index, value.toStringUtf8());
     }
 
     @Override
