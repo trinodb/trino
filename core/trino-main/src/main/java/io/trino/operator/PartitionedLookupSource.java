@@ -84,6 +84,7 @@ public class PartitionedLookupSource
     private final LocalPartitionGenerator partitionGenerator;
     private final int partitionMask;
     private final int shiftSize;
+    private final boolean supportsCaching;
     @Nullable
     private final OuterPositionTracker outerPositionTracker;
 
@@ -104,6 +105,7 @@ public class PartitionedLookupSource
         this.partitionMask = lookupSources.size() - 1;
         this.shiftSize = numberOfTrailingZeros(lookupSources.size()) + 1;
         this.outerPositionTracker = outerPositionTracker.orElse(null);
+        this.supportsCaching = lookupSources.stream().allMatch(LookupSource::supportsCaching);
     }
 
     @Override
@@ -187,6 +189,12 @@ public class PartitionedLookupSource
     public long joinPositionWithinPartition(long joinPosition)
     {
         return decodeJoinPosition(joinPosition);
+    }
+
+    @Override
+    public boolean supportsCaching()
+    {
+        return supportsCaching;
     }
 
     @Override

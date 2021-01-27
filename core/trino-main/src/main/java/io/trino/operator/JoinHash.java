@@ -125,6 +125,12 @@ public final class JoinHash
     }
 
     @Override
+    public boolean supportsCaching()
+    {
+        return true;
+    }
+
+    @Override
     public void close()
     {
     }
