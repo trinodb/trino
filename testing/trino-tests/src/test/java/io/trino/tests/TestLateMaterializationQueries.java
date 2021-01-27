@@ -24,9 +24,12 @@ import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.LATE_MATERIALIZATION;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.testng.Assert.assertTrue;
 
@@ -41,6 +44,8 @@ public class TestLateMaterializationQueries
                 .builder()
                 .amendSession(builder -> builder
                         .setSystemProperty(LATE_MATERIALIZATION, "true")
+                        .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
+                        .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
                         .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString()))
                 // make TPCH connector produce multiple pages per split
                 .withProducePages(true)
@@ -58,14 +63,20 @@ public class TestLateMaterializationQueries
     @Test
     public void testSemiJoin()
     {
-        assertLazyQuery("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderdate < DATE '1994-01-01')");
+        assertLazyQuery("" +
+                "SELECT * " +
+                "FROM (SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE orderdate > DATE '2200-01-01')) " +
+                "WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderdate < DATE '1994-01-01')");
         assertLazyQuery("SELECT * FROM orders WHERE orderkey NOT IN (SELECT orderkey FROM orders WHERE orderdate >= DATE '1994-01-01')");
     }
 
     @Test
     public void testJoin()
     {
-        assertLazyQuery("SELECT * FROM lineitem INNER JOIN part ON lineitem.partkey = part.partkey AND mfgr = 'Manufacturer#5'");
+        assertLazyQuery("" +
+                "SELECT * " +
+                "FROM (SELECT a.* FROM lineitem a INNER JOIN lineitem b ON a.partkey = b.partkey AND a.suppkey = b.suppkey AND a.orderkey = b.orderkey) c " +
+                "INNER JOIN part ON c.partkey = part.partkey AND mfgr = 'Manufacturer#5'");
     }
 
     private void assertLazyQuery(@Language("SQL") String sql)
