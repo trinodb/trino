@@ -46,6 +46,7 @@ public class LookupJoinOperatorFactory
     private final List<Type> buildOutputTypes;
     private final JoinType joinType;
     private final boolean outputSingleMatch;
+    private final boolean waitForBuild;
     private final JoinProbeFactory joinProbeFactory;
     private final Optional<OuterOperatorFactoryResult> outerOperatorFactoryResult;
     private final JoinBridgeManager<? extends LookupSourceFactory> joinBridgeManager;
@@ -64,6 +65,7 @@ public class LookupJoinOperatorFactory
             List<Type> buildOutputTypes,
             JoinType joinType,
             boolean outputSingleMatch,
+            boolean waitForBuild,
             JoinProbeFactory joinProbeFactory,
             BlockTypeOperators blockTypeOperators,
             OptionalInt totalOperatorsCount,
@@ -77,6 +79,7 @@ public class LookupJoinOperatorFactory
         this.buildOutputTypes = ImmutableList.copyOf(requireNonNull(buildOutputTypes, "buildOutputTypes is null"));
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.outputSingleMatch = outputSingleMatch;
+        this.waitForBuild = waitForBuild;
         this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
 
         this.joinBridgeManager = lookupSourceFactoryManager;
@@ -123,6 +126,7 @@ public class LookupJoinOperatorFactory
         buildOutputTypes = other.buildOutputTypes;
         joinType = other.joinType;
         outputSingleMatch = other.outputSingleMatch;
+        waitForBuild = other.waitForBuild;
         joinProbeFactory = other.joinProbeFactory;
         joinBridgeManager = other.joinBridgeManager;
         outerOperatorFactoryResult = other.outerOperatorFactoryResult;
@@ -193,6 +197,7 @@ public class LookupJoinOperatorFactory
                 buildOutputTypes,
                 joinType,
                 outputSingleMatch,
+                waitForBuild,
                 lookupSourceFactory,
                 joinProbeFactory,
                 () -> joinBridgeManager.probeOperatorClosed(processorContext.getLifespan()),
@@ -215,6 +220,7 @@ public class LookupJoinOperatorFactory
                 buildOutputTypes,
                 joinType,
                 outputSingleMatch,
+                waitForBuild,
                 lookupSourceFactory,
                 joinProbeFactory,
                 () -> joinBridgeManager.probeOperatorClosed(processorContext.getLifespan()),
