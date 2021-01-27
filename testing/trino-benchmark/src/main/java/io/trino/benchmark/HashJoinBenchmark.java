@@ -106,6 +106,7 @@ public class HashJoinBenchmark
                     lookupSourceFactoryManager,
                     lineItemTypes,
                     false,
+                    false,
                     Ints.asList(0),
                     OptionalInt.empty(),
                     Optional.empty(),
