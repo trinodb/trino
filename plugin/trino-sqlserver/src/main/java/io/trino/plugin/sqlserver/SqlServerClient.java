@@ -36,11 +36,8 @@ import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
-import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
-import io.trino.plugin.jdbc.expression.ImplementMinMax;
-import io.trino.plugin.jdbc.expression.ImplementSum;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -94,6 +91,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.plugin.jdbc.expression.ImplementSingleArgumentAggregation.mapAggregation;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.DATA_COMPRESSION;
 import static io.trino.plugin.sqlserver.SqlServerTableProperties.getDataCompression;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
@@ -104,6 +102,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME;
 import static io.trino.spi.type.TimestampType.TIMESTAMP;
@@ -142,9 +141,18 @@ public class SqlServerClient
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
-                        .add(new ImplementMinMax())
-                        .add(new ImplementSum(SqlServerClient::toTypeHandle))
-                        .add(new ImplementAvgFloatingPoint())
+
+                        // .add(new ImplementMinMax())
+                        .add(mapAggregation("min").to("min(%s)"))
+                        .add(mapAggregation("max").to("max(%s)"))
+
+                        // .add(new ImplementSum(SqlServerClient::toTypeHandle))
+                        .add(mapAggregation("sum").to("sum(%s)"))
+                        .add(mapAggregation("sum").on(DecimalType.class).returning(DecimalType.class, SqlServerClient::toTypeHandle).to("sum(%s)"))
+
+                        // .add(new ImplementAvgFloatingPoint())
+                        .add(mapAggregation("avg").on(REAL, DOUBLE).to("avg(%s)"))
+
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
                         .add(new ImplementSqlServerStdev())
