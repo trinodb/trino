@@ -297,21 +297,41 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testCharUnicodeMapping()
     {
-        testTypeMapping("char_unicode",
-                unicodeTests(DataType::charDataType, codePoints(), MAX_CHAR_ON_WRITE));
+        SqlDataTypeTest.create()
+                .addRoundTrip("char(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS char(5))")
+                .addRoundTrip("char(13)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS char(13))")
+                .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE), "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_WRITE), format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_WRITE))
+                .addRoundTrip("char(1)", "'😂'", createCharType(1), "CAST('😂' AS char(1))")
+                .addRoundTrip("char(6)", "'😂'", createCharType(6), "CAST('😂' AS char(6))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("char_unicode"));
     }
 
     @Test
     public void testCharUnicodeReadMapping()
     {
-        testTypeReadMapping("read_char_unicode",
-                unicodeTests(charDataType(CHAR), codePoints(), MAX_CHAR_ON_READ),
-                unicodeTests(charDataType(BYTE), utf8Bytes(), MAX_CHAR_ON_READ),
-                unicodeTests(ncharDataType(), String::length, MAX_NCHAR));
-
         SqlDataTypeTest.create()
+                // the number of Unicode code points in 攻殻機動隊 is 5, and in 😂 is 1.
+                .addRoundTrip("char(5 char)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
+                .addRoundTrip("char(13 char)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS CHAR(13))")
                 .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ), "'攻殻機動隊'",
                         createCharType(MAX_CHAR_ON_READ), format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_READ))
+                .addRoundTrip("char(1 char)", "'😂'", createCharType(1), "CAST('😂' AS CHAR(1))")
+                .addRoundTrip("char(6 char)", "'😂'", createCharType(6), "CAST('😂' AS CHAR(6))")
+                // the number of bytes using charset UTF-8 in 攻殻機動隊 is 15, and in 😂 is 4.
+                .addRoundTrip("char(15 byte)", "'攻殻機動隊'", createCharType(15), "CAST('攻殻機動隊' AS CHAR(15))")
+                .addRoundTrip("char(23 byte)", "'攻殻機動隊'", createCharType(23), "CAST('攻殻機動隊' AS CHAR(23))")
+                .addRoundTrip(format("char(%d byte)", MAX_CHAR_ON_READ), "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_READ), format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_CHAR_ON_READ))
+                .addRoundTrip("char(4 byte)", "'😂'", createCharType(4), "CAST('😂' AS CHAR(4))")
+                .addRoundTrip("char(9 byte)", "'😂'", createCharType(9), "CAST('😂' AS CHAR(9))")
+                // the length of string in 攻殻機動隊 is 5, and in 😂 is 2.
+                .addRoundTrip("nchar(5)", "'攻殻機動隊'", createCharType(5), "CAST('攻殻機動隊' AS CHAR(5))")
+                .addRoundTrip("nchar(13)", "'攻殻機動隊'", createCharType(13), "CAST('攻殻機動隊' AS CHAR(13))")
+                .addRoundTrip(format("nchar(%d)", MAX_NCHAR), "'攻殻機動隊'",
+                        createCharType(MAX_NCHAR), format("CAST('攻殻機動隊' AS CHAR(%d))", MAX_NCHAR))
+                .addRoundTrip("nchar(2)", "'😂'", createCharType(2), "CAST('😂' AS CHAR(2))")
+                .addRoundTrip("nchar(7)", "'😂'", createCharType(7), "CAST('😂' AS CHAR(7))")
                 .execute(getQueryRunner(), oracleCreateAndInsert("read_char_unicode"));
     }
 
