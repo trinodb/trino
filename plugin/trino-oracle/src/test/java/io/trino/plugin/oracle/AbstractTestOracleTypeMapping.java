@@ -366,6 +366,11 @@ public abstract class AbstractTestOracleTypeMapping
                 unicodeTests(charDataType(CHAR), codePoints(), MAX_CHAR_ON_READ),
                 unicodeTests(charDataType(BYTE), utf8Bytes(), MAX_CHAR_ON_READ),
                 unicodeTests(ncharDataType(), String::length, MAX_NCHAR));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip(format("char(%d char)", MAX_CHAR_ON_READ), "'攻殻機動隊'",
+                        createCharType(MAX_CHAR_ON_READ), format("CAST('攻殻機動隊' AS char(%d))", MAX_CHAR_ON_READ))
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_char_unicode"));
     }
 
     private static DataTypeTest unicodeTests(IntFunction<DataType<String>> typeConstructor, ToIntFunction<String> stringLength, int maxSize)
