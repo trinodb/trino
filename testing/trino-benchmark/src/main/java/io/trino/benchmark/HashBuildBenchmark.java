@@ -96,6 +96,7 @@ public class HashBuildBenchmark
                 lookupSourceFactoryManager,
                 ImmutableList.of(BIGINT),
                 false,
+                false,
                 Ints.asList(0),
                 OptionalInt.empty(),
                 Optional.empty(),

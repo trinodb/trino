@@ -49,6 +49,7 @@ public class LookupJoinOperators
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
             List<Type> probeTypes,
             boolean outputSingleMatch,
+            boolean waitForBuild,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
             Optional<List<Integer>> probeOutputChannels,
@@ -66,6 +67,7 @@ public class LookupJoinOperators
                 probeOutputChannels.orElse(rangeList(probeTypes.size())),
                 JoinType.INNER,
                 outputSingleMatch,
+                waitForBuild,
                 totalOperatorsCount,
                 partitioningSpillerFactory,
                 blockTypeOperators);
@@ -94,6 +96,7 @@ public class LookupJoinOperators
                 probeOutputChannels.orElse(rangeList(probeTypes.size())),
                 JoinType.PROBE_OUTER,
                 outputSingleMatch,
+                false,
                 totalOperatorsCount,
                 partitioningSpillerFactory,
                 blockTypeOperators);
@@ -104,6 +107,7 @@ public class LookupJoinOperators
             PlanNodeId planNodeId,
             JoinBridgeManager<? extends LookupSourceFactory> lookupSourceFactory,
             List<Type> probeTypes,
+            boolean waitForBuild,
             List<Integer> probeJoinChannel,
             OptionalInt probeHashChannel,
             Optional<List<Integer>> probeOutputChannels,
@@ -121,6 +125,7 @@ public class LookupJoinOperators
                 probeOutputChannels.orElse(rangeList(probeTypes.size())),
                 JoinType.LOOKUP_OUTER,
                 false,
+                waitForBuild,
                 totalOperatorsCount,
                 partitioningSpillerFactory,
                 blockTypeOperators);
@@ -148,6 +153,7 @@ public class LookupJoinOperators
                 probeOutputChannels.orElse(rangeList(probeTypes.size())),
                 JoinType.FULL_OUTER,
                 false,
+                false,
                 totalOperatorsCount,
                 partitioningSpillerFactory,
                 blockTypeOperators);
@@ -170,6 +176,7 @@ public class LookupJoinOperators
             List<Integer> probeOutputChannels,
             JoinType joinType,
             boolean outputSingleMatch,
+            boolean waitForBuild,
             OptionalInt totalOperatorsCount,
             PartitioningSpillerFactory partitioningSpillerFactory,
             BlockTypeOperators blockTypeOperators)
@@ -187,6 +194,7 @@ public class LookupJoinOperators
                 lookupSourceFactoryManager.getBuildOutputTypes(),
                 joinType,
                 outputSingleMatch,
+                waitForBuild,
                 new JoinProbeFactory(probeOutputChannels.stream().mapToInt(i -> i).toArray(), probeJoinChannel, probeHashChannel),
                 blockTypeOperators,
                 totalOperatorsCount,

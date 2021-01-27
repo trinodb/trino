@@ -243,6 +243,7 @@ public class TestHashJoinOperator
                 lookupSourceFactory,
                 probePages.getTypes(),
                 false,
+                false,
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
@@ -294,6 +295,7 @@ public class TestHashJoinOperator
                 new PlanNodeId("test"),
                 lookupSourceFactory,
                 probePages.getTypes(),
+                false,
                 false,
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
@@ -1180,6 +1182,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 probePages.getTypes(),
                 false,
+                false,
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
@@ -1217,6 +1220,7 @@ public class TestHashJoinOperator
                 new PlanNodeId("test"),
                 lookupSourceFactoryManager,
                 probePages.getTypes(),
+                false,
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
@@ -1353,6 +1357,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 probePages.getTypes(),
                 false,
+                false,
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
@@ -1373,16 +1378,32 @@ public class TestHashJoinOperator
     public void testInnerJoinWithBlockingLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
+        // join that waits for build side to be collected
         TaskContext taskContext = createTaskContext();
-        OperatorFactory joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled);
-
+        OperatorFactory joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled, true);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
             joinOperatorFactory.noMoreOperators();
             assertFalse(joinOperator.needsInput());
             joinOperator.finish();
-            // lookup join operator will yield once before finishing
             assertNull(joinOperator.getOutput());
+
+            // lookup join operator got blocked waiting for build side
+            assertFalse(joinOperator.isBlocked().isDone());
+            assertFalse(joinOperator.isFinished());
+        }
+
+        // join that doesn't wait for build side to be collected
+        taskContext = createTaskContext();
+        joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled, false);
+        driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
+            joinOperatorFactory.noMoreOperators();
+            assertTrue(joinOperator.needsInput());
+            joinOperator.finish();
+            assertNull(joinOperator.getOutput());
+
+            // lookup join operator will yield once before finishing
             assertNull(joinOperator.getOutput());
             assertTrue(joinOperator.isBlocked().isDone());
             assertTrue(joinOperator.isFinished());
@@ -1393,14 +1414,38 @@ public class TestHashJoinOperator
     public void testInnerJoinWithBlockingLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
-        TaskContext taskContext = createTaskContext();
-        OperatorFactory joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled);
+        RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR));
+        Page probePage = getOnlyElement(probePages.addSequencePage(1, 0).build());
 
+        // join that waits for build side to be collected
+        TaskContext taskContext = createTaskContext();
+        OperatorFactory joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled, true);
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
         try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
             joinOperatorFactory.noMoreOperators();
             assertFalse(joinOperator.needsInput());
             assertNull(joinOperator.getOutput());
+
+            // lookup join operator got blocked waiting for build side
+            assertFalse(joinOperator.isBlocked().isDone());
+            assertFalse(joinOperator.isFinished());
+        }
+
+        // join that doesn't wait for build side to be collected
+        taskContext = createTaskContext();
+        joinOperatorFactory = createJoinOperatorFactoryWithBlockingLookupSource(taskContext, parallelBuild, probeHashEnabled, buildHashEnabled, false);
+        driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+        try (Operator joinOperator = joinOperatorFactory.createOperator(driverContext)) {
+            joinOperatorFactory.noMoreOperators();
+            assertTrue(joinOperator.needsInput());
+            assertNull(joinOperator.getOutput());
+
+            // join needs input page
+            assertTrue(joinOperator.isBlocked().isDone());
+            assertFalse(joinOperator.isFinished());
+            joinOperator.addInput(probePage);
+            assertNull(joinOperator.getOutput());
+
             // lookup join operator got blocked waiting for build side
             assertFalse(joinOperator.isBlocked().isDone());
             assertFalse(joinOperator.isFinished());
@@ -1487,7 +1532,7 @@ public class TestHashJoinOperator
         assertTrue(outputPages.isFinished());
     }
 
-    private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    private OperatorFactory createJoinOperatorFactoryWithBlockingLookupSource(TaskContext taskContext, boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean waitForBuild)
     {
         // build factory
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
@@ -1504,6 +1549,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 probePages.getTypes(),
                 false,
+                waitForBuild,
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),
@@ -1577,6 +1623,7 @@ public class TestHashJoinOperator
                 lookupSourceFactoryManager,
                 probePages.getTypes(),
                 outputSingleMatch,
+                false,
                 Ints.asList(0),
                 getHashChannelAsInt(probePages),
                 Optional.empty(),

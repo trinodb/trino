@@ -72,6 +72,7 @@ public class LookupJoinOperator
         implements AdapterWorkProcessorOperator
 {
     private final ListenableFuture<LookupSourceProvider> lookupSourceProviderFuture;
+    private final boolean waitForBuild;
     private final PageBuffer pageBuffer;
     private final WorkProcessor<Page> pages;
     private final SpillingJoinProcessor joinProcessor;
@@ -82,6 +83,7 @@ public class LookupJoinOperator
             List<Type> buildOutputTypes,
             JoinType joinType,
             boolean outputSingleMatch,
+            boolean waitForBuild,
             LookupSourceFactory lookupSourceFactory,
             JoinProbeFactory joinProbeFactory,
             Runnable afterClose,
@@ -92,8 +94,9 @@ public class LookupJoinOperator
             Optional<WorkProcessor<Page>> sourcePages)
     {
         this.statisticsCounter = new JoinStatisticsCounter(joinType);
+        this.waitForBuild = waitForBuild;
         lookupSourceProviderFuture = lookupSourceFactory.createLookupSourceProvider();
-        pageBuffer = new PageBuffer(lookupSourceProviderFuture);
+        pageBuffer = new PageBuffer();
         joinProcessor = new SpillingJoinProcessor(
                 processorContext,
                 afterClose,
@@ -102,6 +105,7 @@ public class LookupJoinOperator
                 buildOutputTypes,
                 joinType,
                 outputSingleMatch,
+                waitForBuild,
                 hashGenerator,
                 joinProbeFactory,
                 lookupSourceFactory,
@@ -121,7 +125,7 @@ public class LookupJoinOperator
     @Override
     public boolean needsInput()
     {
-        return lookupSourceProviderFuture.isDone() && pageBuffer.isEmpty() && !pageBuffer.isFinished();
+        return (!waitForBuild || lookupSourceProviderFuture.isDone()) && pageBuffer.isEmpty() && !pageBuffer.isFinished();
     }
 
     @Override
@@ -518,9 +522,11 @@ public class LookupJoinOperator
         private final List<Type> buildOutputTypes;
         private final JoinType joinType;
         private final boolean outputSingleMatch;
+        private final boolean waitForBuild;
         private final HashGenerator hashGenerator;
         private final JoinProbeFactory joinProbeFactory;
         private final LookupSourceFactory lookupSourceFactory;
+        private final ListenableFuture<LookupSourceProvider> lookupSourceProvider;
         private final JoinStatisticsCounter statisticsCounter;
         private final PageJoiner sourcePagesJoiner;
         private final WorkProcessor<Page> joinedSourcePages;
@@ -544,6 +550,7 @@ public class LookupJoinOperator
                 List<Type> buildOutputTypes,
                 JoinType joinType,
                 boolean outputSingleMatch,
+                boolean waitForBuild,
                 HashGenerator hashGenerator,
                 JoinProbeFactory joinProbeFactory,
                 LookupSourceFactory lookupSourceFactory,
@@ -559,9 +566,11 @@ public class LookupJoinOperator
             this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
             this.joinType = requireNonNull(joinType, "joinType is null");
             this.outputSingleMatch = outputSingleMatch;
+            this.waitForBuild = waitForBuild;
             this.hashGenerator = requireNonNull(hashGenerator, "hashGenerator is null");
             this.joinProbeFactory = requireNonNull(joinProbeFactory, "joinProbeFactory is null");
             this.lookupSourceFactory = requireNonNull(lookupSourceFactory, "lookupSourceFactory is null");
+            this.lookupSourceProvider = requireNonNull(lookupSourceProvider, "lookupSourceProvider is null");
             this.statisticsCounter = requireNonNull(statisticsCounter, "statisticsCounter is null");
             sourcePagesJoiner = new PageJoiner(
                     processorContext,
@@ -582,6 +591,12 @@ public class LookupJoinOperator
         @Override
         public ProcessState<WorkProcessor<Page>> process()
         {
+            // wait for build side to be completed before fetching any probe data
+            // TODO: fix support for probe short-circuit: https://github.com/trinodb/trino/issues/3957
+            if (waitForBuild && !lookupSourceProvider.isDone()) {
+                return ProcessState.blocked(lookupSourceProvider);
+            }
+
             if (!joinedSourcePages.isFinished()) {
                 return ProcessState.ofResult(joinedSourcePages);
             }
