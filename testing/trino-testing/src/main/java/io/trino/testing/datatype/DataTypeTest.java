@@ -46,11 +46,21 @@ public class DataTypeTest
         this.runSelectWithWhere = runSelectWithWhere;
     }
 
+    /**
+     * @deprecated Use {@link SqlDataTypeTest#create()} imstead. You can find
+     * {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
+     */
+    @Deprecated
     public static DataTypeTest create()
     {
         return new DataTypeTest(false);
     }
 
+    /**
+     * @deprecated Use {@link SqlDataTypeTest#create()} imstead. You can find
+     * {@link DataTypeTestToSqlDataTypeTestConverter#create()} helpful for converting the code.
+     */
+    @Deprecated
     public static DataTypeTest create(boolean runSelectWithWhere)
     {
         return new DataTypeTest(runSelectWithWhere);
