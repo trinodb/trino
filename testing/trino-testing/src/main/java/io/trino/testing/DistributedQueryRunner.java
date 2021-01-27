@@ -130,7 +130,7 @@ public class DistributedQueryRunner
                         environment,
                         additionalModule,
                         baseDataDir,
-                        systemAccessControls));
+                        ImmutableList.of()));
                 servers.add(worker);
             }
 
