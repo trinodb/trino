@@ -1084,10 +1084,12 @@ public class IcebergMetadata
         return viewToken;
     }
 
-    private void deleteDirRecursive(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path) {
+    private void deleteDirRecursive(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
+    {
         try {
             hdfsEnvironment.getFileSystem(context, path).delete(path, true);
-        } catch (IOException | RuntimeException e) {
+        }
+        catch (IOException | RuntimeException e) {
             log.error(e, "Failed to delete table data files in path: " + path.toString());
         }
     }
