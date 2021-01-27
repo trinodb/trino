@@ -12,38 +12,37 @@ package com.starburstdata.presto.plugin.prestoconnector;
 import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.Map;
 
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.PASSWORD;
-import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestPrestoConnectorConfig
+public class TestPrestoConnectorSslConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(PrestoConnectorConfig.class)
-                .setPrestoAuthenticationType(PASSWORD)
-                .setImpersonationEnabled(false)
-                .setSslEnabled(false));
+        assertRecordedDefaults(recordDefaults(PrestoConnectorSslConfig.class)
+                .setTruststoreFile(null)
+                .setTruststorePassword(null)
+                .setTruststoreType(null));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("starburst.authentication.type", "PASSWORD_PASS_THROUGH")
-                .put("starburst.impersonation.enabled", "true")
-                .put("ssl.enabled", "true")
+                .put("ssl.truststore.path", "/dev/null")
+                .put("ssl.truststore.password", "truststore-password")
+                .put("ssl.truststore.type", "truststore-type")
                 .build();
 
-        PrestoConnectorConfig expected = new PrestoConnectorConfig()
-                .setPrestoAuthenticationType(PASSWORD_PASS_THROUGH)
-                .setImpersonationEnabled(true)
-                .setSslEnabled(true);
+        PrestoConnectorSslConfig expected = new PrestoConnectorSslConfig()
+                .setTruststoreFile(new File("/dev/null"))
+                .setTruststorePassword("truststore-password")
+                .setTruststoreType("truststore-type");
 
         assertFullMapping(properties, expected);
     }

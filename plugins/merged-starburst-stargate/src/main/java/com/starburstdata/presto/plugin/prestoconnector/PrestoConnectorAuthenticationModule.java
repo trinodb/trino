@@ -24,6 +24,8 @@ import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
+import java.io.File;
+import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -65,13 +67,17 @@ public class PrestoConnectorAuthenticationModule
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, PrestoConnectorConfig prestoConnectorConfig)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, PrestoConnectorConfig prestoConnectorConfig, PrestoConnectorSslConfig sslConfig)
         {
             checkState(
                     !prestoConnectorConfig.isImpersonationEnabled(),
                     "User impersonation cannot be used along with PASSWORD_PASS_THROUGH authentication");
+            checkState(prestoConnectorConfig.isSslEnabled(), "SSL must be enabled when using password pass-through authentication");
 
-            return new DriverConnectionFactory(new TrinoDriver(), config, new PassThroughCredentialProvider());
+            Properties properties = new Properties();
+            setSslProperties(properties, sslConfig);
+
+            return new DriverConnectionFactory(new TrinoDriver(), config.getConnectionUrl(), properties, new PassThroughCredentialProvider());
         }
     }
 
@@ -88,9 +94,18 @@ public class PrestoConnectorAuthenticationModule
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig config,
+                PrestoConnectorConfig connectorConfig,
+                PrestoConnectorSslConfig sslConfig,
+                CredentialProvider credentialProvider)
         {
-            return new DriverConnectionFactory(new TrinoDriver(), config, credentialProvider);
+            Properties properties = new Properties();
+            if (connectorConfig.isSslEnabled()) {
+                setSslProperties(properties, sslConfig);
+            }
+
+            return new DriverConnectionFactory(new TrinoDriver(), config.getConnectionUrl(), properties, credentialProvider);
         }
     }
 
@@ -108,13 +123,36 @@ public class PrestoConnectorAuthenticationModule
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, AuthToLocal authToLocal, CredentialProvider credentialProvider)
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig config,
+                PrestoConnectorConfig connectorConfig,
+                PrestoConnectorSslConfig sslConfig,
+                AuthToLocal authToLocal,
+                CredentialProvider credentialProvider)
         {
+            Properties properties = new Properties();
+            if (connectorConfig.isSslEnabled()) {
+                setSslProperties(properties, sslConfig);
+            }
+
             return new DriverConnectionFactory(
                     new TrinoDriver(),
                     config.getConnectionUrl(),
-                    new Properties(),
+                    properties,
                     new PrestoConnectorImpersonatingCredentialPropertiesProvider(credentialProvider, authToLocal));
         }
+    }
+
+    private static void setSslProperties(Properties properties, PrestoConnectorSslConfig sslConfig)
+    {
+        properties.setProperty("SSL", "true");
+        setOptionalProperty(properties, "SSLTrustStorePath", sslConfig.getTruststoreFile().map(File::getAbsolutePath));
+        setOptionalProperty(properties, "SSLTrustStorePassword", sslConfig.getTruststorePassword());
+        setOptionalProperty(properties, "SSLTrustStoreType", sslConfig.getTruststoreType());
+    }
+
+    private static void setOptionalProperty(Properties properties, String propertyKey, Optional<String> maybeValue)
+    {
+        maybeValue.ifPresent(value -> properties.setProperty(propertyKey, value));
     }
 }

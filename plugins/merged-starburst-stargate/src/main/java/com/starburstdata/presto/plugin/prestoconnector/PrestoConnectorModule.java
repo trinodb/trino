@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class PrestoConnectorModule
@@ -43,6 +44,12 @@ public class PrestoConnectorModule
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         configBinder(binder).bindConfig(PrestoConnectorJdbcConfig.class);
 
+        install(installModuleIf(
+                PrestoConnectorConfig.class,
+                PrestoConnectorConfig::isSslEnabled,
+                new SslModule(),
+                new NoSslModule()));
+
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(PrestoConnectorClient.class).in(Scopes.SINGLETON);
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
@@ -55,5 +62,26 @@ public class PrestoConnectorModule
 
         install(new PrestoConnectorAuthenticationModule());
         install(new TableScanRedirectionModule());
+    }
+
+    private static class SslModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            configBinder(binder).bindConfig(PrestoConnectorSslConfig.class);
+        }
+    }
+
+    private static class NoSslModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            // Bind the config to an instance rather than using 'bindConfig' so the properties cannot be set.
+            binder.bind(PrestoConnectorSslConfig.class).toInstance(new PrestoConnectorSslConfig());
+        }
     }
 }

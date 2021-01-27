@@ -30,7 +30,6 @@ public class TestPrestoConnectorPlugin
         Plugin plugin = new PrestoConnectorPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
         assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:presto://localhost:8080/test", "connection-user", "presto"), new TestingConnectorContext()))
-
                 .isInstanceOf(RuntimeException.class)
                 .hasToString("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: starburst-connector");
     }
@@ -120,6 +119,41 @@ public class TestPrestoConnectorPlugin
                         "starburst.authentication.type", "PASSWORD_PASS_THROUGH")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("property 'auth-to-local.config-file' was not used");
+    }
+
+    @Test
+    public void testSslPropertiesRequireSslEnabled()
+    {
+        createTestingPlugin(ImmutableMap.of(
+                "connection-url", "jdbc:presto://localhost:8080/test",
+                "connection-user", "presto",
+                "ssl.enabled", "true",
+                "ssl.truststore.password", "password"));
+
+        assertThatThrownBy(() ->
+                createTestingPlugin(ImmutableMap.of(
+                        "connection-url", "jdbc:presto://localhost:8080/test",
+                        "connection-user", "presto",
+                        "ssl.truststore.password", "password")))
+                .isInstanceOf(ApplicationConfigurationException.class)
+                .hasMessageContaining("Configuration property 'ssl.truststore.password' was not used");
+    }
+
+    @Test
+    public void testPasswordAuthMayUseSsl()
+    {
+        createTestingPlugin(ImmutableMap.of(
+                "connection-url", "jdbc:presto://localhost:8080/test",
+                "connection-user", "presto",
+                "starburst.authentication.type", "PASSWORD",
+                "ssl.enabled", "true",
+                "ssl.truststore.path", "/dev/null"));
+
+        createTestingPlugin(ImmutableMap.of(
+                "connection-url", "jdbc:presto://localhost:8080/test",
+                "connection-user", "presto",
+                "starburst.authentication.type", "PASSWORD",
+                "ssl.enabled", "false"));
     }
 
     public static void createTestingPlugin(Map<String, String> properties)

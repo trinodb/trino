@@ -19,6 +19,7 @@ public class PrestoConnectorConfig
 {
     private PrestoAuthenticationType prestoAuthenticationType = PASSWORD;
     private boolean impersonationEnabled;
+    private boolean sslEnabled;
 
     public PrestoAuthenticationType getPrestoAuthenticationType()
     {
@@ -42,6 +43,18 @@ public class PrestoConnectorConfig
     public PrestoConnectorConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
         this.impersonationEnabled = impersonationEnabled;
+        return this;
+    }
+
+    public boolean isSslEnabled()
+    {
+        return sslEnabled;
+    }
+
+    @Config("ssl.enabled")
+    public PrestoConnectorConfig setSslEnabled(boolean sslEnabled)
+    {
+        this.sslEnabled = sslEnabled;
         return this;
     }
 }
