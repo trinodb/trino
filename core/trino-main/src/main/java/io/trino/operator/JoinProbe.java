@@ -60,11 +60,11 @@ public class JoinProbe
         this.probeBlocks = new Block[probeJoinChannels.size()];
 
         for (int i = 0; i < probeJoinChannels.size(); i++) {
-            probeBlocks[i] = page.getBlock(probeJoinChannels.get(i));
+            probeBlocks[i] = page.getBlock(probeJoinChannels.get(i)).getLoadedBlock();
         }
         this.page = page;
         this.probePage = new Page(page.getPositionCount(), probeBlocks);
-        this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt())) : Optional.empty();
+        this.probeHashBlock = probeHashChannel.isPresent() ? Optional.of(page.getBlock(probeHashChannel.getAsInt()).getLoadedBlock()) : Optional.empty();
     }
 
     public int[] getOutputChannels()
