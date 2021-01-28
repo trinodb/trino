@@ -14,7 +14,7 @@ For example, the following query ranks orders for each clerk by price::
     FROM orders
     ORDER BY clerk, rnk
 
-The window can be specified in two ways (see ``WINDOW Clause``):
+The window can be specified in two ways (see :ref:`window_clause`):
 
 * By a reference to a named window specification defined in the ``WINDOW`` clause,
 * By an in-line window specification which allows to define window components
