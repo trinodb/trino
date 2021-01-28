@@ -21,7 +21,6 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -50,15 +49,9 @@ public class TestSqlServerIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sqlServer = new TestingSqlServer();
+        sqlServer = closeAfterClass(new TestingSqlServer());
         sqlServer.start();
         return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        sqlServer.close();
     }
 
     @Test

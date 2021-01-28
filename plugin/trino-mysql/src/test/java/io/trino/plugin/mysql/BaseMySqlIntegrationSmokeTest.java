@@ -22,7 +22,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -39,12 +38,6 @@ abstract class BaseMySqlIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     protected TestingMySqlServer mysqlServer;
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        mysqlServer.close();
-    }
 
     @Test
     @Override

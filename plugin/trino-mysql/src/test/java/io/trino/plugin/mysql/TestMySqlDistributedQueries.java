@@ -19,7 +19,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
 
 import java.util.Optional;
 
@@ -38,7 +37,7 @@ public class TestMySqlDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.mysqlServer = new TestingMySqlServer();
+        this.mysqlServer = closeAfterClass(new TestingMySqlServer());
         return createMySqlQueryRunner(
                 mysqlServer,
                 ImmutableMap.of(),
@@ -48,13 +47,6 @@ public class TestMySqlDistributedQueries
                         .put("metadata.cache-missing", "true")
                         .build(),
                 TpchTable.getTables());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        mysqlServer.close();
-        mysqlServer = null;
     }
 
     @Override
