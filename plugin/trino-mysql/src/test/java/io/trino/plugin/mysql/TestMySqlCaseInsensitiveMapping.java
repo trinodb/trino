@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
@@ -40,14 +39,8 @@ public class TestMySqlCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mySqlServer = new TestingMySqlServer();
+        mySqlServer = closeAfterClass(new TestingMySqlServer());
         return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of("case-insensitive-name-matching", "true"), ImmutableList.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        mySqlServer.close();
     }
 
     @Test

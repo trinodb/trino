@@ -19,7 +19,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
@@ -29,26 +28,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestSqlServerWithoutSnapshotIsolation
         extends AbstractTestQueryFramework
 {
-    private TestingSqlServer sqlServer;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sqlServer = new TestingSqlServer(false);
+        TestingSqlServer sqlServer = closeAfterClass(new TestingSqlServer(false));
         sqlServer.start();
         return createSqlServerQueryRunner(
                 sqlServer,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of(TpchTable.NATION));
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        sqlServer.close();
-        sqlServer = null;
     }
 
     @Test
