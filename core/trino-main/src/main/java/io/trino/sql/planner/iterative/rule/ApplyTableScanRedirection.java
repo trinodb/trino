@@ -50,7 +50,8 @@ import static java.util.Objects.requireNonNull;
 public class ApplyTableScanRedirection
         implements Rule<TableScanNode>
 {
-    private static final Pattern<TableScanNode> PATTERN = tableScan();
+    private static final Pattern<TableScanNode> PATTERN = tableScan()
+            .matching(node -> !node.isForDelete());
 
     private final Metadata metadata;
     private final DomainTranslator domainTranslator;
