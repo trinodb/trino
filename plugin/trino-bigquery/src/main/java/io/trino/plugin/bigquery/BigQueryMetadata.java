@@ -54,9 +54,9 @@ import java.util.Set;
 import static com.google.cloud.bigquery.TableDefinition.Type.TABLE;
 import static com.google.cloud.bigquery.TableDefinition.Type.VIEW;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 
 public class BigQueryMetadata
         implements ConnectorMetadata
@@ -165,7 +165,7 @@ public class BigQueryMetadata
     {
         log.debug("getColumnHandles(session=%s, tableHandle=%s)", session, tableHandle);
         List<BigQueryColumnHandle> columnHandles = getTableColumns(((BigQueryTableHandle) tableHandle).getTableId());
-        return columnHandles.stream().collect(toMap(BigQueryColumnHandle::getName, identity()));
+        return columnHandles.stream().collect(toImmutableMap(BigQueryColumnHandle::getName, identity()));
     }
 
     List<BigQueryColumnHandle> getTableColumns(TableId tableId)
