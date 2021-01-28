@@ -620,6 +620,8 @@ with an account balance greater than the specified value::
       1247 | FURNITURE  |         8 |  5701952
     (7 rows)
 
+.. _window_clause:
+
 WINDOW clause
 -------------
 
