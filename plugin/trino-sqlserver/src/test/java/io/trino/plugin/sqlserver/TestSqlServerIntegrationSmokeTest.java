@@ -41,7 +41,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-@Test
 public class TestSqlServerIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
