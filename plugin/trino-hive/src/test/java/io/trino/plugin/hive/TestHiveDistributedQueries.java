@@ -55,7 +55,8 @@ public class TestHiveDistributedQueries
     @Override
     public void testDelete()
     {
-        // Hive connector currently does not support row-by-row delete
+        // Hive connector supports row-by-row delete only for ACID tables
+        // but these currently cannot be used with file metastore.
     }
 
     @Test
