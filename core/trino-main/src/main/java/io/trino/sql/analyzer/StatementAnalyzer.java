@@ -31,7 +31,6 @@ import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.ViewAccessControl;
@@ -181,11 +180,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -270,6 +269,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 class StatementAnalyzer
 {
@@ -396,11 +396,13 @@ class StatementAnalyzer
             }
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-
-            List<ColumnMetadata> columns = tableMetadata.getColumns().stream()
+            List<ColumnMetadata> columns = metadata.getColumnHandles(session, targetTableHandle.get())
+                    .values().stream()
+                    .map(columnHandle -> metadata.getColumnMetadata(session, targetTableHandle.get(), columnHandle))
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
+            Map<String, ColumnMetadata> columnNameToMetadata = columns.stream()
+                    .collect(toImmutableMap(ColumnMetadata::getName, identity()));
 
             for (ColumnMetadata column : columns) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
@@ -448,7 +450,7 @@ class StatementAnalyzer
                     newTableLayout));
 
             List<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
+                    .map(insertColumn -> columnNameToMetadata.get(insertColumn).getType())
                     .collect(toImmutableList());
 
             List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
@@ -503,22 +505,22 @@ class StatementAnalyzer
                 analysis.setSkipMaterializedViewRefresh(false);
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-            List<String> insertColumns = tableMetadata.getColumns().stream()
-                    .filter(column -> !column.isHidden())
-                    .map(ColumnMetadata::getName)
-                    .collect(toImmutableList());
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
+            Map<ColumnHandle, ColumnMetadata> insertColumns = columnHandles.values().stream()
+                    .collect(toImmutableMap(identity(), columnHandle -> metadata.getColumnMetadata(session, targetTableHandle.get(), columnHandle)))
+                    .entrySet().stream()
+                    .filter(column -> !column.getValue().isHidden())
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
-            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
             analysis.setRefreshMaterializedView(new Analysis.RefreshMaterializedViewAnalysis(
                     name,
                     targetTableHandle.get(), query,
-                    insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
+                    insertColumns.keySet().stream().collect(toImmutableList())));
 
-            List<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
+            List<Type> tableTypes = insertColumns.values().stream()
+                    .map(ColumnMetadata::getType)
                     .collect(toImmutableList());
 
             List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
@@ -606,8 +608,9 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Delete from table with row filter");
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, handle);
+            for (ColumnHandle columnHandle : columnHandles.values()) {
+                ColumnMetadata tableColumn = metadata.getColumnMetadata(session, handle, columnHandle);
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
                 }
@@ -1231,12 +1234,12 @@ class StatementAnalyzer
                 }
                 throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", name);
             }
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
+            for (ColumnHandle columnHandle : columnHandles.values()) {
+                ColumnMetadata column = metadata.getColumnMetadata(session, tableHandle.get(), columnHandle);
                 Field field = Field.newQualified(
                         table.getName(),
                         Optional.of(column.getName()),
@@ -1246,8 +1249,6 @@ class StatementAnalyzer
                         Optional.of(column.getName()),
                         false);
                 fields.add(field);
-                ColumnHandle columnHandle = columnHandles.get(column.getName());
-                checkArgument(columnHandle != null, "Unknown field %s", field);
                 analysis.setColumn(field, columnHandle);
             }
 
