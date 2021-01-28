@@ -521,6 +521,21 @@ public class PlanBuilder
             TableHandle tableHandle,
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
+            boolean forDelete)
+    {
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                tableHandle,
+                symbols,
+                assignments,
+                TupleDomain.all(),
+                forDelete);
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
         return new TableScanNode(
