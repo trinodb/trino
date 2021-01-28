@@ -201,6 +201,53 @@ public class TestHashJoinOperator
     }
 
     @Test
+    public void testUnwrapsLazyBlocks()
+    {
+        TaskContext taskContext = createTaskContext();
+        DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
+
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+                (leftPosition, leftPage, rightPosition, rightPage) -> {
+                    // force loading of probe block
+                    rightPage.getBlock(1).getLoadedBlock();
+                    return true;
+                }));
+
+        RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT)).addSequencePage(1, 0);
+        BuildSideSetup buildSideSetup = setupBuildSide(true, taskContext, Ints.asList(0), buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
+        JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory = buildSideSetup.getLookupSourceFactoryManager();
+
+        RowPagesBuilder probePages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT, BIGINT));
+        List<Page> probeInput = probePages.addSequencePage(1, 0, 0).build();
+        probeInput = probeInput.stream()
+                .map(page -> new Page(page.getBlock(0), new LazyBlock(1, () -> page.getBlock(1))))
+                .collect(toImmutableList());
+
+        OperatorFactory joinOperatorFactory = LOOKUP_JOIN_OPERATORS.innerJoin(
+                0,
+                new PlanNodeId("test"),
+                lookupSourceFactory,
+                probePages.getTypes(),
+                false,
+                Ints.asList(0),
+                getHashChannelAsInt(probePages),
+                Optional.empty(),
+                OptionalInt.of(1),
+                PARTITIONING_SPILLER_FACTORY,
+                TYPE_OPERATOR_FACTORY);
+
+        instantiateBuildDrivers(buildSideSetup, taskContext);
+        buildLookupSource(buildSideSetup);
+        Operator operator = joinOperatorFactory.createOperator(driverContext);
+        assertTrue(operator.needsInput());
+        operator.addInput(probeInput.get(0));
+        operator.finish();
+
+        Page output = operator.getOutput();
+        assertFalse(output.getBlock(1) instanceof LazyBlock);
+    }
+
+    @Test
     public void testYield()
     {
         // create a filter function that yields for every probe match
