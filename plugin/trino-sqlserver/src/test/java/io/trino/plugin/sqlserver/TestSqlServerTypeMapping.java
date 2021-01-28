@@ -22,7 +22,6 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
@@ -37,19 +36,13 @@ public class TestSqlServerTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        sqlServer = new TestingSqlServer();
+        sqlServer = closeAfterClass(new TestingSqlServer());
         sqlServer.start();
         return createSqlServerQueryRunner(
                 sqlServer,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        sqlServer.close();
     }
 
     @Test

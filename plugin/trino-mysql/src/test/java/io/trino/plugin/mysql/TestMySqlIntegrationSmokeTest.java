@@ -31,7 +31,7 @@ public class TestMySqlIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = new TestingMySqlServer(false);
+        mysqlServer = closeAfterClass(new TestingMySqlServer(false));
         return createMySqlQueryRunner(mysqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 

@@ -18,7 +18,6 @@ import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
 
 import java.util.Optional;
 
@@ -33,7 +32,7 @@ public class TestSqlServerDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.sqlServer = new TestingSqlServer();
+        this.sqlServer = closeAfterClass(new TestingSqlServer());
         sqlServer.start();
         return createSqlServerQueryRunner(
                 sqlServer,
@@ -44,13 +43,6 @@ public class TestSqlServerDistributedQueries
                         .put("metadata.cache-missing", "true")
                         .build(),
                 TpchTable.getTables());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public final void destroy()
-    {
-        sqlServer.close();
-        sqlServer = null;
     }
 
     @Override
