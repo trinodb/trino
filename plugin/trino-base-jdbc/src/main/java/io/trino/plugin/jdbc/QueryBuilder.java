@@ -127,7 +127,7 @@ public class QueryBuilder
             throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
         }
 
-        List<String> clauses = toConjuncts(client, session, connection, tupleDomain, accumulator::add);
+        List<String> clauses = toConjuncts(session, connection, tupleDomain, accumulator::add);
         if (additionalPredicate.isPresent()) {
             clauses = ImmutableList.<String>builder()
                     .addAll(clauses)
@@ -212,7 +212,6 @@ public class QueryBuilder
     }
 
     private List<String> toConjuncts(
-            JdbcClient client,
             ConnectorSession session,
             Connection connection,
             TupleDomain<ColumnHandle> tupleDomain,
