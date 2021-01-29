@@ -9,9 +9,8 @@
         <relativePath>../..</relativePath>
     </parent>
 
-    <!-- TODO https://starburstdata.atlassian.net/browse/PRESTO-5104 change to something appropriate -->
-    <artifactId>starburst-presto-connector</artifactId>
-    <description>Starburst Enterprise - Presto-Presto Connector</description>
+    <artifactId>starburst-remote-connector</artifactId>
+    <description>Starburst Enterprise - Remote connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
