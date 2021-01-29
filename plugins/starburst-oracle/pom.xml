@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>starburst-oracle</artifactId>
-    <description>Starburst Presto - Oracle Connector</description>
+    <description>Starburst Enterprise - Oracle Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
