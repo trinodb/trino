@@ -38,7 +38,9 @@ public class TestBigQueryIntegrationSmokeTest
             throws Exception
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
-        return BigQueryQueryRunner.createQueryRunner(ImmutableMap.of());
+        return BigQueryQueryRunner.createQueryRunner(
+                ImmutableMap.of(),
+                ImmutableMap.of());
     }
 
     @Override
