@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>starburst-sqlserver</artifactId>
-    <description>Starburst Presto - SQL Server Connector</description>
+    <description>Starburst Enterprise - SQL Server Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
