@@ -24,6 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPrestoConnectorPlugin
 {
+    private static final String AUTH_TO_LOCAL_FILE = Resources.getResource("test-user-impersonation.auth-to-local.json").getPath();
+
     @Test
     public void testLicenseRequired()
     {
@@ -90,20 +92,18 @@ public class TestPrestoConnectorPlugin
     @Test
     public void testAuthToLocalVerification()
     {
-        String authToLocalFilePath = Resources.getResource("test-user-impersonation.auth-to-local.json").getPath();
-
         assertThatThrownBy(() ->
                 createTestingPlugin(ImmutableMap.of(
                         "connection-url", "jdbc:presto://localhost:8080/test",
                         "connection-user", "presto",
-                        "auth-to-local.config-file", authToLocalFilePath)))
+                        "auth-to-local.config-file", AUTH_TO_LOCAL_FILE)))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("property 'auth-to-local.config-file' was not used");
 
         createTestingPlugin(ImmutableMap.of(
                 "connection-url", "jdbc:presto://localhost:8080/test",
                 "connection-user", "presto",
-                "auth-to-local.config-file", authToLocalFilePath,
+                "auth-to-local.config-file", AUTH_TO_LOCAL_FILE,
                 "starburst.impersonation.enabled", "true"));
     }
 
@@ -179,13 +179,39 @@ public class TestPrestoConnectorPlugin
 
         createTestingPlugin(withSsl);
 
-        Map<String, String> withConnectionPassword = new ImmutableMap.Builder<String, String>()
-                .putAll(withSsl)
-                .put("connection-password", "supersecret")
+        testPropertyNotUsed(withSsl, "connection-password", "super-secret", "connection-password should not be set when using Kerberos authentication");
+    }
+
+    @Test
+    public void testKerberosUserImpersonationValidations()
+    {
+        Map<String, String> kerberosProperties = new ImmutableMap.Builder<String, String>()
+                .put("connection-url", "jdbc:presto://localhost:8080/hive")
+                .put("starburst.authentication.type", "KERBEROS")
+                .put("kerberos.config", "/dev/null")
+                .put("kerberos.client.keytab", "/dev/null")
+                .put("kerberos.client.principal", "client@kerberos.com")
+                .put("kerberos.remote.service-name", "remote-service")
+                .put("ssl.enabled", "true")
+                .put("starburst.impersonation.enabled", "true")
+                .put("auth-to-local.config-file", AUTH_TO_LOCAL_FILE)
                 .build();
 
-        assertThatThrownBy(() -> createTestingPlugin(withConnectionPassword))
-                .hasMessageContaining("connection-password should not be set when using Kerberos authentication");
+        createTestingPlugin(kerberosProperties);
+
+        testPropertyNotUsed(kerberosProperties, "connection-user", "a-user", "Configuration property 'connection-user' was not used");
+        testPropertyNotUsed(kerberosProperties, "connection-password", "super-secret", "Configuration property 'connection-password' was not used");
+    }
+
+    private static void testPropertyNotUsed(Map<String, String> baseProperties, String key, String value, String errorMessage)
+    {
+        Map<String, String> properties = new ImmutableMap.Builder<String, String>()
+                .putAll(baseProperties)
+                .put(key, value)
+                .build();
+
+        assertThatThrownBy(() -> createTestingPlugin(properties))
+                .hasMessageContaining(errorMessage);
     }
 
     public static void createTestingPlugin(Map<String, String> properties)
