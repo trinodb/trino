@@ -381,7 +381,8 @@ public class QueryAssertions
          * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
          * when pushdown capabilities are improved.
          */
-        public QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
+        @SafeVarargs
+        public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
             checkArgument(retainedNodes.length > 0, "No retainedNodes");
 
