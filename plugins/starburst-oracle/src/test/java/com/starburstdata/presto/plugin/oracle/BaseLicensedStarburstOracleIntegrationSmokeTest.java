@@ -9,8 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import io.trino.sql.planner.plan.FilterNode;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -51,6 +49,6 @@ public class BaseLicensedStarburstOracleIntegrationSmokeTest
         // predicate over aggregation result
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (CAST(3 AS decimal(19,0)), CAST(77 AS decimal(38,0)))")
-                .isNotFullyPushedDown(FilterNode.class);
+                .isFullyPushedDown();
     }
 }

@@ -56,7 +56,7 @@ public class ImplementOracleVariancePop
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("var_pop(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("var_pop(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

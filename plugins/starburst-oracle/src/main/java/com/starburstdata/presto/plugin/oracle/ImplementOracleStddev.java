@@ -61,7 +61,7 @@ public class ImplementOracleStddev
         // Oracle's stddev function has slightly different semantics to Presto's when a table has one or no records. Oracle returns zero while Presto return null.
         // The Oracle stddev_samp implementation matches Presto's semantics for both functions.
         return Optional.of(new JdbcExpression(
-                format("stddev_samp(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("stddev_samp(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

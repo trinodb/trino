@@ -91,7 +91,7 @@ public class OracleSplitManager
             int maxSplits,
             TupleDomain<ColumnHandle> dynamicFilter)
     {
-        if (parallelismType == NO_PARALLELISM || tableHandle.getGroupingSets().isPresent()) {
+        if (parallelismType == NO_PARALLELISM || !tableHandle.isNamedRelation()) {
             return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty(), dynamicFilter));
         }
 

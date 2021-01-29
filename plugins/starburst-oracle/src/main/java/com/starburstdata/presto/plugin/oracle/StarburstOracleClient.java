@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
@@ -25,6 +26,7 @@ import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
@@ -140,18 +142,42 @@ public class StarburstOracleClient
     }
 
     @Override
+    public PreparedQuery prepareQuery(ConnectorSession session, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            PreparedQuery preparedQuery = new OracleQueryBuilder(this, Optional.empty()).prepareQuery(
+                    session,
+                    connection,
+                    table.getRelationHandle(),
+                    groupingSets,
+                    columns,
+                    columnExpressions,
+                    table.getConstraint(),
+                    Optional.empty());
+            preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
+            return preparedQuery;
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
-        return new OracleQueryBuilder(this, (OracleSplit) split).buildSql(
+        OracleQueryBuilder queryBuilder = new OracleQueryBuilder(this, ((OracleSplit) split).getPartitionNames());
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 session,
                 connection,
-                table.getRemoteTableName(),
-                table.getGroupingSets(),
+                table.getRelationHandle(),
+                Optional.empty(),
                 columns,
+                ImmutableMap.of(),
                 table.getConstraint(),
-                split.getAdditionalPredicate(),
-                tryApplyLimit(table.getLimit()));
+                split.getAdditionalPredicate());
+        preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
+        return queryBuilder.prepareStatement(session, connection, preparedQuery);
     }
 
     @Override
@@ -317,7 +343,7 @@ public class StarburstOracleClient
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
-        if (table.getGroupingSets().isPresent()) {
+        if (!table.isNamedRelation()) {
             // TODO retrieve statistics for base table and derive statistics for the aggregation
             return Optional.empty();
         }
@@ -452,19 +478,19 @@ public class StarburstOracleClient
     private static class OracleQueryBuilder
             extends QueryBuilder
     {
-        private final OracleSplit split;
+        private final Optional<List<String>> partitionNames;
 
-        public OracleQueryBuilder(JdbcClient jdbcClient, OracleSplit split)
+        public OracleQueryBuilder(JdbcClient jdbcClient, Optional<List<String>> partitionNames)
         {
             super(jdbcClient);
-            this.split = requireNonNull(split, "split is null");
+            this.partitionNames = requireNonNull(partitionNames, "partitionNames is null");
         }
 
         @Override
         protected String getRelation(RemoteTableName remoteTableName)
         {
             String tableName = super.getRelation(remoteTableName);
-            return split.getPartitionNames()
+            return partitionNames
                     .map(batch -> batch.stream()
                             .map(partitionName -> format("SELECT * FROM %s PARTITION (%s)", tableName, partitionName))
                             .collect(joining(" UNION ALL ", "(", ")"))) // wrap subquery in parentheses
