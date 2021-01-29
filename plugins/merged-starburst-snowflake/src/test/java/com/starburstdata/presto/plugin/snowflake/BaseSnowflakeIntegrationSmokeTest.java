@@ -12,8 +12,6 @@ package com.starburstdata.presto.plugin.snowflake;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingSession;
@@ -374,10 +372,8 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
             // aggregation on varchar column with WHERE
             assertThat(query("SELECT min(varchar_column) FROM " + testTable.getName() + " WHERE varchar_column ='ala'")).isFullyPushedDown();
 
-            // agg(DISTINCT symbol) not supported yet
-            assertThat(query("SELECT min(DISTINCT short_decimal) FROM " + testTable.getName())).isNotFullyPushedDown(AggregationNode.class);
-            // TODO: Improve assertion framework. Here min(long_decimal) is pushed down. There remains ProjectNode above it which relates to DISTINCT in the query.
-            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT min(DISTINCT short_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isFullyPushedDown();
         }
 
         try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown_timestamp_tz",

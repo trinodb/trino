@@ -407,7 +407,7 @@ public class SnowflakeClient
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
-        if (table.getGroupingSets().isPresent()) {
+        if (!table.isNamedRelation()) {
             // TODO retrieve statistics for base table and derive statistics for the aggregation
             return Optional.empty();
         }

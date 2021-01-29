@@ -17,6 +17,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 
 import java.util.List;
+import java.util.Map;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -50,8 +51,17 @@ public class SnowflakeQueryBuilder
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
+    private String getColumnExpression(JdbcColumnHandle jdbcColumnHandle, Map<String, String> columnExpressions)
+    {
+        String expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
+        if (expression == null) {
+            return jdbcClient.quoted(jdbcColumnHandle.getColumnName());
+        }
+        return expression;
+    }
+
     @Override
-    protected String getProjection(List<JdbcColumnHandle> columns)
+    protected String getProjection(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
     {
         if (columns.isEmpty()) {
             return "null";
@@ -68,18 +78,18 @@ public class SnowflakeQueryBuilder
                                 // using TO_DECIMAL to prevent Snowflake from losing precision on the shift result
                                 "TO_DECIMAL(BITSHIFTLEFT(EXTRACT('EPOCH_MILLISECOND', %1$s), %2$s), 38, 0), " +
                                 "%3$s + EXTRACT('TZH', %1$s) * 60 + EXTRACT('TZM', %1$s))",
-                                columnHandle.toSqlExpression(jdbcClient::quoted),
+                                getColumnExpression(columnHandle, columnExpressions),
                                 TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT,
                                 ZONE_OFFSET_MINUTES_BIAS);
                     }
                     else if (columnHandle.getColumnType() instanceof TimestampType) {
-                        expression = format("CAST(%s as TIMESTAMP(3))", columnHandle.toSqlExpression(jdbcClient::quoted));
+                        expression = format("CAST(%s as TIMESTAMP(3))", getColumnExpression(columnHandle, columnExpressions));
                     }
                     else if (columnHandle.getColumnType() instanceof TimeType) {
-                        expression = format("CAST(%s as TIME(3))", columnHandle.toSqlExpression(jdbcClient::quoted));
+                        expression = format("CAST(%s as TIME(3))", getColumnExpression(columnHandle, columnExpressions));
                     }
                     else {
-                        expression = columnHandle.toSqlExpression(jdbcClient::quoted);
+                        expression = getColumnExpression(columnHandle, columnExpressions);
                     }
 
                     return format("%s AS %s", expression, jdbcClient.quoted(columnHandle.getColumnName()));

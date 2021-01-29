@@ -38,6 +38,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPartitionHandle;
@@ -221,15 +222,20 @@ public class SnowflakeSplitSource
                     String stageName = "export_" + randomUUID().toString().replace("-", "_");
                     execute(connection, format("CREATE TEMPORARY STAGE %s.%s FILE_FORMAT = (TYPE = PARQUET)", snowflakeConfig.getStageSchema(), stageName));
 
-                    try (PreparedStatement statement = new SnowflakeQueryBuilder(client).buildSql(
+                    SnowflakeQueryBuilder queryBuilder = new SnowflakeQueryBuilder(client);
+                    PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                             session,
                             connection,
-                            jdbcTableHandle.getRemoteTableName(),
-                            jdbcTableHandle.getGroupingSets(),
-                            columns,
-                            jdbcTableHandle.getConstraint(),
+                            jdbcTableHandle.getRelationHandle(),
                             Optional.empty(),
-                            tryApplyLimit(jdbcTableHandle.getLimit()).andThen(sql -> copyIntoStage(sql, stageName)))) {
+                            columns,
+                            ImmutableMap.of(),
+                            jdbcTableHandle.getConstraint(),
+                            Optional.empty());
+                    preparedQuery = preparedQuery.transformQuery(tryApplyLimit(jdbcTableHandle.getLimit()));
+                    preparedQuery = preparedQuery.transformQuery(sql -> copyIntoStage(sql, stageName));
+                    try (PreparedStatement statement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
+                        // TODO close ResultSet
                         statement.executeQuery();
                     }
 
@@ -286,10 +292,10 @@ public class SnowflakeSplitSource
 
     private ConnectorSplitSource getHiveSplitSource()
     {
-        SchemaTableName schemaTableName = new SchemaTableName(jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName());
+        SchemaTableName schemaTableName = new SchemaTableName("dummy_schema", "dummy_table");
         HiveTableHandle tableLayoutHandle = new HiveTableHandle(
-                jdbcTableHandle.getSchemaName(),
-                jdbcTableHandle.getTableName(),
+                schemaTableName.getSchemaName(),
+                schemaTableName.getTableName(),
                 Optional.of(ImmutableMap.of()),
                 ImmutableList.of(),
                 getHiveColumnHandles(columns),
@@ -349,8 +355,8 @@ public class SnowflakeSplitSource
     private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastore(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
         Table table = new Table(
-                jdbcTableHandle.getSchemaName(),
-                jdbcTableHandle.getTableName(),
+                "dummy_schema",
+                "dummy_table",
                 "dummy",
                 EXTERNAL_TABLE.name(),
                 Storage.builder()

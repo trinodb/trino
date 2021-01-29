@@ -11,7 +11,6 @@ package com.starburstdata.presto.plugin.synapse;
 
 import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -127,10 +126,8 @@ public class TestSynapseIntegrationSmokeTest
             // aggregation on varchar column with WHERE
             assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown WHERE varchar_column ='ala'")).isFullyPushedDown();
 
-            // not supported yet
-            assertThat(query("SELECT min(DISTINCT short_decimal) FROM test_aggregation_pushdown")).isNotFullyPushedDown(AggregationNode.class);
-            // TODO: Improve assertion framework. Here min(long_decimal) is pushed down. There remains ProjectNode above it which relates to DISTINCT in the query.
-            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal")).isNotFullyPushedDown(ProjectNode.class);
+            assertThat(query("SELECT min(DISTINCT short_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal")).isFullyPushedDown();
         }
 
         // array_agg returns array, which is not supported
