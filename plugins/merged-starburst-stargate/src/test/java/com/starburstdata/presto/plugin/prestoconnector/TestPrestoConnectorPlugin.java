@@ -156,6 +156,38 @@ public class TestPrestoConnectorPlugin
                 "ssl.enabled", "false"));
     }
 
+    @Test
+    public void testKerberosValidations()
+    {
+        Map<String, String> kerberosProperties = new ImmutableMap.Builder<String, String>()
+                .put("connection-url", "jdbc:presto://localhost:8080/hive")
+                .put("connection-user", "user")
+                .put("starburst.authentication.type", "KERBEROS")
+                .put("kerberos.config", "/dev/null")
+                .put("kerberos.client.keytab", "/dev/null")
+                .put("kerberos.client.principal", "client@kerberos.com")
+                .put("kerberos.remote.service-name", "remote-service")
+                .build();
+
+        assertThatThrownBy(() -> createTestingPlugin(kerberosProperties))
+                .hasMessageContaining("SSL must be enabled when using Kerberos authentication");
+
+        Map<String, String> withSsl = new ImmutableMap.Builder<String, String>()
+                .putAll(kerberosProperties)
+                .put("ssl.enabled", "true")
+                .build();
+
+        createTestingPlugin(withSsl);
+
+        Map<String, String> withConnectionPassword = new ImmutableMap.Builder<String, String>()
+                .putAll(withSsl)
+                .put("connection-password", "supersecret")
+                .build();
+
+        assertThatThrownBy(() -> createTestingPlugin(withConnectionPassword))
+                .hasMessageContaining("connection-password should not be set when using Kerberos authentication");
+    }
+
     public static void createTestingPlugin(Map<String, String> properties)
     {
         Plugin plugin = new TestingPrestoConnectorPlugin(false);

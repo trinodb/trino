@@ -21,14 +21,17 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.credential.CredentialConfig;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
 
 import java.io.File;
 import java.util.Optional;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.KERBEROS;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.PASSWORD;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
@@ -54,6 +57,11 @@ public class PrestoConnectorAuthenticationModule
                 PrestoConnectorConfig.class,
                 config -> config.getPrestoAuthenticationType() == PASSWORD && config.isImpersonationEnabled(),
                 new PasswordWithImpersonationModule()));
+
+        install(installModuleIf(
+                PrestoConnectorConfig.class,
+                config -> config.getPrestoAuthenticationType() == KERBEROS,
+                new KerberosModule()));
     }
 
     private static class PasswordPassthroughModule
@@ -141,6 +149,53 @@ public class PrestoConnectorAuthenticationModule
                     properties,
                     new PrestoConnectorImpersonatingCredentialPropertiesProvider(credentialProvider, authToLocal));
         }
+    }
+
+    private static class KerberosModule
+            extends AbstractConfigurationAwareModule
+    {
+        @Override
+        protected void setup(Binder binder)
+        {
+            configBinder(binder).bindConfig(CredentialConfig.class);
+            configBinder(binder).bindConfig(PrestoConnectorKerberosConfig.class);
+        }
+
+        @Provides
+        @Singleton
+        @ForBaseJdbc
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig baseJdbcConfig,
+                PrestoConnectorConfig connectorConfig,
+                PrestoConnectorSslConfig sslConfig,
+                PrestoConnectorKerberosConfig kerberosConfig,
+                CredentialConfig credentialConfig)
+        {
+            checkState(connectorConfig.isSslEnabled(), "SSL must be enabled when using Kerberos authentication");
+            checkState(credentialConfig.getConnectionPassword().isEmpty(), "connection-password should not be set when using Kerberos authentication");
+
+            Properties properties = new Properties();
+            setSslProperties(properties, sslConfig);
+            setKerberosProperties(properties, kerberosConfig);
+
+            String user = credentialConfig.getConnectionUser().orElse(kerberosConfig.getClientPrincipal());
+
+            return new DriverConnectionFactory(
+                    new TrinoDriver(),
+                    baseJdbcConfig.getConnectionUrl(),
+                    properties,
+                    new StaticCredentialProvider(Optional.of(user), Optional.empty()));
+        }
+    }
+
+    private static void setKerberosProperties(Properties properties, PrestoConnectorKerberosConfig kerberosConfig)
+    {
+        properties.setProperty("KerberosPrincipal", kerberosConfig.getClientPrincipal());
+        properties.setProperty("KerberosKeytabPath", kerberosConfig.getClientKeytabFile().getAbsolutePath());
+        properties.setProperty("KerberosConfigPath", kerberosConfig.getConfigFile().getAbsolutePath());
+        properties.setProperty("KerberosRemoteServiceName", kerberosConfig.getServiceName());
+        setOptionalProperty(properties, "KerberosServicePrincipalPattern", kerberosConfig.getServicePrincipalPattern());
+        properties.setProperty("KerberosUseCanonicalHostname", String.valueOf(kerberosConfig.isServiceUseCanonicalHostname()));
     }
 
     private static void setSslProperties(Properties properties, PrestoConnectorSslConfig sslConfig)

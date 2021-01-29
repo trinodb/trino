@@ -12,5 +12,6 @@ package com.starburstdata.presto.plugin.prestoconnector;
 public enum PrestoAuthenticationType
 {
     PASSWORD,
-    PASSWORD_PASS_THROUGH
+    PASSWORD_PASS_THROUGH,
+    KERBEROS,
 }
