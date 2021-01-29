@@ -167,6 +167,7 @@ public class IcebergMetadata
     private final JsonCodec<CommitTaskData> commitTaskCodec;
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
+    private final boolean useUniqueTableLocation;
 
     private Transaction transaction;
 
@@ -174,12 +175,14 @@ public class IcebergMetadata
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskCodec)
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            boolean useUniqueTableLocation)
     {
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
     @Override
@@ -495,7 +498,8 @@ public class IcebergMetadata
         HiveIdentity identity = new HiveIdentity(session);
         String targetPath = getTableLocation(tableMetadata.getProperties());
         if (targetPath == null) {
-            targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
+            String uniqueTableName = useUniqueTableLocation ? generateUniqueTableName(tableName) : tableName;
+            targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, uniqueTableName).toString();
         }
 
         TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, schemaName, tableName, session.getUser(), targetPath);
@@ -1072,6 +1076,11 @@ public class IcebergMetadata
             }
         }
         return viewToken;
+    }
+
+    private String generateUniqueTableName(String tableName)
+    {
+        return String.format("%s-%s", tableName, UUID.randomUUID().toString().replace("-", ""));
     }
 
     private static class TableToken

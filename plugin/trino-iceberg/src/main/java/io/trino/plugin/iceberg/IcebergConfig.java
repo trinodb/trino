@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
@@ -27,6 +28,7 @@ public class IcebergConfig
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
+    private boolean uniqueTableLocation;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -72,6 +74,19 @@ public class IcebergConfig
     public IcebergConfig setUseFileSizeFromMetadata(boolean useFileSizeFromMetadata)
     {
         this.useFileSizeFromMetadata = useFileSizeFromMetadata;
+        return this;
+    }
+
+    public boolean isUniqueTableLocation()
+    {
+        return uniqueTableLocation;
+    }
+
+    @Config("iceberg.unique-table-location")
+    @ConfigDescription("Include UUID in the table location")
+    public IcebergConfig setUniqueTableLocation(boolean uniqueTableLocation)
+    {
+        this.uniqueTableLocation = uniqueTableLocation;
         return this;
     }
 }

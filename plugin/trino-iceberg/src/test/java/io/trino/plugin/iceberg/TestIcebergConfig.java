@@ -34,7 +34,8 @@ public class TestIcebergConfig
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setFileFormat(ORC)
                 .setCompressionCodec(GZIP)
-                .setUseFileSizeFromMetadata(true));
+                .setUseFileSizeFromMetadata(true)
+                .setUniqueTableLocation(false));
     }
 
     @Test
@@ -44,12 +45,14 @@ public class TestIcebergConfig
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
                 .put("iceberg.use-file-size-from-metadata", "false")
+                .put("iceberg.unique-table-location", "true")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setFileFormat(PARQUET)
                 .setCompressionCodec(HiveCompressionCodec.NONE)
-                .setUseFileSizeFromMetadata(false);
+                .setUseFileSizeFromMetadata(false)
+                .setUniqueTableLocation(true);
 
         assertFullMapping(properties, expected);
     }
