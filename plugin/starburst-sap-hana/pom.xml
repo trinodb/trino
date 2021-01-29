@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>starburst-sap-hana</artifactId>
-    <description>Starburst Presto - SAP HANA Connector</description>
+    <description>Starburst Enterprise - SAP HANA Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
