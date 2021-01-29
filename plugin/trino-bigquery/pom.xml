@@ -80,6 +80,11 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.api</groupId>
             <artifactId>gax</artifactId>
         </dependency>
@@ -287,6 +292,7 @@
                             <excludes>
                                 <!-- If you are adding entry here also add an entry to cloud-tests profile below -->
                                 <exclude>**/TestBigQueryIntegrationSmokeTest.java</exclude>
+                                <exclude>**/TestBigQueryCaseInsensitiveMapping.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -307,6 +313,27 @@
                         <configuration>
                             <includes>
                                 <include>**/TestBigQueryIntegrationSmokeTest.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Separate profile for TestBigQueryCaseInsensitiveMapping until we can fully isolate it -->
+        <profile>
+            <id>cloud-tests-case-insensitive-mapping</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestBigQueryCaseInsensitiveMapping.java</include>
                             </includes>
                         </configuration>
                     </plugin>

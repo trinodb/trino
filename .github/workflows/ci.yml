@@ -295,6 +295,13 @@ jobs:
           if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
             ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
           fi
+      - name: Cloud BigQuery Case Insensitive Mapping Tests
+        env:
+          BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
+        run: |
+          if [ "${BIGQUERY_CREDENTIALS_KEY}" != "" ]; then
+            ./mvnw test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}"
+          fi
 
   pt:
     runs-on: ubuntu-latest
