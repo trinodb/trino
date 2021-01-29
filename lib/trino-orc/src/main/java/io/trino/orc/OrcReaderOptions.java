@@ -26,7 +26,7 @@ public class OrcReaderOptions
     private static final DataSize DEFAULT_TINY_STRIPE_THRESHOLD = DataSize.of(8, MEGABYTE);
     private static final DataSize DEFAULT_STREAM_BUFFER_SIZE = DataSize.of(8, MEGABYTE);
     private static final DataSize DEFAULT_MAX_BLOCK_SIZE = DataSize.of(16, MEGABYTE);
-    private static final boolean DEFAULT_LAZY_READ_SMALL_RANGES = true;
+    private static final boolean DEFAULT_LAZY_READ_SMALL_RANGES = false;
     private static final boolean DEFAULT_NESTED_LAZY = true;
 
     private final boolean bloomFiltersEnabled;
