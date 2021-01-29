@@ -82,7 +82,7 @@ class PrestoAggregateFunctionRewriteRule
                 .map(sortItem -> {
                     JdbcColumnHandle columnHandle = getAssignment(context, sortItem.getName());
                     return format("%s %s",
-                            columnHandle.toSqlExpression(context.getIdentifierQuote()),
+                            context.getIdentifierQuote().apply(columnHandle.getColumnName()),
                             toSql(sortItem.getSortOrder()));
                 })
                 .collect(joining(", "));
@@ -123,7 +123,7 @@ class PrestoAggregateFunctionRewriteRule
         }
 
         JdbcColumnHandle columnHandle = getAssignment(context, ((Variable) expression).getName());
-        String sqlExpression = columnHandle.toSqlExpression(context.getIdentifierQuote());
+        String sqlExpression = context.getIdentifierQuote().apply(columnHandle.getColumnName());
         verify(!sqlExpression.isBlank(), "Blank sqlExpression [%s] for %s", sqlExpression, columnHandle);
         return Optional.of(sqlExpression);
     }

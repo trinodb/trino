@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.prestoconnector;
 import com.google.common.base.VerifyException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
@@ -27,6 +28,7 @@ import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -72,7 +74,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.plugin.prestoconnector.PrestoColumnMappings.prestoDateColumnMapping;
@@ -615,7 +616,7 @@ public class PrestoConnectorClient
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
-        if (table.getGroupingSets().isPresent()) {
+        if (!table.isNamedRelation()) {
             // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4856) retrieve statistics for base table and derive statistics for the aggregation
             return Optional.empty();
         }
@@ -667,16 +668,18 @@ public class PrestoConnectorClient
     private PreparedStatement getShowStatsStatement(ConnectorSession session, Connection connection, JdbcTableHandle table, List<JdbcColumnHandle> jdbcColumnHandles)
             throws SQLException
     {
-        checkArgument(table.getGroupingSets().isEmpty(), "table grouping sets should be empty: %s", table.getGroupingSets());
-        return new QueryBuilder(this).buildSql(
+        QueryBuilder queryBuilder = new QueryBuilder(this);
+        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                 session,
                 connection,
-                table.getRemoteTableName(),
-                table.getGroupingSets(),
-                jdbcColumnHandles,
-                table.getConstraint(),
+                table.getRelationHandle(),
                 Optional.empty(),
-                sql -> "SHOW STATS FOR (" + sql + ")");
+                jdbcColumnHandles,
+                ImmutableMap.of(),
+                table.getConstraint(),
+                Optional.empty());
+        preparedQuery = preparedQuery.transformQuery(sql -> "SHOW STATS FOR (" + sql + ")");
+        return queryBuilder.prepareStatement(session, connection, preparedQuery);
     }
 
     private static Estimate toEstimate(Optional<Double> value)

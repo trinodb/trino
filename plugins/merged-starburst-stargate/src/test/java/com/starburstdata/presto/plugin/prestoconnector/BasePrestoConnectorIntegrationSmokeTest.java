@@ -38,7 +38,7 @@ public abstract class BasePrestoConnectorIntegrationSmokeTest
         assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
-        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
 
         // GROUP BY
         assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
