@@ -651,7 +651,7 @@ public class SapHanaClient
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
-        if (table.getGroupingSets().isPresent()) {
+        if (!table.isNamedRelation()) {
             // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4856) retrieve statistics for base table and derive statistics for the aggregation
             return Optional.empty();
         }

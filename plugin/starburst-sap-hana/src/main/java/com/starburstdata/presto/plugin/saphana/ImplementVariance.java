@@ -59,7 +59,7 @@ public class ImplementVariance
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("var_samp(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("var_samp(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }

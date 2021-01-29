@@ -56,7 +56,7 @@ public class ImplementStddevPop
         verify(aggregateFunction.getOutputType().equals(DOUBLE));
 
         return Optional.of(new JdbcExpression(
-                format("stddev_pop(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("stddev_pop(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 columnHandle.getJdbcTypeHandle()));
     }
 }
