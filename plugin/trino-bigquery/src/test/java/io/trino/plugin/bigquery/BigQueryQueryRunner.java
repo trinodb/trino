@@ -16,6 +16,7 @@ package io.trino.plugin.bigquery;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -41,7 +43,7 @@ public final class BigQueryQueryRunner
 
     private BigQueryQueryRunner() {}
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -53,11 +55,14 @@ public final class BigQueryQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
+
             queryRunner.installPlugin(new BigQueryPlugin());
             queryRunner.createCatalog(
                     "bigquery",
                     "bigquery",
-                    ImmutableMap.of("bigquery.views-enabled", "true"));
+                    connectorProperties);
 
             return queryRunner;
         }
@@ -97,6 +102,16 @@ public final class BigQueryQueryRunner
             }
         }
 
+        public void createDataset(String dataset)
+        {
+            bigQuery.create(DatasetInfo.newBuilder(dataset).build());
+        }
+
+        public void dropDataset(String dataset)
+        {
+            bigQuery.delete(dataset);
+        }
+
         private static BigQuery createBigQueryClient()
         {
             try {
@@ -116,7 +131,7 @@ public final class BigQueryQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
         Thread.sleep(10);
         Logger log = Logger.get(BigQueryQueryRunner.class);
         log.info("======== SERVER STARTED ========");
