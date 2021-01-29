@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>starburst-synapse</artifactId>
-    <description>Starburst Presto - Synapse Connector</description>
+    <description>Starburst Enterprise - Synapse Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>

@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>starburst-snowflake</artifactId>
-    <description>Starburst Presto - Snowflake Connector</description>
+    <description>Starburst Enterprise - Snowflake Connector</description>
     <packaging>trino-plugin</packaging>
 
     <properties>
