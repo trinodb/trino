@@ -153,12 +153,6 @@ public class CachingJdbcClient
     }
 
     @Override
-    public boolean supportsGroupingSets()
-    {
-        return delegate.supportsGroupingSets();
-    }
-
-    @Override
     public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
     {
         return delegate.supportsAggregationPushdown(session, table, groupingSets);

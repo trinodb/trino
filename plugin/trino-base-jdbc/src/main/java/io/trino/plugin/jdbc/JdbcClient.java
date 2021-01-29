@@ -61,15 +61,6 @@ public interface JdbcClient
 
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
-    /**
-     * @deprecated Implement {@link #supportsAggregationPushdown} instead. This method will be removed in a future release.
-     */
-    @Deprecated
-    default boolean supportsGroupingSets()
-    {
-        return true;
-    }
-
     default boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
     {
         return true;
