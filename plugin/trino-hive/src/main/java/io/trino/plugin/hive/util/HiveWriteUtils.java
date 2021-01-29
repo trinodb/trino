@@ -20,6 +20,7 @@ import com.google.common.primitives.SignedBytes;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveReadOnlyException;
+import io.trino.plugin.hive.HiveTimestampPrecision;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.avro.AvroRecordWriter;
 import io.trino.plugin.hive.metastore.Database;
@@ -45,6 +46,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.IntegerType;
+import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimestampType;
@@ -96,6 +98,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
@@ -114,10 +117,12 @@ import static io.trino.plugin.hive.util.HiveUtil.isMapType;
 import static io.trino.plugin.hive.util.HiveUtil.isRowType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.Chars.padSpaces;
-import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -233,7 +238,7 @@ public final class HiveWriteUtils
         if (type.equals(DateType.DATE)) {
             return javaDateObjectInspector;
         }
-        if (type.equals(TIMESTAMP_MILLIS)) {
+        if (type instanceof TimestampType) {
             return javaTimestampObjectInspector;
         }
         if (type instanceof DecimalType) {
@@ -320,8 +325,8 @@ public final class HiveWriteUtils
         if (DateType.DATE.equals(type)) {
             return Date.ofEpochDay(toIntExact(type.getLong(block, position)));
         }
-        if (TIMESTAMP_MILLIS.equals(type)) {
-            return Timestamp.ofEpochMilli(floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND));
+        if (type instanceof TimestampType) {
+            return getHiveTimestamp((TimestampType) type, block, position);
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
@@ -722,5 +727,26 @@ public final class HiveWriteUtils
             unscaledValue = Decimals.decodeUnscaledValue(decimalType.getSlice(block, position));
         }
         return HiveDecimal.create(unscaledValue, decimalType.getScale());
+    }
+
+    private static Timestamp getHiveTimestamp(TimestampType type, Block block, int position)
+    {
+        verify(type.getPrecision() <= HiveTimestampPrecision.MAX.getPrecision(), "Timestamp precision too high for Hive");
+
+        long epochMicros;
+        int nanosOfMicro;
+        if (type.isShort()) {
+            epochMicros = type.getLong(block, position);
+            nanosOfMicro = 0;
+        }
+        else {
+            LongTimestamp timestamp = (LongTimestamp) type.getObject(block, position);
+            epochMicros = timestamp.getEpochMicros();
+            nanosOfMicro = timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND;
+        }
+        long epochSeconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+        int microsOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND);
+        int nanosOfSecond = microsOfSecond * NANOSECONDS_PER_MICROSECOND + nanosOfMicro;
+        return Timestamp.ofEpochSecond(epochSeconds, nanosOfSecond);
     }
 }
