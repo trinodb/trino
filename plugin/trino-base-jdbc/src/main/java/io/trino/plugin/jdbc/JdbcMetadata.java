@@ -218,10 +218,6 @@ public class JdbcMetadata
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
 
-        if (groupingSets.size() > 1 && !jdbcClient.supportsGroupingSets()) {
-            return Optional.empty();
-        }
-
         if (!jdbcClient.supportsAggregationPushdown(session, handle, groupingSets)) {
             // JDBC client implementation prevents pushdown for the given table
             return Optional.empty();
