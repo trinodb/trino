@@ -31,7 +31,6 @@ import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
-import io.trino.metadata.TableMetadata;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.ViewAccessControl;
@@ -189,6 +188,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Maps.uniqueIndex;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.FunctionKind.WINDOW;
@@ -396,9 +396,7 @@ class StatementAnalyzer
             }
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-
-            List<ColumnMetadata> columns = tableMetadata.getColumns().stream()
+            List<ColumnMetadata> columns = getColumnMetadatas(targetTable).stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
 
@@ -447,8 +445,9 @@ class StatementAnalyzer
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList()),
                     newTableLayout));
 
+            ImmutableMap<String, ColumnMetadata> columnNameToMetadata = uniqueIndex(columns, ColumnMetadata::getName);
             List<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
+                    .map(insertColumn -> columnNameToMetadata.get(insertColumn).getType())
                     .collect(toImmutableList());
 
             List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
@@ -503,9 +502,11 @@ class StatementAnalyzer
                 analysis.setSkipMaterializedViewRefresh(false);
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
-            List<String> insertColumns = tableMetadata.getColumns().stream()
+            List<ColumnMetadata> columnMetadatas = getColumnMetadatas(targetTable).stream()
                     .filter(column -> !column.isHidden())
+                    .collect(toImmutableList());
+
+            List<String> insertColumns = columnMetadatas.stream()
                     .map(ColumnMetadata::getName)
                     .collect(toImmutableList());
 
@@ -517,8 +518,9 @@ class StatementAnalyzer
                     targetTableHandle.get(), query,
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList())));
 
+            ImmutableMap<String, ColumnMetadata> columnNameToMetadata = uniqueIndex(columnMetadatas, ColumnMetadata::getName);
             List<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
+                    .map(insertColumn -> columnNameToMetadata.get(insertColumn).getType())
                     .collect(toImmutableList());
 
             List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
@@ -597,17 +599,13 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
-            TableHandle handle = metadata.getTableHandle(session, tableName)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
-
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
 
             if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
                 throw semanticException(NOT_SUPPORTED, node, "Delete from table with row filter");
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
-            for (ColumnMetadata tableColumn : tableMetadata.getColumns()) {
+            for (ColumnMetadata tableColumn : getColumnMetadatas(tableName)) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, node, "Delete from table with column mask");
                 }
@@ -1231,12 +1229,11 @@ class StatementAnalyzer
                 }
                 throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", name);
             }
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
+            for (ColumnMetadata column : getColumnMetadatas(name)) {
                 Field field = Field.newQualified(
                         table.getName(),
                         Optional.of(column.getName()),
@@ -3287,6 +3284,11 @@ class StatementAnalyzer
             ResolvedFunction resolvedFunction = analysis.getResolvedFunction(functionCall);
             verify(resolvedFunction != null, "function has not been analyzed yet: %s", functionCall);
             return metadata.getFunctionMetadata(resolvedFunction);
+        }
+
+        private List<ColumnMetadata> getColumnMetadatas(QualifiedObjectName tableName)
+        {
+            return metadata.listTableColumns(session, tableName.asQualifiedTablePrefix()).get(tableName);
         }
 
         private List<Expression> analyzeOrderBy(Node node, List<SortItem> sortItems, Scope orderByScope)
