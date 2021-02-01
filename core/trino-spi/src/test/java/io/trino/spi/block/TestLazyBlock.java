@@ -50,6 +50,17 @@ public class TestLazyBlock
         assertNotificationsRecursive(5, lazyBlock, actualNotifications, expectedNotifications);
     }
 
+    @Test
+    public void testLoadedBlockNestedListener()
+    {
+        List<Block> actualNotifications = new ArrayList<>();
+        LazyBlock lazyBlock = new LazyBlock(1, TestLazyBlock::createInfiniteRecursiveRowBlock);
+        Block nestedRowBlock = lazyBlock.getBlock();
+        LazyBlock.listenForLoads(lazyBlock, actualNotifications::add);
+        Block loadedBlock = ((LazyBlock) nestedRowBlock.getChildren().get(0)).getBlock();
+        assertEquals(actualNotifications, ImmutableList.of(loadedBlock));
+    }
+
     private static void assertNotificationsRecursive(int depth, Block lazyBlock, List<Block> actualNotifications, List<Block> expectedNotifications)
     {
         assertFalse(lazyBlock.isLoaded());
