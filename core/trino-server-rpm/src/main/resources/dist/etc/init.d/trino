@@ -37,37 +37,43 @@ CONFIGURATION=(
     --server-log-file "${SERVER_LOG_FILE:-/var/log/trino/server.log}"
 )
 
+declare -A CONFIG_ENV
 # Don't need shellcheck to follow env.sh
 # shellcheck disable=1091
 source /etc/trino/env.sh
 
+sudo_options=(-u "$SERVICE_USER")
+if [ -z "${JAVA_HOME}" ]; then
+    # Don't expand JAVA_HOME in the error message
+    # shellcheck disable=2016
+    echo 'Warning: No value found for $JAVA_HOME. Default Java will be used.' >&2
+else
+    sudo_options+=("PATH=${JAVA_HOME}/bin:$PATH")
+fi
+for key in "${!CONFIG_ENV[@]}"; do
+    sudo_options+=("$key=${CONFIG_ENV[$key]}")
+done
+
 start() {
     echo "Starting ${SERVICE_NAME} "
-    if [ -z "${JAVA_HOME}" ]; then
-        # Don't expand JAVA_HOME in the error message
-        # shellcheck disable=2016
-        echo 'Warning: No value found for $JAVA_HOME. Default Java will be used.' >&2
-        sudo -u $SERVICE_USER /usr/lib/trino/bin/launcher start "${CONFIGURATION[@]}"
-    else
-        sudo -u $SERVICE_USER PATH="${JAVA_HOME}/bin:$PATH" /usr/lib/trino/bin/launcher start "${CONFIGURATION[@]}"
-    fi
+    sudo "${sudo_options[@]}" /usr/lib/trino/bin/launcher start "${CONFIGURATION[@]}"
     return $?
 }
 
 stop() {
     echo "Stopping ${SERVICE_NAME} "
-    sudo -u $SERVICE_USER /usr/lib/trino/bin/launcher stop "${CONFIGURATION[@]}"
+    sudo "${sudo_options[@]}" /usr/lib/trino/bin/launcher stop "${CONFIGURATION[@]}"
     return $?
 }
 
 status() {
     echo "Getting status for ${SERVICE_NAME} "
-    sudo -u $SERVICE_USER /usr/lib/trino/bin/launcher status "${CONFIGURATION[@]}"
+    sudo "${sudo_options[@]}" /usr/lib/trino/bin/launcher status "${CONFIGURATION[@]}"
     return $?
 }
 
 restart() {
-    sudo -u $SERVICE_USER /usr/lib/trino/bin/launcher restart "${CONFIGURATION[@]}"
+    sudo "${sudo_options[@]}" /usr/lib/trino/bin/launcher restart "${CONFIGURATION[@]}"
     return $?
 }
 
