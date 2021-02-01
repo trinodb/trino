@@ -10,6 +10,11 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
+import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
@@ -18,6 +23,7 @@ import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.connectionProperties;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
+import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -72,12 +78,55 @@ public abstract class BaseStarburstOracleAggregationPushdownTest
     {
         // TODO support aggregation pushdown with GROUPING SETS
 
+        // SELECT DISTINCT
+        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
+
+        // count()
         assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
         assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
+
+        // GROUP BY
         assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
+
+        Session withMarkDistinct = Session.builder(getSession())
+                .setSystemProperty(USE_MARK_DISTINCT, "true")
+                .build();
+
+        // distinct aggregation
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        // distinct aggregation with GROUP BY
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        // distinct aggregation with varchar
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
+        // two distinct aggregations
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
+                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+        // distinct aggregation and a non-distinct aggregation
+        assertThat(query(withMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
+                .isNotFullyPushedDown(MarkDistinctNode.class, ExchangeNode.class, ExchangeNode.class, ProjectNode.class);
+
+        Session withoutMarkDistinct = Session.builder(getSession())
+                .setSystemProperty(USE_MARK_DISTINCT, "false")
+                .build();
+
+        // distinct aggregation
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey) FROM nation")).isFullyPushedDown();
+        // distinct aggregation with GROUP BY
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        // distinct aggregation with varchar
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT comment) FROM nation")).isFullyPushedDown();
+        // two distinct aggregations
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), count(DISTINCT nationkey) FROM nation"))
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
+        // distinct aggregation and a non-distinct aggregation
+        assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
+                .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
 
         try (TestTable testTable = new TestTable(onOracle(), getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
@@ -111,7 +160,6 @@ public abstract class BaseStarburstOracleAggregationPushdownTest
             // aggregation on varchar column with WHERE
             assertThat(query("SELECT min(varchar_column) FROM " + testTable.getName() + " WHERE varchar_column ='ala'")).isFullyPushedDown();
 
-            assertThat(query("SELECT min(DISTINCT short_decimal) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isFullyPushedDown();
         }
     }
