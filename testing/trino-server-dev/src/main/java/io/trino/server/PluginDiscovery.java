@@ -57,8 +57,11 @@ final class PluginDiscovery
         if (!file.getPath().endsWith("/target/classes")) {
             throw new RuntimeException("Unexpected file for main artifact: " + file);
         }
+        if (!file.exists()) {
+            throw new RuntimeException("Main artifact directory does not exist: " + file);
+        }
         if (!file.isDirectory()) {
-            throw new RuntimeException("Main artifact file is not a directory: " + file);
+            throw new RuntimeException("Main artifact location is not a directory: " + file);
         }
 
         if (new File(file, SERVICES_FILE).exists()) {
