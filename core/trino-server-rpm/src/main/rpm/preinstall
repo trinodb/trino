@@ -23,7 +23,7 @@ check_if_correct_java_version() {
     JAVA_VERSION=$(java_version "$1")
     JAVA_MAJOR=$(echo "$JAVA_VERSION" | cut -d'.' -f1)
     if [ "$JAVA_MAJOR" -ge "11" ]; then
-        echo "JAVA_HOME=$1" >/tmp/trino_env.sh
+        echo "$1" >/tmp/trino-rpm-install-java-home
         return 0
     else
         return 1
