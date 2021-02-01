@@ -55,19 +55,6 @@ public class TestHiveViewsLegacy
         assertThat(query("SHOW CREATE VIEW hive_show_view")).hasRowsCount(1);
     }
 
-    @Test(groups = HIVE_VIEWS)
-    public void testUnsupportedLateralViews()
-    {
-        onHive().executeQuery("DROP VIEW IF EXISTS hive_lateral_view");
-        onHive().executeQuery("DROP TABLE IF EXISTS pageAds");
-
-        onHive().executeQuery("CREATE TABLE pageAds(pageid string, adid_list array<int>)");
-        onHive().executeQuery("CREATE VIEW hive_lateral_view as SELECT pageid, adid FROM pageAds LATERAL VIEW explode(adid_list) adTable AS adid");
-
-        assertThat(() -> query("SELECT COUNT(*) FROM hive_lateral_view"))
-                .failsWithMessage("Failed parsing stored view 'hive.default.hive_lateral_view': line 1:78: mismatched input 'VIEW'");
-    }
-
     @Override
     @Test(groups = HIVE_VIEWS)
     public void testHiveViewInInformationSchema()
