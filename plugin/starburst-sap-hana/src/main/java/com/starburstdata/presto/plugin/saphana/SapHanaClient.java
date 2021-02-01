@@ -38,7 +38,11 @@ import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
+import io.trino.plugin.jdbc.expression.ImplementStddevPop;
+import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
 import io.trino.plugin.jdbc.expression.ImplementSum;
+import io.trino.plugin.jdbc.expression.ImplementVariancePop;
+import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -186,9 +190,9 @@ public class SapHanaClient
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgBigint())
                         .add(new ImplementAvgDecimal())
-                        .add(new ImplementStddev())
+                        .add(new ImplementStddevSamp())
                         .add(new ImplementStddevPop())
-                        .add(new ImplementVariance())
+                        .add(new ImplementVarianceSamp())
                         .add(new ImplementVariancePop())
                         .build());
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
