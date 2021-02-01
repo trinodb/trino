@@ -64,27 +64,13 @@ Property Name                                              Description
 ``kafka.table-names``                                      List of all tables provided by the catalog
 ``kafka.default-schema``                                   Default schema name for tables
 ``kafka.nodes``                                            List of nodes in the Kafka cluster
+``kafka.table-description-supplier``                       The table description supplier to use
 ``kafka.buffer-size``                                      Kafka read buffer size
 ``kafka.table-description-dir``                            Directory containing topic description files
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
 ``kafka.messages-per-split``                               Number of messages that are processed by each Trino split, defaults to 100000
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
 ========================================================== ==============================================================================
-
-``kafka.table-names``
-^^^^^^^^^^^^^^^^^^^^^
-
-Comma-separated list of all tables provided by this catalog. A table name can be
-unqualified (simple name), and is then placed into the default schema (see
-below), or it can be qualified with a schema name
-(``<schema-name>.<table-name>``).
-
-For each table defined here, a table description file (see below) may
-exist. If no table description file exists, the table name is used as the
-topic name on Kafka and no data columns are mapped into the table. The
-table still contains all internal columns (see below).
-
-This property is required; there is no default and at least one table must be defined.
 
 ``kafka.default-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -115,14 +101,6 @@ buffer must be able to hold at least one message and ideally can hold many
 messages. There is one data buffer allocated per worker and data node.
 
 This property is optional; the default is ``64kb``.
-
-``kafka.table-description-dir``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-References a folder within Trino deployment that holds one or more JSON
-files (must end with ``.json``) which contain table description files.
-
-This property is optional; the default is ``etc/kafka``.
 
 ``kafka.timestamp-upper-bound-force-push-down-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -171,6 +149,52 @@ Column name             Type                            Description
 
 For tables without a table definition file, the ``_key_corrupt`` and
 ``_message_corrupt`` columns will always be ``false``.
+
+``kafka.table-description-supplier``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The table description supplier is a way for the kafka connector to discover tables.
+Each table description supplier will have it's own configuration.
+Currently the ``FILE`` and ``CONFLUENT`` suppliers are implemented. Refer to the subsections below for more detail.
+The ``FILE`` table description supplier is the default and the value is case insensitive.
+
+File table description supplier
+-------------------------------
+
+In order to use the file based table description supplier, the ``kafka.table-description-supplier`` must be set to ``FILE``
+which is the default.
+
+The relevant configuration parameters are defined as follows in the catalog properties file:
+
+========================================================== ==============================================================================
+Property Name                                              Description
+========================================================== ==============================================================================
+``kafka.table-names``                                      List of all tables provided by the catalog
+``kafka.table-description-dir``                            Directory containing topic description files
+========================================================== ==============================================================================
+
+``kafka.table-names``
+^^^^^^^^^^^^^^^^^^^^^
+
+Comma-separated list of all tables provided by this catalog. A table name can be
+unqualified (simple name), and is then placed into the default schema (see
+below), or it can be qualified with a schema name
+(``<schema-name>.<table-name>``).
+
+For each table defined here, a table description file (see below) may
+exist. If no table description file exists, the table name is used as the
+topic name on Kafka and no data columns are mapped into the table. The
+table still contains all internal columns (see below).
+
+This property is required if the ``FILE`` table description supplier is used; there is no default and at least one table must be defined.
+
+``kafka.table-description-dir``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+References a folder within Trino deployment that holds one or more JSON
+files (must end with ``.json``) which contain table description files.
+
+This property is optional; the default is ``etc/kafka``.
 
 Table definition files
 ----------------------
@@ -268,6 +292,70 @@ Field           Required  Type      Description
 =============== ========= ========= =============================
 
 There is no limit on field descriptions for either key or message.
+
+Confluent Table Description Supplier
+------------------------------------
+The confluent table description supplier uses the `Confluent Schema Registry
+<https://docs.confluent.io/1.0/schema-registry/docs/intro.html>`_. to
+discover table definitions. The benefits of using the schema registry is that new tables can be defined without
+a cluster restart, schema updates will be detected and there is no need to define tables manually.
+
+.. note::
+
+    Currently inserts are not supported and the only data format supported is AVRO.
+
+========================================================== ========================================
+Property Name                                              Description
+========================================================== ========================================
+``kafka.confluent-schema-registry-url``                    List of addresses for the confluent schema registry
+``kafka.confluent-schema-registry-client-cache-size``      The maximum number of subjects that can be stored in the local cache
+``kafka.empty-field-strategy``                             How to handle struct types with no fields: ignore, add a boolean field named 'dummy' or fail the query
+``kafka.confluent-subjects-cache-refresh-interval``        The interval that the topic to subjects cache will be refreshed
+========================================================== ========================================
+
+``kafka.confluent-schema-registry-url``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The comma separated list of schema registry urls used to connect to the schema registry, for example ``http://schema-registry-1.example.org:8081,http://schema-registry-2.example.org:8081``.
+This property is required if the ``CONFLUENT`` table description supplier is used; there is no default.
+
+``kafka.confluent-schema-registry-client-cache-size``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The size of the local subjects cache. This cache stores the schemas locally by subjectId and is provided by the confluent
+CachingSchemaRegistry client.
+This property is optional; the default is ``1000``.
+
+``kafka.empty-field-strategy``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Avro allows empty struct fields but this is not allowed in Trino. There are 3 strategies for handling empty struct fields:
+
+============== ===============================================================================================================================
+Strategy Name                                              Description
+============== ===============================================================================================================================
+``IGNORE``     Ignore structs with no fields. This will propagate to parents, for example an array of structs with no fields will be ignored.
+               This is the default strategy.
+``FAIL``       Fail the query if a struct with no fields is defined.
+``DUMMY``      Add a dummy boolean field called ``dummy`` which is null. This may be desired if the struct represents a marker field.
+============== ===============================================================================================================================
+
+This property is optional; the default is ``IGNORE``.
+
+``kafka.confluent-subjects-cache-refresh-interval``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The interval in which the schema registry will refresh the list of subjects and the definition of the schema for the subject.
+This property is optional; the default is ``1s``.
+
+Confluent Subject to Table Name Mapping
+---------------------------------------
+
+The `subject naming strategy
+<https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#sr-schemas-subject-name-strategy>`_ determines how a subject is resolved from the table name.
+The default strategy is the ``TopicNameStrategy`` where the key subject is defined as ``<topic-name>-key`` and the value subject is defined as ``<topic-name>-value``.
+If other strategies are used there is no way to determine the subject name before hand so it must be specified manually in the table name.
+
+To manually specify the key and value subjects just append to the table name, for example: ``<topic name>&key-subject=<key subject>&value-subject=<value subject``.
+Both the ``key-subject`` and ``value-subject`` parameters are optional.
+If either is not specified then the default ``TopicNameStrategy`` will be used to resolve the subject name via the topic name.
+Note that a case insensitive match must be done, as identifiers cannot contain upper case characters.
 
 Kafka inserts
 -------------
