@@ -833,6 +833,7 @@ public abstract class BaseJdbcClient
     protected Map<String, String> listSchemasByLowerCase(Connection connection)
     {
         return listSchemas(connection).stream()
+                // will throw on collisions to avoid ambiguity
                 .collect(toImmutableMap(schemaName -> schemaName.toLowerCase(ENGLISH), schemaName -> schemaName));
     }
 
@@ -884,6 +885,7 @@ public abstract class BaseJdbcClient
                 String tableName = resultSet.getString("TABLE_NAME");
                 map.put(tableName.toLowerCase(ENGLISH), tableName);
             }
+            // will throw on collisions to avoid ambiguity
             return map.build();
         }
         catch (SQLException e) {
