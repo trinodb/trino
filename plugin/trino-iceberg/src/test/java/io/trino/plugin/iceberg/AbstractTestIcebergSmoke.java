@@ -722,15 +722,17 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT * FROM test_hour_transform", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(-1, 1, TIMESTAMP '1969-12-31 22:22:22.222222', TIMESTAMP '1969-12-31 22:22:22.222222', 8, 8), " +
-                "(0, 3, TIMESTAMP '1969-12-31 23:33:11.456789', TIMESTAMP '1970-01-01 00:55:44.765432', 9, 11), " +
+                "(-2, 1, TIMESTAMP '1969-12-31 22:22:22.222222', TIMESTAMP '1969-12-31 22:22:22.222222', 8, 8), " +
+                "(-1, 2, TIMESTAMP '1969-12-31 23:33:11.456789', TIMESTAMP '1969-12-31 23:44:55.567890', 9, 10), " +
+                "(0, 1, TIMESTAMP '1970-01-01 00:55:44.765432', TIMESTAMP '1970-01-01 00:55:44.765432', 11, 11), " +
                 "(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 10:55:00.456789', 1, 3), " +
                 "(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567', TIMESTAMP '2015-05-15 12:21:02.345678', 4, 5), " +
                 "(439525, 2, TIMESTAMP '2020-02-21 13:11:11.876543', TIMESTAMP '2020-02-21 13:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-1, 1, NULL, NULL, 8, 8), " +
-                    "(0, 3, NULL, NULL, 9, 11), " +
+                    "(-2, 1, NULL, NULL, 8, 8), " +
+                    "(-1, 2, NULL, NULL, 9, 10), " +
+                    "(0, 1, NULL, NULL, 11, 11), " +
                     "(394474, 3, NULL, NULL, 1, 3), " +
                     "(397692, 2, NULL, NULL, 4, 5), " +
                     "(439525, 2, NULL, NULL, 6, 7)";
@@ -804,17 +806,19 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT * FROM test_day_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(DATE '1969-12-26', 1, TIMESTAMP '1969-12-25 15:13:12.876543', TIMESTAMP '1969-12-25 15:13:12.876543', 8, 8), " +
-                "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-30 18:47:33.345678', TIMESTAMP '1969-12-31 00:00:00.000000', 9, 10), " +
-                "(DATE '1970-01-01', 2, TIMESTAMP '1969-12-31 05:06:07.234567', TIMESTAMP '1970-01-01 12:03:08.456789', 11, 12), " +
+                "(DATE '1969-12-25', 1, TIMESTAMP '1969-12-25 15:13:12.876543', TIMESTAMP '1969-12-25 15:13:12.876543', 8, 8), " +
+                "(DATE '1969-12-30', 1, TIMESTAMP '1969-12-30 18:47:33.345678', TIMESTAMP '1969-12-30 18:47:33.345678', 9, 9), " +
+                "(DATE '1969-12-31', 2, TIMESTAMP '1969-12-31 00:00:00.000000', TIMESTAMP '1969-12-31 05:06:07.234567', 10, 11), " +
+                "(DATE '1970-01-01', 1, TIMESTAMP '1970-01-01 12:03:08.456789', TIMESTAMP '1970-01-01 12:03:08.456789', 12, 12), " +
                 "(DATE '2015-01-01', 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
                 "(DATE '2015-05-15', 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(DATE '2020-02-21', 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(DATE '1969-12-26', 1, NULL, NULL, 8, 8), " +
-                    "(DATE '1969-12-31', 2, NULL, NULL, 9, 10), " +
-                    "(DATE '1970-01-01', 2, NULL, NULL, 11, 12), " +
+                    "(DATE '1969-12-25', 1, NULL, NULL, 8, 8), " +
+                    "(DATE '1969-12-30', 1, NULL, NULL, 9, 9), " +
+                    "(DATE '1969-12-31', 2, NULL, NULL, 10, 11), " +
+                    "(DATE '1970-01-01', 1, NULL, NULL, 12, 12), " +
                     "(DATE '2015-01-01', 3, NULL, NULL, 1, 3), " +
                     "(DATE '2015-05-15', 2, NULL, NULL, 4, 5), " +
                     "(DATE '2020-02-21', 2, NULL, NULL, 6, 7)";
@@ -853,8 +857,9 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery(
                 "SELECT d_month, row_count, d.min, d.max, b.min, b.max FROM \"test_month_transform_date$partitions\"",
                 "VALUES " +
-                        "(-1, 2, DATE '1969-11-13', DATE '1969-12-01', 1, 2), " +
-                        "(0, 3, DATE '1969-12-02', DATE '1970-01-01', 3, 5), " +
+                        "(-2, 1, DATE '1969-11-13', DATE '1969-11-13', 1, 1), " +
+                        "(-1, 3, DATE '1969-12-01', DATE '1969-12-31', 2, 4), " +
+                        "(0, 1, DATE '1970-01-01', DATE '1970-01-01', 5, 5), " +
                         "(4, 1, DATE '1970-05-13', DATE '1970-05-13', 6, 6), " +
                         "(11, 1, DATE '1970-12-31', DATE '1970-12-31', 7, 7), " +
                         "(600, 1, DATE '2020-01-01', DATE '2020-01-01', 8, 8), " +
@@ -889,15 +894,17 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT * FROM test_month_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(-1, 3, TIMESTAMP '1969-11-15 15:13:12.876543', TIMESTAMP '1969-12-01 00:00:00.000000', 8, 10), " +
-                "(0, 2, TIMESTAMP '1969-12-01 05:06:07.234567', TIMESTAMP '1970-01-01 12:03:08.456789', 11, 12), " +
+                "(-2, 2, TIMESTAMP '1969-11-15 15:13:12.876543', TIMESTAMP '1969-11-19 18:47:33.345678', 8, 9), " +
+                "(-1, 2, TIMESTAMP '1969-12-01 00:00:00.000000', TIMESTAMP '1969-12-01 05:06:07.234567', 10, 11), " +
+                "(0, 1, TIMESTAMP '1970-01-01 12:03:08.456789', TIMESTAMP '1970-01-01 12:03:08.456789', 12, 12), " +
                 "(540, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 12:55:00.456789', 1, 3), " +
                 "(544, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-05-15 14:21:02.345678', 4, 5), " +
                 "(601, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-02-21 16:12:12.654321', 6, 7)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-1, 3, NULL, NULL, 8, 10), " +
-                    "(0, 2, NULL, NULL, 11, 12), " +
+                    "(-2, 2, NULL, NULL, 8, 9), " +
+                    "(-1, 2, NULL, NULL, 10, 11), " +
+                    "(0, 1, NULL, NULL, 12, 12), " +
                     "(540, 3, NULL, NULL, 1, 3), " +
                     "(544, 2, NULL, NULL, 4, 5), " +
                     "(601, 2, NULL, NULL, 6, 7)";
@@ -934,8 +941,9 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery(
                 "SELECT d_year, row_count, d.min, d.max, b.min, b.max FROM \"test_year_transform_date$partitions\"",
                 "VALUES " +
-                        "(-1, 2, DATE '1968-10-13', DATE '1969-01-01', 1, 2), " +
-                        "(0, 3, DATE '1969-03-15', DATE '1970-03-05', 3, 5), " +
+                        "(-2, 1, DATE '1968-10-13', DATE '1968-10-13', 1, 1), " +
+                        "(-1, 2, DATE '1969-01-01', DATE '1969-03-15', 2, 3), " +
+                        "(0, 2, DATE '1970-01-01', DATE '1970-03-05', 4, 5), " +
                         "(45, 3, DATE '2015-01-01', DATE '2015-07-28', 6, 8), " +
                         "(46, 2, DATE '2016-05-15', DATE '2016-06-06', 9, 10), " +
                         "(50, 2, DATE '2020-02-21', DATE '2020-11-10', 11, 12)");
@@ -967,14 +975,16 @@ public abstract class AbstractTestIcebergSmoke
         assertQuery("SELECT * FROM test_year_transform_timestamp", values);
 
         @Language("SQL") String expected = "VALUES " +
-                "(-1, 3, TIMESTAMP '1968-03-15 15:13:12.876543', TIMESTAMP '1969-01-01 00:00:00.000000', 1, 3), " +
-                "(0, 5, TIMESTAMP '1969-01-01 05:06:07.234567', TIMESTAMP '1970-12-31 12:55:00.456789', 4, 8), " +
+                "(-2, 2, TIMESTAMP '1968-03-15 15:13:12.876543', TIMESTAMP '1968-11-19 18:47:33.345678', 1, 2), " +
+                "(-1, 2, TIMESTAMP '1969-01-01 00:00:00.000000', TIMESTAMP '1969-01-01 05:06:07.234567', 3, 4), " +
+                "(0, 4, TIMESTAMP '1970-01-18 12:03:08.456789', TIMESTAMP '1970-12-31 12:55:00.456789', 5, 8), " +
                 "(45, 2, TIMESTAMP '2015-05-15 13:05:01.234567', TIMESTAMP '2015-09-15 14:21:02.345678', 9, 10), " +
                 "(50, 2, TIMESTAMP '2020-02-21 15:11:11.876543', TIMESTAMP '2020-08-21 16:12:12.654321', 11, 12)";
         if (format == ORC) {
             expected = "VALUES " +
-                    "(-1, 3, NULL, NULL, 1, 3), " +
-                    "(0, 5, NULL, NULL, 4, 8), " +
+                    "(-2, 2, NULL, NULL, 1, 2), " +
+                    "(-1, 2, NULL, NULL, 3, 4), " +
+                    "(0, 4, NULL, NULL, 5, 8), " +
                     "(45, 2, NULL, NULL, 9, 10), " +
                     "(50, 2, NULL, NULL, 11, 12)";
         }
