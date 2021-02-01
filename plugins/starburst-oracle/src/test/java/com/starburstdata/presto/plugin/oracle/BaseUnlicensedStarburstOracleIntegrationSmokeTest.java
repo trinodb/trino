@@ -29,15 +29,15 @@ public abstract class BaseUnlicensedStarburstOracleIntegrationSmokeTest
     @Test
     public void testAggregationPushdownDisabled()
     {
-        assertThat(query("SELECT DISTINCT nationkey FROM nation")).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT DISTINCT nationkey FROM nation")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
 
         assertThat(query("SELECT count(*) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
         assertThat(query("SELECT count(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
 
-        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(ProjectNode.class);
-        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(ProjectNode.class);
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(ProjectNode.class);
-        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(ProjectNode.class);
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isNotFullyPushedDown(AggregationNode.class, ProjectNode.class);
     }
 
     /**
