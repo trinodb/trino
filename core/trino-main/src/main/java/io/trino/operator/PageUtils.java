@@ -16,11 +16,9 @@ package io.trino.operator;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 
-import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
 import static io.trino.spi.block.LazyBlock.listenForLoads;
-import static java.util.Objects.requireNonNull;
 
 public final class PageUtils
 {
@@ -35,37 +33,11 @@ public final class PageUtils
             Block block = page.getBlock(i);
             long initialSize = block.getSizeInBytes();
             loadedBlocksSizeInBytes += initialSize;
-            listenForLoads(block, new BlockSizeListener(block, sizeInBytesConsumer, initialSize));
+            listenForLoads(block, loadedBlock -> sizeInBytesConsumer.accept(loadedBlock.getSizeInBytes()));
         }
 
         if (loadedBlocksSizeInBytes > 0) {
             sizeInBytesConsumer.accept(loadedBlocksSizeInBytes);
-        }
-    }
-
-    private static class BlockSizeListener
-            implements Consumer<Block>
-    {
-        private final Block topLevelBlock;
-        private final LongConsumer sizeInBytesConsumer;
-        private long lastSize;
-
-        public BlockSizeListener(Block topLevelBlock, LongConsumer sizeInBytesConsumer, long initialSize)
-        {
-            this.topLevelBlock = requireNonNull(topLevelBlock, "topLevelBlock is null");
-            this.sizeInBytesConsumer = requireNonNull(sizeInBytesConsumer, "sizeInBytesConsumer is null");
-            this.lastSize = initialSize;
-        }
-
-        @Override
-        public void accept(Block childBlock)
-        {
-            long newSize = topLevelBlock.getSizeInBytes();
-            if (newSize == lastSize) {
-                return;
-            }
-            sizeInBytesConsumer.accept(newSize - lastSize);
-            lastSize = newSize;
         }
     }
 }
