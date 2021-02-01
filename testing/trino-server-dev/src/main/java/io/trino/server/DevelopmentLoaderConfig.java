@@ -20,48 +20,31 @@ import io.airlift.resolver.ArtifactResolver;
 
 import javax.validation.constraints.NotNull;
 
-import java.io.File;
 import java.util.List;
 
-public class PluginManagerConfig
+public class DevelopmentLoaderConfig
 {
-    private File installedPluginsDir = new File("plugin");
-    private List<String> plugins;
+    private static final Splitter SPLITTER = Splitter.on(',').omitEmptyStrings().trimResults();
+
+    private List<String> plugins = ImmutableList.of();
     private String mavenLocalRepository = ArtifactResolver.USER_LOCAL_REPO;
     private List<String> mavenRemoteRepository = ImmutableList.of(ArtifactResolver.MAVEN_CENTRAL_URI);
-
-    public File getInstalledPluginsDir()
-    {
-        return installedPluginsDir;
-    }
-
-    @Config("plugin.dir")
-    public PluginManagerConfig setInstalledPluginsDir(File installedPluginsDir)
-    {
-        this.installedPluginsDir = installedPluginsDir;
-        return this;
-    }
 
     public List<String> getPlugins()
     {
         return plugins;
     }
 
-    public PluginManagerConfig setPlugins(List<String> plugins)
+    public DevelopmentLoaderConfig setPlugins(List<String> plugins)
     {
-        this.plugins = plugins;
+        this.plugins = ImmutableList.copyOf(plugins);
         return this;
     }
 
     @Config("plugin.bundles")
-    public PluginManagerConfig setPlugins(String plugins)
+    public DevelopmentLoaderConfig setPlugins(String plugins)
     {
-        if (plugins == null) {
-            this.plugins = null;
-        }
-        else {
-            this.plugins = ImmutableList.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(plugins));
-        }
+        this.plugins = SPLITTER.splitToList(plugins);
         return this;
     }
 
@@ -72,7 +55,7 @@ public class PluginManagerConfig
     }
 
     @Config("maven.repo.local")
-    public PluginManagerConfig setMavenLocalRepository(String mavenLocalRepository)
+    public DevelopmentLoaderConfig setMavenLocalRepository(String mavenLocalRepository)
     {
         this.mavenLocalRepository = mavenLocalRepository;
         return this;
@@ -84,14 +67,14 @@ public class PluginManagerConfig
         return mavenRemoteRepository;
     }
 
-    public PluginManagerConfig setMavenRemoteRepository(List<String> mavenRemoteRepository)
+    public DevelopmentLoaderConfig setMavenRemoteRepository(List<String> mavenRemoteRepository)
     {
         this.mavenRemoteRepository = mavenRemoteRepository;
         return this;
     }
 
     @Config("maven.repo.remote")
-    public PluginManagerConfig setMavenRemoteRepository(String mavenRemoteRepository)
+    public DevelopmentLoaderConfig setMavenRemoteRepository(String mavenRemoteRepository)
     {
         this.mavenRemoteRepository = ImmutableList.copyOf(Splitter.on(',').omitEmptyStrings().trimResults().split(mavenRemoteRepository));
         return this;

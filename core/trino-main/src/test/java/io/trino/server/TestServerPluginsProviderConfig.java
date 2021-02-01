@@ -13,9 +13,7 @@
  */
 package io.trino.server;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.resolver.ArtifactResolver;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -25,16 +23,13 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestPluginManagerConfig
+public class TestServerPluginsProviderConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(PluginManagerConfig.class)
-                .setInstalledPluginsDir(new File("plugin"))
-                .setPlugins((String) null)
-                .setMavenLocalRepository(ArtifactResolver.USER_LOCAL_REPO)
-                .setMavenRemoteRepository(ArtifactResolver.MAVEN_CENTRAL_URI));
+        assertRecordedDefaults(recordDefaults(ServerPluginsProviderConfig.class)
+                .setInstalledPluginsDir(new File("plugin")));
     }
 
     @Test
@@ -42,16 +37,10 @@ public class TestPluginManagerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("plugin.dir", "plugins-dir")
-                .put("plugin.bundles", "a,b,c")
-                .put("maven.repo.local", "local-repo")
-                .put("maven.repo.remote", "remote-a,remote-b")
                 .build();
 
-        PluginManagerConfig expected = new PluginManagerConfig()
-                .setInstalledPluginsDir(new File("plugins-dir"))
-                .setPlugins(ImmutableList.of("a", "b", "c"))
-                .setMavenLocalRepository("local-repo")
-                .setMavenRemoteRepository(ImmutableList.of("remote-a", "remote-b"));
+        ServerPluginsProviderConfig expected = new ServerPluginsProviderConfig()
+                .setInstalledPluginsDir(new File("plugins-dir"));
 
         assertFullMapping(properties, expected);
     }

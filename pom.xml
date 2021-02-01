@@ -152,6 +152,7 @@
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-product-tests</module>
         <module>testing/trino-product-tests-launcher</module>
+        <module>testing/trino-server-dev</module>
         <module>testing/trino-test-jdbc-compatibility-old-driver</module>
         <module>testing/trino-test-jdbc-compatibility-old-server</module>
         <module>testing/trino-testing</module>
