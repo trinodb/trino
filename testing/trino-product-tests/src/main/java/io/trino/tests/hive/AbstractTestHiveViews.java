@@ -60,6 +60,21 @@ public abstract class AbstractTestHiveViews
     }
 
     @Test(groups = HIVE_VIEWS)
+    public void testArrayIndexingInView()
+    {
+        onHive().executeQuery("DROP VIEW IF EXISTS hive_zero_index_view");
+        onHive().executeQuery("DROP TABLE IF EXISTS hive_table_dummy");
+
+        onHive().executeQuery("CREATE TABLE hive_table_dummy(a int)");
+        onHive().executeQuery("CREATE VIEW hive_zero_index_view AS SELECT array('presto','hive')[1] AS sql_dialect FROM hive_table_dummy");
+        onHive().executeQuery("INSERT INTO TABLE hive_table_dummy VALUES (1)");
+
+        assertViewQuery(
+                "SELECT * FROM hive_zero_index_view",
+                queryAssert -> queryAssert.containsOnly(row("hive")));
+    }
+
+    @Test(groups = HIVE_VIEWS)
     public void testSelectOnViewFromDifferentSchema()
     {
         onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");

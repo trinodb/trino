@@ -117,6 +117,14 @@ public class TestHiveViewsLegacy
 
     @Override
     @Test
+    public void testArrayIndexingInView()
+    {
+        assertThatThrownBy(super::testArrayIndexingInView)
+                .hasMessageContaining("Function 'array' not registered");
+    }
+
+    @Override
+    @Test
     public void testLateralViewExplode()
     {
         assertThatThrownBy(super::testLateralViewExplode)
