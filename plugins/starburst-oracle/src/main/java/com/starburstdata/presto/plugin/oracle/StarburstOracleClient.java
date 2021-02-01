@@ -38,7 +38,11 @@ import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
+import io.trino.plugin.jdbc.expression.ImplementStddevPop;
+import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
 import io.trino.plugin.jdbc.expression.ImplementSum;
+import io.trino.plugin.jdbc.expression.ImplementVariancePop;
+import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
 import io.trino.plugin.oracle.OracleClient;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.spi.TrinoException;
@@ -120,10 +124,10 @@ public class StarburstOracleClient
                         .add(new ImplementSum(StarburstOracleClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
-                        .add(new ImplementOracleStddev())
-                        .add(new ImplementOracleStddevPop())
-                        .add(new ImplementOracleVariance())
-                        .add(new ImplementOracleVariancePop())
+                        .add(new ImplementStddevSamp())
+                        .add(new ImplementStddevPop())
+                        .add(new ImplementVarianceSamp())
+                        .add(new ImplementVariancePop())
                         .add(new ImplementCovarianceSamp())
                         .add(new ImplementCovariancePop())
                         .build());

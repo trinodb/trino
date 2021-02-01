@@ -45,11 +45,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-matching</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-oracle</artifactId>
             <!-- We need to downgrade Oracle JDBC driver due to Kerberos authentication errors -->
             <exclusions>
