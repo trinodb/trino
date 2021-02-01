@@ -115,7 +115,7 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
         {
             ImmutableList.Builder<String> list = ImmutableList.builder();
             for (int i = 0; i < count; i++) {
-                list.add(prefix + Integer.toString(i));
+                list.add(prefix + i);
             }
             return list.build();
         }
