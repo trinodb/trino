@@ -1,17 +1,18 @@
-================
-MemSQL connector
-================
+==============================
+SingleStore (MemSQL) connector
+==============================
 
-The MemSQL connector allows querying and creating tables in an external
-MemSQL database. The MemSQL connector is very similar to the MySQL
-connector with the only difference being the underlying driver.
+The SingleStore (formerly known as MemSQL) connector allows querying and
+creating tables in an external SingleStore database. The SingleStore connector
+is very similar to the MySQL connector with the only difference being the
+underlying driver.
 
 Configuration
 -------------
 
-To configure the MemSQL connector, create a catalog properties file
+To configure the SingleStore connector, create a catalog properties file
 in ``etc/catalog`` named, for example, ``memsql.properties``, to
-mount the MemSQL connector as the ``memsql`` catalog.
+mount the SingleStore connector as the ``memsql`` catalog.
 Create the file with the following contents, replacing the
 connection properties as appropriate for your setup:
 
@@ -22,30 +23,30 @@ connection properties as appropriate for your setup:
     connection-user=root
     connection-password=secret
 
-Multiple MemSQL servers
-^^^^^^^^^^^^^^^^^^^^^^^
+Multiple SingleStore servers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
-MemSQL servers, simply add another properties file to ``etc/catalog``
+SingleStore servers, simply add another properties file to ``etc/catalog``
 with a different name (making sure it ends in ``.properties``). For
 example, if you name the property file ``sales.properties``, Trino
 will create a catalog named ``sales`` using the configured connector.
 
-Querying MemSQL
----------------
+Querying SingleStore
+--------------------
 
-The MemSQL connector provides a schema for every MemSQL *database*.
-You can see the available MemSQL databases by running ``SHOW SCHEMAS``::
+The SingleStore connector provides a schema for every SingleStore *database*.
+You can see the available SingleStore databases by running ``SHOW SCHEMAS``::
 
     SHOW SCHEMAS FROM memsql;
 
-If you have a MemSQL database named ``web``, you can view the tables
+If you have a SingleStore database named ``web``, you can view the tables
 in this database by running ``SHOW TABLES``::
 
     SHOW TABLES FROM memsql.web;
 
-You can see a list of the columns in the ``clicks`` table in the ``web`` database
-using either of the following::
+You can see a list of the columns in the ``clicks`` table in the ``web``
+database using either of the following::
 
     DESCRIBE memsql.web.clicks;
     SHOW COLUMNS FROM memsql.web.clicks;
