@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.stream.IntStream;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.block.BlockAssertions.createSlicesBlock;
@@ -55,12 +56,19 @@ import static java.util.concurrent.TimeUnit.MICROSECONDS;
 @Warmup(iterations = 10)
 @Measurement(iterations = 10)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkDictionaryBlockGetSizeInBytes
+public class BenchmarkDictionaryBlock
 {
     @Benchmark
     public long getSizeInBytes(BenchmarkData data)
     {
         return data.getDictionaryBlock().getSizeInBytes();
+    }
+
+    @Benchmark
+    public Block copyPositions(BenchmarkData data)
+    {
+        int[] positionIds = data.getPositionsIds();
+        return data.getAllPositionsDictionaryBlock().copyPositions(data.getPositionsIds(), 0, positionIds.length);
     }
 
     @State(Scope.Thread)
@@ -70,12 +78,17 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
         @Param({"100", "1000", "10000", "100000"})
         private String selectedPositions = "100";
 
+        private int[] positionsIds;
         private DictionaryBlock dictionaryBlock;
+        private DictionaryBlock allPositionsDictionaryBlock;
 
         @Setup(Level.Invocation)
         public void setup()
         {
-            dictionaryBlock = new DictionaryBlock(createMapBlock(POSITIONS), generateIds(Integer.parseInt(selectedPositions), POSITIONS));
+            positionsIds = generateIds(Integer.parseInt(selectedPositions), POSITIONS);
+            Block mapBlock = createMapBlock(POSITIONS);
+            dictionaryBlock = new DictionaryBlock(mapBlock, positionsIds);
+            allPositionsDictionaryBlock = new DictionaryBlock(mapBlock, IntStream.range(0, POSITIONS).toArray());
         }
 
         private static Block createMapBlock(int positionCount)
@@ -125,9 +138,19 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
             return new Random().ints(count, 0, range).toArray();
         }
 
+        public int[] getPositionsIds()
+        {
+            return positionsIds;
+        }
+
         public DictionaryBlock getDictionaryBlock()
         {
             return dictionaryBlock;
+        }
+
+        public DictionaryBlock getAllPositionsDictionaryBlock()
+        {
+            return allPositionsDictionaryBlock;
         }
     }
 
@@ -137,11 +160,11 @@ public class BenchmarkDictionaryBlockGetSizeInBytes
         // assure the benchmarks are valid before running
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        new BenchmarkDictionaryBlockGetSizeInBytes().getSizeInBytes(data);
+        new BenchmarkDictionaryBlock().getSizeInBytes(data);
 
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkDictionaryBlockGetSizeInBytes.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkDictionaryBlock.class.getSimpleName() + ".*")
                 .build();
         new Runner(options).run();
     }
