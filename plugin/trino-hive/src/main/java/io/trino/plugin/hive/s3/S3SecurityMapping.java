@@ -17,12 +17,14 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -39,6 +41,7 @@ public class S3SecurityMapping
     private final Optional<String> iamRole;
     private final List<String> allowedIamRoles;
     private final Optional<String> kmsKeyId;
+    private final Set<String> allowedKmsKeyIds;
     private final Optional<BasicAWSCredentials> credentials;
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
@@ -51,6 +54,7 @@ public class S3SecurityMapping
             @JsonProperty("iamRole") Optional<String> iamRole,
             @JsonProperty("allowedIamRoles") Optional<List<String>> allowedIamRoles,
             @JsonProperty("kmsKeyId") Optional<String> kmsKeyId,
+            @JsonProperty("allowedKmsKeyIds") Optional<List<String>> allowedKmsKeyIds,
             @JsonProperty("accessKey") Optional<String> accessKey,
             @JsonProperty("secretKey") Optional<String> secretKey,
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
@@ -73,6 +77,9 @@ public class S3SecurityMapping
                 .orElse(ImmutableList.of());
 
         this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
+
+        this.allowedKmsKeyIds = ImmutableSet.copyOf(
+                requireNonNull(allowedKmsKeyIds, "allowedKmsKeyIds is null").orElse(ImmutableList.of()));
 
         requireNonNull(accessKey, "accessKey is null");
         requireNonNull(secretKey, "secretKey is null");
@@ -111,6 +118,11 @@ public class S3SecurityMapping
         return kmsKeyId;
     }
 
+    public Set<String> getAllowedKmsKeyIds()
+    {
+        return allowedKmsKeyIds;
+    }
+
     public Optional<BasicAWSCredentials> getCredentials()
     {
         return credentials;
@@ -136,6 +148,7 @@ public class S3SecurityMapping
                 .add("iamRole", iamRole)
                 .add("allowedIamRoles", allowedIamRoles)
                 .add("kmsKeyId", kmsKeyId)
+                .add("allowedKmsKeyIds", allowedKmsKeyIds)
                 .add("credentials", credentials)
                 .add("useClusterDefault", useClusterDefault)
                 .add("endpoint", endpoint.orElse(null))
