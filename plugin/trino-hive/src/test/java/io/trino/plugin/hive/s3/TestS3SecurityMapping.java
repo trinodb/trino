@@ -54,6 +54,7 @@ public class TestS3SecurityMapping
     private static final HiveSessionProperties HIVE_SESSION_PROPERTIES = getHiveSessionProperties(new HiveConfig());
 
     private static final String IAM_ROLE_CREDENTIAL_NAME = "IAM_ROLE_CREDENTIAL_NAME";
+    private static final String KMS_KEY_ID_CREDENTIAL_NAME = "KMS_KEY_ID_CREDENTIAL_NAME";
     private static final String DEFAULT_PATH = "s3://default";
     private static final String DEFAULT_USER = "testuser";
 
@@ -63,6 +64,7 @@ public class TestS3SecurityMapping
         S3SecurityMappingConfig mappingConfig = new S3SecurityMappingConfig()
                 .setConfigFile(new File(getResource(getClass(), "security-mapping.json").getPath()))
                 .setRoleCredentialName(IAM_ROLE_CREDENTIAL_NAME)
+                .setKmsKeyIdCredentialName(KMS_KEY_ID_CREDENTIAL_NAME)
                 .setColonReplacement("#");
 
         DynamicConfigurationProvider provider = new S3SecurityMappingConfigurationProvider(mappingConfig);
@@ -80,6 +82,40 @@ public class TestS3SecurityMapping
                 path("s3://foo"),
                 credentials("AKIAxxxaccess", "iXbXxxxsecret")
                         .withKmsKeyId("kmsKey_10"));
+
+        // matches prefix exactly -- mapping provides credentials, kms key from extra credentials matching default
+        assertMapping(
+                provider,
+                path("s3://foo").withExtraCredentialKmsKeyId("kmsKey_10"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withKmsKeyId("kmsKey_10"));
+
+        // matches prefix exactly -- mapping provides credentials, kms key from extra credentials, allowed, different than default
+        assertMapping(
+                provider,
+                path("s3://foo").withExtraCredentialKmsKeyId("kmsKey_11"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withKmsKeyId("kmsKey_11"));
+
+        // matches prefix exactly -- mapping provides credentials, kms key from extra credentials, not allowed
+        assertMappingFails(
+                provider,
+                path("s3://foo").withExtraCredentialKmsKeyId("kmsKey_not_allowed"),
+                "Selected KMS Key ID is not allowed");
+
+        // matches prefix exactly -- mapping provides credentials, kms key from extra credentials, all keys are allowed, different than default
+        assertMapping(
+                provider,
+                path("s3://foo_all_keys_allowed").withExtraCredentialKmsKeyId("kmsKey_777"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withKmsKeyId("kmsKey_777"));
+
+        // matches prefix exactly -- mapping provides credentials, kms key from extra credentials, allowed, no default key
+        assertMapping(
+                provider,
+                path("s3://foo_no_default_key").withExtraCredentialKmsKeyId("kmsKey_12"),
+                credentials("AKIAxxxaccess", "iXbXxxxsecret")
+                        .withKmsKeyId("kmsKey_12"));
 
         // no role selected and mapping has no default role
         assertMappingFails(
@@ -252,7 +288,7 @@ public class TestS3SecurityMapping
     public void testMappingWithoutRoleCredentialsFallbackShouldFail()
     {
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
@@ -264,7 +300,7 @@ public class TestS3SecurityMapping
         Optional<Boolean> useClusterDefault = Optional.of(true);
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), iamRole, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("must either allow useClusterDefault role or provide role and/or credentials");
     }
@@ -276,7 +312,7 @@ public class TestS3SecurityMapping
         Optional<String> kmsKeyId = Optional.of("CLIENT_S3CRT_KEY_ID");
 
         assertThatThrownBy(() ->
-                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), kmsKeyId, Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
+                new S3SecurityMapping(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), kmsKeyId, Optional.empty(), Optional.empty(), Optional.empty(), useClusterDefault, Optional.empty()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("KMS key ID cannot be provided together with useClusterDefault");
     }
@@ -322,20 +358,22 @@ public class TestS3SecurityMapping
 
         public static MappingSelector path(String path)
         {
-            return new MappingSelector(DEFAULT_USER, ImmutableSet.of(), new Path(path), Optional.empty());
+            return new MappingSelector(DEFAULT_USER, ImmutableSet.of(), new Path(path), Optional.empty(), Optional.empty());
         }
 
         private final String user;
         private final Set<String> groups;
         private final Path path;
         private final Optional<String> extraCredentialIamRole;
+        private final Optional<String> extraCredentialKmsKeyId;
 
-        private MappingSelector(String user, Set<String> groups, Path path, Optional<String> extraCredentialIamRole)
+        private MappingSelector(String user, Set<String> groups, Path path, Optional<String> extraCredentialIamRole, Optional<String> extraCredentialKmsKeyId)
         {
             this.user = requireNonNull(user, "user is null");
             this.groups = ImmutableSet.copyOf(requireNonNull(groups, "groups is null"));
             this.path = requireNonNull(path, "path is null");
             this.extraCredentialIamRole = requireNonNull(extraCredentialIamRole, "extraCredentialIamRole is null");
+            this.extraCredentialKmsKeyId = requireNonNull(extraCredentialKmsKeyId, "extraCredentialKmsKeyId is null");
         }
 
         public Path getPath()
@@ -345,23 +383,29 @@ public class TestS3SecurityMapping
 
         public MappingSelector withExtraCredentialIamRole(String role)
         {
-            return new MappingSelector(user, groups, path, Optional.of(role));
+            return new MappingSelector(user, groups, path, Optional.of(role), extraCredentialKmsKeyId);
+        }
+
+        public MappingSelector withExtraCredentialKmsKeyId(String kmsKeyId)
+        {
+            return new MappingSelector(user, groups, path, extraCredentialIamRole, Optional.of(kmsKeyId));
         }
 
         public MappingSelector withUser(String user)
         {
-            return new MappingSelector(user, groups, path, extraCredentialIamRole);
+            return new MappingSelector(user, groups, path, extraCredentialIamRole, extraCredentialKmsKeyId);
         }
 
         public MappingSelector withGroups(String... groups)
         {
-            return new MappingSelector(user, ImmutableSet.copyOf(groups), path, extraCredentialIamRole);
+            return new MappingSelector(user, ImmutableSet.copyOf(groups), path, extraCredentialIamRole, extraCredentialKmsKeyId);
         }
 
         public HdfsContext getHdfsContext()
         {
             ImmutableMap.Builder<String, String> extraCredentials = ImmutableMap.builder();
             extraCredentialIamRole.ifPresent(role -> extraCredentials.put(IAM_ROLE_CREDENTIAL_NAME, role));
+            extraCredentialKmsKeyId.ifPresent(kmsKeyId -> extraCredentials.put(KMS_KEY_ID_CREDENTIAL_NAME, kmsKeyId));
 
             ConnectorSession connectorSession = TestingConnectorSession.builder()
                     .setIdentity(ConnectorIdentity.forUser(user)
