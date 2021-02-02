@@ -59,6 +59,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.ID;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SCORE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SOURCE;
+import static io.trino.plugin.elasticsearch.BuiltinColumns.isBuiltinColumn;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -120,7 +121,7 @@ public class ScanQueryPageSource
 
         List<String> requiredFields = columns.stream()
                 .map(ElasticsearchColumnHandle::getName)
-                .filter(name -> !BuiltinColumns.NAMES.contains(name))
+                .filter(name -> !isBuiltinColumn(name))
                 .collect(toList());
 
         // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
