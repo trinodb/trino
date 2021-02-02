@@ -37,6 +37,7 @@ import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_IAM_ROLE;
+import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_KMS_KEY_ID;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -107,6 +108,11 @@ public class S3SecurityMappingConfigurationProvider
         selectRole(mapping, context).ifPresent(role -> {
             configuration.set(S3_IAM_ROLE, role);
             hasher.putString(role, UTF_8);
+        });
+
+        mapping.getKmsKeyId().ifPresent(key -> {
+            configuration.set(S3_KMS_KEY_ID, key);
+            hasher.putString(S3_KMS_KEY_ID + ":" + key, UTF_8);
         });
 
         mapping.getEndpoint().ifPresent(endpoint -> {
