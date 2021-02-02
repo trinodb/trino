@@ -51,15 +51,6 @@ public class SnowflakeQueryBuilder
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
-    private String getColumnExpression(JdbcColumnHandle jdbcColumnHandle, Map<String, String> columnExpressions)
-    {
-        String expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
-        if (expression == null) {
-            return jdbcClient.quoted(jdbcColumnHandle.getColumnName());
-        }
-        return expression;
-    }
-
     @Override
     protected String getProjection(List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
     {
@@ -95,5 +86,14 @@ public class SnowflakeQueryBuilder
                     return format("%s AS %s", expression, jdbcClient.quoted(columnHandle.getColumnName()));
                 })
                 .collect(joining(", "));
+    }
+
+    private String getColumnExpression(JdbcColumnHandle jdbcColumnHandle, Map<String, String> columnExpressions)
+    {
+        String expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
+        if (expression == null) {
+            return jdbcClient.quoted(jdbcColumnHandle.getColumnName());
+        }
+        return expression;
     }
 }
