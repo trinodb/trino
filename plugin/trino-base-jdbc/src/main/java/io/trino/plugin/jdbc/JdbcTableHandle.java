@@ -30,7 +30,6 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 public final class JdbcTableHandle
@@ -181,12 +180,5 @@ public final class JdbcTableHandle
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         columns.ifPresent(value -> builder.append(" columns=").append(value));
         return builder.toString();
-    }
-
-    private static <T> List<List<T>> copy(List<List<T>> listOfLists)
-    {
-        return listOfLists.stream()
-                .map(ImmutableList::copyOf)
-                .collect(toImmutableList());
     }
 }
