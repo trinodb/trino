@@ -36,8 +36,8 @@ public class S3SecurityMapping
     private final Predicate<String> user;
     private final Predicate<Collection<String>> group;
     private final Predicate<URI> prefix;
-    private final List<String> allowedIamRoles;
     private final Optional<String> iamRole;
+    private final List<String> allowedIamRoles;
     private final Optional<BasicAWSCredentials> credentials;
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
