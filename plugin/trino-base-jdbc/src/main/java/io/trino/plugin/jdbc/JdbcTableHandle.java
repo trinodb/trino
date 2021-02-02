@@ -76,16 +76,39 @@ public final class JdbcTableHandle
         this.columns = columns.map(ImmutableList::copyOf);
     }
 
+    /**
+     * @deprecated Use {@code asPlainTable().getSchemaTableName()} instead, but see those methods for more information, as this is not a drop-in replacement.
+     */
+    @Deprecated
     @JsonIgnore
+    // TODO (https://github.com/trinodb/trino/issues/6797) remove
     public SchemaTableName getSchemaTableName()
     {
-        return getNamedRelation().getSchemaTableName();
+        return getRequiredNamedRelation().getSchemaTableName();
+    }
+
+    /**
+     * @deprecated Use {@code asPlainTable().getRemoteTableName()} instead, but see those methods for more information, as this is not a drop-in replacement.
+     */
+    @Deprecated
+    @JsonIgnore
+    // TODO (https://github.com/trinodb/trino/issues/6797) remove
+    public RemoteTableName getRemoteTableName()
+    {
+        return getRequiredNamedRelation().getRemoteTableName();
+    }
+
+    public JdbcNamedRelationHandle asPlainTable()
+    {
+        checkState(!isSynthetic(), "The table handle does not represent a plain table: %s", this);
+        return getRequiredNamedRelation();
     }
 
     @JsonIgnore
-    public RemoteTableName getRemoteTableName()
+    public JdbcNamedRelationHandle getRequiredNamedRelation()
     {
-        return getNamedRelation().getRemoteTableName();
+        checkState(isNamedRelation(), "The table handle does not represent a named relation: %s", this);
+        return (JdbcNamedRelationHandle) relationHandle;
     }
 
     @JsonProperty
@@ -94,21 +117,36 @@ public final class JdbcTableHandle
         return relationHandle;
     }
 
+    /**
+     * @deprecated Use {@code asPlainTable().getRemoteTableName().getCatalogName()} instead, but see those methods for more information, as this is not a drop-in replacement.
+     */
     @Deprecated
+    @JsonIgnore
     @Nullable
+    // TODO (https://github.com/trinodb/trino/issues/6797) remove
     public String getCatalogName()
     {
         return getRemoteTableName().getCatalogName().orElse(null);
     }
 
+    /**
+     * @deprecated Use {@code asPlainTable().getRemoteTableName().getSchemaName()} instead, but see those methods for more information, as this is not a drop-in replacement.
+     */
     @Deprecated
+    @JsonIgnore
     @Nullable
+    // TODO (https://github.com/trinodb/trino/issues/6797) remove
     public String getSchemaName()
     {
         return getRemoteTableName().getSchemaName().orElse(null);
     }
 
+    /**
+     * @deprecated Use {@code asPlainTable().getRemoteTableName().getTableName()} instead, but see those methods for more information, as this is not a drop-in replacement.
+     */
     @Deprecated
+    @JsonIgnore
+    // TODO (https://github.com/trinodb/trino/issues/6797) remove
     public String getTableName()
     {
         return getRemoteTableName().getTableName();
@@ -130,12 +168,6 @@ public final class JdbcTableHandle
     public Optional<List<JdbcColumnHandle>> getColumns()
     {
         return columns;
-    }
-
-    private JdbcNamedRelationHandle getNamedRelation()
-    {
-        checkState(isNamedRelation(), "The table handle does not represent a named relation: %s", this);
-        return (JdbcNamedRelationHandle) relationHandle;
     }
 
     @JsonIgnore
