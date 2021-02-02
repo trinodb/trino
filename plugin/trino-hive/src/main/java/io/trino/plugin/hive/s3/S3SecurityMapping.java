@@ -38,6 +38,7 @@ public class S3SecurityMapping
     private final Predicate<URI> prefix;
     private final Optional<String> iamRole;
     private final List<String> allowedIamRoles;
+    private final Optional<String> kmsKeyId;
     private final Optional<BasicAWSCredentials> credentials;
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
@@ -49,6 +50,7 @@ public class S3SecurityMapping
             @JsonProperty("prefix") Optional<URI> prefix,
             @JsonProperty("iamRole") Optional<String> iamRole,
             @JsonProperty("allowedIamRoles") Optional<List<String>> allowedIamRoles,
+            @JsonProperty("kmsKeyId") Optional<String> kmsKeyId,
             @JsonProperty("accessKey") Optional<String> accessKey,
             @JsonProperty("secretKey") Optional<String> secretKey,
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
@@ -70,6 +72,8 @@ public class S3SecurityMapping
         this.allowedIamRoles = requireNonNull(allowedIamRoles, "allowedIamRoles is null")
                 .orElse(ImmutableList.of());
 
+        this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
+
         requireNonNull(accessKey, "accessKey is null");
         requireNonNull(secretKey, "secretKey is null");
         checkArgument(accessKey.isPresent() == secretKey.isPresent(), "accessKey and secretKey must be provided together");
@@ -79,6 +83,8 @@ public class S3SecurityMapping
                 .orElse(false);
         boolean roleOrCredentialsArePresent = !this.allowedIamRoles.isEmpty() || iamRole.isPresent() || credentials.isPresent();
         checkArgument(this.useClusterDefault ^ roleOrCredentialsArePresent, "must either allow useClusterDefault role or provide role and/or credentials");
+
+        checkArgument(!(this.useClusterDefault && this.kmsKeyId.isPresent()), "KMS key ID cannot be provided together with useClusterDefault");
 
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
     }
@@ -98,6 +104,11 @@ public class S3SecurityMapping
     public List<String> getAllowedIamRoles()
     {
         return allowedIamRoles;
+    }
+
+    public Optional<String> getKmsKeyId()
+    {
+        return kmsKeyId;
     }
 
     public Optional<BasicAWSCredentials> getCredentials()
@@ -124,6 +135,7 @@ public class S3SecurityMapping
                 .add("prefix", prefix)
                 .add("iamRole", iamRole)
                 .add("allowedIamRoles", allowedIamRoles)
+                .add("kmsKeyId", kmsKeyId)
                 .add("credentials", credentials)
                 .add("useClusterDefault", useClusterDefault)
                 .add("endpoint", endpoint.orElse(null))
