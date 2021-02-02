@@ -16,12 +16,10 @@ package io.trino.plugin.jdbc;
 import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -36,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,37 +57,6 @@ public class QueryBuilder
     public QueryBuilder(JdbcClient client)
     {
         this.client = requireNonNull(client, "jdbcClient is null");
-    }
-
-    /**
-     * @deprecated Use #prepareSql and #prepareStatement instead.
-     */
-    @Deprecated
-    public PreparedStatement buildSql(
-            ConnectorSession session,
-            Connection connection,
-            RemoteTableName remoteTableName,
-            Optional<List<List<JdbcColumnHandle>>> groupingSets,
-            List<JdbcColumnHandle> columns,
-            TupleDomain<ColumnHandle> tupleDomain,
-            Optional<String> additionalPredicate,
-            Function<String, String> sqlFunction)
-            throws SQLException
-    {
-        PreparedQuery preparedQuery = prepareQuery(
-                session,
-                connection,
-                new JdbcNamedRelationHandle(
-                        // This dummy SchemaTableName is not used for anything here. It's provided only to implement the deprecated buildSql() method
-                        new SchemaTableName(remoteTableName.getSchemaName().orElse(""), remoteTableName.getTableName()),
-                        remoteTableName),
-                groupingSets,
-                columns,
-                ImmutableMap.of(),
-                tupleDomain,
-                additionalPredicate);
-        preparedQuery = preparedQuery.transformQuery(sqlFunction);
-        return prepareStatement(session, connection, preparedQuery);
     }
 
     public PreparedQuery prepareQuery(

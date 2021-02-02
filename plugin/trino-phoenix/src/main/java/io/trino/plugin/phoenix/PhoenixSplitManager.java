@@ -14,9 +14,11 @@
 package io.trino.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
@@ -47,7 +49,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.phoenix.PhoenixErrorCode.PHOENIX_INTERNAL_ERROR;
@@ -82,15 +83,17 @@ public class PhoenixSplitManager
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
-            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(phoenixClient).buildSql(
+            QueryBuilder queryBuilder = new QueryBuilder(phoenixClient);
+            PreparedQuery preparedQuery = queryBuilder.prepareQuery(
                     session,
                     connection,
-                    tableHandle.getRemoteTableName(),
+                    tableHandle.getRelationHandle(),
                     Optional.empty(),
                     columns,
+                    ImmutableMap.of(),
                     tableHandle.getConstraint(),
-                    Optional.empty(),
-                    Function.identity());
+                    Optional.empty());
+            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) queryBuilder.prepareStatement(session, connection, preparedQuery);
 
             List<ConnectorSplit> splits = getSplits(inputQuery).stream()
                     .map(PhoenixInputSplit.class::cast)
