@@ -52,9 +52,9 @@ import static java.util.concurrent.TimeUnit.MICROSECONDS;
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(MICROSECONDS)
-@Fork(5)
-@Warmup(iterations = 10)
-@Measurement(iterations = 10)
+@Fork(3)
+@Warmup(iterations = 15)
+@Measurement(iterations = 15)
 @BenchmarkMode(Mode.AverageTime)
 public class BenchmarkDictionaryBlock
 {
