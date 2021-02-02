@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
@@ -71,7 +72,6 @@ import javax.inject.Inject;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -1000,16 +1000,8 @@ public class SapHanaClient
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
+    protected Optional<List<String>> getTableTypes()
     {
-        DatabaseMetaData metadata = connection.getMetaData();
-        ResultSet tables = metadata.getTables(
-                connection.getCatalog(),
-                escapeNamePattern(schemaName, metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5147) provide list via an extension point
-                new String[] {"TABLE", "VIEW", "CALC VIEW", "JOIN VIEW", "OLAP VIEW"});
-        return tables;
+        return Optional.of(ImmutableList.of("TABLE", "VIEW", "CALC VIEW", "JOIN VIEW", "OLAP VIEW"));
     }
 }
