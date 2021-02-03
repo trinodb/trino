@@ -71,6 +71,13 @@ public class BenchmarkDictionaryBlock
         return data.getAllPositionsDictionaryBlock().copyPositions(data.getPositionsIds(), 0, positionIds.length);
     }
 
+    @Benchmark
+    public Block copyPositionsCompactDictionary(BenchmarkData data)
+    {
+        int[] positionIds = data.getPositionsIds();
+        return data.getAllPositionsCompactDictionaryBlock().copyPositions(data.getPositionsIds(), 0, positionIds.length);
+    }
+
     @State(Scope.Thread)
     public static class BenchmarkData
     {
@@ -81,6 +88,7 @@ public class BenchmarkDictionaryBlock
         private int[] positionsIds;
         private DictionaryBlock dictionaryBlock;
         private DictionaryBlock allPositionsDictionaryBlock;
+        private DictionaryBlock allPositionsCompactDictionaryBlock;
 
         @Setup(Level.Invocation)
         public void setup()
@@ -88,7 +96,9 @@ public class BenchmarkDictionaryBlock
             positionsIds = generateIds(Integer.parseInt(selectedPositions), POSITIONS);
             Block mapBlock = createMapBlock(POSITIONS);
             dictionaryBlock = new DictionaryBlock(mapBlock, positionsIds);
-            allPositionsDictionaryBlock = new DictionaryBlock(mapBlock, IntStream.range(0, POSITIONS).toArray());
+            int[] allPositions = IntStream.range(0, POSITIONS).toArray();
+            allPositionsDictionaryBlock = new DictionaryBlock(mapBlock, allPositions);
+            allPositionsCompactDictionaryBlock = new DictionaryBlock(POSITIONS, mapBlock, allPositions, true);
         }
 
         private static Block createMapBlock(int positionCount)
@@ -151,6 +161,11 @@ public class BenchmarkDictionaryBlock
         public DictionaryBlock getAllPositionsDictionaryBlock()
         {
             return allPositionsDictionaryBlock;
+        }
+
+        public DictionaryBlock getAllPositionsCompactDictionaryBlock()
+        {
+            return allPositionsCompactDictionaryBlock;
         }
     }
 
