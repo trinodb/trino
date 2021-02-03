@@ -322,6 +322,16 @@ public class DictionaryBlock
     {
         checkArrayRange(positions, offset, length);
 
+        if (uniqueIds == positionCount) {
+            // each block position is unique, therefore it makes more sense to unwrap dictionary
+            // block by copying selected positions
+            int[] positionsToCopy = new int[length];
+            for (int i = 0; i < length; i++) {
+                positionsToCopy[i] = getId(positions[offset + i]);
+            }
+            return dictionary.copyPositions(positionsToCopy, 0, length);
+        }
+
         IntArrayList positionsToCopy = new IntArrayList();
         Int2IntOpenHashMap oldIndexToNewIndex = new Int2IntOpenHashMap(min(length, dictionary.getPositionCount()));
         int[] newIds = new int[length];
