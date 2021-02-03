@@ -180,7 +180,7 @@ public class TestSapHanaIntegrationSmokeTest
     }
 
     @Test
-    public void testStddevPushdown()
+    public void testStddevAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
         try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_stddev_pushdown",
@@ -218,7 +218,7 @@ public class TestSapHanaIntegrationSmokeTest
     }
 
     @Test
-    public void testVariancePushdown()
+    public void testVarianceAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
         try (TestTable testTable = new TestTable(server::execute, schemaName + ".test_variance_pushdown",
