@@ -417,7 +417,7 @@ public class TestJdbcMetadata
         public boolean supportsAggregationPushdown(ConnectorSession session, JdbcTableHandle table, List<List<ColumnHandle>> groupingSets)
         {
             // disable aggregation pushdown for any table named no_agg_pushdown
-            return !"no_aggregation_pushdown".equalsIgnoreCase(table.getRemoteTableName().getTableName());
+            return !"no_aggregation_pushdown".equalsIgnoreCase(table.getRequiredNamedRelation().getRemoteTableName().getTableName());
         }
     }
 }
