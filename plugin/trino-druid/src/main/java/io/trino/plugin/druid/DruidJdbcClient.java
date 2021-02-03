@@ -179,7 +179,7 @@ public class DruidJdbcClient
 
             table = new JdbcTableHandle(
                     new JdbcNamedRelationHandle(
-                            table.getSchemaTableName(),
+                            table.getRequiredNamedRelation().getSchemaTableName(),
                             // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
                             new RemoteTableName(Optional.empty(), table.getRemoteTableName().getSchemaName(), table.getRemoteTableName().getTableName())),
                     table.getConstraint(),
