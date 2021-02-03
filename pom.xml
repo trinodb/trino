@@ -49,7 +49,7 @@
         <dep.antlr.version>4.9</dep.antlr.version>
         <dep.airlift.version>202</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.aws-sdk.version>1.11.921</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.11.946</dep.aws-sdk.version>
         <dep.okhttp.version>3.14.9</dep.okhttp.version>
         <dep.jdbi3.version>3.17.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
