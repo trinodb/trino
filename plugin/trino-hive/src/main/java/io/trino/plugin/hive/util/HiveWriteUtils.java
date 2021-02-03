@@ -38,21 +38,15 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
@@ -91,7 +85,6 @@ import org.apache.hadoop.mapred.Reporter;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,16 +109,27 @@ import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
 import static io.trino.plugin.hive.util.HiveUtil.isMapType;
 import static io.trino.plugin.hive.util.HiveUtil.isRowType;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
@@ -205,25 +209,25 @@ public final class HiveWriteUtils
 
     public static ObjectInspector getJavaObjectInspector(Type type)
     {
-        if (type.equals(BooleanType.BOOLEAN)) {
+        if (type.equals(BOOLEAN)) {
             return javaBooleanObjectInspector;
         }
-        if (type.equals(BigintType.BIGINT)) {
+        if (type.equals(BIGINT)) {
             return javaLongObjectInspector;
         }
-        if (type.equals(IntegerType.INTEGER)) {
+        if (type.equals(INTEGER)) {
             return javaIntObjectInspector;
         }
-        if (type.equals(SmallintType.SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return javaShortObjectInspector;
         }
-        if (type.equals(TinyintType.TINYINT)) {
+        if (type.equals(TINYINT)) {
             return javaByteObjectInspector;
         }
-        if (type.equals(RealType.REAL)) {
+        if (type.equals(REAL)) {
             return javaFloatObjectInspector;
         }
-        if (type.equals(DoubleType.DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return javaDoubleObjectInspector;
         }
         if (type instanceof VarcharType) {
@@ -232,10 +236,10 @@ public final class HiveWriteUtils
         if (type instanceof CharType) {
             return writableHiveCharObjectInspector;
         }
-        if (type.equals(VarbinaryType.VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return javaByteArrayObjectInspector;
         }
-        if (type.equals(DateType.DATE)) {
+        if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
         if (type instanceof TimestampType) {
@@ -291,25 +295,25 @@ public final class HiveWriteUtils
         if (block.isNull(position)) {
             return null;
         }
-        if (BooleanType.BOOLEAN.equals(type)) {
+        if (BOOLEAN.equals(type)) {
             return type.getBoolean(block, position);
         }
-        if (BigintType.BIGINT.equals(type)) {
+        if (BIGINT.equals(type)) {
             return type.getLong(block, position);
         }
-        if (IntegerType.INTEGER.equals(type)) {
+        if (INTEGER.equals(type)) {
             return toIntExact(type.getLong(block, position));
         }
-        if (SmallintType.SMALLINT.equals(type)) {
+        if (SMALLINT.equals(type)) {
             return Shorts.checkedCast(type.getLong(block, position));
         }
-        if (TinyintType.TINYINT.equals(type)) {
+        if (TINYINT.equals(type)) {
             return SignedBytes.checkedCast(type.getLong(block, position));
         }
-        if (RealType.REAL.equals(type)) {
+        if (REAL.equals(type)) {
             return intBitsToFloat((int) type.getLong(block, position));
         }
-        if (DoubleType.DOUBLE.equals(type)) {
+        if (DOUBLE.equals(type)) {
             return type.getDouble(block, position);
         }
         if (type instanceof VarcharType) {
@@ -319,10 +323,10 @@ public final class HiveWriteUtils
             CharType charType = (CharType) type;
             return new Text(padSpaces(type.getSlice(block, position), charType).toStringUtf8());
         }
-        if (VarbinaryType.VARBINARY.equals(type)) {
+        if (VARBINARY.equals(type)) {
             return type.getSlice(block, position).getBytes();
         }
-        if (DateType.DATE.equals(type)) {
+        if (DATE.equals(type)) {
             return Date.ofEpochDay(toIntExact(type.getLong(block, position)));
         }
         if (type instanceof TimestampType) {
@@ -332,46 +336,41 @@ public final class HiveWriteUtils
             DecimalType decimalType = (DecimalType) type;
             return getHiveDecimal(decimalType, block, position);
         }
-        if (isArrayType(type)) {
-            Type elementType = type.getTypeParameters().get(0);
-
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
             Block arrayBlock = block.getObject(position, Block.class);
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                Object element = getField(elementType, arrayBlock, i);
-                list.add(element);
+                list.add(getField(elementType, arrayBlock, i));
             }
-
-            return Collections.unmodifiableList(list);
+            return unmodifiableList(list);
         }
-        if (isMapType(type)) {
-            Type keyType = type.getTypeParameters().get(0);
-            Type valueType = type.getTypeParameters().get(1);
-
+        if (type instanceof MapType) {
+            Type keyType = ((MapType) type).getKeyType();
+            Type valueType = ((MapType) type).getValueType();
             Block mapBlock = block.getObject(position, Block.class);
+
             Map<Object, Object> map = new HashMap<>();
             for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                Object key = getField(keyType, mapBlock, i);
-                Object value = getField(valueType, mapBlock, i + 1);
-                map.put(key, value);
+                map.put(
+                        getField(keyType, mapBlock, i),
+                        getField(valueType, mapBlock, i + 1));
             }
-
-            return Collections.unmodifiableMap(map);
+            return unmodifiableMap(map);
         }
-        if (isRowType(type)) {
-            Block rowBlock = block.getObject(position, Block.class);
-
+        if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
-            checkCondition(fieldTypes.size() == rowBlock.getPositionCount(), StandardErrorCode.GENERIC_INTERNAL_ERROR, "Expected row value field count does not match type field count");
-
+            Block rowBlock = block.getObject(position, Block.class);
+            checkCondition(
+                    fieldTypes.size() == rowBlock.getPositionCount(),
+                    StandardErrorCode.GENERIC_INTERNAL_ERROR,
+                    "Expected row value field count does not match type field count");
             List<Object> row = new ArrayList<>(rowBlock.getPositionCount());
             for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                Object element = getField(fieldTypes.get(i), rowBlock, i);
-                row.add(element);
+                row.add(getField(fieldTypes.get(i), rowBlock, i));
             }
-
-            return Collections.unmodifiableList(row);
+            return unmodifiableList(row);
         }
         throw new TrinoException(NOT_SUPPORTED, "unsupported type: " + type);
     }
@@ -646,31 +645,31 @@ public final class HiveWriteUtils
 
     public static ObjectInspector getRowColumnInspector(Type type)
     {
-        if (type.equals(BooleanType.BOOLEAN)) {
+        if (type.equals(BOOLEAN)) {
             return writableBooleanObjectInspector;
         }
 
-        if (type.equals(BigintType.BIGINT)) {
+        if (type.equals(BIGINT)) {
             return writableLongObjectInspector;
         }
 
-        if (type.equals(IntegerType.INTEGER)) {
+        if (type.equals(INTEGER)) {
             return writableIntObjectInspector;
         }
 
-        if (type.equals(SmallintType.SMALLINT)) {
+        if (type.equals(SMALLINT)) {
             return writableShortObjectInspector;
         }
 
-        if (type.equals(TinyintType.TINYINT)) {
+        if (type.equals(TINYINT)) {
             return writableByteObjectInspector;
         }
 
-        if (type.equals(RealType.REAL)) {
+        if (type.equals(REAL)) {
             return writableFloatObjectInspector;
         }
 
-        if (type.equals(DoubleType.DOUBLE)) {
+        if (type.equals(DOUBLE)) {
             return writableDoubleObjectInspector;
         }
 
@@ -693,11 +692,11 @@ public final class HiveWriteUtils
             return getPrimitiveWritableObjectInspector(getCharTypeInfo(charLength));
         }
 
-        if (type.equals(VarbinaryType.VARBINARY)) {
+        if (type.equals(VARBINARY)) {
             return writableBinaryObjectInspector;
         }
 
-        if (type.equals(DateType.DATE)) {
+        if (type.equals(DATE)) {
             return writableDateObjectInspector;
         }
 
