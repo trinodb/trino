@@ -302,7 +302,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     }
 
     @Test
-    public void testStddevPushdown()
+    public void testStddevAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
         try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_stddev_pushdown",
@@ -335,7 +335,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     }
 
     @Test
-    public void testVariancePushdown()
+    public void testVarianceAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
         try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_variance_pushdown",
