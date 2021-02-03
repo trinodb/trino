@@ -30,7 +30,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -59,6 +58,8 @@ public class TestCachingJdbcClient
                     null,
                     false));
 
+    public static final Set<SessionPropertiesProvider> SESSION_PROPERTIES_PROVIDERS = Set.of(() -> PROPERTY_METADATA);
+
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(PROPERTY_METADATA)
             .build();
@@ -80,7 +81,7 @@ public class TestCachingJdbcClient
 
     private CachingJdbcClient createCachingJdbcClient(Duration cacheTtl, boolean cacheMissing)
     {
-        return new CachingJdbcClient(database.getJdbcClient(), Set.of(getTestSessionPropertiesProvider()), cacheTtl, cacheMissing);
+        return new CachingJdbcClient(database.getJdbcClient(), SESSION_PROPERTIES_PROVIDERS, cacheTtl, cacheMissing);
     }
 
     private CachingJdbcClient createCachingJdbcClient(boolean cacheMissing)
@@ -344,18 +345,6 @@ public class TestCachingJdbcClient
                 .filter(jdbcColumnHandle -> jdbcColumnHandle.getColumnMetadata().equals(columnMetadata))
                 .findAny()
                 .orElseThrow();
-    }
-
-    private static SessionPropertiesProvider getTestSessionPropertiesProvider()
-    {
-        return new SessionPropertiesProvider()
-        {
-            @Override
-            public List<PropertyMetadata<?>> getSessionProperties()
-            {
-                return PROPERTY_METADATA;
-            }
-        };
     }
 
     private static ConnectorSession createSession(String sessionName)
