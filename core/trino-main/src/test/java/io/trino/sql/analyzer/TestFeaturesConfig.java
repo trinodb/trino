@@ -107,7 +107,8 @@ public class TestFeaturesConfig
                 .setIterativeRuleBasedColumnPruning(true)
                 .setRewriteFilteringSemiJoinToInnerJoin(true)
                 .setOptimizeDuplicateInsensitiveJoins(true)
-                .setUseLegacyWindowFilterPushdown(false));
+                .setUseLegacyWindowFilterPushdown(false)
+                .setPlanWithTableNodePartitioning(true));
     }
 
     @Test
@@ -180,6 +181,7 @@ public class TestFeaturesConfig
                 .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
                 .put("optimizer.optimize-duplicate-insensitive-joins", "false")
                 .put("optimizer.use-legacy-window-filter-pushdown", "true")
+                .put("optimizer.plan-with-table-node-partitioning", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -248,7 +250,8 @@ public class TestFeaturesConfig
                 .setIterativeRuleBasedColumnPruning(false)
                 .setRewriteFilteringSemiJoinToInnerJoin(false)
                 .setOptimizeDuplicateInsensitiveJoins(false)
-                .setUseLegacyWindowFilterPushdown(true);
+                .setUseLegacyWindowFilterPushdown(true)
+                .setPlanWithTableNodePartitioning(false);
         assertFullMapping(properties, expected);
     }
 }
