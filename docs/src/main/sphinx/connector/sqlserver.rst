@@ -128,6 +128,7 @@ SQL Server Type               Trino Type
 ``char(n)``                   ``char(n)``
 ``varchar(n)``                ``varchar(n)``
 ``date``                      ``date``
+``datetime2(n)``              ``timestamp(n)``
 ============================= ============================
 
 Complete list of `SQL Server data types
