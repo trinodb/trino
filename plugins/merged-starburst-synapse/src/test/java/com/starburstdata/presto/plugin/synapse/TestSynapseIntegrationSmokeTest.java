@@ -144,7 +144,7 @@ public class TestSynapseIntegrationSmokeTest
     }
 
     @Test
-    public void testStddevPushdown()
+    public void testStddevAggregationPushdown()
     {
         try (TestTable testTable = new TestTable(synapseServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
@@ -181,7 +181,7 @@ public class TestSynapseIntegrationSmokeTest
     }
 
     @Test
-    public void testVariancePushdown()
+    public void testVarianceAggregationPushdown()
     {
         try (TestTable testTable = new TestTable(synapseServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
