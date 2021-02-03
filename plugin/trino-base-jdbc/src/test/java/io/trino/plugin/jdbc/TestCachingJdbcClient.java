@@ -348,10 +348,10 @@ public class TestCachingJdbcClient
     @Test
     public void testEverythingImplemented()
     {
-        assertAllMethodsOverridden(JdbcClient.class, CachingJdbcClient.class, nonOverridenMethods());
+        assertAllMethodsOverridden(JdbcClient.class, CachingJdbcClient.class, nonOverriddenMethods());
     }
 
-    private static Set<Method> nonOverridenMethods()
+    private static Set<Method> nonOverriddenMethods()
     {
         try {
             return ImmutableSet.<Method>builder()
