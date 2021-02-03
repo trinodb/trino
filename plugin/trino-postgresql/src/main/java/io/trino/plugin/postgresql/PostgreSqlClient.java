@@ -723,7 +723,7 @@ public class PostgreSqlClient
     {
         String sql = format(
                 "COMMENT ON COLUMN %s.%s IS %s",
-                quoted(handle.getRemoteTableName()),
+                quoted(handle.asPlainTable().getRemoteTableName()),
                 quoted(column.getColumnName()),
                 comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
         execute(session, sql);

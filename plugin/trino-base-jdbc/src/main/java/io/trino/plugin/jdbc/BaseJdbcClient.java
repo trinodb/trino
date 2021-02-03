@@ -339,10 +339,11 @@ public abstract class BaseJdbcClient
     protected ResultSet getColumns(JdbcTableHandle tableHandle, DatabaseMetaData metadata)
             throws SQLException
     {
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
         return metadata.getColumns(
-                tableHandle.getRemoteTableName().getCatalogName().orElse(null),
-                escapeNamePattern(tableHandle.getRemoteTableName().getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
-                escapeNamePattern(Optional.of(tableHandle.getRemoteTableName().getTableName()), metadata.getSearchStringEscape()).orElse(null),
+                remoteTableName.getCatalogName().orElse(null),
+                escapeNamePattern(remoteTableName.getSchemaName(), metadata.getSearchStringEscape()).orElse(null),
+                escapeNamePattern(Optional.of(remoteTableName.getTableName()), metadata.getSearchStringEscape()).orElse(null),
                 null);
     }
 
@@ -685,7 +686,7 @@ public abstract class BaseJdbcClient
             }
             String sql = format(
                     "ALTER TABLE %s ADD %s",
-                    quoted(handle.getRemoteTableName()),
+                    quoted(handle.asPlainTable().getRemoteTableName()),
                     getColumnDefinitionSql(session, column, columnName));
             execute(connection, sql);
         }
@@ -703,7 +704,7 @@ public abstract class BaseJdbcClient
             }
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.getRemoteTableName()),
+                    quoted(handle.asPlainTable().getRemoteTableName()),
                     jdbcColumn.getColumnName(),
                     newColumnName);
             execute(connection, sql);
@@ -718,7 +719,7 @@ public abstract class BaseJdbcClient
     {
         String sql = format(
                 "ALTER TABLE %s DROP COLUMN %s",
-                quoted(handle.getRemoteTableName()),
+                quoted(handle.asPlainTable().getRemoteTableName()),
                 column.getColumnName());
         execute(session, sql);
     }
@@ -726,7 +727,7 @@ public abstract class BaseJdbcClient
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        String sql = "DROP TABLE " + quoted(handle.getRemoteTableName());
+        String sql = "DROP TABLE " + quoted(handle.asPlainTable().getRemoteTableName());
         execute(session, sql);
     }
 
