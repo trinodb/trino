@@ -117,7 +117,7 @@ public abstract class BaseStarburstOracleAggregationPushdownTest
     }
 
     @Test
-    public void testStddevPushdown()
+    public void testStddevAggregationPushdown()
     {
         try (TestTable testTable = new TestTable(onOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
@@ -154,7 +154,7 @@ public abstract class BaseStarburstOracleAggregationPushdownTest
     }
 
     @Test
-    public void testVariancePushdown()
+    public void testVarianceAggregationPushdown()
     {
         try (TestTable testTable = new TestTable(onOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
