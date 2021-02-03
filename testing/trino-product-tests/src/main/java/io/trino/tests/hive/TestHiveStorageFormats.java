@@ -24,7 +24,6 @@ import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.utils.JdbcDriverUtils;
 import org.assertj.core.api.SoftAssertions;
-import org.assertj.core.util.Streams;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -241,16 +240,6 @@ public class TestHiveStorageFormats
         return Stream.of(storageFormats())
                 // everything but Avro supports nanoseconds
                 .filter(format -> !"AVRO".equals(format.getName()))
-                .iterator();
-    }
-
-    @DataProvider
-    public static Iterator<StorageFormat> storageFormatsWithNanosecondPrecisionExceptParquet()
-    {
-        return Streams.stream(storageFormatsWithNanosecondPrecision())
-                // TODO: Parquet doesn't support writing timestamps in arrays/maps/structs
-                //   See https://github.com/trinodb/trino/issues/6760
-                .filter(format -> !"PARQUET".equals(format.getName()))
                 .iterator();
     }
 
@@ -524,7 +513,7 @@ public class TestHiveStorageFormats
         onPresto().executeQuery("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
     public void testStructTimestampsFromHive(StorageFormat format)
     {
         String tableName = createStructTimestampTable("hive_struct_timestamp", format);
@@ -554,7 +543,7 @@ public class TestHiveStorageFormats
         onPresto().executeQuery(format("DROP TABLE %s", tableName));
     }
 
-    @Test(dataProvider = "storageFormatsWithNanosecondPrecisionExceptParquet", groups = STORAGE_FORMATS)
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
     public void testStructTimestampsFromTrino(StorageFormat format)
     {
         String tableName = createStructTimestampTable("trino_struct_timestamp", format);
