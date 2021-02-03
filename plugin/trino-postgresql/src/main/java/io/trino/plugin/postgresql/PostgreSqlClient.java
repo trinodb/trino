@@ -304,6 +304,8 @@ public class PostgreSqlClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
 
         try (Connection connection = connectionFactory.openConnection(session)) {
             Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
@@ -322,7 +324,7 @@ public class PostgreSqlClient
                             Optional.ofNullable(arrayColumnDimensions.get(columnName)),
                             Optional.empty());
                     Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
+                    log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                     // skip unsupported column types
                     if (columnMapping.isPresent()) {
                         boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
@@ -346,7 +348,7 @@ public class PostgreSqlClient
                 }
                 if (columns.isEmpty()) {
                     // In rare cases a table might have no columns.
-                    throw new TableNotFoundException(tableHandle.getSchemaTableName());
+                    throw new TableNotFoundException(schemaTableName);
                 }
                 return ImmutableList.copyOf(columns);
             }

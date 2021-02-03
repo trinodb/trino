@@ -343,7 +343,7 @@ public class JdbcMetadata
             columnMetadata.add(column.getColumnMetadata());
         }
         SchemaTableName schemaTableName = handle.isNamedRelation()
-                ? handle.getSchemaTableName()
+                ? handle.getRequiredNamedRelation().getSchemaTableName()
                 // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
                 : new SchemaTableName("_prepared", "query");
         return new ConnectorTableMetadata(schemaTableName, columnMetadata.build(), jdbcClient.getTableProperties(session, handle));
