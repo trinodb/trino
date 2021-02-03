@@ -39,7 +39,7 @@ public class S3SecurityMapping
     private final Predicate<Collection<String>> group;
     private final Predicate<URI> prefix;
     private final Optional<String> iamRole;
-    private final List<String> allowedIamRoles;
+    private final Set<String> allowedIamRoles;
     private final Optional<String> kmsKeyId;
     private final Set<String> allowedKmsKeyIds;
     private final Optional<BasicAWSCredentials> credentials;
@@ -73,8 +73,8 @@ public class S3SecurityMapping
 
         this.iamRole = requireNonNull(iamRole, "iamRole is null");
 
-        this.allowedIamRoles = requireNonNull(allowedIamRoles, "allowedIamRoles is null")
-                .orElse(ImmutableList.of());
+        this.allowedIamRoles = ImmutableSet.copyOf(requireNonNull(allowedIamRoles, "allowedIamRoles is null")
+                .orElse(ImmutableList.of()));
 
         this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
 
@@ -108,7 +108,7 @@ public class S3SecurityMapping
         return iamRole;
     }
 
-    public List<String> getAllowedIamRoles()
+    public Set<String> getAllowedIamRoles()
     {
         return allowedIamRoles;
     }
