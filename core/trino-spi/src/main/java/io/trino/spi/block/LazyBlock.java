@@ -362,6 +362,10 @@ public class LazyBlock
 
         public Block getFullyLoadedBlock()
         {
+            if (block != null) {
+                return block.getLoadedBlock();
+            }
+
             load(true);
             return block;
         }
