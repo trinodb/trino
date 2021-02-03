@@ -302,7 +302,7 @@ public final class SystemSessionProperties
                         false),
                 booleanProperty(
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
-                        "Experimental: Adapt plan to pre-partitioned tables",
+                        "Adapt plan to pre-partitioned tables",
                         true,
                         false),
                 enumProperty(
