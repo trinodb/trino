@@ -92,7 +92,6 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -103,6 +102,8 @@ import java.util.function.BiFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -171,8 +172,8 @@ import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.Types.TIME_WITH_TIMEZONE;
 import static java.sql.Types.VARCHAR;
 import static java.util.Locale.ENGLISH;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hbase.HConstants.FOREVER;
 import static org.apache.phoenix.coprocessor.BaseScannerRegionObserver.SKIP_REGION_BOUNDARY_CHECK;
 import static org.apache.phoenix.util.PhoenixRuntime.getTable;
@@ -484,7 +485,9 @@ public class PhoenixClient
                 table = table.toUpperCase(ENGLISH);
             }
             schema = toPhoenixSchemaName(schema);
-            LinkedList<ColumnMetadata> tableColumns = new LinkedList<>(tableMetadata.getColumns());
+            List<ColumnMetadata> tableColumns = tableMetadata.getColumns().stream()
+                    .filter(not(ColumnMetadata::isHidden))
+                    .collect(toImmutableList());
             Map<String, Object> tableProperties = tableMetadata.getProperties();
             Optional<Boolean> immutableRows = PhoenixTableProperties.getImmutableRows(tableProperties);
             String immutable = immutableRows.isPresent() && immutableRows.get() ? "IMMUTABLE" : "";
@@ -492,7 +495,9 @@ public class PhoenixClient
             ImmutableList.Builder<String> columnNames = ImmutableList.builder();
             ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
-            Set<ColumnMetadata> rowkeyColumns = tableColumns.stream().filter(col -> isPrimaryKey(col, tableProperties)).collect(toSet());
+            Set<ColumnMetadata> rowkeyColumns = tableColumns.stream()
+                    .filter(col -> isPrimaryKey(col, tableProperties))
+                    .collect(toImmutableSet());
             ImmutableList.Builder<String> pkNames = ImmutableList.builder();
             Optional<String> rowkeyColumn = Optional.empty();
             if (rowkeyColumns.isEmpty()) {
