@@ -85,14 +85,9 @@ public class PhoenixMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        return getTableMetadata(session, table, false);
-    }
-
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table, boolean rowkeyRequired)
-    {
         JdbcTableHandle handle = (JdbcTableHandle) table;
         List<ColumnMetadata> columnMetadata = phoenixClient.getColumns(session, handle).stream()
-                .filter(column -> rowkeyRequired || !ROWKEY.equalsIgnoreCase(column.getColumnName()))
+                .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .map(JdbcColumnHandle::getColumnMetadata)
                 .collect(toImmutableList());
         return new ConnectorTableMetadata(handle.getSchemaTableName(), columnMetadata, phoenixClient.getTableProperties(session, handle));
