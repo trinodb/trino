@@ -267,6 +267,9 @@ public abstract class BaseJdbcClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
+        checkArgument(tableHandle.isNamedRelation(), "Cannot get columns for %s", tableHandle);
+        SchemaTableName schemaTableName = tableHandle.getRequiredNamedRelation().getSchemaTableName();
+        RemoteTableName remoteTableName = tableHandle.getRequiredNamedRelation().getRemoteTableName();
 
         try (Connection connection = connectionFactory.openConnection(session);
                 ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
@@ -274,7 +277,7 @@ public abstract class BaseJdbcClient
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
                 // skip if table doesn't match expected
-                if (!(Objects.equals(tableHandle.getRemoteTableName(), getRemoteTable(resultSet)))) {
+                if (!(Objects.equals(remoteTableName, getRemoteTable(resultSet)))) {
                     continue;
                 }
                 allColumns++;
@@ -287,7 +290,7 @@ public abstract class BaseJdbcClient
                         Optional.empty(),
                         Optional.empty());
                 Optional<ColumnMapping> columnMapping = toColumnMapping(session, connection, typeHandle);
-                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
+                log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", schemaTableName, columnName, typeHandle, columnMapping);
                 // skip unsupported column types
                 boolean nullable = (resultSet.getInt("NULLABLE") != columnNoNulls);
                 // Note: some databases (e.g. SQL Server) do not return column remarks/comment here.
@@ -313,8 +316,8 @@ public abstract class BaseJdbcClient
             if (columns.isEmpty()) {
                 // A table may have no supported columns. In rare cases (e.g. PostgreSQL) a table might have no columns at all.
                 throw new TableNotFoundException(
-                        tableHandle.getSchemaTableName(),
-                        format("Table '%s' has no supported columns (all %s columns are not supported)", tableHandle.getSchemaTableName(), allColumns));
+                        schemaTableName,
+                        format("Table '%s' has no supported columns (all %s columns are not supported)", schemaTableName, allColumns));
             }
             return ImmutableList.copyOf(columns);
         }
@@ -554,7 +557,7 @@ public abstract class BaseJdbcClient
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
+        SchemaTableName schemaTableName = tableHandle.asPlainTable().getSchemaTableName();
         JdbcIdentity identity = JdbcIdentity.from(session);
 
         try (Connection connection = connectionFactory.openConnection(session)) {
