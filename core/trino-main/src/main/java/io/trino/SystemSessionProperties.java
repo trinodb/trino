@@ -303,7 +303,7 @@ public final class SystemSessionProperties
                 booleanProperty(
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Adapt plan to pre-partitioned tables",
-                        true,
+                        featuresConfig.isPlanWithTableNodePartitioning(),
                         false),
                 enumProperty(
                         JOIN_REORDERING_STRATEGY,
