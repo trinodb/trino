@@ -33,19 +33,20 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingConnectorSession.builder;
 import static java.util.Collections.emptyList;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
-@SuppressWarnings({"MultipleVariableDeclarations", "InnerAssignment"})
 public class TestCachingJdbcClient
 {
     private static final Duration FOREVER = Duration.succinctDuration(1, DAYS);
@@ -176,18 +177,18 @@ public class TestCachingJdbcClient
         JdbcTableHandle table = getAnyTable(schema);
         JdbcColumnHandle phantomColumn = addColumn(table);
 
-        int expectedLoad = 0, expectedHit = 0, expectedMiss = 0;
+        CacheStatsAssertions statsAssertions = new CacheStatsAssertions(cachingJdbcClient::getColumnsCacheStats);
 
         // Read column into cache
         assertThat(cachingJdbcClient.getColumns(SESSION, table)).contains(phantomColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 1, expectedHit, expectedMiss += 1);
+        statsAssertions.loadsIncreasedBy(1).missesIncreasedBy(1).verify();
 
         jdbcClient.dropColumn(SESSION, table, phantomColumn);
 
         // Load column from cache
         assertThat(jdbcClient.getColumns(SESSION, table)).doesNotContain(phantomColumn);
         assertThat(cachingJdbcClient.getColumns(SESSION, table)).contains(phantomColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad, expectedHit += 1, expectedMiss);
+        statsAssertions.hitsIncreasedBy(1).verify();
     }
 
     @Test
@@ -198,19 +199,19 @@ public class TestCachingJdbcClient
         JdbcTableHandle table = getAnyTable(schema);
         JdbcColumnHandle phantomColumn = addColumn(table);
 
-        int expectedLoad = 0, expectedHit = 0, expectedMiss = 0;
+        CacheStatsAssertions statsAssertions = new CacheStatsAssertions(cachingJdbcClient::getColumnsCacheStats);
 
         // Load columns in first session scope
         assertThat(cachingJdbcClient.getColumns(firstSession, table)).contains(phantomColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 1, expectedHit, expectedMiss += 1);
+        statsAssertions.loadsIncreasedBy(1).missesIncreasedBy(1).verify();
 
         // Load columns in second session scope
         assertThat(cachingJdbcClient.getColumns(secondSession, table)).contains(phantomColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 1, expectedHit, expectedMiss += 1);
+        statsAssertions.loadsIncreasedBy(1).missesIncreasedBy(1).verify();
 
         // Check that columns are cached
         assertThat(cachingJdbcClient.getColumns(secondSession, table)).contains(phantomColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad, expectedHit += 1, expectedMiss);
+        statsAssertions.hitsIncreasedBy(1).verify();
 
         // Drop first column and invalidate cache for all sessions
         cachingJdbcClient.dropColumn(firstSession, table, phantomColumn);
@@ -219,12 +220,12 @@ public class TestCachingJdbcClient
         // Load columns into cache in both sessions scope
         assertThat(cachingJdbcClient.getColumns(firstSession, table)).doesNotContain(phantomColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, table)).doesNotContain(phantomColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 2, expectedHit, expectedMiss += 2);
+        statsAssertions.loadsIncreasedBy(2).missesIncreasedBy(2).verify();
 
         // Read columns from cache
         assertThat(cachingJdbcClient.getColumns(firstSession, table)).doesNotContain(phantomColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, table)).doesNotContain(phantomColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad, expectedHit + 2, expectedMiss);
+        statsAssertions.hitsIncreasedBy(2).verify();
     }
 
     @Test
@@ -238,37 +239,37 @@ public class TestCachingJdbcClient
         JdbcColumnHandle firstColumn = addColumn(firstTable, "first_column");
         JdbcColumnHandle secondColumn = addColumn(secondTable, "second_column");
 
-        int expectedLoad = 0, expectedHit = 0, expectedMiss = 0;
+        CacheStatsAssertions statsAssertions = new CacheStatsAssertions(cachingJdbcClient::getColumnsCacheStats);
 
         // Load columns for both tables into cache and assert cache loads (sessions x tables)
         assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).contains(firstColumn);
         assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).contains(secondColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, firstTable)).contains(firstColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).contains(secondColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 4, expectedHit, expectedMiss += 4);
+        statsAssertions.loadsIncreasedBy(4).missesIncreasedBy(4).verify();
 
         // Load columns from cache
         assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).contains(firstColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).contains(secondColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad, expectedHit += 2, expectedMiss);
+        statsAssertions.hitsIncreasedBy(2).verify();
 
         // Rename column
         cachingJdbcClient.renameColumn(firstSession, firstTable, firstColumn, "another_column");
         assertThat(cachingJdbcClient.getColumns(secondSession, firstTable))
                 .doesNotContain(firstColumn)
                 .containsAll(jdbcClient.getColumns(SESSION, firstTable));
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 1, expectedHit, expectedMiss += 1);
+        statsAssertions.loadsIncreasedBy(1).missesIncreasedBy(1).verify();
 
         // Drop columns and caches for first table
         cachingJdbcClient.dropTable(secondSession, firstTable);
         assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, firstTable)).isInstanceOf(TableNotFoundException.class);
         assertThatThrownBy(() -> cachingJdbcClient.getColumns(secondSession, firstTable)).isInstanceOf(TableNotFoundException.class);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 2, expectedHit, expectedMiss += 2);
+        statsAssertions.loadsIncreasedBy(2).missesIncreasedBy(2).verify();
 
         // Check if second table is still cached
         assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).contains(secondColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).contains(secondColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad, expectedHit += 2, expectedMiss);
+        statsAssertions.hitsIncreasedBy(2).verify();
 
         cachingJdbcClient.dropTable(secondSession, secondTable);
     }
@@ -285,19 +286,19 @@ public class TestCachingJdbcClient
         JdbcColumnHandle firstColumn = addColumn(firstTable, "first_column");
         JdbcColumnHandle secondColumn = addColumn(secondTable, "second_column");
 
-        int expectedLoad = 0, expectedHit = 0, expectedMiss = 0;
+        CacheStatsAssertions statsAssertions = new CacheStatsAssertions(cachingJdbcClient::getColumnsCacheStats);
 
         assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).containsExactly(firstColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, firstTable)).containsExactly(firstColumn);
         assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).containsExactly(secondColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).containsExactly(secondColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 4, expectedHit, expectedMiss += 4);
+        statsAssertions.loadsIncreasedBy(4).missesIncreasedBy(4).verify();
 
         assertThat(cachingJdbcClient.getColumns(firstSession, firstTable)).containsExactly(firstColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, firstTable)).containsExactly(firstColumn);
         assertThat(cachingJdbcClient.getColumns(firstSession, secondTable)).containsExactly(secondColumn);
         assertThat(cachingJdbcClient.getColumns(secondSession, secondTable)).containsExactly(secondColumn);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 4, expectedHit, expectedMiss += 4);
+        statsAssertions.loadsIncreasedBy(4).missesIncreasedBy(4).verify();
 
         // Drop tables by not using caching jdbc client
         jdbcClient.dropTable(SESSION, firstTable);
@@ -306,17 +307,7 @@ public class TestCachingJdbcClient
         // Columns are loaded bypassing a cache
         assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, firstTable)).isInstanceOf(TableNotFoundException.class);
         assertThatThrownBy(() -> cachingJdbcClient.getColumns(firstSession, secondTable)).isInstanceOf(TableNotFoundException.class);
-        assertCacheLoadsHitsAndMisses(cachingJdbcClient.getColumnsCacheStats(), expectedLoad += 2, expectedHit, expectedMiss += 2);
-    }
-
-    private void assertCacheLoadsHitsAndMisses(CacheStats stats, int expectedLoad, int expectedHit, int expectedMiss)
-    {
-        assertThat(stats.loadCount()).withFailMessage("Expected load count is %d but actual is %d", expectedLoad, stats.loadCount())
-                .isEqualTo(expectedLoad);
-        assertThat(stats.hitCount()).withFailMessage("Expected hit count is %d but actual is %d", expectedHit, stats.hitCount())
-                .isEqualTo(expectedHit);
-        assertThat(stats.missCount()).withFailMessage("Expected miss count is %d but actual is %d", expectedMiss, stats.missCount())
-                .isEqualTo(expectedMiss);
+        statsAssertions.loadsIncreasedBy(2).missesIncreasedBy(2).verify();
     }
 
     private JdbcTableHandle getAnyTable(String schema)
@@ -380,6 +371,64 @@ public class TestCachingJdbcClient
         }
         catch (NoSuchMethodException e) {
             throw new AssertionError(e);
+        }
+    }
+
+    private static class CacheStatsAssertions
+    {
+        private final Supplier<CacheStats> stats;
+
+        private int loads;
+        private int hits;
+        private int misses;
+
+        public CacheStatsAssertions(Supplier<CacheStats> stats)
+        {
+            this.stats = requireNonNull(stats, "stats is null");
+        }
+
+        public CacheStatsAssertions loadsIncreasedBy(int value)
+        {
+            this.loads += value;
+            CacheStats cacheStats = stats.get();
+            assertThat(cacheStats.loadCount())
+                    .withFailMessage("Expected load count is %d but actual is %d", loads, cacheStats.loadCount())
+                    .isEqualTo(loads);
+            return this;
+        }
+
+        public CacheStatsAssertions hitsIncreasedBy(int value)
+        {
+            this.hits += value;
+            CacheStats cacheStats = stats.get();
+            assertThat(cacheStats.hitCount())
+                    .withFailMessage("Expected hit count is %d but actual is %d", hits, cacheStats.hitCount())
+                    .isEqualTo(hits);
+            return this;
+        }
+
+        public CacheStatsAssertions missesIncreasedBy(int value)
+        {
+            this.misses += value;
+            CacheStats cacheStats = stats.get();
+            assertThat(cacheStats.missCount())
+                    .withFailMessage("Expected miss count is %d but actual is %d", misses, cacheStats.missCount())
+                    .isEqualTo(misses);
+            return this;
+        }
+
+        public void verify()
+        {
+            CacheStats cacheStats = stats.get();
+            assertThat(cacheStats.loadCount())
+                    .withFailMessage("Expected load count is %d but actual is %d", loads, cacheStats.loadCount())
+                    .isEqualTo(loads);
+            assertThat(cacheStats.hitCount())
+                    .withFailMessage("Expected hit count is %d but actual is %d", hits, cacheStats.hitCount())
+                    .isEqualTo(hits);
+            assertThat(cacheStats.missCount())
+                    .withFailMessage("Expected miss count is %d but actual is %d", misses, cacheStats.missCount())
+                    .isEqualTo(misses);
         }
     }
 }
