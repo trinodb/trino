@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestLazyBlock
 {
@@ -59,6 +60,25 @@ public class TestLazyBlock
         LazyBlock.listenForLoads(lazyBlock, actualNotifications::add);
         Block loadedBlock = ((LazyBlock) nestedRowBlock.getChildren().get(0)).getBlock();
         assertEquals(actualNotifications, ImmutableList.of(loadedBlock));
+    }
+
+    @Test
+    public void testNestedGetLoadedBlock()
+    {
+        List<Block> actualNotifications = new ArrayList<>();
+        Block arrayBlock = new IntArrayBlock(1, Optional.empty(), new int[] {0});
+        LazyBlock lazyArrayBlock = new LazyBlock(1, () -> arrayBlock);
+        DictionaryBlock dictionaryBlock = new DictionaryBlock(lazyArrayBlock, new int[] {0});
+        LazyBlock lazyBlock = new LazyBlock(1, () -> dictionaryBlock);
+        LazyBlock.listenForLoads(lazyBlock, actualNotifications::add);
+
+        Block loadedBlock = lazyBlock.getBlock();
+        assertEquals(actualNotifications, ImmutableList.of(loadedBlock));
+
+        lazyBlock.getLoadedBlock();
+        assertEquals(actualNotifications, ImmutableList.of(loadedBlock, arrayBlock));
+        assertTrue(lazyBlock.isLoaded());
+        assertTrue(dictionaryBlock.isLoaded());
     }
 
     private static void assertNotificationsRecursive(int depth, Block lazyBlock, List<Block> actualNotifications, List<Block> expectedNotifications)
