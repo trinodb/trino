@@ -420,7 +420,7 @@ public final class FieldSetterFactory
         }
     }
 
-    private static class ArrayFieldSetter
+    private class ArrayFieldSetter
             extends FieldSetter
     {
         private final Type elementType;
@@ -438,14 +438,14 @@ public final class FieldSetterFactory
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                list.add(getField(elementType, arrayBlock, i));
+                list.add(getField(timeZone, elementType, arrayBlock, i));
             }
 
             rowInspector.setStructFieldData(row, field, list);
         }
     }
 
-    private static class MapFieldSetter
+    private class MapFieldSetter
             extends FieldSetter
     {
         private final Type keyType;
@@ -465,15 +465,15 @@ public final class FieldSetterFactory
             Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
             for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
                 map.put(
-                        getField(keyType, mapBlock, i),
-                        getField(valueType, mapBlock, i + 1));
+                        getField(timeZone, keyType, mapBlock, i),
+                        getField(timeZone, valueType, mapBlock, i + 1));
             }
 
             rowInspector.setStructFieldData(row, field, map);
         }
     }
 
-    private static class RowFieldSetter
+    private class RowFieldSetter
             extends FieldSetter
     {
         private final List<Type> fieldTypes;
@@ -495,7 +495,7 @@ public final class FieldSetterFactory
             // (multiple blocks vs all fields packed in a single block)
             List<Object> value = new ArrayList<>(fieldTypes.size());
             for (int i = 0; i < fieldTypes.size(); i++) {
-                value.add(getField(fieldTypes.get(i), rowBlock, i));
+                value.add(getField(timeZone, fieldTypes.get(i), rowBlock, i));
             }
 
             rowInspector.setStructFieldData(row, field, value);
