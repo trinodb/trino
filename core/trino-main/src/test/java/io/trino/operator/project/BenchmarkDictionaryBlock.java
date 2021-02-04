@@ -135,7 +135,7 @@ public class BenchmarkDictionaryBlock
 
         private static int[] generateIds(int count, int range)
         {
-            return new Random().ints(count, 0, range).toArray();
+            return new Random(42).ints(count, 0, range).toArray();
         }
 
         public int[] getPositionsIds()
