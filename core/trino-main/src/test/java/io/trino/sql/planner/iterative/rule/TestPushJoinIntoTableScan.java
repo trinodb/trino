@@ -20,6 +20,7 @@ import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -34,8 +35,10 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.rule.test.RuleAssert;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
@@ -47,6 +50,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Predicates.equalTo;
@@ -577,6 +581,164 @@ public class TestPushJoinIntoTableScan
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("Column handle mappings do not match old column handles");
         }
+    }
+
+    @Test(dataProvider = "testAutomaticJoinPushDownParams")
+    public void testAutomaticJoinPushDown(OptionalDouble leftRows, OptionalDouble righRows, OptionalDouble joinRows, boolean pushdownExpected)
+    {
+        Session pushdownAutomaticSession = Session.builder(MOCK_SESSION)
+                .setSystemProperty("join_pushdown", "AUTOMATIC")
+                .build();
+
+        try (RuleTester ruleTester = defaultRuleTester()) {
+            MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
+                assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
+                assertThat(((MockConnectorTableHandle) right).getTableName()).isEqualTo(TABLE_B_SCHEMA_TABLE_NAME);
+                Assertions.assertThat(applyJoinType).isEqualTo(toSpiJoinType(JoinNode.Type.INNER));
+                Assertions.assertThat(joinConditions).containsExactly(new JoinCondition(JoinCondition.Operator.EQUAL, COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE));
+
+                return Optional.of(new JoinApplicationResult<>(
+                        JOIN_CONNECTOR_TABLE_HANDLE,
+                        JOIN_TABLE_A_COLUMN_MAPPING,
+                        JOIN_TABLE_B_COLUMN_MAPPING));
+            });
+
+            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, connectorFactory, ImmutableMap.of());
+
+            RuleAssert ruleAssert = ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+                    .overrideStats("left", new PlanNodeStatsEstimate(leftRows.orElse(Double.NaN), ImmutableMap.of()))
+                    .overrideStats("right", new PlanNodeStatsEstimate(righRows.orElse(Double.NaN), ImmutableMap.of()))
+                    .overrideStats("join", new PlanNodeStatsEstimate(joinRows.orElse(Double.NaN), ImmutableMap.of()))
+                    .on(p -> {
+                        Symbol columnA1Symbol = p.symbol(COLUMN_A1);
+                        Symbol columnA2Symbol = p.symbol(COLUMN_A2);
+                        Symbol columnB1Symbol = p.symbol(COLUMN_B1);
+                        TableScanNode left = new TableScanNode(
+                                new PlanNodeId("left"),
+                                TABLE_A_HANDLE,
+                                ImmutableList.of(columnA1Symbol, columnA2Symbol),
+                                ImmutableMap.of(
+                                        columnA1Symbol, COLUMN_A1_HANDLE,
+                                        columnA2Symbol, COLUMN_A2_HANDLE),
+                                TupleDomain.all(),
+                                false);
+
+                        TableScanNode right = new TableScanNode(
+                                new PlanNodeId("right"),
+                                TABLE_B_HANDLE,
+                                ImmutableList.of(columnB1Symbol),
+                                ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE),
+                                TupleDomain.all(),
+                                false);
+
+                        return join(new PlanNodeId("join"), JoinNode.Type.INNER, left, right, new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
+                    })
+                    .withSession(pushdownAutomaticSession);
+
+            if (pushdownExpected) {
+                ruleAssert.matches(tableScan(JOIN_PUSHDOWN_SCHEMA_TABLE_NAME.getTableName()));
+            }
+            else {
+                ruleAssert.doesNotFire();
+            }
+        }
+    }
+
+    @DataProvider
+    public static Object[][] testAutomaticJoinPushDownParams()
+    {
+        return new Object[][] {
+                {OptionalDouble.of(100), OptionalDouble.of(200), OptionalDouble.of(133), true},
+                {OptionalDouble.of(100), OptionalDouble.of(200), OptionalDouble.of(134), false}, // just above output size boundary
+                {OptionalDouble.empty(), OptionalDouble.of(200), OptionalDouble.of(250), false},
+                {OptionalDouble.of(100), OptionalDouble.empty(), OptionalDouble.of(250), false},
+                {OptionalDouble.of(100), OptionalDouble.of(200), OptionalDouble.empty(), false},
+                {OptionalDouble.of(100), OptionalDouble.of(200), OptionalDouble.of(301), false}
+        };
+    }
+
+    @Test(dataProvider = "testJoinPushdownStatsIrrelevantIfPushdownForcedParams")
+    public void testJoinPushdownStatsIrrelevantIfPushdownForced(OptionalDouble leftRows, OptionalDouble righRows, OptionalDouble joinRows)
+    {
+        try (RuleTester ruleTester = defaultRuleTester()) {
+            MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
+                assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
+                assertThat(((MockConnectorTableHandle) right).getTableName()).isEqualTo(TABLE_B_SCHEMA_TABLE_NAME);
+                Assertions.assertThat(applyJoinType).isEqualTo(toSpiJoinType(JoinNode.Type.INNER));
+                Assertions.assertThat(joinConditions).containsExactly(new JoinCondition(JoinCondition.Operator.EQUAL, COLUMN_A1_VARIABLE, COLUMN_B1_VARIABLE));
+
+                return Optional.of(new JoinApplicationResult<>(
+                        JOIN_CONNECTOR_TABLE_HANDLE,
+                        JOIN_TABLE_A_COLUMN_MAPPING,
+                        JOIN_TABLE_B_COLUMN_MAPPING));
+            });
+
+            ruleTester.getQueryRunner().createCatalog(MOCK_CATALOG, connectorFactory, ImmutableMap.of());
+
+            ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getMetadata()))
+                    .overrideStats("left", new PlanNodeStatsEstimate(leftRows.orElse(Double.NaN), ImmutableMap.of()))
+                    .overrideStats("right", new PlanNodeStatsEstimate(righRows.orElse(Double.NaN), ImmutableMap.of()))
+                    .overrideStats("join", new PlanNodeStatsEstimate(joinRows.orElse(Double.NaN), ImmutableMap.of()))
+                    .on(p -> {
+                        Symbol columnA1Symbol = p.symbol(COLUMN_A1);
+                        Symbol columnA2Symbol = p.symbol(COLUMN_A2);
+                        Symbol columnB1Symbol = p.symbol(COLUMN_B1);
+                        TableScanNode left = new TableScanNode(
+                                new PlanNodeId("left"),
+                                TABLE_A_HANDLE,
+                                ImmutableList.of(columnA1Symbol, columnA2Symbol),
+                                ImmutableMap.of(
+                                        columnA1Symbol, COLUMN_A1_HANDLE,
+                                        columnA2Symbol, COLUMN_A2_HANDLE),
+                                TupleDomain.all(),
+                                false);
+
+                        TableScanNode right = new TableScanNode(
+                                new PlanNodeId("right"),
+                                TABLE_B_HANDLE,
+                                ImmutableList.of(columnB1Symbol),
+                                ImmutableMap.of(columnB1Symbol, COLUMN_B1_HANDLE),
+                                TupleDomain.all(),
+                                false);
+
+                        return join(new PlanNodeId("join"), JoinNode.Type.INNER, left, right, new JoinNode.EquiJoinClause(columnA1Symbol, columnB1Symbol));
+                    })
+                    .withSession(MOCK_SESSION)
+                    .matches(tableScan(JOIN_PUSHDOWN_SCHEMA_TABLE_NAME.getTableName()));
+        }
+    }
+
+    @DataProvider
+    public static Object[][] testJoinPushdownStatsIrrelevantIfPushdownForcedParams()
+    {
+        return new Object[][] {
+                {OptionalDouble.of(100), OptionalDouble.of(200), OptionalDouble.of(133)},
+                {OptionalDouble.of(100), OptionalDouble.of(200), OptionalDouble.of(134)},
+                {OptionalDouble.empty(), OptionalDouble.of(200), OptionalDouble.of(250)},
+                {OptionalDouble.of(100), OptionalDouble.empty(), OptionalDouble.of(250)},
+                {OptionalDouble.of(100), OptionalDouble.of(200), OptionalDouble.empty()},
+                {OptionalDouble.of(100), OptionalDouble.of(200), OptionalDouble.of(301)}
+        };
+    }
+
+    private JoinNode join(PlanNodeId planNodeId, JoinNode.Type joinType, TableScanNode left, TableScanNode right, JoinNode.EquiJoinClause... criteria)
+    {
+        return new JoinNode(
+                planNodeId,
+                joinType,
+                left,
+                right,
+                ImmutableList.copyOf(criteria),
+                left.getOutputSymbols(),
+                right.getOutputSymbols(),
+                false,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                Optional.empty());
     }
 
     private static TableHandle createTableHandle(ConnectorTableHandle tableHandle)

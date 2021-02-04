@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -32,6 +33,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ExpressionUtils;
 import io.trino.sql.analyzer.FeaturesConfig.JoinPushdownMode;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.Patterns;
@@ -62,6 +64,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.Join.left;
 import static io.trino.sql.planner.plan.Patterns.Join.right;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
 public class PushJoinIntoTableScan
@@ -114,6 +117,10 @@ public class PushJoinIntoTableScan
             return Result.empty();
         }
 
+        if (skipJoinPushdownBasedOnCost(joinNode, context)) {
+            return Result.empty();
+        }
+
         Map<String, ColumnHandle> leftAssignments = left.getAssignments().entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
 
@@ -160,6 +167,43 @@ public class PushJoinIntoTableScan
                         .build());
 
         return Result.ofPlanNode(new TableScanNode(joinNode.getId(), handle, joinNode.getOutputSymbols(), newAssignments.build(), newEnforcedConstraint, false));
+    }
+
+    private boolean skipJoinPushdownBasedOnCost(JoinNode joinNode, Context context)
+    {
+        if (getJoinPushdownMode(context.getSession()) != JoinPushdownMode.AUTOMATIC) {
+            return false;
+        }
+
+        TypeProvider types = context.getSymbolAllocator().getTypes();
+
+        // returning as quickly as possible to avoid unnecessary, costly work
+
+        PlanNodeStatsEstimate leftStats = context.getStatsProvider().getStats(joinNode.getLeft());
+        double leftOutputSize = leftStats.getOutputSizeInBytes(joinNode.getLeft().getOutputSymbols(), types);
+        if (isNaN(leftOutputSize)) {
+            return true;
+        }
+
+        PlanNodeStatsEstimate rightStats = context.getStatsProvider().getStats(joinNode.getRight());
+        double rightOutputSize = rightStats.getOutputSizeInBytes(joinNode.getRight().getOutputSymbols(), types);
+        if (isNaN(rightOutputSize)) {
+            return true;
+        }
+
+        PlanNodeStatsEstimate joinStats = context.getStatsProvider().getStats(joinNode);
+        double joinOutputSize = joinStats.getOutputSizeInBytes(joinNode.getOutputSymbols(), types);
+        if (isNaN(joinOutputSize)) {
+            return true;
+        }
+
+        if (joinOutputSize > leftOutputSize + rightOutputSize) {
+            // This is poor man's estimation if it makes more sense to perform join in source database or Trino.
+            // The assumption here is that cost of performing join in source database is less than or equal to cost of join in Trino.
+            // We resolve tie for pessimistic case (both join costs equal) on cost of sending the data from source database to Trino.
+            return true;
+        }
+        return false;
     }
 
     private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> sourceConstraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)

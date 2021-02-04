@@ -135,16 +135,7 @@ public class FeaturesConfig
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
-    /*
-     * We leave join pushdown disabled by default as this is safer option.
-     * Pushing down a join which substantially increases the row count vs
-     * sizes of left anf right table separately, may incur huge cost both
-     * in terms of performance and money due to an increased network traffic.
-     *
-     * As soon as we have cost based logic to determine join pushdown feasibility we
-     * will change the default to automatic.
-     */
-    private JoinPushdownMode joinPushdownMode = JoinPushdownMode.DISABLED;
+    private JoinPushdownMode joinPushdownMode = JoinPushdownMode.AUTOMATIC;
 
     public enum JoinReorderingStrategy
     {
@@ -188,9 +179,12 @@ public class FeaturesConfig
          * Try to push all joins except cross-joins to connector.
          */
         EAGER,
-        // TODO Add cost based logic to join pushdown
-        // AUTOMATIC,
-        /**/;
+        /**
+         * Determine automatically if push join to connector based on table statistics.
+         * Do not perform join in absence of table statistics.
+         */
+        AUTOMATIC,
+        /**/
     }
 
     public double getCpuCostWeight()
