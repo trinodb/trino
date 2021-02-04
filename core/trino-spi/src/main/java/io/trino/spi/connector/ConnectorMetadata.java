@@ -1039,6 +1039,10 @@ public interface ConnectorMetadata
      * The leftAssignments and rightAssignments lists provide mappings from variable names, used in joinConditions to input tables column handles.
      * It is guaranteed that all the required mappings will be provided but not necessarily *all* the column handles of tables which are join inputs.
      * </p>
+     * <p>
+     * Table statistics for left, right table as well as estimated statistics for join are provided via statistics parameter.
+     * Those can be used by connector to assess if performing join pushdown is expected to improve query performance.
+     * </p>
      *
      * <p>
      * If the method returns a result the returned table handle will be used in place of join and input table scans.
@@ -1053,7 +1057,8 @@ public interface ConnectorMetadata
             ConnectorTableHandle right,
             List<JoinCondition> joinConditions,
             Map<String, ColumnHandle> leftAssignments,
-            Map<String, ColumnHandle> rightAssignments)
+            Map<String, ColumnHandle> rightAssignments,
+            JoinStatistics statistics)
     {
         return Optional.empty();
     }

@@ -140,9 +140,6 @@ public class FeaturesConfig
      * Pushing down a join which substantially increases the row count vs
      * sizes of left anf right table separately, may incur huge cost both
      * in terms of performance and money due to an increased network traffic.
-     *
-     * As soon as we have cost based logic to determine join pushdown feasibility we
-     * will change the default to automatic.
      */
     private JoinPushdownMode joinPushdownMode = JoinPushdownMode.DISABLED;
 
@@ -188,9 +185,6 @@ public class FeaturesConfig
          * Try to push all joins except cross-joins to connector.
          */
         EAGER,
-        // TODO Add cost based logic to join pushdown
-        // AUTOMATIC,
-        /**/;
     }
 
     public double getCpuCostWeight()
