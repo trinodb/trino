@@ -13,12 +13,13 @@
  */
 package io.trino.tests.kafka;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
+import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.fulfillment.table.TableManager;
 import io.trino.tempto.fulfillment.table.kafka.KafkaMessage;
@@ -26,7 +27,6 @@ import io.trino.tempto.fulfillment.table.kafka.KafkaTableDefinition;
 import io.trino.tempto.fulfillment.table.kafka.KafkaTableManager;
 import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import io.trino.tempto.query.QueryResult;
-import io.trino.tests.utils.Cli;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
@@ -42,9 +42,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.List;
 import java.util.Map;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
@@ -54,6 +54,7 @@ import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.KAFKA;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.utils.QueryAssertions.assertEventually;
+import static io.trino.tests.utils.SchemaRegistryClientUtils.getSchemaRegistryClient;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -229,10 +230,6 @@ public class TestKafkaAvroReadsSmokeTest
         }
     }
 
-    /**
-     * Using CLI and custom serializer as Confluent dependencies conflicts with Hive dependencies
-     * See {@link io.confluent.kafka.serializers.KafkaAvroSerializer}
-     */
     private static final class SchemaRegistryAvroMessageSerializer
             implements MessageSerializer
     {
@@ -242,8 +239,11 @@ public class TestKafkaAvroReadsSmokeTest
         {
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
                 out.write((byte) 0);
-                SchemaId schemaId = registerSchema(topic, schema);
-                out.write(Ints.toByteArray(schemaId.getId()));
+
+                int schemaId = getSchemaRegistryClient().register(
+                        topic + "-value",
+                        new TestingAvroSchema(schema));
+                out.write(Ints.toByteArray(schemaId));
 
                 BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
                 DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
@@ -253,34 +253,61 @@ public class TestKafkaAvroReadsSmokeTest
                 writer.write(record, encoder);
                 return out.toByteArray();
             }
+            catch (RestClientException clientException) {
+                throw new RuntimeException(clientException);
+            }
         }
 
-        private static SchemaId registerSchema(String topicName, Schema schema)
+        /**
+         * Using custom ParsedSchema as Confluent dependencies conflicts with Hive dependencies
+         * See {@link io.confluent.kafka.schemaregistry.avro.AvroSchema}.
+         * We can remove once we move to latest schema registry.
+         */
+        private static class TestingAvroSchema
+                implements ParsedSchema
         {
-            String id = Cli.cli(
-                    "curl",
-                    "-X", "POST",
-                    "-H", "Content-Type: application/vnd.schemaregistry.v1+json",
-                    "--data", "{\"schema\": \"" + schema.toString().replace("\"", "\\\"") + "\"}",
-                    "http://schema-registry:8081/subjects/" + topicName + "-value/versions");
-            return jsonCodec(SchemaId.class).fromJson(id);
-        }
-    }
+            private final Schema avroSchema;
 
-    public static final class SchemaId
-    {
-        private final int id;
+            public TestingAvroSchema(Schema avroSchema)
+            {
+                this.avroSchema = requireNonNull(avroSchema, "avroSchema is null");
+            }
 
-        @JsonCreator
-        public SchemaId(@JsonProperty int id)
-        {
-            this.id = id;
-        }
+            @Override
+            public String schemaType()
+            {
+                return "AVRO";
+            }
 
-        @JsonProperty
-        public int getId()
-        {
-            return id;
+            @Override
+            public String name()
+            {
+                return avroSchema.getName();
+            }
+
+            @Override
+            public String canonicalString()
+            {
+                return avroSchema.toString();
+            }
+
+            @Override
+            public List<SchemaReference> references()
+            {
+                return null;
+            }
+
+            @Override
+            public boolean isBackwardCompatible(ParsedSchema parsedSchema)
+            {
+                return false;
+            }
+
+            @Override
+            public Object rawSchema()
+            {
+                return avroSchema;
+            }
         }
     }
 }
