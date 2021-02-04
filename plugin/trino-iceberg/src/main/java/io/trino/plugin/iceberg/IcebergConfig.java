@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
@@ -27,6 +28,7 @@ public class IcebergConfig
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
     private boolean useFileSizeFromMetadata = true;
+    private boolean purgeDataOnTableDrop;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -72,6 +74,19 @@ public class IcebergConfig
     public IcebergConfig setUseFileSizeFromMetadata(boolean useFileSizeFromMetadata)
     {
         this.useFileSizeFromMetadata = useFileSizeFromMetadata;
+        return this;
+    }
+
+    public boolean isPurgeDataOnTableDrop()
+    {
+        return purgeDataOnTableDrop;
+    }
+
+    @Config("iceberg.delete-files-on-table-drop")
+    @ConfigDescription("Recursively delete table data and metadata on drop")
+    public IcebergConfig setPurgeDataOnTableDrop(boolean purgeDataOnTableDrop)
+    {
+        this.purgeDataOnTableDrop = purgeDataOnTableDrop;
         return this;
     }
 }
