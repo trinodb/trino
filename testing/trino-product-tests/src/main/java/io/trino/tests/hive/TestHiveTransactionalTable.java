@@ -799,6 +799,7 @@ public class TestHiveTransactionalTable
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
     public void testColumnRenamesOrcPartitioned(boolean transactional)
     {
+        ensureSchemaEvolutionSupported();
         withTemporaryTable("test_column_renames_partitioned", transactional, false, NONE, tableName -> {
             onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, old_name VARCHAR, age INT, old_state VARCHAR)" +
                     " WITH (format = 'ORC', transactional = %s, partitioned_by = ARRAY['old_state'])", tableName, transactional));
@@ -846,6 +847,7 @@ public class TestHiveTransactionalTable
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "transactionModeProvider")
     public void testOrcColumnSwap(boolean transactional)
     {
+        ensureSchemaEvolutionSupported();
         withTemporaryTable("test_orc_column_renames", transactional, false, NONE, tableName -> {
             onPresto().executeQuery(format("CREATE TABLE %s (name VARCHAR, state VARCHAR) WITH (format = 'ORC', transactional = %s)", tableName, transactional));
             onPresto().executeQuery(format("INSERT INTO %s VALUES ('Katy', 'CA'), ('Joe', 'WA')", tableName));
