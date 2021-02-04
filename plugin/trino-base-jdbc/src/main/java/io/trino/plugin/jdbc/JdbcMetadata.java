@@ -153,7 +153,8 @@ public class JdbcMetadata
                 handle.getRelationHandle(),
                 newDomain,
                 handle.getLimit(),
-                handle.getColumns());
+                handle.getColumns(),
+                handle.getMextSyntheticColumnId());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter));
     }
@@ -166,7 +167,8 @@ public class JdbcMetadata
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
                 OptionalLong.empty(),
-                Optional.of(columns));
+                Optional.of(columns),
+                handle.getMextSyntheticColumnId());
     }
 
     @Override
@@ -191,7 +193,8 @@ public class JdbcMetadata
                         handle.getRelationHandle(),
                         handle.getConstraint(),
                         handle.getLimit(),
-                        Optional.of(newColumns)),
+                        Optional.of(newColumns),
+                        handle.getMextSyntheticColumnId()),
                 projections,
                 assignments.entrySet().stream()
                         .map(assignment -> new Assignment(
@@ -227,11 +230,7 @@ public class JdbcMetadata
             handle = flushAttributesAsQuery(session, handle);
         }
 
-        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
-        Map<String, JdbcColumnHandle> columnByName = columns.stream()
-                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
-
-        int syntheticNextIdentifier = 1;
+        int mextSyntheticColumnId = handle.getMextSyntheticColumnId();
 
         ImmutableList.Builder<JdbcColumnHandle> newColumns = ImmutableList.builder();
         ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
@@ -243,11 +242,8 @@ public class JdbcMetadata
                 return Optional.empty();
             }
 
-            while (columnByName.containsKey(SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier)) {
-                syntheticNextIdentifier++;
-            }
-
-            String columnName = SYNTHETIC_COLUMN_NAME_PREFIX + syntheticNextIdentifier;
+            String columnName = SYNTHETIC_COLUMN_NAME_PREFIX + mextSyntheticColumnId;
+            mextSyntheticColumnId++;
             JdbcColumnHandle newColumn = JdbcColumnHandle.builder()
                     .setColumnName(columnName)
                     .setJdbcTypeHandle(expression.get().getJdbcTypeHandle())
@@ -259,8 +255,6 @@ public class JdbcMetadata
             projections.add(new Variable(newColumn.getColumnName(), aggregate.getOutputType()));
             resultAssignments.add(new Assignment(newColumn.getColumnName(), newColumn, aggregate.getOutputType()));
             expressions.put(columnName, expression.get().getExpression());
-
-            syntheticNextIdentifier++;
         }
 
         List<List<JdbcColumnHandle>> groupingSetsAsJdbcColumnHandles = groupingSets.stream()
@@ -287,7 +281,8 @@ public class JdbcMetadata
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
                 OptionalLong.empty(),
-                Optional.of(newColumnsList));
+                Optional.of(newColumnsList),
+                mextSyntheticColumnId);
 
         return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
     }
@@ -309,7 +304,8 @@ public class JdbcMetadata
                 handle.getRelationHandle(),
                 handle.getConstraint(),
                 OptionalLong.of(limit),
-                handle.getColumns());
+                handle.getColumns(),
+                handle.getMextSyntheticColumnId());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
     }
