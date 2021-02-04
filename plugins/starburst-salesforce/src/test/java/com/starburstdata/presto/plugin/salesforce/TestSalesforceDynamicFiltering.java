@@ -1,0 +1,129 @@
+/*
+ * Copyright Starburst Data, Inc. All rights reserved.
+ *
+ * THIS IS UNPUBLISHED PROPRIETARY SOURCE CODE OF STARBURST DATA.
+ * The copyright notice above does not evidence any
+ * actual or intended publication of such source code.
+ *
+ * Redistribution of this material is strictly prohibited.
+ */
+package com.starburstdata.presto.plugin.salesforce;
+
+import com.google.common.collect.ImmutableList;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
+import io.trino.testing.QueryRunner;
+import org.testng.annotations.Test;
+
+import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static io.trino.tpch.TpchTable.ORDERS;
+
+public class TestSalesforceDynamicFiltering
+        extends AbstractDynamicFilteringTest
+{
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
+    {
+        return SalesforceQueryRunner.builder()
+                .enableWrites()
+                .setTables(ImmutableList.of(ORDERS))
+                .build();
+    }
+
+    @Override
+    protected boolean supportsSplitDynamicFiltering()
+    {
+        // JDBC connectors always generate single split
+        return false;
+    }
+
+    @Override
+    protected boolean isJoinPushdownEnabledByDefault()
+    {
+        return false;
+    }
+
+    @Override
+    @Test(timeOut = 120_000)
+    public void testDynamicFiltering()
+    {
+        assertDynamicFilters("SELECT * FROM orders__c a JOIN orders__c b ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 0");
+    }
+
+    @Override
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringWithAggregationGroupingColumn()
+    {
+        assertDynamicFilters(
+                "SELECT * FROM (SELECT orderkey__c, count(*) FROM orders__c GROUP BY 1) a JOIN orders__c b " +
+                        "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000",
+                // selected rows might cover same number of splits as for query without DF
+                false);
+    }
+
+    @Override
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringWithAggregationAggregateColumn()
+    {
+        // Salesforce connector doesn't support aggregate pushdown
+        assertNoDynamicFiltering(
+                "SELECT * FROM (SELECT orderkey__c, count(*) count FROM orders__c GROUP BY 1) a JOIN orders__c b " +
+                        "ON a.count = b.orderkey__c AND b.totalprice__c < 1000");
+    }
+
+    @Override
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringWithAggregationGroupingSet()
+    {
+        // DF pushdown is not supported for grouping column that is not part of every grouping set
+        assertNoDynamicFiltering(
+                "SELECT * FROM (SELECT orderkey__c, count(*) FROM orders__c GROUP BY GROUPING SETS ((orderkey__c), ())) a JOIN orders__c b " +
+                        "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
+    }
+
+    @Override
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringWithLimit()
+    {
+        // DF pushdown is not supported for limit queries
+        assertNoDynamicFiltering(
+                "SELECT * FROM (SELECT orderkey__c FROM orders__c LIMIT 10000000) a JOIN orders__c b " +
+                        "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
+    }
+
+    @Override
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringBroadcastJoin()
+    {
+        String query = "SELECT * FROM orders__c a JOIN orders__c b " +
+                "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c <= 1000";
+        QueryInputStats filteredStats = getQueryInputStats(broadcastJoinWithDynamicFiltering(true), query);
+        QueryInputStats unfilteredStats = getQueryInputStats(broadcastJoinWithDynamicFiltering(false), query);
+
+        assertGreaterThan(unfilteredStats.inputPositions, filteredStats.inputPositions);
+    }
+
+    @Override
+    @Test(timeOut = 120_000)
+    public void testDynamicFilteringDomainCompactionThreshold()
+    {
+        String tableName = "orderkeys_" + randomTableSuffix();
+        try {
+            assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
+
+            String query = "SELECT * FROM orders__c a " +
+                    "JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
+
+            QueryInputStats filteredStats = getQueryInputStats(dynamicFiltering(true), query);
+            QueryInputStats smallCompactionStats = getQueryInputStats(dynamicFilteringWithCompactionThreshold(1), query);
+            QueryInputStats unfilteredStats = getQueryInputStats(dynamicFiltering(false), query);
+
+            assertGreaterThan(unfilteredStats.inputPositions, smallCompactionStats.inputPositions);
+            assertGreaterThan(smallCompactionStats.inputPositions, filteredStats.inputPositions);
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + tableName + "__c");
+        }
+    }
+}
