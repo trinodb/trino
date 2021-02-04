@@ -45,6 +45,8 @@ public final class JdbcTableHandle
     // columns of the relation described by this handle
     private final Optional<List<JdbcColumnHandle>> columns;
 
+    private final int nextSyntheticColumnId;
+
     @Deprecated
     public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
     {
@@ -57,7 +59,8 @@ public final class JdbcTableHandle
                 new JdbcNamedRelationHandle(schemaTableName, remoteTableName),
                 TupleDomain.all(),
                 OptionalLong.empty(),
-                Optional.empty());
+                Optional.empty(),
+                0);
     }
 
     @JsonCreator
@@ -65,7 +68,8 @@ public final class JdbcTableHandle
             @JsonProperty("relationHandle") JdbcRelationHandle relationHandle,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("limit") OptionalLong limit,
-            @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns)
+            @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
+            @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
@@ -74,6 +78,7 @@ public final class JdbcTableHandle
 
         requireNonNull(columns, "columns is null");
         this.columns = columns.map(ImmutableList::copyOf);
+        this.nextSyntheticColumnId = nextSyntheticColumnId;
     }
 
     /**
@@ -170,6 +175,12 @@ public final class JdbcTableHandle
         return columns;
     }
 
+    @JsonProperty
+    public int getMextSyntheticColumnId()
+    {
+        return nextSyntheticColumnId;
+    }
+
     @JsonIgnore
     public boolean isSynthetic()
     {
@@ -195,13 +206,14 @@ public final class JdbcTableHandle
         return Objects.equals(this.relationHandle, o.relationHandle) &&
                 Objects.equals(this.constraint, o.constraint) &&
                 Objects.equals(this.limit, o.limit) &&
-                Objects.equals(this.columns, o.columns);
+                Objects.equals(this.columns, o.columns) &&
+                this.nextSyntheticColumnId == o.nextSyntheticColumnId;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(relationHandle, constraint, limit, columns);
+        return Objects.hash(relationHandle, constraint, limit, columns, nextSyntheticColumnId);
     }
 
     @Override
