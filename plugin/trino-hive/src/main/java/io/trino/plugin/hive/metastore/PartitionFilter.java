@@ -41,7 +41,7 @@ public class PartitionFilter
     {
         this.hiveTableName = requireNonNull(hiveTableName, "hiveTableName is null");
         this.partitionColumnNames = partitionColumnNames;
-        this.partitionKeysFilter = TupleDomain.fromColumnDomains(requireNonNull(partitionKeysFilter.getColumnDomains(), "parts is null"));
+        this.partitionKeysFilter = requireNonNull(partitionKeysFilter, "partitionKeysFilter is null");
     }
 
     public static PartitionFilter partitionFilter(String databaseName, String tableName, List<String> partitionColumnNames, TupleDomain<String> partitionKeysFilter)
