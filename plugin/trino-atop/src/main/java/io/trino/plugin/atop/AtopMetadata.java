@@ -39,10 +39,13 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.atop.AtopTable.AtopColumn.END_TIME;
 import static io.trino.plugin.atop.AtopTable.AtopColumn.START_TIME;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class AtopMetadata
         implements ConnectorMetadata
@@ -112,14 +115,26 @@ public class AtopMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private ImmutableList<AtopColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         AtopTableHandle atopTableHandle = (AtopTableHandle) tableHandle;
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (AtopColumn column : atopTableHandle.getTable().getColumns()) {
-            columnHandles.put(column.getName(), new AtopColumnHandle(column.getName()));
-        }
-        return columnHandles.build();
+        List<AtopColumn> atopColumns = atopTableHandle.getTable().getColumns();
+        return atopColumns.stream()
+                .map(AtopColumn::getName)
+                .map(AtopColumnHandle::new)
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(AtopColumnHandle::getName, identity()));
     }
 
     @Override

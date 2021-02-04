@@ -50,9 +50,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 public class MongoMetadata
@@ -111,16 +113,22 @@ public class MongoMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private List<MongoColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         MongoTableHandle table = (MongoTableHandle) tableHandle;
-        List<MongoColumnHandle> columns = mongoSession.getTable(table.getSchemaTableName()).getColumns();
+        return mongoSession.getTable(table.getSchemaTableName()).getColumns();
+    }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (MongoColumnHandle columnHandle : columns) {
-            columnHandles.put(columnHandle.getName(), columnHandle);
-        }
-        return columnHandles.build();
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(MongoColumnHandle::getName, identity()));
     }
 
     @Override

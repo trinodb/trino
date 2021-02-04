@@ -34,10 +34,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_COLUMN_NAME;
 import static io.trino.plugin.localfile.LocalFileColumnHandle.SERVER_ADDRESS_ORDINAL_POSITION;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class LocalFileMetadata
         implements ConnectorMetadata
@@ -81,17 +83,23 @@ public class LocalFileMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle table)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        LocalFileTableHandle tableHandle = (LocalFileTableHandle) table;
-        return getColumnHandles(tableHandle);
+        return ImmutableList.copyOf(getColumns(tableHandle));
     }
 
-    private Map<String, ColumnHandle> getColumnHandles(LocalFileTableHandle tableHandle)
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(LocalFileColumnHandle::getColumnName, identity()));
+    }
+
+    private ImmutableList<LocalFileColumnHandle> getColumns(ConnectorTableHandle tableHandle)
+    {
+        ImmutableList.Builder<LocalFileColumnHandle> columnHandles = ImmutableList.builder();
         int index = 0;
-        for (ColumnMetadata column : localFileTables.getColumns(tableHandle)) {
+        for (ColumnMetadata column : localFileTables.getColumns((LocalFileTableHandle) tableHandle)) {
             int ordinalPosition;
             if (column.getName().equals(SERVER_ADDRESS_COLUMN_NAME)) {
                 ordinalPosition = SERVER_ADDRESS_ORDINAL_POSITION;
@@ -100,7 +108,7 @@ public class LocalFileMetadata
                 ordinalPosition = index;
                 index++;
             }
-            columnHandles.put(column.getName(), new LocalFileColumnHandle(column.getName(), column.getType(), ordinalPosition));
+            columnHandles.add(new LocalFileColumnHandle(column.getName(), column.getType(), ordinalPosition));
         }
         return columnHandles.build();
     }

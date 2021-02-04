@@ -34,7 +34,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class ExampleMetadata
         implements ConnectorMetadata
@@ -95,7 +97,12 @@ public class ExampleMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private ImmutableList<ExampleColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         ExampleTableHandle exampleTableHandle = (ExampleTableHandle) tableHandle;
 
@@ -104,13 +111,20 @@ public class ExampleMetadata
             throw new TableNotFoundException(exampleTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableList.Builder<ExampleColumnHandle> columnHandles = ImmutableList.builder();
         int index = 0;
         for (ColumnMetadata column : table.getColumnsMetadata()) {
-            columnHandles.put(column.getName(), new ExampleColumnHandle(column.getName(), column.getType(), index));
+            columnHandles.add(new ExampleColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
         return columnHandles.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(ExampleColumnHandle::getColumnName, identity()));
     }
 
     @Override

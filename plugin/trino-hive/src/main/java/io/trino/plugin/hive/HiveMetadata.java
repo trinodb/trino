@@ -708,12 +708,23 @@ public class HiveMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getTableColumns(session, tableHandle));
+    }
+
+    private List<HiveColumnHandle> getTableColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
-        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
+        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session));
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getTableColumns(session, tableHandle).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
     }
 

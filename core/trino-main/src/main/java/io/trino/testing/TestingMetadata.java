@@ -53,8 +53,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class TestingMetadata
         implements ConnectorMetadata
@@ -101,15 +103,27 @@ public class TestingMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        return ImmutableList.copyOf(getTableColumns(session, tableHandle));
+    }
+
+    private ImmutableList<TestingColumnHandle> getTableColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        ImmutableList.Builder<TestingColumnHandle> builder = ImmutableList.builder();
         int index = 0;
         for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TestingColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
+            builder.add(new TestingColumnHandle(columnMetadata.getName(), index, columnMetadata.getType()));
             index++;
         }
         return builder.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getTableColumns(session, tableHandle).stream()
+                .collect(toImmutableMap(TestingColumnHandle::getName, identity()));
     }
 
     @Override

@@ -78,6 +78,7 @@ import java.util.function.LongConsumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static io.airlift.json.JsonCodec.jsonCodec;
@@ -120,6 +121,7 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 
@@ -254,23 +256,35 @@ public class RaptorMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private ImmutableList<RaptorColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
+        ImmutableList.Builder<RaptorColumnHandle> builder = ImmutableList.builder();
         for (TableColumn tableColumn : dao.listTableColumns(raptorTableHandle.getTableId())) {
-            builder.put(tableColumn.getColumnName(), getRaptorColumnHandle(tableColumn));
+            builder.add(getRaptorColumnHandle(tableColumn));
         }
 
         RaptorColumnHandle uuidColumn = shardUuidColumnHandle();
-        builder.put(uuidColumn.getColumnName(), uuidColumn);
+        builder.add(uuidColumn);
 
         if (raptorTableHandle.isBucketed()) {
             RaptorColumnHandle bucketNumberColumn = bucketNumberColumnHandle();
-            builder.put(bucketNumberColumn.getColumnName(), bucketNumberColumn);
+            builder.add(bucketNumberColumn);
         }
 
         return builder.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(RaptorColumnHandle::getColumnName, identity()));
     }
 
     @Override

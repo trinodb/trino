@@ -357,6 +357,12 @@ public class ElasticsearchMetadata
     }
 
     @Override
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumnHandles(session, tableHandle).values());
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ElasticsearchTableHandle table = (ElasticsearchTableHandle) tableHandle;

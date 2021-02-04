@@ -45,12 +45,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class TpcdsMetadata
         implements ConnectorMetadata
@@ -165,13 +168,23 @@ public class TpcdsMetadata
     }
 
     @Override
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getTableColumns(session, tableHandle));
+    }
+
+    private ImmutableList<TpcdsColumnHandle> getTableColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getTableMetadata(session, tableHandle).getColumns().stream()
+                .map(columnMetadata -> new TpcdsColumnHandle(columnMetadata.getName(), columnMetadata.getType()))
+                .collect(toImmutableList());
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
-        for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TpcdsColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
-        }
-        return builder.build();
+        return getTableColumns(session, tableHandle).stream()
+                .collect(toImmutableMap(TpcdsColumnHandle::getColumnName, identity()));
     }
 
     @Override

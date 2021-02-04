@@ -169,6 +169,16 @@ public class MemoryMetadata
     }
 
     @Override
+    public synchronized List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
+        return tables.get(handle.getId())
+                .getColumns().stream()
+                .map(ColumnInfo::getHandle)
+                .collect(toImmutableList());
+    }
+
+    @Override
     public synchronized Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;

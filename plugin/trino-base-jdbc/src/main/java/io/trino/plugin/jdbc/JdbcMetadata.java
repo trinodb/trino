@@ -352,6 +352,12 @@ public class JdbcMetadata
     }
 
     @Override
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(jdbcClient.getColumns(session, (JdbcTableHandle) tableHandle));
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return jdbcClient.getColumns(session, (JdbcTableHandle) tableHandle).stream()

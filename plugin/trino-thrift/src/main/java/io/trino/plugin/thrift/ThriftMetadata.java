@@ -134,6 +134,14 @@ public class ThriftMetadata
     }
 
     @Override
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getTableMetadata(session, tableHandle).getColumns().stream()
+                .map(ThriftColumnHandle::new)
+                .collect(toImmutableList());
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         return getTableMetadata(session, tableHandle).getColumns().stream().collect(toImmutableMap(ColumnMetadata::getName, ThriftColumnHandle::new));

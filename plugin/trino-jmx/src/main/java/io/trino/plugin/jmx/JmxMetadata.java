@@ -230,6 +230,12 @@ public class JmxMetadata
     }
 
     @Override
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(((JmxTableHandle) tableHandle).getColumnHandles());
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         JmxTableHandle jmxTableHandle = (JmxTableHandle) tableHandle;

@@ -196,6 +196,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets all of the columns on the specified table, or an empty list if the columns cannot be enumerated.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    default List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandle() is implemented without getColumns()");
+    }
+
+    /**
      * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid

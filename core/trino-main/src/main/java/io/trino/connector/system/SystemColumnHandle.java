@@ -16,12 +16,7 @@ package io.trino.connector.system;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ColumnMetadata;
-import io.trino.spi.connector.ConnectorTableMetadata;
 
-import java.util.Map;
-
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
 
 public class SystemColumnHandle
@@ -65,12 +60,5 @@ public class SystemColumnHandle
     public String toString()
     {
         return columnName;
-    }
-
-    public static Map<String, ColumnHandle> toSystemColumnHandles(ConnectorTableMetadata tableMetadata)
-    {
-        return tableMetadata.getColumns().stream().collect(toImmutableMap(
-                ColumnMetadata::getName,
-                column -> new SystemColumnHandle(column.getName())));
     }
 }

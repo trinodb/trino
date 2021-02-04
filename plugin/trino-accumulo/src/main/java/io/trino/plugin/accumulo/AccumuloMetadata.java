@@ -55,10 +55,12 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.accumulo.AccumuloErrorCode.ACCUMULO_TABLE_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Trino metadata provider for Accumulo.
@@ -262,7 +264,12 @@ public class AccumuloMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private List<AccumuloColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         AccumuloTableHandle handle = (AccumuloTableHandle) tableHandle;
 
@@ -271,11 +278,14 @@ public class AccumuloMetadata
             throw new TableNotFoundException(handle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        for (AccumuloColumnHandle column : table.getColumns()) {
-            columnHandles.put(column.getName(), column);
-        }
-        return columnHandles.build();
+        return table.getColumns();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(AccumuloColumnHandle::getName, identity()));
     }
 
     @Override

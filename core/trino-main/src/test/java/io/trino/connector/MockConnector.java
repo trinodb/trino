@@ -58,6 +58,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
@@ -244,6 +245,15 @@ public class MockConnector
                 tableNames.addAll(listTables.apply(session, schema));
             }
             return tableNames.build();
+        }
+
+        @Override
+        public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+        {
+            MockConnectorTableHandle table = (MockConnectorTableHandle) tableHandle;
+            return getColumns.apply(table.getTableName()).stream()
+                    .map(column -> new MockConnectorColumnHandle(column.getName(), column.getType()))
+                    .collect(toImmutableList());
         }
 
         @Override

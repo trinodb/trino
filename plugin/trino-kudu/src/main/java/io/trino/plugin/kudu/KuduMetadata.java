@@ -70,9 +70,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.kudu.KuduSessionProperties.isKuduGroupedExecutionEnabled;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class KuduMetadata
         implements ConnectorMetadata
@@ -171,21 +173,32 @@ public class KuduMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle connectorTableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
-        Schema schema = clientSession.getTableSchema(tableHandle);
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+    private ImmutableList<KuduColumnHandle> getColumns(ConnectorTableHandle tableHandle)
+    {
+        Schema schema = clientSession.getTableSchema((KuduTableHandle) tableHandle);
+
+        ImmutableList.Builder<KuduColumnHandle> columnHandles = ImmutableList.builder();
         for (int ordinal = 0; ordinal < schema.getColumnCount(); ordinal++) {
             ColumnSchema col = schema.getColumnByIndex(ordinal);
             String name = col.getName();
             Type type = TypeHelper.fromKuduColumn(col);
             KuduColumnHandle columnHandle = new KuduColumnHandle(name, ordinal, type);
-            columnHandles.put(name, columnHandle);
+            columnHandles.add(columnHandle);
         }
 
         return columnHandles.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(KuduColumnHandle::getName, identity()));
     }
 
     @Override

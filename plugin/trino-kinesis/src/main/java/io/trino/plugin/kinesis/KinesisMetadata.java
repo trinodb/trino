@@ -35,7 +35,9 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class KinesisMetadata
         implements ConnectorMetadata
@@ -112,7 +114,12 @@ public class KinesisMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession connectorSession, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private ImmutableList<KinesisColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         KinesisTableHandle kinesisTableHandle = (KinesisTableHandle) tableHandle;
 
@@ -121,7 +128,7 @@ public class KinesisMetadata
             throw new TableNotFoundException(kinesisTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableList.Builder<KinesisColumnHandle> columnHandles = ImmutableList.builder();
 
         int index = 0;
         // Note: partition key and related fields are handled by internalFieldDescriptions below
@@ -130,16 +137,23 @@ public class KinesisMetadata
             List<KinesisStreamFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KinesisStreamFieldDescription kinesisStreamFieldDescription : fields) {
-                    columnHandles.put(kinesisStreamFieldDescription.getName(), kinesisStreamFieldDescription.getColumnHandle(index++));
+                    columnHandles.add(kinesisStreamFieldDescription.getColumnHandle(index++));
                 }
             }
         }
 
         for (KinesisInternalFieldDescription kinesisInternalFieldDescription : internalFieldDescriptions) {
-            columnHandles.put(kinesisInternalFieldDescription.getColumnName(), kinesisInternalFieldDescription.getColumnHandle(index++, isHideInternalColumns));
+            columnHandles.add(kinesisInternalFieldDescription.getColumnHandle(index++, isHideInternalColumns));
         }
 
         return columnHandles.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(KinesisColumnHandle::getName, identity()));
     }
 
     @Override

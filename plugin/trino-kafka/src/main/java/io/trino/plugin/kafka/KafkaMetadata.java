@@ -45,9 +45,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.kafka.KafkaHandleResolver.convertColumnHandle;
 import static io.trino.plugin.kafka.KafkaHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Manages the Kafka connector specific metadata information. The Connector provides an additional set of columns
@@ -95,9 +97,7 @@ public class KafkaMetadata
                         kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
                         kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getSubject),
                         kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getSubject),
-                        getColumnHandles(session, schemaTableName).values().stream()
-                                .map(KafkaColumnHandle.class::cast)
-                                .collect(toImmutableList()),
+                        getTableColumns(session, schemaTableName),
                         TupleDomain.all()))
                 .orElse(null);
     }
@@ -122,17 +122,25 @@ public class KafkaMetadata
     }
 
     @Override
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
+        return ImmutableList.copyOf(getTableColumns(session, kafkaTableHandle.toSchemaTableName()));
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
-        return getColumnHandles(session, kafkaTableHandle.toSchemaTableName());
+        return getTableColumns(session, kafkaTableHandle.toSchemaTableName()).stream()
+                .collect(toImmutableMap(KafkaColumnHandle::getName, identity()));
     }
 
-    private Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, SchemaTableName schemaTableName)
+    private ImmutableList<KafkaColumnHandle> getTableColumns(ConnectorSession session, SchemaTableName schemaTableName)
     {
         KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(session, schemaTableName);
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableList.Builder<KafkaColumnHandle> columnHandles = ImmutableList.builder();
 
         AtomicInteger index = new AtomicInteger(0);
 
@@ -140,7 +148,7 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
-                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(true, index.getAndIncrement()));
+                    columnHandles.add(kafkaTopicFieldDescription.getColumnHandle(true, index.getAndIncrement()));
                 }
             }
         });
@@ -149,13 +157,13 @@ public class KafkaMetadata
             List<KafkaTopicFieldDescription> fields = message.getFields();
             if (fields != null) {
                 for (KafkaTopicFieldDescription kafkaTopicFieldDescription : fields) {
-                    columnHandles.put(kafkaTopicFieldDescription.getName(), kafkaTopicFieldDescription.getColumnHandle(false, index.getAndIncrement()));
+                    columnHandles.add(kafkaTopicFieldDescription.getColumnHandle(false, index.getAndIncrement()));
                 }
             }
         });
 
         for (KafkaInternalFieldManager.InternalField kafkaInternalField : kafkaInternalFieldManager.getInternalFields().values()) {
-            columnHandles.put(kafkaInternalField.getColumnName(), kafkaInternalField.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
+            columnHandles.add(kafkaInternalField.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
         }
 
         return columnHandles.build();

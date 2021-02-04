@@ -156,6 +156,12 @@ public class CassandraMetadata
     }
 
     @Override
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(cassandraSession.getTable(getTableName(tableHandle)).getColumns());
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         requireNonNull(session, "session is null");

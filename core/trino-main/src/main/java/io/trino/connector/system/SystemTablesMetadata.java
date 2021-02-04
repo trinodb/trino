@@ -13,6 +13,7 @@
  */
 package io.trino.connector.system;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.system.jdbc.JdbcTable;
 import io.trino.spi.TrinoException;
@@ -36,12 +37,13 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.connector.system.SystemColumnHandle.toSystemColumnHandles;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.MetadataUtil.findColumnMetadata;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.lang.String.format;
 import static java.util.Collections.singletonMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class SystemTablesMetadata
         implements ConnectorMetadata
@@ -101,10 +103,25 @@ public class SystemTablesMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getTableColumns(session, tableHandle));
+    }
+
+    private ImmutableList<SystemColumnHandle> getTableColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         ConnectorTableMetadata tableMetadata = checkAndGetTable(session, tableHandle).getTableMetadata();
-        return toSystemColumnHandles(tableMetadata);
+        return tableMetadata.getColumns().stream()
+                .map(ColumnMetadata::getName)
+                .map(SystemColumnHandle::new)
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getTableColumns(session, tableHandle).stream()
+                .collect(toImmutableMap(SystemColumnHandle::getColumnName, identity()));
     }
 
     private SystemTable checkAndGetTable(ConnectorSession session, ConnectorTableHandle tableHandle)

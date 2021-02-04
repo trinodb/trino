@@ -34,9 +34,11 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.google.sheets.SheetsErrorCode.SHEETS_UNKNOWN_TABLE_ERROR;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class SheetsMetadata
         implements ConnectorMetadata
@@ -88,7 +90,12 @@ public class SheetsMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private ImmutableList<SheetsColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         SheetsTableHandle sheetsTableHandle = (SheetsTableHandle) tableHandle;
         Optional<SheetsTable> table = sheetsClient.getTable(sheetsTableHandle.getTableName());
@@ -96,13 +103,20 @@ public class SheetsMetadata
             throw new TableNotFoundException(sheetsTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableList.Builder<SheetsColumnHandle> columnHandles = ImmutableList.builder();
         int index = 0;
         for (ColumnMetadata column : table.get().getColumnsMetadata()) {
-            columnHandles.put(column.getName(), new SheetsColumnHandle(column.getName(), column.getType(), index));
+            columnHandles.add(new SheetsColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
         return columnHandles.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(SheetsColumnHandle::getColumnName, identity()));
     }
 
     @Override

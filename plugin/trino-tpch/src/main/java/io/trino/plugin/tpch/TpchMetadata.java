@@ -73,6 +73,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Maps.asMap;
 import static io.trino.plugin.tpch.util.PredicateUtils.convertToPredicate;
@@ -88,6 +90,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
@@ -239,13 +242,23 @@ public class TpchMetadata
     }
 
     @Override
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getTableColumns(session, tableHandle));
+    }
+
+    private ImmutableList<TpchColumnHandle> getTableColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getTableMetadata(session, tableHandle).getColumns().stream()
+                .map(columnMetadata -> new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getType()))
+                .collect(toImmutableList());
+    }
+
+    @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ImmutableMap.Builder<String, ColumnHandle> builder = ImmutableMap.builder();
-        for (ColumnMetadata columnMetadata : getTableMetadata(session, tableHandle).getColumns()) {
-            builder.put(columnMetadata.getName(), new TpchColumnHandle(columnMetadata.getName(), columnMetadata.getType()));
-        }
-        return builder.build();
+        return getTableColumns(session, tableHandle).stream()
+                .collect(toImmutableMap(TpchColumnHandle::getColumnName, identity()));
     }
 
     @Override

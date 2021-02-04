@@ -37,7 +37,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 public class PrometheusMetadata
         implements ConnectorMetadata
@@ -95,7 +97,12 @@ public class PrometheusMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private ImmutableList<PrometheusColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         PrometheusTableHandle prometheusTableHandle = (PrometheusTableHandle) tableHandle;
 
@@ -104,13 +111,20 @@ public class PrometheusMetadata
             throw new TableNotFoundException(prometheusTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableList.Builder<PrometheusColumnHandle> columnHandles = ImmutableList.builder();
         int index = 0;
         for (ColumnMetadata column : table.getColumnsMetadata()) {
-            columnHandles.put(column.getName(), new PrometheusColumnHandle(column.getName(), column.getType(), index));
+            columnHandles.add(new PrometheusColumnHandle(column.getName(), column.getType(), index));
             index++;
         }
         return columnHandles.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(PrometheusColumnHandle::getColumnName, identity()));
     }
 
     @Override

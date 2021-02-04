@@ -41,9 +41,11 @@ import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.redis.RedisHandleResolver.convertColumnHandle;
 import static io.trino.plugin.redis.RedisHandleResolver.convertTableHandle;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 /**
  * Manages the Redis connector specific metadata information. The Connector provides an additional set of columns
@@ -135,7 +137,12 @@ public class RedisMetadata
     }
 
     @Override
-    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public List<ColumnHandle> getColumns(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return ImmutableList.copyOf(getColumns(tableHandle));
+    }
+
+    private ImmutableList<RedisColumnHandle> getColumns(ConnectorTableHandle tableHandle)
     {
         RedisTableHandle redisTableHandle = convertTableHandle(tableHandle);
 
@@ -144,7 +151,7 @@ public class RedisMetadata
             throw new TableNotFoundException(redisTableHandle.toSchemaTableName());
         }
 
-        ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
+        ImmutableList.Builder<RedisColumnHandle> columnHandles = ImmutableList.builder();
 
         int index = 0;
         RedisTableFieldGroup key = redisTableDescription.getKey();
@@ -152,7 +159,7 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = key.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(true, index));
+                    columnHandles.add(field.getColumnHandle(true, index));
                     index++;
                 }
             }
@@ -163,18 +170,25 @@ public class RedisMetadata
             List<RedisTableFieldDescription> fields = value.getFields();
             if (fields != null) {
                 for (RedisTableFieldDescription field : fields) {
-                    columnHandles.put(field.getName(), field.getColumnHandle(false, index));
+                    columnHandles.add(field.getColumnHandle(false, index));
                     index++;
                 }
             }
         }
 
         for (RedisInternalFieldDescription field : RedisInternalFieldDescription.values()) {
-            columnHandles.put(field.getColumnName(), field.getColumnHandle(index, hideInternalColumns));
+            columnHandles.add(field.getColumnHandle(index, hideInternalColumns));
             index++;
         }
 
         return columnHandles.build();
+    }
+
+    @Override
+    public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return getColumns(tableHandle).stream()
+                .collect(toImmutableMap(RedisColumnHandle::getName, identity()));
     }
 
     @Override
