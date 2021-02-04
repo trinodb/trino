@@ -312,7 +312,7 @@ public class TestJdbcMetadata
                 Optional.of(ImmutableMap.of(groupByColumn, secondDomain)));
         assertEquals(
                 ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
-                "SELECT \"TEXT\", count(*) AS \"_pfgnrtd_1\" " +
+                "SELECT \"TEXT\", count(*) AS \"_pfgnrtd_0\" " +
                         "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
                         "WHERE \"TEXT\" IN (?,?) " +
                         "GROUP BY \"TEXT\"");
@@ -341,7 +341,7 @@ public class TestJdbcMetadata
                 Optional.of(ImmutableMap.of(nonGroupByColumn, domain)));
         assertEquals(
                 ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
-                "SELECT \"TEXT\", count(*) AS \"_pfgnrtd_1\" " +
+                "SELECT \"TEXT\", count(*) AS \"_pfgnrtd_0\" " +
                         "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
                         "GROUP BY \"TEXT\"");
     }
@@ -370,7 +370,7 @@ public class TestJdbcMetadata
                 Optional.of(ImmutableMap.of(valueColumn, domain)));
         assertEquals(
                 ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
-                "SELECT \"TEXT\", \"VALUE\", count(*) AS \"_pfgnrtd_1\" " +
+                "SELECT \"TEXT\", \"VALUE\", count(*) AS \"_pfgnrtd_0\" " +
                         "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
                         "GROUP BY GROUPING SETS ((\"TEXT\", \"VALUE\"), (\"TEXT\"))");
     }

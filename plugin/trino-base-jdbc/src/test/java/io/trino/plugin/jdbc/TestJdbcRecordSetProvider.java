@@ -187,7 +187,8 @@ public class TestJdbcRecordSetProvider
                 jdbcTableHandle.getRelationHandle(),
                 domain,
                 OptionalLong.empty(),
-                Optional.empty());
+                Optional.empty(),
+                jdbcTableHandle.getMextSyntheticColumnId());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
