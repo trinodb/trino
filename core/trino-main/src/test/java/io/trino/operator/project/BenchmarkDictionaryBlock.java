@@ -37,6 +37,7 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
+import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -167,6 +168,30 @@ public class BenchmarkDictionaryBlock
         {
             return allPositionsCompactDictionaryBlock;
         }
+    }
+
+    @Test
+    public void testGetSizeInBytes()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        getSizeInBytes(data);
+    }
+
+    @Test
+    public void testCopyPositions()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        copyPositions(data);
+    }
+
+    @Test
+    public void testCopyPositionsCompactDictionary()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        copyPositionsCompactDictionary(data);
     }
 
     public static void main(String[] args)
