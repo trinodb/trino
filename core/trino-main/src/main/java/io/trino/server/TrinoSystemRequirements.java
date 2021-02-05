@@ -83,7 +83,7 @@ final class TrinoSystemRequirements
         }
         else if ("FreeBSD".equals(osName)) {
             if (!"amd64".equals(osArch)) {
-                failRequirement("Trino requires x86_64 on FreeBSD (found %s)", osArch);
+                failRequirement("Trino requires amd64 on FreeBSD (found %s)", osArch);
             }
         }
         else if ("Mac OS X".equals(osName)) {
