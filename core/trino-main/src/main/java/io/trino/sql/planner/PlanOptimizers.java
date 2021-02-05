@@ -590,6 +590,7 @@ public class PlanOptimizers
                         .add(new PushJoinIntoTableScan(metadata))
                         .add(new PushAggregationIntoTableScan(metadata))
                         .add(new PushDistinctLimitIntoTableScan(metadata))
+                        .add(new PushTopNIntoTableScan(metadata))
                         .build());
         builder.add(pushIntoTableScanOptimizer);
         builder.add(new UnaliasSymbolReferences(metadata));
@@ -712,8 +713,7 @@ public class PlanOptimizers
                         new CreatePartialTopN(),
                         new PushTopNThroughProject(),
                         new PushTopNThroughOuterJoin(),
-                        new PushTopNThroughUnion(),
-                        new PushTopNIntoTableScan(metadata))));
+                        new PushTopNThroughUnion())));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,

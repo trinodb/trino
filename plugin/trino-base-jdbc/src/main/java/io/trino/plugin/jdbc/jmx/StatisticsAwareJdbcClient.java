@@ -32,6 +32,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -267,6 +268,18 @@ public final class StatisticsAwareJdbcClient
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
         return stats.getGetTableStatistics().wrap(() -> delegate().getTableStatistics(session, handle, tupleDomain));
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    {
+        return delegate().supportsTopN(session, handle, sortOrder);
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        return delegate().isTopNLimitGuaranteed(session);
     }
 
     @Override

@@ -753,7 +753,34 @@ public abstract class AbstractTestQueries
     @Test
     public void testTopN()
     {
-        assertQuery("SELECT n.name, r.name FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1");
+        assertQueryOrdered("SELECT n.name, r.name FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1");
+
+        assertQueryOrdered("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10");
+        assertQueryOrdered("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10");
+
+        // multiple sort columns with different sort orders
+        assertQueryOrdered("SELECT orderpriority, totalprice FROM orders ORDER BY orderpriority DESC, totalprice ASC LIMIT 10");
+
+        // TopN with Filter
+        assertQueryOrdered("SELECT orderkey FROM orders WHERE orderkey > 10 ORDER BY orderkey DESC LIMIT 10");
+
+        // TopN over aggregation column
+        assertQueryOrdered("SELECT sum(totalprice), clerk FROM orders GROUP BY clerk ORDER BY sum(totalprice) LIMIT 10");
+
+        // TopN over TopN
+        assertQueryOrdered("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5");
+
+        // TopN over complex query
+        assertQueryOrdered(
+                "SELECT totalprice_sum, clerk " +
+                    "FROM (SELECT SUM(totalprice) as totalprice_sum, clerk FROM orders WHERE orderpriority='1-URGENT' GROUP BY clerk ORDER BY totalprice_sum DESC LIMIT 10)" +
+                    "ORDER BY clerk DESC LIMIT 5");
+
+        // TopN over aggregation with filter
+        assertQueryOrdered(
+                "SELECT * " +
+                    "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
+                    "ORDER BY sum DESC LIMIT 10");
     }
 
     @Test
