@@ -255,7 +255,7 @@ public class PhoenixClient
                 ImmutableMap.of(),
                 phoenixSplit.getConstraint(),
                 split.getAdditionalPredicate());
-        preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
+        preparedQuery = applyQueryTransformations(table, preparedQuery);
         PreparedStatement query = queryBuilder.prepareStatement(session, connection, preparedQuery);
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
         ResultSet resultSet = getResultSet(phoenixSplit.getPhoenixInputSplit(), queryPlan);

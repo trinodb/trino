@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.predicate.TupleDomain;
 
 import javax.annotation.Nullable;
@@ -39,7 +40,10 @@ public final class JdbcTableHandle
 
     private final TupleDomain<ColumnHandle> constraint;
 
-    // semantically limit is applied after constraint
+    // semantically sort order is applied after constraint
+    private final Optional<List<SortItem>> sortOrder;
+
+    // semantically limit is applied after sort order
     private final OptionalLong limit;
 
     // columns of the relation described by this handle
@@ -58,6 +62,7 @@ public final class JdbcTableHandle
         this(
                 new JdbcNamedRelationHandle(schemaTableName, remoteTableName),
                 TupleDomain.all(),
+                Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty(),
                 0);
@@ -67,13 +72,15 @@ public final class JdbcTableHandle
     public JdbcTableHandle(
             @JsonProperty("relationHandle") JdbcRelationHandle relationHandle,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("sortOrder") Optional<List<SortItem>> sortOrder,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
             @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
-
+        this.sortOrder = requireNonNull(sortOrder, "sortOrder is null")
+                .map(ImmutableList::copyOf);
         this.limit = requireNonNull(limit, "limit is null");
 
         requireNonNull(columns, "columns is null");
@@ -176,6 +183,12 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
+    public Optional<List<SortItem>> getSortOrder()
+    {
+        return sortOrder;
+    }
+
+    @JsonProperty
     public int getNextSyntheticColumnId()
     {
         return nextSyntheticColumnId;
@@ -184,7 +197,7 @@ public final class JdbcTableHandle
     @JsonIgnore
     public boolean isSynthetic()
     {
-        return !isNamedRelation() || !constraint.isAll() || limit.isPresent();
+        return !isNamedRelation() || !constraint.isAll() || sortOrder.isPresent() || limit.isPresent();
     }
 
     @JsonIgnore
@@ -205,6 +218,7 @@ public final class JdbcTableHandle
         JdbcTableHandle o = (JdbcTableHandle) obj;
         return Objects.equals(this.relationHandle, o.relationHandle) &&
                 Objects.equals(this.constraint, o.constraint) &&
+                Objects.equals(this.sortOrder, o.sortOrder) &&
                 Objects.equals(this.limit, o.limit) &&
                 Objects.equals(this.columns, o.columns) &&
                 this.nextSyntheticColumnId == o.nextSyntheticColumnId;
@@ -213,7 +227,7 @@ public final class JdbcTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(relationHandle, constraint, limit, columns, nextSyntheticColumnId);
+        return Objects.hash(relationHandle, constraint, sortOrder, limit, columns, nextSyntheticColumnId);
     }
 
     @Override
@@ -221,6 +235,7 @@ public final class JdbcTableHandle
     {
         StringBuilder builder = new StringBuilder();
         builder.append(relationHandle);
+        sortOrder.ifPresent(value -> builder.append(" sortOrder=").append(value));
         limit.ifPresent(value -> builder.append(" limit=").append(value));
         columns.ifPresent(value -> builder.append(" columns=").append(value));
         return builder.toString();

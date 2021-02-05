@@ -186,6 +186,7 @@ public class DruidJdbcClient
                                     table.getRequiredNamedRelation().getRemoteTableName().getSchemaName(),
                                     table.getRequiredNamedRelation().getRemoteTableName().getTableName())),
                     table.getConstraint(),
+                    table.getSortOrder(),
                     table.getLimit(),
                     table.getColumns(),
                     table.getNextSyntheticColumnId());

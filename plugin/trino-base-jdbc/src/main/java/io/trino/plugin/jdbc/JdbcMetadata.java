@@ -39,9 +39,11 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
@@ -65,6 +67,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
@@ -113,6 +116,9 @@ public class JdbcMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
+        if (handle.getSortOrder().isPresent() && handle.getLimit().isPresent()) {
+            handle = flushAttributesAsQuery(session, handle);
+        }
 
         TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
@@ -153,6 +159,7 @@ public class JdbcMetadata
         handle = new JdbcTableHandle(
                 handle.getRelationHandle(),
                 newDomain,
+                handle.getSortOrder(),
                 handle.getLimit(),
                 handle.getColumns(),
                 handle.getNextSyntheticColumnId());
@@ -167,6 +174,7 @@ public class JdbcMetadata
         return new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
+                Optional.empty(),
                 OptionalLong.empty(),
                 Optional.of(columns),
                 handle.getNextSyntheticColumnId());
@@ -193,6 +201,7 @@ public class JdbcMetadata
                 new JdbcTableHandle(
                         handle.getRelationHandle(),
                         handle.getConstraint(),
+                        handle.getSortOrder(),
                         handle.getLimit(),
                         Optional.of(newColumns),
                         handle.getNextSyntheticColumnId()),
@@ -281,6 +290,7 @@ public class JdbcMetadata
         handle = new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
+                Optional.empty(),
                 OptionalLong.empty(),
                 Optional.of(newColumnsList),
                 nextSyntheticColumnId);
@@ -304,11 +314,59 @@ public class JdbcMetadata
         handle = new JdbcTableHandle(
                 handle.getRelationHandle(),
                 handle.getConstraint(),
+                handle.getSortOrder(),
                 OptionalLong.of(limit),
                 handle.getColumns(),
                 handle.getNextSyntheticColumnId());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!isTopNPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        verify(!sortItems.isEmpty(), "sortItems are empty");
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        List<SortItem> resultSortOrder = sortItems.stream()
+                .map(sortItem -> {
+                    verify(assignments.containsKey(sortItem.getName()), "assignments does not contain sortItem: %s", sortItem.getName());
+                    return new SortItem(((JdbcColumnHandle) assignments.get(sortItem.getName())).getColumnName(), sortItem.getSortOrder());
+                })
+                .collect(toImmutableList());
+
+        if (!jdbcClient.supportsTopN(session, handle, resultSortOrder)) {
+            // JDBC client implementation prevents TopN pushdown for the given table and sort items
+            // e.g. when order by on a given type does not match Trino semantics
+            return Optional.empty();
+        }
+
+        if (handle.getSortOrder().isPresent() || handle.getLimit().isPresent()) {
+            if (handle.getLimit().equals(OptionalLong.of(topNCount)) && handle.getSortOrder().equals(Optional.of(resultSortOrder))) {
+                return Optional.empty();
+            }
+
+            handle = flushAttributesAsQuery(session, handle);
+        }
+
+        JdbcTableHandle sortedTableHandle = new JdbcTableHandle(
+                handle.getRelationHandle(),
+                handle.getConstraint(),
+                Optional.of(resultSortOrder),
+                OptionalLong.of(topNCount),
+                handle.getColumns(),
+                handle.getNextSyntheticColumnId());
+
+        return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNLimitGuaranteed(session)));
     }
 
     @Override

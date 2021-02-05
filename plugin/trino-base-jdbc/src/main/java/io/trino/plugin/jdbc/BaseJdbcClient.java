@@ -31,6 +31,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
@@ -53,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.BiFunction;
@@ -430,7 +430,7 @@ public abstract class BaseJdbcClient
             Map<String, String> columnExpressions)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            PreparedQuery preparedQuery = new QueryBuilder(this).prepareQuery(
+            return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
                     session,
                     connection,
                     table.getRelationHandle(),
@@ -438,9 +438,7 @@ public abstract class BaseJdbcClient
                     columns,
                     columnExpressions,
                     table.getConstraint(),
-                    Optional.empty());
-            preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
-            return preparedQuery;
+                    Optional.empty()));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -452,7 +450,7 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         QueryBuilder queryBuilder = new QueryBuilder(this);
-        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
+        PreparedQuery preparedQuery = applyQueryTransformations(table, queryBuilder.prepareQuery(
                 session,
                 connection,
                 table.getRelationHandle(),
@@ -460,9 +458,24 @@ public abstract class BaseJdbcClient
                 columns,
                 ImmutableMap.of(),
                 table.getConstraint(),
-                split.getAdditionalPredicate());
-        preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
+                split.getAdditionalPredicate()));
         return queryBuilder.prepareStatement(session, connection, preparedQuery);
+    }
+
+    protected PreparedQuery applyQueryTransformations(JdbcTableHandle tableHandle, PreparedQuery query)
+    {
+        PreparedQuery preparedQuery = query;
+
+        if (tableHandle.getLimit().isPresent()) {
+            if (tableHandle.getSortOrder().isPresent()) {
+                preparedQuery = preparedQuery.transformQuery(applyTopN(tableHandle.getSortOrder().get(), tableHandle.getLimit().getAsLong()));
+            }
+            else {
+                preparedQuery = preparedQuery.transformQuery(applyLimit(tableHandle.getLimit().getAsLong()));
+            }
+        }
+
+        return preparedQuery;
     }
 
     @Override
@@ -967,14 +980,28 @@ public abstract class BaseJdbcClient
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
     }
 
-    protected Function<String, String> tryApplyLimit(OptionalLong limit)
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
     {
-        if (limit.isEmpty()) {
-            return Function.identity();
-        }
-        return limitFunction()
-                .map(limitFunction -> (Function<String, String>) sql -> limitFunction.apply(sql, limit.getAsLong()))
-                .orElseGet(Function::identity);
+        return topNFunction().isPresent();
+    }
+
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.empty();
+    }
+
+    private Function<String, String> applyTopN(List<SortItem> sortOrder, long limit)
+    {
+        return query -> topNFunction()
+                .orElseThrow()
+                .apply(query, sortOrder, limit);
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        throw new UnsupportedOperationException("topNFunction() implemented without implementing isTopNLimitGuaranteed()");
     }
 
     @Override
@@ -986,6 +1013,13 @@ public abstract class BaseJdbcClient
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.empty();
+    }
+
+    private Function<String, String> applyLimit(long limit)
+    {
+        return query -> limitFunction()
+                .orElseThrow()
+                .apply(query, limit);
     }
 
     @Override
@@ -1054,5 +1088,11 @@ public abstract class BaseJdbcClient
                 Optional.ofNullable(resultSet.getString("TABLE_CAT")),
                 Optional.ofNullable(resultSet.getString("TABLE_SCHEM")),
                 resultSet.getString("TABLE_NAME"));
+    }
+
+    @FunctionalInterface
+    public interface TopNFunction
+    {
+        String apply(String query, List<SortItem> sortItems, long limit);
     }
 }
