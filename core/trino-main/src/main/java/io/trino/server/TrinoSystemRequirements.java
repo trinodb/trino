@@ -81,6 +81,11 @@ final class TrinoSystemRequirements
                 warnRequirement("Support for the POWER architecture is experimental");
             }
         }
+        else if ("FreeBSD".equals(osName)) {
+            if (!"amd64".equals(osArch)) {
+                failRequirement("Trino requires x86_64 on FreeBSD (found %s)", osArch);
+            }
+        }
         else if ("Mac OS X".equals(osName)) {
             if (!"x86_64".equals(osArch)) {
                 failRequirement("Trino requires x86_64 on Mac OS X (found %s)", osArch);
