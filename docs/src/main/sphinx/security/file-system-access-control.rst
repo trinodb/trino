@@ -23,6 +23,11 @@ The config file is specified in JSON format. It contains rules that define
 which users have access to which resources. The rules are read from top to bottom
 and the first matching rule is applied. If no rule matches, access is denied.
 
+.. note::
+
+    Access control is enforced on coordinator. Therefore access control
+    configuration files are only required on coordinator node.
+
 Refresh
 --------
 
