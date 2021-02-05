@@ -23,6 +23,7 @@ public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
     private boolean aggregationPushdownEnabled = true;
+    private boolean topNPushdownEnabled = true;
     // Pushed domains are transformed into SQL IN lists
     // (or sequence of range predicates) in JDBC connectors.
     // Too large IN lists cause significant performance regression.
@@ -55,6 +56,19 @@ public class JdbcMetadataConfig
     {
         this.aggregationPushdownEnabled = aggregationPushdownEnabled;
         return this;
+    }
+
+    @Config("topn-pushdown.enabled")
+    @ConfigDescription("Enable TopN pushdown")
+    public JdbcMetadataConfig setTopNPushdownEnabled(boolean enabled)
+    {
+        this.topNPushdownEnabled = enabled;
+        return this;
+    }
+
+    public Boolean isTopNPushdownEnabled()
+    {
+        return this.topNPushdownEnabled;
     }
 
     @Min(1)

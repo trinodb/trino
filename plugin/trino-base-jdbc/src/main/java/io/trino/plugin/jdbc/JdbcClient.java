@@ -21,6 +21,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -91,6 +92,10 @@ public interface JdbcClient
 
     PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException;
+
+    boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder);
+
+    boolean isTopNLimitGuaranteed(ConnectorSession session);
 
     boolean supportsLimit();
 

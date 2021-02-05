@@ -13,6 +13,8 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -23,11 +25,13 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
+import io.trino.sql.planner.plan.TopNNode.Step;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -38,8 +42,11 @@ public class PushTopNIntoTableScan
 {
     private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
 
-    private static final Pattern<TopNNode> PATTERN = topN().with(source().matching(
-            tableScan().capturedAs(TABLE_SCAN)));
+    // Currently the rule is applied at the optimization phase where PARTIAL and FINAL TopNNode do not exist.
+    // The rule can be further made to work with PARTIAL and FINAL if needed.
+    private static final Pattern<TopNNode> PATTERN = topN()
+            .matching(node -> node.getStep().equals(Step.SINGLE))
+            .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;
 
@@ -52,6 +59,12 @@ public class PushTopNIntoTableScan
     public Pattern<TopNNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
     }
 
     @Override
@@ -76,7 +89,7 @@ public class PushTopNIntoTableScan
                             tableScan.isForDelete());
 
                     if (!result.isTopNGuaranteed()) {
-                        node = new TopNNode(topNNode.getId(), node, topNNode.getCount(), topNNode.getOrderingScheme(), TopNNode.Step.FINAL);
+                        node = topNNode.replaceChildren(ImmutableList.of(node));
                     }
                     return Result.ofPlanNode(node);
                 })

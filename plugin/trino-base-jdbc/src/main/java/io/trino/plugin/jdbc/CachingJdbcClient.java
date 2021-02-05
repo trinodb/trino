@@ -28,6 +28,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -202,6 +203,18 @@ public class CachingJdbcClient
             throws SQLException
     {
         return delegate.buildSql(session, connection, split, table, columns);
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    {
+        return delegate.supportsTopN(session, handle, sortOrder);
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        return delegate.isTopNLimitGuaranteed(session);
     }
 
     @Override
