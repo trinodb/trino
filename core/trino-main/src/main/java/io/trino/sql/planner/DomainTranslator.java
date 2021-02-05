@@ -27,7 +27,6 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
@@ -159,38 +158,21 @@ public final class DomainTranslator
 
         if (isBetween(range)) {
             // specialize the range with BETWEEN expression if possible b/c it is currently more efficient
-            return new BetweenPredicate(reference, literalEncoder.toExpression(range.getLow().getValue(), type), literalEncoder.toExpression(range.getHigh().getValue(), type));
+            return new BetweenPredicate(reference, literalEncoder.toExpression(range.getLowBoundedValue(), type), literalEncoder.toExpression(range.getHighBoundedValue(), type));
         }
 
         List<Expression> rangeConjuncts = new ArrayList<>();
-        if (!range.getLow().isLowerUnbounded()) {
-            switch (range.getLow().getBound()) {
-                case ABOVE:
-                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN, reference, literalEncoder.toExpression(range.getLow().getValue(), type)));
-                    break;
-                case EXACTLY:
-                    rangeConjuncts.add(new ComparisonExpression(GREATER_THAN_OR_EQUAL, reference, literalEncoder.toExpression(range.getLow().getValue(),
-                            type)));
-                    break;
-                case BELOW:
-                    throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
-                default:
-                    throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-            }
+        if (!range.isLowUnbounded()) {
+            rangeConjuncts.add(new ComparisonExpression(
+                    range.isLowInclusive() ? GREATER_THAN_OR_EQUAL : GREATER_THAN,
+                    reference,
+                    literalEncoder.toExpression(range.getLowBoundedValue(), type)));
         }
-        if (!range.getHigh().isUpperUnbounded()) {
-            switch (range.getHigh().getBound()) {
-                case ABOVE:
-                    throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
-                case EXACTLY:
-                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN_OR_EQUAL, reference, literalEncoder.toExpression(range.getHigh().getValue(), type)));
-                    break;
-                case BELOW:
-                    rangeConjuncts.add(new ComparisonExpression(LESS_THAN, reference, literalEncoder.toExpression(range.getHigh().getValue(), type)));
-                    break;
-                default:
-                    throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-            }
+        if (!range.isHighUnbounded()) {
+            rangeConjuncts.add(new ComparisonExpression(
+                    range.isHighInclusive() ? LESS_THAN_OR_EQUAL : LESS_THAN,
+                    reference,
+                    literalEncoder.toExpression(range.getHighBoundedValue(), type)));
         }
         // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
         checkState(!rangeConjuncts.isEmpty());
@@ -298,8 +280,8 @@ public final class DomainTranslator
 
     private static boolean isBetween(Range range)
     {
-        return !range.getLow().isLowerUnbounded() && range.getLow().getBound() == Marker.Bound.EXACTLY
-                && !range.getHigh().isUpperUnbounded() && range.getHigh().getBound() == Marker.Bound.EXACTLY;
+        // inclusive implies bounded
+        return range.isLowInclusive() && range.isHighInclusive();
     }
 
     /**

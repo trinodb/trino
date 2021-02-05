@@ -40,7 +40,6 @@ import java.util.OptionalInt;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.spi.predicate.Marker.Bound.BELOW;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.DomainTranslator.fromPredicate;
@@ -154,13 +153,13 @@ public class PushdownFilterIntoRowNumber
 
         Range span = values.getRanges().getSpan();
 
-        if (span.getHigh().isUpperUnbounded()) {
+        if (span.isHighUnbounded()) {
             return OptionalInt.empty();
         }
 
         verify(rowNumberDomain.getType().equals(BIGINT));
-        long upperBound = (Long) span.getHigh().getValue();
-        if (span.getHigh().getBound() == BELOW) {
+        long upperBound = (Long) span.getHighBoundedValue();
+        if (!span.isHighInclusive()) {
             upperBound--;
         }
 

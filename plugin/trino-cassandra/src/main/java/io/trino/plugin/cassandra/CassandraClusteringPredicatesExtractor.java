@@ -15,7 +15,6 @@ package io.trino.plugin.cassandra;
 
 import com.datastax.driver.core.VersionNumber;
 import com.google.common.base.Joiner;
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.cassandra.util.CassandraCqlUtils;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraClusteringPredicatesExtractor
@@ -79,35 +79,21 @@ public class CassandraClusteringPredicatesExtractor
                                 singleValues.add(columnHandle.getCassandraType().toCqlLiteral(range.getSingleValue()));
                             }
                             else {
-                                if (!range.getLow().isLowerUnbounded()) {
-                                    String lowBound = columnHandle.getCassandraType().toCqlLiteral(range.getLow().getValue());
-                                    switch (range.getLow().getBound()) {
-                                        case ABOVE:
-                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " > " + lowBound);
-                                            break;
-                                        case EXACTLY:
-                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " >= " + lowBound);
-                                            break;
-                                        case BELOW:
-                                            throw new VerifyException("Low Marker should never use BELOW bound");
-                                        default:
-                                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-                                    }
+                                if (!range.isLowUnbounded()) {
+                                    String lowBound = columnHandle.getCassandraType().toCqlLiteral(range.getLowBoundedValue());
+                                    rangeConjuncts.add(format(
+                                            "%s %s %s",
+                                            CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                                            range.isLowInclusive() ? ">=" : ">",
+                                            lowBound));
                                 }
-                                if (!range.getHigh().isUpperUnbounded()) {
-                                    String highBound = columnHandle.getCassandraType().toCqlLiteral(range.getHigh().getValue());
-                                    switch (range.getHigh().getBound()) {
-                                        case ABOVE:
-                                            throw new VerifyException("High Marker should never use ABOVE bound");
-                                        case EXACTLY:
-                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " <= " + highBound);
-                                            break;
-                                        case BELOW:
-                                            rangeConjuncts.add(CassandraCqlUtils.validColumnName(columnHandle.getName()) + " < " + highBound);
-                                            break;
-                                        default:
-                                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-                                    }
+                                if (!range.isHighUnbounded()) {
+                                    String highBound = columnHandle.getCassandraType().toCqlLiteral(range.getHighBoundedValue());
+                                    rangeConjuncts.add(format(
+                                            "%s %s %s",
+                                            CassandraCqlUtils.validColumnName(columnHandle.getName()),
+                                            range.isHighInclusive() ? "<=" : "<",
+                                            highBound));
                                 }
                             }
                         }
