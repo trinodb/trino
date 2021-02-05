@@ -18,7 +18,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
@@ -144,52 +143,23 @@ public final class GlueExpressionUtil
         for (Range range : valueSet.getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                Marker rangeLow = range.getLow();
-                singleValues.add(valueToString(rangeLow.getType(), rangeLow.getValue()));
+                singleValues.add(valueToString(range.getType(), range.getSingleValue()));
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
-                if (!range.getLow().isLowerUnbounded()) {
-                    Marker rangeLow = range.getLow();
-                    switch (range.getLow().getBound()) {
-                        case ABOVE:
-                            rangeConjuncts.add(format(
-                                    "%s > %s",
-                                    columnName,
-                                    valueToString(rangeLow.getType(), rangeLow.getValue())));
-                            break;
-                        case EXACTLY:
-                            rangeConjuncts.add(format(
-                                    "%s >= %s",
-                                    columnName,
-                                    valueToString(rangeLow.getType(), rangeLow.getValue())));
-                            break;
-                        case BELOW:
-                            throw new IllegalArgumentException("Low marker should never use BELOW bound");
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-                    }
+                if (!range.isLowUnbounded()) {
+                    rangeConjuncts.add(format(
+                            "%s %s %s",
+                            columnName,
+                            range.isLowInclusive() ? ">=" : ">",
+                            valueToString(range.getType(), range.getLowBoundedValue())));
                 }
-                if (!range.getHigh().isUpperUnbounded()) {
-                    Marker rangeHigh = range.getHigh();
-                    switch (range.getHigh().getBound()) {
-                        case ABOVE:
-                            throw new IllegalArgumentException("High marker should never use ABOVE bound");
-                        case EXACTLY:
-                            rangeConjuncts.add(format(
-                                    "%s <= %s",
-                                    columnName,
-                                    valueToString(rangeHigh.getType(), rangeHigh.getValue())));
-                            break;
-                        case BELOW:
-                            rangeConjuncts.add(format(
-                                    "%s < %s",
-                                    columnName,
-                                    valueToString(rangeHigh.getType(), rangeHigh.getValue())));
-                            break;
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-                    }
+                if (!range.isHighUnbounded()) {
+                    rangeConjuncts.add(format(
+                            "%s %s %s",
+                            columnName,
+                            range.isHighInclusive() ? "<=" : "<",
+                            valueToString(range.getType(), range.getHighBoundedValue())));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for by callers
                 checkState(!rangeConjuncts.isEmpty());

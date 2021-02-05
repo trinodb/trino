@@ -32,7 +32,6 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -1229,25 +1228,25 @@ public class PlanPrinter
                                 builder.append('[').append(value).append(']');
                             }
                             else {
-                                builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
+                                builder.append(range.isLowInclusive() ? '[' : '(');
 
-                                if (range.getLow().isLowerUnbounded()) {
+                                if (range.isLowUnbounded()) {
                                     builder.append("<min>");
                                 }
                                 else {
-                                    builder.append(valuePrinter.castToVarchar(type, range.getLow().getValue()));
+                                    builder.append(valuePrinter.castToVarchar(type, range.getLowBoundedValue()));
                                 }
 
                                 builder.append(", ");
 
-                                if (range.getHigh().isUpperUnbounded()) {
+                                if (range.isHighUnbounded()) {
                                     builder.append("<max>");
                                 }
                                 else {
-                                    builder.append(valuePrinter.castToVarchar(type, range.getHigh().getValue()));
+                                    builder.append(valuePrinter.castToVarchar(type, range.getHighBoundedValue()));
                                 }
 
-                                builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
+                                builder.append(range.isHighInclusive() ? ']' : ')');
                             }
                             parts.add(builder.toString());
                         }

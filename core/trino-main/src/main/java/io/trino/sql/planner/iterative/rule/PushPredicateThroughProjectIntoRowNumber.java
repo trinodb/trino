@@ -38,7 +38,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.matching.Capture.newCapture;
-import static io.trino.spi.predicate.Marker.Bound.BELOW;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.sql.planner.DomainTranslator.fromPredicate;
 import static io.trino.sql.planner.plan.Patterns.filter;
@@ -166,12 +165,12 @@ public class PushPredicateThroughProjectIntoRowNumber
 
         Range span = values.getRanges().getSpan();
 
-        if (span.getHigh().isUpperUnbounded()) {
+        if (span.isHighUnbounded()) {
             return OptionalInt.empty();
         }
 
-        long upperBound = (Long) span.getHigh().getValue();
-        if (span.getHigh().getBound() == BELOW) {
+        long upperBound = (Long) span.getHighBoundedValue();
+        if (!span.isHighInclusive()) {
             upperBound--;
         }
 
