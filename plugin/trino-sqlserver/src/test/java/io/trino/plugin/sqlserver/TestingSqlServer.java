@@ -23,8 +23,11 @@ import java.util.UUID;
 import static java.lang.String.format;
 
 public final class TestingSqlServer
-        extends MSSQLServerContainer<TestingSqlServer>
+        implements AutoCloseable
 {
+    private static final DockerImageName DOCKER_IMAGE_NAME = DockerImageName.parse("microsoft/mssql-server-linux:2017-CU13")
+            .asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server:2017-CU12");
+    private final MSSQLServerContainer<?> container;
     private final boolean snapshotIsolationEnabled;
     private final String databaseName;
 
@@ -35,16 +38,15 @@ public final class TestingSqlServer
 
     public TestingSqlServer(boolean snapshotIsolationEnabled)
     {
-        super(DockerImageName.parse("microsoft/mssql-server-linux:2017-CU13").asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server:2017-CU12"));
+        container = new MSSQLServerContainer<>(DOCKER_IMAGE_NAME);
+        container.addEnv("ACCEPT_EULA", "yes");
         this.snapshotIsolationEnabled = snapshotIsolationEnabled;
         this.databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
-
-        addEnv("ACCEPT_EULA", "yes");
     }
 
     public void execute(String sql)
     {
-        try (Connection connection = createConnection("");
+        try (Connection connection = container.createConnection("");
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
@@ -53,11 +55,25 @@ public final class TestingSqlServer
         }
     }
 
-    @Override
     public void start()
     {
-        super.start();
+        container.start();
         setUpDatabase();
+    }
+
+    public String getUsername()
+    {
+        return container.getUsername();
+    }
+
+    public String getPassword()
+    {
+        return container.getPassword();
+    }
+
+    public String getJdbcUrl()
+    {
+        return container.getJdbcUrl();
     }
 
     private void setUpDatabase()
@@ -69,6 +85,12 @@ public final class TestingSqlServer
             execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
         }
 
-        this.withUrlParam("database", this.databaseName);
+        container.withUrlParam("database", this.databaseName);
+    }
+
+    @Override
+    public void close()
+    {
+        container.close();
     }
 }

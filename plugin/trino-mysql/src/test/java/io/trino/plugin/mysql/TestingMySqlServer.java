@@ -21,10 +21,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import static java.lang.String.format;
+import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 
 public class TestingMySqlServer
-        extends MySQLContainer<TestingMySqlServer>
+        implements AutoCloseable
 {
+    private final MySQLContainer<?> container;
+
     public TestingMySqlServer()
     {
         this(false);
@@ -37,19 +40,14 @@ public class TestingMySqlServer
 
     public TestingMySqlServer(String dockerImageName, boolean globalTransactionEnable)
     {
-        super(dockerImageName);
-        withDatabaseName("tpch");
+        MySQLContainer<?> container = new MySQLContainer<>(dockerImageName);
+        container = container.withDatabaseName("tpch");
         if (globalTransactionEnable) {
-            withCommand("--gtid-mode=ON", "--enforce-gtid-consistency=ON");
+            container = container.withCommand("--gtid-mode=ON", "--enforce-gtid-consistency=ON");
         }
-        start();
-        execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", getUsername()), "root", getPassword());
-    }
-
-    @Override
-    public String getJdbcUrl()
-    {
-        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", getContainerIpAddress(), getMappedPort(MYSQL_PORT));
+        this.container = container;
+        container.start();
+        execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
     }
 
     public void execute(String sql)
@@ -66,5 +64,31 @@ public class TestingMySqlServer
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public String getUsername()
+    {
+        return container.getUsername();
+    }
+
+    public String getPassword()
+    {
+        return container.getPassword();
+    }
+
+    public String getDatabaseName()
+    {
+        return container.getDatabaseName();
+    }
+
+    public String getJdbcUrl()
+    {
+        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getContainerIpAddress(), container.getMappedPort(MYSQL_PORT));
+    }
+
+    @Override
+    public void close()
+    {
+        container.close();
     }
 }
