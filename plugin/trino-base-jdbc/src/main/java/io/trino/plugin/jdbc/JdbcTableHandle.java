@@ -176,7 +176,7 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
-    public int getMextSyntheticColumnId()
+    public int getNextSyntheticColumnId()
     {
         return nextSyntheticColumnId;
     }
