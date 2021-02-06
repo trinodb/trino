@@ -16,10 +16,14 @@ package io.trino.plugin.sqlserver;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.util.UUID;
 
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 
 public final class TestingSqlServer
@@ -30,6 +34,7 @@ public final class TestingSqlServer
     private final MSSQLServerContainer<?> container;
     private final boolean snapshotIsolationEnabled;
     private final String databaseName;
+    private Closeable cleanup = () -> {};
 
     public TestingSqlServer()
     {
@@ -57,7 +62,7 @@ public final class TestingSqlServer
 
     public void start()
     {
-        container.start();
+        cleanup = startOrReuse(container);
         setUpDatabase();
     }
 
@@ -91,6 +96,11 @@ public final class TestingSqlServer
     @Override
     public void close()
     {
-        container.close();
+        try {
+            cleanup.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

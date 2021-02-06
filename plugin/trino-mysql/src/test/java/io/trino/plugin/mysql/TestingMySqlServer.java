@@ -15,11 +15,15 @@ package io.trino.plugin.mysql;
 
 import org.testcontainers.containers.MySQLContainer;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 
@@ -27,6 +31,7 @@ public class TestingMySqlServer
         implements AutoCloseable
 {
     private final MySQLContainer<?> container;
+    private final Closeable cleanup;
 
     public TestingMySqlServer()
     {
@@ -46,7 +51,7 @@ public class TestingMySqlServer
             container = container.withCommand("--gtid-mode=ON", "--enforce-gtid-consistency=ON");
         }
         this.container = container;
-        container.start();
+        cleanup = startOrReuse(container);
         execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
     }
 
@@ -89,6 +94,11 @@ public class TestingMySqlServer
     @Override
     public void close()
     {
-        container.close();
+        try {
+            cleanup.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
