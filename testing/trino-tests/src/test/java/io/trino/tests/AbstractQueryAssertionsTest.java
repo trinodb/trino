@@ -75,7 +75,7 @@ public abstract class AbstractQueryAssertionsTest
 
         Map<String, String> jdbcWithAggregationPushdownDisabledConfigurationProperties = ImmutableMap.<String, String>builder()
                 .putAll(jdbcConfigurationProperties)
-                .put("allow-aggregation-pushdown", "false")
+                .put("aggregation-pushdown.enabled", "false")
                 .build();
         queryRunner.createCatalog("jdbc_with_aggregation_pushdown_disabled", "base-jdbc", jdbcWithAggregationPushdownDisabledConfigurationProperties);
     }
