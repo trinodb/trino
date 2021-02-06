@@ -92,11 +92,7 @@ public abstract class AbstractQueryAssertionsTest
     {
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES '001234'"))
-                .hasMessageContaining("[Output types] \n" +
-                        "Expecting:\n" +
-                        " <[varbinary]>\n" +
-                        "to be equal to:\n" +
-                        " <[varchar(6)]>");
+                .hasMessageContaining("[Output types] expected:<[var[char(6)]]> but was:<[var[binary]]>");
     }
 
     @Test
