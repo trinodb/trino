@@ -15,11 +15,9 @@ package io.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Streams;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
-import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
@@ -28,14 +26,11 @@ import io.trino.tpch.TpchTable;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.trino.testing.QueryAssertions.copyTable;
+import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Locale.ENGLISH;
 
 public final class SqlServerQueryRunner
 {
@@ -68,7 +63,7 @@ public final class SqlServerQueryRunner
             queryRunner.installPlugin(new SqlServerPlugin());
             queryRunner.createCatalog(CATALOG, "sqlserver", connectorProperties);
 
-            provisionTables(createSession(testingSqlServer.getUsername()), queryRunner, tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(testingSqlServer.getUsername()), tables);
 
             return queryRunner;
         }
@@ -76,17 +71,6 @@ public final class SqlServerQueryRunner
             closeAllSuppress(e, queryRunner);
             throw e;
         }
-    }
-
-    private static void provisionTables(Session session, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
-    {
-        Set<String> existingTables = queryRunner.listTables(session, CATALOG, TEST_SCHEMA).stream()
-                .map(QualifiedObjectName::getObjectName)
-                .collect(toImmutableSet());
-
-        Streams.stream(tables)
-                .filter(table -> !existingTables.contains(table.getTableName().toLowerCase(ENGLISH)))
-                .forEach(table -> copyTable(queryRunner, "tpch", TINY_SCHEMA_NAME, table.getTableName().toLowerCase(ENGLISH), session));
     }
 
     private static Session createSession(String username)
