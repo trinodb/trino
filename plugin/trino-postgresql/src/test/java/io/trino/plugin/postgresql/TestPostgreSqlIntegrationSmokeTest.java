@@ -476,6 +476,14 @@ public class TestPostgreSqlIntegrationSmokeTest
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
+            // with non-lowercase name on input
+            assertThat(query("SELECT StdDEv(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT StdDEv_SaMP(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            // with delimited, non-lowercase name on input
+            assertThat(query("SELECT \"StdDEv\"(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT \"StdDEv_SaMP\"(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
             postgreSqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
