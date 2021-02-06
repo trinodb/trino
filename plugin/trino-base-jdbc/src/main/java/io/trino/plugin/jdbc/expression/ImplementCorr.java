@@ -44,7 +44,7 @@ public class ImplementCorr
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> name.equalsIgnoreCase("corr")))
+                .with(functionName().equalTo("corr"))
                 .with(inputs().matching(
                         variables()
                                 .matching(expressionTypes(REAL, REAL).or(expressionTypes(DOUBLE, DOUBLE)))
