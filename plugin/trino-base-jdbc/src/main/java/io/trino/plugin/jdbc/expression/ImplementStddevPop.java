@@ -42,7 +42,7 @@ public class ImplementStddevPop
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> name.equalsIgnoreCase("stddev_pop")))
+                .with(functionName().equalTo("stddev_pop"))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))

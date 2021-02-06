@@ -44,7 +44,7 @@ public class ImplementCovarianceSamp
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> name.equalsIgnoreCase("covar_samp")))
+                .with(functionName().equalTo("covar_samp"))
                 .with(inputs().matching(
                         variables()
                                 .matching(expressionTypes(REAL, REAL).or(expressionTypes(DOUBLE, DOUBLE)))

@@ -44,7 +44,7 @@ public class ImplementCovariancePop
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> name.equalsIgnoreCase("covar_pop")))
+                .with(functionName().equalTo("covar_pop"))
                 .with(inputs().matching(
                         variables()
                                 .matching(expressionTypes(REAL, REAL).or(expressionTypes(DOUBLE, DOUBLE)))

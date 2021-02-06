@@ -42,7 +42,7 @@ public class ImplementVariancePop
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> name.equalsIgnoreCase("var_pop")))
+                .with(functionName().equalTo("var_pop"))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))

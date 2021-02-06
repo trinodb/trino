@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.jdbc.expression;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
@@ -23,7 +22,6 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.DoubleType;
 
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
@@ -38,15 +36,14 @@ import static java.lang.String.format;
 public class ImplementVarianceSamp
         implements AggregateFunctionRule
 {
-    // TODO (https://github.com/trinodb/trino/issues/6189): remove variance, an alias, from the list & simplify the pattern
-    private static final List<String> VARIANCE_FUNCTION_NAMES = ImmutableList.of("variance", "var_samp");
     private static final Capture<Variable> INPUT = newCapture();
 
     @Override
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> VARIANCE_FUNCTION_NAMES.stream().anyMatch(name::equalsIgnoreCase)))
+                // TODO (https://github.com/trinodb/trino/issues/6189): remove variance, an alias, from the list & simplify the pattern
+                .with(functionName().matching(name -> "variance".equals(name) || "var_samp".equals(name)))
                 .with(singleInput().matching(
                         variable()
                                 .with(expressionType().matching(DoubleType.class::isInstance))

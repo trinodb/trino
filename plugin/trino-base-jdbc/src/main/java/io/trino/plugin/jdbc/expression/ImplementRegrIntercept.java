@@ -44,7 +44,7 @@ public class ImplementRegrIntercept
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> name.equalsIgnoreCase("regr_intercept")))
+                .with(functionName().equalTo("regr_intercept"))
                 .with(inputs().matching(
                         variables()
                                 .matching(expressionTypes(REAL, REAL).or(expressionTypes(DOUBLE, DOUBLE)))
