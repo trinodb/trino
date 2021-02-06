@@ -44,7 +44,7 @@ public class ImplementRegrSlope
     public Pattern<AggregateFunction> getPattern()
     {
         return basicAggregation()
-                .with(functionName().matching(name -> name.equalsIgnoreCase("regr_slope")))
+                .with(functionName().equalTo("regr_slope"))
                 .with(inputs().matching(
                         variables()
                                 .matching(expressionTypes(REAL, REAL).or(expressionTypes(DOUBLE, DOUBLE)))
