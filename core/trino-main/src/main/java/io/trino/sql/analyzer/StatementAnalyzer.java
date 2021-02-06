@@ -174,6 +174,7 @@ import io.trino.type.TypeCoercion;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1351,23 +1352,22 @@ class StatementAnalyzer
             Optional<List<Identifier>> columnNames = withQuery.getColumnNames();
             if (columnNames.isPresent()) {
                 // if columns are explicitly aliased -> WITH cte(alias1, alias2 ...)
+                checkState(columnNames.get().size() == queryDescriptor.getVisibleFieldCount(), "mismatched aliases");
                 ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
-
-                int field = 0;
-                for (Identifier columnName : columnNames.get()) {
-                    Field inputField = queryDescriptor.getFieldByIndex(field);
-                    fieldBuilder.add(Field.newQualified(
-                            QualifiedName.of(table.getName().getSuffix()),
-                            Optional.of(columnName.getValue()),
-                            inputField.getType(),
-                            false,
-                            inputField.getOriginTable(),
-                            inputField.getOriginColumnName(),
-                            inputField.isAliased()));
-
-                    field++;
+                Iterator<Identifier> aliases = columnNames.get().iterator();
+                for (int i = 0; i < queryDescriptor.getAllFieldCount(); i++) {
+                    Field inputField = queryDescriptor.getFieldByIndex(i);
+                    if (!inputField.isHidden()) {
+                        fieldBuilder.add(Field.newQualified(
+                                QualifiedName.of(table.getName().getSuffix()),
+                                Optional.of(aliases.next().getValue()),
+                                inputField.getType(),
+                                false,
+                                inputField.getOriginTable(),
+                                inputField.getOriginColumnName(),
+                                inputField.isAliased()));
+                    }
                 }
-
                 fields = fieldBuilder.build();
             }
             else {
