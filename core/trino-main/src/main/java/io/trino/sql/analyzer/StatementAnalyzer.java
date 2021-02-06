@@ -1371,16 +1371,21 @@ class StatementAnalyzer
                 fields = fieldBuilder.build();
             }
             else {
-                fields = queryDescriptor.getAllFields().stream()
-                        .map(field -> Field.newQualified(
+                ImmutableList.Builder<Field> fieldBuilder = ImmutableList.builder();
+                for (int i = 0; i < queryDescriptor.getAllFieldCount(); i++) {
+                    Field inputField = queryDescriptor.getFieldByIndex(i);
+                    if (!inputField.isHidden()) {
+                        fieldBuilder.add(Field.newQualified(
                                 QualifiedName.of(table.getName().getSuffix()),
-                                field.getName(),
-                                field.getType(),
-                                field.isHidden(),
-                                field.getOriginTable(),
-                                field.getOriginColumnName(),
-                                field.isAliased()))
-                        .collect(toImmutableList());
+                                inputField.getName(),
+                                inputField.getType(),
+                                false,
+                                inputField.getOriginTable(),
+                                inputField.getOriginColumnName(),
+                                inputField.isAliased()));
+                    }
+                }
+                fields = fieldBuilder.build();
             }
 
             return createAndAssignScope(table, scope, fields);
