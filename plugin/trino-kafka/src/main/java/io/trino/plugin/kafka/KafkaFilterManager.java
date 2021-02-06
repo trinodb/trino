@@ -178,7 +178,7 @@ public class KafkaFilterManager
     }
 
     private static Map<TopicPartition, Long> overridePartitionBeginOffsets(Map<TopicPartition, Long> partitionBeginOffsets,
-                                                                           Function<TopicPartition, Optional<Long>> overrideFunction)
+            Function<TopicPartition, Optional<Long>> overrideFunction)
     {
         ImmutableMap.Builder<TopicPartition, Long> partitionFilteredBeginOffsetsBuilder = ImmutableMap.builder();
         partitionBeginOffsets.forEach((partition, partitionIndex) -> {
@@ -189,7 +189,7 @@ public class KafkaFilterManager
     }
 
     private static Map<TopicPartition, Long> overridePartitionEndOffsets(Map<TopicPartition, Long> partitionEndOffsets,
-                                                                         Function<TopicPartition, Optional<Long>> overrideFunction)
+            Function<TopicPartition, Optional<Long>> overrideFunction)
     {
         ImmutableMap.Builder<TopicPartition, Long> partitionFilteredEndOffsetsBuilder = ImmutableMap.builder();
         partitionEndOffsets.forEach((partition, partitionIndex) -> {
