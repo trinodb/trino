@@ -115,6 +115,7 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
+import static io.trino.sql.planner.QueryPlanner.visibleFields;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.TableWriterNode.CreateReference;
@@ -357,7 +358,8 @@ public class LogicalPlanner
 
         return createTableWriterPlan(
                 analysis,
-                plan,
+                plan.getRoot(),
+                visibleFields(plan),
                 new CreateReference(destination.getCatalogName(), tableMetadata, newTableLayout),
                 columnNames,
                 tableMetadata.getColumns(),
@@ -433,7 +435,8 @@ public class LogicalPlanner
         if (isMaterializedViewRefresh) {
             return createTableWriterPlan(
                 analysis,
-                plan,
+                plan.getRoot(),
+                plan.getFieldMappings(),
                 requireNonNull(writerTarget, "writerTarget for materialized view refresh is null"),
                 insertedTableColumnNames,
                 insertedColumns,
@@ -447,7 +450,8 @@ public class LogicalPlanner
                     .collect(toImmutableList()));
         return createTableWriterPlan(
                 analysis,
-                plan,
+                plan.getRoot(),
+                plan.getFieldMappings(),
                 insertTarget,
                 insertedTableColumnNames,
                 insertedColumns,
@@ -477,17 +481,14 @@ public class LogicalPlanner
 
     private RelationPlan createTableWriterPlan(
             Analysis analysis,
-            RelationPlan plan,
+            PlanNode source,
+            List<Symbol> symbols,
             WriterTarget target,
             List<String> columnNames,
             List<ColumnMetadata> columnMetadataList,
             Optional<NewTableLayout> writeTableLayout,
             TableStatisticsMetadata statisticsMetadata)
     {
-        PlanNode source = plan.getRoot();
-
-        List<Symbol> symbols = plan.getFieldMappings();
-
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
