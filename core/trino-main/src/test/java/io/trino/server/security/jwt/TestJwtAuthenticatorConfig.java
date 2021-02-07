@@ -34,6 +34,7 @@ public class TestJwtAuthenticatorConfig
                 .setKeyFile(null)
                 .setRequiredAudience(null)
                 .setRequiredIssuer(null)
+                .setPrincipalField("sub")
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null));
     }
@@ -49,6 +50,7 @@ public class TestJwtAuthenticatorConfig
                 .put("http-server.authentication.jwt.key-file", jwtKeyFile.toString())
                 .put("http-server.authentication.jwt.required-audience", "some-audience")
                 .put("http-server.authentication.jwt.required-issuer", "some-issuer")
+                .put("http-server.authentication.jwt.principal-field", "some-field")
                 .put("http-server.authentication.jwt.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.jwt.user-mapping.file", userMappingFile.toString())
                 .build();
@@ -57,6 +59,7 @@ public class TestJwtAuthenticatorConfig
                 .setKeyFile(jwtKeyFile.toString())
                 .setRequiredAudience("some-audience")
                 .setRequiredIssuer("some-issuer")
+                .setPrincipalField("some-field")
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile());
 
