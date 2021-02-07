@@ -28,10 +28,12 @@ import static java.util.Objects.requireNonNull;
 public abstract class AbstractBearerAuthenticator
         implements Authenticator
 {
+    private final String principalField;
     private final UserMapping userMapping;
 
-    protected AbstractBearerAuthenticator(UserMapping userMapping)
+    protected AbstractBearerAuthenticator(String principalField, UserMapping userMapping)
     {
+        this.principalField = requireNonNull(principalField, "principalField is null");
         this.userMapping = requireNonNull(userMapping, "userMapping is null");
     }
 
@@ -52,10 +54,13 @@ public abstract class AbstractBearerAuthenticator
 
         try {
             Jws<Claims> claimsJws = parseClaimsJws(token);
-            String subject = claimsJws.getBody().getSubject();
-            String authenticatedUser = userMapping.mapUser(subject);
+            String principal = claimsJws.getBody().get(principalField, String.class);
+            if (principal == null) {
+                throw needAuthentication(request, "Invalid credentials");
+            }
+            String authenticatedUser = userMapping.mapUser(principal);
             return Identity.forUser(authenticatedUser)
-                    .withPrincipal(new BasicPrincipal(subject))
+                    .withPrincipal(new BasicPrincipal(principal))
                     .build();
         }
         catch (JwtException | UserMappingException e) {
