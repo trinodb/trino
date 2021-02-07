@@ -41,6 +41,7 @@ public class OAuth2Config
     private String clientSecret;
     private Optional<String> audience = Optional.empty();
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
+    private String principalField = "sub";
     private Duration challengeTimeout = new Duration(15, TimeUnit.MINUTES);
     private Optional<String> userMappingPattern = Optional.empty();
     private Optional<File> userMappingFile = Optional.empty();
@@ -152,6 +153,19 @@ public class OAuth2Config
     public OAuth2Config setScopes(String scopes)
     {
         this.scopes = Splitter.on(',').trimResults().omitEmptyStrings().splitToStream(scopes).collect(toImmutableSet());
+        return this;
+    }
+
+    @NotNull
+    public String getPrincipalField()
+    {
+        return principalField;
+    }
+
+    @Config("http-server.authentication.oauth2.principal-field")
+    public OAuth2Config setPrincipalField(String principalField)
+    {
+        this.principalField = principalField;
         return this;
     }
 
