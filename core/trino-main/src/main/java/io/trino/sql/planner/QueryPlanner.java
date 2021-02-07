@@ -1286,7 +1286,7 @@ class QueryPlanner
         return new NodeAndMappings(coerced, mappings.build());
     }
 
-    private static List<Symbol> visibleFields(RelationPlan subPlan)
+    public static List<Symbol> visibleFields(RelationPlan subPlan)
     {
         RelationType descriptor = subPlan.getDescriptor();
         return descriptor.getAllFields().stream()
