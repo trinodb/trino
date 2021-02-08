@@ -221,6 +221,11 @@ public class TpchMetadata
     private static ConnectorTableMetadata getTableMetadata(String schemaName, TpchTable<?> tpchTable, ColumnNaming columnNaming)
     {
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+        columns.add(ColumnMetadata.builder()
+                .setName(ROW_NUMBER_COLUMN_NAME)
+                .setType(BIGINT)
+                .setHidden(true)
+                .build());
         for (TpchColumn<? extends TpchEntity> column : tpchTable.getColumns()) {
             columns.add(ColumnMetadata.builder()
                     .setName(columnNaming.getName(column))
@@ -228,11 +233,6 @@ public class TpchMetadata
                     .setNullable(false)
                     .build());
         }
-        columns.add(ColumnMetadata.builder()
-                .setName(ROW_NUMBER_COLUMN_NAME)
-                .setType(BIGINT)
-                .setHidden(true)
-                .build());
 
         SchemaTableName tableName = new SchemaTableName(schemaName, tpchTable.getTableName());
         return new ConnectorTableMetadata(tableName, columns.build());

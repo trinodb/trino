@@ -14,8 +14,8 @@ remote exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPARTITION, HASH, ["partkey"])
                                                         scan partsupp
                                                     local exchange (GATHER, SINGLE, [])
-                                                        remote exchange (REPARTITION, HASH, ["partkey_0"])
+                                                        remote exchange (REPARTITION, HASH, ["partkey_1"])
                                                             scan part
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["suppkey_3"])
+                                                remote exchange (REPARTITION, HASH, ["suppkey_4"])
                                                     scan supplier
