@@ -312,7 +312,7 @@ Type mapping configuration properties
     - Description
     - Default
   * - ``unsupported-type.handling-strategy``
-    - ``unsupported_type_handling_strategy``
+    - ``unsupported_type_handling``
     - Configures how unsupported column data types are handled:
 
       - ``IGNORE`` - column is not accessible.
