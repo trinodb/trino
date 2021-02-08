@@ -12,5 +12,5 @@ remote exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["custkey"])
                                                 scan customer
                                             local exchange (GATHER, SINGLE, [])
-                                                remote exchange (REPARTITION, HASH, ["custkey_0"])
+                                                remote exchange (REPARTITION, HASH, ["custkey_1"])
                                                     scan orders
