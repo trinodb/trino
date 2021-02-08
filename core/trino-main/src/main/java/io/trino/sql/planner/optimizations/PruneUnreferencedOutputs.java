@@ -681,6 +681,7 @@ public class PruneUnreferencedOutputs
                     node.getColumnNames(),
                     node.getNotNullColumnSymbols(),
                     node.getPartitioningScheme(),
+                    node.getPreferredPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }
