@@ -51,9 +51,12 @@ public class TestingMySqlServer
             container = container.withCommand("--gtid-mode=ON", "--enforce-gtid-consistency=ON");
         }
         this.container = container;
+        configureContainer(container);
         cleanup = startOrReuse(container);
         execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
     }
+
+    protected void configureContainer(MySQLContainer<?> container) {}
 
     public void execute(String sql)
     {
