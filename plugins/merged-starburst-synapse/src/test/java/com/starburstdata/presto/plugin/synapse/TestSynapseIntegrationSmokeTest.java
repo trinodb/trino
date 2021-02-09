@@ -25,6 +25,7 @@ import java.util.Map;
 
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -141,37 +142,38 @@ public class TestSynapseIntegrationSmokeTest
         assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
 
-        try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
-            synapseServer.execute("INSERT INTO test_aggregation_pushdown VALUES (100.000, 100000000.000000000, 'ala')");
-            synapseServer.execute("INSERT INTO test_aggregation_pushdown VALUES (123.321, 123456789.987654321, 'kot')");
+        String tableName = "test_aggregation_pushdown" + randomTableSuffix();
+        try (AutoCloseable ignoreTable = withTable(tableName, "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
+            synapseServer.execute("INSERT INTO " + tableName + " VALUES (100.000, 100000000.000000000, 'ala')");
+            synapseServer.execute("INSERT INTO " + tableName + " VALUES (123.321, 123456789.987654321, 'kot')");
 
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + tableName)).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + tableName)).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + tableName)).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + tableName)).isFullyPushedDown();
 
             // WHERE on aggregation column
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + tableName + " WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
             // WHERE on non-aggregation column
-            assertThat(query("SELECT min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110")).isFullyPushedDown();
+            assertThat(query("SELECT min(long_decimal) FROM " + tableName + " WHERE short_decimal < 110")).isFullyPushedDown();
             // GROUP BY
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on both grouping and aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 AND long_decimal < 124" + " GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " WHERE short_decimal < 110 AND long_decimal < 124" + " GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on grouping column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on neither grouping nor aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE varchar_column = 'ala' GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " WHERE varchar_column = 'ala' GROUP BY short_decimal")).isFullyPushedDown();
             // aggregation on varchar column
-            assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT min(varchar_column) FROM " + tableName)).isFullyPushedDown();
             // aggregation on varchar column with GROUPING
-            assertThat(query("SELECT short_decimal, min(varchar_column) FROM test_aggregation_pushdown GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(varchar_column) FROM " + tableName + " GROUP BY short_decimal")).isFullyPushedDown();
             // aggregation on varchar column with WHERE
-            assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown WHERE varchar_column ='ala'")).isFullyPushedDown();
+            assertThat(query("SELECT min(varchar_column) FROM " + tableName + " WHERE varchar_column ='ala'")).isFullyPushedDown();
 
-            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM " + tableName + " GROUP BY short_decimal")).isFullyPushedDown();
         }
 
         // array_agg returns array, which is not supported
