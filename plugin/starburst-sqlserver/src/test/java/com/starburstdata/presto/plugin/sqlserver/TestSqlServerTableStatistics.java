@@ -21,6 +21,9 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -248,7 +251,7 @@ public class TestSqlServerTableStatistics
     {
         String tableName = "test_stats_indexed_view";
         // indexed views require fixed values for several SET options
-        try (Handle handle = Jdbi.open(() -> sqlServer.createConnection(""))) {
+        try (Handle handle = Jdbi.open(this::createConnection)) {
             // indexed views require fixed values for several SET options
             handle.execute("SET NUMERIC_ROUNDABORT OFF");
             handle.execute("SET ANSI_PADDING, ANSI_WARNINGS, CONCAT_NULL_YIELDS_NULL, ARITHABORT, QUOTED_IDENTIFIER, ANSI_NULLS ON");
@@ -371,5 +374,12 @@ public class TestSqlServerTableStatistics
             sqlServer.execute(format("CREATE STATISTICS %1$s ON %2$s (%1$s)", columnName, tableName));
         }
         sqlServer.execute("UPDATE STATISTICS " + tableName);
+    }
+
+    // TODO: remove after https://github.com/trinodb/trino/pull/6854
+    private Connection createConnection()
+            throws SQLException
+    {
+        return DriverManager.getConnection(sqlServer.getJdbcUrl(), sqlServer.getUsername(), sqlServer.getPassword());
     }
 }
