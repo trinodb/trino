@@ -21,9 +21,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -51,7 +51,7 @@ public class AvroRowEncoder
     private final ByteArrayOutputStream byteArrayOutputStream;
     private final Schema parsedSchema;
     private final DataFileWriter<GenericRecord> dataFileWriter;
-    private final GenericRecord record;
+    private final GenericRecordBuilder recordBuilder;
 
     public AvroRowEncoder(ConnectorSession session, List<EncoderColumnHandle> columnHandles, Schema parsedSchema)
     {
@@ -65,7 +65,7 @@ public class AvroRowEncoder
         this.byteArrayOutputStream = new ByteArrayOutputStream();
         this.parsedSchema = requireNonNull(parsedSchema, "parsedSchema is null");
         this.dataFileWriter = new DataFileWriter<>(new GenericDatumWriter<>(this.parsedSchema));
-        this.record = new GenericData.Record(this.parsedSchema);
+        this.recordBuilder = new GenericRecordBuilder(this.parsedSchema);
     }
 
     private static boolean isSupportedType(Type type)
@@ -81,55 +81,55 @@ public class AvroRowEncoder
     @Override
     protected void appendNullValue()
     {
-        record.put(currentColumnMapping(), null);
+        recordBuilder.set(currentColumnMapping(), null);
     }
 
     @Override
     protected void appendLong(long value)
     {
-        record.put(currentColumnMapping(), value);
+        recordBuilder.set(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendInt(int value)
     {
-        record.put(currentColumnMapping(), value);
+        recordBuilder.set(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendShort(short value)
     {
-        record.put(currentColumnMapping(), value);
+        recordBuilder.set(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendByte(byte value)
     {
-        record.put(currentColumnMapping(), value);
+        recordBuilder.set(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendDouble(double value)
     {
-        record.put(currentColumnMapping(), value);
+        recordBuilder.set(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendFloat(float value)
     {
-        record.put(currentColumnMapping(), value);
+        recordBuilder.set(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendBoolean(boolean value)
     {
-        record.put(currentColumnMapping(), value);
+        recordBuilder.set(currentColumnMapping(), value);
     }
 
     @Override
     protected void appendString(String value)
     {
-        record.put(currentColumnMapping(), value);
+        recordBuilder.set(currentColumnMapping(), value);
     }
 
     @Override
@@ -141,7 +141,7 @@ public class AvroRowEncoder
         try {
             byteArrayOutputStream.reset();
             dataFileWriter.create(parsedSchema, byteArrayOutputStream);
-            dataFileWriter.append(record);
+            dataFileWriter.append(recordBuilder.build());
             dataFileWriter.close();
 
             resetColumnIndex(); // reset currentColumnIndex to prepare for next row

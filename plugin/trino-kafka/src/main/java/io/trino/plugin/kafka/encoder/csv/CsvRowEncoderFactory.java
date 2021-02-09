@@ -29,4 +29,10 @@ public class CsvRowEncoderFactory
     {
         return new CsvRowEncoder(session, columnHandles);
     }
+
+    @Override
+    public boolean supportsMissingColumns()
+    {
+        return false;
+    }
 }

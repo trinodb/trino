@@ -30,6 +30,8 @@ public class TestKafkaAvroWritesSmokeTest
 
     private static final String ALL_DATATYPES_AVRO_TABLE_NAME = "product_tests.write_all_datatypes_avro";
 
+    private static final String DEFAULT_AVRO_VALUES_TABLE_NAME = "product_tests.write_default_avro_values";
+
     private static final String STRUCTURAL_AVRO_TABLE_NAME = "product_tests.write_structural_datatype_avro";
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
@@ -56,6 +58,51 @@ public class TestKafkaAvroWritesSmokeTest
                         row(null, null, null, null),
                         row("krzysio", 9223372036854775807L, 1234567890.123456789, false),
                         row("kasia", 9223372036854775807L, null, null));
+    }
+
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    public void testInsertDefaultValue()
+    {
+        assertThat(query(format(
+                "INSERT INTO %s.%s (c_varchar) VALUES ('non-default')",
+                KAFKA_CATALOG,
+                DEFAULT_AVRO_VALUES_TABLE_NAME)))
+                .updatedRowsCountIsEqualTo(1);
+
+        assertThat(query(format(
+                "INSERT INTO %s.%s (c_bigint) VALUES (9223372036854775807)",
+                KAFKA_CATALOG,
+                DEFAULT_AVRO_VALUES_TABLE_NAME)))
+                .updatedRowsCountIsEqualTo(1);
+
+        assertThat(query(format(
+                "INSERT INTO %s.%s (c_double) VALUES (1234567890.123456789)",
+                KAFKA_CATALOG,
+                DEFAULT_AVRO_VALUES_TABLE_NAME)))
+                .updatedRowsCountIsEqualTo(1);
+
+        assertThat(query(format(
+                "INSERT INTO %s.%s (c_boolean) VALUES (false)",
+                KAFKA_CATALOG,
+                DEFAULT_AVRO_VALUES_TABLE_NAME)))
+                .updatedRowsCountIsEqualTo(1);
+
+        assertThat(query(format(
+                "INSERT INTO %s.%s VALUES (null, null, null, null)",
+                KAFKA_CATALOG,
+                ALL_DATATYPES_AVRO_TABLE_NAME)))
+                .updatedRowsCountIsEqualTo(1);
+
+        assertThat(query(format(
+                "SELECT * FROM %s.%s",
+                KAFKA_CATALOG,
+                DEFAULT_AVRO_VALUES_TABLE_NAME)))
+                .containsOnly(
+                        row("non-default", -9223372036854775808L, 3.14, true),
+                        row("default", 9223372036854775807L, 3.14, true),
+                        row("default", -9223372036854775808L, 1234567890.123456789, true),
+                        row("default", -9223372036854775808L, 3.14, false),
+                        row(null, null, null, null));
     }
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})

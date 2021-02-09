@@ -6,8 +6,8 @@
   [
               {
                   "name":"f_bigint",
-                  "type":["null", "long"],
-                  "default": null
+                  "type":["long", "null"],
+                  "default": 1024
               },
               {
                   "name": "f_double",
@@ -16,13 +16,13 @@
               },
               {
                   "name":"f_boolean",
-                  "type":["null", "boolean"],
-                  "default": null
+                  "type":["boolean", "null"],
+                  "default": true
               },
               {
                   "name":"f_varchar",
-                  "type":["null", "string"],
-                  "default": null
+                  "type":["string", "null"],
+                  "default": "default"
               }
   ],
   "doc:" : "A basic avro schema for kafka write tests"

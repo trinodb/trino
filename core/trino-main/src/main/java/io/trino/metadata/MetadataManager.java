@@ -850,7 +850,7 @@ public final class MetadataManager
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
-        return catalogMetadata.getMetadata().supportsMissingColumnsOnInsert();
+        return catalogMetadata.getMetadata().supportsMissingColumnsOnInsert(tableHandle.getConnectorHandle());
     }
 
     @Override

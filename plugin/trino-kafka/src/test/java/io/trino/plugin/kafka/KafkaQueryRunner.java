@@ -108,6 +108,7 @@ public final class KafkaQueryRunner
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_csv"));
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_raw"));
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_json"));
+            tableNames.add(new SchemaTableName("write_test", "raw_key_avro_message"));
 
             JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getMetadata()).get();
 

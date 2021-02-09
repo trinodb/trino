@@ -42,4 +42,10 @@ public class JsonRowEncoderFactory
     {
         return new JsonRowEncoder(session, columnHandles, objectMapper);
     }
+
+    @Override
+    public boolean supportsMissingColumns()
+    {
+        return false;
+    }
 }

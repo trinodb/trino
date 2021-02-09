@@ -626,4 +626,23 @@ public class TestKafkaIntegrationSmokeTest
             return tableName; // for test case label in IDE
         }
     }
+
+    @Test
+    public void testDefaultValuesForMissingColumnsInAvro()
+    {
+        assertUpdate("INSERT into write_test.all_datatypes_avro (kafka_key) VALUES (10000)", 1);
+        assertQuery("SELECT * FROM write_test.all_datatypes_avro WHERE kafka_key = 10000",
+                "VALUES (10000, 1024, null, true, 'default')");
+    }
+
+    @Test
+    public void testNullValuesForMissingColumnsInAvro()
+    {
+        assertUpdate("INSERT into write_test.raw_key_avro_message VALUES (12345, 'Trino')", 1);
+        assertUpdate("INSERT into write_test.raw_key_avro_message (f_varchar) VALUES ('Non-Default')", 1);
+        assertUpdate("INSERT into write_test.raw_key_avro_message (f_bigint) VALUES (10000)", 1);
+
+        assertQuery("SELECT * FROM write_test.raw_key_avro_message",
+                "VALUES (12345, 'Trino'), (null, 'Non-Default'), (10000, null)");
+    }
 }

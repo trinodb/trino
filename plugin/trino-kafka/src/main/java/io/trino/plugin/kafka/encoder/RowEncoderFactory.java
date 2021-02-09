@@ -21,4 +21,6 @@ import java.util.Optional;
 public interface RowEncoderFactory
 {
     RowEncoder create(ConnectorSession session, Optional<String> dataSchema, List<EncoderColumnHandle> columnHandles);
+
+    boolean supportsMissingColumns();
 }

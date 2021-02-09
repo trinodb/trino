@@ -431,10 +431,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public boolean supportsMissingColumnsOnInsert()
+    public boolean supportsMissingColumnsOnInsert(ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.supportsMissingColumnsOnInsert();
+            return delegate.supportsMissingColumnsOnInsert(tableHandle);
         }
     }
 

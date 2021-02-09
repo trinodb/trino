@@ -35,4 +35,10 @@ public class AvroRowEncoderFactory
         Schema parsedSchema = new Schema.Parser().parse(requireNonNull(dataSchema.get(), "dataSchema is null"));
         return new AvroRowEncoder(session, columnHandles, parsedSchema);
     }
+
+    @Override
+    public boolean supportsMissingColumns()
+    {
+        return true;
+    }
 }

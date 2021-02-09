@@ -6,23 +6,23 @@
   [
               {
                   "name":"a_varchar",
-                  "type":["null", "string"],
-                  "default": null
+                  "type":["string", "null"],
+                  "default": "default"
               },
               {
                   "name":"a_bigint",
-                  "type":["null", "long"],
-                  "default": null
+                  "type":["long", "null"],
+                  "default": -9223372036854775808L
               },
               {
                   "name":"a_double",
-                  "type":["null", "double"],
-                  "default": null
+                  "type":["double", "null"],
+                  "default": 3.14
               },
               {
                   "name":"a_boolean",
-                  "type":["null", "boolean"],
-                  "default": null
+                  "type":["boolean", "null"],
+                  "default": true
               }
   ],
   "doc:" : "A basic avro schema for product tests"

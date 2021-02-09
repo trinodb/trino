@@ -446,7 +446,7 @@ public interface ConnectorMetadata
     /**
      * @return whether connector handles missing columns during insert
      */
-    default boolean supportsMissingColumnsOnInsert()
+    default boolean supportsMissingColumnsOnInsert(ConnectorTableHandle tableHandle)
     {
         return false;
     }
