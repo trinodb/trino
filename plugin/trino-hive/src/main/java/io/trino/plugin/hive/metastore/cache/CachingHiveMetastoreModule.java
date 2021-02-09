@@ -19,6 +19,7 @@ import com.google.inject.Provides;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreDecorator;
+import io.trino.spi.NodeManager;
 
 import javax.inject.Singleton;
 
@@ -47,6 +48,7 @@ public class CachingHiveMetastoreModule
     @Provides
     @Singleton
     public HiveMetastore createCachingHiveMetastore(
+            NodeManager nodeManager,
             @ForCachingHiveMetastore HiveMetastore delegate,
             CachingHiveMetastoreConfig config,
             CatalogName catalogName,
@@ -55,6 +57,13 @@ public class CachingHiveMetastoreModule
         HiveMetastore decoratedDelegate = hiveMetastoreDecorator
                 .map(decorator -> decorator.decorate(delegate))
                 .orElse(delegate);
+
+        if (!nodeManager.getCurrentNode().isCoordinator()) {
+            // Disable caching on workers, because there currently is no way to invalidate such a cache.
+            // Note: while we could skip CachingHiveMetastoreModule altogether on workers, we retain it so that catalog
+            // configuration can remain identical for all nodes, making cluster configuration easier.
+            return decoratedDelegate;
+        }
 
         Executor executor = new ReentrantBoundedExecutor(
                 newCachedThreadPool(daemonThreadsNamed("hive-metastore-" + catalogName + "-%s")),
