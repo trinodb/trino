@@ -26,7 +26,7 @@ import javax.inject.Inject;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -64,7 +64,7 @@ public final class SinglenodeKerberosHdfsImpersonationWithDataProtection
                             CONTAINER_PRESTO_HIVE_PROPERTIES)
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-kerberos-hdfs-impersonation-with-data-protection/hive-data-protection-site.xml")),
-                            CONTAINER_PRESTO_ETC + "/hive-data-protection-site.xml");
+                            CONTAINER_TRINO_ETC + "/hive-data-protection-site.xml");
         });
     }
 }

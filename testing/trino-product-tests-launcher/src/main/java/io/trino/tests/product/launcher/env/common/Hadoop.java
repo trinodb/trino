@@ -29,7 +29,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINA
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_CONF_ROOT;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_HEALTH_D;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.wait.strategy.Wait.forHealthcheck;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -38,10 +38,10 @@ public final class Hadoop
         implements EnvironmentExtender
 {
     public static final String CONTAINER_HADOOP_INIT_D = "/etc/hadoop-init.d/";
-    public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive.properties";
-    public static final String CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive_with_external_writes.properties";
-    public static final String CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS = CONTAINER_PRESTO_ETC + "/catalog/hive_timestamp_nanos.properties";
-    public static final String CONTAINER_PRESTO_ICEBERG_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties";
+    public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = CONTAINER_TRINO_ETC + "/catalog/hive.properties";
+    public static final String CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES = CONTAINER_TRINO_ETC + "/catalog/hive_with_external_writes.properties";
+    public static final String CONTAINER_PRESTO_HIVE_TIMESTAMP_NANOS = CONTAINER_TRINO_ETC + "/catalog/hive_timestamp_nanos.properties";
+    public static final String CONTAINER_PRESTO_ICEBERG_PROPERTIES = CONTAINER_TRINO_ETC + "/catalog/iceberg.properties";
 
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;

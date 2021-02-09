@@ -67,7 +67,7 @@ public class TestAvroSchemaUrl
             throws IOException
     {
         hdfsClient.delete(location);
-        try (InputStream inputStream = newInputStream(Paths.get("/docker/presto-product-tests", resource))) {
+        try (InputStream inputStream = newInputStream(Paths.get("/docker/trino-product-tests", resource))) {
             hdfsClient.saveFile(location, inputStream);
         }
     }
@@ -76,7 +76,7 @@ public class TestAvroSchemaUrl
     public Object[][] avroSchemaLocations()
     {
         return new Object[][] {
-                {"file:///docker/presto-product-tests/avro/original_schema.avsc"}, // mounted in hadoop and presto containers
+                {"file:///docker/trino-product-tests/avro/original_schema.avsc"}, // mounted in hadoop and presto containers
                 {"hdfs://hadoop-master:9000/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"},
                 {"hdfs:///user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"},
                 {"/user/hive/warehouse/TestAvroSchemaUrl/schemas/original_schema.avsc"}, // `avro.schema.url` can actually be path on HDFS (not URL)

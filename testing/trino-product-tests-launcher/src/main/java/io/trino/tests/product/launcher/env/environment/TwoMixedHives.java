@@ -28,7 +28,7 @@ import javax.inject.Inject;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -65,16 +65,16 @@ public final class TwoMixedHives
         builder.configureContainer(COORDINATOR, container -> {
             container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive1.properties")),
-                    CONTAINER_PRESTO_ETC + "/catalog/hive1.properties");
+                    CONTAINER_TRINO_ETC + "/catalog/hive1.properties");
             container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/hive2.properties")),
-                    CONTAINER_PRESTO_ETC + "/catalog/hive2.properties");
+                    CONTAINER_TRINO_ETC + "/catalog/hive2.properties");
             container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/iceberg1.properties")),
-                    CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties");
+                    CONTAINER_TRINO_ETC + "/catalog/iceberg1.properties");
             container.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-mixed-hives/iceberg2.properties")),
-                    CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
+                    CONTAINER_TRINO_ETC + "/catalog/iceberg2.properties");
         });
 
         builder.addContainer(createHadoopMaster2());

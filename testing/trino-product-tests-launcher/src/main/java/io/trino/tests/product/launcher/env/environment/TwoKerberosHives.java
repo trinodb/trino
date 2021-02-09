@@ -39,7 +39,7 @@ import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINA
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Hadoop.createHadoopContainer;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
@@ -87,7 +87,7 @@ public final class TwoKerberosHives
 
         builder.configureContainer(COORDINATOR, container -> {
             container
-                    .withFileSystemBind(keytabsHostDirectory, "/etc/presto/conf", READ_WRITE)
+                    .withFileSystemBind(keytabsHostDirectory, "/etc/trino/conf", READ_WRITE)
 
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/presto-krb5.conf")),
@@ -95,19 +95,19 @@ public final class TwoKerberosHives
 
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive1.properties")),
-                            CONTAINER_PRESTO_ETC + "/catalog/hive1.properties")
+                            CONTAINER_TRINO_ETC + "/catalog/hive1.properties")
 
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive2.properties")),
-                            CONTAINER_PRESTO_ETC + "/catalog/hive2.properties")
+                            CONTAINER_TRINO_ETC + "/catalog/hive2.properties")
 
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg1.properties")),
-                            CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties")
+                            CONTAINER_TRINO_ETC + "/catalog/iceberg1.properties")
 
                     .withCopyFileToContainer(
                             forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg2.properties")),
-                            CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
+                            CONTAINER_TRINO_ETC + "/catalog/iceberg2.properties");
         });
 
         builder.configureContainer(HADOOP, container -> {

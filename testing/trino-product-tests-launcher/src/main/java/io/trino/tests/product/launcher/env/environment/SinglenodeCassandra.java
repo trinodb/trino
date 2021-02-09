@@ -29,7 +29,7 @@ import java.time.Duration;
 
 import static io.trino.tests.product.launcher.docker.ContainerUtil.forSelectedPorts;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
+import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TRINO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -40,7 +40,7 @@ public final class SinglenodeCassandra
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
-    public static final String CONTAINER_PRESTO_CASSANDRA_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/cassandra.properties";
+    public static final String CONTAINER_PRESTO_CASSANDRA_PROPERTIES = CONTAINER_TRINO_ETC + "/catalog/cassandra.properties";
     public static final int CASSANDRA_PORT = 9042;
 
     @Inject

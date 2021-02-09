@@ -30,7 +30,7 @@ public final class EnvironmentContainers
         return WORKER_NTH + number;
     }
 
-    public static boolean isPrestoContainer(String name)
+    public static boolean isTrinoContainer(String name)
     {
         return name.startsWith(PRESTO);
     }

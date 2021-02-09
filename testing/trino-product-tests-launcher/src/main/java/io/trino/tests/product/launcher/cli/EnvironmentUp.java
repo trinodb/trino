@@ -37,7 +37,7 @@ import java.util.concurrent.Callable;
 
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
-import static io.trino.tests.product.launcher.env.EnvironmentContainers.isPrestoContainer;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.isTrinoContainer;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
@@ -103,7 +103,7 @@ public final class EnvironmentUp
             implements Callable<Integer>
     {
         private final EnvironmentFactory environmentFactory;
-        private final boolean withoutPrestoMaster;
+        private final boolean withoutTrino;
         private final boolean background;
         private final String environment;
         private final EnvironmentConfig environmentConfig;
@@ -115,7 +115,7 @@ public final class EnvironmentUp
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
-            this.withoutPrestoMaster = options.withoutPrestoMaster;
+            this.withoutTrino = options.withoutTrino;
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
             this.outputMode = requireNonNull(options.output, "options.output is null");
@@ -131,8 +131,8 @@ public final class EnvironmentUp
                     .setLogsBaseDir(environmentLogPath)
                     .removeContainer(TESTS);
 
-            if (withoutPrestoMaster) {
-                builder.removeContainers(container -> isPrestoContainer(container.getLogicalName()));
+            if (withoutTrino) {
+                builder.removeContainers(container -> isTrinoContainer(container.getLogicalName()));
             }
 
             log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);

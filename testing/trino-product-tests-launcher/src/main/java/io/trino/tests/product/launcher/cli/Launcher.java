@@ -180,7 +180,7 @@ public class Launcher
     private static String readProjectVersion()
     {
         try {
-            String version = Resources.toString(Resources.getResource("presto-product-tests-launcher-version.txt"), UTF_8).trim();
+            String version = Resources.toString(Resources.getResource("trino-product-tests-launcher-version.txt"), UTF_8).trim();
             checkState(!version.isEmpty(), "version is empty");
             return version;
         }

@@ -65,12 +65,12 @@ public class TestKafkaAvroReadsSmokeTest
     private static final String KAFKA_SCHEMA = "product_tests";
 
     private static final String ALL_DATATYPES_AVRO_TOPIC_NAME = "read_all_datatypes_avro";
-    private static final String ALL_DATATYPE_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/all_datatypes_avro_schema.avsc";
+    private static final String ALL_DATATYPE_SCHEMA_PATH = "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/all_datatypes_avro_schema.avsc";
 
     private static final String ALL_NULL_AVRO_TOPIC_NAME = "read_all_null_avro";
 
     private static final String STRUCTURAL_AVRO_TOPIC_NAME = "read_structural_datatype_avro";
-    private static final String STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
+    private static final String STRUCTURAL_SCHEMA_PATH = "/docker/trino-product-tests/conf/trino/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
 
     private static void createAvroTable(String schemaPath, String tableName, String topicName, ImmutableMap<String, Object> record, MessageSerializer messageSerializer)
     {
