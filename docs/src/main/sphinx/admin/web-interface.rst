@@ -55,6 +55,7 @@ The following Web UI authentication types are also supported:
 * ``certificate``
 * ``kerberos``
 * ``jwt``
+* ``oauth2``
 
 For these authentication types, the username is defined by :doc:`/security/user-mapping`.
 
