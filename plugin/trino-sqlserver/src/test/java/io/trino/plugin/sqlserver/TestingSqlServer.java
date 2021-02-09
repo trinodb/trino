@@ -20,6 +20,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
 
@@ -58,6 +59,12 @@ public final class TestingSqlServer
         catch (Exception e) {
             throw new RuntimeException("Failed to execute statement: " + sql, e);
         }
+    }
+
+    public Connection createConnection()
+            throws SQLException
+    {
+        return container.createConnection("");
     }
 
     public void start()

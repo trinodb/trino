@@ -58,6 +58,12 @@ public class TestingMySqlServer
 
     protected void configureContainer(MySQLContainer<?> container) {}
 
+    public Connection createConnection()
+            throws SQLException
+    {
+        return container.createConnection("");
+    }
+
     public void execute(String sql)
     {
         execute(sql, getUsername(), getPassword());
