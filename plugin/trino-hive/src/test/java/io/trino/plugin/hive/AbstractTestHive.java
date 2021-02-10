@@ -64,14 +64,17 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
@@ -617,6 +620,7 @@ public abstract class AbstractTestHive
     protected ConnectorSplitManager splitManager;
     protected ConnectorPageSourceProvider pageSourceProvider;
     protected ConnectorPageSinkProvider pageSinkProvider;
+    protected ConnectorNodePartitioningProvider nodePartitioningProvider;
     protected ExecutorService executor;
 
     private ScheduledExecutorService heartbeatService;
@@ -826,6 +830,9 @@ public abstract class AbstractTestHive
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig),
                 Optional.empty());
+        nodePartitioningProvider = new HiveNodePartitioningProvider(
+                new TestingNodeManager("fake-environment"),
+                TYPE_MANAGER);
     }
 
     protected HdfsConfiguration createTestHdfsConfiguration()
@@ -4942,6 +4949,79 @@ public abstract class AbstractTestHive
     }
 
     @Test
+    public void testInsertBucketedTableLayout()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("empty_bucketed_table");
+        try {
+            List<Column> columns = ImmutableList.of(
+                    new Column("column1", HIVE_STRING, Optional.empty()),
+                    new Column("column2", HIVE_LONG, Optional.empty()));
+            HiveBucketProperty bucketProperty = new HiveBucketProperty(ImmutableList.of("column1"), BUCKETING_V1, 4, ImmutableList.of());
+            createEmptyTable(tableName, ORC, columns, ImmutableList.of(), Optional.of(bucketProperty));
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
+                assertTrue(insertLayout.isPresent());
+                ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                        bucketProperty.getBucketingVersion(),
+                        bucketProperty.getBucketCount(),
+                        ImmutableList.of(HIVE_STRING),
+                        OptionalInt.empty(),
+                        false);
+                assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
+                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
+                ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+                assertEquals(connectorBucketNodeMap.getBucketCount(), 4);
+                assertFalse(connectorBucketNodeMap.hasFixedMapping());
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testInsertPartitionedBucketedTableLayout()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("empty_partitioned_table");
+        try {
+            Column partitioningColumn = new Column("column2", HIVE_LONG, Optional.empty());
+            List<Column> columns = ImmutableList.of(
+                    new Column("column1", HIVE_STRING, Optional.empty()),
+                    partitioningColumn);
+            HiveBucketProperty bucketProperty = new HiveBucketProperty(ImmutableList.of("column1"), BUCKETING_V1, 4, ImmutableList.of());
+            createEmptyTable(tableName, ORC, columns, ImmutableList.of(partitioningColumn), Optional.of(bucketProperty));
+
+            try (Transaction transaction = newTransaction()) {
+                ConnectorMetadata metadata = transaction.getMetadata();
+                ConnectorSession session = newSession();
+                ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+                Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
+                assertTrue(insertLayout.isPresent());
+                ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                        bucketProperty.getBucketingVersion(),
+                        bucketProperty.getBucketCount(),
+                        ImmutableList.of(HIVE_STRING),
+                        OptionalInt.empty(),
+                        true);
+                assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
+                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
+                ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+                assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
+                assertFalse(connectorBucketNodeMap.hasFixedMapping());
+            }
+        }
+        finally {
+            dropTable(tableName);
+        }
+    }
+
+    @Test
     public void testPreferredCreateTableLayout()
     {
         try (Transaction transaction = newTransaction()) {
@@ -4962,6 +5042,72 @@ public abstract class AbstractTestHive
             assertTrue(newTableLayout.isPresent());
             assertFalse(newTableLayout.get().getPartitioning().isPresent());
             assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column2"));
+        }
+    }
+
+    @Test
+    public void testCreateBucketedTableLayout()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            Optional<ConnectorNewTableLayout> newTableLayout = metadata.getNewTableLayout(
+                    session,
+                    new ConnectorTableMetadata(
+                            new SchemaTableName("schema", "table"),
+                            ImmutableList.of(
+                                    new ColumnMetadata("column1", BIGINT),
+                                    new ColumnMetadata("column2", BIGINT)),
+                            ImmutableMap.of(
+                                    PARTITIONED_BY_PROPERTY, ImmutableList.of(),
+                                    BUCKETED_BY_PROPERTY, ImmutableList.of("column1"),
+                                    BUCKET_COUNT_PROPERTY, 10,
+                                    SORTED_BY_PROPERTY, ImmutableList.of())));
+            assertTrue(newTableLayout.isPresent());
+            ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                    BUCKETING_V1,
+                    10,
+                    ImmutableList.of(HIVE_LONG),
+                    OptionalInt.empty(),
+                    false);
+            assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
+            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
+            ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+            assertEquals(connectorBucketNodeMap.getBucketCount(), 10);
+            assertFalse(connectorBucketNodeMap.hasFixedMapping());
+        }
+    }
+
+    @Test
+    public void testCreatePartitionedBucketedTableLayout()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession();
+            Optional<ConnectorNewTableLayout> newTableLayout = metadata.getNewTableLayout(
+                    session,
+                    new ConnectorTableMetadata(
+                            new SchemaTableName("schema", "table"),
+                            ImmutableList.of(
+                                    new ColumnMetadata("column1", BIGINT),
+                                    new ColumnMetadata("column2", BIGINT)),
+                            ImmutableMap.of(
+                                    PARTITIONED_BY_PROPERTY, ImmutableList.of("column2"),
+                                    BUCKETED_BY_PROPERTY, ImmutableList.of("column1"),
+                                    BUCKET_COUNT_PROPERTY, 10,
+                                    SORTED_BY_PROPERTY, ImmutableList.of())));
+            assertTrue(newTableLayout.isPresent());
+            ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
+                    BUCKETING_V1,
+                    10,
+                    ImmutableList.of(HIVE_LONG),
+                    OptionalInt.empty(),
+                    true);
+            assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
+            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
+            ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMap(transaction.getTransactionHandle(), session, partitioningHandle);
+            assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
+            assertFalse(connectorBucketNodeMap.hasFixedMapping());
         }
     }
 

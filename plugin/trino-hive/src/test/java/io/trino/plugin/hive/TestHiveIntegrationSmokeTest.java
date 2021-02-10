@@ -2131,6 +2131,60 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testCreatePartitionedBucketedTableWithNullsAs()
+    {
+        testCreatePartitionedBucketedTableWithNullsAs(HiveStorageFormat.RCBINARY);
+    }
+
+    private void testCreatePartitionedBucketedTableWithNullsAs(HiveStorageFormat storageFormat)
+    {
+        String tableName = "test_create_partitioned_bucketed_table_with_nulls_as";
+
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE " + tableName + " " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'orderpriority_nulls', 'orderstatus' ], " +
+                "bucketed_by = ARRAY[ 'custkey', 'orderkey' ], " +
+                "bucket_count = 4 " +
+                ") " +
+                "AS " +
+                "SELECT custkey, orderkey, comment, nullif(orderpriority, '1-URGENT') orderpriority_nulls, orderstatus " +
+                "FROM tpch.tiny.orders";
+
+        assertUpdate(
+                getParallelWriteSession(),
+                createTable,
+                "SELECT count(*) FROM orders");
+
+        // verify that we create bucket_count files in each partition
+        assertEqualsIgnoreOrder(
+                computeActual(format("SELECT orderpriority_nulls, orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1, 2", tableName)),
+                resultBuilder(getSession(), createVarcharType(1), BIGINT)
+                        .row(null, "F", 4L)
+                        .row(null, "O", 4L)
+                        .row(null, "P", 4L)
+                        .row("2-HIGH", "F", 4L)
+                        .row("2-HIGH", "O", 4L)
+                        .row("2-HIGH", "P", 4L)
+                        .row("3-MEDIUM", "F", 4L)
+                        .row("3-MEDIUM", "O", 4L)
+                        .row("3-MEDIUM", "P", 4L)
+                        .row("4-NOT SPECIFIED", "F", 4L)
+                        .row("4-NOT SPECIFIED", "O", 4L)
+                        .row("4-NOT SPECIFIED", "P", 4L)
+                        .row("5-LOW", "F", 4L)
+                        .row("5-LOW", "O", 4L)
+                        .row("5-LOW", "P", 4L)
+                        .build());
+
+        assertQuery("SELECT * FROM " + tableName, "SELECT custkey, orderkey, comment, nullif(orderpriority, '1-URGENT') orderpriority_nulls, orderstatus FROM orders");
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+    }
+
+    @Test
     public void testCreatePartitionedBucketedTableAsWithUnionAll()
     {
         testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY);
@@ -2180,6 +2234,15 @@ public class TestHiveIntegrationSmokeTest
 
         List<?> partitions = getPartitions(tableName);
         assertEquals(partitions.size(), 3);
+
+        // verify that we create bucket_count files in each partition
+        assertEqualsIgnoreOrder(
+                computeActual(format("SELECT orderstatus, COUNT(DISTINCT \"$path\") FROM %s GROUP BY 1", tableName)),
+                resultBuilder(getSession(), createVarcharType(1), BIGINT)
+                        .row("F", 11L)
+                        .row("O", 11L)
+                        .row("P", 11L)
+                        .build());
 
         assertQuery("SELECT * FROM " + tableName, "SELECT custkey, custkey, comment, orderstatus FROM orders");
 

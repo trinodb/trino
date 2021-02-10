@@ -2188,7 +2188,8 @@ public class HiveMetadata
                             bucketing.getColumns().stream()
                                     .map(HiveColumnHandle::getHiveType)
                                     .collect(toImmutableList()),
-                            OptionalInt.empty()),
+                            OptionalInt.empty(),
+                            false),
                     bucketing.getColumns().stream()
                             .map(ColumnHandle.class::cast)
                             .collect(toImmutableList())));
@@ -2381,7 +2382,8 @@ public class HiveMetadata
                 leftHandle.getBucketingVersion(), // same as rightHandle.getBucketingVersion()
                 smallerBucketCount,
                 leftHandle.getHiveTypes(),
-                maxCompatibleBucketCount));
+                maxCompatibleBucketCount,
+                false));
     }
 
     private static OptionalInt min(OptionalInt left, OptionalInt right)
@@ -2514,9 +2516,9 @@ public class HiveMetadata
         }
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table, typeManager);
+        List<Column> partitionColumns = table.getPartitionColumns();
         if (hiveBucketHandle.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
-            List<Column> partitionColumns = table.getPartitionColumns();
             if (partitionColumns.isEmpty()) {
                 return Optional.empty();
             }
@@ -2532,17 +2534,23 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
         }
 
+        ImmutableList.Builder<String> partitioningColumns = ImmutableList.builder();
+        hiveBucketHandle.get().getColumns().stream()
+                .map(HiveColumnHandle::getName)
+                .forEach(partitioningColumns::add);
+        partitionColumns.stream()
+                .map(Column::getName)
+                .forEach(partitioningColumns::add);
+
         HivePartitioningHandle partitioningHandle = new HivePartitioningHandle(
                 hiveBucketHandle.get().getBucketingVersion(),
                 hiveBucketHandle.get().getTableBucketCount(),
                 hiveBucketHandle.get().getColumns().stream()
                         .map(HiveColumnHandle::getHiveType)
                         .collect(toList()),
-                OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()));
-        List<String> partitionColumns = hiveBucketHandle.get().getColumns().stream()
-                .map(HiveColumnHandle::getName)
-                .collect(toList());
-        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
+                OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()),
+                !partitionColumns.isEmpty());
+        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumns.build()));
     }
 
     @Override
@@ -2553,9 +2561,9 @@ public class HiveMetadata
         validateBucketColumns(tableMetadata);
         validateColumns(tableMetadata);
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
+        List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
         if (bucketProperty.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
-            List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
             if (partitionedBy.isEmpty()) {
                 return Optional.empty();
             }
@@ -2575,9 +2583,13 @@ public class HiveMetadata
                         bucketProperty.get().getBucketCount(),
                         bucketedBy.stream()
                                 .map(hiveTypeMap::get)
-                                .collect(toList()),
-                        OptionalInt.of(bucketProperty.get().getBucketCount())),
-                bucketedBy));
+                                .collect(toImmutableList()),
+                        OptionalInt.of(bucketProperty.get().getBucketCount()),
+                        !partitionedBy.isEmpty()),
+                ImmutableList.<String>builder()
+                        .addAll(bucketedBy)
+                        .addAll(partitionedBy)
+                        .build()));
     }
 
     @Override
