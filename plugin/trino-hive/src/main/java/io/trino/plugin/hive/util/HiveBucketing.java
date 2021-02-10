@@ -50,6 +50,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
@@ -76,9 +77,9 @@ public final class HiveBucketing
             }
 
             @Override
-            int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+            int getBucketHashCode(List<TypeInfo> types, Page page, int prefixChannels, int position)
             {
-                return HiveBucketingV1.getBucketHashCode(types, page, position);
+                return HiveBucketingV1.getBucketHashCode(types, page, prefixChannels, position);
             }
         },
         BUCKETING_V2(2) {
@@ -89,9 +90,9 @@ public final class HiveBucketing
             }
 
             @Override
-            int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+            int getBucketHashCode(List<TypeInfo> types, Page page, int prefixChannels, int position)
             {
-                return HiveBucketingV2.getBucketHashCode(types, page, position);
+                return HiveBucketingV2.getBucketHashCode(types, page, prefixChannels, position);
             }
         },
         /**/;
@@ -110,7 +111,13 @@ public final class HiveBucketing
 
         abstract int getBucketHashCode(List<TypeInfo> types, Object[] values);
 
-        abstract int getBucketHashCode(List<TypeInfo> types, Page page, int position);
+        int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+        {
+            checkArgument(types.size() == page.getChannelCount());
+            return getBucketHashCode(types, page, types.size(), position);
+        }
+
+        abstract int getBucketHashCode(List<TypeInfo> types, Page page, int prefixChannels, int position);
     }
 
     private static final long BUCKETS_EXPLORATION_LIMIT_FACTOR = 4;
@@ -129,6 +136,12 @@ public final class HiveBucketing
     public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Page page, int position)
     {
         return getBucketNumber(bucketingVersion.getBucketHashCode(types, page, position), bucketCount);
+    }
+
+    public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Page page, int prefixChannels, int position)
+    {
+        checkArgument(prefixChannels <= page.getChannelCount());
+        return getBucketNumber(bucketingVersion.getBucketHashCode(types, page, prefixChannels, position), bucketCount);
     }
 
     public static int getHiveBucket(BucketingVersion bucketingVersion, int bucketCount, List<TypeInfo> types, Object[] values)

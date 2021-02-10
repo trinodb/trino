@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive;
 
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.BucketFunction;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -22,6 +23,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeOperators;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.function.ToIntFunction;
@@ -29,10 +34,23 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
+import static java.util.Objects.requireNonNull;
 
 public class HiveNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
+    private static final int PARTITIONED_BUCKETS_PER_NODE = 32;
+
+    private final NodeManager nodeManager;
+    private final TypeOperators typeOperators;
+
+    @Inject
+    public HiveNodePartitioningProvider(NodeManager nodeManager, TypeManager typeManager)
+    {
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.typeOperators = requireNonNull(typeManager, "typeManager is null").getTypeOperators();
+    }
+
     @Override
     public BucketFunction getBucketFunction(
             ConnectorTransactionHandle transactionHandle,
@@ -42,15 +60,30 @@ public class HiveNodePartitioningProvider
             int bucketCount)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
-        List<HiveType> hiveTypes = handle.getHiveTypes();
-        return new HiveBucketFunction(handle.getBucketingVersion(), bucketCount, hiveTypes);
+        List<HiveType> hiveBucketTypes = handle.getHiveTypes();
+        if (!handle.isUsePartitionedBucketing()) {
+            return new HiveBucketFunction(handle.getBucketingVersion(), bucketCount, hiveBucketTypes);
+        }
+        return new HivePartitionedBucketFunction(
+                handle.getBucketingVersion(),
+                handle.getBucketCount(),
+                hiveBucketTypes,
+                partitionChannelTypes.subList(hiveBucketTypes.size(), partitionChannelTypes.size()),
+                typeOperators,
+                bucketCount);
     }
 
     @Override
     public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
     {
         HivePartitioningHandle handle = (HivePartitioningHandle) partitioningHandle;
-        return createBucketNodeMap(handle.getBucketCount());
+        if (!handle.isUsePartitionedBucketing()) {
+            return createBucketNodeMap(handle.getBucketCount());
+        }
+        // We can write to (number of partitions P) * (number of buckets B) in parallel
+        // However, number of partitions is not known here
+        // If number of workers < ( P * B), we need multiple writers per node to fully parallelize the write within a worker
+        return createBucketNodeMap(nodeManager.getRequiredWorkerNodes().size() * PARTITIONED_BUCKETS_PER_NODE);
     }
 
     @Override
