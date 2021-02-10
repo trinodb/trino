@@ -31,6 +31,15 @@ where ``from_item`` is one of
     from_item join_type from_item
       [ ON join_condition | USING ( join_column [, ...] ) ]
 
+.. code-block:: text
+
+    table_name [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+      MATCH_RECOGNIZE pattern_recognition_specification
+        [ [ AS ] alias [ ( column_alias [, ...] ) ] ]
+
+For detailed description of ``MATCH_RECOGNIZE`` clause, see :doc:`pattern
+recognition in FROM clause</sql/match-recognize>`.
+
 and ``join_type`` is one of
 
 .. code-block:: text
