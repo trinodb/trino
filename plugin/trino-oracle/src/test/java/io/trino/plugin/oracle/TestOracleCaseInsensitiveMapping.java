@@ -38,7 +38,7 @@ public class TestOracleCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        oracleServer = new TestingOracleServer();
+        oracleServer = closeAfterClass(new TestingOracleServer());
         return createOracleQueryRunner(
                 oracleServer,
                 ImmutableMap.of(),
