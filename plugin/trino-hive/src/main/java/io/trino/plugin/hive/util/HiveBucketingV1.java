@@ -38,11 +38,10 @@ final class HiveBucketingV1
 {
     private HiveBucketingV1() {}
 
-    static int getBucketHashCode(List<TypeInfo> types, Page page, int position)
+    static int getBucketHashCode(List<TypeInfo> types, Page page, int prefixChannels, int position)
     {
-        checkArgument(types.size() == page.getChannelCount());
         int result = 0;
-        for (int i = 0; i < page.getChannelCount(); i++) {
+        for (int i = 0; i < prefixChannels; i++) {
             int fieldHash = hash(types.get(i), page.getBlock(i), position);
             result = result * 31 + fieldHash;
         }
