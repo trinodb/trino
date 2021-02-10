@@ -38,6 +38,7 @@ Trino also provides :doc:`numerous SQL functions and operators<functions>`.
     sql/grant
     sql/grant-roles
     sql/insert
+    sql/match-recognize
     sql/prepare
     sql/reset-session
     sql/revoke
