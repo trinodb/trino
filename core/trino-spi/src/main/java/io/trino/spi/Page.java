@@ -335,6 +335,17 @@ public final class Page
         return wrapBlocksWithoutCopy(length, blocks);
     }
 
+    public Page extractChannels(int[] channels)
+    {
+        requireNonNull(channels, "channels is null");
+
+        Block[] blocks = new Block[channels.length];
+        for (int i = 0; i < channels.length; i++) {
+            blocks[i] = this.blocks[channels[i]];
+        }
+        return wrapBlocksWithoutCopy(positionCount, blocks);
+    }
+
     public Page getColumns(int column)
     {
         return wrapBlocksWithoutCopy(positionCount, new Block[] {this.blocks[column]});

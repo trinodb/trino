@@ -17,7 +17,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.units.DataSize;
 import io.trino.SequencePageBuilder;
+import io.trino.Session;
 import io.trino.execution.Lifespan;
+import io.trino.execution.NodeTaskMap;
+import io.trino.execution.scheduler.NodeScheduler;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.execution.scheduler.UniformNodeSelectorFactory;
+import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.InterpretedHashGenerator;
 import io.trino.operator.PageAssertions;
 import io.trino.operator.PipelineExecutionStrategy;
@@ -27,7 +33,9 @@ import io.trino.operator.exchange.LocalExchange.LocalExchangeSinkFactoryId;
 import io.trino.spi.Page;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.type.BlockTypeOperators;
+import io.trino.util.FinalizerService;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -44,6 +52,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DIST
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -58,6 +67,14 @@ public class TestLocalExchange
     private static final DataSize LOCAL_EXCHANGE_MAX_BUFFERED_BYTES = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
 
+    private final NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(
+            new NodeScheduler(new UniformNodeSelectorFactory(
+                    new InMemoryNodeManager(),
+                    new NodeSchedulerConfig(),
+                    new NodeTaskMap(new FinalizerService()))),
+            TYPE_OPERATOR_FACTORY);
+    private final Session session = testSessionBuilder().build();
+
     @DataProvider
     public static Object[][] executionStrategy()
     {
@@ -68,6 +85,8 @@ public class TestLocalExchange
     public void testGatherSingleWriter(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 SINGLE_DISTRIBUTION,
                 8,
                 TYPES,
@@ -141,6 +160,8 @@ public class TestLocalExchange
     public void testBroadcast(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 TYPES,
@@ -229,6 +250,8 @@ public class TestLocalExchange
     public void testRandom(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 FIXED_ARBITRARY_DISTRIBUTION,
                 2,
                 TYPES,
@@ -278,6 +301,8 @@ public class TestLocalExchange
     public void testPassthrough(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 FIXED_PASSTHROUGH_DISTRIBUTION,
                 2,
                 TYPES,
@@ -346,6 +371,8 @@ public class TestLocalExchange
     public void testPartition(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 FIXED_HASH_DISTRIBUTION,
                 2,
                 TYPES,
@@ -415,6 +442,8 @@ public class TestLocalExchange
         ImmutableList<Type> types = ImmutableList.of(BIGINT);
 
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 types,
@@ -462,6 +491,8 @@ public class TestLocalExchange
     public void writeUnblockWhenAllReadersFinishAndPagesConsumed(PipelineExecutionStrategy executionStrategy)
     {
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 FIXED_BROADCAST_DISTRIBUTION,
                 2,
                 TYPES,
@@ -531,6 +562,8 @@ public class TestLocalExchange
         // The most common reason of mismatch is when one of sink/source created the wrong kind of local exchange.
         // In such case, we want to fail loudly.
         LocalExchangeFactory ungroupedLocalExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 FIXED_HASH_DISTRIBUTION,
                 2,
                 TYPES,
@@ -548,6 +581,8 @@ public class TestLocalExchange
         }
 
         LocalExchangeFactory groupedLocalExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager::getPartitioningProvider,
+                session,
                 FIXED_HASH_DISTRIBUTION,
                 2,
                 TYPES,

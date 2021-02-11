@@ -72,6 +72,13 @@ public class NodePartitioningManager
                 "NodePartitioningProvider for connector '%s' is already registered", catalogName);
     }
 
+    public ConnectorNodePartitioningProvider getPartitioningProvider(CatalogName catalogName)
+    {
+        ConnectorNodePartitioningProvider partitioningProvider = partitioningProviders.get(catalogName);
+        checkArgument(partitioningProvider != null, "No partitioning provider for connector %s", catalogName);
+        return partitioningProvider;
+    }
+
     public void removePartitioningProvider(CatalogName catalogName)
     {
         partitioningProviders.remove(catalogName);

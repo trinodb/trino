@@ -2745,8 +2745,11 @@ public class LocalExecutionPlanner
 
             int operatorsCount = subContext.getDriverInstanceCount().orElse(1);
             List<Type> types = getSourceOperatorTypes(node, context.getTypes());
+            PartitioningHandle handle = node.getPartitioningScheme().getPartitioning().getHandle();
             LocalExchangeFactory exchangeFactory = new LocalExchangeFactory(
-                    node.getPartitioningScheme().getPartitioning().getHandle(),
+                    nodePartitioningManager::getPartitioningProvider,
+                    session,
+                    handle,
                     operatorsCount,
                     types,
                     ImmutableList.of(),
@@ -2819,8 +2822,11 @@ public class LocalExecutionPlanner
                 }
             }
 
+            PartitioningHandle handle = node.getPartitioningScheme().getPartitioning().getHandle();
             LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
-                    node.getPartitioningScheme().getPartitioning().getHandle(),
+                    nodePartitioningManager::getPartitioningProvider,
+                    session,
+                    handle,
                     driverInstanceCount,
                     types,
                     channels,
