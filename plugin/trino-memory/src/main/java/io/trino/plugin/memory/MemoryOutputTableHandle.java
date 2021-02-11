@@ -33,7 +33,7 @@ public final class MemoryOutputTableHandle
             @JsonProperty("table") long table,
             @JsonProperty("activeTableIds") Set<Long> activeTableIds)
     {
-        this.table = requireNonNull(table, "table is null");
+        this.table = table;
         this.activeTableIds = requireNonNull(activeTableIds, "activeTableIds is null");
     }
 

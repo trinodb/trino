@@ -1710,6 +1710,7 @@
                                     -Xep:OptionalEquality:ERROR
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
+                                    -Xep:UnnecessaryCheckNotNull:ERROR
                                     -Xep:UnnecessaryMethodReference:ERROR
                                     -Xep:UnnecessaryOptionalGet:ERROR
                                     -Xep:UnusedVariable:ERROR
