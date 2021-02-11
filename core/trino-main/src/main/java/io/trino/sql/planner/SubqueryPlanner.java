@@ -353,6 +353,9 @@ class SubqueryPlanner
                         subPlan.getTranslations()
                                 .withAdditionalMappings(mapAll(cluster, subPlan.getScope(), output)),
                         subPlan.getRoot());
+
+            case IS_DISTINCT_FROM:
+                // Cannot be used with quantified comparison
         }
         // all cases are checked, so this exception should never be thrown
         throw new IllegalArgumentException(

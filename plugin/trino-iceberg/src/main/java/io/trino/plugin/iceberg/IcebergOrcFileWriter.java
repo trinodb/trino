@@ -164,6 +164,8 @@ public class IcebergOrcFileWriter
                     populateExcludedColumns(orcColumns, child, exclude, excludedColumns);
                 }
                 return;
+            default:
+                // unexpected, TODO throw
         }
     }
 

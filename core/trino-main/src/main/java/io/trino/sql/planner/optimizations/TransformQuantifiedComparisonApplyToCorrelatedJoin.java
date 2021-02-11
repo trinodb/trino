@@ -253,6 +253,8 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                         case GREATER_THAN:
                         case GREATER_THAN_OR_EQUAL:
                             return false;
+                        default:
+                            // Caller guarantees no other cases need to be handled here
                     }
                     break;
                 case ANY:
@@ -264,6 +266,8 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                         case GREATER_THAN:
                         case GREATER_THAN_OR_EQUAL:
                             return true;
+                        default:
+                            // Caller guarantees no other cases need to be handled here
                     }
                     break;
             }

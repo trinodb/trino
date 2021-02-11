@@ -94,6 +94,9 @@ public final class TypeValidator
                     case FINAL:
                         checkSignature(symbol, aggregation.getResolvedFunction().getSignature());
                         break;
+                    case PARTIAL:
+                    case INTERMEDIATE:
+                        // TODO
                 }
             }
 

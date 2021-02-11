@@ -70,12 +70,13 @@ public class OperatorNotFoundException
                 return format("Cannot cast %s to %s", argumentTypes.get(0), returnType.orElseThrow());
             case SUBSCRIPT:
                 return format("Cannot use %s for subscript of %s", argumentTypes.get(1), argumentTypes.get(0));
+            default:
+                return format(
+                        "Operator '%s'%s cannot be applied to %s",
+                        operatorType.getOperator(),
+                        returnType.map(value -> ":" + value).orElse(""),
+                        Joiner.on(", ").join(argumentTypes));
         }
-        return format(
-                "Operator '%s'%s cannot be applied to %s",
-                operatorType.getOperator(),
-                returnType.map(value -> ":" + value).orElse(""),
-                Joiner.on(", ").join(argumentTypes));
     }
 
     public OperatorType getOperatorType()
