@@ -1746,6 +1746,7 @@
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR
                                     -Xep:MissingCasesInEnumSwitch:ERROR
                                     -Xep:MissingOverride:ERROR
+                                    -Xep:MisusedWeekYear:ERROR <!-- Use of "YYYY" (week year) in a date pattern without "ww" (week in year). You probably meant to use "yyyy" (year) instead. -->
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
                                     -Xep:OptionalEquality:ERROR
