@@ -1741,6 +1741,7 @@
                                     -Xep:FallThrough:ERROR
                                     -Xep:FormatString:ERROR
                                     -Xep:GetClassOnClass:ERROR
+                                    -Xep:IdentityBinaryExpression:ERROR
                                     -Xep:ImmutableSetForContains:ERROR
                                     -Xep:InconsistentHashCode:ERROR
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR

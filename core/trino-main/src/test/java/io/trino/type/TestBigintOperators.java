@@ -66,6 +66,7 @@ public class TestBigintOperators
     }
 
     @Test
+    @SuppressWarnings("PointlessArithmeticExpression")
     public void testSubtract()
     {
         assertFunction("100000000037 - 37", BIGINT, 100000000037L - 37L);
@@ -84,6 +85,7 @@ public class TestBigintOperators
     }
 
     @Test
+    @SuppressWarnings("PointlessArithmeticExpression")
     public void testDivide()
     {
         assertFunction("100000000037 / 37", BIGINT, 100000000037L / 37L);
@@ -93,6 +95,7 @@ public class TestBigintOperators
     }
 
     @Test
+    @SuppressWarnings({"IdentityBinaryExpression", "PointlessArithmeticExpression"})
     public void testModulus()
     {
         assertFunction("100000000037 % 37", BIGINT, 100000000037L % 37L);

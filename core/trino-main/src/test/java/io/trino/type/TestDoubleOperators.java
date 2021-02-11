@@ -73,6 +73,7 @@ public class TestDoubleOperators
     }
 
     @Test
+    @SuppressWarnings("PointlessArithmeticExpression")
     public void testSubtract()
     {
         assertFunction("37.7E0 - 37.7E0", DOUBLE, 37.7 - 37.7);
@@ -97,6 +98,7 @@ public class TestDoubleOperators
     }
 
     @Test
+    @SuppressWarnings("PointlessArithmeticExpression")
     public void testDivide()
     {
         assertFunction("37.7E0 / 37.7E0", DOUBLE, 37.7 / 37.7);
@@ -109,6 +111,7 @@ public class TestDoubleOperators
     }
 
     @Test
+    @SuppressWarnings({"IdentityBinaryExpression", "PointlessArithmeticExpression"})
     public void testModulus()
     {
         assertFunction("37.7E0 % 37.7E0", DOUBLE, 37.7 % 37.7);
