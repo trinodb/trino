@@ -45,7 +45,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class AtopProcessFactory
         implements AtopFactory
 {
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("YYYYMMdd");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
     private final String executablePath;
     private final ZoneId timeZone;
     private final Duration readTimeout;

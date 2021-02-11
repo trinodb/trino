@@ -35,7 +35,7 @@ public final class CompilerUtils
     private static final Logger log = Logger.get(CompilerUtils.class);
 
     private static final AtomicLong CLASS_ID = new AtomicLong();
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("YYYYMMdd_HHmmss");
+    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private CompilerUtils() {}
 
