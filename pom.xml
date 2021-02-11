@@ -1755,6 +1755,7 @@
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:PreconditionsInvalidPlaceholder:ERROR <!-- Preconditions only accepts the %s placeholder in error message strings -->
                                     -Xep:ReturnValueIgnored:ERROR
+                                    -Xep:SelfAssignment:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:ThrowIfUncheckedKnownChecked:ERROR
                                     -Xep:UnnecessaryCheckNotNull:ERROR
