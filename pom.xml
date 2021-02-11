@@ -1709,51 +1709,32 @@
                         <configuration combine.children="merge">
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
-                                <!-- TODO enable more checks, i.e. remove "-XepDisableAllChecks" -->
                                 <arg>
                                     -Xplugin:ErrorProne
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
-                                    -XepDisableAllChecks
-                                    -Xep:ArrayEquals:ERROR
-                                    -Xep:ArrayHashCode:ERROR
-                                    -Xep:ArrayToString:ERROR
-                                    -Xep:ArraysAsListPrimitiveArray:ERROR
+
+                                    <!-- -Xep:ReferenceEquality:OFF fails in IDEA -->
+                                    <!-- -Xep:BoxedPrimitiveEquality:OFF fails in IDEA -->
+                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection -->
+                                    -Xep:HashtableContains:OFF <!-- https://github.com/trinodb/trino/pull/7001 -->
+
                                     -Xep:BadInstanceof:ERROR
-                                    -Xep:BadShiftAmount:ERROR
                                     -Xep:BoxedPrimitiveConstructor:ERROR
-                                    -Xep:CheckReturnValue:ERROR
                                     -Xep:ClassCanBeStatic:ERROR
                                     -Xep:CompareToZero:ERROR
-                                    -Xep:ComparingThisWithNull:ERROR
                                     -Xep:EqualsIncompatibleType:ERROR
                                     -Xep:FallThrough:ERROR
-                                    -Xep:FormatString:ERROR
-                                    -Xep:FormatStringAnnotation:ERROR
-                                    -Xep:GetClassOnAnnotation:ERROR
-                                    -Xep:GetClassOnClass:ERROR
-                                    -Xep:IdentityBinaryExpression:ERROR
                                     -Xep:ImmutableSetForContains:ERROR
                                     -Xep:InconsistentHashCode:ERROR
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR
                                     -Xep:MissingCasesInEnumSwitch:ERROR
                                     -Xep:MissingOverride:ERROR
-                                    -Xep:MisusedWeekYear:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
-                                    -Xep:OptionalEquality:ERROR
-                                    -Xep:OptionalMapUnusedValue:ERROR
-                                    -Xep:PreconditionsInvalidPlaceholder:ERROR
-                                    -Xep:ReturnValueIgnored:ERROR
-                                    -Xep:SelfAssignment:ERROR
-                                    -Xep:StreamToString
-                                    -Xep:StaticQualifiedUsingExpression:ERROR
-                                    -Xep:ThrowIfUncheckedKnownChecked:ERROR
-                                    -Xep:UnnecessaryCheckNotNull:ERROR
                                     -Xep:UnnecessaryMethodReference:ERROR
                                     -Xep:UnnecessaryOptionalGet:ERROR
                                     -Xep:UnusedVariable:ERROR
                                     -Xep:UseEnumSwitch:ERROR
-                                    -Xep:ZoneIdOfZ:ERROR
                                 </arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
