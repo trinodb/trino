@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -97,6 +98,64 @@ public class QueryBuilder
         sql += getGroupBy(groupingSets);
 
         return new PreparedQuery(sql, accumulator.build());
+    }
+
+    public PreparedQuery prepareJoinQuery(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            Map<JdbcColumnHandle, String> rightAssignments)
+    {
+        // Verify assignments are present. This is safe assumption as join conditions are not pruned, and simplifies the code here.
+        verify(!leftAssignments.isEmpty(), "leftAssignments is empty");
+        verify(!rightAssignments.isEmpty(), "rightAssignments is empty");
+        // Joins wih no conditions are not pushed down, so it is a same assumption and simplifies the code here
+        verify(!joinConditions.isEmpty(), "joinConditions is empty");
+
+        String query = format(
+                "SELECT %s, %s FROM (%s) l %s (%s) r ON %s",
+                formatAssignments("l", leftAssignments),
+                formatAssignments("r", rightAssignments),
+                leftSource.getQuery(),
+                formatJoinType(joinType),
+                rightSource.getQuery(),
+                joinConditions.stream()
+                        .map(condition -> format(
+                                "l.%s %s r.%s",
+                                client.quoted(condition.getLeftColumn().getColumnName()),
+                                condition.getOperator().getValue(),
+                                client.quoted(condition.getRightColumn().getColumnName())))
+                        .collect(joining(" AND ")));
+        List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
+                .addAll(leftSource.getParameters())
+                .addAll(rightSource.getParameters())
+                .build();
+        return new PreparedQuery(query, parameters);
+    }
+
+    protected String formatAssignments(String relationAlias, Map<JdbcColumnHandle, String> assignments)
+    {
+        return assignments.entrySet().stream()
+                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .collect(joining(", "));
+    }
+
+    protected static String formatJoinType(JoinType joinType)
+    {
+        switch (joinType) {
+            case INNER:
+                return "INNER JOIN";
+            case LEFT_OUTER:
+                return "LEFT JOIN";
+            case RIGHT_OUTER:
+                return "RIGHT JOIN";
+            case FULL_OUTER:
+                return "FULL JOIN";
+        }
+        throw new IllegalStateException("Unsupported join type: " + joinType);
     }
 
     public PreparedStatement prepareStatement(
