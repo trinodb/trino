@@ -35,7 +35,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -101,7 +100,6 @@ public class RowToJsonCast
             return output.slice();
         }
         catch (IOException e) {
-            throwIfUnchecked(e);
             throw new RuntimeException(e);
         }
     }
