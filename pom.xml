@@ -1736,6 +1736,7 @@
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:PreconditionsInvalidPlaceholder:ERROR
                                     -Xep:ReturnValueIgnored:ERROR
+                                    -Xep:SelfAssignment:ERROR
                                     -Xep:StreamToString
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:ThrowIfUncheckedKnownChecked:ERROR
