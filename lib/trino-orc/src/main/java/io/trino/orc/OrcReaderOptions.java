@@ -66,7 +66,7 @@ public class OrcReaderOptions
         this.tinyStripeThreshold = requireNonNull(tinyStripeThreshold, "tinyStripeThreshold is null");
         this.streamBufferSize = requireNonNull(streamBufferSize, "streamBufferSize is null");
         this.maxBlockSize = requireNonNull(maxBlockSize, "maxBlockSize is null");
-        this.lazyReadSmallRanges = requireNonNull(lazyReadSmallRanges, "lazyReadSmallRanges is null");
+        this.lazyReadSmallRanges = lazyReadSmallRanges;
         this.bloomFiltersEnabled = bloomFiltersEnabled;
         this.nestedLazy = nestedLazy;
     }
