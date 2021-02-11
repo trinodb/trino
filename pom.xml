@@ -1733,6 +1733,7 @@
                                     -Xep:ArrayToString:ERROR
                                     -Xep:ArraysAsListPrimitiveArray:ERROR
                                     -Xep:BadInstanceof:ERROR
+                                    -Xep:BadShiftAmount:ERROR
                                     -Xep:BoxedPrimitiveConstructor:ERROR
                                     -Xep:ClassCanBeStatic:ERROR
                                     -Xep:CompareToZero:ERROR
