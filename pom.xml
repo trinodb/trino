@@ -1711,6 +1711,7 @@
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:PreconditionsInvalidPlaceholder:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
+                                    -Xep:ThrowIfUncheckedKnownChecked:ERROR
                                     -Xep:UnnecessaryCheckNotNull:ERROR
                                     -Xep:UnnecessaryMethodReference:ERROR
                                     -Xep:UnnecessaryOptionalGet:ERROR
