@@ -39,7 +39,7 @@ public abstract class BaseStrictSymbolsMatcher
     public boolean shapeMatches(PlanNode node)
     {
         try {
-            getActual.apply(node);
+            Set<Symbol> ignored = getActual.apply(node);
             return true;
         }
         catch (ClassCastException e) {
