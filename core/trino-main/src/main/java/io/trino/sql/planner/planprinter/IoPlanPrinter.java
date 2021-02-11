@@ -356,11 +356,11 @@ public class IoPlanPrinter
                 @JsonProperty("maxMemory") double maxMemory,
                 @JsonProperty("networkCost") double networkCost)
         {
-            this.outputRowCount = requireNonNull(outputRowCount, "outputRowCount is null");
-            this.outputSizeInBytes = requireNonNull(outputSizeInBytes, "outputSizeInBytes is null");
-            this.cpuCost = requireNonNull(cpuCost, "cpuCost is null");
-            this.maxMemory = requireNonNull(maxMemory, "maxMemory is null");
-            this.networkCost = requireNonNull(networkCost, "networkCost is null");
+            this.outputRowCount = outputRowCount;
+            this.outputSizeInBytes = outputSizeInBytes;
+            this.cpuCost = cpuCost;
+            this.maxMemory = maxMemory;
+            this.networkCost = networkCost;
         }
 
         @JsonProperty
