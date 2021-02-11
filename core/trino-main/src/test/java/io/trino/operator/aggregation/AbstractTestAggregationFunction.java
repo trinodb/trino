@@ -41,6 +41,7 @@ import static io.trino.operator.aggregation.AggregationTestUtils.makeValidityAss
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestAggregationFunction
 {
@@ -185,9 +186,10 @@ public abstract class AbstractTestAggregationFunction
             oldStart = start;
             oldWidth = width;
             Block block = getFinalBlock(aggregation);
-            makeValidityAssertion(expectedValues[start]).apply(
+            assertThat(makeValidityAssertion(expectedValues[start]).apply(
                     BlockAssertions.getOnlyValue(aggregation.getFinalType(), block),
-                    expectedValues[start]);
+                    expectedValues[start]))
+                    .isTrue();
         }
     }
 

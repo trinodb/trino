@@ -1713,6 +1713,7 @@
                                     -Xep:OptionalEquality:ERROR
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:PreconditionsInvalidPlaceholder:ERROR
+                                    -Xep:ReturnValueIgnored:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:ThrowIfUncheckedKnownChecked:ERROR
                                     -Xep:UnnecessaryCheckNotNull:ERROR
