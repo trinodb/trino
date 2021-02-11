@@ -1744,6 +1744,7 @@
                                     -Xep:ImmutableSetForContains:ERROR
                                     -Xep:InconsistentHashCode:ERROR
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR
+                                    -Xep:MissingCasesInEnumSwitch:ERROR
                                     -Xep:MissingOverride:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR

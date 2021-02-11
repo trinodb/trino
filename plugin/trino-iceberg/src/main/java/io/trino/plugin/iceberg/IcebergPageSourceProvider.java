@@ -236,8 +236,9 @@ public class IcebergPageSourceProvider
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)),
                         predicate,
                         fileFormatDataSourceStats);
+            default:
+                throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
-        throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 
     private static ConnectorPageSource createOrcPageSource(

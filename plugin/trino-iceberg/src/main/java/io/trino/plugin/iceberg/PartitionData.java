@@ -151,6 +151,11 @@ public class PartitionData
                 }
             case DECIMAL:
                 return partitionValue.decimalValue();
+            case UUID:
+            case LIST:
+            case MAP:
+            case STRUCT:
+                // unsupported
         }
         throw new UnsupportedOperationException("Type not supported as partition column: " + type);
     }

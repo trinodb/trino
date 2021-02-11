@@ -213,7 +213,8 @@ class ShardPredicate
             case VARBINARY:
                 statement.setBytes(index, truncateIndexValue((Slice) value).getBytes());
                 return;
+            default:
+                throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type: " + type);
         }
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type: " + type);
     }
 }

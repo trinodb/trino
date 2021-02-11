@@ -703,6 +703,8 @@ class Query
                         toClientTypeSignature(parameter.getNamedTypeSignature().getTypeSignature())));
             case LONG:
                 return ClientTypeSignatureParameter.ofLong(parameter.getLongLiteral());
+            case VARIABLE:
+                // not expected here
         }
         throw new IllegalArgumentException("Unsupported kind: " + parameter.getKind());
     }

@@ -237,17 +237,19 @@ public class StripeReader
     private static boolean isSupportedStreamType(Stream stream, OrcTypeKind orcTypeKind)
     {
         if (stream.getStreamKind() == BLOOM_FILTER) {
-            // non-utf8 bloom filters are not allowed for character types
-            // non-utf8 bloom filters are not supported for timestamp
             switch (orcTypeKind) {
                 case STRING:
                 case VARCHAR:
                 case CHAR:
+                    // non-utf8 bloom filters are not allowed for character types
+                    return false;
                 case TIMESTAMP:
                 case TIMESTAMP_INSTANT:
+                    // non-utf8 bloom filters are not supported for timestamp
                     return false;
+                default:
+                    return true;
             }
-            return true;
         }
         if (stream.getStreamKind() == BLOOM_FILTER_UTF8) {
             // char types require padding for bloom filters, which is not supported

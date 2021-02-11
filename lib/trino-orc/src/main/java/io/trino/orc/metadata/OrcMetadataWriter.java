@@ -347,6 +347,9 @@ public class OrcMetadataWriter
                 return OrcProto.Stream.Kind.SECONDARY;
             case ROW_INDEX:
                 return OrcProto.Stream.Kind.ROW_INDEX;
+            case BLOOM_FILTER:
+                // unsupported
+                break;
             case BLOOM_FILTER_UTF8:
                 return OrcProto.Stream.Kind.BLOOM_FILTER_UTF8;
         }
