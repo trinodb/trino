@@ -1723,49 +1723,31 @@
                         <configuration combine.children="merge">
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
-                                <!-- TODO enable more checks, i.e. remove "-XepDisableAllChecks" -->
                                 <arg>
                                     -Xplugin:ErrorProne
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
-                                    -XepDisableAllChecks
-                                    -Xep:ArrayEquals:ERROR
-                                    -Xep:ArrayHashCode:ERROR
-                                    -Xep:ArrayToString:ERROR
-                                    -Xep:ArraysAsListPrimitiveArray:ERROR
+
+                                    <!-- -Xep:ReferenceEquality:OFF fails in IDEA -->
+                                    <!-- -Xep:BoxedPrimitiveEquality:OFF fails in IDEA -->
+                                    -Xep:GuardedBy:OFF <!-- needs some careful inspection -->
+
                                     -Xep:BadInstanceof:ERROR
-                                    -Xep:BadShiftAmount:ERROR
                                     -Xep:BoxedPrimitiveConstructor:ERROR
                                     -Xep:ClassCanBeStatic:ERROR
                                     -Xep:CompareToZero:ERROR
-                                    -Xep:ComparingThisWithNull:ERROR
                                     -Xep:EqualsIncompatibleType:ERROR
                                     -Xep:FallThrough:ERROR
-                                    -Xep:FormatString:ERROR
-                                    -Xep:GetClassOnAnnotation:ERROR
-                                    -Xep:GetClassOnClass:ERROR
-                                    -Xep:HashtableContains:ERROR
-                                    -Xep:IdentityBinaryExpression:ERROR
                                     -Xep:ImmutableSetForContains:ERROR
                                     -Xep:InconsistentHashCode:ERROR
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR
                                     -Xep:MissingCasesInEnumSwitch:ERROR
                                     -Xep:MissingOverride:ERROR
-                                    -Xep:MisusedWeekYear:ERROR <!-- Use of "YYYY" (week year) in a date pattern without "ww" (week in year). You probably meant to use "yyyy" (year) instead. -->
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
-                                    -Xep:OptionalEquality:ERROR
                                     -Xep:OptionalMapUnusedValue:ERROR
-                                    -Xep:PreconditionsInvalidPlaceholder:ERROR <!-- Preconditions only accepts the %s placeholder in error message strings -->
-                                    -Xep:ReturnValueIgnored:ERROR
-                                    -Xep:SelfAssignment:ERROR
-                                    -Xep:StaticQualifiedUsingExpression:ERROR
-                                    -Xep:ThrowIfUncheckedKnownChecked:ERROR
-                                    -Xep:UnnecessaryCheckNotNull:ERROR
-                                    -Xep:UnnecessaryMethodReference:ERROR
                                     -Xep:UnnecessaryOptionalGet:ERROR
                                     -Xep:UnusedVariable:ERROR
                                     -Xep:UseEnumSwitch:ERROR
-                                    -Xep:ZoneIdOfZ:ERROR
                                 </arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
