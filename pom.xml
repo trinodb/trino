@@ -1723,6 +1723,7 @@
                                     -Xep:FormatString:ERROR
                                     -Xep:GetClassOnAnnotation:ERROR
                                     -Xep:GetClassOnClass:ERROR
+                                    -Xep:HashtableContains:ERROR
                                     -Xep:IdentityBinaryExpression:ERROR
                                     -Xep:ImmutableSetForContains:ERROR
                                     -Xep:InconsistentHashCode:ERROR

@@ -1016,8 +1016,8 @@ public final class HiveUtil
 
     public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)
     {
-        if (schema.contains(ORC_BLOOM_FILTER_COLUMNS)) {
-            if (!schema.contains(ORC_BLOOM_FILTER_FPP)) {
+        if (schema.containsValue(ORC_BLOOM_FILTER_COLUMNS)) {
+            if (!schema.containsValue(ORC_BLOOM_FILTER_FPP)) {
                 throw new TrinoException(HIVE_INVALID_METADATA, format("FPP for bloom filter is missing"));
             }
             try {
