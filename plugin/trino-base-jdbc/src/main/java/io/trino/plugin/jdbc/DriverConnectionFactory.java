@@ -63,7 +63,7 @@ public class DriverConnectionFactory
         JdbcIdentity identity = JdbcIdentity.from(session);
         Properties properties = getCredentialProperties(identity);
         Connection connection = driver.connect(connectionUrl, properties);
-        checkState(connection != null, "Driver returned null connection");
+        checkState(connection != null, "Driver returned null connection, make sure the connection URL '%s' is valid for the driver %s", connectionUrl, driver);
         return connection;
     }
 
