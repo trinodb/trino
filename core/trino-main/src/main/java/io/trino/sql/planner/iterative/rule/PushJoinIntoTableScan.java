@@ -36,9 +36,11 @@ import io.trino.sql.ExpressionUtils;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ComparisonExpression;
@@ -93,6 +95,12 @@ public class PushJoinIntoTableScan
     }
 
     @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
+    }
+
+    @Override
     public Result apply(JoinNode joinNode, Captures captures, Context context)
     {
         if (joinNode.isCrossJoin()) {
@@ -105,7 +113,7 @@ public class PushJoinIntoTableScan
         verify(!left.isForDelete() && !right.isForDelete(), "Unexpected Join over for-delete table scan");
 
         Expression effectiveFilter = getEffectiveFilter(joinNode);
-        FilterSplitResult filterSplitResult = splitFilter(effectiveFilter, joinNode.getLeftOutputSymbols(), joinNode.getRightOutputSymbols(), context);
+        FilterSplitResult filterSplitResult = splitFilter(effectiveFilter, left.getOutputSymbols(), right.getOutputSymbols(), context);
 
         if (!filterSplitResult.getRemainingFilter().equals(BooleanLiteral.TRUE_LITERAL)) {
             // TODO add extra filter node above join
@@ -156,13 +164,14 @@ public class PushJoinIntoTableScan
         Map<ColumnHandle, ColumnHandle> leftColumnHandlesMapping = joinApplicationResult.get().getLeftColumnHandles();
         Map<ColumnHandle, ColumnHandle> rightColumnHandlesMapping = joinApplicationResult.get().getRightColumnHandles();
 
-        ImmutableMap.Builder<Symbol, ColumnHandle> newAssignments = ImmutableMap.builder();
-        newAssignments.putAll(left.getAssignments().entrySet().stream().collect(toImmutableMap(
+        ImmutableMap.Builder<Symbol, ColumnHandle> assignmentsBuilder = ImmutableMap.builder();
+        assignmentsBuilder.putAll(left.getAssignments().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
                 entry -> leftColumnHandlesMapping.get(entry.getValue()))));
-        newAssignments.putAll(right.getAssignments().entrySet().stream().collect(toImmutableMap(
+        assignmentsBuilder.putAll(right.getAssignments().entrySet().stream().collect(toImmutableMap(
                 Map.Entry::getKey,
                 entry -> rightColumnHandlesMapping.get(entry.getValue()))));
+        Map<Symbol, ColumnHandle> assignments = assignmentsBuilder.build();
 
         // convert enforced constraint
         JoinNode.Type joinType = joinNode.getType();
@@ -176,7 +185,17 @@ public class PushJoinIntoTableScan
                         .putAll(rightConstraint.getDomains().orElseThrow())
                         .build());
 
-        return Result.ofPlanNode(new TableScanNode(joinNode.getId(), handle, joinNode.getOutputSymbols(), newAssignments.build(), newEnforcedConstraint, false));
+        return Result.ofPlanNode(
+                new ProjectNode(
+                        context.getIdAllocator().getNextId(),
+                        new TableScanNode(
+                                joinNode.getId(),
+                                handle,
+                                ImmutableList.copyOf(assignments.keySet()),
+                                assignments,
+                                newEnforcedConstraint,
+                                false),
+                        Assignments.identity(joinNode.getOutputSymbols())));
     }
 
     private JoinStatistics getJoinStatistics(JoinNode join, TableScanNode left, TableScanNode right, Context context)
@@ -223,21 +242,6 @@ public class PushJoinIntoTableScan
         }
         return constraint.transform(handle -> {
             ColumnHandle newHandle = columnMapping.get(handle);
-            checkArgument(newHandle != null, "Mapping not found for handle %s", handle);
-            return newHandle;
-        });
-    }
-
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isAllowPushdownIntoConnectors(session);
-    }
-
-    private TupleDomain<ColumnHandle> transformToNewAssignments(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, ColumnHandle> newAssignments)
-    {
-        return tupleDomain.transform(handle -> {
-            ColumnHandle newHandle = newAssignments.get(handle);
             checkArgument(newHandle != null, "Mapping not found for handle %s", handle);
             return newHandle;
         });

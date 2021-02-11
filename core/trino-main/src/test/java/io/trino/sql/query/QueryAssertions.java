@@ -385,6 +385,22 @@ public class QueryAssertions
         public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
             checkArgument(retainedNodes.length > 0, "No retainedNodes");
+            PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
+            for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
+                expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
+            }
+            return isNotFullyPushedDown(expectedPlan);
+        }
+
+        /**
+         * Verifies query is not fully pushed down and verifies the results are the same as when the pushdown is fully disabled.
+         * <p>
+         * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
+         * when pushdown capabilities are improved.
+         */
+        public final QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
+        {
+            PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
 
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
             verifyResultsWithPushdownDisabled();
@@ -392,11 +408,6 @@ public class QueryAssertions
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
-                        PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
-                        for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
-                            expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
-                        }
-                        expectedPlan = PlanMatchPattern.anyTree(expectedPlan);
                         assertPlan(
                                 session,
                                 runner.getMetadata(),

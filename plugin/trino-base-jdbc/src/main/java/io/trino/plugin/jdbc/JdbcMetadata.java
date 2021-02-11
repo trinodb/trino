@@ -35,6 +35,10 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.JoinApplicationResult;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
@@ -62,13 +66,17 @@ import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Functions.identity;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcMetadata
@@ -296,6 +304,109 @@ public class JdbcMetadata
                 nextSyntheticColumnId);
 
         return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
+    }
+
+    @Override
+    public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            ConnectorTableHandle left,
+            ConnectorTableHandle right,
+            List<JoinCondition> joinConditions,
+            Map<String, ColumnHandle> leftAssignments,
+            Map<String, ColumnHandle> rightAssignments,
+            JoinStatistics statistics)
+    {
+        if (!isJoinPushdownEnabled(session)) {
+            return Optional.empty();
+        }
+
+        JdbcTableHandle leftHandle = flushAttributesAsQuery(session, (JdbcTableHandle) left);
+        JdbcTableHandle rightHandle = flushAttributesAsQuery(session, (JdbcTableHandle) right);
+        int nextSyntheticColumnId = max(leftHandle.getNextSyntheticColumnId(), rightHandle.getNextSyntheticColumnId());
+
+        ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newLeftColumnsBuilder = ImmutableMap.builder();
+        for (JdbcColumnHandle column : jdbcClient.getColumns(session, leftHandle)) {
+            newLeftColumnsBuilder.put(column, JdbcColumnHandle.builderFrom(column)
+                    .setColumnName(column.getColumnName() + "_" + nextSyntheticColumnId)
+                    .build());
+            nextSyntheticColumnId++;
+        }
+        Map<JdbcColumnHandle, JdbcColumnHandle> newLeftColumns = newLeftColumnsBuilder.build();
+
+        ImmutableMap.Builder<JdbcColumnHandle, JdbcColumnHandle> newRightColumnsBuilder = ImmutableMap.builder();
+        for (JdbcColumnHandle column : jdbcClient.getColumns(session, rightHandle)) {
+            newRightColumnsBuilder.put(column, JdbcColumnHandle.builderFrom(column)
+                    .setColumnName(column.getColumnName() + "_" + nextSyntheticColumnId)
+                    .build());
+            nextSyntheticColumnId++;
+        }
+        Map<JdbcColumnHandle, JdbcColumnHandle> newRightColumns = newRightColumnsBuilder.build();
+
+        ImmutableList.Builder<JdbcJoinCondition> jdbcJoinConditions = ImmutableList.builder();
+        for (JoinCondition joinCondition : joinConditions) {
+            Optional<JdbcColumnHandle> leftColumn = getVariableColumnHandle(leftAssignments, joinCondition.getLeftExpression());
+            Optional<JdbcColumnHandle> rightColumn = getVariableColumnHandle(rightAssignments, joinCondition.getRightExpression());
+            if (leftColumn.isEmpty() || rightColumn.isEmpty()) {
+                return Optional.empty();
+            }
+            jdbcJoinConditions.add(new JdbcJoinCondition(leftColumn.get(), joinCondition.getOperator(), rightColumn.get()));
+        }
+
+        Optional<PreparedQuery> joinQuery = jdbcClient.implementJoin(
+                session,
+                joinType,
+                asPreparedQuery(leftHandle),
+                asPreparedQuery(rightHandle),
+                jdbcJoinConditions.build(),
+                newRightColumns.entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getColumnName())),
+                newLeftColumns.entrySet().stream()
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getColumnName())));
+
+        if (joinQuery.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new JoinApplicationResult<>(
+                new JdbcTableHandle(
+                        new JdbcQueryRelationHandle(joinQuery.get()),
+                        TupleDomain.all(),
+                        Optional.empty(),
+                        OptionalLong.empty(),
+                        Optional.of(
+                                ImmutableList.<JdbcColumnHandle>builder()
+                                        .addAll(newLeftColumns.values())
+                                        .addAll(newRightColumns.values())
+                                        .build()),
+                        nextSyntheticColumnId),
+                ImmutableMap.copyOf(newLeftColumns),
+                ImmutableMap.copyOf(newRightColumns)));
+    }
+
+    private static Optional<JdbcColumnHandle> getVariableColumnHandle(Map<String, ColumnHandle> assignments, ConnectorExpression expression)
+    {
+        requireNonNull(assignments, "assignments is null");
+        requireNonNull(expression, "expression is null");
+        if (!(expression instanceof Variable)) {
+            return Optional.empty();
+        }
+
+        String name = ((Variable) expression).getName();
+        ColumnHandle columnHandle = assignments.get(name);
+        verifyNotNull(columnHandle, "No assignment for %s", name);
+        return Optional.of(((JdbcColumnHandle) columnHandle));
+    }
+
+    private static PreparedQuery asPreparedQuery(JdbcTableHandle tableHandle)
+    {
+        checkArgument(
+                tableHandle.getConstraint().equals(TupleDomain.all()) &&
+                        tableHandle.getLimit().isEmpty() &&
+                        tableHandle.getRelationHandle() instanceof JdbcQueryRelationHandle,
+                "Handle is not a plain query: %s",
+                tableHandle);
+        return ((JdbcQueryRelationHandle) tableHandle.getRelationHandle()).getPreparedQuery();
     }
 
     @Override

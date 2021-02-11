@@ -56,6 +56,21 @@ public final class JoinCondition
         this.rightExpression = requireNonNull(rightExpression, "rightExpression is null");
     }
 
+    public Operator getOperator()
+    {
+        return operator;
+    }
+
+    public ConnectorExpression getLeftExpression()
+    {
+        return leftExpression;
+    }
+
+    public ConnectorExpression getRightExpression()
+    {
+        return rightExpression;
+    }
+
     @Override
     public boolean equals(Object o)
     {
