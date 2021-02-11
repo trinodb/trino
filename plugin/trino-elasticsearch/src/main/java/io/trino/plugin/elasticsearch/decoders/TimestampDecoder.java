@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public class TimestampDecoder
         implements Decoder
 {
-    private static final ZoneId ZULU = ZoneId.of("Z");
+    private static final ZoneId ZULU = ZoneOffset.UTC;
     private final String path;
 
     public TimestampDecoder(String path)

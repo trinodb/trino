@@ -1365,6 +1365,7 @@ public class TestPostgreSqlTypeMapping
      * @see #testTimestampWithTimeZoneCoercion
      */
     @Test(dataProvider = "trueFalse", dataProviderClass = DataProviders.class)
+    @SuppressWarnings("ZoneIdOfZ")
     public void testTimestampWithTimeZone(boolean insertWithTrino)
     {
         DataTypeTest tests = DataTypeTest.create(true);
@@ -1387,6 +1388,7 @@ public class TestPostgreSqlTypeMapping
             tests.addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("GMT")));
             tests.addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("UTC")));
             tests.addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("Z")));
+            tests.addRoundTrip(dataType, afterEpoch.atZone(ZoneOffset.UTC));
             tests.addRoundTrip(dataType, afterEpoch.atZone(ZoneId.of("UTC+00:00")));
             tests.addRoundTrip(dataType, timeDoubledInJvmZone.atZone(UTC));
             tests.addRoundTrip(dataType, timeDoubledInJvmZone.atZone(jvmZone));
