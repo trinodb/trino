@@ -78,7 +78,7 @@ public class BenchmarkComputePosition
     @Benchmark
     public long computePositionWithDivision()
     {
-        return (int) ((Integer.toUnsignedLong(Long.hashCode(hashcode)) * hashTableSize) / (1 << 32));
+        return (int) ((Integer.toUnsignedLong(Long.hashCode(hashcode)) * hashTableSize) / (1L << 32));
     }
 
     public static void main(String[] args)
