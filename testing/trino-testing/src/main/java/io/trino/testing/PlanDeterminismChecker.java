@@ -47,6 +47,7 @@ public class PlanDeterminismChecker
         checkPlanIsDeterministic(localQueryRunner.getDefaultSession(), sql);
     }
 
+    @SuppressWarnings("ReturnValueIgnored") // Stream#reduce called for side effects (assertions)
     public void checkPlanIsDeterministic(Session session, String sql)
     {
         IntStream.range(1, MINIMUM_SUBSEQUENT_SAME_PLANS)

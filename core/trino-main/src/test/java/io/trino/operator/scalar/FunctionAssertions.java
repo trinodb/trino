@@ -388,8 +388,7 @@ public final class FunctionAssertions
                     new DriverYieldSignal(),
                     newSimpleAggregatedMemoryContext().newLocalMemoryContext(PageProcessor.class.getSimpleName()),
                     SOURCE_PAGE);
-            // consume the iterator
-            Iterators.getOnlyElement(output);
+            consume(output);
 
             long retainedSize = processor.getProjections().stream()
                     .mapToLong(this::getRetainedSizeOfCachedInstance)
@@ -403,6 +402,12 @@ public final class FunctionAssertions
                 fail(format("The retained size of cached instance of function invocation is likely unbounded: %s", projection));
             }
         }
+    }
+
+    @SuppressWarnings("CheckReturnValue")
+    private void consume(Iterator<Optional<Page>> output)
+    {
+        Iterators.getOnlyElement(output);
     }
 
     private long getRetainedSizeOfCachedInstance(PageProjection projection)

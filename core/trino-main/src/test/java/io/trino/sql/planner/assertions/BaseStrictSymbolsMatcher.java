@@ -36,6 +36,7 @@ public abstract class BaseStrictSymbolsMatcher
     }
 
     @Override
+    @SuppressWarnings("CheckReturnValue") // only checks if the transformation completes without throwing
     public boolean shapeMatches(PlanNode node)
     {
         try {

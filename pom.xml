@@ -1750,6 +1750,7 @@
                                     -Xep:ObjectToString:ERROR
                                     -Xep:OptionalEquality:ERROR
                                     -Xep:OptionalMapUnusedValue:ERROR
+                                    -Xep:ReturnValueIgnored:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:UnnecessaryMethodReference:ERROR
                                     -Xep:UnnecessaryOptionalGet:ERROR

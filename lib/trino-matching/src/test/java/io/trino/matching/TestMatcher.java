@@ -194,7 +194,8 @@ public class TestMatcher
                         }).equalTo(true));
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        pattern.match("object", wasContextUsed)
+        @SuppressWarnings("unused")
+        Match match = pattern.match("object", wasContextUsed)
                 .collect(onlyElement());
         assertEquals(wasContextUsed.get(), true);
     }
@@ -209,7 +210,8 @@ public class TestMatcher
                 });
 
         AtomicBoolean wasContextUsed = new AtomicBoolean();
-        pattern.match("object", wasContextUsed)
+        @SuppressWarnings("unused")
+        Match match = pattern.match("object", wasContextUsed)
                 .collect(onlyElement());
         assertEquals(wasContextUsed.get(), true);
     }

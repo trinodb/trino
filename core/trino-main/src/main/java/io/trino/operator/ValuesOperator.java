@@ -82,6 +82,7 @@ public class ValuesOperator
     }
 
     @Override
+    @SuppressWarnings("CheckReturnValue") // uses an Iterator helper to consume the remainder of the pages Iterator
     public void finish()
     {
         Iterators.size(pages);

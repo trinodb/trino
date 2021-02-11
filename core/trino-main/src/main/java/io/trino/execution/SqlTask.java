@@ -182,7 +182,7 @@ public class SqlTask
             }
 
             try {
-                onDone.apply(SqlTask.this);
+                onDone(onDone);
             }
             catch (Exception e) {
                 log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
@@ -191,6 +191,12 @@ public class SqlTask
             // notify that task is finished
             notifyStatusChanged();
         });
+    }
+
+    @SuppressWarnings("ReturnValueIgnored") // onDone should probably be a Consumer, but that would change the public API
+    private void onDone(Function<SqlTask, ?> onDone)
+    {
+        onDone.apply(SqlTask.this);
     }
 
     public boolean isOutputBufferOverutilized()
