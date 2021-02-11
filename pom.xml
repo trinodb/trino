@@ -1705,6 +1705,7 @@
                                     -Xep:InjectOnConstructorOfAbstractClass:ERROR
                                     -Xep:MissingCasesInEnumSwitch:ERROR
                                     -Xep:MissingOverride:ERROR
+                                    -Xep:MisusedWeekYear:ERROR
                                     -Xep:NullOptional:ERROR
                                     -Xep:ObjectToString:ERROR
                                     -Xep:OptionalEquality:ERROR
