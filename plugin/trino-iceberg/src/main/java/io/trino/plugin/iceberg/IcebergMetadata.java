@@ -257,6 +257,8 @@ public class IcebergMetadata
 
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
+            case DATA:
+                break;
             case HISTORY:
                 if (name.getSnapshotId().isPresent()) {
                     throw new TrinoException(NOT_SUPPORTED, "Snapshot ID not supported for history table: " + systemTableName);

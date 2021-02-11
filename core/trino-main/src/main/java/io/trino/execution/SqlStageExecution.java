@@ -525,6 +525,7 @@ public final class SqlStageExecution
                     finishedTasks.add(taskStatus.getTaskId());
                     flushingTasks.remove(taskStatus.getTaskId());
                     break;
+                default:
             }
 
             if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING || stageState == StageState.FLUSHING) {

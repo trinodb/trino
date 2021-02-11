@@ -234,8 +234,9 @@ public final class ShardOrganizerUtil
                 return resultSet.getDouble(columnName);
             case VARBINARY:
                 return wrappedBuffer(resultSet.getBytes(columnName)).toStringUtf8();
+            default:
+                throw new IllegalArgumentException("Unhandled type: " + type);
         }
-        throw new IllegalArgumentException("Unhandled type: " + type);
     }
 
     static OrganizationSet createOrganizationSet(long tableId, Set<ShardIndexInfo> shardsToCompact)

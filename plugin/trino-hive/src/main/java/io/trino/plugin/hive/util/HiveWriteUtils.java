@@ -613,6 +613,8 @@ public final class HiveWriteUtils
             case STRUCT:
                 StructTypeInfo structTypeInfo = (StructTypeInfo) typeInfo;
                 return structTypeInfo.getAllStructFieldTypeInfos().stream().allMatch(HiveWriteUtils::isWritableType);
+            case UNION:
+                // unsupported for writing
         }
         return false;
     }
@@ -635,6 +637,13 @@ public final class HiveWriteUtils
             case VARCHAR:
             case CHAR:
                 return true;
+            case VOID:
+            case TIMESTAMPLOCALTZ:
+            case INTERVAL_YEAR_MONTH:
+            case INTERVAL_DAY_TIME:
+            case UNKNOWN:
+                // unsupported for writing
+                break;
         }
         return false;
     }
