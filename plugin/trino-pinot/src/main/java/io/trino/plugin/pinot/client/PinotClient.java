@@ -487,7 +487,7 @@ public class PinotClient
     public static <T> T doWithRetries(int retries, Function<Integer, T> caller)
     {
         PinotException firstError = null;
-        checkState(retries > 0, "Invalid num of retries %d", retries);
+        checkState(retries > 0, "Invalid num of retries %s", retries);
         for (int i = 0; i < retries; ++i) {
             try {
                 return caller.apply(i);
