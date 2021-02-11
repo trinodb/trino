@@ -388,7 +388,7 @@ public class TestRaptorMetadata
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey")));
 
         ConnectorNewTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
-        assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
+        assertEquals(layout.getPartitioningColumns(), Optional.of(ImmutableList.of("orderkey", "custkey")));
         assertTrue(layout.getPartitioning().isPresent());
         assertInstanceOf(layout.getPartitioning().get(), RaptorPartitioningHandle.class);
         RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning().get();

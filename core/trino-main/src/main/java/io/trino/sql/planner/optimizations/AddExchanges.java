@@ -532,7 +532,11 @@ public class AddExchanges
         {
             PlanWithProperties source = node.getSource().accept(this, preferredProperties);
 
-            Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            Optional<PartitioningScheme> partitioningScheme = node.getExchangePartitioningScheme();
+            if (partitioningScheme.isEmpty()) {
+                partitioningScheme = node.getPartitioningScheme();
+            }
+
             if (partitioningScheme.isEmpty()) {
                 if (scaleWriters) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));

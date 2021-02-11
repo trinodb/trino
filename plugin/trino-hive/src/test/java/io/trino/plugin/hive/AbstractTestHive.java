@@ -4933,7 +4933,8 @@ public abstract class AbstractTestHive
                 Optional<ConnectorNewTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
                 assertTrue(insertLayout.isPresent());
                 assertFalse(insertLayout.get().getPartitioning().isPresent());
-                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of(partitioningColumn.getName()));
+                assertFalse(insertLayout.get().getPartitioningColumns().isPresent());
+                assertEquals(insertLayout.get().getPreferredPartitionColumns(), Optional.of(ImmutableList.of(partitioningColumn.getName())));
             }
         }
         finally {
@@ -4961,7 +4962,8 @@ public abstract class AbstractTestHive
                                     SORTED_BY_PROPERTY, ImmutableList.of())));
             assertTrue(newTableLayout.isPresent());
             assertFalse(newTableLayout.get().getPartitioning().isPresent());
-            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column2"));
+            assertFalse(newTableLayout.get().getPartitioningColumns().isPresent());
+            assertEquals(newTableLayout.get().getPreferredPartitionColumns(), Optional.of(ImmutableList.of("column2")));
         }
     }
 

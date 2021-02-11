@@ -62,9 +62,14 @@ public class NewTableLayout
                 .map(partitioning -> new PartitioningHandle(Optional.of(catalogName), Optional.of(transactionHandle), partitioning));
     }
 
-    public List<String> getPartitionColumns()
+    public Optional<List<String>> getPartitioningColumns()
     {
-        return layout.getPartitionColumns();
+        return layout.getPartitioningColumns();
+    }
+
+    public Optional<List<String>> getPreferredPartitionColumns()
+    {
+        return layout.getPreferredPartitionColumns();
     }
 
     @Override

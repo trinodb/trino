@@ -418,15 +418,15 @@ class StatementAnalyzer
                 }
             }
 
-            List<String> tableColumns = columns.stream()
+            Set<String> tableColumns = columns.stream()
                     .map(ColumnMetadata::getName)
-                    .collect(toImmutableList());
+                    .collect(toImmutableSet());
 
             // analyze target table layout, table columns should contain all partition columns
             Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, targetTableHandle.get());
-            newTableLayout.ifPresent(layout -> {
-                if (!ImmutableSet.copyOf(tableColumns).containsAll(layout.getPartitionColumns())) {
-                    throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+            newTableLayout.flatMap(NewTableLayout::getPartitioningColumns).ifPresent(partitioningColumns -> {
+                if (!tableColumns.containsAll(partitioningColumns)) {
+                    throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + partitioningColumns);
                 }
             });
 
@@ -448,7 +448,7 @@ class StatementAnalyzer
                 }
             }
             else {
-                insertColumns = tableColumns;
+                insertColumns = ImmutableList.copyOf(tableColumns);
             }
 
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, targetTableHandle.get());
@@ -761,11 +761,13 @@ class StatementAnalyzer
 
             if (newTableLayout.isPresent()) {
                 NewTableLayout layout = newTableLayout.get();
-                if (!columnNames.containsAll(layout.getPartitionColumns())) {
-                    if (layout.getLayout().getPartitioning().isPresent()) {
-                        throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + layout.getPartitionColumns());
+                layout.getPartitioningColumns().ifPresent(partitioningColumns -> {
+                    if (!columnNames.containsAll(partitioningColumns)) {
+                        throw new TrinoException(NOT_SUPPORTED, "INSERT must write all distribution columns: " + partitioningColumns);
                     }
-                    else {
+                });
+                if (layout.getPreferredPartitionColumns().isPresent()) {
+                    if (!columnNames.containsAll(layout.getPreferredPartitionColumns().get())) {
                         // created table does not contain all columns required by preferred layout
                         newTableLayout = Optional.empty();
                     }

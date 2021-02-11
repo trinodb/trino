@@ -490,26 +490,33 @@ public class LogicalPlanner
             TableStatisticsMetadata statisticsMetadata)
     {
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
+        Optional<PartitioningScheme> exchangePartitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
-            List<Symbol> partitionFunctionArguments = new ArrayList<>();
-            writeTableLayout.get().getPartitionColumns().stream()
-                    .mapToInt(columnNames::indexOf)
-                    .mapToObj(symbols::get)
-                    .forEach(partitionFunctionArguments::add);
-
             List<Symbol> outputLayout = new ArrayList<>(symbols);
 
             Optional<PartitioningHandle> partitioningHandle = writeTableLayout.get().getPartitioning();
             if (partitioningHandle.isPresent()) {
                 partitioningScheme = Optional.of(new PartitioningScheme(
-                        Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
+                        Partitioning.create(
+                                partitioningHandle.get(),
+                                writeTableLayout.get().getPartitioningColumns().get().stream()
+                                        .mapToInt(columnNames::indexOf)
+                                        .mapToObj(symbols::get)
+                                        .collect(toImmutableList())),
                         outputLayout));
             }
-            else if (isUsePreferredWritePartitioning(session)) {
+
+            if (isUsePreferredWritePartitioning(session) && writeTableLayout.get().getPreferredPartitionColumns().isPresent()) {
                 // TODO: move to iterative optimizer and use CBO
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
-                partitioningScheme = Optional.of(new PartitioningScheme(
-                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
+                List<String> preferredPartitionColumns = writeTableLayout.get().getPreferredPartitionColumns().get();
+                exchangePartitioningScheme = Optional.of(new PartitioningScheme(
+                        Partitioning.create(
+                                FIXED_HASH_DISTRIBUTION,
+                                preferredPartitionColumns.stream()
+                                        .mapToInt(columnNames::indexOf)
+                                        .mapToObj(symbols::get)
+                                        .collect(toImmutableList())),
                         outputLayout));
             }
         }
@@ -547,6 +554,7 @@ public class LogicalPlanner
                             columnNames,
                             notNullColumnSymbols,
                             partitioningScheme,
+                            exchangePartitioningScheme,
                             Optional.of(partialAggregation),
                             Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
@@ -569,6 +577,7 @@ public class LogicalPlanner
                         columnNames,
                         notNullColumnSymbols,
                         partitioningScheme,
+                        exchangePartitioningScheme,
                         Optional.empty(),
                         Optional.empty()),
                 target,

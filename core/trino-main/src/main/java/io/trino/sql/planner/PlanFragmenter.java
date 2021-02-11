@@ -317,7 +317,10 @@ public class PlanFragmenter
         @Override
         public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<FragmentProperties> context)
         {
-            if (node.getPartitioningScheme().isPresent()) {
+            if (node.getExchangePartitioningScheme().isPresent()) {
+                context.get().setDistribution(node.getExchangePartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+            }
+            else if (node.getPartitioningScheme().isPresent()) {
                 context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
             }
             return context.defaultRewrite(node, context.get());

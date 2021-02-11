@@ -968,6 +968,7 @@ public class PlanBuilder
                 columnNames,
                 ImmutableSet.of(),
                 partitioningScheme,
+                Optional.empty(),
                 statisticAggregations,
                 statisticAggregationsDescriptor);
     }

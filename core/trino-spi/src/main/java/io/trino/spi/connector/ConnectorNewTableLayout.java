@@ -21,22 +21,30 @@ import static java.util.Objects.requireNonNull;
 public class ConnectorNewTableLayout
 {
     private final Optional<ConnectorPartitioningHandle> partitioning;
-    private final List<String> partitionColumns;
+    private final Optional<List<String>> partitioningColumns;
+    private final Optional<List<String>> preferredPartitionColumns;
 
-    public ConnectorNewTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitionColumns)
+    public ConnectorNewTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitioningColumns)
+    {
+        this(partitioning, partitioningColumns, Optional.empty());
+    }
+
+    public ConnectorNewTableLayout(ConnectorPartitioningHandle partitioning, List<String> partitioningColumns, Optional<List<String>> preferredPartitionColumns)
     {
         this.partitioning = Optional.of(requireNonNull(partitioning, "partitioning is null"));
-        this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+        this.partitioningColumns = Optional.of(requireNonNull(partitioningColumns, "partitionColumns is null"));
+        this.preferredPartitionColumns = requireNonNull(preferredPartitionColumns, "preferredPartitionColumns is null");
     }
 
     /**
      * Creates a preferred table layout that is evenly partitioned on given columns by the engine.
      * Such layout might be ignored by Trino planner.
      */
-    public ConnectorNewTableLayout(List<String> partitionColumns)
+    public ConnectorNewTableLayout(List<String> preferredPartitionColumns)
     {
         this.partitioning = Optional.empty();
-        this.partitionColumns = requireNonNull(partitionColumns, "partitionColumns is null");
+        this.partitioningColumns = Optional.empty();
+        this.preferredPartitionColumns = Optional.of(requireNonNull(preferredPartitionColumns, "preferredPartitionColumns is null"));
     }
 
     public Optional<ConnectorPartitioningHandle> getPartitioning()
@@ -44,8 +52,13 @@ public class ConnectorNewTableLayout
         return partitioning;
     }
 
-    public List<String> getPartitionColumns()
+    public Optional<List<String>> getPartitioningColumns()
     {
-        return partitionColumns;
+        return partitioningColumns;
+    }
+
+    public Optional<List<String>> getPreferredPartitionColumns()
+    {
+        return preferredPartitionColumns;
     }
 }

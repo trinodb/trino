@@ -665,6 +665,11 @@ public class PruneUnreferencedOutputs
                 partitioningScheme.getPartitioning().getColumns().forEach(expectedInputs::add);
                 partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
             }
+            if (node.getExchangePartitioningScheme().isPresent()) {
+                PartitioningScheme partitioningScheme = node.getExchangePartitioningScheme().get();
+                partitioningScheme.getPartitioning().getColumns().forEach(expectedInputs::add);
+                partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
+            }
             if (node.getStatisticsAggregation().isPresent()) {
                 StatisticAggregations aggregations = node.getStatisticsAggregation().get();
                 expectedInputs.addAll(aggregations.getGroupingSymbols());
@@ -681,6 +686,7 @@ public class PruneUnreferencedOutputs
                     node.getColumnNames(),
                     node.getNotNullColumnSymbols(),
                     node.getPartitioningScheme(),
+                    node.getExchangePartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());
         }

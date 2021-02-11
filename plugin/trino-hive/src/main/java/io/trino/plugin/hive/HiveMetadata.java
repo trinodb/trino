@@ -2513,18 +2513,17 @@ public class HiveMetadata
                     .build();
         }
 
+        Optional<List<String>> tablePartitionColumns = Optional.empty();
+        List<Column> partitionColumns = table.getPartitionColumns();
+        if (!partitionColumns.isEmpty()) {
+            tablePartitionColumns = Optional.of(partitionColumns.stream()
+                    .map(Column::getName)
+                    .collect(toImmutableList()));
+        }
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(session, table, typeManager);
         if (hiveBucketHandle.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
-            List<Column> partitionColumns = table.getPartitionColumns();
-            if (partitionColumns.isEmpty()) {
-                return Optional.empty();
-            }
-
-            return Optional.of(new ConnectorNewTableLayout(
-                    partitionColumns.stream()
-                            .map(Column::getName)
-                            .collect(toImmutableList())));
+            return tablePartitionColumns.map(ConnectorNewTableLayout::new);
         }
         HiveBucketProperty bucketProperty = table.getStorage().getBucketProperty()
                 .orElseThrow(() -> new NoSuchElementException("Bucket property should be set"));
@@ -2539,10 +2538,13 @@ public class HiveMetadata
                         .map(HiveColumnHandle::getHiveType)
                         .collect(toList()),
                 OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()));
-        List<String> partitionColumns = hiveBucketHandle.get().getColumns().stream()
-                .map(HiveColumnHandle::getName)
-                .collect(toList());
-        return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitionColumns));
+
+        return Optional.of(new ConnectorNewTableLayout(
+                partitioningHandle,
+                hiveBucketHandle.get().getColumns().stream()
+                        .map(HiveColumnHandle::getName)
+                        .collect(toImmutableList()),
+                tablePartitionColumns));
     }
 
     @Override
@@ -2552,15 +2554,15 @@ public class HiveMetadata
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
         validateColumns(tableMetadata);
+        List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
+        Optional<List<String>> tablePartitionColumns = Optional.empty();
+        if (!partitionedBy.isEmpty()) {
+            tablePartitionColumns = Optional.of(partitionedBy);
+        }
         Optional<HiveBucketProperty> bucketProperty = getBucketProperty(tableMetadata.getProperties());
         if (bucketProperty.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
-            List<String> partitionedBy = getPartitionedBy(tableMetadata.getProperties());
-            if (partitionedBy.isEmpty()) {
-                return Optional.empty();
-            }
-
-            return Optional.of(new ConnectorNewTableLayout(partitionedBy));
+            return tablePartitionColumns.map(ConnectorNewTableLayout::new);
         }
         if (!bucketProperty.get().getSortedBy().isEmpty() && !isSortedWritingEnabled(session)) {
             throw new TrinoException(NOT_SUPPORTED, "Writing to bucketed sorted Hive tables is disabled");
@@ -2577,7 +2579,8 @@ public class HiveMetadata
                                 .map(hiveTypeMap::get)
                                 .collect(toList()),
                         OptionalInt.of(bucketProperty.get().getBucketCount())),
-                bucketedBy));
+                bucketedBy,
+                tablePartitionColumns));
     }
 
     @Override

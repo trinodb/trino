@@ -277,7 +277,6 @@ import static io.trino.sql.planner.SortExpressionExtractor.extractSortExpression
 import static io.trino.sql.planner.SystemPartitioningHandle.COORDINATOR_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
-import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -2482,9 +2481,7 @@ public class LocalExecutionPlanner
         {
             // Set table writer count
             if (node.getPartitioningScheme().isPresent()) {
-                PartitioningHandle partitioningHandle = node.getPartitioningScheme().get().getPartitioning().getHandle();
-                // TODO: add support for arbitrary partitioning in local exchanges
-                if (partitioningHandle.equals(FIXED_HASH_DISTRIBUTION)) {
+                if (node.getExchangePartitioningScheme().isPresent()) {
                     context.setDriverInstanceCount(getTaskWriterCount(session));
                 }
                 else {
