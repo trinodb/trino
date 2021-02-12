@@ -182,7 +182,7 @@ public class LongLong2LongOpenCustomBigHashMap
 
     /**
      * Creates a new hash map with {@link Hash#DEFAULT_LOAD_FACTOR} as load factor
-     * and and zero based null keys.
+     * and zero based null keys.
      *
      * @param expected the expected number of elements in the hash map.
      * @param strategy the strategy.

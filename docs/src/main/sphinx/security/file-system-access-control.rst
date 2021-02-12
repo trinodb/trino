@@ -40,7 +40,7 @@ Catalog, schema, and table access
 Access to catalogs, schemas, tables, and views is controlled by the catalog, schema, and table
 rules.  The catalog rules are course grained rules used to restrict all access or write
 access to catalogs. They do not explicitly grant any specific schema or table permissions.
-The table and schema rules are used to specify who can can create, drop, alter, select, insert,
+The table and schema rules are used to specify who can create, drop, alter, select, insert,
 delete, etc. for schemas and tables.
 
 .. note::

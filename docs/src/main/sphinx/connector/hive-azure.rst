@@ -17,7 +17,7 @@ Hive connector configuration
 
 All configuration for the Azure storage driver is stored in the Hadoop
 ``core-site.xml`` configuration file. The path to the file needs to be
-configured in the the catalog properties file:
+configured in the catalog properties file:
 
 .. code-block:: text
 

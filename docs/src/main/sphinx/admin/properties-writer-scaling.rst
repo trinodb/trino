@@ -31,5 +31,5 @@ using the ``scale_writers`` session property.
 The minimum amount of data that must be written by a writer task before
 another writer is eligible to be added. Each writer task may have multiple
 writers, controlled by ``task.writer-count``, thus this value is effectively
-divided by the the number of writers per task. This can be specified on a
+divided by the number of writers per task. This can be specified on a
 per-query basis using the ``writer_min_size`` session property.

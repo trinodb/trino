@@ -38,7 +38,7 @@ public final class TimestampHolder
         this.seconds = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
         long picosOfSecond = (long) floorMod(epochMicros, MICROSECONDS_PER_SECOND) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
 
-        // no rounding since the the data has nanosecond precision, at most
+        // no rounding since the data has nanosecond precision, at most
         this.nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
     }
 

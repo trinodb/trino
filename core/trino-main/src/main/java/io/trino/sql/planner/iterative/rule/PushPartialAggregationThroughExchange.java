@@ -175,7 +175,7 @@ public class PushPartialAggregationThroughExchange
             verify(aggregation.getOutputSymbols().equals(node.getOutputSymbols()));
         }
 
-        // Since this exchange source is now guaranteed to have the same symbols as the inputs to the the partial
+        // Since this exchange source is now guaranteed to have the same symbols as the inputs to the partial
         // aggregation, we don't need to rewrite symbols in the partitioning function
         PartitioningScheme partitioning = new PartitioningScheme(
                 exchange.getPartitioningScheme().getPartitioning(),

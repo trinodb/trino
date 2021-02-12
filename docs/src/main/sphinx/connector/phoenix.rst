@@ -145,7 +145,7 @@ This is a comma-separated list of columns to be used as the table's primary key.
 Table properties - HBase
 ------------------------
 The following are the supported HBase table properties that are passed through by Phoenix during table creation.
-Use them in the the same way as above: in the ``WITH`` clause of the ``CREATE TABLE`` statement.
+Use them in the same way as above: in the ``WITH`` clause of the ``CREATE TABLE`` statement.
 
 =========================== ================ ==============================================================================================================
 Property Name               Default Value    Description

@@ -231,7 +231,7 @@ public final class MapTransformValuesFunction
                         .append(loadValueElement)
                         .append(
                                 new TryCatch(
-                                        "Close builder before throwing to avoid subsequent calls finding it in an inconsistent state if we are in in a TRY() call.",
+                                        "Close builder before throwing to avoid subsequent calls finding it in an inconsistent state if we are in a TRY() call.",
                                         transformedValueElement.set(function.invoke("apply", Object.class, keyElement.cast(Object.class), valueElement.cast(Object.class))
                                                 .cast(transformedValueJavaType)),
                                         new BytecodeBlock()
