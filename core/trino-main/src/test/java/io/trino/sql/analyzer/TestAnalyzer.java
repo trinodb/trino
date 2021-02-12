@@ -284,10 +284,6 @@ public class TestAnalyzer
         assertFails("SELECT 1 AS x FROM (values (1,2)) t(x, y) GROUP BY y ORDER BY sum(apply(1, z -> x))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 1:81: Invalid reference to output projection attribute from ORDER BY aggregation");
-
-        assertFails("SELECT row_number() over() as a from (values (41, 42), (-41, -42)) t(a,b) group by a+b order by a+b")
-                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
-                .hasMessageMatching("\\Qline 1:98: '(a + b)' must be an aggregate expression or appear in GROUP BY clause\\E");
     }
 
     @Test
@@ -656,6 +652,9 @@ public class TestAnalyzer
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
         assertFails("SELECT count(*) over (ORDER BY count(*) ROWS BETWEEN a PRECEDING AND UNBOUNDED FOLLOWING) FROM t1 GROUP BY b")
                 .hasErrorCode(EXPRESSION_NOT_AGGREGATE);
+        assertFails("SELECT row_number() over() as a from (values (41, 42), (-41, -42)) t(a,b) group by a+b order by a+b")
+                .hasErrorCode(EXPRESSION_NOT_AGGREGATE)
+                .hasMessageMatching("\\Qline 1:98: '(a + b)' must be an aggregate expression or appear in GROUP BY clause\\E");
     }
 
     @Test
