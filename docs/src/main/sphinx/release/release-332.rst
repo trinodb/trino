@@ -12,7 +12,7 @@ General
 * Ignore trailing whitespace when loading configuration files such as
   ``etc/event-listener.properties`` or ``etc/group-provider.properties``.
   Trailing whitespace in ``etc/config.properties`` and catalog properties
-  files files was already ignored. (:issue:`3231`)
+  files was already ignored. (:issue:`3231`)
 * Reduce overhead for internal communication requests. (:issue:`3215`)
 * Include filters over all table columns in output of ``EXPLAIN (TYPE IO)``. (:issue:`2743`)
 * Support configuring multiple event listeners. The properties files for all the event listeners

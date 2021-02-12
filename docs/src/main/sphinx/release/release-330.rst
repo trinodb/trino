@@ -131,5 +131,5 @@ SPI
 ---
 
 * Allow procedures to have optional arguments with default values. (:issue:`2706`)
-* ``SystemAccessControl.checkCanSetUser()`` is is deprecated and has been replaced
+* ``SystemAccessControl.checkCanSetUser()`` is deprecated and has been replaced
   with :doc:`/security/user-mapping` and ``SystemAccessControl.checkCanImpersonateUser()``. (:issue:`2215`)

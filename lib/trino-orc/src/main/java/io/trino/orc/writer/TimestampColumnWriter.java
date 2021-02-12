@@ -345,7 +345,7 @@ public class TimestampColumnWriter
                 long seconds = timestamp.getEpochMicros() / MICROSECONDS_PER_SECOND;
                 long microsFraction = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_SECOND);
                 long nanosFraction = (microsFraction * NANOSECONDS_PER_MICROSECOND) +
-                        // no rounding since the the data has nanosecond precision, at most
+                        // no rounding since the data has nanosecond precision, at most
                         (timestamp.getPicosOfMicro() / PICOSECONDS_PER_NANOSECOND);
 
                 long millis = floorDiv(timestamp.getEpochMicros(), MICROSECONDS_PER_MILLISECOND);

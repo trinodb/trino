@@ -331,7 +331,7 @@ class ClientBuffer
         // - Request to read after the buffer has been destroyed.  When the
         //   buffer is destroyed all pages are dropped, so the read sequenceId
         //   appears to be off the end of the queue.  Normally a read past the
-        //   end of the queue would be be an error, but this specific case is
+        //   end of the queue would be an error, but this specific case is
         //   detected and handled.  The client is sent an empty response with
         //   the finished flag set and next token is the max acknowledged page
         //   when the buffer is destroyed.

@@ -54,7 +54,7 @@ public class VarcharToIntegerNumberCoercer<T extends Type>
             maxValue = Long.MAX_VALUE;
         }
         else {
-            throw new TrinoException(NOT_SUPPORTED, format("Could not create Coercer from from varchar to %s", toType));
+            throw new TrinoException(NOT_SUPPORTED, format("Could not create Coercer from varchar to %s", toType));
         }
     }
 

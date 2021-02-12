@@ -384,7 +384,7 @@ public final class FieldSetterFactory
             long picosOfSecond = (long) floorMod(epochMicros, MICROSECONDS_PER_SECOND) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
 
             epochSeconds = convertLocalEpochSecondsToUtc(epochSeconds);
-            // no rounding since the the data has nanosecond precision, at most
+            // no rounding since the data has nanosecond precision, at most
             int nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
 
             Timestamp timestamp = Timestamp.ofEpochSecond(epochSeconds, nanosOfSecond);
