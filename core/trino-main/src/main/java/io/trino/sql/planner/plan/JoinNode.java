@@ -169,9 +169,8 @@ public class JoinNode
                 return RIGHT;
             case RIGHT:
                 return LEFT;
-            default:
-                throw new IllegalStateException("No inverse defined for join type: " + type);
         }
+        throw new IllegalStateException("No inverse defined for join type: " + type);
     }
 
     private static List<EquiJoinClause> flipJoinCriteria(List<EquiJoinClause> joinCriteria)
@@ -219,9 +218,8 @@ public class JoinNode
                     return Type.RIGHT;
                 case FULL:
                     return Type.FULL;
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + joinType);
             }
+            throw new UnsupportedOperationException("Unsupported join type: " + joinType);
         }
     }
 

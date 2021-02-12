@@ -202,9 +202,8 @@ public final class Marker
                 return new Marker(type, valueBlock, Bound.ABOVE);
             case ABOVE:
                 throw new IllegalStateException("No greater marker adjacent to an ABOVE bound");
-            default:
-                throw new AssertionError("Unsupported type: " + bound);
         }
+        throw new AssertionError("Unsupported type: " + bound);
     }
 
     public Marker lesserAdjacent()
@@ -219,9 +218,8 @@ public final class Marker
                 return new Marker(type, valueBlock, Bound.BELOW);
             case ABOVE:
                 return new Marker(type, valueBlock, Bound.EXACTLY);
-            default:
-                throw new AssertionError("Unsupported type: " + bound);
         }
+        throw new AssertionError("Unsupported type: " + bound);
     }
 
     @Override

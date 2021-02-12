@@ -473,9 +473,8 @@ public final class PropertyDerivations
                     return ActualProperties.builder()
                             .global(probeProperties.isSingleNode() ? singleStreamPartition() : arbitraryPartition())
                             .build();
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
 
         @Override
@@ -505,9 +504,8 @@ public final class PropertyDerivations
                 case LEFT:
                     return ActualProperties.builderFrom(probeProperties.translate(column -> filterIfMissing(node.getOutputSymbols(), column)))
                             .build();
-                default:
-                    throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
             }
+            throw new IllegalArgumentException("Unsupported spatial join type: " + node.getType());
         }
 
         @Override
@@ -529,9 +527,8 @@ public final class PropertyDerivations
                     return ActualProperties.builderFrom(probeProperties)
                             .constants(probeProperties.getConstants())
                             .build();
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
 
         @Override
@@ -729,9 +726,8 @@ public final class PropertyDerivations
                     return ActualProperties.builderFrom(translatedProperties)
                             .local(ImmutableList.of())
                             .build();
-                default:
-                    throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
             }
+            throw new UnsupportedOperationException("Unknown UNNEST join type: " + node.getJoinType());
         }
 
         @Override
@@ -848,9 +844,8 @@ public final class PropertyDerivations
             case FULL:
                 // Currently there is no spill support for outer on the build side.
                 return false;
-            default:
-                throw new IllegalStateException("Unknown join type: " + joinType);
         }
+        throw new IllegalStateException("Unknown join type: " + joinType);
     }
 
     public static Optional<Symbol> filterIfMissing(Collection<Symbol> columns, Symbol column)

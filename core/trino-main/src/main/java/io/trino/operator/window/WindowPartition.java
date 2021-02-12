@@ -273,9 +273,8 @@ public final class WindowPartition
                 }
                 recentGroupsFrames.put(functionIndex, frame);
                 return frame.getRange();
-            default:
-                throw new IllegalArgumentException("Unsupported frame type: " + frameInfo.getType());
         }
+        throw new IllegalArgumentException("Unsupported frame type: " + frameInfo.getType());
     }
 
     private Range getFrameRange(FrameInfo frameInfo)

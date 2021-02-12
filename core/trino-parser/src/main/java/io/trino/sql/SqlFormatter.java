@@ -1099,9 +1099,8 @@ public final class SqlFormatter
                     return type.name();
                 case PRINCIPAL:
                     return formatPrincipal(grantor.getPrincipal().get());
-                default:
-                    throw new IllegalArgumentException("Unsupported principal type: " + type);
             }
+            throw new IllegalArgumentException("Unsupported principal type: " + type);
         }
 
         private static String formatPrincipal(PrincipalSpecification principal)
@@ -1113,9 +1112,8 @@ public final class SqlFormatter
                 case USER:
                 case ROLE:
                     return format("%s %s", type.name(), principal.getName().toString());
-                default:
-                    throw new IllegalArgumentException("Unsupported principal type: " + type);
             }
+            throw new IllegalArgumentException("Unsupported principal type: " + type);
         }
 
         @Override
@@ -1463,14 +1461,12 @@ public final class SqlFormatter
                 case ALL:
                 case NONE:
                     builder.append(type.toString());
-                    break;
+                    return null;
                 case ROLE:
                     builder.append(node.getRole().get());
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unsupported type: " + type);
+                    return null;
             }
-            return null;
+            throw new IllegalArgumentException("Unsupported type: " + type);
         }
 
         @Override

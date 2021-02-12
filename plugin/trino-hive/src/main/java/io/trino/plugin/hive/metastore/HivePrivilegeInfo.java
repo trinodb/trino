@@ -92,9 +92,8 @@ public class HivePrivilegeInfo
                 return DELETE;
             case UPDATE:
                 return UPDATE;
-            default:
-                throw new IllegalArgumentException("Unexpected privilege: " + privilege);
         }
+        throw new IllegalArgumentException("Unexpected privilege: " + privilege);
     }
 
     public boolean isContainedIn(HivePrivilegeInfo hivePrivilegeInfo)
@@ -117,9 +116,8 @@ public class HivePrivilegeInfo
                 return ImmutableSet.of(new PrivilegeInfo(Privilege.UPDATE, isGrantOption()));
             case OWNERSHIP:
                 return ImmutableSet.of();
-            default:
-                throw new IllegalArgumentException("Unsupported hivePrivilege: " + hivePrivilege);
         }
+        throw new IllegalArgumentException("Unsupported hivePrivilege: " + hivePrivilege);
     }
 
     @Override

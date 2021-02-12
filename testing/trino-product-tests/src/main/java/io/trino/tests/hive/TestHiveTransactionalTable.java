@@ -1290,9 +1290,8 @@ public class TestHiveTransactionalTable
                 return onHive();
             case PRESTO:
                 return onPresto();
-            default:
-                throw new IllegalStateException("Unknown enum value " + hiveOrPresto);
         }
+        throw new IllegalStateException("Unknown enum value " + hiveOrPresto);
     }
 
     @DataProvider

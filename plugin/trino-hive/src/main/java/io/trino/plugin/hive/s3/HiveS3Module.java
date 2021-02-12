@@ -47,17 +47,16 @@ public class HiveS3Module
                 binder.bind(TrinoS3FileSystemStats.class).toInstance(TrinoS3FileSystem.getFileSystemStats());
                 newExporter(binder).export(TrinoS3FileSystemStats.class)
                         .as(generator -> generator.generatedNameOf(TrinoS3FileSystem.class));
-                break;
+                return;
             case EMRFS:
                 validateEmrFsClass();
                 newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(EmrFsS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
-                break;
+                return;
             case HADOOP_DEFAULT:
                 // configuration is done using Hadoop configuration files
-                break;
-            default:
-                throw new RuntimeException("Unknown file system type: " + type);
+                return;
         }
+        throw new RuntimeException("Unknown file system type: " + type);
     }
 
     private void bindSecurityMapping(Binder binder)

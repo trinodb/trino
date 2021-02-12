@@ -505,9 +505,8 @@ public final class ExpressionFormatter
                     return "-(" + value + ")";
                 case PLUS:
                     return "+" + value;
-                default:
-                    throw new UnsupportedOperationException("Unsupported sign: " + node.getSign());
             }
+            throw new UnsupportedOperationException("Unsupported sign: " + node.getSign());
         }
 
         @Override

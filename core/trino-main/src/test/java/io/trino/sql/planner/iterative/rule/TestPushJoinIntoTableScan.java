@@ -625,9 +625,8 @@ public class TestPushJoinIntoTableScan
                 return JoinType.RIGHT_OUTER;
             case FULL:
                 return JoinType.FULL_OUTER;
-            default:
-                throw new IllegalArgumentException("Unknown join type: " + joinType);
         }
+        throw new IllegalArgumentException("Unknown join type: " + joinType);
     }
 
     private JoinCondition.Operator getConditionOperator(ComparisonExpression.Operator operator)
@@ -647,8 +646,7 @@ public class TestPushJoinIntoTableScan
                 return JoinCondition.Operator.GREATER_THAN_OR_EQUAL;
             case IS_DISTINCT_FROM:
                 return JoinCondition.Operator.IS_DISTINCT_FROM;
-            default:
-                throw new IllegalArgumentException("Unknown operator: " + operator);
         }
+        throw new IllegalArgumentException("Unknown operator: " + operator);
     }
 }
