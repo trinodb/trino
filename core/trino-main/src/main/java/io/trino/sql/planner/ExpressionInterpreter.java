@@ -800,6 +800,7 @@ public class ExpressionInterpreter
             return invokeOperator(OperatorType.valueOf(operator.name()), types(leftExpression, rightExpression), ImmutableList.of(left, right));
         }
 
+        // TODO define method contract or split into separate methods, as flip(EQUAL) is a negation, while flip(LESS_THAN) is just flipping sides
         private ComparisonExpression flipComparison(ComparisonExpression comparisonExpression)
         {
             switch (comparisonExpression.getOperator()) {
@@ -815,9 +816,10 @@ public class ExpressionInterpreter
                     return new ComparisonExpression(Operator.LESS_THAN, comparisonExpression.getRight(), comparisonExpression.getLeft());
                 case GREATER_THAN_OR_EQUAL:
                     return new ComparisonExpression(Operator.LESS_THAN_OR_EQUAL, comparisonExpression.getRight(), comparisonExpression.getLeft());
-                default:
-                    throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
+                case IS_DISTINCT_FROM:
+                    // not expected here
             }
+            throw new IllegalArgumentException("Unsupported comparison type: " + comparisonExpression.getOperator());
         }
 
         @Override

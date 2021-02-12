@@ -84,26 +84,25 @@ public class OrcOutputBuffer
         this.slice = wrappedBuffer(buffer);
 
         compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
+        this.compressor = getCompressor(compression);
+    }
 
+    @Nullable
+    private static Compressor getCompressor(CompressionKind compression)
+    {
         switch (compression) {
             case NONE:
-                this.compressor = null;
-                break;
+                return null;
             case SNAPPY:
-                this.compressor = new SnappyCompressor();
-                break;
+                return new SnappyCompressor();
             case ZLIB:
-                this.compressor = new DeflateCompressor();
-                break;
+                return new DeflateCompressor();
             case LZ4:
-                this.compressor = new Lz4Compressor();
-                break;
+                return new Lz4Compressor();
             case ZSTD:
-                this.compressor = new ZstdCompressor();
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported compression " + compression);
+                return new ZstdCompressor();
         }
+        throw new IllegalArgumentException("Unsupported compression " + compression);
     }
 
     public long getOutputDataSize()

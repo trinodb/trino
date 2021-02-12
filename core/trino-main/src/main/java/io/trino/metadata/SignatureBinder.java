@@ -503,7 +503,7 @@ public class SignatureBinder
                 case VARIABLE:
                     break;
                 default:
-                    throw new UnsupportedOperationException();
+                    throw new UnsupportedOperationException("Unknown parameter kind: " + parameter.getKind());
             }
         }
 
@@ -527,7 +527,7 @@ public class SignatureBinder
                     variables.add(parameter.getVariable());
                     break;
                 default:
-                    throw new UnsupportedOperationException();
+                    throw new UnsupportedOperationException("Unknown parameter kind: " + parameter.getKind());
             }
         }
 
@@ -625,9 +625,8 @@ public class SignatureBinder
             case LONG: {
                 return parameter;
             }
-            default:
-                throw new IllegalStateException("Unknown parameter kind: " + parameter.getKind());
         }
+        throw new IllegalStateException("Unknown parameter kind: " + parameter.getKind());
     }
 
     private static List<TypeSignature> expandVarargFormalTypeSignature(List<TypeSignature> formalTypeSignatures, int actualArity)
@@ -661,9 +660,8 @@ public class SignatureBinder
                 return canCast(actualType, metadata.getType(constraintTypeSignature));
             case EXPLICIT_COERCION_FROM:
                 return canCast(metadata.getType(constraintTypeSignature), actualType);
-            default:
-                throw new IllegalArgumentException("Unsupported relationshipType " + relationshipType);
         }
+        throw new IllegalArgumentException("Unsupported relationshipType " + relationshipType);
     }
 
     private boolean canCast(Type fromType, Type toType)

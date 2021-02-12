@@ -90,6 +90,9 @@ public final class TypeConverter
                 return ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
+            case UUID:
+                // TODO (https://github.com/trinodb/trino/issues/6663) unsupported
+                break;
             case LIST:
                 Types.ListType listType = (Types.ListType) type;
                 return new ArrayType(toTrinoType(listType.elementType(), typeManager));
@@ -103,9 +106,8 @@ public final class TypeConverter
                 return RowType.from(fields.stream()
                         .map(field -> new RowType.Field(Optional.of(field.name()), toTrinoType(field.type(), typeManager)))
                         .collect(toImmutableList()));
-            default:
-                throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
         }
+        throw new UnsupportedOperationException(format("Cannot convert from Iceberg type '%s' (%s) to Trino type", type, type.typeId()));
     }
 
     public static org.apache.iceberg.types.Type toIcebergType(Type type)
@@ -231,15 +233,17 @@ public final class TypeConverter
             case DECIMAL:
                 Types.DecimalType decimalType = (Types.DecimalType) type;
                 return ImmutableList.of(new OrcType(OrcTypeKind.DECIMAL, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(decimalType.precision()), Optional.of(decimalType.scale()), attributes));
+            case UUID:
+                // TODO (https://github.com/trinodb/trino/issues/6663) unsupported
+                break;
             case STRUCT:
                 return toOrcStructType(nextFieldTypeIndex, (Types.StructType) type, attributes);
             case LIST:
                 return toOrcListType(nextFieldTypeIndex, (Types.ListType) type, attributes);
             case MAP:
                 return toOrcMapType(nextFieldTypeIndex, (Types.MapType) type, attributes);
-            default:
-                throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: " + type);
         }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported Iceberg type: " + type);
     }
 
     private static List<OrcType> toOrcStructType(int nextFieldTypeIndex, Types.StructType structType, Map<String, String> attributes)

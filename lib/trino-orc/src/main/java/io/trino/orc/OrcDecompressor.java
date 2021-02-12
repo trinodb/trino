@@ -43,9 +43,8 @@ public interface OrcDecompressor
                 return Optional.of(new OrcLz4Decompressor(orcDataSourceId, bufferSize));
             case ZSTD:
                 return Optional.of(new OrcZstdDecompressor(orcDataSourceId, bufferSize));
-            default:
-                throw new OrcCorruptionException(orcDataSourceId, "Unknown compression type: " + compression);
         }
+        throw new OrcCorruptionException(orcDataSourceId, "Unknown compression type: " + compression);
     }
 
     int decompress(byte[] input, int offset, int length, OutputBuffer output)

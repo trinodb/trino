@@ -103,8 +103,7 @@ public class PinotPageSourceProvider
                         pinotQuery,
                         handles,
                         clusterInfoFetcher);
-            default:
-                throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
         }
+        throw new UnsupportedOperationException("Unknown Pinot split type: " + pinotSplit.getSplitType());
     }
 }

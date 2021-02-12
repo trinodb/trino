@@ -399,13 +399,17 @@ public final class KuduTableProperties
                 return bound.getShort(idx);
             case INT8:
                 return (short) bound.getByte(idx);
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+                // TODO unsupported
+                break;
             case BOOL:
                 return bound.getBoolean(idx);
             case BINARY:
                 return bound.getBinaryCopy(idx);
-            default:
-                throw new IllegalStateException("Unhandled type " + type + " for range partition");
         }
+        throw new IllegalStateException("Unhandled type " + type + " for range partition");
     }
 
     public static PartitionDesign getPartitionDesign(KuduTable table)

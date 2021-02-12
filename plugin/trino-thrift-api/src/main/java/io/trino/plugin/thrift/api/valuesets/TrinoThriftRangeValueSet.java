@@ -124,9 +124,8 @@ public final class TrinoThriftRangeValueSet
                     return EXACTLY;
                 case ABOVE:
                     return ABOVE;
-                default:
-                    throw new IllegalArgumentException("Unknown bound: " + bound);
             }
+            throw new IllegalArgumentException("Unknown bound: " + bound);
         }
     }
 

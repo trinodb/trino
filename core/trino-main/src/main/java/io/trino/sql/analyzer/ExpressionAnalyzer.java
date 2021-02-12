@@ -441,44 +441,29 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
-            Type type;
             switch (node.getFunction()) {
                 case DATE:
                     checkArgument(node.getPrecision() == null);
-                    type = DATE;
-                    break;
+                    return setExpressionType(node, DATE);
                 case TIME:
                     if (node.getPrecision() != null) {
-                        type = createTimeWithTimeZoneType(node.getPrecision());
+                        return setExpressionType(node, createTimeWithTimeZoneType(node.getPrecision()));
                     }
-                    else {
-                        type = TIME_WITH_TIME_ZONE;
-                    }
-                    break;
+                    return setExpressionType(node, TIME_WITH_TIME_ZONE);
                 case LOCALTIME:
                     if (node.getPrecision() != null) {
-                        type = createTimeType(node.getPrecision());
+                        return setExpressionType(node, createTimeType(node.getPrecision()));
                     }
-                    else {
-                        type = TIME;
-                    }
-                    break;
+                    return setExpressionType(node, TIME);
                 case TIMESTAMP:
-                    type = createTimestampWithTimeZoneType(firstNonNull(node.getPrecision(), TimestampWithTimeZoneType.DEFAULT_PRECISION));
-                    break;
+                    return setExpressionType(node, createTimestampWithTimeZoneType(firstNonNull(node.getPrecision(), TimestampWithTimeZoneType.DEFAULT_PRECISION)));
                 case LOCALTIMESTAMP:
                     if (node.getPrecision() != null) {
-                        type = createTimestampType(node.getPrecision());
+                        return setExpressionType(node, createTimestampType(node.getPrecision()));
                     }
-                    else {
-                        type = TIMESTAMP_MILLIS;
-                    }
-                    break;
-                default:
-                    throw semanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
+                    return setExpressionType(node, TIMESTAMP_MILLIS);
             }
-
-            return setExpressionType(node, type);
+            throw semanticException(NOT_SUPPORTED, node, "%s not yet supported", node.getFunction().getName());
         }
 
         @Override
