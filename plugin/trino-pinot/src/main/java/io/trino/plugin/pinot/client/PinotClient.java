@@ -483,6 +483,19 @@ public class PinotClient
         }
     }
 
+    public String getPinotTableNameFromPrestoTableNameIfExists(String prestoTableName)
+    {
+        List<String> allTables = getPinotTableNames();
+        String pinotTableName = null;
+        for (String candidate : allTables) {
+            if (prestoTableName.equalsIgnoreCase(candidate)) {
+                pinotTableName = candidate;
+                break;
+            }
+        }
+        return pinotTableName;
+    }
+
     public String getPinotTableNameFromPrestoTableName(String prestoTableName)
     {
         String pinotTableName = getTableFromCache(prestoTableName);
