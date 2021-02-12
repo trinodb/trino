@@ -1667,6 +1667,18 @@
                     </excludes>
                 </configuration>
             </plugin>
+
+            <!--
+             TODO: move this to airbase
+             This fixes 'user id is too big' error
+             -->
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <tarLongFileMode>posix</tarLongFileMode>
+                </configuration>
+            </plugin>
+
         </plugins>
     </build>
 
