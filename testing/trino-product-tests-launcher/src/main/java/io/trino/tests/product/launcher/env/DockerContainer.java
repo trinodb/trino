@@ -86,6 +86,7 @@ public class DockerContainer
 
     private List<String> logPaths = new ArrayList<>();
     private Optional<EnvironmentListener> listener = Optional.empty();
+    private boolean temporary;
 
     public DockerContainer(String dockerImageName, String logicalName)
     {
@@ -158,6 +159,18 @@ public class DockerContainer
 
         return withCopyFileToContainer(forHostPath(healthCheckScript), "/usr/local/bin/health.sh")
                 .withCreateContainerCmdModifier(command -> command.withHealthcheck(cmd));
+    }
+
+    /**
+     * Marks this container as temporary, which means that it's not expected to be working at the end of environment creation.
+     * Mostly used to execute short configuration scripts shipped as a part of docker images.
+     *
+     * @param temporary
+     */
+    public DockerContainer setTemporary(Boolean temporary)
+    {
+        this.temporary = requireNonNull(temporary, "temporary is null");
+        return this;
     }
 
     public synchronized Duration getStartupTime()
@@ -425,6 +438,11 @@ public class DockerContainer
         }
 
         checkState(!isRunning(), "Container %s is still running", logicalName);
+    }
+
+    public boolean isTemporary()
+    {
+        return this.temporary;
     }
 
     public enum OutputMode
