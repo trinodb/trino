@@ -373,7 +373,7 @@ class AggregationAnalyzer
                                 }
                             }
                         }
-                        // ensure that no output fields are referenced from ORDER BY clause
+                        // in case of aggregate function in ORDER BY, ensure that no output fields are referenced from aggregation's ordering expressions
                         if (orderByScope.isPresent()) {
                             for (Expression sortKey : sortKeys) {
                                 verifyNoOrderByReferencesToOutputColumns(
