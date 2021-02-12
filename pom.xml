@@ -1672,47 +1672,6 @@
 
     <profiles>
         <profile>
-            <id>tests-with-dependencies</id>
-            <!--
-                Assembles an uber (fat) jar that includes the entire "test" scope classpath for a module.
-
-                For example after running:
-
-                ./mvnw clean install -P tests-with-dependencies -pl plugin/trino-geospatial
-
-                The uber jar that contains the entire "test" scope class path of the "trino-geospatial"
-                is created and placed to that modules target directory:
-
-                ./plugin/trino-geospatial/target/trino-geospatial-351-SNAPSHOT-tests-with-dependencies.jar
-
-                Now using this jar we can easily run any benchmark from that module via command line:
-
-                java \
-                  -cp ./plugin/trino-geospatial/target/trino-geospatial-*-tests-with-dependencies.jar \
-                  io.trino.plugin.geospatial.BenchmarkSTIntersects
-            -->
-            <build>
-                <plugins>
-                    <plugin>
-                        <artifactId>maven-assembly-plugin</artifactId>
-                        <configuration>
-                            <descriptor>${air.main.basedir}/.mvn/assembly/tests-with-dependencies.xml</descriptor>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>make-assembly</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>single</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <profile>
             <id>errorprone-compiler</id>
             <build>
                 <plugins>
