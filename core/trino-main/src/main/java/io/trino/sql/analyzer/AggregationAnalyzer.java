@@ -384,13 +384,17 @@ class AggregationAnalyzer
                         }
                     }
 
-                    // ensure that no output fields are referenced from ORDER BY clause
+                    // in case of aggregate function in ORDER BY, ensure that no output fields are referenced from aggregation's arguments or filter
                     if (orderByScope.isPresent()) {
                         node.getArguments().stream()
                                 .forEach(argument -> verifyNoOrderByReferencesToOutputColumns(
                                         argument,
                                         COLUMN_NOT_FOUND,
                                         "Invalid reference to output projection attribute from ORDER BY aggregation"));
+                        node.getFilter().ifPresent(expression -> verifyNoOrderByReferencesToOutputColumns(
+                                expression,
+                                COLUMN_NOT_FOUND,
+                                "Invalid reference to output projection attribute from ORDER BY aggregation"));
                     }
 
                     return true;
