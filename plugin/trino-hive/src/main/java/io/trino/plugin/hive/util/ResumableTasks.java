@@ -48,7 +48,7 @@ public final class ResumableTasks
                     return;
                 }
 
-                // if task is not complete, schedule it it to run again when the future finishes
+                // if task is not complete, schedule it to run again when the future finishes
                 status.getContinuationFuture().addListener(this, executor);
             }
         });

@@ -354,7 +354,7 @@ public final class ScalarFunctionAdapter
 
             if (actualArgumentConvention == NULL_FLAG) {
                 // The conversion is described below in reverse order as this is how method handle adaptation works.  The provided example
-                // signature is based on a a boxed Long argument.
+                // signature is based on a boxed Long argument.
 
                 // 3. unbox the value (if null the java default is sent)
                 // long, boolean => Long, boolean

@@ -134,7 +134,7 @@ public final class StringFunctions
     {
         // Empty search?
         if (search.length() == 0) {
-            // With empty `search` we insert `replace` in front of every character and and the end
+            // With empty `search` we insert `replace` in front of every character and the end
             Slice buffer = Slices.allocate((countCodePoints(str) + 1) * replace.length() + str.length());
             // Always start with replace
             buffer.setBytes(0, replace);

@@ -173,7 +173,7 @@ In addition to the rules above, the default mapping can contain the optional
 ``useClusterDefault`` boolean property with the following behavior:
 
 - ``false`` - (is set by default) property is ignored.
-- ``true`` - This causes the the default cluster role to be used as a fallback option.
+- ``true`` - This causes the default cluster role to be used as a fallback option.
   It can not be used with the following configuration properties:
 
   - ``accessKey``

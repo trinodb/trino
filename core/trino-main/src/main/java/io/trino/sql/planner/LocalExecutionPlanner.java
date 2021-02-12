@@ -1636,7 +1636,7 @@ public class LocalExecutionPlanner
             // The probe key channels will be handed to the index according to probeSymbol order
             Map<Symbol, Integer> probeKeyLayout = new HashMap<>();
             for (int i = 0; i < probeSymbols.size(); i++) {
-                // Duplicate symbols can appear and we only need to take take one of the Inputs
+                // Duplicate symbols can appear and we only need to take one of the Inputs
                 probeKeyLayout.put(probeSymbols.get(i), i);
             }
 

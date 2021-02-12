@@ -67,7 +67,7 @@ import static java.util.stream.Collectors.toList;
  * This implementation has made assumptions. When any of the assumptions is not satisfied, it will fail loudly.
  * <p><ul>
  * <li>A type cannot have both type parameter and literal parameter.
- * <li>A literal parameter cannot be be used across types. see {@link #checkNoLiteralVariableUsageAcrossTypes(TypeSignature, Map)}.
+ * <li>A literal parameter cannot be used across types. see {@link #checkNoLiteralVariableUsageAcrossTypes(TypeSignature, Map)}.
  * </ul><p>
  * Here are some known implementation limitations:
  * <p><ul>

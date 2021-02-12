@@ -93,7 +93,7 @@ Hive
   for the table property ``presto_offline`` to be offline. The value of the
   property will be used in the error message.
 
-* We have added support for for ``DROP TABLE`` in the hive connector.
+* We have added support for ``DROP TABLE`` in the hive connector.
   By default, this feature is not enabled.  To enable it, set
   ``hive.allow-drop-table=true`` in your Hive catalog properties file.
 

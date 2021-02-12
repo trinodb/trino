@@ -28,7 +28,7 @@ public class ClassifierFeatureTransformer
 
     public ClassifierFeatureTransformer(Classifier<Integer> classifier, FeatureTransformation transformation)
     {
-        this.classifier = requireNonNull(classifier, "classifier is is null");
+        this.classifier = requireNonNull(classifier, "classifier is null");
         this.transformation = requireNonNull(transformation, "transformation is null");
     }
 

@@ -58,7 +58,7 @@
   Redshift and SQL Server connectors. Compaction threshold can be changed using the ``domain-compaction-threshold``
   config property or ``domain_compaction_threshold`` session property. ({issue}`6057`)
 * Improve performance for the PostgreSQL, MySQL, SQL Server connectors for certain complex queries involving
-  aggregation and predicates by by pushing the aggregation and predicates computation into the remote database. ({issue}`4112`)
+  aggregation and predicates by pushing the aggregation and predicates computation into the remote database. ({issue}`4112`)
 
 ## SPI
 

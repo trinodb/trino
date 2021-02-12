@@ -96,7 +96,7 @@ public class ByteOutputStream
             runCount = MIN_REPEAT_SIZE;
             size = MIN_REPEAT_SIZE;
 
-            // note there is no reason to add the run values to the buffer since is is not used
+            // note there is no reason to add the run values to the buffer since is not used
             // when in a run length sequence
         }
 

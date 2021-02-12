@@ -354,7 +354,7 @@ public class TestServer
     }
 
     /**
-     * Retains last element of a stream. Does not not accept null stream elements nor empty streams.
+     * Retains last element of a stream. Does not accept null stream elements nor empty streams.
      */
     private static <T> Collector<T, ?, T> last()
     {

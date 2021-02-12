@@ -42,7 +42,7 @@ public class StringClassifierAdapter
 
     public StringClassifierAdapter(Classifier<Integer> classifier, Map<Integer, String> labelEnumeration)
     {
-        this.classifier = requireNonNull(classifier, "classifier is is null");
+        this.classifier = requireNonNull(classifier, "classifier is null");
         this.labelEnumeration = requireNonNull(labelEnumeration, "labelEnumeration is null");
     }
 

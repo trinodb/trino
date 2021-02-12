@@ -51,7 +51,7 @@ public class TypeProvider
         requireNonNull(symbol, "symbol is null");
 
         Type type = types.get(symbol);
-        checkArgument(type != null, "no type found found for symbol '%s'", symbol);
+        checkArgument(type != null, "no type found for symbol '%s'", symbol);
 
         return type;
     }
