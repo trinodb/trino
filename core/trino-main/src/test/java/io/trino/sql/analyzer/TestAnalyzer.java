@@ -284,6 +284,10 @@ public class TestAnalyzer
         assertFails("SELECT 1 AS x FROM (values (1,2)) t(x, y) GROUP BY y ORDER BY sum(apply(1, z -> x))")
                 .hasErrorCode(COLUMN_NOT_FOUND)
                 .hasMessageMatching("line 1:81: Invalid reference to output projection attribute from ORDER BY aggregation");
+
+        assertFails("SELECT 1 AS x FROM (values (1,2)) t(x, y) GROUP BY y ORDER BY sum(y) FILTER (WHERE x > 0)")
+                .hasErrorCode(COLUMN_NOT_FOUND)
+                .hasMessageMatching("line 1:84: Invalid reference to output projection attribute from ORDER BY aggregation");
     }
 
     @Test
