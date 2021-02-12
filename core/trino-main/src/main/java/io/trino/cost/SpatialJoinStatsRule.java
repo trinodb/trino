@@ -49,9 +49,8 @@ public class SpatialJoinStatsRule
                 return Optional.of(statsCalculator.filterStats(crossJoinStats, node.getFilter(), session, types));
             case LEFT:
                 return Optional.of(PlanNodeStatsEstimate.unknown());
-            default:
-                throw new IllegalArgumentException("Unknown spatial join type: " + node.getType());
         }
+        throw new IllegalArgumentException("Unknown spatial join type: " + node.getType());
     }
 
     private PlanNodeStatsEstimate crossJoinStats(SpatialJoinNode node, PlanNodeStatsEstimate leftStats, PlanNodeStatsEstimate rightStats)

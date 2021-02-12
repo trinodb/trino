@@ -123,9 +123,8 @@ class MessageTypeConverter
                 return Type.INT96;
             case FIXED_LEN_BYTE_ARRAY:
                 return Type.FIXED_LEN_BYTE_ARRAY;
-            default:
-                throw new RuntimeException("Unknown primitive type " + type);
         }
+        throw new RuntimeException("Unknown primitive type " + type);
     }
 
     private static ConvertedType getConvertedType(OriginalType type)
@@ -175,8 +174,7 @@ class MessageTypeConverter
                 return ConvertedType.JSON;
             case BSON:
                 return ConvertedType.BSON;
-            default:
-                throw new RuntimeException("Unknown original type " + type);
         }
+        throw new RuntimeException("Unknown original type " + type);
     }
 }

@@ -648,9 +648,8 @@ public final class ThriftMetastoreUtil
                 return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
             case ROLE:
                 return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-            default:
-                throw new IllegalArgumentException("Unsupported principal type: " + principalType);
         }
+        throw new IllegalArgumentException("Unsupported principal type: " + principalType);
     }
 
     public static PrincipalType fromMetastoreApiPrincipalType(org.apache.hadoop.hive.metastore.api.PrincipalType principalType)
@@ -661,9 +660,11 @@ public final class ThriftMetastoreUtil
                 return USER;
             case ROLE:
                 return ROLE;
-            default:
-                throw new IllegalArgumentException("Unsupported principal type: " + principalType);
+            case GROUP:
+                // TODO
+                break;
         }
+        throw new IllegalArgumentException("Unsupported principal type: " + principalType);
     }
 
     public static FieldSchema toMetastoreApiFieldSchema(Column column)
@@ -823,9 +824,16 @@ public final class ThriftMetastoreUtil
                 return createBinaryStatistics(columnName, columnType, statistics, rowCount);
             case DECIMAL:
                 return createDecimalStatistics(columnName, columnType, statistics);
-            default:
-                throw new IllegalArgumentException(format("unsupported type: %s", columnType));
+
+            case TIMESTAMPLOCALTZ:
+            case INTERVAL_YEAR_MONTH:
+            case INTERVAL_DAY_TIME:
+                // TODO support these, when we add support for these Hive types
+            case VOID:
+            case UNKNOWN:
+                break;
         }
+        throw new IllegalArgumentException(format("unsupported type: %s", columnType));
     }
 
     private static ColumnStatisticsObj createBooleanStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)

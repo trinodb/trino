@@ -214,9 +214,11 @@ public class SemiTransactionalHiveMetastore
                 return Optional.of(tableAction.getData().getTable());
             case DROP:
                 return Optional.empty();
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
@@ -240,9 +242,11 @@ public class SemiTransactionalHiveMetastore
                 return tableAction.getData().getStatistics();
             case DROP:
                 return PartitionStatistics.empty();
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
@@ -309,9 +313,11 @@ public class SemiTransactionalHiveMetastore
             case DELETE_ROWS:
             case UPDATE:
                 return TableSource.PRE_EXISTING_TABLE;
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized HivePageSinkMetadata generatePageSinkMetadata(HiveIdentity identity, SchemaTableName schemaTableName)
@@ -446,16 +452,19 @@ public class SemiTransactionalHiveMetastore
                 }
                 HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
                 tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, hdfsContext, identity));
-                break;
+                return;
+
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
             case UPDATE:
                 throw new TableAlreadyExistsException(table.getSchemaTableName());
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
@@ -480,9 +489,11 @@ public class SemiTransactionalHiveMetastore
             case DELETE_ROWS:
             case UPDATE:
                 throw new UnsupportedOperationException("dropping a table added/modified in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table table, PrincipalPrivileges principalPrivileges)
@@ -573,9 +584,11 @@ public class SemiTransactionalHiveMetastore
             case DELETE_ROWS:
             case UPDATE:
                 throw new UnsupportedOperationException("Inserting into an unpartitioned table that were added, altered, or inserted into in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     private boolean isAcidTransactionRunning()
@@ -653,9 +666,11 @@ public class SemiTransactionalHiveMetastore
             case DELETE_ROWS:
             case UPDATE:
                 throw new UnsupportedOperationException("Inserting or deleting in an unpartitioned table that were added, altered, or inserted into in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void finishUpdate(
@@ -700,9 +715,11 @@ public class SemiTransactionalHiveMetastore
             case DELETE_ROWS:
             case UPDATE:
                 throw new UnsupportedOperationException("Inserting, updating or deleting in a table that was added, altered, inserted into, updated or deleted from in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
@@ -857,9 +874,8 @@ public class SemiTransactionalHiveMetastore
             case DROP:
             case DROP_PRESERVE_DATA:
                 return Optional.empty();
-            default:
-                throw new IllegalStateException("Unknown action type");
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void addPartition(
@@ -891,16 +907,15 @@ public class SemiTransactionalHiveMetastore
                 partitionActionsOfTable.put(
                         partition.getValues(),
                         new Action<>(ActionType.ALTER, new PartitionAndMore(identity, partition, currentLocation, Optional.empty(), statistics, statistics), hdfsContext, identity));
-                break;
+                return;
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
             case UPDATE:
                 throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
-            default:
-                throw new IllegalStateException("Unknown action type");
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
@@ -931,9 +946,8 @@ public class SemiTransactionalHiveMetastore
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         format("dropping a partition added in the same transaction is not supported: %s %s %s", databaseName, tableName, partitionValues));
-            default:
-                throw new IllegalStateException("Unknown action type");
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void finishInsertIntoExistingPartition(
@@ -985,9 +999,8 @@ public class SemiTransactionalHiveMetastore
             case DELETE_ROWS:
             case UPDATE:
                 throw new UnsupportedOperationException("Inserting into a partition that were added, altered, or inserted into in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     private synchronized AcidTransaction getCurrentAcidTransaction()
@@ -1086,9 +1099,11 @@ public class SemiTransactionalHiveMetastore
                 return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), principal);
             case DROP:
                 throw new TableNotFoundException(schemaTableName);
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized String getTableOwner(HiveIdentity identity, String databaseName, String tableName)
@@ -1138,19 +1153,18 @@ public class SemiTransactionalHiveMetastore
         try {
             switch (state) {
                 case EMPTY:
-                    break;
+                    return;
                 case SHARED_OPERATION_BUFFERED:
                     commitShared();
-                    break;
+                    return;
                 case EXCLUSIVE_OPERATION_BUFFERED:
                     requireNonNull(bufferedExclusiveOperation, "bufferedExclusiveOperation is null");
                     bufferedExclusiveOperation.execute(delegate, hdfsEnvironment);
-                    break;
+                    return;
                 case FINISHED:
                     throw new IllegalStateException("Tried to commit buffered metastore operations after transaction has been committed/aborted");
-                default:
-                    throw new IllegalStateException("Unknown state");
             }
+            throw new IllegalStateException("Unknown state: " + state);
         }
         finally {
             state = State.FINISHED;
@@ -1163,15 +1177,14 @@ public class SemiTransactionalHiveMetastore
             switch (state) {
                 case EMPTY:
                 case EXCLUSIVE_OPERATION_BUFFERED:
-                    break;
+                    return;
                 case SHARED_OPERATION_BUFFERED:
                     rollbackShared();
-                    break;
+                    return;
                 case FINISHED:
                     throw new IllegalStateException("Tried to rollback buffered metastore operations after transaction has been committed/aborted");
-                default:
-                    throw new IllegalStateException("Unknown state");
             }
+            throw new IllegalStateException("Unknown state: " + state);
         }
         finally {
             state = State.FINISHED;

@@ -169,9 +169,8 @@ class PolymorphicScalarFunction
                 return Primitives.wrap(clazz);
             case FAIL_ON_NULL:
                 return clazz;
-            default:
-                throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
         }
+        throw new UnsupportedOperationException("Unknown return convention: " + returnConvention);
     }
 
     static final class PolymorphicScalarFunctionChoice

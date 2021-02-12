@@ -226,9 +226,8 @@ public class ScalarStatsCalculator
                             .setLowValue(-stats.getHighValue())
                             .setHighValue(-stats.getLowValue())
                             .build();
-                default:
-                    throw new IllegalStateException("Unexpected sign: " + node.getSign());
             }
+            throw new IllegalStateException("Unexpected sign: " + node.getSign());
         }
 
         @Override
@@ -298,9 +297,8 @@ public class ScalarStatsCalculator
                     return left / right;
                 case MODULUS:
                     return left % right;
-                default:
-                    throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Operator: " + operator);
             }
+            throw new IllegalStateException("Unsupported ArithmeticBinaryExpression.Operator: " + operator);
         }
 
         @Override

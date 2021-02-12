@@ -570,15 +570,14 @@ public class TestLocalExchange
         switch (pipelineExecutionStrategy) {
             case UNGROUPED_EXECUTION:
                 test.accept(localExchangeFactory.getLocalExchange(Lifespan.taskWide()));
-                break;
+                return;
             case GROUPED_EXECUTION:
                 test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(1)));
                 test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(12)));
                 test.accept(localExchangeFactory.getLocalExchange(Lifespan.driverGroup(23)));
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown pipelineExecutionStrategy");
+                return;
         }
+        throw new IllegalArgumentException("Unknown pipelineExecutionStrategy");
     }
 
     private static void assertSource(LocalExchangeSource source, int pageCount)

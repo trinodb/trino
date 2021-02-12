@@ -228,9 +228,8 @@ public class CostCalculatorUsingExchanges
                             return calculateLocalRepartitionCost(inputSizeInBytes);
                         case REPLICATE:
                             return LocalCostEstimate.zero();
-                        default:
-                            throw new IllegalArgumentException("Unexpected type: " + node.getType());
                     }
+                    throw new IllegalArgumentException("Unexpected type: " + node.getType());
                 case REMOTE:
                     switch (node.getType()) {
                         case GATHER:
@@ -242,12 +241,10 @@ public class CostCalculatorUsingExchanges
                             // it is true as now replicated exchange is used for joins only
                             // for replicated join probe side is usually source distributed
                             return calculateRemoteReplicateCost(inputSizeInBytes, taskCountEstimator.estimateSourceDistributedTaskCount(session));
-                        default:
-                            throw new IllegalArgumentException("Unexpected type: " + node.getType());
                     }
-                default:
-                    throw new IllegalArgumentException("Unexpected scope: " + node.getScope());
+                    throw new IllegalArgumentException("Unexpected type: " + node.getType());
             }
+            throw new IllegalArgumentException("Unexpected scope: " + node.getScope());
         }
 
         @Override

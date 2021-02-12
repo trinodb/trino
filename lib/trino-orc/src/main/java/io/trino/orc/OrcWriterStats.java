@@ -101,9 +101,8 @@ public class OrcWriterStats
                 return dictionaryFullFlush;
             case CLOSED:
                 return closedFlush;
-            default:
-                throw new IllegalArgumentException("unknown flush reason " + flushReason);
         }
+        throw new IllegalArgumentException("unknown flush reason " + flushReason);
     }
 
     @Override

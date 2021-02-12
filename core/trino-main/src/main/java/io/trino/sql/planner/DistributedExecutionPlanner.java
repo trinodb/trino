@@ -292,10 +292,8 @@ public class DistributedExecutionPlanner
                     }
                     // table sampling on a sub query without splits is meaningless
                     return nodeSplits;
-
-                default:
-                    throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
             }
+            throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
         }
 
         @Override

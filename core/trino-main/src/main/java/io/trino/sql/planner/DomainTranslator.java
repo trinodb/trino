@@ -430,10 +430,8 @@ public final class DomainTranslator
                     }
 
                     return new ExtractionResult(columnUnionedTupleDomain, remainingExpression);
-
-                default:
-                    throw new AssertionError("Unknown operator: " + node.getOperator());
             }
+            throw new AssertionError("Unknown operator: " + node.getOperator());
         }
 
         @Override
@@ -566,10 +564,8 @@ public final class DomainTranslator
                         return Optional.of(new ExtractionResult(
                                 TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)),
                                 TRUE_LITERAL));
-
-                    default:
-                        throw new AssertionError("Unhandled operator: " + comparisonOperator);
                 }
+                throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
             if (type.isOrderable()) {
                 return extractOrderableDomain(comparisonOperator, type, value, complement)
@@ -606,9 +602,8 @@ public final class DomainTranslator
                     case IS_DISTINCT_FROM:
                         // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
                         return Optional.of(complementIfNecessary(Domain.create(ValueSet.ofRanges(Range.lessThan(type, value), Range.greaterThan(type, value)), true), complement));
-                    default:
-                        throw new AssertionError("Unhandled operator: " + comparisonOperator);
                 }
+                throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
 
             // Handle comparisons against NaN
@@ -627,10 +622,8 @@ public final class DomainTranslator
                     case IS_DISTINCT_FROM:
                         // The Domain should be "all but NaN". It is currently not supported.
                         return Optional.empty();
-
-                    default:
-                        throw new AssertionError("Unhandled operator: " + comparisonOperator);
                 }
+                throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
 
             // Handle comparisons against a non-NaN value when the compared value might be NaN
@@ -693,9 +686,8 @@ public final class DomainTranslator
                     else {
                         return Optional.empty();
                     }
-                default:
-                    throw new AssertionError("Unhandled operator: " + comparisonOperator);
             }
+            throw new AssertionError("Unhandled operator: " + comparisonOperator);
         }
 
         private static Domain extractEquatableDomain(ComparisonExpression.Operator comparisonOperator, Type type, Object value, boolean complement)
@@ -706,12 +698,19 @@ public final class DomainTranslator
                     return Domain.create(complementIfNecessary(ValueSet.of(type, value), complement), false);
                 case NOT_EQUAL:
                     return Domain.create(complementIfNecessary(ValueSet.of(type, value).complement(), complement), false);
+
                 case IS_DISTINCT_FROM:
                     // Need to potential complement the whole domain for IS_DISTINCT_FROM since it is null-aware
                     return complementIfNecessary(Domain.create(ValueSet.of(type, value).complement(), true), complement);
-                default:
-                    throw new AssertionError("Unhandled operator: " + comparisonOperator);
+
+                case LESS_THAN:
+                case LESS_THAN_OR_EQUAL:
+                case GREATER_THAN:
+                case GREATER_THAN_OR_EQUAL:
+                    // not applicable to equatable types
+                    break;
             }
+            throw new AssertionError("Unhandled operator: " + comparisonOperator);
         }
 
         private Optional<Expression> coerceComparisonWithRounding(

@@ -94,6 +94,13 @@ non-native english speaker to understand the code. Very well known
 abbreviations like `max` or `min` and ones already very commonly used across
 the code base like `ttl` are allowed and encouraged.
 
+## Avoid default clause in exhaustive enum-based switch statements
+
+Avoid using the `default` clause when the switch statement is meant to cover all the
+enum values. Handling the unknown option case after the switch statement allows static code
+analysis tools (e.g. Error Prone's `MissingCasesInEnumSwitch` check) report a problem
+when the enum definition is updated but the code using it is not.
+
 ## Additional IDE configuration
 
 When using IntelliJ to develop Trino, we recommend starting with all of the default inspections,

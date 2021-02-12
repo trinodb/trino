@@ -49,21 +49,21 @@ public class SetRoleTask
                     statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).get(),
                     catalog);
         }
-        SelectedRole.Type type;
-        switch (statement.getType()) {
-            case ROLE:
-                type = SelectedRole.Type.ROLE;
-                break;
-            case ALL:
-                type = SelectedRole.Type.ALL;
-                break;
-            case NONE:
-                type = SelectedRole.Type.NONE;
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported type: " + statement.getType());
-        }
+        SelectedRole.Type type = toSelectedRoleType(statement.getType());
         stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
         return immediateFuture(null);
+    }
+
+    private static SelectedRole.Type toSelectedRoleType(SetRole.Type statementRoleType)
+    {
+        switch (statementRoleType) {
+            case ROLE:
+                return SelectedRole.Type.ROLE;
+            case ALL:
+                return SelectedRole.Type.ALL;
+            case NONE:
+                return SelectedRole.Type.NONE;
+        }
+        throw new IllegalArgumentException("Unsupported type: " + statementRoleType);
     }
 }

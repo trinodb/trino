@@ -35,9 +35,8 @@ public class LogicalBinaryExpression
                     return OR;
                 case OR:
                     return AND;
-                default:
-                    throw new IllegalArgumentException("Unsupported logical expression type: " + this);
             }
+            throw new IllegalArgumentException("Unsupported logical expression type: " + this);
         }
     }
 

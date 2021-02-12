@@ -1788,9 +1788,8 @@ public class LocalExecutionPlanner
                 case RIGHT:
                 case FULL:
                     return createLookupJoin(node, node.getLeft(), leftSymbols, node.getLeftHashSymbol(), node.getRight(), rightSymbols, node.getRightHashSymbol(), localDynamicFilters, context);
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
 
         @Override
@@ -2363,9 +2362,8 @@ public class LocalExecutionPlanner
                     return lookupJoinOperators.lookupOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
                 case FULL:
                     return lookupJoinOperators.fullOuterJoin(context.getNextOperatorId(), node.getId(), lookupSourceFactoryManager, probeTypes, probeJoinChannels, probeHashChannel, Optional.of(probeOutputChannels), totalOperatorsCount, partitioningSpillerFactory, blockTypeOperators);
-                default:
-                    throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
             }
+            throw new UnsupportedOperationException("Unsupported join type: " + node.getType());
         }
 
         private Map<Symbol, Integer> createJoinSourcesLayout(Map<Symbol, Integer> lookupSourceLayout, Map<Symbol, Integer> probeSourceLayout)

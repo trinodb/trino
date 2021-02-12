@@ -113,8 +113,7 @@ public class StartTransactionTask
                 return IsolationLevel.READ_COMMITTED;
             case READ_UNCOMMITTED:
                 return IsolationLevel.READ_UNCOMMITTED;
-            default:
-                throw new AssertionError("Unhandled isolation level: " + level);
         }
+        throw new AssertionError("Unhandled isolation level: " + level);
     }
 }

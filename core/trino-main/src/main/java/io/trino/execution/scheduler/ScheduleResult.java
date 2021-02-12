@@ -48,9 +48,8 @@ public class ScheduleResult
                     return other == WAITING_FOR_SOURCE || other == NO_ACTIVE_DRIVER_GROUP ? WAITING_FOR_SOURCE : MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
                 case MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE:
                     return MIXED_SPLIT_QUEUES_FULL_AND_WAITING_FOR_SOURCE;
-                default:
-                    throw new IllegalArgumentException("Unknown blocked reason: " + other);
             }
+            throw new IllegalArgumentException("Unknown blocked reason: " + other);
         }
     }
 
