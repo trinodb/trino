@@ -325,6 +325,7 @@ jobs:
           - suite-7-non-generic
           - suite-8-non-generic
           - suite-tpcds
+          - suite-oauth2
         exclude:
           - config: config-hdp3
             suite: suite-6-non-generic
@@ -334,6 +335,8 @@ jobs:
             suite: suite-8-non-generic
           - config: config-hdp3
             suite: suite-tpcds
+          - config: config-hdp3
+            suite: suite-oauth2
           - config: config-cdh5
             suite: suite-6-non-generic
           - config: config-cdh5
@@ -342,6 +345,8 @@ jobs:
             suite: suite-8-non-generic
           - config: config-cdh5
             suite: suite-tpcds
+          - config: config-cdh5
+            suite: suite-oauth2
     # PT Launcher's timeout defaults to 2h, account for preparation steps (compilation) and add some margin
     timeout-minutes: 140
     steps:
