@@ -159,7 +159,8 @@ public final class ThriftMetastoreUtil
         result.setName(database.getDatabaseName());
         database.getLocation().ifPresent(result::setLocationUri);
         result.setOwnerName(database.getOwnerName());
-        result.setOwnerType(toMetastoreApiPrincipalType(database.getOwnerType()));
+
+        result.setOwnerType(fromTrinoPrincipalType(database.getOwnerType()));
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
         return result;
@@ -215,18 +216,6 @@ public final class ThriftMetastoreUtil
                 privilegeInfo.getGrantor().getName(),
                 fromTrinoPrincipalType(privilegeInfo.getGrantor().getType()),
                 privilegeInfo.isGrantOption());
-    }
-
-    private static org.apache.hadoop.hive.metastore.api.PrincipalType toMetastoreApiPrincipalType(PrincipalType principalType)
-    {
-        switch (principalType) {
-            case USER:
-                return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
-            case ROLE:
-                return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-            default:
-                throw new IllegalArgumentException("Unsupported principal type: " + principalType);
-        }
     }
 
     public static Stream<RoleGrant> listApplicableRoles(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
