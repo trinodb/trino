@@ -1741,6 +1741,7 @@
                                     -Xep:EqualsIncompatibleType:ERROR
                                     -Xep:FallThrough:ERROR
                                     -Xep:FormatString:ERROR
+                                    -Xep:GetClassOnAnnotation:ERROR
                                     -Xep:GetClassOnClass:ERROR
                                     -Xep:HashtableContains:ERROR
                                     -Xep:IdentityBinaryExpression:ERROR
