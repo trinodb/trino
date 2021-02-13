@@ -223,14 +223,14 @@ public final class SortedRangeSet
                 new RunLengthEncodedBlock(block, 2));
     }
 
-    /**
-     * Provided Ranges are unioned together to form the SortedRangeSet
-     */
     static SortedRangeSet copyOf(Type type, Iterable<Range> ranges)
     {
         return new Builder(type).addAll(ranges).build();
     }
 
+    /**
+     * Provided Ranges are unioned together to form the SortedRangeSet
+     */
     public static SortedRangeSet copyOf(Type type, List<Range> ranges)
     {
         return copyOf(type, (Iterable<Range>) ranges);
