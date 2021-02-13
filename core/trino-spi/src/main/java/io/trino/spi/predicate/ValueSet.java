@@ -21,8 +21,6 @@ import io.trino.spi.type.Type;
 import java.util.Collection;
 import java.util.List;
 
-import static java.util.stream.Collectors.toList;
-
 @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
@@ -68,9 +66,7 @@ public interface ValueSet
     static ValueSet copyOf(Type type, Collection<Object> values)
     {
         if (type.isOrderable()) {
-            return SortedRangeSet.copyOf(type, values.stream()
-                    .map(value -> Range.equal(type, value))
-                    .collect(toList()));
+            return SortedRangeSet.of(type, values);
         }
         if (type.isComparable()) {
             return EquatableValueSet.copyOf(type, values);

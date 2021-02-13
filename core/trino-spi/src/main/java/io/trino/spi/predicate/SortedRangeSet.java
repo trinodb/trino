@@ -149,8 +149,6 @@ public final class SortedRangeSet
             return of(type, first);
         }
 
-        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
-
         BlockBuilder blockBuilder = type.createBlockBuilder(null, 1 + rest.length);
         checkNotNaN(type, first);
         writeNativeValue(type, blockBuilder, first);
@@ -159,6 +157,29 @@ public final class SortedRangeSet
             writeNativeValue(type, blockBuilder, value);
         }
         Block block = blockBuilder.build();
+
+        return fromUnorderedValuesBlock(type, block);
+    }
+
+    static SortedRangeSet of(Type type, Collection<?> values)
+    {
+        if (values.isEmpty()) {
+            return none(type);
+        }
+
+        BlockBuilder blockBuilder = type.createBlockBuilder(null, values.size());
+        for (Object value : values) {
+            checkNotNaN(type, value);
+            writeNativeValue(type, blockBuilder, value);
+        }
+        Block block = blockBuilder.build();
+
+        return fromUnorderedValuesBlock(type, block);
+    }
+
+    private static SortedRangeSet fromUnorderedValuesBlock(Type type, Block block)
+    {
+        MethodHandle comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
 
         List<Integer> indexes = new ArrayList<>(block.getPositionCount());
         for (int position = 0; position < block.getPositionCount(); position++) {
