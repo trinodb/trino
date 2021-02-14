@@ -81,17 +81,7 @@ public class QueryBuilder
         ImmutableList.Builder<QueryParameter> accumulator = ImmutableList.builder();
 
         String sql = "SELECT " + getProjection(columns, columnExpressions);
-        if (baseRelation instanceof JdbcNamedRelationHandle) {
-            sql += " FROM " + getRelation(((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());
-        }
-        else if (baseRelation instanceof JdbcQueryRelationHandle) {
-            PreparedQuery preparedQuery = ((JdbcQueryRelationHandle) baseRelation).getPreparedQuery();
-            sql += " FROM (" + preparedQuery.getQuery() + ") o";
-            accumulator.addAll(preparedQuery.getParameters());
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
-        }
+        sql += getFrom(baseRelation, accumulator::add);
 
         List<String> clauses = toConjuncts(session, connection, tupleDomain, accumulator::add);
         if (additionalPredicate.isPresent()) {
@@ -168,6 +158,19 @@ public class QueryBuilder
                     return format("%s AS %s", expression, columnAlias);
                 })
                 .collect(joining(", "));
+    }
+
+    private String getFrom(JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
+    {
+        if (baseRelation instanceof JdbcNamedRelationHandle) {
+            return " FROM " + getRelation(((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());
+        }
+        if (baseRelation instanceof JdbcQueryRelationHandle) {
+            PreparedQuery preparedQuery = ((JdbcQueryRelationHandle) baseRelation).getPreparedQuery();
+            preparedQuery.getParameters().forEach(accumulator);
+            return " FROM (" + preparedQuery.getQuery() + ") o";
+        }
+        throw new IllegalArgumentException("Unsupported relation: " + baseRelation);
     }
 
     private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
