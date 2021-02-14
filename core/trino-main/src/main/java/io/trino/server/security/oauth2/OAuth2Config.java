@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
@@ -122,6 +123,7 @@ public class OAuth2Config
     }
 
     @Config("http-server.authentication.oauth2.client-secret")
+    @ConfigSecuritySensitive
     @ConfigDescription("Client secret")
     public OAuth2Config setClientSecret(String clientSecret)
     {
