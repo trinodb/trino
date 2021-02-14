@@ -114,6 +114,54 @@ public class TestWindowFrameGroups
     }
 
     @Test
+    public void testOffsetTypes()
+    {
+        String expected = "VALUES " +
+                "ARRAY[null, null, 1, 2, 2], " +
+                "ARRAY[null, null, 1, 2, 2], " +
+                "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                "ARRAY[1, 2, 2, 3, 3, 3], " +
+                "ARRAY[1, 2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3]";
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        // short decimal
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        // no integer overflow when frame offset exceeds integer
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND DECIMAL '12345678901234567' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches("VALUES " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[2, 2, 3, 3, 3], " +
+                        "ARRAY[2, 2, 3, 3, 3], " +
+                        "ARRAY[2, 2, 3, 3, 3]");
+    }
+
+    @Test
     public void testNoValueFrameBounds()
     {
         assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) " +

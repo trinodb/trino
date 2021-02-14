@@ -1142,16 +1142,30 @@ public class ExpressionAnalyzer
                     if (frame.getStart().getValue().isPresent()) {
                         Expression startValue = frame.getStart().getValue().get();
                         Type type = process(startValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, startValue, "Window frame ROWS start value type must be INTEGER or BIGINT (actual %s)", type);
+                        if (!isExactNumericWithScaleZero(type)) {
+                            throw semanticException(TYPE_MISMATCH, startValue, "Window frame ROWS start value type must be exact numeric type with scale 0 (actual %s)", type);
                         }
+                        // TODO support long decimal type
+                        //  - the operator expects long values as frame offset, but long decimal values can overflow long
+                        //  - big positive values should not fail but be truncated to max long.
+                        //  - negative values are invalid as frame offset and fail in the operator. If big negative values were truncated to min long,
+                        //    the error message in the operator would refer to the truncated value instead of the actual value.
+                        //    To avoid this, the error for negative values could be thrown at the point of cast.
+                        if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
+                            throw semanticException(NOT_SUPPORTED, startValue, "Type %s is not supported for window frame ROWS start value", type);
+                        }
+                        addOrReplaceExpressionCoercion(startValue, type, BIGINT);
                     }
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
                         Expression endValue = frame.getEnd().get().getValue().get();
                         Type type = process(endValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, endValue, "Window frame ROWS end value type must be INTEGER or BIGINT (actual %s)", type);
+                        if (!isExactNumericWithScaleZero(type)) {
+                            throw semanticException(TYPE_MISMATCH, endValue, "Window frame ROWS end value type must be exact numeric type with scale 0 (actual %s)", type);
                         }
+                        if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
+                            throw semanticException(NOT_SUPPORTED, endValue, "Type %s is not supported for window frame ROWS end value", type);
+                        }
+                        addOrReplaceExpressionCoercion(endValue, type, BIGINT);
                     }
                 }
                 else if (frame.getType() == RANGE) {
@@ -1171,9 +1185,13 @@ public class ExpressionAnalyzer
                         }
                         Expression startValue = frame.getStart().getValue().get();
                         Type type = process(startValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, startValue, "Window frame GROUPS start value type must be INTEGER or BIGINT (actual %s)", type);
+                        if (!isExactNumericWithScaleZero(type)) {
+                            throw semanticException(TYPE_MISMATCH, startValue, "Window frame GROUPS start value type must be exact numeric type with scale 0 (actual %s)", type);
                         }
+                        if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
+                            throw semanticException(NOT_SUPPORTED, startValue, "Type %s is not supported for window frame GROUPS start value", type);
+                        }
+                        addOrReplaceExpressionCoercion(startValue, type, BIGINT);
                     }
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
                         if (window.getOrderBy().isEmpty()) {
@@ -1181,9 +1199,13 @@ public class ExpressionAnalyzer
                         }
                         Expression endValue = frame.getEnd().get().getValue().get();
                         Type type = process(endValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, endValue, "Window frame GROUPS end value type must be INTEGER or BIGINT (actual %s)", type);
+                        if (!isExactNumericWithScaleZero(type)) {
+                            throw semanticException(TYPE_MISMATCH, endValue, "Window frame GROUPS end value type must be exact numeric type with scale 0 (actual %s)", type);
                         }
+                        if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
+                            throw semanticException(NOT_SUPPORTED, endValue, "Type %s is not supported for window frame GROUPS end value", type);
+                        }
+                        addOrReplaceExpressionCoercion(endValue, type, BIGINT);
                     }
                 }
                 else {
@@ -2179,5 +2201,14 @@ public class ExpressionAnalyzer
                 type.equals(DOUBLE) ||
                 type.equals(REAL) ||
                 type instanceof DecimalType;
+    }
+
+    private static boolean isExactNumericWithScaleZero(Type type)
+    {
+        return type.equals(BIGINT) ||
+                type.equals(INTEGER) ||
+                type.equals(SMALLINT) ||
+                type.equals(TINYINT) ||
+                type instanceof DecimalType && ((DecimalType) type).getScale() == 0;
     }
 }
