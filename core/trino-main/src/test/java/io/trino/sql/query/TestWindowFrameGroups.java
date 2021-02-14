@@ -435,4 +435,32 @@ public class TestWindowFrameGroups
                         "(5.0, ARRAY[3, 4, 5], ARRAY[6], ARRAY[4, 5]), " +
                         "(6.0, ARRAY[4, 5, 6], null, ARRAY[5, 6])");
     }
+
+    @Test
+    public void testOffsetOverflowsInteger()
+    {
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 0 PRECEDING AND 1234567890123456789 FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches("VALUES " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[2, 2, 3, 3, 3], " +
+                        "ARRAY[2, 2, 3, 3, 3], " +
+                        "ARRAY[3, 3, 3], " +
+                        "ARRAY[3, 3, 3], " +
+                        "ARRAY[3, 3, 3]");
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1234567890123456789 PRECEDING AND 0 FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches("VALUES " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null], " +
+                        "ARRAY[null, null, 1], " +
+                        "ARRAY[null, null, 1, 2, 2], " +
+                        "ARRAY[null, null, 1, 2, 2], " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                        "ARRAY[null, null, 1, 2, 2, 3, 3, 3]");
+    }
 }
