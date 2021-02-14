@@ -14,17 +14,23 @@
 package io.trino.server.security.oauth2;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.testng.Assert.assertTrue;
 
 public class TestOAuth2Config
 {
@@ -81,5 +87,21 @@ public class TestOAuth2Config
                 .setUserMappingFile(userMappingFile.toFile());
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testConfigSecuritySensitive()
+    {
+        List<String> sensitiveConfigNames = findSensitiveConfigName(OAuth2Config.class);
+
+        assertTrue(sensitiveConfigNames.contains("http-server.authentication.oauth2.client-secret"));
+    }
+
+    private static List<String> findSensitiveConfigName(Class configClass)
+    {
+        return Arrays.stream(configClass.getDeclaredMethods())
+                .filter(method -> method.isAnnotationPresent(ConfigSecuritySensitive.class))
+                .map(method -> method.getAnnotation(Config.class).value())
+                .collect(toImmutableList());
     }
 }
