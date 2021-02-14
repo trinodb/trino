@@ -28,6 +28,9 @@ public final class EnvironmentOptions
     @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Trino server package " + DEFAULT_VALUE, defaultValue = "${server.module}/target/${server.name}-${project.version}.tar.gz")
     public File serverPackage;
 
+    @Option(names = "--cli-executable", paramLabel = "<executable>", description = "Path to CLI executable " + DEFAULT_VALUE, defaultValue = "${cli.bin}")
+    public File cliExecutable;
+
     @Option(names = "--without-presto", description = "Do not start " + COORDINATOR)
     public boolean withoutPrestoMaster;
 

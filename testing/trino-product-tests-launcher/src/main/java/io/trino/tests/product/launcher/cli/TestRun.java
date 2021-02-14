@@ -105,9 +105,6 @@ public final class TestRun
         @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.name}-${project.version}-executable.jar")
         public File testJar;
 
-        @Option(names = "--cli-executable", paramLabel = "<jar>", description = "Path to CLI executable " + DEFAULT_VALUE, defaultValue = "${cli.bin}")
-        public File cliJar;
-
         @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
 
@@ -142,7 +139,6 @@ public final class TestRun
         private final EnvironmentFactory environmentFactory;
         private final boolean debug;
         private final File testJar;
-        private final File cliJar;
         private final List<String> testArguments;
         private final String environment;
         private final boolean attach;
@@ -160,7 +156,6 @@ public final class TestRun
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
             this.testJar = requireNonNull(testRunOptions.testJar, "testRunOptions.testJar is null");
-            this.cliJar = requireNonNull(testRunOptions.cliJar, "testRunOptions.cliJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testRunOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
             this.attach = testRunOptions.attach;
@@ -262,7 +257,6 @@ public final class TestRun
                 container
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
-                        .withFileSystemBind(cliJar.getPath(), "/docker/trino-cli", READ_ONLY)
                         .withCopyFileToContainer(forClasspathResource("docker/presto-product-tests/common/standard/set-trino-cli.sh"), "/etc/profile.d/set-trino-cli.sh")
                         .withCommand(ImmutableList.<String>builder()
                                 .add(

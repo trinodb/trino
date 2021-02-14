@@ -15,6 +15,7 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
+import io.trino.tests.product.launcher.env.CliExecutable;
 import io.trino.tests.product.launcher.env.Debug;
 import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
@@ -48,6 +49,7 @@ public final class MultinodeTlsKerberos
 
     private final String prestoDockerImageName;
     private final File serverPackage;
+    private final File cliExecutable;
     private final boolean debug;
 
     @Inject
@@ -57,6 +59,7 @@ public final class MultinodeTlsKerberos
             HadoopKerberos hadoopKerberos,
             EnvironmentConfig config,
             @ServerPackage File serverPackage,
+            @CliExecutable File cliExecutable,
             @Debug boolean debug)
     {
         super(ImmutableList.of(standard, hadoopKerberos));
@@ -65,6 +68,7 @@ public final class MultinodeTlsKerberos
         String hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
         this.prestoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
+        this.cliExecutable = requireNonNull(cliExecutable, "cliExecutable is null");
         this.debug = debug;
     }
 
@@ -86,7 +90,7 @@ public final class MultinodeTlsKerberos
     @SuppressWarnings("resource")
     private DockerContainer createPrestoWorker(String workerName)
     {
-        return createPrestoContainer(dockerFiles, serverPackage, debug, prestoDockerImageName, workerName)
+        return createPrestoContainer(dockerFiles, serverPackage, cliExecutable, debug, prestoDockerImageName, workerName)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)

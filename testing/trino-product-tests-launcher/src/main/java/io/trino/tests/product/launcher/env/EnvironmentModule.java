@@ -87,6 +87,15 @@ public final class EnvironmentModule
 
     @Provides
     @Singleton
+    @CliExecutable
+    public File provideCliExecutable(EnvironmentOptions options)
+    {
+        // fallback to dummy - nonNull to prevent injection errors when listing environments
+        return requireNonNullElse(options.cliExecutable, new File("dummy.tar.gz"));
+    }
+
+    @Provides
+    @Singleton
     @Debug
     public boolean provideDebug(EnvironmentOptions options)
     {
