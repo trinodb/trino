@@ -624,13 +624,13 @@ public final class WindowPartition
                 start = peerGroupStart - partitionStart;
                 break;
             case PRECEDING: {
-                PositionAndGroup frameStart = seek(toIntExact(currentGroupIndex - getStartValue(frameInfo)), recentFrame.getStart(), recentFrame.getStartGroupIndex(), seekGroupStart, lastGroup -> new PositionAndGroup(0, 0));
+                PositionAndGroup frameStart = seek(-getStartValue(frameInfo), recentFrame.getStart(), recentFrame.getStartGroupIndex(), seekGroupStart, lastGroup -> new PositionAndGroup(0, 0));
                 start = frameStart.getPosition();
                 startGroupIndex = frameStart.getGroup();
                 break;
             }
             case FOLLOWING: {
-                PositionAndGroup frameStart = seek(toIntExact(currentGroupIndex + getStartValue(frameInfo)), recentFrame.getStart(), recentFrame.getStartGroupIndex(), seekGroupStart, lastGroup -> new PositionAndGroup(partitionEnd - partitionStart, GroupsFrame.ignoreIndex()));
+                PositionAndGroup frameStart = seek(getStartValue(frameInfo), recentFrame.getStart(), recentFrame.getStartGroupIndex(), seekGroupStart, lastGroup -> new PositionAndGroup(partitionEnd - partitionStart, GroupsFrame.ignoreIndex()));
                 start = frameStart.getPosition();
                 startGroupIndex = frameStart.getGroup();
                 break;
@@ -647,13 +647,13 @@ public final class WindowPartition
                 end = peerGroupEnd - partitionStart - 1;
                 break;
             case PRECEDING: {
-                PositionAndGroup frameEnd = seek(toIntExact(currentGroupIndex - getEndValue(frameInfo)), recentFrame.getEnd(), recentFrame.getEndGroupIndex(), seekGroupEnd, lastGroup -> new PositionAndGroup(-1, GroupsFrame.ignoreIndex()));
+                PositionAndGroup frameEnd = seek(-getEndValue(frameInfo), recentFrame.getEnd(), recentFrame.getEndGroupIndex(), seekGroupEnd, lastGroup -> new PositionAndGroup(-1, GroupsFrame.ignoreIndex()));
                 end = frameEnd.getPosition();
                 endGroupIndex = frameEnd.getGroup();
                 break;
             }
             case FOLLOWING: {
-                PositionAndGroup frameEnd = seek(toIntExact(currentGroupIndex + getEndValue(frameInfo)), recentFrame.getEnd(), recentFrame.getEndGroupIndex(), seekGroupEnd, lastGroup -> new PositionAndGroup(partitionEnd - partitionStart - 1, lastPeerGroup));
+                PositionAndGroup frameEnd = seek(getEndValue(frameInfo), recentFrame.getEnd(), recentFrame.getEndGroupIndex(), seekGroupEnd, lastGroup -> new PositionAndGroup(partitionEnd - partitionStart - 1, lastPeerGroup));
                 end = frameEnd.getPosition();
                 endGroupIndex = frameEnd.getGroup();
                 break;
@@ -665,11 +665,13 @@ public final class WindowPartition
         return new GroupsFrame(start, startGroupIndex, end, endGroupIndex);
     }
 
-    private PositionAndGroup seek(int groupIndex, int recentPosition, int recentGroupIndex, Function<Integer, Integer> seekPositionWithinGroup, EdgeResultProvider edgeResult)
+    private PositionAndGroup seek(long offset, int recentPosition, int recentGroupIndex, Function<Integer, Integer> seekPositionWithinGroup, EdgeResultProvider edgeResult)
     {
-        if (groupIndex < 0 || groupIndex > lastPeerGroup) {
+        long searchedIndex = currentGroupIndex + offset;
+        if (searchedIndex < 0 || searchedIndex > lastPeerGroup) {
             return edgeResult.get(lastPeerGroup);
         }
+        int groupIndex = toIntExact(searchedIndex);
         while (recentGroupIndex > groupIndex) {
             recentPosition = seekGroupStart.apply(recentPosition);
             recentPosition--;
