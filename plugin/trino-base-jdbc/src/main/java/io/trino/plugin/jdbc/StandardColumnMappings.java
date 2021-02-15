@@ -383,8 +383,7 @@ public final class StandardColumnMappings
     {
         // Time.toLocalTime() does not preserve second fraction
         return sqlTime.toLocalTime()
-                // TODO is the conversion correct if sqlTime.getTime() < 0?
-                .withNano(toIntExact(MILLISECONDS.toNanos(sqlTime.getTime() % 1000)));
+                .withNano(toIntExact(MILLISECONDS.toNanos(floorMod(sqlTime.getTime(), 1000L))));
     }
 
     /**
