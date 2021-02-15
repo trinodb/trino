@@ -64,9 +64,9 @@ public class TestWith
         // First, verify the assumption that the nation table contains the expected hidden column
         assertThat(assertions.query(
                 format(
-                "SELECT count(*) " +
-                        "FROM information_schema.columns " +
-                        "WHERE table_catalog = '%s' and table_schema = '%s' and table_name = 'nation' and column_name = 'row_number'", CATALOG, TINY_SCHEMA_NAME)))
+                        "SELECT count(*) " +
+                                "FROM information_schema.columns " +
+                                "WHERE table_catalog = '%s' and table_schema = '%s' and table_name = 'nation' and column_name = 'row_number'", CATALOG, TINY_SCHEMA_NAME)))
                 .matches("VALUES BIGINT '0'");
         assertions.execute("SELECT min(row_number) FROM nation");
 

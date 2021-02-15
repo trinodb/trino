@@ -44,9 +44,10 @@ public class TestConsoleTable
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
-                "+-------+-------+\n" +
-                "| hello | world |\n" +
-                "+-------+-------+");
+                "" +
+                        "+-------+-------+\n" +
+                        "| hello | world |\n" +
+                        "+-------+-------+");
     }
 
     @Test
@@ -60,11 +61,12 @@ public class TestConsoleTable
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
-                "+-----------+-------+\n" +
-                "|     hello | world |\n" +
-                "|         a |     b |\n" +
-                "| pineapple | rocks |\n" +
-                "+-----------+-------+");
+                "" +
+                        "+-----------+-------+\n" +
+                        "|     hello | world |\n" +
+                        "|         a |     b |\n" +
+                        "| pineapple | rocks |\n" +
+                        "+-----------+-------+");
     }
 
     @Test
@@ -78,11 +80,12 @@ public class TestConsoleTable
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
-                "+-----------+-------+\n" +
-                "|     hello | world |\n" +
-                "|         a |     b |\n" +
-                "| pineapple |       |\n" +
-                "+-----------+-------+");
+                "" +
+                        "+-----------+-------+\n" +
+                        "|     hello | world |\n" +
+                        "|         a |     b |\n" +
+                        "| pineapple |       |\n" +
+                        "+-----------+-------+");
     }
 
     @Test
@@ -97,12 +100,13 @@ public class TestConsoleTable
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
-                "+-----------+-------+\n" +
-                "|     hello | world |\n" +
-                "+-----------+-------+\n" +
-                "|     a     |   b   |\n" +
-                "| pineapple | rocks |\n" +
-                "+-----------+-------+");
+                "" +
+                        "+-----------+-------+\n" +
+                        "|     hello | world |\n" +
+                        "+-----------+-------+\n" +
+                        "|     a     |   b   |\n" +
+                        "| pineapple | rocks |\n" +
+                        "+-----------+-------+");
     }
 
     @Test
@@ -118,16 +122,17 @@ public class TestConsoleTable
         table.addSeparator();
 
         assertThat(table.render()).isEqualTo(
-                "+-----------+--------+\n" +
-                "|     hello |  world |\n" +
-                "|    orange | awaits |\n" +
-                "+-----------+--------+\n" +
-                "| a         | b      |\n" +
-                "+-----------+--------+\n" +
-                "| pineapple |  and   |\n" +
-                "|    has    | rocks  |\n" +
-                "|  awesome  |        |\n" +
-                "|   docs    |        |\n" +
-                "+-----------+--------+");
+                "" +
+                        "+-----------+--------+\n" +
+                        "|     hello |  world |\n" +
+                        "|    orange | awaits |\n" +
+                        "+-----------+--------+\n" +
+                        "| a         | b      |\n" +
+                        "+-----------+--------+\n" +
+                        "| pineapple |  and   |\n" +
+                        "|    has    | rocks  |\n" +
+                        "|  awesome  |        |\n" +
+                        "|   docs    |        |\n" +
+                        "+-----------+--------+");
     }
 }

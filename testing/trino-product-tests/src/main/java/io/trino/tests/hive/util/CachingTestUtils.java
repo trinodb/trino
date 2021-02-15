@@ -34,7 +34,7 @@ public final class CachingTestUtils
                 .get(queryResult.tryFindColumnIndex("cachedreads").get() - 1);
 
         long remoteReads = (Long) getOnlyElement(queryResult.rows())
-                    .get(queryResult.tryFindColumnIndex("remotereads").get() - 1);
+                .get(queryResult.tryFindColumnIndex("remotereads").get() - 1);
 
         long nonLocalReads = (Long) getOnlyElement(queryResult.rows())
                 .get(queryResult.tryFindColumnIndex("nonlocalreads").get() - 1);

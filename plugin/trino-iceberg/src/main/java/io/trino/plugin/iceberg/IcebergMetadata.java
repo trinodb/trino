@@ -897,13 +897,13 @@ public class IcebergMetadata
         transaction = icebergTable.newTransaction();
 
         return new IcebergWritableTableHandle(
-            table.getSchemaName(),
-            table.getTableName(),
-            SchemaParser.toJson(icebergTable.schema()),
-            PartitionSpecParser.toJson(icebergTable.spec()),
-            getColumns(icebergTable.schema(), typeManager),
-            getDataPath(icebergTable.location()),
-            getFileFormat(icebergTable));
+                table.getSchemaName(),
+                table.getTableName(),
+                SchemaParser.toJson(icebergTable.schema()),
+                PartitionSpecParser.toJson(icebergTable.spec()),
+                getColumns(icebergTable.schema(), typeManager),
+                getDataPath(icebergTable.location()),
+                getFileFormat(icebergTable));
     }
 
     @Override
@@ -926,9 +926,9 @@ public class IcebergMetadata
                 .collect(toImmutableList());
 
         Type[] partitionColumnTypes = icebergTable.spec().fields().stream()
-            .map(field -> field.transform().getResultType(
-                icebergTable.schema().findType(field.sourceId())))
-            .toArray(Type[]::new);
+                .map(field -> field.transform().getResultType(
+                        icebergTable.schema().findType(field.sourceId())))
+                .toArray(Type[]::new);
 
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
@@ -959,8 +959,8 @@ public class IcebergMetadata
 
         transaction.commitTransaction();
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
-            .map(CommitTaskData::getPath)
-            .collect(toImmutableList())));
+                .map(CommitTaskData::getPath)
+                .collect(toImmutableList())));
     }
 
     private boolean isMaterializedView(Table table)
@@ -1001,14 +1001,14 @@ public class IcebergMetadata
 
         String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");
         return Optional.of(new ConnectorMaterializedViewDefinition(
-            definition.getOriginalSql(),
-            storageTable,
-            definition.getCatalog(),
-            Optional.of(viewName.getSchemaName()),
-            definition.getColumns(),
-            definition.getComment(),
-            Optional.of(materializedView.getOwner()),
-            new HashMap<>(materializedView.getParameters())));
+                definition.getOriginalSql(),
+                storageTable,
+                definition.getCatalog(),
+                Optional.of(viewName.getSchemaName()),
+                definition.getColumns(),
+                definition.getComment(),
+                Optional.of(materializedView.getOwner()),
+                new HashMap<>(materializedView.getParameters())));
     }
 
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -1016,7 +1016,7 @@ public class IcebergMetadata
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
         return Optional.ofNullable(icebergTable.currentSnapshot())
-            .map(snapshot -> new TableToken(snapshot.snapshotId()));
+                .map(snapshot -> new TableToken(snapshot.snapshotId()));
     }
 
     public boolean isTableCurrent(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<TableToken> tableToken)

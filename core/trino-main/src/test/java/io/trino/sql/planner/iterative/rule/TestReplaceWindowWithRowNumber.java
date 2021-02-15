@@ -81,8 +81,8 @@ public class TestReplaceWindowWithRowNumber
                     Symbol rank1 = p.symbol("rank_1");
                     return p.window(
                             new WindowNode.Specification(ImmutableList.of(a), Optional.empty()),
-                                ImmutableMap.of(rank1, newWindowNodeFunction(rank)),
-                                p.values(a));
+                            ImmutableMap.of(rank1, newWindowNodeFunction(rank)),
+                            p.values(a));
                 })
                 .doesNotFire();
 

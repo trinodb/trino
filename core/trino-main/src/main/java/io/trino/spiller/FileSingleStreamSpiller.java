@@ -144,7 +144,7 @@ public class FileSingleStreamSpiller
     {
         checkState(writable, "Spilling no longer allowed. The spiller has been made non-writable on first read for subsequent reads to be consistent");
         try (SliceOutput output = new OutputStreamSliceOutput(targetFile.newOutputStream(APPEND), BUFFER_SIZE);
-             PagesSerde.PagesSerdeContext context = serde.newContext()) {
+                PagesSerde.PagesSerdeContext context = serde.newContext()) {
             while (pageIterator.hasNext()) {
                 Page page = pageIterator.next();
                 spilledPagesInMemorySize += page.getSizeInBytes();

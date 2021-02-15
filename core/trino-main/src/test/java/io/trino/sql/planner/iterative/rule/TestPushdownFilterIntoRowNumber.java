@@ -49,7 +49,7 @@ public class TestPushdownFilterIntoRowNumber
                         rowNumber(rowNumber -> rowNumber
                                         .maxRowCountPerPartition(Optional.of(99))
                                         .partitionBy(ImmutableList.of("a")),
-                        values("a")));
+                                values("a")));
 
         tester().assertThat(new PushdownFilterIntoRowNumber(tester().getMetadata(), new TypeOperators()))
                 .on(p -> {
@@ -67,7 +67,7 @@ public class TestPushdownFilterIntoRowNumber
                         rowNumber(rowNumber -> rowNumber
                                         .maxRowCountPerPartition(Optional.of(10))
                                         .partitionBy(ImmutableList.of("a")),
-                        values("a")));
+                                values("a")));
 
         tester().assertThat(new PushdownFilterIntoRowNumber(tester().getMetadata(), new TypeOperators()))
                 .on(p -> {

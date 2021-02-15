@@ -88,8 +88,8 @@ public class TestPushdownLimitIntoWindow
                                         ImmutableList.of(),
                                         ImmutableList.of("a"),
                                         ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
-                        .maxRankingPerPartition(3)
-                        .partial(false), values("a")));
+                                .maxRankingPerPartition(3)
+                                .partial(false), values("a")));
     }
 
     @Test

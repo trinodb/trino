@@ -246,8 +246,8 @@ public class PushJoinIntoTableScan
         if (leftSymbols.contains(left) && rightSymbols.contains(right)) {
             return Optional.of(new JoinCondition(
                     joinConditionOperator(operator),
-                        new Variable(left.getName(), context.getSymbolAllocator().getTypes().get(left)),
-                        new Variable(right.getName(), context.getSymbolAllocator().getTypes().get(right))));
+                    new Variable(left.getName(), context.getSymbolAllocator().getTypes().get(left)),
+                    new Variable(right.getName(), context.getSymbolAllocator().getTypes().get(right))));
         }
         return Optional.empty();
     }

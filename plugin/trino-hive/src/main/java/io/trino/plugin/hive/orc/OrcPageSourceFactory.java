@@ -443,6 +443,7 @@ public class OrcPageSourceFactory
      * Recreate the list of fileColumns, updating the names of any whose names have changed in the
      * corresponding elements of the desiredColumns list.  NOTE: this renaming is only applied to
      * top-level columns, not nested columns.
+     *
      * @param fileColumns All OrcColumns nested in the root column of the table.
      * @param desiredColumns HiveColumnHandles for the metastore's table columns.
      * @return Return the fileColumns list with any OrcColumn corresponding to a desiredColumn renamed if

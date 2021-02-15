@@ -175,7 +175,7 @@ public class ResolvedFunction
             String name = parts.get(0);
 
             String base32 = parts.get(1);
-        // name may have been lower cased, but base32 decoder requires upper case
+            // name may have been lower cased, but base32 decoder requires upper case
             base32 = base32.toUpperCase(ENGLISH);
             byte[] compressed = base32Hex().decode(base32);
 

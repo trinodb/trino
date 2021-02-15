@@ -2201,29 +2201,29 @@ public class TestHiveIntegrationSmokeTest
         String tableName = "test_create_invalid_bucketed_table";
 
         assertThatThrownBy(() -> computeActual("" +
-                    "CREATE TABLE " + tableName + " (" +
-                    "  a BIGINT," +
-                    "  b DOUBLE," +
-                    "  p VARCHAR" +
-                    ") WITH (" +
-                    "format = '" + storageFormat + "', " +
-                    "partitioned_by = ARRAY[ 'p' ], " +
-                    "bucketed_by = ARRAY[ 'a', 'c' ], " +
-                    "bucket_count = 11 " +
-                    ")"))
+                "CREATE TABLE " + tableName + " (" +
+                "  a BIGINT," +
+                "  b DOUBLE," +
+                "  p VARCHAR" +
+                ") WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'p' ], " +
+                "bucketed_by = ARRAY[ 'a', 'c' ], " +
+                "bucket_count = 11 " +
+                ")"))
                 .hasMessage("Bucketing columns [c] not present in schema");
 
         assertThatThrownBy(() -> computeActual("" +
-                    "CREATE TABLE " + tableName + " " +
-                    "WITH (" +
-                    "format = '" + storageFormat + "', " +
-                    "partitioned_by = ARRAY[ 'orderstatus' ], " +
-                    "bucketed_by = ARRAY[ 'custkey', 'custkey3' ], " +
-                    "bucket_count = 11 " +
-                    ") " +
-                    "AS " +
-                    "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
-                    "FROM tpch.tiny.orders"))
+                "CREATE TABLE " + tableName + " " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                "bucketed_by = ARRAY[ 'custkey', 'custkey3' ], " +
+                "bucket_count = 11 " +
+                ") " +
+                "AS " +
+                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
+                "FROM tpch.tiny.orders"))
                 .hasMessage("Bucketing columns [custkey3] not present in schema");
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
