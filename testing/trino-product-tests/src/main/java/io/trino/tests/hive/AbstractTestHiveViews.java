@@ -126,7 +126,7 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("CREATE VIEW hive_show_view AS SELECT * FROM nation");
 
         String showCreateViewSql = "SHOW CREATE VIEW %s.default.hive_show_view";
-        String expectedResult = "CREATE VIEW %s.default.hive_show_view AS\n" +
+        String expectedResult = "CREATE VIEW %s.default.hive_show_view SECURITY DEFINER AS\n" +
                 "SELECT\n" +
                 "  \"n_nationkey\"\n" +
                 ", \"n_name\"\n" +

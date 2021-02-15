@@ -23,6 +23,7 @@ import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.server.BasicQueryInfo;
+import io.trino.sql.tree.CreateView;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
@@ -42,6 +43,8 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.tree.CreateView.Security.DEFINER;
+import static io.trino.sql.tree.CreateView.Security.INVOKER;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
@@ -834,15 +837,15 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
-    public void testViewMetadata()
+    @Test(dataProvider = "testViewMetadataDataProvider")
+    public void testViewMetadata(String securityClauseInCreate, CreateView.Security securityClauseInShowCreate)
     {
         skipTestUnless(supportsViews());
 
         String viewName = "meta_test_view_" + randomTableSuffix();
 
         @Language("SQL") String query = "SELECT BIGINT '123' x, 'foo' y";
-        assertUpdate("CREATE VIEW " + viewName + " AS " + query);
+        assertUpdate("CREATE VIEW " + viewName + securityClauseInCreate + " AS " + query);
 
         // test INFORMATION_SCHEMA.TABLES
         MaterializedResult actual = computeActual(format(
@@ -897,21 +900,32 @@ public abstract class AbstractTestDistributedQueries
 
         // test SHOW CREATE VIEW
         String expectedSql = formatSqlText(format(
-                "CREATE VIEW %s.%s.%s AS %s",
+                "CREATE VIEW %s.%s.%s SECURITY %s AS %s",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
                 viewName,
+                securityClauseInShowCreate.name(),
                 query)).trim();
 
         actual = computeActual("SHOW CREATE VIEW " + viewName);
 
         assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
 
-        actual = computeActual(format("SHOW CREATE VIEW %s.%s." + viewName, getSession().getCatalog().get(), getSession().getSchema().get()));
+        actual = computeActual(format("SHOW CREATE VIEW %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), viewName));
 
         assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
 
         assertUpdate("DROP VIEW " + viewName);
+    }
+
+    @DataProvider
+    public static Object[][] testViewMetadataDataProvider()
+    {
+        return new Object[][] {
+                {"", DEFINER},
+                {" SECURITY DEFINER", DEFINER},
+                {" SECURITY INVOKER", INVOKER},
+        };
     }
 
     @Test
@@ -924,7 +938,7 @@ public abstract class AbstractTestDistributedQueries
         String viewName = "test_show_create_view" + randomTableSuffix();
         assertUpdate("DROP VIEW IF EXISTS " + viewName);
         String ddl = format(
-                "CREATE VIEW %s.%s.%s AS\n" +
+                "CREATE VIEW %s.%s.%s SECURITY DEFINER AS\n" +
                         "SELECT *\n" +
                         "FROM\n" +
                         "  (\n" +
