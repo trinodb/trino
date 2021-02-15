@@ -335,7 +335,7 @@ public class SapHanaClient
                 }
 
                 int precision = typeHandle.getRequiredColumnSize();
-                int scale = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int scale = typeHandle.getRequiredDecimalDigits();
                 if (precision < 1 || precision > Decimals.MAX_PRECISION || scale < 0 || scale > precision) {
                     // SAP HANA supports precision [1, 38], and scale [0, precision]
                     log.warn("Unexpected decimal precision: %s", typeHandle);
@@ -372,7 +372,7 @@ public class SapHanaClient
                 return Optional.of(timeColumnMapping());
 
             case Types.TIMESTAMP:
-                int timestampPrecision = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                int timestampPrecision = typeHandle.getRequiredDecimalDigits();
                 return Optional.of(timestampColumnMapping(timestampPrecision));
         }
 
