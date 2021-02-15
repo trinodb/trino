@@ -641,7 +641,7 @@ public final class SortedRangeSet
             }
 
             if (current != null) {
-                Optional<RangeView> merged = current.tryOverlapWithNext(next);
+                Optional<RangeView> merged = current.tryMergeWithNext(next);
                 if (merged.isPresent()) {
                     current = merged.get();
                 }
@@ -1064,7 +1064,7 @@ public final class SortedRangeSet
          * Returns unioned range if {@code this} and {@code next} overlap or are adjacent.
          * The {@code next} lower bound must not be before {@code this} lower bound.
          */
-        public Optional<RangeView> tryOverlapWithNext(RangeView next)
+        public Optional<RangeView> tryMergeWithNext(RangeView next)
         {
             if (this.compareTo(next) > 0) {
                 throw new IllegalArgumentException("next before this");
@@ -1074,13 +1074,17 @@ public final class SortedRangeSet
                 return Optional.of(this);
             }
 
+            boolean merge;
             if (next.isLowUnbounded()) {
-                return Optional.of(next);
+                // both are low-unbounded
+                merge = true;
             }
-
-            int compare = compareValues(comparisonOperator, this.highValueBlock, this.highValuePosition, next.lowValueBlock, next.lowValuePosition);
-            if (compare > 0  // overlap
-                    || (compare == 0 && (this.highInclusive || next.lowInclusive))) { // adjacent
+            else {
+                int compare = compareValues(comparisonOperator, this.highValueBlock, this.highValuePosition, next.lowValueBlock, next.lowValuePosition);
+                merge = compare > 0  // overlap
+                        || compare == 0 && (this.highInclusive || next.lowInclusive); // adjacent
+            }
+            if (merge) {
                 int compareHighBound = compareHighBound(next);
                 return Optional.of(new RangeView(
                         this.type,
