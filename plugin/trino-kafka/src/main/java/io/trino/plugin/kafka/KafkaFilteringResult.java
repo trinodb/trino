@@ -28,8 +28,8 @@ public class KafkaFilteringResult
     private final Map<TopicPartition, Long> partitionEndOffsets;
 
     public KafkaFilteringResult(List<PartitionInfo> partitionInfos,
-                                Map<TopicPartition, Long> partitionBeginOffsets,
-                                Map<TopicPartition, Long> partitionEndOffsets)
+            Map<TopicPartition, Long> partitionBeginOffsets,
+            Map<TopicPartition, Long> partitionEndOffsets)
     {
         this.partitionInfos = ImmutableList.copyOf(partitionInfos);
         this.partitionBeginOffsets = ImmutableMap.copyOf(partitionBeginOffsets);

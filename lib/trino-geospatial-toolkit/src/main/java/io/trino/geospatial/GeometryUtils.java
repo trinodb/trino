@@ -202,8 +202,8 @@ public final class GeometryUtils
      * Return an empty geometry in the cases in which the locationtech library
      * doesn't when the coordinates attribute is an empty array. In particular,
      * these two cases are handled by the underlying library as follows:
-     *     {type:Point, coordinates:[]} -> POINT (0 0)
-     *     {type:Polygon, coordinates[]} -> Exception during parsing
+     * {type:Point, coordinates:[]} -> POINT (0 0)
+     * {type:Polygon, coordinates[]} -> Exception during parsing
      * To circumvent these inconsistencies, we catch this upfront and return
      * the correct empty geometry.
      * TODO: Remove if/when https://github.com/locationtech/jts/issues/684 is fixed.
@@ -244,7 +244,7 @@ public final class GeometryUtils
      * overrides the behavior of the locationtech library which returns invalid
      * GeoJSON in these cases. For example, in the case of an empty point,
      * locationtech would return:
-     *     {type:Point, coordinates:, ...}
+     * {type:Point, coordinates:, ...}
      * TODO: Remove if/when https://github.com/locationtech/jts/issues/411 is fixed
      */
     private static String getEmptyGeoJsonOverride(org.locationtech.jts.geom.Geometry geometry)

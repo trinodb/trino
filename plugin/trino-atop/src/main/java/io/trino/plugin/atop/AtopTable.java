@@ -119,7 +119,9 @@ public enum AtopTable
 
     public static class AtopColumn
     {
-        public static final AtopColumn HOST_IP = new AtopColumn("host_ip", VARCHAR.getTypeSignature(), (fields, type, builder, session) -> { throw new UnsupportedOperationException(); });
+        public static final AtopColumn HOST_IP = new AtopColumn("host_ip", VARCHAR.getTypeSignature(), (fields, type, builder, session) -> {
+            throw new UnsupportedOperationException();
+        });
 
         public static final AtopColumn START_TIME = new AtopColumn("start_time", TIMESTAMP_TZ_MILLIS.getTypeSignature(), ((fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;

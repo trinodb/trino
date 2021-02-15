@@ -522,6 +522,7 @@ public interface ConnectorMetadata
     /**
      * Do whatever is necessary to start an UPDATE query, returning the {@link ConnectorTableHandle}
      * instance that will be passed to split generation, and to the {@link #finishUpdate} method.
+     *
      * @param session The session in which to start the update operation.
      * @param tableHandle A ConnectorTableHandle for the table to be updated.
      * @param updatedColumns A list of the ColumnHandles of columns that will be updated by this UPDATE

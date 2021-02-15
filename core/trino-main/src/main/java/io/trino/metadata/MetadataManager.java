@@ -905,7 +905,7 @@ public final class MetadataManager
                 .map(TableHandle::getConnectorHandle)
                 .collect(toImmutableList());
         return metadata.finishRefreshMaterializedView(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), insertHandle.getConnectorHandle(),
-            fragments, computedStatistics, sourceConnectorHandles);
+                fragments, computedStatistics, sourceConnectorHandles);
     }
 
     @Override

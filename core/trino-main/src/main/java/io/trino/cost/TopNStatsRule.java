@@ -58,8 +58,8 @@ public class TopNStatsRule
         long limitCount = node.getCount();
 
         PlanNodeStatsEstimate resultStats = PlanNodeStatsEstimate.buildFrom(sourceStats)
-                                                                 .setOutputRowCount(limitCount)
-                                                                 .build();
+                .setOutputRowCount(limitCount)
+                .build();
         if (limitCount == 0) {
             return Optional.of(resultStats);
         }
