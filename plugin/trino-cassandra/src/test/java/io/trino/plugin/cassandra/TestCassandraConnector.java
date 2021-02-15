@@ -158,7 +158,7 @@ public class TestCassandraConnector
     {
         ConnectorTableHandle tableHandle = getTableHandle(table);
         ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(SESSION, tableHandle);
-        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(SESSION, tableHandle).values());
+        List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumns(SESSION, tableHandle));
         Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
         ConnectorTransactionHandle transaction = CassandraTransactionHandle.INSTANCE;

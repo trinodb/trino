@@ -24,7 +24,6 @@ import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.classloader.ThreadContextClassLoader;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -38,7 +37,6 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
@@ -106,8 +104,7 @@ public class DropStatsProcedure
 
         accessControl.checkCanInsertIntoTable(null, new SchemaTableName(schema, table));
 
-        Map<String, ColumnHandle> columns = hiveMetadata.getColumnHandles(session, handle);
-        List<String> partitionColumns = columns.values().stream()
+        List<String> partitionColumns = hiveMetadata.getColumns(session, handle).stream()
                 .map(HiveColumnHandle.class::cast)
                 .filter(HiveColumnHandle::isPartitionKey)
                 .map(HiveColumnHandle::getName)

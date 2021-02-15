@@ -453,7 +453,7 @@ public abstract class AbstractTestHiveFileSystem
 
             // load the new table
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumns(session, tableHandle));
 
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
@@ -489,7 +489,7 @@ public abstract class AbstractTestHiveFileSystem
             ConnectorSession session = newSession();
 
             ConnectorTableHandle table = getTableHandle(metadata, tableName);
-            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
+            List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumns(session, table));
 
             metadata.beginQuery(session);
             ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);

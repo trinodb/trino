@@ -827,8 +827,7 @@ public class RaptorMetadata
         long transactionId = table.getTransactionId().getAsLong();
         long tableId = table.getTableId();
 
-        List<ColumnInfo> columns = getColumnHandles(session, tableHandle).values().stream()
-                .map(RaptorColumnHandle.class::cast)
+        List<ColumnInfo> columns = getColumns(tableHandle).stream()
                 .map(ColumnInfo::fromHandle).collect(toList());
 
         ImmutableSet.Builder<UUID> oldShardUuidsBuilder = ImmutableSet.builder();
