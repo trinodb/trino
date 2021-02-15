@@ -91,7 +91,8 @@ public class TestDictionaryBlock
         assertEquals(copiedBlock.getDictionary().getPositionCount(), 1);
         assertEquals(copiedBlock.getPositionCount(), positionsToCopy.length);
         assertBlock(copiedBlock.getDictionary(), TestDictionaryBlock::createBlockBuilder, new Slice[] {firstExpectedValue});
-        assertBlock(copiedBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue});
+        assertBlock(copiedBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {
+                firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue, firstExpectedValue});
     }
 
     @Test
@@ -198,7 +199,8 @@ public class TestDictionaryBlock
     {
         Slice[] expectedValues = createExpectedValues(10);
         Block dictionaryBlock = new DictionaryBlock(createSlicesBlock(expectedValues), new int[] {0, 1, 2, 3, 4, 5});
-        assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5]});
+        assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {
+                expectedValues[0], expectedValues[1], expectedValues[2], expectedValues[3], expectedValues[4], expectedValues[5]});
         DictionaryId dictionaryId = ((DictionaryBlock) dictionaryBlock).getDictionarySourceId();
 
         // first getPositions
@@ -223,7 +225,8 @@ public class TestDictionaryBlock
 
         // duplicated getPositions
         dictionaryBlock = dictionaryBlock.getPositions(new int[] {1, 1, 1, 1, 1}, 0, 5);
-        assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5]});
+        assertBlock(dictionaryBlock, TestDictionaryBlock::createBlockBuilder, new Slice[] {
+                expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5], expectedValues[5]});
         assertEquals(((DictionaryBlock) dictionaryBlock).getDictionarySourceId(), dictionaryId);
 
         // out of range

@@ -31,9 +31,9 @@ public final class KafkaSessionProperties
     public KafkaSessionProperties(KafkaConfig kafkaConfig)
     {
         sessionProperties = ImmutableList.of(PropertyMetadata.booleanProperty(
-                        TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
-                        "Enable or disable timestamp upper bound push down for topic createTime mode",
-                        kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
+                TIMESTAMP_UPPER_BOUND_FORCE_PUSH_DOWN_ENABLED,
+                "Enable or disable timestamp upper bound push down for topic createTime mode",
+                kafkaConfig.isTimestampUpperBoundPushDownEnabled(), false));
     }
 
     @Override
@@ -46,8 +46,8 @@ public final class KafkaSessionProperties
      * If predicate specifies lower bound on _timestamp column (_timestamp > XXXX), it is always pushed down.
      * The upper bound predicate is pushed down only for topics using ``LogAppendTime`` mode.
      * For topics using ``CreateTime`` mode, upper bound push down must be explicitly
-     *  allowed via ``kafka.timestamp-upper-bound-force-push-down-enabled`` config property
-     *  or ``timestamp_upper_bound_force_push_down_enabled`` session property.
+     * allowed via ``kafka.timestamp-upper-bound-force-push-down-enabled`` config property
+     * or ``timestamp_upper_bound_force_push_down_enabled`` session property.
      */
     public static boolean isTimestampUpperBoundPushdownEnabled(ConnectorSession session)
     {

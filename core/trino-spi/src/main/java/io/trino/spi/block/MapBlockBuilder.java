@@ -205,6 +205,7 @@ public class MapBlockBuilder
      * When duplicate keys are discovered, the block is guaranteed to be in
      * a consistent state before {@link DuplicateMapKeyException} is thrown.
      * In other words, one can continue to use this BlockBuilder.
+     *
      * @deprecated use strict method instead
      */
     @Deprecated

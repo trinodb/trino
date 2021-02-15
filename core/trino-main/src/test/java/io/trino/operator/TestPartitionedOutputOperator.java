@@ -182,7 +182,9 @@ public class TestPartitionedOutputOperator
     private PartitionedOutputOperator createPartitionedOutputOperator(boolean shouldReplicate)
     {
         BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
-        PartitionFunction partitionFunction = new LocalPartitionGenerator(new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}, blockTypeOperators), PARTITION_COUNT);
+        PartitionFunction partitionFunction = new LocalPartitionGenerator(
+                new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}, blockTypeOperators),
+                PARTITION_COUNT);
         PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false);
 
         DriverContext driverContext = TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)

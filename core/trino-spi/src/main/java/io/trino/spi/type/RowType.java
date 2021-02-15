@@ -317,7 +317,7 @@ public class RowType
                 .addDistinctFromOperators(getDistinctFromOperatorInvokers(typeOperators, fields))
                 .addIndeterminateOperators(getIndeterminateOperatorInvokers(typeOperators, fields))
                 .addComparisonOperators(getComparisonOperatorInvokers(typeOperators, fields))
-               .build();
+                .build();
     }
 
     private static List<OperatorMethodHandle> getEqualOperatorMethodHandles(TypeOperators typeOperators, List<Field> fields)

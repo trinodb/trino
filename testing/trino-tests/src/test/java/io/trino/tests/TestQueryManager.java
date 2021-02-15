@@ -115,7 +115,8 @@ public class TestQueryManager
     }
 
     @Test(timeOut = 60_000L)
-    public void testQueryScanExceeded() throws Exception
+    public void testQueryScanExceeded()
+            throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().addExtraProperty("query.max-scan-physical-bytes", "0B").build()) {
             QueryId queryId = createQuery(queryRunner, TEST_SESSION, "SELECT * FROM system.runtime.nodes");
@@ -128,15 +129,16 @@ public class TestQueryManager
     }
 
     @Test(timeOut = 60_000L)
-    public void testQueryScanExceededSession() throws Exception
+    public void testQueryScanExceededSession()
+            throws Exception
     {
         try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             Session session = testSessionBuilder()
                     .setCatalog("tpch")
                     .setSchema(TINY_SCHEMA_NAME)
                     .setClientCapabilities(stream(ClientCapabilities.values())
-                        .map(ClientCapabilities::toString)
-                        .collect(toImmutableSet()))
+                            .map(ClientCapabilities::toString)
+                            .collect(toImmutableSet()))
                     .setSystemProperty("query_max_scan_physical_bytes", "0B")
                     .build();
             QueryId queryId = createQuery(queryRunner, session, "SELECT * FROM system.runtime.nodes");

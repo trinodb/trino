@@ -57,21 +57,21 @@ public class TestGroupingSets
     public void testDistinctWithMixedReferences()
     {
         assertThat(assertions.query("" +
-                        "SELECT a " +
-                        "FROM (VALUES 1) t(a) " +
-                        "GROUP BY DISTINCT ROLLUP(a, t.a)"))
+                "SELECT a " +
+                "FROM (VALUES 1) t(a) " +
+                "GROUP BY DISTINCT ROLLUP(a, t.a)"))
                 .matches("VALUES (1), (NULL)");
 
         assertThat(assertions.query("" +
-                        "SELECT a " +
-                        "FROM (VALUES 1) t(a) " +
-                        "GROUP BY DISTINCT GROUPING SETS ((a), (t.a))"))
+                "SELECT a " +
+                "FROM (VALUES 1) t(a) " +
+                "GROUP BY DISTINCT GROUPING SETS ((a), (t.a))"))
                 .matches("VALUES 1");
 
         assertThat(assertions.query("" +
-                        "SELECT a " +
-                        "FROM (VALUES 1) t(a) " +
-                        "GROUP BY DISTINCT a, GROUPING SETS ((), (t.a))"))
+                "SELECT a " +
+                "FROM (VALUES 1) t(a) " +
+                "GROUP BY DISTINCT a, GROUPING SETS ((), (t.a))"))
                 .matches("VALUES 1");
     }
 
@@ -79,10 +79,10 @@ public class TestGroupingSets
     public void testRollupAggregationWithOrderedLimit()
     {
         assertThat(assertions.query("" +
-                        "SELECT a " +
-                        "FROM (VALUES 3, 2, 1) t(a) " +
-                        "GROUP BY ROLLUP (a) " +
-                        "ORDER BY a LIMIT 2"))
+                "SELECT a " +
+                "FROM (VALUES 3, 2, 1) t(a) " +
+                "GROUP BY ROLLUP (a) " +
+                "ORDER BY a LIMIT 2"))
                 .matches("VALUES 1, 2");
     }
 }

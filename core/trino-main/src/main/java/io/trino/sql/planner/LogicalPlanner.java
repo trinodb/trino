@@ -434,20 +434,20 @@ public class LogicalPlanner
 
         if (isMaterializedViewRefresh) {
             return createTableWriterPlan(
-                analysis,
-                plan.getRoot(),
-                plan.getFieldMappings(),
-                requireNonNull(writerTarget, "writerTarget for materialized view refresh is null"),
-                insertedTableColumnNames,
-                insertedColumns,
-                newTableLayout,
-                statisticsMetadata);
+                    analysis,
+                    plan.getRoot(),
+                    plan.getFieldMappings(),
+                    requireNonNull(writerTarget, "writerTarget for materialized view refresh is null"),
+                    insertedTableColumnNames,
+                    insertedColumns,
+                    newTableLayout,
+                    statisticsMetadata);
         }
         InsertReference insertTarget = new InsertReference(
                 tableHandle,
                 insertedTableColumnNames.stream()
-                    .map(columns::get)
-                    .collect(toImmutableList()));
+                        .map(columns::get)
+                        .collect(toImmutableList()));
         return createTableWriterPlan(
                 analysis,
                 plan.getRoot(),
