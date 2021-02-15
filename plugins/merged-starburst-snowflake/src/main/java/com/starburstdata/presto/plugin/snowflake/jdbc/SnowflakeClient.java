@@ -221,7 +221,7 @@ public class SnowflakeClient
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
         if (typeName.equals("NUMBER")) {
-            int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+            int decimalDigits = typeHandle.getRequiredDecimalDigits();
             int precision = typeHandle.getRequiredColumnSize() + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
             if (precision > Decimals.MAX_PRECISION) {
                 return Optional.empty();
