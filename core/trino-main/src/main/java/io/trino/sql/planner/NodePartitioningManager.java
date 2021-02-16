@@ -100,7 +100,7 @@ public class NodePartitioningManager
         return new BucketPartitionFunction(bucketFunction, partitioningScheme.getBucketToPartition().get());
     }
 
-    private BucketFunction getBucketFunction(Session session, PartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
+    public BucketFunction getBucketFunction(Session session, PartitioningHandle partitioning, List<Type> partitionChannelTypes, int bucketCount)
     {
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning.getConnectorId().get());
         BucketFunction bucketFunction = partitioningProvider.getBucketFunction(
@@ -197,7 +197,7 @@ public class NodePartitioningManager
                 .collect(toImmutableList());
     }
 
-    private ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioning)
+    public ConnectorBucketNodeMap getConnectorBucketNodeMap(Session session, PartitioningHandle partitioning)
     {
         ConnectorNodePartitioningProvider partitioningProvider = getPartitioningProvider(partitioning.getConnectorId().get());
         ConnectorBucketNodeMap connectorBucketNodeMap = partitioningProvider.getBucketNodeMap(
