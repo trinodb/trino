@@ -15,27 +15,19 @@ package io.trino.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tests.product.launcher.docker.DockerFiles;
-import io.trino.tests.product.launcher.env.Debug;
-import io.trino.tests.product.launcher.env.DockerContainer;
 import io.trino.tests.product.launcher.env.Environment;
-import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
-import io.trino.tests.product.launcher.env.ServerPackage;
 import io.trino.tests.product.launcher.env.common.Hadoop;
-import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
-
-import java.io.File;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_ICEBERG_PROPERTIES;
-import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_JVM_CONFIG;
-import static io.trino.tests.product.launcher.env.common.Standard.createPrestoContainer;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -46,46 +38,23 @@ public final class Multinode
     private final DockerFiles dockerFiles;
     private final DockerFiles.ResourceProvider configDir;
 
-    private final String imagesVersion;
-    private final File serverPackage;
-    private final boolean debug;
-
     @Inject
-    public Multinode(
-            DockerFiles dockerFiles,
-            Standard standard,
-            Hadoop hadoop,
-            EnvironmentConfig environmentConfig,
-            @ServerPackage File serverPackage,
-            @Debug boolean debug)
+    public Multinode(DockerFiles dockerFiles, StandardMultinode standardMultinode, Hadoop hadoop)
     {
-        super(ImmutableList.of(standard, hadoop));
+        super(ImmutableList.of(standardMultinode, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/multinode");
-        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
-        this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
-        this.debug = debug;
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
-        builder.configureContainer(COORDINATOR, container -> {
-            container
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
-                    .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
-        });
+        builder.configureContainer(COORDINATOR, container -> container
+                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-master-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG));
 
-        builder.addContainer(createPrestoWorker());
-    }
-
-    @SuppressWarnings("resource")
-    private DockerContainer createPrestoWorker()
-    {
-        return createPrestoContainer(dockerFiles, serverPackage, debug, "ghcr.io/trinodb/testing/centos7-oj11:" + imagesVersion, WORKER)
+        builder.configureContainer(WORKER, container -> container
                 .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
-                .withCopyFileToContainer(forHostPath(configDir.getPath("multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
-                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
     }
 }
