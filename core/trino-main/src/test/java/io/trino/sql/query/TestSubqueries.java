@@ -597,4 +597,119 @@ public class TestSubqueries
 
         assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 where 0 = 1) t(a) LEFT JOIN LATERAL (SELECT 2 WHERE a = 1 ) t2(b) ON TRUE");
     }
+
+    @Test
+    public void testCorrelatedInnerUnnestWithGlobalAggregation()
+    {
+        assertThat(assertions.query(
+                "SELECT (SELECT array_agg(x) FROM UNNEST(a) u(x)) FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
+                .matches("VALUES ARRAY[1, 2, 3]");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT count(DISTINCT x) FROM UNNEST(a) u(x)) FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
+                .matches("VALUES BIGINT '3'");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT count(DISTINCT x * 0e0) - 10e0 FROM UNNEST(a) u(x)) FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
+                .matches("VALUES -9e0");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT max(count) FROM (SELECT count(v) AS count FROM UNNEST(id, val) u(i, v) GROUP BY i)) " +
+                        "FROM (VALUES (ARRAY['a', 'a', 'b'], ARRAY[1, 2, 3])) t(id, val)"))
+                .matches("VALUES BIGINT '2'");
+
+        // projection in unnest
+        assertThat(assertions.query(
+                "SELECT (SELECT histogram(e) FROM UNNEST(regexp_extract_all(x, '.')) u(e)) FROM (VALUES 'abccccdaee') t(x)"))
+                .matches("VALUES map(cast(ARRAY['a', 'b', 'c', 'd', 'e'] AS array(varchar(10))), cast(ARRAY[2, 1, 4, 1, 2] AS array(bigint)))");
+
+        // multiple rows in input
+        assertThat(assertions.query(
+                "SELECT (SELECT array_agg(x) FROM UNNEST(a) u(x)) " +
+                        "FROM (VALUES ARRAY[1, 2, 3], ARRAY[4], ARRAY[5, 6]) t(a)"))
+                .matches("VALUES ARRAY[1, 2, 3], ARRAY[4], ARRAY[5, 6]");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT count(DISTINCT x) FROM UNNEST(a) u(x)) " +
+                        "FROM (VALUES ARRAY[1, 2, 3], ARRAY[4], ARRAY[5, 6]) t(a)"))
+                .matches("VALUES BIGINT '3', 1, 2");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT max(count) FROM (SELECT count(v) AS count FROM UNNEST(id, val) u(i, v) GROUP BY i)) " +
+                        "FROM (VALUES " +
+                        "(ARRAY['a', 'a', 'b'], ARRAY[1, 2, 3]), " +
+                        "(ARRAY['c', 'd'],      ARRAY[4]), " +
+                        "(ARRAY['e'],           ARRAY[5, 6, 7, 8])) t(id, val)"))
+                .matches("VALUES BIGINT '2', 1, 3");
+
+        // multiple projections / coercions
+        assertThat(assertions.query(
+                "SELECT (SELECT max(count - 5e0) * -6 FROM (SELECT count(v * 2e0) - 3 AS count FROM UNNEST(id, val) u(i, v) GROUP BY i)) " +
+                        "FROM (VALUES (ARRAY['a', 'a', 'b'], ARRAY[1, 2, 3])) t(id, val)"))
+                .matches("VALUES 36e0");
+
+        // correlated symbol (id) used in projection in subquery
+        assertThat(assertions.query(
+                "SELECT (SELECT ROW(id, array_agg(x)) FROM UNNEST(a) u(x)) FROM (VALUES ('a', ARRAY[1, 2, 3]), ('b', ARRAY[4])) t(id, a)"))
+                .matches("VALUES ROW(ROW('a', ARRAY[1, 2, 3])), ROW(ROW('b', ARRAY[4]))");
+
+        // with ordinality
+        assertThat(assertions.query(
+                "SELECT (SELECT max(avg_ord) FROM (SELECT avg(ordinality) AS avg_ord FROM UNNEST(id, val) WITH ORDINALITY u(i, v, ordinality) GROUP BY i)) " +
+                        "FROM (VALUES (ARRAY['a', 'b', 'b'], ARRAY[1, 2, 3])) t(id, val)"))
+                .matches("VALUES 2.5e0");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT ROW(array_agg(x), array_agg(ordinality)) FROM UNNEST(a) WITH ORDINALITY u(x, ordinality)) " +
+                        "FROM (VALUES ARRAY[1, 2, 3], ARRAY[4], ARRAY[5, 6]) t(a)"))
+                .matches("VALUES ROW(ROW(ARRAY[1, 2, 3], CAST(ARRAY[1, 2, 3] AS array(bigint)))), ROW(ROW(ARRAY[4], ARRAY[1])), ROW(ROW(ARRAY[5, 6], ARRAY[1, 2]))");
+
+        // correlated grouping key - illegal by AggregationAnalyzer
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT max(count) FROM (SELECT count(v) AS count FROM UNNEST(id, val) u(i, v) GROUP BY id)) " +
+                        "FROM (VALUES (ARRAY['a', 'a', 'b'], ARRAY[1, 2, 3])) t(id, val)"))
+                .hasMessageMatching("Grouping field .* should originate from .*");
+
+        // aggregation with filter: all aggregations have filter, so filter is pushed down and it is not supported by the correlated unnest rewrite
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT array_agg(x) FILTER (WHERE x < 3) FROM UNNEST(a) u(x)) FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+
+        // aggregation with filter: no filter pushdown
+        assertThat(assertions.query(
+                "SELECT (SELECT ROW(array_agg(x) FILTER (WHERE x < 3), avg(x)) FROM UNNEST(a) u(x)) FROM (VALUES ARRAY[1, 2, 3]) t(a)"))
+                .matches("VALUES ROW(ROW(ARRAY[1, 2], 2e0))");
+
+        // empty input
+        assertThat(assertions.query(
+                "SELECT (SELECT array_agg(x) FROM UNNEST(a) u(x)) FROM (SELECT ARRAY[1, 2, 3] WHERE false) t(a)"))
+                .returnsEmptyResult();
+
+        assertThat(assertions.query(
+                "SELECT (SELECT count(DISTINCT x) FROM UNNEST(a) u(x)) FROM (SELECT ARRAY[1, 2, 3] WHERE false) t(a)"))
+                .returnsEmptyResult();
+
+        // empty unnest results for some input rows
+        assertThat(assertions.query(
+                "SELECT (SELECT count(x) FROM UNNEST(a) u(x)) " +
+                        "FROM (VALUES ARRAY[1, 2, 3], null, ARRAY[4], ARRAY[]) t(a)"))
+                .matches("VALUES BIGINT '3', 0, 1, 0");
+
+        assertThat(assertions.query(
+                "SELECT (SELECT max(count) FROM (SELECT count(v) AS count FROM UNNEST(id, val) u(i, v) GROUP BY i)) " +
+                        "FROM (VALUES " +
+                        "(ARRAY['a', 'a', 'b'], ARRAY[1, 2, 3]), " +
+                        "(ARRAY[],              ARRAY[]), " +
+                        "(null,                 null)) t(id, val)"))
+                .matches("VALUES BIGINT '2', null, null");
+
+        // two levels of decorrelation
+        assertThat(assertions.query(
+                "SELECT (SELECT array_agg(y) FROM UNNEST(b) u2(y)) " +
+                        "FROM (" +
+                        "      SELECT (SELECT array_agg(x) FROM UNNEST(a) u(x)) " +
+                        "      FROM (VALUES ARRAY[1, 2, 3]) t(a)" +
+                        ") t2(b)"))
+                .matches("VALUES ARRAY[1, 2, 3]");
+    }
 }
