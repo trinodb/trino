@@ -965,12 +965,9 @@ public class IcebergMetadata
 
     private boolean isMaterializedView(Table table)
     {
-        if (table.getTableType().equals(VIRTUAL_VIEW.name()) &&
-                "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG)) &&
-                table.getParameters().containsKey(STORAGE_TABLE)) {
-            return true;
-        }
-        return false;
+        return table.getTableType().equals(VIRTUAL_VIEW.name())
+                && "true".equals(table.getParameters().get(PRESTO_VIEW_FLAG))
+                && table.getParameters().containsKey(STORAGE_TABLE);
     }
 
     private boolean isMaterializedView(ConnectorSession session, SchemaTableName schemaTableName)
