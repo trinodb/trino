@@ -108,7 +108,7 @@ public class TestShowQueries
     {
         assertThat(assertions.query(
                 "SHOW SESSION LIKE '%page_row_c%'"))
-                .matches("VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(96)))");
+                .matches("VALUES (cast('filter_and_project_min_output_page_row_count' as VARCHAR(53)), cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(103)))");
     }
 
     @Test
@@ -120,7 +120,7 @@ public class TestShowQueries
                 .hasMessage("Escape string must be a single character");
         assertThat(assertions.query(
                 "SHOW SESSION LIKE '%page$_row$_c%' ESCAPE '$'"))
-                .matches("VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(96)))");
+                .matches("VALUES (cast('filter_and_project_min_output_page_row_count' as VARCHAR(53)), cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(103)))");
     }
 
     @Test

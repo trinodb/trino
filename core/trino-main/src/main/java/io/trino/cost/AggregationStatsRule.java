@@ -76,12 +76,7 @@ public class AggregationStatsRule
             }));
         }
 
-        double rowsCount = 1;
-        for (Symbol groupBySymbol : groupBySymbols) {
-            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
-            int nullRow = (symbolStatistics.getNullsFraction() == 0.0) ? 0 : 1;
-            rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
-        }
+        double rowsCount = getRowsCount(sourceStats, groupBySymbols);
         result.setOutputRowCount(min(rowsCount, sourceStats.getOutputRowCount()));
 
         for (Map.Entry<Symbol, Aggregation> aggregationEntry : aggregations.entrySet()) {
@@ -89,6 +84,17 @@ public class AggregationStatsRule
         }
 
         return result.build();
+    }
+
+    public static double getRowsCount(PlanNodeStatsEstimate sourceStats, Collection<Symbol> groupBySymbols)
+    {
+        double rowsCount = 1;
+        for (Symbol groupBySymbol : groupBySymbols) {
+            SymbolStatsEstimate symbolStatistics = sourceStats.getSymbolStatistics(groupBySymbol);
+            int nullRow = (symbolStatistics.getNullsFraction() == 0.0) ? 0 : 1;
+            rowsCount *= symbolStatistics.getDistinctValuesCount() + nullRow;
+        }
+        return rowsCount;
     }
 
     private static SymbolStatsEstimate estimateAggregationStats(Aggregation aggregation, PlanNodeStatsEstimate sourceStats)
