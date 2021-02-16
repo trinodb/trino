@@ -23,9 +23,14 @@ import io.airlift.units.DataSize;
 import io.trino.ExceededMemoryLimitException;
 import io.trino.RowPagesBuilder;
 import io.trino.execution.Lifespan;
+import io.trino.execution.NodeTaskMap;
 import io.trino.execution.TaskId;
 import io.trino.execution.TaskStateMachine;
+import io.trino.execution.scheduler.NodeScheduler;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
+import io.trino.execution.scheduler.UniformNodeSelectorFactory;
 import io.trino.memory.context.LocalMemoryContext;
+import io.trino.metadata.InMemoryNodeManager;
 import io.trino.operator.HashBuilderOperator.HashBuilderOperatorFactory;
 import io.trino.operator.ValuesOperator.ValuesOperatorFactory;
 import io.trino.operator.exchange.LocalExchange.LocalExchangeFactory;
@@ -44,10 +49,12 @@ import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.spiller.SingleStreamSpiller;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
+import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
 import io.trino.type.BlockTypeOperators;
+import io.trino.util.FinalizerService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -119,6 +126,7 @@ public class TestHashJoinOperator
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
+    private NodePartitioningManager nodePartitioningManager;
 
     @BeforeMethod
     public void setUp()
@@ -138,6 +146,12 @@ public class TestHashJoinOperator
                 daemonThreadsNamed("test-executor-%s"),
                 new ThreadPoolExecutor.DiscardPolicy());
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
+
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
+                new InMemoryNodeManager(),
+                new NodeSchedulerConfig().setIncludeCoordinator(true),
+                new NodeTaskMap(new FinalizerService())));
+        nodePartitioningManager = new NodePartitioningManager(nodeScheduler, new BlockTypeOperators(new TypeOperators()));
     }
 
     @AfterMethod(alwaysRun = true)
@@ -1555,6 +1569,8 @@ public class TestHashJoinOperator
 
         int partitionCount = parallelBuild ? PARTITION_COUNT : 1;
         LocalExchangeFactory localExchangeFactory = new LocalExchangeFactory(
+                nodePartitioningManager,
+                taskContext.getSession(),
                 FIXED_HASH_DISTRIBUTION,
                 partitionCount,
                 buildPages.getTypes(),
