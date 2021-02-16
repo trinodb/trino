@@ -13,13 +13,9 @@
  */
 package io.trino.spi.connector;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorTableMetadata
@@ -27,19 +23,13 @@ public class ConnectorTableMetadata
     private final SchemaTableName table;
     private final Optional<String> comment;
     private final List<ColumnMetadata> columns;
-    private final Map<String, Object> properties;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)
     {
-        this(table, columns, emptyMap());
+        this(table, columns, Optional.empty());
     }
 
-    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties)
-    {
-        this(table, columns, properties, Optional.empty());
-    }
-
-    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Map<String, Object> properties, Optional<String> comment)
+    public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns, Optional<String> comment)
     {
         requireNonNull(table, "table is null");
         requireNonNull(columns, "columns is null");
@@ -47,7 +37,6 @@ public class ConnectorTableMetadata
 
         this.table = table;
         this.columns = List.copyOf(columns);
-        this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
         this.comment = comment;
     }
 
@@ -61,11 +50,6 @@ public class ConnectorTableMetadata
         return columns;
     }
 
-    public Map<String, Object> getProperties()
-    {
-        return properties;
-    }
-
     public Optional<String> getComment()
     {
         return comment;
@@ -77,7 +61,6 @@ public class ConnectorTableMetadata
         StringBuilder sb = new StringBuilder("ConnectorTableMetadata{");
         sb.append("table=").append(table);
         sb.append(", columns=").append(columns);
-        sb.append(", properties=").append(properties);
         comment.ifPresent(value -> sb.append(", comment='").append(value).append("'"));
         sb.append('}');
         return sb.toString();

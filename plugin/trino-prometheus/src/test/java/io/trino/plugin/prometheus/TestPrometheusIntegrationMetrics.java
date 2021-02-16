@@ -109,7 +109,7 @@ public class TestPrometheusIntegrationMetrics
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("default", "foo"),
-                        ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))),
+                        ImmutableList.of(new ColumnMetadata("text", createUnboundedVarcharType()))), ,
                 false);
     }
 

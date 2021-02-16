@@ -751,10 +751,10 @@ class StatementAnalyzer
                     accessControl,
                     analysis.getParameters());
 
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), node.getComment());
 
             // analyze target table layout
-            Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata);
+            Optional<NewTableLayout> newTableLayout = metadata.getNewTableLayout(session, targetTable.getCatalogName(), tableMetadata, tableProperties);
 
             Set<String> columnNames = columns.build().stream()
                     .map(ColumnMetadata::getName)

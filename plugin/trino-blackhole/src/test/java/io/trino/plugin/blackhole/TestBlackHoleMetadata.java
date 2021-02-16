@@ -61,7 +61,7 @@ public class TestBlackHoleMetadata
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties),
+                new ConnectorTableMetadata(schemaTableName, ImmutableList.of()), ,
                 Optional.empty());
 
         assertThatNoTableIsCreated();
@@ -78,7 +78,7 @@ public class TestBlackHoleMetadata
     {
         SchemaTableName schemaTableName = new SchemaTableName("schema1", "test_table");
         try {
-            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), tableProperties), Optional.empty());
+            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(schemaTableName, ImmutableList.of()), , Optional.empty());
             fail("Should fail because schema does not exist");
         }
         catch (TrinoException ex) {

@@ -2966,14 +2966,14 @@ public class TestAnalyzer
                         new ColumnMetadata("b", BIGINT),
                         new ColumnMetadata("c", BIGINT),
                         new ColumnMetadata("d", BIGINT))),
-                false));
+                tableProperties, false));
 
         SchemaTableName table2 = new SchemaTableName("s1", "t2");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
                 new ConnectorTableMetadata(table2, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT))),
-                false));
+                tableProperties, false));
 
         SchemaTableName table3 = new SchemaTableName("s1", "t3");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
@@ -2981,14 +2981,14 @@ public class TestAnalyzer
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT),
                         new ColumnMetadata("x", BIGINT, null, true))),
-                false));
+                tableProperties, false));
 
         // table in different catalog
         SchemaTableName table4 = new SchemaTableName("s2", "t4");
         inSetupTransaction(session -> metadata.createTable(session, SECOND_CATALOG,
                 new ConnectorTableMetadata(table4, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT))),
-                false));
+                tableProperties, false));
 
         // table with a hidden column
         SchemaTableName table5 = new SchemaTableName("s1", "t5");
@@ -2996,7 +2996,7 @@ public class TestAnalyzer
                 new ConnectorTableMetadata(table5, ImmutableList.of(
                         new ColumnMetadata("a", BIGINT),
                         new ColumnMetadata("b", BIGINT, null, true))),
-                false));
+                tableProperties, false));
 
         // table with a varchar column
         SchemaTableName table6 = new SchemaTableName("s1", "t6");
@@ -3006,7 +3006,7 @@ public class TestAnalyzer
                         new ColumnMetadata("b", VARCHAR),
                         new ColumnMetadata("c", BIGINT),
                         new ColumnMetadata("d", BIGINT))),
-                false));
+                tableProperties, false));
 
         // table with bigint, double, array of bigints and array of doubles column
         SchemaTableName table7 = new SchemaTableName("s1", "t7");
@@ -3016,7 +3016,7 @@ public class TestAnalyzer
                         new ColumnMetadata("b", DOUBLE),
                         new ColumnMetadata("c", new ArrayType(BIGINT)),
                         new ColumnMetadata("d", new ArrayType(DOUBLE)))),
-                false));
+                tableProperties, false));
 
         // valid view referencing table in same schema
         ConnectorViewDefinition viewData1 = new ConnectorViewDefinition(
@@ -3089,7 +3089,7 @@ public class TestAnalyzer
                         new ColumnMetadata("nested_bounded_varchar_column", anonymousRow(createVarcharType(3))),
                         new ColumnMetadata("row_column", anonymousRow(TINYINT, createUnboundedVarcharType())),
                         new ColumnMetadata("date_column", DATE))),
-                false));
+                tableProperties, false));
 
         // for identifier chain resolving tests
         catalogManager.registerCatalog(createTestingCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS_NAME));
@@ -3102,39 +3102,39 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(b, ImmutableList.of(
                         new ColumnMetadata("x", VARCHAR))),
-                false));
+                tableProperties, false));
 
         SchemaTableName t1 = new SchemaTableName("a", "t1");
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t1, ImmutableList.of(
                         new ColumnMetadata("b", rowType))),
-                false));
+                tableProperties, false));
 
         SchemaTableName t2 = new SchemaTableName("a", "t2");
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t2, ImmutableList.of(
                         new ColumnMetadata("a", rowType))),
-                false));
+                tableProperties, false));
 
         SchemaTableName t3 = new SchemaTableName("a", "t3");
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t3, ImmutableList.of(
                         new ColumnMetadata("b", nestedRowType),
                         new ColumnMetadata("c", BIGINT))),
-                false));
+                tableProperties, false));
 
         SchemaTableName t4 = new SchemaTableName("a", "t4");
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t4, ImmutableList.of(
                         new ColumnMetadata("b", doubleNestedRowType),
                         new ColumnMetadata("c", BIGINT))),
-                false));
+                tableProperties, false));
 
         SchemaTableName t5 = new SchemaTableName("a", "t5");
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t5, ImmutableList.of(
                         new ColumnMetadata("b", singleFieldRowType))),
-                false));
+                tableProperties, false));
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)

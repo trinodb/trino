@@ -172,6 +172,16 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Return properties for the specified table handle.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    default TableObjectProperties getTableObjectProperties(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return TableObjectProperties.empty();
+    }
+
+    /**
      * Return the connector-specific metadata for the specified table layout. This is the object that is passed to the event listener framework.
      *
      * @throws RuntimeException if table handle is no longer valid
@@ -266,11 +276,11 @@ public interface ConnectorMetadata
     }
 
     /**
-     * Creates a table using the specified table metadata.
+     * Creates a table using the specified table metadata and properties.
      *
      * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
      */
-    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, TableObjectProperties tableProperties, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
@@ -344,7 +354,7 @@ public interface ConnectorMetadata
     /**
      * Get the physical layout for a new table.
      */
-    default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    default Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata, TableObjectProperties tableParameters)
     {
         return Optional.empty();
     }
@@ -370,7 +380,7 @@ public interface ConnectorMetadata
     /**
      * Describes statistics that must be collected during a write.
      */
-    default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    default TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata, TableObjectProperties tableParameters)
     {
         return TableStatisticsMetadata.empty();
     }
@@ -378,7 +388,7 @@ public interface ConnectorMetadata
     /**
      * Describe statistics that must be collected during a statistics collection
      */
-    default TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    default TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata, TableObjectProperties tableParameters)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata getTableHandleForStatisticsCollection() is implemented without getStatisticsCollectionMetadata()");
     }
@@ -402,7 +412,7 @@ public interface ConnectorMetadata
     /**
      * Begin the atomic creation of a table with data.
      */
-    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, TableObjectProperties tableParameters, Optional<ConnectorNewTableLayout> layout)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }

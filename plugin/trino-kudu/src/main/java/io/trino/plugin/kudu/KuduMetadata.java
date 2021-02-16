@@ -42,6 +42,7 @@ import io.trino.spi.connector.NotFoundException;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableObjectProperties;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.TrinoPrincipal;
@@ -167,7 +168,7 @@ public class KuduMetadata
                 .collect(toImmutableList());
 
         Map<String, Object> properties = clientSession.getTableProperties(tableHandle);
-        return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columnsMetaList, properties);
+        return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columnsMetaList);
     }
 
     @Override
@@ -276,7 +277,7 @@ public class KuduMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, TableObjectProperties tableProperties, boolean ignoreExisting)
     {
         clientSession.createTable(tableMetadata, ignoreExisting);
     }
@@ -350,7 +351,7 @@ public class KuduMetadata
     public ConnectorOutputTableHandle beginCreateTable(
             ConnectorSession session,
             ConnectorTableMetadata tableMetadata,
-            Optional<ConnectorNewTableLayout> layout)
+            TableObjectProperties tableParameters, Optional<ConnectorNewTableLayout> layout)
     {
         PartitionDesign design = KuduTableProperties.getPartitionDesign(tableMetadata.getProperties());
         boolean generateUUID = !design.hasPartitions();
@@ -373,7 +374,7 @@ public class KuduMetadata
             propsCopy.put(KuduTableProperties.PARTITION_BY_HASH_BUCKETS, 2);
             Map<String, Object> finalProperties = ImmutableMap.copyOf(propsCopy);
             finalTableMetadata = new ConnectorTableMetadata(tableMetadata.getTable(),
-                    finalColumns, finalProperties, tableMetadata.getComment());
+                    finalColumns, tableMetadata.getComment());
         }
         KuduTable table = clientSession.createTable(finalTableMetadata, false);
 

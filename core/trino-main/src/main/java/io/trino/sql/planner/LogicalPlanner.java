@@ -310,7 +310,7 @@ public class LogicalPlanner
         TableStatisticsMetadata tableStatisticsMetadata = metadata.getStatisticsCollectionMetadata(
                 session,
                 targetTable.getCatalogName().getCatalogName(),
-                tableMetadata.getMetadata());
+                tableMetadata.getMetadata(), tableProperties);
 
         TableStatisticAggregation tableStatisticAggregation = statisticsAggregationPlanner.createStatisticsAggregation(tableStatisticsMetadata, columnNameToSymbol.build());
         StatisticAggregations statisticAggregations = tableStatisticAggregation.getAggregations();
@@ -354,7 +354,7 @@ public class LogicalPlanner
                 .map(ColumnMetadata::getName)
                 .collect(toImmutableList());
 
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata);
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, destination.getCatalogName(), tableMetadata, tableProperties);
 
         return createTableWriterPlan(
                 analysis,
@@ -430,7 +430,7 @@ public class LogicalPlanner
                 .collect(toImmutableList());
 
         String catalogName = tableHandle.getCatalogName().getCatalogName();
-        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata());
+        TableStatisticsMetadata statisticsMetadata = metadata.getStatisticsCollectionMetadataForWrite(session, catalogName, tableMetadata.getMetadata(), tableProperties);
 
         if (isMaterializedViewRefresh) {
             return createTableWriterPlan(

@@ -14,7 +14,6 @@
 package io.trino.plugin.raptor.legacy;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
 import io.airlift.bootstrap.LifeCycleManager;
@@ -61,7 +60,6 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.operator.scalar.timestamp.VarcharToTimestampCast.castToShortTimestamp;
-import static io.trino.plugin.raptor.legacy.RaptorTableProperties.TEMPORAL_COLUMN_PROPERTY;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.TestOrcStorageManager.createOrcStorageManager;
@@ -220,8 +218,8 @@ public class TestRaptorConnector
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", "test"),
-                        ImmutableList.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("time", temporalType)),
-                        ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "time")),
+                        ImmutableList.of(new ColumnMetadata("id", BIGINT), new ColumnMetadata("time", temporalType))
+                ), ,
                 false);
         connector.commit(transaction);
 
@@ -262,7 +260,7 @@ public class TestRaptorConnector
                 SESSION,
                 new ConnectorTableMetadata(
                         new SchemaTableName("test", name),
-                        ImmutableList.of(new ColumnMetadata("id", BIGINT))),
+                        ImmutableList.of(new ColumnMetadata("id", BIGINT))), ,
                 false);
         connector.commit(transaction);
 

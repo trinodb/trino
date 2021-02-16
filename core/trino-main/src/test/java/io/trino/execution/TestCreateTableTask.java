@@ -35,6 +35,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableObjectProperties;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
@@ -52,7 +53,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -96,8 +96,8 @@ public class TestCreateTableTask
     private static final String CATALOG_NAME = "catalog";
     private static final ConnectorTableMetadata PARENT_TABLE = new ConnectorTableMetadata(
             new SchemaTableName("schema", "parent_table"),
-            List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT)),
-            Map.of("baz", "property_value"));
+            List.of(new ColumnMetadata("a", SMALLINT), new ColumnMetadata("b", BIGINT))
+    );
 
     private Session testSession;
     private MockMetadata metadata;
@@ -296,7 +296,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, TableObjectProperties tableProperties, boolean ignoreExisting)
         {
             tables.add(tableMetadata);
             if (!ignoreExisting) {

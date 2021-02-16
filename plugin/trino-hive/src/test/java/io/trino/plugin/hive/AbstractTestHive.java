@@ -2249,7 +2249,7 @@ public abstract class AbstractTestHive
                 // begin creating the table
                 ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(temporaryCreateRollbackTable, CREATE_TABLE_COLUMNS, createTableProperties(RCBINARY));
 
-                ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+                ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, , Optional.empty());
 
                 // write the data
                 ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
@@ -2407,7 +2407,7 @@ public abstract class AbstractTestHive
                                     .build())
                             .build());
 
-            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, , Optional.empty());
 
             // write the data
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
@@ -2654,7 +2654,7 @@ public abstract class AbstractTestHive
                 ConnectorMetadata metadata = transaction.getMetadata();
                 List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", HYPER_LOG_LOG));
                 ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(invalidTable, columns, createTableProperties(storageFormat));
-                metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+                metadata.beginCreateTable(session, tableMetadata, , Optional.empty());
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
             }
             catch (TrinoException e) {
@@ -2911,7 +2911,7 @@ public abstract class AbstractTestHive
 
             List<ColumnMetadata> columns = ImmutableList.of(new ColumnMetadata("dummy", createUnboundedVarcharType()));
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, columns, createTableProperties(TEXTFILE));
-            ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+            ConnectorOutputTableHandle handle = metadata.beginCreateTable(session, tableMetadata, , Optional.empty());
             metadata.finishCreateTable(session, handle, ImmutableList.of(), ImmutableList.of());
 
             transaction.commit();
@@ -3373,7 +3373,7 @@ public abstract class AbstractTestHive
             // begin creating the table
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, CREATE_TABLE_COLUMNS, createTableProperties(storageFormat));
 
-            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, Optional.empty());
+            ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(session, tableMetadata, , Optional.empty());
 
             // write the data
             ConnectorPageSink sink = pageSinkProvider.createPageSink(transaction.getTransactionHandle(), session, outputHandle);
@@ -3444,7 +3444,7 @@ public abstract class AbstractTestHive
             queryId = session.getQueryId();
 
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(tableName, createTableColumns, createTableProperties(storageFormat, partitionedBy));
-            metadata.createTable(session, tableMetadata, false);
+            metadata.createTable(session, tableMetadata, , false);
             transaction.commit();
         }
 
@@ -5038,7 +5038,7 @@ public abstract class AbstractTestHive
                                     PARTITIONED_BY_PROPERTY, ImmutableList.of("column2"),
                                     BUCKETED_BY_PROPERTY, ImmutableList.of(),
                                     BUCKET_COUNT_PROPERTY, 0,
-                                    SORTED_BY_PROPERTY, ImmutableList.of())));
+                                    SORTED_BY_PROPERTY, ImmutableList.of())), );
             assertTrue(newTableLayout.isPresent());
             assertFalse(newTableLayout.get().getPartitioning().isPresent());
             assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column2"));
@@ -5062,7 +5062,7 @@ public abstract class AbstractTestHive
                                     PARTITIONED_BY_PROPERTY, ImmutableList.of(),
                                     BUCKETED_BY_PROPERTY, ImmutableList.of("column1"),
                                     BUCKET_COUNT_PROPERTY, 10,
-                                    SORTED_BY_PROPERTY, ImmutableList.of())));
+                                    SORTED_BY_PROPERTY, ImmutableList.of())), );
             assertTrue(newTableLayout.isPresent());
             ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
                     BUCKETING_V1,
@@ -5095,7 +5095,7 @@ public abstract class AbstractTestHive
                                     PARTITIONED_BY_PROPERTY, ImmutableList.of("column2"),
                                     BUCKETED_BY_PROPERTY, ImmutableList.of("column1"),
                                     BUCKET_COUNT_PROPERTY, 10,
-                                    SORTED_BY_PROPERTY, ImmutableList.of())));
+                                    SORTED_BY_PROPERTY, ImmutableList.of())), );
             assertTrue(newTableLayout.isPresent());
             ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
                     BUCKETING_V1,

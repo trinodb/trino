@@ -14,7 +14,6 @@
 package io.trino.plugin.thrift;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.thrift.api.TrinoThriftColumnMetadata;
 import io.trino.plugin.thrift.api.TrinoThriftTableMetadata;
@@ -81,7 +80,6 @@ class ThriftTableMetadata
         return new ConnectorTableMetadata(
                 schemaTableName,
                 columns,
-                ImmutableMap.of(),
                 comment);
     }
 

@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.TableObjectProperties;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
@@ -160,7 +161,7 @@ public class TestingMetadata
     }
 
     @Override
-    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, TableObjectProperties tableProperties, boolean ignoreExisting)
     {
         ConnectorTableMetadata existingTable = tables.putIfAbsent(tableMetadata.getTable(), tableMetadata);
         if (existingTable != null && !ignoreExisting) {
@@ -219,9 +220,9 @@ public class TestingMetadata
     }
 
     @Override
-    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, TableObjectProperties tableProperties, Optional<ConnectorNewTableLayout> layout)
     {
-        createTable(session, tableMetadata, false);
+        createTable(session, tableMetadata, tableProperties, false);
         return TestingHandle.INSTANCE;
     }
 
@@ -251,7 +252,7 @@ public class TestingMetadata
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
         columns.addAll(tableMetadata.getColumns());
         columns.add(column);
-        tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build(), tableMetadata.getProperties(), tableMetadata.getComment()));
+        tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build(), tableMetadata.getComment()));
     }
 
     @Override
@@ -262,7 +263,7 @@ public class TestingMetadata
         ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, source);
         List<ColumnMetadata> columns = new ArrayList<>(tableMetadata.getColumns());
         columns.set(columns.indexOf(columnMetadata), ColumnMetadata.builderFrom(columnMetadata).setName(target).build());
-        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getProperties(), tableMetadata.getComment()));
+        tables.put(tableName, new ConnectorTableMetadata(tableName, ImmutableList.copyOf(columns), tableMetadata.getComment()));
     }
 
     @Override

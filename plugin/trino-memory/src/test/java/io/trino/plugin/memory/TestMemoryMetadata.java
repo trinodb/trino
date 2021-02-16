@@ -67,7 +67,7 @@ public class TestMemoryMetadata
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(schemaTableName, ImmutableList.of(), ImmutableMap.of()),
+                new ConnectorTableMetadata(schemaTableName, ImmutableList.of()), ,
                 Optional.empty());
 
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
@@ -84,10 +84,10 @@ public class TestMemoryMetadata
 
         SchemaTableName test1Table = new SchemaTableName("default", "test1");
         SchemaTableName test2Table = new SchemaTableName("default", "test2");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), , false);
 
         try {
-            metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), false);
+            metadata.createTable(SESSION, new ConnectorTableMetadata(test1Table, ImmutableList.of()), , false);
             fail("Should fail because table already exists");
         }
         catch (TrinoException ex) {
@@ -96,7 +96,7 @@ public class TestMemoryMetadata
         }
 
         ConnectorTableHandle test1TableHandle = metadata.getTableHandle(SESSION, test1Table);
-        metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(test2Table, ImmutableList.of()), , false);
 
         try {
             metadata.renameTable(SESSION, test1TableHandle, test2Table);
@@ -114,7 +114,7 @@ public class TestMemoryMetadata
         assertNoTables();
 
         SchemaTableName firstTableName = new SchemaTableName("default", "first_table");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of(), ImmutableMap.of()), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(firstTableName, ImmutableList.of()), , false);
 
         MemoryTableHandle firstTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, firstTableName);
         long firstTableId = firstTableHandle.getId();
@@ -122,7 +122,7 @@ public class TestMemoryMetadata
         assertTrue(metadata.beginInsert(SESSION, firstTableHandle, ImmutableList.of()).getActiveTableIds().contains(firstTableId));
 
         SchemaTableName secondTableName = new SchemaTableName("default", "second_table");
-        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of(), ImmutableMap.of()), false);
+        metadata.createTable(SESSION, new ConnectorTableMetadata(secondTableName, ImmutableList.of()), , false);
 
         MemoryTableHandle secondTableHandle = (MemoryTableHandle) metadata.getTableHandle(SESSION, secondTableName);
         long secondTableId = secondTableHandle.getId();
@@ -141,7 +141,7 @@ public class TestMemoryMetadata
 
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
+                new ConnectorTableMetadata(tableName, ImmutableList.of()), ,
                 Optional.empty());
 
         List<SchemaTableName> tableNames = metadata.listTables(SESSION, Optional.empty());
@@ -163,8 +163,8 @@ public class TestMemoryMetadata
                 SESSION,
                 new ConnectorTableMetadata(
                         tableName,
-                        ImmutableList.of(),
-                        ImmutableMap.of()),
+                        ImmutableList.of()
+                ), ,
                 false);
 
         assertEquals(metadata.listTables(SESSION, Optional.empty()), ImmutableList.of(tableName));
@@ -284,7 +284,7 @@ public class TestMemoryMetadata
 
         SchemaTableName table1 = new SchemaTableName("test1", "test_schema_table1");
         try {
-            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, ImmutableList.of(), ImmutableMap.of()), Optional.empty());
+            metadata.beginCreateTable(SESSION, new ConnectorTableMetadata(table1, ImmutableList.of()), , Optional.empty());
             fail("Should fail because schema does not exist");
         }
         catch (TrinoException ex) {
@@ -325,7 +325,7 @@ public class TestMemoryMetadata
         metadata.createSchema(SESSION, "test_schema", ImmutableMap.of(), new TrinoPrincipal(USER, SESSION.getUser()));
         ConnectorOutputTableHandle table = metadata.beginCreateTable(
                 SESSION,
-                new ConnectorTableMetadata(tableName, ImmutableList.of(), ImmutableMap.of()),
+                new ConnectorTableMetadata(tableName, ImmutableList.of()), ,
                 Optional.empty());
         metadata.finishCreateTable(SESSION, table, ImmutableList.of(), ImmutableList.of());
 

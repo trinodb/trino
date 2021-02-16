@@ -71,7 +71,7 @@ public class TestAccumuloClient
             new AccumuloTableProperties().getTableProperties().forEach(meta -> properties.put(meta.getName(), meta.getDefaultValue()));
             properties.put("external", true);
             properties.put("column_mapping", "a:a:a,b::b,c:c:,d::");
-            client.createTable(new ConnectorTableMetadata(tableName, columns, properties));
+            client.createTable(new ConnectorTableMetadata(tableName, columns));
             assertNotNull(client.getTable(tableName));
         }
         finally {

@@ -208,7 +208,7 @@ public class TestShardMetadataRecordCursor
 
     private void createTable(ConnectorTableMetadata table)
     {
-        metadata.createTable(SESSION, table, false);
+        metadata.createTable(SESSION, table, , false);
     }
 
     private static List<MaterializedRow> getMaterializedResults(RecordCursor cursor, List<ColumnMetadata> columns)

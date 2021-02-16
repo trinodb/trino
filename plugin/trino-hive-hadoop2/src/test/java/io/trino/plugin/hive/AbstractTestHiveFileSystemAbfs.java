@@ -88,7 +88,7 @@ public abstract class AbstractTestHiveFileSystemAbfs
                             .put(SORTED_BY_PROPERTY, ImmutableList.of())
                             .build());
             if (!transaction.getMetadata().listTables(newSession(), Optional.of(table.getSchemaName())).contains(table)) {
-                transaction.getMetadata().createTable(newSession(), tableMetadata, false);
+                transaction.getMetadata().createTable(newSession(), tableMetadata, , false);
             }
             transaction.commit();
         }
