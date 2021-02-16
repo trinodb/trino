@@ -14,7 +14,6 @@
 package io.trino.spi.connector;
 
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,7 +46,8 @@ public class ConnectorTableMetadata
 
         this.table = table;
         this.columns = List.copyOf(columns);
-        this.properties = Collections.unmodifiableMap(new LinkedHashMap<>(properties));
+        // Avoiding doing a copy as properties can be lazy
+        this.properties = Collections.unmodifiableMap(properties);
         this.comment = comment;
     }
 

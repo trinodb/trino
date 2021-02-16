@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.trino.spi.TrinoException;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -342,7 +343,14 @@ public class JdbcMetadata
                 ? handle.getRequiredNamedRelation().getSchemaTableName()
                 // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
                 : new SchemaTableName("_prepared", "query");
-        return new ConnectorTableMetadata(schemaTableName, columnMetadata.build(), jdbcClient.getTableProperties(session, handle));
+
+        Map<String, Object> properties = LazyMaps.of(() -> {
+            try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(JdbcMetadata.class.getClassLoader())) {
+                return jdbcClient.getTableProperties(session, handle)
+                        .entrySet();
+            }
+        });
+        return new ConnectorTableMetadata(schemaTableName, columnMetadata.build(), properties);
     }
 
     @Override

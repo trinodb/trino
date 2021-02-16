@@ -17,7 +17,6 @@ import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -94,7 +93,8 @@ public class ColumnMetadata
         this.comment = comment;
         this.extraInfo = extraInfo;
         this.hidden = hidden;
-        this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(new LinkedHashMap<>(properties));
+        // Avoiding doing a copy as properties can be lazy
+        this.properties = properties.isEmpty() ? emptyMap() : unmodifiableMap(properties);
         this.nullable = nullable;
     }
 
