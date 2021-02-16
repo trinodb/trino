@@ -33,6 +33,7 @@ import io.trino.sql.planner.iterative.rule.AddIntermediateAggregations;
 import io.trino.sql.planner.iterative.rule.ApplyTableScanRedirection;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressions;
 import io.trino.sql.planner.iterative.rule.CreatePartialTopN;
+import io.trino.sql.planner.iterative.rule.DecorrelateInnerUnnestWithGlobalAggregation;
 import io.trino.sql.planner.iterative.rule.DesugarArrayConstructor;
 import io.trino.sql.planner.iterative.rule.DesugarAtTimeZone;
 import io.trino.sql.planner.iterative.rule.DesugarCurrentPath;
@@ -521,6 +522,7 @@ public class PlanOptimizers
                                 new TransformUncorrelatedSubqueryToJoin(),
                                 new TransformUncorrelatedInPredicateSubqueryToSemiJoin(),
                                 new TransformCorrelatedJoinToJoin(metadata),
+                                new DecorrelateInnerUnnestWithGlobalAggregation(),
                                 new TransformCorrelatedGlobalAggregationWithProjection(metadata),
                                 new TransformCorrelatedGlobalAggregationWithoutProjection(metadata),
                                 new TransformCorrelatedDistinctAggregationWithProjection(metadata),
