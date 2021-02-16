@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.Util.domainsMatch;
 import static java.util.Objects.requireNonNull;
 
@@ -57,10 +58,17 @@ public final class TableScanMatcher
         TableScanNode tableScanNode = (TableScanNode) node;
         TableMetadata tableMetadata = metadata.getTableMetadata(session, tableScanNode.getTable());
         String actualTableName = tableMetadata.getTable().getTableName();
-        return new MatchResult(
-                expectedTableName.equalsIgnoreCase(actualTableName) &&
-                        ((expectedConstraint.isEmpty()) ||
-                                domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)));
+
+        // TODO (https://github.com/trinodb/trino/issues/17) change to equals()
+        if (!expectedTableName.equalsIgnoreCase(actualTableName)) {
+            return NO_MATCH;
+        }
+
+        if (expectedConstraint.isPresent() && !domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)) {
+            return NO_MATCH;
+        }
+
+        return new MatchResult(true);
     }
 
     @Override
