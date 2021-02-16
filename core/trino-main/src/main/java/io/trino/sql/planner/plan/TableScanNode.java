@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
 
@@ -29,11 +30,15 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
@@ -101,9 +106,35 @@ public class TableScanNode
         this.outputSymbols = ImmutableList.copyOf(requireNonNull(outputs, "outputs is null"));
         this.assignments = ImmutableMap.copyOf(requireNonNull(assignments, "assignments is null"));
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
-        this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
+        requireNonNull(enforcedConstraint, "enforcedConstraint is null");
+        validateEnforcedConstraint(enforcedConstraint, outputs, assignments);
+        this.enforcedConstraint = enforcedConstraint;
         this.updateTarget = updateTarget;
         this.useConnectorNodePartitioning = requireNonNull(useConnectorNodePartitioning, "useConnectorNodePartitioning is null");
+    }
+
+    private static void validateEnforcedConstraint(TupleDomain<ColumnHandle> enforcedConstraint, List<Symbol> outputs, Map<Symbol, ColumnHandle> assignments)
+    {
+        if (enforcedConstraint.isAll() || enforcedConstraint.isNone()) {
+            return;
+        }
+        Map<ColumnHandle, Domain> domains = enforcedConstraint.getDomains().orElseThrow();
+
+        Set<ColumnHandle> visibleColumns = outputs.stream()
+                .map(assignments::get)
+                .map(Objects::requireNonNull)
+                .collect(toImmutableSet());
+
+        domains.keySet().stream()
+                .filter(column -> !visibleColumns.contains(column))
+                .findAny()
+                .ifPresent(column -> {
+                    throw new IllegalArgumentException(format(
+                            "enforcedConstraint references a column that is not part of the plan. " +
+                                    "enforcedConstraint keys: %s, visibleColumns: %s",
+                            domains.keySet(),
+                            visibleColumns));
+                });
     }
 
     @JsonProperty("table")
