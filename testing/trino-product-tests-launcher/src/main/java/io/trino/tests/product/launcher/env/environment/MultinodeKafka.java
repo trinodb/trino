@@ -20,27 +20,28 @@ import io.trino.tests.product.launcher.docker.DockerFiles.ResourceProvider;
 import io.trino.tests.product.launcher.env.Environment;
 import io.trino.tests.product.launcher.env.EnvironmentProvider;
 import io.trino.tests.product.launcher.env.common.Kafka;
-import io.trino.tests.product.launcher.env.common.Standard;
 import io.trino.tests.product.launcher.env.common.TestsEnvironment;
+import io.trino.tests.product.launcher.env.common.TrinoMultinode;
 
 import javax.inject.Inject;
 
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
-public final class SinglenodeKafka
+public final class MultinodeKafka
         extends EnvironmentProvider
 {
     private final ResourceProvider configDir;
 
     @Inject
-    public SinglenodeKafka(Kafka kafka, Standard standard, DockerFiles dockerFiles)
+    public MultinodeKafka(Kafka kafka, TrinoMultinode multinode, DockerFiles dockerFiles)
     {
-        super(ImmutableList.of(standard, kafka));
+        super(ImmutableList.of(multinode, kafka));
         requireNonNull(dockerFiles, "dockerFiles is null");
         configDir = dockerFiles.getDockerFilesHostDirectory("conf/environment/singlenode-kafka/");
     }
@@ -49,6 +50,14 @@ public final class SinglenodeKafka
     public void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer(COORDINATOR, container -> container
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("kafka_schema_registry.properties")),
+                        CONTAINER_PRESTO_ETC + "/catalog/kafka_schema_registry.properties")
+                .withCopyFileToContainer(
+                        forHostPath(configDir.getPath("kafka.properties")),
+                        CONTAINER_PRESTO_ETC + "/catalog/kafka.properties"));
+
+        builder.configureContainer(WORKER, container -> container
                 .withCopyFileToContainer(
                         forHostPath(configDir.getPath("kafka_schema_registry.properties")),
                         CONTAINER_PRESTO_ETC + "/catalog/kafka_schema_registry.properties")
