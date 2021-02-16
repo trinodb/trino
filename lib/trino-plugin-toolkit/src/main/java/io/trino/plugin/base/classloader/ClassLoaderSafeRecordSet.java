@@ -50,7 +50,7 @@ public class ClassLoaderSafeRecordSet
     public RecordCursor cursor()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.cursor();
+            return new ClassLoaderSafeRecordCursor(delegate.cursor(), classLoader);
         }
     }
 }

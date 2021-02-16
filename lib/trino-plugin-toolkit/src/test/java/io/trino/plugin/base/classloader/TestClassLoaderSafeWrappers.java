@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
@@ -45,6 +46,7 @@ public class TestClassLoaderSafeWrappers
         assertAllMethodsOverridden(SystemTable.class, ClassLoaderSafeSystemTable.class);
         assertAllMethodsOverridden(ConnectorRecordSetProvider.class, ClassLoaderSafeConnectorRecordSetProvider.class);
         assertAllMethodsOverridden(RecordSet.class, ClassLoaderSafeRecordSet.class);
+        assertAllMethodsOverridden(RecordCursor.class, ClassLoaderSafeRecordCursor.class);
         assertAllMethodsOverridden(EventListener.class, ClassLoaderSafeEventListener.class);
     }
 }
