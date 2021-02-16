@@ -269,7 +269,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.OrcAcidVersion.writeVersionFile;
@@ -2721,18 +2720,27 @@ public class HiveMetadata
         }
         Set<String> allColumns = tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
-                .collect(toSet());
+                .collect(toImmutableSet());
 
         List<String> bucketedBy = bucketProperty.get().getBucketedBy();
         if (!allColumns.containsAll(bucketedBy)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(bucketedBy), ImmutableSet.copyOf(allColumns))));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(bucketedBy), allColumns)));
+        }
+
+        Set<String> partitionColumns = ImmutableSet.copyOf(getPartitionedBy(tableMetadata.getProperties()));
+        if (bucketedBy.stream().anyMatch(partitionColumns::contains)) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Bucketing columns %s are also used as partitioning columns", Sets.intersection(ImmutableSet.copyOf(bucketedBy), partitionColumns)));
         }
 
         List<String> sortedBy = bucketProperty.get().getSortedBy().stream()
                 .map(SortingColumn::getColumnName)
                 .collect(toImmutableList());
         if (!allColumns.containsAll(sortedBy)) {
-            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), ImmutableSet.copyOf(allColumns))));
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(sortedBy), allColumns)));
+        }
+
+        if (sortedBy.stream().anyMatch(partitionColumns::contains)) {
+            throw new TrinoException(INVALID_TABLE_PROPERTY, format("Sorting columns %s are also used as partitioning columns", Sets.intersection(ImmutableSet.copyOf(sortedBy), partitionColumns)));
         }
     }
 
