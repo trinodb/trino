@@ -16,8 +16,11 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 
@@ -26,8 +29,8 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
-import static io.trino.sql.planner.assertions.Util.domainsMatch;
 import static java.util.Objects.requireNonNull;
 
 public final class TableScanMatcher
@@ -64,11 +67,33 @@ public final class TableScanMatcher
             return NO_MATCH;
         }
 
-        if (expectedConstraint.isPresent() && !domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)) {
+        if (!domainsMatch(expectedConstraint, tableScanNode.getEnforcedConstraint(), tableScanNode.getTable(), session, metadata)) {
             return NO_MATCH;
         }
 
         return new MatchResult(true);
+    }
+
+    private static boolean domainsMatch(
+            Optional<Map<String, Domain>> expectedDomains,
+            TupleDomain<ColumnHandle> actualConstraint,
+            TableHandle tableHandle,
+            Session session,
+            Metadata metadata)
+    {
+        if (expectedDomains.isEmpty()) {
+            return true;
+        }
+
+        Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
+        TupleDomain<ColumnHandle> expected = TupleDomain.withColumnDomains(expectedDomains.get())
+                .transform(key -> {
+                    ColumnHandle columnHandle = columnHandles.get(key);
+                    verify(columnHandle != null, "No column handle for: %s", key);
+                    return columnHandle;
+                });
+
+        return expected.equals(actualConstraint);
     }
 
     @Override
