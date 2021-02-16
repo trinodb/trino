@@ -79,7 +79,8 @@ public class ConfluentModule
     public static SchemaRegistryClient createSchemaRegistryClient(
             ConfluentSchemaRegistryConfig confluentConfig,
             Set<SchemaProvider> schemaProviders,
-            Set<SchemaRegistryClientPropertiesProvider> propertiesProviders)
+            Set<SchemaRegistryClientPropertiesProvider> propertiesProviders,
+            ClassLoader classLoader)
     {
         requireNonNull(confluentConfig, "confluentConfig is null");
         requireNonNull(schemaProviders, "schemaProviders is null");
@@ -94,11 +95,13 @@ public class ConfluentModule
                 .flatMap(properties -> properties.entrySet().stream())
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        return new CachedSchemaRegistryClient(
-                baseUrl,
-                confluentConfig.getConfluentSchemaRegistryClientCacheSize(),
-                ImmutableList.copyOf(schemaProviders),
-                schemaRegistryClientProperties);
+        return new ClassLoaderSafeSchemaRegistryClient(
+                new CachedSchemaRegistryClient(
+                        baseUrl,
+                        confluentConfig.getConfluentSchemaRegistryClientCacheSize(),
+                        ImmutableList.copyOf(schemaProviders),
+                        schemaRegistryClientProperties),
+                classLoader);
     }
 
     private static class ConfluentDecoderModule
