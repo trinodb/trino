@@ -14,23 +14,16 @@
 package io.trino.operator.exchange;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.trino.operator.HashGenerator;
-import io.trino.operator.InterpretedHashGenerator;
-import io.trino.operator.PrecomputedHashGenerator;
+import io.trino.operator.PartitionFunction;
 import io.trino.operator.exchange.PageReference.PageReleasedListener;
 import io.trino.spi.Page;
-import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 class PartitioningExchanger
@@ -38,33 +31,19 @@ class PartitioningExchanger
 {
     private final List<Consumer<PageReference>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
-    private final LocalPartitionGenerator partitionGenerator;
+    private final PartitionFunction partitionFunction;
     private final IntArrayList[] partitionAssignments;
     private final PageReleasedListener onPageReleased;
 
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
             LocalExchangeMemoryManager memoryManager,
-            List<? extends Type> types,
-            List<Integer> partitionChannels,
-            Optional<Integer> hashChannel,
-            BlockTypeOperators blockTypeOperators)
+            PartitionFunction partitionFunction)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
-
-        HashGenerator hashGenerator;
-        if (hashChannel.isPresent()) {
-            hashGenerator = new PrecomputedHashGenerator(hashChannel.get());
-        }
-        else {
-            List<Type> partitionChannelTypes = partitionChannels.stream()
-                    .map(types::get)
-                    .collect(toImmutableList());
-            hashGenerator = new InterpretedHashGenerator(partitionChannelTypes, Ints.toArray(partitionChannels), blockTypeOperators);
-        }
-        partitionGenerator = new LocalPartitionGenerator(hashGenerator, buffers.size());
+        this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
 
         partitionAssignments = new IntArrayList[partitions.size()];
         for (int i = 0; i < partitionAssignments.length; i++) {
@@ -82,7 +61,7 @@ class PartitioningExchanger
 
         // assign each row to a partition
         for (int position = 0; position < page.getPositionCount(); position++) {
-            int partition = partitionGenerator.getPartition(page, position);
+            int partition = partitionFunction.getPartition(page, position);
             partitionAssignments[partition].add(position);
         }
 
