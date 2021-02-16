@@ -93,7 +93,7 @@
             <artifactId>jdbi3-core</artifactId>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
