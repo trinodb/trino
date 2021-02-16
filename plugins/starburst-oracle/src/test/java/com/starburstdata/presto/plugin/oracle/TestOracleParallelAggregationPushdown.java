@@ -40,7 +40,7 @@ public class TestOracleParallelAggregationPushdown
                 .withConnectorProperties(ImmutableMap.<String, String>builder()
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("oracle.parallelism-type", "PARTITIONS")
-                        .put("oracle.concurrent.max-splits-per-scan", "17")
+                        .put("oracle.parallel.max-splits-per-scan", "17")
                         .build())
                 .withSessionModifier(session -> createSession(PARTITIONED_USER, PARTITIONED_USER))
                 .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))

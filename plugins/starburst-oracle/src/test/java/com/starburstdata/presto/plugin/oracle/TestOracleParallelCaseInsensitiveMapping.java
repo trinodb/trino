@@ -38,7 +38,7 @@ public class TestOracleParallelCaseInsensitiveMapping
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .put("case-insensitive-name-matching", "true")
                         .put("oracle.parallelism-type", "PARTITIONS")
-                        .put("oracle.concurrent.max-splits-per-scan", "17")
+                        .put("oracle.parallel.max-splits-per-scan", "17")
                         .build())
                 .withTables(ImmutableList.of())
                 .build();
