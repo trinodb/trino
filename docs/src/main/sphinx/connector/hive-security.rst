@@ -526,7 +526,7 @@ Column constraint
 These constraints can be used to restrict access to column data.
 
 * ``name``: name of the column.
-* ``allowed`` (optional): if false, column can not be accessed.
+* ``allow`` (optional): if false, column can not be accessed.
 * ``mask`` (optional): mask expression applied to column.
 * ``mask_environment`` (optional): environment use during mask evaluation.
 
@@ -546,7 +546,7 @@ These rules govern who may set session properties.
 
 * ``property`` (optional): regex to match against session property name.
 
-* ``allowed`` (required): boolean indicating whether this session property may be set.
+* ``allow`` (required): boolean indicating whether this session property may be set.
 
 See below for an example.
 
