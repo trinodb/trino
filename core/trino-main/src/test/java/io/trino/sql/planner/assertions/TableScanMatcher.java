@@ -26,18 +26,17 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.Util.domainsMatch;
 import static java.util.Objects.requireNonNull;
 
-final class TableScanMatcher
+public final class TableScanMatcher
         implements Matcher
 {
     private final String expectedTableName;
     private final Optional<Map<String, Domain>> expectedConstraint;
     private final Optional<Boolean> hasTableLayout;
 
-    private TableScanMatcher(String expectedTableName, Optional<Map<String, Domain>> expectedConstraint, Optional<Boolean> hasTableLayout)
+    public TableScanMatcher(String expectedTableName, Optional<Map<String, Domain>> expectedConstraint, Optional<Boolean> hasTableLayout)
     {
         this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
         this.expectedConstraint = requireNonNull(expectedConstraint, "expectedConstraint is null");
@@ -73,48 +72,5 @@ final class TableScanMatcher
                 .add("expectedConstraint", expectedConstraint.orElse(null))
                 .add("hasTableLayout", hasTableLayout.orElse(null))
                 .toString();
-    }
-
-    public static Builder builder(String expectedTableName)
-    {
-        return new Builder(expectedTableName);
-    }
-
-    public static PlanMatchPattern create(String expectedTableName)
-    {
-        return builder(expectedTableName).build();
-    }
-
-    public static class Builder
-    {
-        private final String expectedTableName;
-        private Optional<Map<String, Domain>> expectedConstraint = Optional.empty();
-        private Optional<Boolean> hasTableLayout = Optional.empty();
-
-        private Builder(String expectedTableName)
-        {
-            this.expectedTableName = requireNonNull(expectedTableName, "expectedTableName is null");
-        }
-
-        public Builder expectedConstraint(Map<String, Domain> expectedConstraint)
-        {
-            this.expectedConstraint = Optional.of(expectedConstraint);
-            return this;
-        }
-
-        public Builder hasTableLayout()
-        {
-            this.hasTableLayout = Optional.of(true);
-            return this;
-        }
-
-        PlanMatchPattern build()
-        {
-            return node(TableScanNode.class).with(
-                    new TableScanMatcher(
-                            expectedTableName,
-                            expectedConstraint,
-                            hasTableLayout));
-        }
     }
 }
