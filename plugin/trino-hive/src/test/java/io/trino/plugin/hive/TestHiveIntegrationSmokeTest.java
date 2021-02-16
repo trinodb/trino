@@ -2214,6 +2214,45 @@ public class TestHiveIntegrationSmokeTest
                 .hasMessage("Bucketing columns [c] not present in schema");
 
         assertThatThrownBy(() -> computeActual("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  a BIGINT," +
+                "  b DOUBLE," +
+                "  p VARCHAR" +
+                ") WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'p' ], " +
+                "bucketed_by = ARRAY[ 'a' ], " +
+                "bucket_count = 11, " +
+                "sorted_by = ARRAY[ 'c' ] " +
+                ")"))
+                .hasMessage("Sorting columns [c] not present in schema");
+
+        assertThatThrownBy(() -> computeActual("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  a BIGINT," +
+                "  p VARCHAR" +
+                ") WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'p' ], " +
+                "bucketed_by = ARRAY[ 'p' ], " +
+                "bucket_count = 11 " +
+                ")"))
+                .hasMessage("Bucketing columns [p] are also used as partitioning columns");
+
+        assertThatThrownBy(() -> computeActual("" +
+                "CREATE TABLE " + tableName + " (" +
+                "  a BIGINT," +
+                "  p VARCHAR" +
+                ") WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'p' ], " +
+                "bucketed_by = ARRAY[ 'a' ], " +
+                "bucket_count = 11, " +
+                "sorted_by = ARRAY[ 'p' ] " +
+                ")"))
+                .hasMessage("Sorting columns [p] are also used as partitioning columns");
+
+        assertThatThrownBy(() -> computeActual("" +
                 "CREATE TABLE " + tableName + " " +
                 "WITH (" +
                 "format = '" + storageFormat + "', " +
@@ -2225,6 +2264,20 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
                 "FROM tpch.tiny.orders"))
                 .hasMessage("Bucketing columns [custkey3] not present in schema");
+
+        assertThatThrownBy(() -> computeActual("" +
+                "CREATE TABLE " + tableName + " " +
+                "WITH (" +
+                "format = '" + storageFormat + "', " +
+                "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                "bucketed_by = ARRAY[ 'custkey' ], " +
+                "bucket_count = 11, " +
+                "sorted_by = ARRAY[ 'custkey3' ] " +
+                ") " +
+                "AS " +
+                "SELECT custkey, custkey AS custkey2, comment, orderstatus " +
+                "FROM tpch.tiny.orders"))
+                .hasMessage("Sorting columns [custkey3] not present in schema");
 
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
