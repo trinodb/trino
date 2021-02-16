@@ -17,6 +17,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSqlServerConfig
 {
@@ -24,7 +25,9 @@ public class TestSqlServerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SqlServerConfig.class)
-                .setImpersonationEnabled(false));
+                .setImpersonationEnabled(false)
+                .setOverrideCatalogEnabled(false)
+                .setOverrideCatalogName(null));
     }
 
     @Test
@@ -32,11 +35,25 @@ public class TestSqlServerConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("sqlserver.impersonation.enabled", "true")
+                .put("sqlserver.override-catalog.enabled", "true")
+                .put("sqlserver.override-catalog.name", "catalog")
                 .build();
 
         SqlServerConfig expected = new SqlServerConfig()
-                .setImpersonationEnabled(true);
+                .setImpersonationEnabled(true)
+                .setOverrideCatalogEnabled(true)
+                .setOverrideCatalogName("catalog");
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testDisableOverrideCatalog()
+    {
+        assertThatThrownBy(() -> new SqlServerConfig()
+                .setOverrideCatalogEnabled(false)
+                .setOverrideCatalogName("ignore")
+                .validate())
+                .hasMessageContaining("sqlserver.override-catalog.enabled needs to be set in order to use sqlserver.override-catalog.name parameter");
     }
 }

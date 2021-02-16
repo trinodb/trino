@@ -36,8 +36,8 @@ import static java.lang.String.format;
 
 public final class StarburstSqlServerQueryRunner
 {
-    private static final String CATALOG = "sqlserver";
-    private static final String TEST_SCHEMA = "dbo";
+    public static final String CATALOG = "sqlserver";
+    public static final String TEST_SCHEMA = "dbo";
 
     public static final String ALICE_USER = "alice";
     public static final String BOB_USER = "bob";
