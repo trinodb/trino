@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -74,39 +73,38 @@ public class PruneTableScanColumns
                 .map(symbol -> new Variable(symbol.getName(), types.get(symbol)))
                 .collect(toImmutableList());
 
-        TableHandle handle = node.getTable();
+        // Attempt to push down the constrained list of columns into the connector.
         Optional<ProjectionApplicationResult<TableHandle>> result = metadata.applyProjection(
                 session,
-                handle,
+                node.getTable(),
                 projections,
                 newOutputs.stream()
                         .collect(toImmutableMap(Symbol::getName, node.getAssignments()::get)));
-
-        Map<Symbol, ColumnHandle> newAssignments;
-        // Attempt to push down the constrained list of columns into the connector.
-        // Bail out if the connector does anything other than limit the list of columns (e.g., if it synthesizes arbitrary expressions)
-        if (result.isPresent() && result.get().getProjections().stream().allMatch(Variable.class::isInstance)) {
-            handle = result.get().getHandle();
-
-            Map<String, ColumnHandle> assignments = result.get().getAssignments().stream()
-                    .collect(toImmutableMap(Assignment::getVariable, Assignment::getColumn));
-
-            ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
-            for (int i = 0; i < newOutputs.size(); i++) {
-                Variable variable = (Variable) result.get().getProjections().get(i);
-                builder.put(newOutputs.get(i), assignments.get(variable.getName()));
-            }
-
-            newAssignments = builder.build();
+        if (result.isEmpty()) {
+            return Optional.empty();
         }
-        else {
-            newAssignments = newOutputs.stream()
-                    .collect(toImmutableMap(Function.identity(), node.getAssignments()::get));
+
+        if (!result.get().getProjections().stream().allMatch(Variable.class::isInstance)) {
+            // Bail out if the connector does anything other than limit the list of columns (e.g., if it synthesizes arbitrary expressions)
+            // While we could return a TableScanNode with fewer assignments, currently the list of columns being read recorded on the engine
+            // side must match the list of columns recorded on the connector side (if any).
+            return Optional.empty();
         }
+
+        Map<String, ColumnHandle> assignments = result.get().getAssignments().stream()
+                .collect(toImmutableMap(Assignment::getVariable, Assignment::getColumn));
+
+        ImmutableMap.Builder<Symbol, ColumnHandle> builder = ImmutableMap.builder();
+        for (int i = 0; i < newOutputs.size(); i++) {
+            Variable variable = (Variable) result.get().getProjections().get(i);
+            builder.put(newOutputs.get(i), assignments.get(variable.getName()));
+        }
+
+        Map<Symbol, ColumnHandle> newAssignments = builder.build();
 
         return Optional.of(new TableScanNode(
                 node.getId(),
-                handle,
+                result.get().getHandle(),
                 newOutputs,
                 newAssignments,
                 node.getEnforcedConstraint(),
