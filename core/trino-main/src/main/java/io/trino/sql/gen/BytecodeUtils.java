@@ -292,14 +292,14 @@ public final class BytecodeUtils
         Class<?> unboxedReturnType = Primitives.unwrap(returnType);
 
         List<Class<?>> stackTypes = new ArrayList<>();
-        boolean boundInstance = false;
+        boolean instanceIsBound = false;
         while (currentParameterIndex < methodType.parameterArray().length) {
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
             stackTypes.add(type);
-            if (instance.isPresent() && !boundInstance) {
+            if (instance.isPresent() && !instanceIsBound) {
                 checkState(type.equals(functionInvoker.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
                 block.append(instance.get());
-                boundInstance = true;
+                instanceIsBound = true;
             }
             else if (type == ConnectorSession.class) {
                 block.append(scope.getVariable("session"));
