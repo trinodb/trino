@@ -520,12 +520,12 @@ public final class StandardColumnMappings
     {
         long precision = timestampType.getPrecision();
         checkArgument(precision <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
-        Instant instant = localDateTime.atZone(UTC).toInstant();
-        long epochMicros = instant.getEpochSecond() * MICROSECONDS_PER_SECOND + roundDiv(instant.getNano(), NANOSECONDS_PER_MICROSECOND);
+        long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
         verify(
                 epochMicros == round(epochMicros, TimestampType.MAX_SHORT_PRECISION - timestampType.getPrecision()),
                 "Invalid value of epochMicros for precision %s: %s",
-                timestampType.getPrecision(),
+                precision,
                 epochMicros);
         return epochMicros;
     }
@@ -534,13 +534,13 @@ public final class StandardColumnMappings
     {
         long precision = timestampType.getPrecision();
         checkArgument(precision > TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
-        Instant instant = localDateTime.atZone(UTC).toInstant();
-        long epochMicros = instant.getEpochSecond() * MICROSECONDS_PER_SECOND + floorDiv(instant.getNano(), NANOSECONDS_PER_MICROSECOND);
-        int picosOfMicro = (instant.getNano() % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
+        long epochMicros = localDateTime.toEpochSecond(UTC) * MICROSECONDS_PER_SECOND
+                + localDateTime.getNano() / NANOSECONDS_PER_MICROSECOND;
+        int picosOfMicro = (localDateTime.getNano() % NANOSECONDS_PER_MICROSECOND) * PICOSECONDS_PER_NANOSECOND;
         verify(
                 picosOfMicro == round(picosOfMicro, TimestampType.MAX_PRECISION - timestampType.getPrecision()),
                 "Invalid value of picosOfMicro for precision %s: %s",
-                timestampType.getPrecision(),
+                precision,
                 picosOfMicro);
         return new LongTimestamp(epochMicros, picosOfMicro);
     }
