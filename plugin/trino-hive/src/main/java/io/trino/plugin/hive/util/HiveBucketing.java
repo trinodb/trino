@@ -54,6 +54,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
+import static io.trino.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
@@ -180,6 +181,10 @@ public final class HiveBucketing
 
     public static Optional<HiveBucketHandle> getHiveBucketHandle(ConnectorSession session, Table table, TypeManager typeManager)
     {
+        if (table.getParameters().containsKey(SPARK_TABLE_PROVIDER_KEY)) {
+            return Optional.empty();
+        }
+
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (hiveBucketProperty.isEmpty()) {
             return Optional.empty();

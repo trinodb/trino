@@ -1768,6 +1768,26 @@ public abstract class AbstractTestHive
     private void doTestBucketedTableValidation(HiveStorageFormat storageFormat, SchemaTableName tableName)
             throws Exception
     {
+        prepareInvalidBuckets(storageFormat, tableName);
+
+        // read succeeds when validation is disabled
+        try (Transaction transaction = newTransaction()) {
+            ConnectorMetadata metadata = transaction.getMetadata();
+            ConnectorSession session = newSession(ImmutableMap.of("validate_bucketing", false));
+            metadata.beginQuery(session);
+            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
+            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
+            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
+            assertEquals(result.getRowCount(), 87); // fewer rows due to deleted file
+        }
+
+        // read fails due to validation failure
+        assertReadFailsWithMessageMatching(storageFormat, tableName, "Hive table is corrupt\\. File '.*/000002_0_.*' is for bucket 2, but contains a row for bucket 5.");
+    }
+
+    private void prepareInvalidBuckets(HiveStorageFormat storageFormat, SchemaTableName tableName)
+            throws Exception
+    {
         createEmptyTable(
                 tableName,
                 storageFormat,
@@ -1801,19 +1821,10 @@ public abstract class AbstractTestHive
             fileSystem.delete(bucket2, false);
             fileSystem.rename(bucket5, bucket2);
         }
+    }
 
-        // read succeeds when validation is disabled
-        try (Transaction transaction = newTransaction()) {
-            ConnectorMetadata metadata = transaction.getMetadata();
-            ConnectorSession session = newSession(ImmutableMap.of("validate_bucketing", false));
-            metadata.beginQuery(session);
-            ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
-            List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
-            MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
-            assertEquals(result.getRowCount(), 87); // fewer rows due to deleted file
-        }
-
-        // read fails due to validation failure
+    protected void assertReadFailsWithMessageMatching(HiveStorageFormat storageFormat, SchemaTableName tableName, String regex)
+    {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
@@ -1823,7 +1834,7 @@ public abstract class AbstractTestHive
             assertTrinoExceptionThrownBy(
                     () -> readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat)))
                     .hasErrorCode(HIVE_INVALID_BUCKET_FILES)
-                    .hasMessageMatching("Hive table is corrupt\\. File '.*/000002_0_.*' is for bucket 2, but contains a row for bucket 5.");
+                    .hasMessageMatching(regex);
         }
     }
 
@@ -4582,7 +4593,7 @@ public abstract class AbstractTestHive
                 .orElseThrow(AssertionError::new);
     }
 
-    private MaterializedResult readTable(
+    protected MaterializedResult readTable(
             Transaction transaction,
             ConnectorTableHandle tableHandle,
             List<ColumnHandle> columnHandles,
@@ -4889,12 +4900,12 @@ public abstract class AbstractTestHive
         }
     }
 
-    private PrincipalPrivileges testingPrincipalPrivilege(ConnectorSession session)
+    protected PrincipalPrivileges testingPrincipalPrivilege(ConnectorSession session)
     {
         return testingPrincipalPrivilege(session.getUser(), session.getUser());
     }
 
-    private PrincipalPrivileges testingPrincipalPrivilege(String tableOwner, String grantor)
+    protected PrincipalPrivileges testingPrincipalPrivilege(String tableOwner, String grantor)
     {
         return new PrincipalPrivileges(
                 ImmutableMultimap.<String, HivePrivilegeInfo>builder()
