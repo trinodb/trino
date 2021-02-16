@@ -202,10 +202,7 @@ public abstract class BaseJdbcClient
 
     protected boolean filterSchema(String schemaName)
     {
-        if (schemaName.equalsIgnoreCase("information_schema")) {
-            return false;
-        }
-        return true;
+        return !schemaName.equalsIgnoreCase("information_schema");
     }
 
     @Override
