@@ -14,7 +14,6 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
 
 import java.net.URI;
@@ -25,13 +24,12 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class MockThriftMetastoreClientFactory
-        extends DefaultThriftMetastoreClientFactory
+        implements ThriftMetastoreClientFactory
 {
     private Map<HostAndPort, Optional<ThriftMetastoreClient>> clients;
 
-    public MockThriftMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, Map<String, Optional<ThriftMetastoreClient>> clients)
+    public MockThriftMetastoreClientFactory(Map<String, Optional<ThriftMetastoreClient>> clients)
     {
-        super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication(), "localhost");
         this.clients = clients.entrySet().stream().collect(Collectors.toMap(entry -> createHostAndPort(entry.getKey()), Map.Entry::getValue));
     }
 

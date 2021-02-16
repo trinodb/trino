@@ -17,7 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.TestingTicker;
-import io.airlift.units.Duration;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 import org.testng.annotations.Test;
@@ -28,7 +27,6 @@ import java.util.Optional;
 
 import static io.airlift.testing.Assertions.assertContains;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -212,7 +210,7 @@ public class TestStaticMetastoreLocator
 
     private static MetastoreLocator createMetastoreLocator(StaticMetastoreConfig config, Map<String, Optional<ThriftMetastoreClient>> clients, Ticker ticker)
     {
-        return new StaticMetastoreLocator(config, new ThriftMetastoreAuthenticationConfig(), new MockThriftMetastoreClientFactory(Optional.empty(), new Duration(1, SECONDS), clients), ticker);
+        return new StaticMetastoreLocator(config, new ThriftMetastoreAuthenticationConfig(), new MockThriftMetastoreClientFactory(clients), ticker);
     }
 
     private static ThriftMetastoreClient createFakeMetastoreClient()
