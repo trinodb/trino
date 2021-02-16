@@ -22,7 +22,7 @@ public interface FixedWidthType
         extends Type
 {
     /**
-     * Gets the size of a value of this type is bytes. All values
+     * Gets the size of a value of this type in bytes. All values
      * of a FixedWidthType are the same size.
      */
     int getFixedSize();
