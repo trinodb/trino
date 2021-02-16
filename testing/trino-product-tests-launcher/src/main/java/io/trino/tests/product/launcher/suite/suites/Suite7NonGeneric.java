@@ -20,6 +20,7 @@ import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImp
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
 import io.trino.tests.product.launcher.env.environment.SinglenodeMysql;
 import io.trino.tests.product.launcher.env.environment.SinglenodePostgresql;
+import io.trino.tests.product.launcher.env.environment.SinglenodeSparkHive;
 import io.trino.tests.product.launcher.env.environment.SinglenodeSparkIceberg;
 import io.trino.tests.product.launcher.env.environment.SinglenodeSqlserver;
 import io.trino.tests.product.launcher.env.environment.TwoKerberosHives;
@@ -44,6 +45,7 @@ public class Suite7NonGeneric
                 testOnEnvironment(SinglenodeMysql.class).withGroups("mysql").build(),
                 testOnEnvironment(SinglenodePostgresql.class).withGroups("postgresql").build(),
                 testOnEnvironment(SinglenodeSqlserver.class).withGroups("sqlserver").build(),
+                testOnEnvironment(SinglenodeSparkHive.class).withGroups("hive_spark_bucketing").build(),
                 testOnEnvironment(SinglenodeSparkIceberg.class).withGroups("iceberg").withExcludedGroups("storage_formats").build(),
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonationCrossRealm.class).withGroups("storage_formats", "cli", "hdfs_impersonation").build(),
                 testOnEnvironment(TwoMixedHives.class).withGroups("two_hives").build(),
