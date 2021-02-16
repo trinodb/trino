@@ -223,7 +223,7 @@ Column constraint
 These constraints can be used to restrict access to column data.
 
 * ``name``: name of the column.
-* ``allowed`` (optional): if false, column can not be accessed.
+* ``allow`` (optional): if false, column can not be accessed.
 * ``mask`` (optional): mask expression applied to column.
 * ``mask_environment`` (optional): environment use during mask evaluation.
 
