@@ -82,7 +82,6 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
-import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -974,7 +973,8 @@ public class TestLogicalPlanner
                 output(
                         constrainedTableScanWithTableLayout(
                                 "orders",
-                                ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F"))),
+                                // No orderstatus constraint, as it has been fully consumed by the connector, and orderstatus column is no longer referenced in the query
+                                ImmutableMap.of(),
                                 ImmutableMap.of("orderkey", "orderkey"))));
     }
 
