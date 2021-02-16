@@ -96,7 +96,7 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Presto SPI -->
+        <!-- Trino SPI -->
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
