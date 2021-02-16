@@ -21,8 +21,11 @@ import io.trino.sql.planner.plan.TableWriterNode;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.getPreferredWritePartitioningMinNumberOfPartitions;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
+import static io.trino.cost.AggregationStatsRule.getRowsCount;
 import static io.trino.sql.planner.plan.Patterns.tableWriterNode;
+import static java.lang.Double.isNaN;
 
 public class PreferWritePartitioning
         implements Rule<TableWriterNode>
@@ -46,6 +49,25 @@ public class PreferWritePartitioning
             return Result.empty();
         }
 
+        int minimumNumberOfPartitions = getPreferredWritePartitioningMinNumberOfPartitions(context.getSession());
+        if (minimumNumberOfPartitions <= 1) {
+            // Force 'preferred write partitioning' even if stats are missing or broken
+            return enable(node);
+        }
+
+        double expectedNumberOfPartitions = getRowsCount(
+                context.getStatsProvider().getStats(node.getSource()),
+                node.getPreferredPartitioningScheme().get().getPartitioning().getColumns());
+
+        if (isNaN(expectedNumberOfPartitions) || expectedNumberOfPartitions < minimumNumberOfPartitions) {
+            return Result.empty();
+        }
+
+        return enable(node);
+    }
+
+    private Result enable(TableWriterNode node)
+    {
         return Result.ofPlanNode(new TableWriterNode(
                 node.getId(),
                 node.getSource(),
