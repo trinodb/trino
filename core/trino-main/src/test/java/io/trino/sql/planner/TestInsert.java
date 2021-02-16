@@ -36,6 +36,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static io.trino.SystemSessionProperties.PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -112,7 +113,7 @@ public class TestInsert
     {
         assertDistributedPlan(
                 "INSERT into test_table_preferred_partitioning VALUES (1, 2)",
-                withPreferredPartitioning(),
+                withForcedPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
                                 anyTree(
@@ -137,7 +138,7 @@ public class TestInsert
     @Test
     public void testInsertWithRequiredPartitioning()
     {
-        testInsertWithRequiredPartitioning(withPreferredPartitioning());
+        testInsertWithRequiredPartitioning(withForcedPreferredPartitioning());
         testInsertWithRequiredPartitioning(withoutPreferredPartitioning());
     }
 
@@ -160,7 +161,7 @@ public class TestInsert
     {
         assertDistributedPlan(
                 "CREATE TABLE new_test_table_preferred_partitioning (column1, column2) AS SELECT * FROM (VALUES (1, 2)) t(column1, column2)",
-                withPreferredPartitioning(),
+                withForcedPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
                                 anyTree(
@@ -175,7 +176,7 @@ public class TestInsert
         // cannot use preferred partitioning as CTAS does not use partitioning columns
         assertDistributedPlan(
                 "CREATE TABLE new_test_table_preferred_partitioning (column2) AS SELECT * FROM (VALUES 2) t(column2)",
-                withPreferredPartitioning(),
+                withForcedPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
@@ -199,7 +200,7 @@ public class TestInsert
     @Test
     public void testCreateTableAsSelectWithRequiredPartitioning()
     {
-        testCreateTableAsSelectWithRequiredPartitioning(withPreferredPartitioning());
+        testCreateTableAsSelectWithRequiredPartitioning(withForcedPreferredPartitioning());
         testCreateTableAsSelectWithRequiredPartitioning(withoutPreferredPartitioning());
     }
 
@@ -222,7 +223,7 @@ public class TestInsert
     {
         assertDistributedPlan(
                 "CREATE TABLE new_test_table_unpartitioned (column1, column2) AS SELECT * FROM (VALUES (1, 2)) t(column1, column2)",
-                withPreferredPartitioning(),
+                withForcedPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
@@ -248,10 +249,42 @@ public class TestInsert
         };
     }
 
-    private Session withPreferredPartitioning()
+    @Test
+    public void testCreateTableAsSelectWithPreferredPartitioningThreshold()
+    {
+        assertDistributedPlan(
+                "CREATE TABLE new_test_table_preferred_partitioning (column1, column2) AS SELECT * FROM (VALUES (1, 2)) t(column1, column2)",
+                withPreferredPartitioningThreshold(),
+                anyTree(
+                        node(TableWriterNode.class,
+                                // round robin
+                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                        values("column1", "column2")))));
+        assertDistributedPlan(
+                "CREATE TABLE new_test_table_preferred_partitioning (column1, column2) AS SELECT * FROM (VALUES (1, 2), (3,4)) t(column1, column2)",
+                withPreferredPartitioningThreshold(),
+                anyTree(
+                        node(TableWriterNode.class,
+                                anyTree(
+                                        exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                        anyTree(values("column1", "column2"))))))));
+    }
+
+    private Session withForcedPreferredPartitioning()
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
+                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
+                .setSystemProperty(TASK_WRITER_COUNT, "16")
+                .build();
+    }
+
+    private Session withPreferredPartitioningThreshold()
+    {
+        return Session.builder(getQueryRunner().getDefaultSession())
+                .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
+                .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "2")
                 .setSystemProperty(TASK_WRITER_COUNT, "16")
                 .build();
     }
