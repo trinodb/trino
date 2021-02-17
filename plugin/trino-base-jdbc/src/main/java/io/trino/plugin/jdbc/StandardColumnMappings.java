@@ -460,12 +460,6 @@ public final class StandardColumnMappings
                 DISABLE_PUSHDOWN);
     }
 
-    @Deprecated
-    public static ColumnMapping timestampColumnMapping()
-    {
-        return timestampColumnMapping(TIMESTAMP_MILLIS);
-    }
-
     public static ColumnMapping timestampColumnMapping(TimestampType timestampType)
     {
         if (timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION) {
