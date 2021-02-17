@@ -14,18 +14,23 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
+import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.entities.SchemaReference;
 import io.trino.decoder.avro.AvroRowDecoderFactory;
 import io.trino.plugin.kafka.KafkaTableHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.avro.Schema;
+import org.apache.avro.Schema.Parser;
 import org.apache.avro.SchemaBuilder;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -49,6 +54,32 @@ public class TestAvroConfluentContentSchemaReader
         assertThatThrownBy(() -> avroConfluentSchemaReader.readValueContentSchema(invalidTableHandle))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Could not resolve schema for the 'another-schema' subject");
+    }
+
+    @Test
+    public void testAvroSchemaWithReferences()
+            throws Exception
+    {
+        MockSchemaRegistryClient mockSchemaRegistryClient = new MockSchemaRegistryClient();
+        int schemaId = mockSchemaRegistryClient.register("base_schema-value", new AvroSchema(getAvroSchema()));
+        ParsedSchema schemaWithReference = mockSchemaRegistryClient.parseSchema(null, getAvroSchemaWithReference(), ImmutableList.of(new SchemaReference(TOPIC, "base_schema-value", schemaId)))
+                .orElseThrow();
+        mockSchemaRegistryClient.register(SUBJECT_NAME, schemaWithReference);
+
+        AvroConfluentContentSchemaReader avroConfluentSchemaReader = new AvroConfluentContentSchemaReader(mockSchemaRegistryClient);
+        assertThat(avroConfluentSchemaReader.readSchema(Optional.empty(), Optional.of(SUBJECT_NAME)).map(schema -> new Parser().parse(schema))).isPresent();
+    }
+
+    private static String getAvroSchemaWithReference()
+    {
+        return "{\n" +
+                "    \"type\":\"record\",\n" +
+                "    \"name\":\"Schema2\",\n" +
+                "    \"fields\":[\n" +
+                "        {\"name\":\"referred\",\"type\": \"test\"},\n" +
+                "        {\"name\":\"col3\",\"type\": \"string\"}\n" +
+                "    ]\n" +
+                "}";
     }
 
     private static Schema getAvroSchema()
