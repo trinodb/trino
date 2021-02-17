@@ -28,6 +28,7 @@ import io.trino.tempto.fulfillment.table.kafka.KafkaTableManager;
 import io.trino.tempto.fulfillment.table.kafka.ListKafkaDataSource;
 import io.trino.tempto.query.QueryResult;
 import org.apache.avro.Schema;
+import org.apache.avro.Schema.Parser;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -41,6 +42,7 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
@@ -186,7 +188,13 @@ public class TestKafkaAvroReadsSmokeTest
     private static void createAvroTable(String schemaPath, String tableName, String topicName, Map<String, Object> record, MessageSerializer messageSerializer)
             throws Exception
     {
-        Schema schema = new Schema.Parser().parse(new File(schemaPath));
+        String schema = Files.readString(new File(schemaPath).toPath());
+        createAvroTable(new TestingAvroSchema(schema, ImmutableList.of(), ImmutableList.of()), tableName, topicName, record, messageSerializer);
+    }
+
+    private static void createAvroTable(TestingAvroSchema schema, String tableName, String topicName, Map<String, Object> record, MessageSerializer messageSerializer)
+            throws Exception
+    {
         byte[] avroData = messageSerializer.serialize(topicName, schema, record);
 
         KafkaTableDefinition tableDefinition = new KafkaTableDefinition(
@@ -206,7 +214,7 @@ public class TestKafkaAvroReadsSmokeTest
     @FunctionalInterface
     private interface MessageSerializer
     {
-        byte[] serialize(String topic, Schema schema, Map<String, Object> values)
+        byte[] serialize(String topic, ParsedSchema parsedSchema, Map<String, Object> values)
                 throws IOException;
     }
 
@@ -214,9 +222,10 @@ public class TestKafkaAvroReadsSmokeTest
             implements MessageSerializer
     {
         @Override
-        public byte[] serialize(String topic, Schema schema, Map<String, Object> values)
+        public byte[] serialize(String topic, ParsedSchema parsedSchema, Map<String, Object> values)
                 throws IOException
         {
+            Schema schema = (Schema) parsedSchema.rawSchema();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             GenericData.Record record = new GenericData.Record(schema);
             values.forEach(record::put);
@@ -232,15 +241,16 @@ public class TestKafkaAvroReadsSmokeTest
             implements MessageSerializer
     {
         @Override
-        public byte[] serialize(String topic, Schema schema, Map<String, Object> values)
+        public byte[] serialize(String topic, ParsedSchema parsedSchema, Map<String, Object> values)
                 throws IOException
         {
             try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+                Schema schema = (Schema) parsedSchema.rawSchema();
                 out.write((byte) 0);
 
                 int schemaId = getSchemaRegistryClient().register(
                         topic + "-value",
-                        new TestingAvroSchema(schema));
+                        parsedSchema);
                 out.write(Ints.toByteArray(schemaId));
 
                 BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
@@ -255,57 +265,65 @@ public class TestKafkaAvroReadsSmokeTest
                 throw new RuntimeException(clientException);
             }
         }
+    }
 
-        /**
-         * Using custom ParsedSchema as Confluent dependencies conflicts with Hive dependencies
-         * See {@link io.confluent.kafka.schemaregistry.avro.AvroSchema}.
-         * We can remove once we move to latest schema registry.
-         */
-        private static class TestingAvroSchema
-                implements ParsedSchema
+    /**
+     * Using custom ParsedSchema as Confluent dependencies conflicts with Hive dependencies
+     * See {@link io.confluent.kafka.schemaregistry.avro.AvroSchema}.
+     * We can remove once we move to latest schema registry.
+     */
+    private static class TestingAvroSchema
+            implements ParsedSchema
+    {
+        private final String avroSchemaString;
+        private final Schema avroSchema;
+        private final List<SchemaReference> schemaReferences;
+
+        public TestingAvroSchema(String avroSchemaString, List<SchemaReference> schemaReferences, List<String> resolvedReferences)
         {
-            private final Schema avroSchema;
+            this.avroSchemaString = requireNonNull(avroSchemaString, "avroSchemaString is null");
+            this.schemaReferences = ImmutableList.copyOf(requireNonNull(schemaReferences, "schemaReferences is null"));
+            requireNonNull(resolvedReferences, "resolvedReferences is null");
 
-            public TestingAvroSchema(Schema avroSchema)
-            {
-                this.avroSchema = requireNonNull(avroSchema, "avroSchema is null");
-            }
+            Parser parser = new Parser();
+            resolvedReferences.forEach(parser::parse);
+            this.avroSchema = parser.parse(avroSchemaString);
+        }
 
-            @Override
-            public String schemaType()
-            {
-                return "AVRO";
-            }
+        @Override
+        public String schemaType()
+        {
+            return "AVRO";
+        }
 
-            @Override
-            public String name()
-            {
-                return avroSchema.getName();
-            }
+        @Override
+        public String name()
+        {
+            return avroSchema.getName();
+        }
 
-            @Override
-            public String canonicalString()
-            {
-                return avroSchema.toString();
-            }
+        @Override
+        public String canonicalString()
+        {
+            return avroSchemaString;
+        }
 
-            @Override
-            public List<SchemaReference> references()
-            {
-                return null;
-            }
+        @Override
+        public List<SchemaReference> references()
+        {
+            return schemaReferences;
+        }
 
-            @Override
-            public boolean isBackwardCompatible(ParsedSchema parsedSchema)
-            {
-                return false;
-            }
+        @Override
+        public boolean isBackwardCompatible(ParsedSchema parsedSchema)
+        {
+            return false;
+        }
 
-            @Override
-            public Object rawSchema()
-            {
-                return avroSchema;
-            }
+        @Override
+        public Object rawSchema()
+        {
+            return avroSchema;
         }
     }
 }
