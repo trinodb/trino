@@ -33,6 +33,7 @@ import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
@@ -73,6 +74,9 @@ public class TestKafkaAvroReadsSmokeTest
 
     private static final String STRUCTURAL_AVRO_TOPIC_NAME = "read_structural_datatype_avro";
     private static final String STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
+
+    private static final String AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME = "schema_with_references_avro";
+    private static final String AVRO_SCHEMA_WITH_REFERENCES_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/schema_with_references.avsc";
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
@@ -183,6 +187,43 @@ public class TestKafkaAvroReadsSmokeTest
         {
             return catalogName;
         }
+    }
+
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
+    public void testAvroWithSchemaReferences()
+            throws Exception
+    {
+        TestingAvroSchema referredSchema = new TestingAvroSchema(Files.readString(new File(ALL_DATATYPE_SCHEMA_PATH).toPath()), ImmutableList.of(), ImmutableList.of());
+
+        getSchemaRegistryClient().register(
+                ALL_DATATYPES_AVRO_TOPIC_NAME + "-value",
+                referredSchema);
+
+        Map<String, Object> record = ImmutableMap.of(
+                "a_varchar", "foobar",
+                "a_bigint", 127L,
+                "a_double", 234.567,
+                "a_boolean", true);
+
+        GenericRecordBuilder recordBuilder = new GenericRecordBuilder((Schema) referredSchema.rawSchema());
+        record.forEach(recordBuilder::set);
+
+        TestingAvroSchema actualSchema = new TestingAvroSchema(
+                Files.readString(new File(AVRO_SCHEMA_WITH_REFERENCES_SCHEMA_PATH).toPath()),
+                ImmutableList.of(new SchemaReference(referredSchema.name(), ALL_DATATYPES_AVRO_TOPIC_NAME + "-value", 1)),
+                ImmutableList.of(referredSchema.canonicalString()));
+
+        // This is a bit hacky as KafkaTableManager relies on kafka catalog's tables for inserting data into a given topic
+        createAvroTable(actualSchema, ALL_DATATYPES_AVRO_TOPIC_NAME, AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME, ImmutableMap.of("reference", recordBuilder.build()), new SchemaRegistryAvroMessageSerializer());
+
+        assertEventually(
+                new Duration(30, SECONDS),
+                () -> {
+                    QueryResult queryResult = query(format("select reference.a_varchar, reference.a_double from kafka_schema_registry.%s.%s", KAFKA_SCHEMA, AVRO_SCHEMA_WITH_REFERENCES_TOPIC_NAME));
+                    assertThat(queryResult).containsOnly(row(
+                            "foobar",
+                            234.567));
+                });
     }
 
     private static void createAvroTable(String schemaPath, String tableName, String topicName, Map<String, Object> record, MessageSerializer messageSerializer)

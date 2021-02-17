@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.kafka.schema.confluent;
 
+import io.confluent.kafka.schemaregistry.ParsedSchema;
+import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.trino.plugin.kafka.schema.AbstractContentSchemaReader;
@@ -47,7 +49,10 @@ public class AvroConfluentContentSchemaReader
         }
         checkState(dataSchemaLocation.isEmpty(), "Unexpected parameter: dataSchemaLocation");
         try {
-            return Optional.of(schemaRegistryClient.getLatestSchemaMetadata(subject.get()).getSchema());
+            SchemaMetadata schemaMetadata = schemaRegistryClient.getLatestSchemaMetadata(subject.get());
+            ParsedSchema schema = schemaRegistryClient.getSchemaBySubjectAndId(subject.get(), schemaMetadata.getId());
+            return Optional.ofNullable(schema.rawSchema())
+                    .map(Object::toString);
         }
         catch (IOException | RestClientException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Could not resolve schema for the '%s' subject", subject.get()), e);
