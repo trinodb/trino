@@ -118,6 +118,26 @@ public abstract class AbstractKuduIntegrationSmokeTest
         assertUpdate("DROP TABLE test_show_create_table");
     }
 
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "nullable, encoding=auto, compression=default", "")
+                .row("custkey", "bigint", "nullable, encoding=auto, compression=default", "")
+                .row("orderstatus", "varchar", "nullable, encoding=auto, compression=default", "")
+                .row("totalprice", "double", "nullable, encoding=auto, compression=default", "")
+                .row("orderdate", "varchar", "nullable, encoding=auto, compression=default", "")
+                .row("orderpriority", "varchar", "nullable, encoding=auto, compression=default", "")
+                .row("clerk", "varchar", "nullable, encoding=auto, compression=default", "")
+                .row("shippriority", "integer", "nullable, encoding=auto, compression=default", "")
+                .row("comment", "varchar", "nullable, encoding=auto, compression=default", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+    }
+
     @Test
     public void testRowDelete()
     {

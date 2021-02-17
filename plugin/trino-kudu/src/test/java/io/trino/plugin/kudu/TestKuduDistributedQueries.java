@@ -14,7 +14,6 @@
 package io.trino.plugin.kudu;
 
 import io.trino.testing.AbstractTestDistributedQueries;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
@@ -25,9 +24,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 
 public class TestKuduDistributedQueries
         extends AbstractTestDistributedQueries
@@ -120,26 +116,6 @@ public class TestKuduDistributedQueries
     public void testDelete()
     {
         // TODO Support these test once kudu connector can create tables with default partitions
-    }
-
-    @Override
-    public void testShowColumns()
-    {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "nullable, encoding=auto, compression=default", "")
-                .row("custkey", "bigint", "nullable, encoding=auto, compression=default", "")
-                .row("orderstatus", "varchar", "nullable, encoding=auto, compression=default", "")
-                .row("totalprice", "double", "nullable, encoding=auto, compression=default", "")
-                .row("orderdate", "varchar", "nullable, encoding=auto, compression=default", "")
-                .row("orderpriority", "varchar", "nullable, encoding=auto, compression=default", "")
-                .row("clerk", "varchar", "nullable, encoding=auto, compression=default", "")
-                .row("shippriority", "integer", "nullable, encoding=auto, compression=default", "")
-                .row("comment", "varchar", "nullable, encoding=auto, compression=default", "")
-                .build();
-
-        assertEquals(actual, expectedParametrizedVarchar);
     }
 
     @Override

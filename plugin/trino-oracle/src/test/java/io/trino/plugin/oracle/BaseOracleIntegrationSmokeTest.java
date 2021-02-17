@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -72,6 +73,39 @@ public abstract class BaseOracleIntegrationSmokeTest
                         "   shippriority decimal(10, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
+    }
+
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "decimal(19,0)", "", "")
+                .row("custkey", "decimal(19,0)", "", "")
+                .row("orderstatus", "varchar(1)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "timestamp(3)", "", "")
+                .row("orderpriority", "varchar(15)", "", "")
+                .row("clerk", "varchar(15)", "", "")
+                .row("shippriority", "decimal(10,0)", "", "")
+                .row("comment", "varchar(79)", "", "")
+                .build();
+
+        // Until we migrate all connectors to parametrized varchar we check two options
+        assertTrue(actual.equals(expectedParametrizedVarchar),
+                format("%s does not matches %s", actual, expectedParametrizedVarchar));
+    }
+
+    @Override
+    public void testInformationSchemaFiltering()
+    {
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
+                "SELECT 'orders' table_name");
+        assertQuery(
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(19,0)' AND table_name = 'customer' AND column_name = 'custkey' LIMIT 1",
+                "SELECT 'customer' table_name");
     }
 
     @Test

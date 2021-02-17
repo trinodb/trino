@@ -135,6 +135,26 @@ public class TestCassandraIntegrationSmokeTest
                         ")");
     }
 
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar", "", "")
+                .build();
+
+        Assert.assertEquals(actual, expectedParametrizedVarchar);
+    }
+
     @Test
     public void testPartitionKeyPredicate()
     {

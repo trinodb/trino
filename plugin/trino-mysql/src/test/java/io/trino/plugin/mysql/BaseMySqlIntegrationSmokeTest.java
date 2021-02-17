@@ -79,6 +79,26 @@ abstract class BaseMySqlIntegrationSmokeTest
                         ")");
     }
 
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(255)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(255)", "", "")
+                .row("clerk", "varchar(255)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(255)", "", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+    }
+
     @Test
     public void testDropTable()
     {

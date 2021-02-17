@@ -69,7 +69,7 @@ import static org.testng.Assert.assertTrue;
  * @see AbstractTestIntegrationSmokeTest
  */
 public abstract class AbstractTestDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestQueryFramework
 {
     protected boolean supportsDelete()
     {

@@ -20,6 +20,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -56,6 +57,15 @@ public class TestMemSqlIntegrationSmokeTest
     public final void destroy()
     {
         memSqlServer.close();
+    }
+
+    @Override
+    public void testLargeIn(int valuesCount)
+    {
+        // Running this tests on MemSQL results in
+        // "Available disk space is below the value of 'minimal_disk_space' global variable (100 MB). This query cannot be executed"
+        // on followup tests
+        throw new SkipException("Running testLargeIn on MemSQL results in out-of-disk space errors");
     }
 
     @Test

@@ -14,15 +14,11 @@
 package io.trino.plugin.cassandra;
 
 import io.trino.testing.AbstractTestDistributedQueries;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 
 import java.util.Optional;
 
-import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseCassandraDistributedQueries
@@ -87,26 +83,6 @@ public abstract class BaseCassandraDistributedQueries
     {
         assertThatThrownBy(super::testDelete)
                 .hasStackTraceContaining("This connector only supports delete with primary key or partition key");
-    }
-
-    @Override
-    public void testShowColumns()
-    {
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "bigint", "", "")
-                .row("custkey", "bigint", "", "")
-                .row("orderstatus", "varchar", "", "")
-                .row("totalprice", "double", "", "")
-                .row("orderdate", "date", "", "")
-                .row("orderpriority", "varchar", "", "")
-                .row("clerk", "varchar", "", "")
-                .row("shippriority", "integer", "", "")
-                .row("comment", "varchar", "", "")
-                .build();
-
-        assertEquals(actual, expectedParametrizedVarchar);
     }
 
     @Override
