@@ -68,6 +68,7 @@ public class PinotMetadata
 
     private final LoadingCache<String, List<PinotColumn>> pinotTableColumnCache;
     private final PinotClient pinotClient;
+    private final boolean forbidDropTable;
 
     @Inject
     public PinotMetadata(
@@ -77,6 +78,7 @@ public class PinotMetadata
     {
         requireNonNull(pinotConfig, "pinot config");
         requireNonNull(executor, "executor is null");
+        this.forbidDropTable = pinotConfig.getForbidDropTable();
         long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
         this.pinotTableColumnCache =
@@ -270,6 +272,14 @@ public class PinotMetadata
     public boolean usesLegacyTableLayouts()
     {
         return false;
+    }
+
+    @Override
+    public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        checkState(!forbidDropTable, "Drop table forbidden");
+        PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
+        pinotClient.dropTableAndSchema(pinotTableHandle.getTableName());
     }
 
     @VisibleForTesting

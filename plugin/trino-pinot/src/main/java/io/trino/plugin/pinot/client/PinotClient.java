@@ -25,6 +25,8 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HttpHeaders;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.JsonResponseHandler;
 import io.airlift.http.client.Request;
@@ -70,7 +72,9 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.asyncReloading;
+import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.http.client.JsonResponseHandler.createJsonResponseHandler;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_EXCEPTION;
@@ -89,14 +93,17 @@ public class PinotClient
     private static final String TIME_BOUNDARY_NOT_FOUND_ERROR_CODE = "404";
     private static final JsonCodec<Map<String, Map<String, List<String>>>> ROUTING_TABLE_CODEC = mapJsonCodec(String.class, mapJsonCodec(String.class, listJsonCodec(String.class)));
     private static final Object ALL_TABLES_CACHE_KEY = new Object();
+    private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
 
     private static final String GET_ALL_TABLES_API_TEMPLATE = "tables";
+    private static final String TABLE_NAME_API_TEMPLATE = "tables/%s";
     private static final String TABLE_INSTANCES_API_TEMPLATE = "tables/%s/instances";
     private static final String TABLE_SCHEMA_API_TEMPLATE = "tables/%s/schema";
     private static final String ROUTING_TABLE_API_TEMPLATE = "debug/routingTable/%s";
     private static final String TIME_BOUNDARY_API_TEMPLATE = "debug/timeBoundary/%s";
     private static final String REQUEST_PAYLOAD_TEMPLATE = "{\"sql\" : \"%s\" }";
     private static final String QUERY_URL_TEMPLATE = "http://%s/query/sql";
+    private static final String SCHEMA_NAME_API_TEMPLATE = "schemas/%s";
 
     private final List<String> controllerUrls;
     private final HttpClient httpClient;
@@ -110,6 +117,7 @@ public class PinotClient
     private final JsonCodec<TimeBoundary> timeBoundaryJsonCodec;
     private final JsonCodec<Schema> schemaJsonCodec;
     private final JsonCodec<BrokerResponseNative> brokerResponseCodec;
+    private final ListeningExecutorService listeningExecutorService;
 
     @Inject
     public PinotClient(
@@ -147,6 +155,7 @@ public class PinotClient
         this.brokersForTableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
                 .build((CacheLoader.from(this::getAllBrokersForTable)));
+        this.listeningExecutorService = listeningDecorator(executor);
     }
 
     public static JsonCodecBinder addJsonBinders(JsonCodecBinder jsonCodecBinder)
@@ -191,6 +200,13 @@ public class PinotClient
     {
         return doHttpActionWithHeadersJson(
                 Request.Builder.prepareGet().setUri(URI.create(format("http://%s/%s", getControllerUrl(), path))),
+                Optional.empty(),
+                codec);
+    }
+
+    private <T> T sendHttpDeleteToControllerJson(String path, JsonCodec<T> codec)
+    {
+        return doHttpActionWithHeadersJson(Request.builder().prepareDelete().setUri(URI.create(format("http://%s/%s", getControllerUrl(), path))),
                 Optional.empty(),
                 codec);
     }
@@ -505,6 +521,32 @@ public class PinotClient
         return pinotTableName;
     }
 
+    public PinotSuccessResponse dropTable(String tableName)
+    {
+        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName);
+        return sendHttpDeleteToControllerJson(format(TABLE_NAME_API_TEMPLATE, pinotTableName), PINOT_SUCCESS_RESPONSE_JSON_CODEC);
+    }
+
+    public PinotSuccessResponse dropSchema(String tableName)
+    {
+        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName);
+        return sendHttpDeleteToControllerJson(format(SCHEMA_NAME_API_TEMPLATE, pinotTableName), PINOT_SUCCESS_RESPONSE_JSON_CODEC);
+    }
+
+    public void dropTableAndSchema(String tableName)
+    {
+        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName);
+        ListenableFuture<PinotSuccessResponse> dropTableFuture = listeningExecutorService.submit(() -> {
+            try {
+                dropTable(tableName);
+                return dropSchema(tableName);
+            }
+            finally {
+                allTablesCache.refresh(ALL_TABLES_CACHE_KEY);
+            }
+        });
+    }
+
     private BrokerResponseNative submitBrokerQueryJson(ConnectorSession session, PinotQuery query)
     {
         return doWithRetries(PinotSessionProperties.getPinotRetryCount(session), retryNumber -> {
@@ -581,5 +623,22 @@ public class PinotClient
             }
         }
         throw firstError;
+    }
+
+    public static class PinotSuccessResponse
+    {
+        private final String status;
+
+        @JsonCreator
+        public PinotSuccessResponse(@JsonProperty("status") String status)
+        {
+            this.status = requireNonNull(status, "status is null");
+        }
+
+        @JsonProperty
+        public String getStatus()
+        {
+            return status;
+        }
     }
 }
