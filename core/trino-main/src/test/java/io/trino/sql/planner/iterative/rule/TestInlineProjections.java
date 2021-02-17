@@ -49,6 +49,8 @@ public class TestInlineProjections
                                         .put(p.symbol("single_complex"), expression("complex_2 + 2")) // complex expression reference only once
                                         .put(p.symbol("try"), expression("try(complex / literal)"))
                                         .put(p.symbol("msg_xx"), expression("z + 1"))
+                                        .put(p.symbol("try_symbol_reference"), expression("try(2 * v)"))
+                                        .put(p.symbol("multi_symbol_reference"), expression("v + v"))
                                         .build(),
                                 p.project(Assignments.builder()
                                                 .put(p.symbol("symbol"), expression("x"))
@@ -56,6 +58,7 @@ public class TestInlineProjections
                                                 .put(p.symbol("literal"), expression("1"))
                                                 .put(p.symbol("complex_2"), expression("x - 1"))
                                                 .put(p.symbol("z"), expression("msg.x"))
+                                                .put(p.symbol("v"), expression("x"))
                                                 .build(),
                                         p.values(p.symbol("x"), p.symbol("msg", MSG_TYPE)))))
                 .matches(
@@ -69,6 +72,8 @@ public class TestInlineProjections
                                         .put("out6", PlanMatchPattern.expression("x - 1 + 2"))
                                         .put("out7", PlanMatchPattern.expression("try(y / 1)"))
                                         .put("out8", PlanMatchPattern.expression("z + 1"))
+                                        .put("out9", PlanMatchPattern.expression("try(2 * x)"))
+                                        .put("out10", PlanMatchPattern.expression("x + x"))
                                         .build(),
                                 project(
                                         ImmutableMap.of(
