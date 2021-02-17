@@ -41,7 +41,6 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 
@@ -73,32 +72,9 @@ public class TestKafkaAvroReadsSmokeTest
     private static final String STRUCTURAL_AVRO_TOPIC_NAME = "read_structural_datatype_avro";
     private static final String STRUCTURAL_SCHEMA_PATH = "/docker/presto-product-tests/conf/presto/etc/catalog/kafka/structural_datatype_avro_schema.avsc";
 
-    private static void createAvroTable(String schemaPath, String tableName, String topicName, ImmutableMap<String, Object> record, MessageSerializer messageSerializer)
-    {
-        try {
-            Schema schema = new Schema.Parser().parse(new File(schemaPath));
-            byte[] avroData = messageSerializer.serialize(topicName, schema, record);
-
-            KafkaTableDefinition tableDefinition = new KafkaTableDefinition(
-                    KAFKA_SCHEMA + "." + tableName,
-                    topicName,
-                    new ListKafkaDataSource(ImmutableList.of(
-                            new KafkaMessage(
-                                    contentsBuilder()
-                                            .appendBytes(avroData)
-                                            .build()))),
-                    1,
-                    1);
-            KafkaTableManager kafkaTableManager = (KafkaTableManager) testContext().getDependency(TableManager.class, "kafka");
-            kafkaTableManager.createImmutable(tableDefinition, tableHandle(tableName).inSchema(KAFKA_SCHEMA));
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-    }
-
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testSelectPrimitiveDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
+            throws Exception
     {
         ImmutableMap<String, Object> record = ImmutableMap.of(
                 "a_varchar", "foobar",
@@ -121,6 +97,7 @@ public class TestKafkaAvroReadsSmokeTest
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testNullType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
+            throws Exception
     {
         String topicName = ALL_NULL_AVRO_TOPIC_NAME + kafkaCatalog.getTopicNameSuffix();
         createAvroTable(ALL_DATATYPE_SCHEMA_PATH, ALL_NULL_AVRO_TOPIC_NAME, topicName, ImmutableMap.of(), messageSerializer);
@@ -138,6 +115,7 @@ public class TestKafkaAvroReadsSmokeTest
 
     @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS}, dataProvider = "catalogs")
     public void testSelectStructuralDataType(KafkaCatalog kafkaCatalog, MessageSerializer messageSerializer)
+            throws Exception
     {
         ImmutableMap<String, Object> record = ImmutableMap.of(
                 "a_array", ImmutableList.of(100L, 102L),
@@ -203,6 +181,26 @@ public class TestKafkaAvroReadsSmokeTest
         {
             return catalogName;
         }
+    }
+
+    private static void createAvroTable(String schemaPath, String tableName, String topicName, Map<String, Object> record, MessageSerializer messageSerializer)
+            throws Exception
+    {
+        Schema schema = new Schema.Parser().parse(new File(schemaPath));
+        byte[] avroData = messageSerializer.serialize(topicName, schema, record);
+
+        KafkaTableDefinition tableDefinition = new KafkaTableDefinition(
+                KAFKA_SCHEMA + "." + tableName,
+                topicName,
+                new ListKafkaDataSource(ImmutableList.of(
+                        new KafkaMessage(
+                                contentsBuilder()
+                                        .appendBytes(avroData)
+                                        .build()))),
+                1,
+                1);
+        KafkaTableManager kafkaTableManager = (KafkaTableManager) testContext().getDependency(TableManager.class, "kafka");
+        kafkaTableManager.createImmutable(tableDefinition, tableHandle(tableName).inSchema(KAFKA_SCHEMA));
     }
 
     @FunctionalInterface
