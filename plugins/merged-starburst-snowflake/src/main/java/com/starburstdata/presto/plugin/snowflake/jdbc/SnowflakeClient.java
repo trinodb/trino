@@ -30,12 +30,22 @@ import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.trino.plugin.jdbc.expression.AggregateFunctionRule;
 import io.trino.plugin.jdbc.expression.ImplementAvgDecimal;
 import io.trino.plugin.jdbc.expression.ImplementAvgFloatingPoint;
+import io.trino.plugin.jdbc.expression.ImplementCorr;
 import io.trino.plugin.jdbc.expression.ImplementCount;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
+import io.trino.plugin.jdbc.expression.ImplementCovariancePop;
+import io.trino.plugin.jdbc.expression.ImplementCovarianceSamp;
 import io.trino.plugin.jdbc.expression.ImplementMinMax;
+import io.trino.plugin.jdbc.expression.ImplementRegrIntercept;
+import io.trino.plugin.jdbc.expression.ImplementRegrSlope;
+import io.trino.plugin.jdbc.expression.ImplementStddevPop;
+import io.trino.plugin.jdbc.expression.ImplementStddevSamp;
 import io.trino.plugin.jdbc.expression.ImplementSum;
+import io.trino.plugin.jdbc.expression.ImplementVariancePop;
+import io.trino.plugin.jdbc.expression.ImplementVarianceSamp;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -151,13 +161,23 @@ public class SnowflakeClient
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
-                ImmutableSet.of(
-                        new ImplementCountAll(bigintTypeHandle),
-                        new ImplementCount(bigintTypeHandle),
-                        new ImplementMinMax(),
-                        new ImplementSum(SnowflakeClient::decimalTypeHandle),
-                        new ImplementAvgDecimal(),
-                        new ImplementAvgFloatingPoint()));
+                ImmutableSet.<AggregateFunctionRule>builder()
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementMinMax())
+                        .add(new ImplementSum(SnowflakeClient::decimalTypeHandle))
+                        .add(new ImplementAvgDecimal())
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementStddevSamp())
+                        .add(new ImplementStddevPop())
+                        .add(new ImplementVarianceSamp())
+                        .add(new ImplementVariancePop())
+                        .add(new ImplementCovarianceSamp())
+                        .add(new ImplementCovariancePop())
+                        .add(new ImplementCorr())
+                        .add(new ImplementRegrIntercept())
+                        .add(new ImplementRegrSlope())
+                        .build());
     }
 
     private static Optional<JdbcTypeHandle> decimalTypeHandle(DecimalType decimalType)

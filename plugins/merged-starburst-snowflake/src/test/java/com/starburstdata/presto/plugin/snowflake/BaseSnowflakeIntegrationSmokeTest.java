@@ -433,6 +433,171 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
     }
 
     @Test
+    public void testStddevAggregationPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(snowflakeExecutor, schemaName + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(snowflakeExecutor, schemaName + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "4", "5"))) {
+            // Test non-whole number results
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testVarianceAggregationPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        try (TestTable testTable = new TestTable(snowflakeExecutor, schemaName + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+
+            snowflakeExecutor.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        try (TestTable testTable = new TestTable(snowflakeExecutor, schemaName + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "3", "4", "5"))) {
+            // Test non-whole number results
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testCovarianceAggregationPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        // empty table
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_covariance_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
+            assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT covar_samp(t_double1, t_double2), covar_samp(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        // test some values for which the aggregate functions return whole numbers
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_covariance_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
+                ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
+            assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT covar_samp(t_double1, t_double2), covar_samp(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        // non-whole number results
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_covariance_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
+                ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
+            assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT covar_samp(t_double1, t_double2), covar_samp(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testCorrAggregationPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        // empty table
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_corr_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
+            assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        // test some values for which the aggregate functions return whole numbers
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_corr_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
+                ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
+            assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        // non-whole number results
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_corr_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
+                ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
+            assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    @Test
+    public void testRegrAggregationPushdown()
+    {
+        String schemaName = getSession().getSchema().orElseThrow();
+        // empty table
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_regr_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
+            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        // test some values for which the aggregate functions return whole numbers
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_regr_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
+                ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
+            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+
+        // non-whole number results
+        try (TestTable testTable = new TestTable(
+                snowflakeExecutor,
+                schemaName + ".test_regr_pushdown",
+                "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
+                ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
+            assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testSnowflakeTimestampWithPrecision()
     {
         try (TestTable testTable = new TestTable(snowflakeExecutor::execute, getSession().getSchema().orElseThrow() + ".test_timestamp_with_precision",
