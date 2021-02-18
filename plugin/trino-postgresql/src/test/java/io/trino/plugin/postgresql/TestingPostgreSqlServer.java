@@ -16,12 +16,15 @@ package io.trino.plugin.postgresql;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
 import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 
@@ -33,6 +36,7 @@ public class TestingPostgreSqlServer
     private static final String DATABASE = "tpch";
 
     private final PostgreSQLContainer<?> dockerContainer;
+    private final Closeable cleanup;
 
     public TestingPostgreSqlServer()
     {
@@ -41,7 +45,7 @@ public class TestingPostgreSqlServer
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
                 .withPassword(PASSWORD);
-        dockerContainer.start();
+        cleanup = startOrReuse(dockerContainer);
     }
 
     public void execute(String sql)
@@ -86,6 +90,11 @@ public class TestingPostgreSqlServer
     @Override
     public void close()
     {
-        dockerContainer.close();
+        try {
+            cleanup.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }

@@ -70,7 +70,7 @@ public class TestPostgreSqlIntegrationSmokeTest
     @BeforeClass
     public void setExtensions()
     {
-        execute("CREATE EXTENSION file_fdw");
+        execute("CREATE EXTENSION IF NOT EXISTS file_fdw");
     }
 
     @Test

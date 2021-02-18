@@ -58,7 +58,7 @@ public final class PostgreSqlQueryRunner
             connectorProperties.putIfAbsent("allow-drop-table", "true");
             connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
 
-            server.execute("CREATE SCHEMA tpch");
+            server.execute("CREATE SCHEMA IF NOT EXISTS tpch");
 
             queryRunner.installPlugin(new PostgreSqlPlugin());
             queryRunner.createCatalog("postgresql", "postgresql", connectorProperties);
