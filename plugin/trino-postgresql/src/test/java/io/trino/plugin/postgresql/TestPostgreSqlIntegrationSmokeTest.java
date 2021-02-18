@@ -14,7 +14,9 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.spi.security.Identity;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -694,6 +696,63 @@ public class TestPostgreSqlIntegrationSmokeTest
         }
     }
 
+    @Test
+    public void testAccessDeniedToTableWithExtraCredentialImpersonation()
+            throws Exception
+    {
+        String user = "test_access_denied_to_table_" + randomTableSuffix();
+        Session userSession = Session.builder(getSession())
+                .setIdentity(Identity.from(getSession().getIdentity())
+                        .withExtraCredentials(ImmutableMap.of(
+                                "postgresql-user", user,
+                                "postgresql-password", user))
+                        .build())
+                .build();
+        try (AutoCloseable ignored = withUser(user)) {
+            assertQuery(userSession, "SHOW TABLES LIKE '%nation%'", "VALUES 'nation'");
+            String accessDeniedErrorMessageRegexp = "(?s)ERROR: permission denied for schema tpch.*";
+            assertQueryFails(userSession, "SELECT * FROM nation", accessDeniedErrorMessageRegexp);
+            // TODO https://github.com/trinodb/trino/issues/6947 - User should not be able to see columns
+            assertQuery(
+                    userSession,
+                    "DESC nation",
+                    "VALUES " +
+                            "('nationkey', 'bigint', '', '')," +
+                            "('name', 'varchar(25)', '', '')," +
+                            "('regionkey', 'bigint', '', '')," +
+                            "('comment', 'varchar(152)', '', '')");
+            // TODO https://github.com/trinodb/trino/issues/6947 - User should not be able to see table definition
+            assertQuery(
+                    userSession,
+                    "SHOW CREATE TABLE nation",
+                    "VALUES " +
+                            "'CREATE TABLE postgresql.tpch.nation (\n" +
+                            "   nationkey bigint,\n" +
+                            "   name varchar(25),\n" +
+                            "   regionkey bigint,\n" +
+                            "   comment varchar(152)\n" +
+                            ")'");
+            assertQuerySucceeds(userSession, "SELECT count(*) FROM information_schema.tables");
+            assertQuery(
+                    userSession,
+                    "SELECT count(*) FROM information_schema.tables WHERE table_name = 'nation'",
+                    "VALUES 1");
+            assertQuery(
+                    userSession,
+                    "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'tpch' AND table_name = 'nation'",
+                    "VALUES 1");
+            assertQuerySucceeds(userSession, "SELECT count(*) FROM information_schema.columns");
+            assertQuery(
+                    userSession,
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = 'nation'",
+                    "VALUES 'nationkey', 'name', 'regionkey', 'comment'");
+            assertQuery(
+                    userSession,
+                    "SELECT column_name FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'nation'",
+                    "VALUES 'nationkey', 'name', 'regionkey', 'comment'");
+        }
+    }
+
     private static String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)
@@ -712,6 +771,12 @@ public class TestPostgreSqlIntegrationSmokeTest
     {
         execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
         return () -> execute("DROP TABLE " + tableName);
+    }
+
+    private AutoCloseable withUser(String user)
+    {
+        execute(format("CREATE USER %1$s WITH PASSWORD '%1$s'", user));
+        return () -> execute("DROP USER " + user);
     }
 
     private void execute(String sql)

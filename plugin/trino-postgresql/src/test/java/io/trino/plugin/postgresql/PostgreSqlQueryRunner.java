@@ -55,6 +55,8 @@ public final class PostgreSqlQueryRunner
             connectorProperties.putIfAbsent("connection-url", server.getJdbcUrl());
             connectorProperties.putIfAbsent("connection-user", server.getUser());
             connectorProperties.putIfAbsent("connection-password", server.getPassword());
+            connectorProperties.putIfAbsent("user-credential-name", "postgresql-user");
+            connectorProperties.putIfAbsent("password-credential-name", "postgresql-password");
             connectorProperties.putIfAbsent("allow-drop-table", "true");
             connectorProperties.putIfAbsent("postgresql.include-system-tables", "true");
 
