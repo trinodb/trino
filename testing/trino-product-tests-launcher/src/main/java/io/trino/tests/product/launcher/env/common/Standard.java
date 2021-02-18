@@ -38,11 +38,11 @@ import java.time.Duration;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.WORKER_NTH;
+import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -182,7 +182,7 @@ public final class Standard
             container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-java-debugger.sh");
 
             // expose debug port unconditionally when debug is enabled
-            exposePort(container, debugPort);
+            unsafelyExposePort(container, debugPort);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
