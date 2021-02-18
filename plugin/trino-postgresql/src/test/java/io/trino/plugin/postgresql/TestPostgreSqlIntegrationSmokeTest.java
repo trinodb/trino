@@ -69,7 +69,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @BeforeClass
     public void setExtensions()
-            throws SQLException
     {
         execute("CREATE EXTENSION file_fdw");
     }
@@ -86,7 +85,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @Test
     public void testInsert()
-            throws Exception
     {
         execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
@@ -96,7 +94,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @Test
     public void testInsertInPresenceOfNotSupportedColumn()
-            throws Exception
     {
         execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
         // Check that column y is not supported.
@@ -108,7 +105,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @Test
     public void testViews()
-            throws Exception
     {
         execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
@@ -118,7 +114,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @Test
     public void testMaterializedView()
-            throws Exception
     {
         execute("CREATE MATERIALIZED VIEW tpch.test_mv as SELECT * FROM tpch.orders");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_mv"));
@@ -128,7 +123,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @Test
     public void testForeignTable()
-            throws Exception
     {
         execute("CREATE SERVER devnull FOREIGN DATA WRAPPER file_fdw");
         execute("CREATE FOREIGN TABLE tpch.test_ft (x bigint) SERVER devnull OPTIONS (filename '/dev/null')");
@@ -197,8 +191,8 @@ public class TestPostgreSqlIntegrationSmokeTest
             throws Exception
     {
         String schemaName = format("tmp_schema_%s", UUID.randomUUID().toString().replaceAll("-", ""));
-        try (AutoCloseable schema = withSchema(schemaName);
-                AutoCloseable table = withTable(format("%s.test_cleanup", schemaName), "(x INTEGER)")) {
+        try (AutoCloseable ignored = withSchema(schemaName);
+                AutoCloseable ignored1 = withTable(format("%s.test_cleanup", schemaName), "(x INTEGER)")) {
             assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaName), "VALUES 'test_cleanup'");
 
             execute(format("ALTER TABLE %s.test_cleanup ADD CHECK (x > 0)", schemaName));
@@ -319,7 +313,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
     @Test
     public void testCharTrailingSpace()
-            throws Exception
     {
         execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
         assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
@@ -341,7 +334,7 @@ public class TestPostgreSqlIntegrationSmokeTest
                         "   column_a date,\n" +
                         "   column_b date NOT NULL\n" +
                         ")",
-                getSession().getCatalog().get());
+                getSession().getCatalog().orElseThrow());
         assertUpdate(createTableSql);
         assertEquals(computeScalar("SHOW CREATE TABLE test_insert_not_null"), createTableSql);
 
@@ -662,7 +655,6 @@ public class TestPostgreSqlIntegrationSmokeTest
      */
     @Test
     public void testNativeLargeIn()
-            throws SQLException
     {
         execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 500_000));
     }
@@ -672,7 +664,6 @@ public class TestPostgreSqlIntegrationSmokeTest
      */
     @Test
     public void testNativeMultipleInClauses()
-            throws SQLException
     {
         String longInClauses = range(0, 20)
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
@@ -703,7 +694,7 @@ public class TestPostgreSqlIntegrationSmokeTest
         }
     }
 
-    private String getLongInClause(int start, int length)
+    private static String getLongInClause(int start, int length)
     {
         String longValues = range(start, start + length)
                 .mapToObj(Integer::toString)
@@ -712,39 +703,25 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     private AutoCloseable withSchema(String schema)
-            throws Exception
     {
         execute(format("CREATE SCHEMA %s", schema));
-        return () -> {
-            try {
-                execute(format("DROP SCHEMA %s", schema));
-            }
-            catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        };
+        return () -> execute("DROP SCHEMA %s" + schema);
     }
 
     private AutoCloseable withTable(String tableName, String tableDefinition)
-            throws Exception
     {
         execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
-        return () -> {
-            try {
-                execute(format("DROP TABLE %s", tableName));
-            }
-            catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-        };
+        return () -> execute("DROP TABLE " + tableName);
     }
 
     private void execute(String sql)
-            throws SQLException
     {
         try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 }
