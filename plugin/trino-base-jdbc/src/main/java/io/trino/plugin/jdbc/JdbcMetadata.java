@@ -46,6 +46,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
@@ -370,8 +371,9 @@ public class JdbcMetadata
                 jdbcClient.getTableHandle(session, tableName)
                         .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
             }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
+            catch (TableNotFoundException | AccessDeniedException e) {
+                // table disappeared during listing operation or user is not allowed to access it
+                // these exceptions are ignored because listTableColumns is used for metadata queries (SELECT FROM information_schema)
             }
         }
         return columns.build();
