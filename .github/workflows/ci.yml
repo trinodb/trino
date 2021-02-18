@@ -64,9 +64,9 @@ jobs:
       - name: Error Prone Checks
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-        # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
+          # Run Error Prone on one module with a retry to ensure all runtime dependencies are fetched
           $RETRY ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler -pl ':trino-spi'
-        # The main Error Prone run
+          # The main Error Prone run
           ./mvnw ${MAVEN_TEST} -T C1 clean test-compile -P errorprone-compiler \
             -pl '!:trino-docs,!:trino-server,!:trino-server-rpm'
 
