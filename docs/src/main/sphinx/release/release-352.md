@@ -59,7 +59,7 @@
 * Match columns by name rather than by index by default for Parquet files. ({issue}`6479`)
 * Remove the `hive.partition-use-column-names` configuration property and the
   `partition_use_column_names ` session property. This is now determined automatically. ({issue}`6479`)
-* Support reading timestamp with microsecond or nanosecond precision (as configured with 
+* Support timestamps with microsecond or nanosecond precision (as configured with
   `hive.timestamp-precision` property) nested within `array`, `map` or `struct` data types. ({issue}`5195`)
 * Support reading from table in Sequencefile format that uses LZO compression. ({issue}`6452`)
 * Expose AWS HTTP Client stats via JMX. ({issue}`6503`)
