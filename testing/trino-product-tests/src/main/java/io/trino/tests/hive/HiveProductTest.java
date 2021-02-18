@@ -23,6 +23,7 @@ import org.intellij.lang.annotations.Language;
 import javax.inject.Inject;
 
 import java.time.temporal.ChronoUnit;
+import java.util.regex.Pattern;
 
 public class HiveProductTest
         extends ProductTest
@@ -43,8 +44,9 @@ public class HiveProductTest
 
     private static boolean isErrorCommittingToHive(Throwable throwable)
     {
-        return Throwables.getCausalChain(throwable).stream()
-                .anyMatch(exception -> exception.getMessage().matches(ERROR_COMMITTING_WRITE_TO_HIVE_MATCH));
+        return Pattern.compile(ERROR_COMMITTING_WRITE_TO_HIVE_MATCH)
+                .matcher(Throwables.getStackTraceAsString(throwable))
+                .find();
     }
 
     @Inject
