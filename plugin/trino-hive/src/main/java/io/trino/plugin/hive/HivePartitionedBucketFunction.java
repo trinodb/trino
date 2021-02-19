@@ -78,7 +78,7 @@ public class HivePartitionedBucketFunction
             }
         }
 
-        int hiveBucket = HiveBucketing.getHiveBucket(bucketingVersion, hiveBucketCount, bucketTypeInfos, page, bucketTypeInfos.size(), position);
+        int hiveBucket = HiveBucketing.getHiveBucket(bucketingVersion, hiveBucketCount, bucketTypeInfos, page, position);
 
         return (int) ((((31 * partitionHash) + hiveBucket) & Long.MAX_VALUE) % bucketCount);
     }
