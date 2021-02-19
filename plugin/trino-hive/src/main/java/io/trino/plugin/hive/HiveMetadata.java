@@ -176,6 +176,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isBucketExecutionEnable
 import static io.trino.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static io.trino.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
 import static io.trino.plugin.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
+import static io.trino.plugin.hive.HiveSessionProperties.isParallelPartitionedBucketedInsert;
 import static io.trino.plugin.hive.HiveSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.trino.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
@@ -2548,7 +2549,7 @@ public class HiveMetadata
                         .map(HiveColumnHandle::getHiveType)
                         .collect(toList()),
                 OptionalInt.of(hiveBucketHandle.get().getTableBucketCount()),
-                !partitionColumns.isEmpty());
+                !partitionColumns.isEmpty() && isParallelPartitionedBucketedInsert(session));
         return Optional.of(new ConnectorNewTableLayout(partitioningHandle, partitioningColumns.build()));
     }
 
