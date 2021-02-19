@@ -137,7 +137,7 @@ public class TestHivePartitionedBucketFunction
     {
         BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(numValues);
         int start = 923402935;
-        int end = 923402935 + numValues - 1;
+        int end = start + numValues - 1;
         for (int i = start; i < end; i++) {
             BIGINT.writeLong(builder, i);
         }
