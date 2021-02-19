@@ -29,10 +29,13 @@ import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Properties;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.time.ZoneOffset.UTC;
@@ -67,6 +70,29 @@ public class TestSqlServerTypeMapping
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+    }
+
+    @Test
+    public void testReadTime()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("time(0)", "'00:00:00'", createTimeType(0), "TIME '00:00:00'")
+                .addRoundTrip("time(6)", "'00:00:00.000000'", createTimeType(6), "TIME '00:00:00.000000'")
+                .addRoundTrip("time(6)", "'00:00:00.123456'", createTimeType(6), "TIME '00:00:00.123456'")
+                .addRoundTrip("time(0)", "'12:34:56'", createTimeType(0), "TIME '12:34:56'")
+                .addRoundTrip("time(6)", "'12:34:56.123456'", createTimeType(6), "TIME '12:34:56.123456'")
+
+                // maximal value for a precision
+                .addRoundTrip("time(0)", "'23:59:59'", createTimeType(0), "TIME '23:59:59'")
+                .addRoundTrip("time(1)", "'23:59:59.9'", createTimeType(1), "TIME '23:59:59.9'")
+                .addRoundTrip("time(2)", "'23:59:59.99'", createTimeType(2), "TIME '23:59:59.99'")
+                .addRoundTrip("time(3)", "'23:59:59.999'", createTimeType(3), "TIME '23:59:59.999'")
+                .addRoundTrip("time(4)", "'23:59:59.9999'", createTimeType(4), "TIME '23:59:59.9999'")
+                .addRoundTrip("time(5)", "'23:59:59.99999'", createTimeType(5), "TIME '23:59:59.99999'")
+                .addRoundTrip("time(6)", "'23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'")
+                .addRoundTrip("time(7)", "'23:59:59.9999999'", createTimeType(7), "TIME '23:59:59.9999999'")
+
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("test_time"));
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
@@ -245,5 +271,20 @@ public class TestSqlServerTypeMapping
         properties.setProperty("user", sqlServer.getUsername());
         properties.setProperty("password", sqlServer.getPassword());
         return new CreateAndInsertDataSetup(new JdbcSqlExecutor(sqlServer.getJdbcUrl(), properties), tableNamePrefix);
+    }
+
+    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
+    }
+
+    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
+    {
+        return zone.getRules().getValidOffsets(dateTime).isEmpty();
+    }
+
+    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
+    {
+        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 }

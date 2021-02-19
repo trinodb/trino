@@ -30,6 +30,7 @@ import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.RemoteTableName;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -50,6 +51,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
@@ -63,6 +65,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,13 +88,14 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMappi
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromPrestoTime;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longTimestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
@@ -108,9 +112,11 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TimestampType.createTimestampType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.round;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.max;
@@ -266,7 +272,11 @@ public class SqlServerClient
                 return Optional.of(dateColumnMapping());
 
             case Types.TIME:
-                return Optional.of(timeColumnMapping(TIME));
+                TimeType timeType = createTimeType(typeHandle.getRequiredDecimalDigits());
+                return Optional.of(ColumnMapping.longMapping(
+                        timeType,
+                        timeReadFunction(timeType),
+                        sqlServerTimeWriteFunction(timeType.getPrecision())));
 
             case Types.TIMESTAMP:
                 int precision = typeHandle.getRequiredDecimalDigits();
@@ -333,6 +343,10 @@ public class SqlServerClient
             return WriteMapping.longMapping("date", dateWriteFunction());
         }
 
+        if (type instanceof TimeType) {
+            // TODO https://github.com/trinodb/trino/issues/6956
+        }
+
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
             String dataType = format("datetime2(%d)", min(timestampType.getPrecision(), MAX_SUPPORTED_TIMESTAMP_PRECISION));
@@ -344,6 +358,32 @@ public class SqlServerClient
 
         // TODO implement proper type mapping
         return legacyToWriteMapping(session, type);
+    }
+
+    private LongWriteFunction sqlServerTimeWriteFunction(int precision)
+    {
+        return new LongWriteFunction()
+        {
+            @Override
+            public String getBindExpression()
+            {
+                // Binding setObject(LocalTime) can result with "The data types time and datetime are incompatible in the equal to operator."
+                // when write function is used for predicate pushdown.
+                return format("CAST(? AS time(%s))", precision);
+            }
+
+            @Override
+            public void set(PreparedStatement statement, int index, long picosOfDay)
+                    throws SQLException
+            {
+                picosOfDay = round(picosOfDay, 12 - precision);
+                if (picosOfDay == PICOSECONDS_PER_DAY) {
+                    picosOfDay = 0;
+                }
+                LocalTime localTime = fromPrestoTime(picosOfDay);
+                statement.setString(index, localTime.toString());
+            }
+        };
     }
 
     @Override
