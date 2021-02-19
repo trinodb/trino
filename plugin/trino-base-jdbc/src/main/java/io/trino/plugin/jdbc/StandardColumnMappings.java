@@ -405,17 +405,23 @@ public final class StandardColumnMappings
 
     public static ColumnMapping timeColumnMapping(TimeType timeType)
     {
-        checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
         return ColumnMapping.longMapping(
                 timeType,
-                (resultSet, columnIndex) -> {
-                    LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
-                    long nanosOfDay = time.toNanoOfDay();
-                    verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
-                    long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
-                    return round(picosOfDay, 12 - timeType.getPrecision());
-                },
+                timeReadFunction(timeType),
                 timeWriteFunction(timeType.getPrecision()));
+    }
+
+    public static LongReadFunction timeReadFunction(TimeType timeType)
+    {
+        requireNonNull(timeType, "timeType is null");
+        checkArgument(timeType.getPrecision() <= 9, "Unsupported type precision: %s", timeType);
+        return (resultSet, columnIndex) -> {
+            LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
+            long nanosOfDay = time.toNanoOfDay();
+            verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
+            long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
+            return round(picosOfDay, 12 - timeType.getPrecision());
+        };
     }
 
     public static LongWriteFunction timeWriteFunction(int precision)
