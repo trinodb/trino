@@ -25,6 +25,7 @@ import io.trino.spi.type.TypeOperators;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -91,18 +92,18 @@ public class TestHivePartitionedBucketFunction
         BucketFunction hiveBucketFunction = bucketFunction(hiveBucketingVersion, numBuckets, ImmutableList.of(HIVE_LONG));
 
         int numPartitions = 8;
-        ImmutableList.Builder<Long> partitionValuesBuilder = ImmutableList.builder();
-        for (int i = 0; i < numPartitions; i++) {
-            partitionValuesBuilder.addAll(Collections.nCopies(numValues / numPartitions, i * 348349L));
+        List<Long> partitionValues = new ArrayList<>();
+        for (int i = 0; i < numPartitions - 1; i++) {
+            partitionValues.addAll(Collections.nCopies(numValues / numPartitions, i * 348349L));
         }
-        List<Long> partitionValues = partitionValuesBuilder.build();
+        partitionValues.addAll(Collections.nCopies(numValues / numPartitions, null));
         Block partitionColumn = createLongsBlock(partitionValues);
         Page page = new Page(bucketColumn, partitionColumn);
         Map<Long, HashMultimap<Integer, Integer>> partitionedBucketPositions = new HashMap<>();
 
         for (int i = 0; i < numValues; i++) {
             int hiveBucket = hiveBucketFunction.getBucket(bucketedColumnPage, i);
-            long hivePartition = partitionValues.get(i);
+            Long hivePartition = partitionValues.get(i);
             // record list of positions for each combination of hive partition and bucket
             partitionedBucketPositions.computeIfAbsent(hivePartition, ignored -> HashMultimap.create())
                     .put(hiveBucket, i);
