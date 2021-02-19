@@ -490,6 +490,10 @@ public class DistributedQueryRunner
         try {
             return trinoClient.execute(session, sql).getResult();
         }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("SQL: " + sql));
+            throw e;
+        }
         finally {
             lock.readLock().unlock();
         }
