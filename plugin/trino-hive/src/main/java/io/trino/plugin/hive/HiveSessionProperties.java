@@ -47,6 +47,7 @@ public final class HiveSessionProperties
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
+    private static final String PARALLEL_PARTITIONED_BUCKETED_INSERT = "parallel_partitioned_bucketed_insert";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -136,6 +137,11 @@ public final class HiveSessionProperties
                         VALIDATE_BUCKETING,
                         "Verify that data is bucketed correctly when reading",
                         hiveConfig.isValidateBucketing(),
+                        false),
+                booleanProperty(
+                        PARALLEL_PARTITIONED_BUCKETED_INSERT,
+                        "Improve parallelism of partitioned and bucketed table inserts",
+                        hiveConfig.isParallelPartitionedBucketedInserts(),
                         false),
                 booleanProperty(
                         FORCE_LOCAL_SCHEDULING,
@@ -412,6 +418,11 @@ public final class HiveSessionProperties
     public static boolean isValidateBucketing(ConnectorSession session)
     {
         return session.getProperty(VALIDATE_BUCKETING, Boolean.class);
+    }
+
+    public static boolean isParallelPartitionedBucketedInsert(ConnectorSession session)
+    {
+        return session.getProperty(PARALLEL_PARTITIONED_BUCKETED_INSERT, Boolean.class);
     }
 
     public static boolean isForceLocalScheduling(ConnectorSession session)
