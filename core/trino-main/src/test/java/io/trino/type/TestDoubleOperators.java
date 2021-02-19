@@ -75,10 +75,10 @@ public class TestDoubleOperators
     @Test
     public void testSubtract()
     {
-        assertFunction("37.7E0 - 37.7E0", DOUBLE, 37.7 - 37.7);
+        assertFunction("37.7E0 - 37.7E0", DOUBLE, 0.0);
         assertFunction("37.7E0 - 17.1E0", DOUBLE, 37.7 - 17.1);
         assertFunction("17.1E0 - 37.7E0", DOUBLE, 17.1 - 37.7);
-        assertFunction("17.1E0 - 17.1E0", DOUBLE, 17.1 - 17.1);
+        assertFunction("17.1E0 - 17.1E0", DOUBLE, 0.0);
         assertFunction("DOUBLE 'NaN' - 37.7E0", DOUBLE, Double.NaN);
         assertFunction("37.7E0 - DOUBLE 'NaN'", DOUBLE, Double.NaN);
         assertFunction("DOUBLE 'NaN' - DOUBLE 'NaN'", DOUBLE, Double.NaN);
@@ -99,10 +99,10 @@ public class TestDoubleOperators
     @Test
     public void testDivide()
     {
-        assertFunction("37.7E0 / 37.7E0", DOUBLE, 37.7 / 37.7);
+        assertFunction("37.7E0 / 37.7E0", DOUBLE, 1.0);
         assertFunction("37.7E0 / 17.1E0", DOUBLE, 37.7 / 17.1);
         assertFunction("17.1E0 / 37.7E0", DOUBLE, 17.1 / 37.7);
-        assertFunction("17.1E0 / 17.1E0", DOUBLE, 17.1 / 17.1);
+        assertFunction("17.1E0 / 17.1E0", DOUBLE, 1.0);
         assertFunction("DOUBLE 'NaN' / 37.7E0", DOUBLE, Double.NaN);
         assertFunction("37.7E0 / DOUBLE 'NaN'", DOUBLE, Double.NaN);
         assertFunction("DOUBLE 'NaN' / DOUBLE '-NaN'", DOUBLE, Double.NaN);
@@ -111,10 +111,10 @@ public class TestDoubleOperators
     @Test
     public void testModulus()
     {
-        assertFunction("37.7E0 % 37.7E0", DOUBLE, 37.7 % 37.7);
+        assertFunction("37.7E0 % 37.7E0", DOUBLE, 0.0);
         assertFunction("37.7E0 % 17.1E0", DOUBLE, 37.7 % 17.1);
         assertFunction("17.1E0 % 37.7E0", DOUBLE, 17.1 % 37.7);
-        assertFunction("17.1E0 % 17.1E0", DOUBLE, 17.1 % 17.1);
+        assertFunction("17.1E0 % 17.1E0", DOUBLE, 0.0);
         assertFunction("DOUBLE 'NaN' % 37.7E0", DOUBLE, Double.NaN);
         assertFunction("37.7E0 % DOUBLE 'NaN'", DOUBLE, Double.NaN);
         assertFunction("DOUBLE 'NaN' % DOUBLE 'NaN'", DOUBLE, Double.NaN);

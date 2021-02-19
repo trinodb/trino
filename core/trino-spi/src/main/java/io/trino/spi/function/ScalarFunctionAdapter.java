@@ -190,7 +190,7 @@ public final class ScalarFunctionAdapter
         requireNonNull(methodHandle, "methodHandle is null");
         requireNonNull(actualConvention, "actualConvention is null");
         requireNonNull(expectedConvention, "expectedConvention is null");
-        if (expectedConvention.getArgumentConventions().size() != expectedConvention.getArgumentConventions().size()) {
+        if (actualConvention.getArgumentConventions().size() != expectedConvention.getArgumentConventions().size()) {
             throw new IllegalArgumentException("Actual and expected conventions have different number of arguments");
         }
 

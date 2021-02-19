@@ -71,7 +71,7 @@ public class TestBigintOperators
         assertFunction("100000000037 - 37", BIGINT, 100000000037L - 37L);
         assertFunction("37 - 100000000017", BIGINT, 37 - 100000000017L);
         assertFunction("100000000017 - 37", BIGINT, 100000000017L - 37L);
-        assertFunction("100000000017 - 100000000017", BIGINT, 100000000017L - 100000000017L);
+        assertFunction("100000000017 - 100000000017", BIGINT, 0L);
     }
 
     @Test
@@ -89,7 +89,7 @@ public class TestBigintOperators
         assertFunction("100000000037 / 37", BIGINT, 100000000037L / 37L);
         assertFunction("37 / 100000000017", BIGINT, 37 / 100000000017L);
         assertFunction("100000000017 / 37", BIGINT, 100000000017L / 37L);
-        assertFunction("100000000017 / 100000000017", BIGINT, 100000000017L / 100000000017L);
+        assertFunction("100000000017 / 100000000017", BIGINT, 1L);
     }
 
     @Test
@@ -98,7 +98,7 @@ public class TestBigintOperators
         assertFunction("100000000037 % 37", BIGINT, 100000000037L % 37L);
         assertFunction("37 % 100000000017", BIGINT, 37 % 100000000017L);
         assertFunction("100000000017 % 37", BIGINT, 100000000017L % 37L);
-        assertFunction("100000000017 % 100000000017", BIGINT, 100000000017L % 100000000017L);
+        assertFunction("100000000017 % 100000000017", BIGINT, 0L);
     }
 
     @Test
