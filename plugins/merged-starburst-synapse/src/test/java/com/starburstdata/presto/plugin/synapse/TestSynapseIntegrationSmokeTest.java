@@ -63,10 +63,11 @@ public class TestSynapseIntegrationSmokeTest
     @Test
     public void testInsert()
     {
-        synapseServer.execute("CREATE TABLE test_insert (x bigint, y varchar(100))");
-        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
-        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
-        assertUpdate("DROP TABLE test_insert");
+        String tableName = "test_insert" + randomTableSuffix();
+        synapseServer.execute("CREATE TABLE " + tableName + " (x bigint, y varchar(100))");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (123, 'test')", 1);
+        assertQuery("SELECT * FROM " + tableName, "SELECT 123 x, 'test' y");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -268,29 +269,30 @@ public class TestSynapseIntegrationSmokeTest
     public void testDecimalPredicatePushdown()
             throws Exception
     {
-        try (AutoCloseable ignoreTable = withTable("test_decimal_pushdown",
+        String tableName = "test_decimal_pushdown" + randomTableSuffix();
+        try (AutoCloseable ignoreTable = withTable(tableName,
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            synapseServer.execute("INSERT INTO test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
+            synapseServer.execute("INSERT INTO " + tableName + " VALUES (123.321, 123456789.987654321)");
 
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
+            assertThat(query("SELECT * FROM " + tableName + " WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
+            assertThat(query("SELECT * FROM " + tableName + " WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456790"))
+            assertThat(query("SELECT * FROM " + tableName + " WHERE long_decimal <= 123456790"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 123.321"))
+            assertThat(query("SELECT * FROM " + tableName + " WHERE short_decimal <= 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
+            assertThat(query("SELECT * FROM " + tableName + " WHERE long_decimal <= 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal = 123.321"))
+            assertThat(query("SELECT * FROM " + tableName + " WHERE short_decimal = 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
+            assertThat(query("SELECT * FROM " + tableName + " WHERE long_decimal = 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
         }
