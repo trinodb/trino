@@ -87,7 +87,9 @@ public class HivePartitionedBucketFunction
             throws Throwable
     {
         if (block.isNull(position)) {
-            return 0;
+            // use -1 as a hash for null value as it's less likely to collide with
+            // hash for non-null values (mainly 0 bigints/integers)
+            return -1;
         }
         return (long) hashCode.invokeExact(block, position);
     }
