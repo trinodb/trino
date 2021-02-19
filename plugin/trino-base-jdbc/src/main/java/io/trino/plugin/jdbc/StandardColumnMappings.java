@@ -429,7 +429,11 @@ public final class StandardColumnMappings
             long nanosOfDay = time.toNanoOfDay();
             verify(nanosOfDay < NANOSECONDS_PER_DAY, "Invalid value of nanosOfDay: %s", nanosOfDay);
             long picosOfDay = nanosOfDay * PICOSECONDS_PER_NANOSECOND;
-            return round(picosOfDay, 12 - timeType.getPrecision());
+            long rounded = round(picosOfDay, 12 - timeType.getPrecision());
+            if (rounded == PICOSECONDS_PER_DAY) {
+                rounded = 0;
+            }
+            return rounded;
         };
     }
 
