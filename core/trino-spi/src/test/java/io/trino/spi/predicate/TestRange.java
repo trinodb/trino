@@ -20,7 +20,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -233,11 +233,16 @@ public class TestRange
     @Test
     public void testIntersect()
     {
-        assertEquals(Range.greaterThan(BIGINT, 1L).intersect(Range.lessThanOrEqual(BIGINT, 2L)), Range.range(BIGINT, 1L, false, 2L, true));
-        assertEquals(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.equal(BIGINT, 2L)), Range.equal(BIGINT, 2L));
-        assertEquals(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.range(BIGINT, 2L, false, 10L, false)), Range.range(BIGINT, 2L, false, 3L, false));
-        assertEquals(Range.range(BIGINT, 1L, true, 3L, true).intersect(Range.range(BIGINT, 3L, true, 10L, false)), Range.equal(BIGINT, 3L));
-        assertEquals(Range.all(BIGINT).intersect(Range.equal(BIGINT, Long.MAX_VALUE)), Range.equal(BIGINT, Long.MAX_VALUE));
+        assertThat(Range.greaterThan(BIGINT, 1L).intersect(Range.lessThanOrEqual(BIGINT, 2L)))
+                .contains(Range.range(BIGINT, 1L, false, 2L, true));
+        assertThat(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.equal(BIGINT, 2L)))
+                .contains(Range.equal(BIGINT, 2L));
+        assertThat(Range.range(BIGINT, 1L, true, 3L, false).intersect(Range.range(BIGINT, 2L, false, 10L, false)))
+                .contains(Range.range(BIGINT, 2L, false, 3L, false));
+        assertThat(Range.range(BIGINT, 1L, true, 3L, true).intersect(Range.range(BIGINT, 3L, true, 10L, false)))
+                .contains(Range.equal(BIGINT, 3L));
+        assertThat(Range.all(BIGINT).intersect(Range.equal(BIGINT, Long.MAX_VALUE)))
+                .contains(Range.equal(BIGINT, Long.MAX_VALUE));
     }
 
     @Test
@@ -245,14 +250,12 @@ public class TestRange
     {
         Range greaterThan2 = Range.greaterThan(BIGINT, 2L);
         Range lessThan2 = Range.lessThan(BIGINT, 2L);
-        assertThatThrownBy(() -> greaterThan2.intersect(lessThan2))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Cannot intersect non-overlapping ranges");
+        assertThat(greaterThan2.intersect(lessThan2))
+                .isEmpty();
 
         Range range1To3Exclusive = Range.range(BIGINT, 1L, true, 3L, false);
         Range range3To10 = Range.range(BIGINT, 3L, true, 10L, false);
-        assertThatThrownBy(() -> range1To3Exclusive.intersect(range3To10))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Cannot intersect non-overlapping ranges");
+        assertThat(range1To3Exclusive.intersect(range3To10))
+                .isEmpty();
     }
 }

@@ -275,21 +275,21 @@ public final class Range
                 compareHighBound >= 0 ? this.highValue : other.highValue);
     }
 
-    public Range intersect(Range other)
+    public Optional<Range> intersect(Range other)
     {
         checkTypeCompatibility(other);
         if (!this.overlaps(other)) {
-            throw new IllegalArgumentException("Cannot intersect non-overlapping ranges");
+            return Optional.empty();
         }
 
         int compareLowBound = compareLowBound(other);
         int compareHighBound = compareHighBound(other);
-        return new Range(
+        return Optional.of(new Range(
                 type,
                 compareLowBound >= 0 ? this.lowInclusive : other.lowInclusive,
                 compareLowBound >= 0 ? this.lowValue : other.lowValue,
                 compareHighBound <= 0 ? this.highInclusive : other.highInclusive,
-                compareHighBound <= 0 ? this.highValue : other.highValue);
+                compareHighBound <= 0 ? this.highValue : other.highValue));
     }
 
     public boolean overlaps(Range other)
