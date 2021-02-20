@@ -15,6 +15,8 @@ package io.trino.plugin.pinot;
 
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -44,5 +46,17 @@ public class PinotHandleResolver
     public Class<? extends ConnectorTransactionHandle> getTransactionHandleClass()
     {
         return PinotTransactionHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        return PinotInsertTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass()
+    {
+        return PinotPartitioningHandle.class;
     }
 }

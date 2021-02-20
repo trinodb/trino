@@ -16,6 +16,7 @@ package io.trino.plugin.pinot.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.CacheBuilder;
@@ -24,6 +25,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.net.HostAndPort;
 import com.google.common.net.HttpHeaders;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -49,7 +51,11 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import org.apache.pinot.common.response.broker.BrokerResponseNative;
 import org.apache.pinot.common.response.broker.ResultTable;
+import org.apache.pinot.common.utils.FileUploadDownloadClient;
+import org.apache.pinot.common.utils.SimpleHttpResponse;
+import org.apache.pinot.spi.config.table.TableConfig;
 import org.apache.pinot.spi.data.Schema;
+import org.apache.pinot.spi.utils.JsonUtils;
 
 import javax.inject.Inject;
 
@@ -94,6 +100,8 @@ public class PinotClient
     private static final JsonCodec<Map<String, Map<String, List<String>>>> ROUTING_TABLE_CODEC = mapJsonCodec(String.class, mapJsonCodec(String.class, listJsonCodec(String.class)));
     private static final Object ALL_TABLES_CACHE_KEY = new Object();
     private static final JsonCodec<PinotSuccessResponse> PINOT_SUCCESS_RESPONSE_JSON_CODEC = jsonCodec(PinotSuccessResponse.class);
+    private static final JsonCodec<List<String>> LIST_JSON_CODEC = listJsonCodec(String.class);
+    private static final JsonCodec<List<Map<String, List<String>>>> ALL_SEGMENTS_CODEC = listJsonCodec(mapJsonCodec(String.class, listJsonCodec(String.class)));
 
     private static final String GET_ALL_TABLES_API_TEMPLATE = "tables";
     private static final String TABLE_NAME_API_TEMPLATE = "tables/%s";
@@ -104,6 +112,9 @@ public class PinotClient
     private static final String REQUEST_PAYLOAD_TEMPLATE = "{\"sql\" : \"%s\" }";
     private static final String QUERY_URL_TEMPLATE = "http://%s/query/sql";
     private static final String SCHEMA_NAME_API_TEMPLATE = "schemas/%s";
+    private static final String SCHEMAS_API_TEMPLATE = "schemas?override=true";
+    private static final String REALTIME = "REALTIME";
+    private static final String OFFLINE = "OFFLINE";
 
     private final List<String> controllerUrls;
     private final HttpClient httpClient;
@@ -117,6 +128,7 @@ public class PinotClient
     private final JsonCodec<TimeBoundary> timeBoundaryJsonCodec;
     private final JsonCodec<Schema> schemaJsonCodec;
     private final JsonCodec<BrokerResponseNative> brokerResponseCodec;
+    private final FileUploadDownloadClient fileUploadDownloadClient;
     private final ListeningExecutorService listeningExecutorService;
 
     @Inject
@@ -155,6 +167,7 @@ public class PinotClient
         this.brokersForTableCache = CacheBuilder.newBuilder()
                 .expireAfterWrite(config.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
                 .build((CacheLoader.from(this::getAllBrokersForTable)));
+        this.fileUploadDownloadClient = new FileUploadDownloadClient();
         this.listeningExecutorService = listeningDecorator(executor);
     }
 
@@ -224,6 +237,50 @@ public class PinotClient
         return controllerUrls.get(ThreadLocalRandom.current().nextInt(controllerUrls.size()));
     }
 
+    public TableConfig getTableConfig(String tableName, boolean isOffline)
+    {
+        try {
+            String type = isOffline ? "OFFLINE" : "REALTIME";
+            HostAndPort controllerHostAndPort = HostAndPort.fromString(getControllerUrl());
+            SimpleHttpResponse response = fileUploadDownloadClient.sendGetRequest(
+                    FileUploadDownloadClient.getRetrieveTableConfigHttpURI(
+                            controllerHostAndPort.getHost(), controllerHostAndPort.getPort(), tableName));
+            JsonNode offlineJsonTableConfig = JsonUtils.stringToJsonNode(response.getResponse()).get(type);
+            requireNonNull(offlineJsonTableConfig, "offlineJsonTableConfig is null");
+            return JsonUtils.jsonNodeToObject(offlineJsonTableConfig, TableConfig.class);
+        }
+        catch (Exception e) {
+            // TODO: throw presto exception
+            throw new RuntimeException(e);
+        }
+    }
+
+    public TableConfig getTableConfig(String tableName)
+    {
+        try {
+            return getTableConfig(tableName, false);
+        }
+        catch (Exception e) {
+            return getTableConfig(tableName, true);
+        }
+    }
+
+    public Schema getSchema(String tableName)
+    {
+        try {
+            HostAndPort controllerHostAndPort = HostAndPort.fromString(getControllerUrl());
+            SimpleHttpResponse response =
+                    fileUploadDownloadClient.sendGetRequest(
+                            FileUploadDownloadClient.getRetrieveSchemaHttpURI(
+                                    controllerHostAndPort.getHost(), controllerHostAndPort.getPort(), tableName));
+            return Schema.fromString(response.getResponse());
+        }
+        catch (Exception e) {
+            // TODO: throw presto exception
+            throw new RuntimeException(e);
+        }
+    }
+
     public static class GetTables
     {
         private final List<String> tables;
@@ -240,15 +297,63 @@ public class PinotClient
         }
     }
 
+    public static class PinotSegments
+    {
+        private final List<String> realtime;
+        private final List<String> offline;
+
+        @JsonCreator
+        public PinotSegments(@JsonProperty("REALTIME") List<String> realtime, @JsonProperty("OFFLINE") List<String> offline)
+        {
+            requireNonNull(realtime, "realtime is null");
+            requireNonNull(offline, "offline is null");
+            this.realtime = ImmutableList.copyOf(realtime);
+            this.offline = ImmutableList.copyOf(offline);
+        }
+
+        @JsonProperty("REALTIME")
+        public List<String> getRealtime()
+        {
+            return realtime;
+        }
+
+        @JsonProperty("OFFLINE")
+        public List<String> getOffline()
+        {
+            return offline;
+        }
+
+        public int size()
+        {
+            return offline.size() + realtime.size();
+        }
+    }
+
     public List<String> getAllTables()
     {
         return sendHttpGetToControllerJson(GET_ALL_TABLES_API_TEMPLATE, tablesJsonCodec).getTables();
     }
 
     public Schema getTableSchema(String table)
-            throws Exception
     {
         return sendHttpGetToControllerJson(format(TABLE_SCHEMA_API_TEMPLATE, table), schemaJsonCodec);
+    }
+
+    public PinotSegments getSegments(String table)
+    {
+        List<Map<String, List<String>>> allSegments = sendHttpGetToControllerJson(format("segments/%s", table), ALL_SEGMENTS_CODEC);
+        requireNonNull(allSegments, "Segments response is null");
+        List<String> realtime = ImmutableList.of();
+        List<String> offline = ImmutableList.of();
+        for (Map<String, List<String>> segments : allSegments) {
+            if (segments.containsKey(REALTIME)) {
+                realtime = segments.get(REALTIME);
+            }
+            else if (segments.containsKey(OFFLINE)) {
+                offline = segments.get(OFFLINE);
+            }
+        }
+        return new PinotSegments(realtime, offline);
     }
 
     public static class BrokersForTable

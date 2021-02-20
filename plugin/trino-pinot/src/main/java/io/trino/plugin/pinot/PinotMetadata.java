@@ -19,17 +19,24 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.plugin.pinot.query.AggregationExpression;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.plugin.pinot.query.DynamicTableBuilder;
+import io.trino.spi.Node;
+import io.trino.spi.NodeManager;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ColumnNotFoundException;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
+import io.trino.spi.connector.ConnectorOutputMetadata;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -37,13 +44,18 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ComputedStatistics;
+import org.apache.pinot.spi.config.table.TableConfig;
+import org.apache.pinot.spi.data.DateTimeFieldSpec;
 import org.apache.pinot.spi.data.Schema;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +71,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class PinotMetadata
         implements ConnectorMetadata
@@ -68,19 +81,22 @@ public class PinotMetadata
 
     private final LoadingCache<String, List<PinotColumn>> pinotTableColumnCache;
     private final PinotClient pinotClient;
+    private final NodeManager nodeManager;
     private final boolean forbidDropTable;
 
     @Inject
     public PinotMetadata(
             PinotClient pinotClient,
             PinotConfig pinotConfig,
-            @ForPinot ExecutorService executor)
+            @ForPinot ExecutorService executor,
+            NodeManager nodeManager)
     {
         requireNonNull(pinotConfig, "pinot config");
         requireNonNull(executor, "executor is null");
         this.forbidDropTable = pinotConfig.getForbidDropTable();
         long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
+        this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.pinotTableColumnCache =
                 CacheBuilder.newBuilder()
                         .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS)
@@ -107,13 +123,35 @@ public class PinotMetadata
     {
         if (tableName.getTableName().trim().startsWith("select ")) {
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, pinotClient, tableName);
-            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+            return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable), Optional.empty(), OptionalInt.empty(), Optional.empty());
         }
         String pinotTableName = pinotClient.getPinotTableNameFromPrestoTableNameIfExists(tableName.getTableName());
         if (pinotTableName == null) {
             return null;
         }
-        return new PinotTableHandle(tableName.getSchemaName(), pinotTableName);
+        return new PinotTableHandle(
+                tableName.getSchemaName(),
+                pinotTableName,
+                TupleDomain.all(),
+                OptionalLong.empty(),
+                Optional.empty(),
+                Optional.of(getNodes()),
+                OptionalInt.of(pinotClient.getSegments(pinotTableName).size()),
+                Optional.of(getPinotDateTimeField(pinotTableName)));
+    }
+
+    private List<String> getNodes()
+    {
+        List<String> nodes = nodeManager.getRequiredWorkerNodes().stream().map(Node::getNodeIdentifier).collect(toList());
+        return nodes;
+    }
+
+    private PinotDateTimeField getPinotDateTimeField(String pinotTableName)
+    {
+        Schema schema = pinotClient.getTableSchema(pinotTableName);
+        TableConfig tableConfig = pinotClient.getTableConfig(pinotTableName);
+        DateTimeFieldSpec dateTimeFieldSpec = schema.getDateTimeSpec(tableConfig.getValidationConfig().getTimeColumnName());
+        return new PinotDateTimeField(dateTimeFieldSpec);
     }
 
     @Override
@@ -215,7 +253,34 @@ public class PinotMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
+        PinotTableHandle pinotTableHandle = (PinotTableHandle) table;
+        if (pinotTableHandle.getDateTimeField().isPresent()) {
+            PinotDateTimeField dateTimeField = pinotTableHandle.getDateTimeField().get();
+            PinotColumnHandle partitionColumn = new PinotColumnHandle(dateTimeField.getColumnName().toLowerCase(ENGLISH), dateTimeField.getType());
+            return new ConnectorTableProperties(
+                    TupleDomain.all(),
+                    Optional.of(new ConnectorTablePartitioning(new PinotPartitioningHandle(pinotTableHandle.getNodes(), pinotTableHandle.getDateTimeField(), pinotTableHandle.getSegmentCount()), ImmutableList.of(partitionColumn))),
+                    Optional.empty(),
+                    Optional.empty(),
+                    ImmutableList.of());
+        }
         return new ConnectorTableProperties();
+    }
+
+    @Override
+    public ConnectorTableHandle makeCompatiblePartitioning(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorPartitioningHandle partitioningHandle)
+    {
+        PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
+        PinotPartitioningHandle pinotPartitioningHandle = (PinotPartitioningHandle) partitioningHandle;
+        return new PinotTableHandle(
+                pinotTableHandle.getSchemaName(),
+                pinotTableHandle.getTableName(),
+                pinotTableHandle.getConstraint(),
+                pinotTableHandle.getLimit(),
+                pinotTableHandle.getQuery(),
+                pinotPartitioningHandle.getNodes(),
+                pinotTableHandle.getSegmentCount(),
+                pinotPartitioningHandle.getDateTimeField());
     }
 
     @Override
@@ -245,7 +310,10 @@ public class PinotMetadata
                 handle.getTableName(),
                 handle.getConstraint(),
                 OptionalLong.of(limit),
-                dynamicTable);
+                dynamicTable,
+                handle.getNodes(),
+                handle.getSegmentCount(),
+                handle.getDateTimeField());
         return Optional.of(new LimitApplicationResult<>(handle, false));
     }
 
@@ -264,7 +332,10 @@ public class PinotMetadata
                 handle.getTableName(),
                 newDomain,
                 handle.getLimit(),
-                handle.getQuery());
+                handle.getQuery(),
+                handle.getNodes(),
+                handle.getSegmentCount(),
+                handle.getDateTimeField());
         return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
     }
 
@@ -272,6 +343,23 @@ public class PinotMetadata
     public boolean usesLegacyTableLayouts()
     {
         return false;
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    {
+        PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
+        String pinotTableName = pinotClient.getPinotTableNameFromPrestoTableName(((PinotTableHandle) tableHandle).getTableName());
+        List<PinotColumnHandle> pinotColumnHandles = columns.stream()
+                .map(column -> (PinotColumnHandle) column)
+                .collect(toImmutableList());
+        return new PinotInsertTableHandle(pinotTableName, pinotTableHandle.getDateTimeField(), pinotColumnHandles);
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
     }
 
     @Override

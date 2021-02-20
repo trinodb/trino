@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.pinot.query.DynamicTable;
 import io.trino.spi.connector.ConnectorSession;
@@ -27,6 +28,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -54,7 +56,7 @@ public class TestPinotSplitManager
         SchemaTableName schemaTableName = new SchemaTableName("default", format("SELECT %s, %s FROM %s LIMIT %d", "AirlineID", "OriginStateName", "airlineStats", 100));
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, mockClusterInfoFetcher, schemaTableName);
 
-        PinotTableHandle pinotTableHandle = new PinotTableHandle("default", dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable));
+        PinotTableHandle pinotTableHandle = new PinotTableHandle("default", dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable), Optional.empty(), OptionalInt.empty(), Optional.empty());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, 1, false);
         assertSplits(splits, 1, BROKER);
     }
@@ -75,7 +77,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.empty(), Optional.of(ImmutableList.of()), OptionalInt.of(1), Optional.empty());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);
@@ -83,7 +85,7 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
+        PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.empty(), Optional.of(ImmutableList.of()), OptionalInt.of(1), Optional.empty());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
         splits.forEach(this::assertSegmentSplitWellFormed);

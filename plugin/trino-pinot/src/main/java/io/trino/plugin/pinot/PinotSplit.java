@@ -34,6 +34,7 @@ public class PinotSplit
     private final List<String> segments;
     private final Optional<String> segmentHost;
     private final Optional<String> timePredicate;
+    private final int bucket;
 
     @JsonCreator
     public PinotSplit(
@@ -41,13 +42,15 @@ public class PinotSplit
             @JsonProperty("suffix") Optional<String> suffix,
             @JsonProperty("segments") List<String> segments,
             @JsonProperty("segmentHost") Optional<String> segmentHost,
-            @JsonProperty("timePredicate") Optional<String> timePredicate)
+            @JsonProperty("timePredicate") Optional<String> timePredicate,
+            @JsonProperty("bucket") int bucket)
     {
         this.splitType = requireNonNull(splitType, "splitType id is null");
         this.suffix = requireNonNull(suffix, "suffix is null");
         this.segments = ImmutableList.copyOf(requireNonNull(segments, "segment is null"));
         this.segmentHost = requireNonNull(segmentHost, "host is null");
         this.timePredicate = requireNonNull(timePredicate, "timePredicate is null");
+        this.bucket = bucket;
 
         // make sure the segment properties are present when the split type is segment
         if (splitType == SplitType.SEGMENT) {
@@ -55,26 +58,6 @@ public class PinotSplit
             checkArgument(!segments.isEmpty(), "Segments are missing from the split");
             checkArgument(segmentHost.isPresent(), "Segment host address is missing from the split");
         }
-    }
-
-    public static PinotSplit createBrokerSplit()
-    {
-        return new PinotSplit(
-                SplitType.BROKER,
-                Optional.empty(),
-                ImmutableList.of(),
-                Optional.empty(),
-                Optional.empty());
-    }
-
-    public static PinotSplit createSegmentSplit(String suffix, List<String> segments, String segmentHost, Optional<String> timePredicate)
-    {
-        return new PinotSplit(
-                SplitType.SEGMENT,
-                Optional.of(requireNonNull(suffix, "suffix is null")),
-                requireNonNull(segments, "segments are null"),
-                Optional.of(requireNonNull(segmentHost, "segmentHost is null")),
-                requireNonNull(timePredicate, "timePredicate is null"));
     }
 
     @JsonProperty
@@ -107,6 +90,12 @@ public class PinotSplit
         return timePredicate;
     }
 
+    @JsonProperty
+    public int getBucket()
+    {
+        return bucket;
+    }
+
     @Override
     public String toString()
     {
@@ -114,6 +103,7 @@ public class PinotSplit
                 .add("splitType", splitType)
                 .add("segments", segments)
                 .add("segmentHost", segmentHost)
+                .add("bucket", bucket)
                 .toString();
     }
 

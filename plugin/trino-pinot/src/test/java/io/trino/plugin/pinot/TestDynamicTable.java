@@ -121,7 +121,7 @@ public class TestDynamicTable
         String tableName = realtimeOnlyTable.getTableName();
         String query = format("select FlightNum from %s where DivLongestGTimes = POW(3, 2) limit 60", tableName);
         DynamicTable dynamicTable = buildFromPql(pinotMetadata, mockClusterInfoFetcher, new SchemaTableName("default", query));
-        String expectedPql = "select FlightNum from realtimeOnly where minus(divlongestgtimes,pow('3','2')) = '0' limit 60";
+        String expectedPql = "select FlightNum from realtimeOnly where DivLongestGTimes = pow('3','2') limit 60";
         assertEquals(extractPql(dynamicTable, TupleDomain.all(), ImmutableList.of()), expectedPql);
     }
 

@@ -44,7 +44,8 @@ public class TestPinotConfig
                         .setNonAggregateLimitForBrokerQueries(25_000)
                         .setRequestTimeout(new Duration(30, TimeUnit.SECONDS))
                         .setMaxRowsPerSplitForSegmentQueries(50_000)
-                        .setForbidDropTable(false));
+                        .setForbidDropTable(false)
+                        .setSegmentCreationBaseDirectory("/tmp"));
     }
 
     @Test
@@ -68,6 +69,7 @@ public class TestPinotConfig
                 .put("pinot.request-timeout", "1m")
                 .put("pinot.max-rows-per-split-for-segment-queries", "10")
                 .put("pinot.forbid-drop-table", "true")
+                .put("pinot.segment-creation-base-directory", "/custom")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -87,7 +89,8 @@ public class TestPinotConfig
                 .setForbidSegmentQueries(true)
                 .setRequestTimeout(new Duration(1, TimeUnit.MINUTES))
                 .setMaxRowsPerSplitForSegmentQueries(10)
-                .setForbidDropTable(true);
+                .setForbidDropTable(true)
+                .setSegmentCreationBaseDirectory("/custom");
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

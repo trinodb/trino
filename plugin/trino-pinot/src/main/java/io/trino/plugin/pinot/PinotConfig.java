@@ -50,6 +50,7 @@ public class PinotConfig
     private int fetchRetryCount = 2;
     private int nonAggregateLimitForBrokerQueries = 25_000;
     private int maxRowsPerSplitForSegmentQueries = 50_000;
+    private String segmentCreationBaseDirectory = "/tmp";
     private boolean forbidDropTable;
 
     @NotNull
@@ -269,5 +270,17 @@ public class PinotConfig
     {
         this.forbidDropTable = forbidDropTable;
         return this;
+    }
+
+    @Config("pinot.segment-creation-base-directory")
+    public PinotConfig setSegmentCreationBaseDirectory(String segmentCreationBaseDirectory)
+    {
+        this.segmentCreationBaseDirectory = segmentCreationBaseDirectory;
+        return this;
+    }
+
+    public String getSegmentCreationBaseDirectory()
+    {
+        return segmentCreationBaseDirectory;
     }
 }
