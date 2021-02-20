@@ -28,7 +28,6 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.http.NameValuePair;
@@ -197,12 +196,12 @@ public class PrometheusSplitManager
             PrometheusPredicateTimeInfo.Builder timeInfoBuilder = PrometheusPredicateTimeInfo.builder();
             timeDomains.forEach(domain -> {
                 Range span = domain.getValues().getRanges().getSpan();
-                if (!span.includes(Marker.lowerUnbounded(TIMESTAMP_COLUMN_TYPE))) {
+                if (!span.isLowUnbounded()) {
                     long packedValue = (long) span.getLowBoundedValue();
                     Instant instant = ofEpochMilli(unpackMillisUtc(packedValue));
                     timeInfoBuilder.setPredicateLowerTimeBound(Optional.of(instant));
                 }
-                if (!span.includes(Marker.upperUnbounded(TIMESTAMP_COLUMN_TYPE))) {
+                if (!span.isHighUnbounded()) {
                     long packedValue = (long) span.getHighBoundedValue();
                     Instant instant = ofEpochMilli(unpackMillisUtc(packedValue));
                     timeInfoBuilder.setPredicateUpperTimeBound(Optional.of(instant));
