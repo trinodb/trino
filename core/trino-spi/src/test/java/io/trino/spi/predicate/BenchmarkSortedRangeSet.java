@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 
 @Fork(1)
@@ -217,7 +218,7 @@ public class BenchmarkSortedRangeSet
                 long to = ThreadLocalRandom.current().nextLong(100) + (factor + 1) * 100;
                 factor++;
 
-                ranges.add(new Range(Marker.above(BIGINT, from), Marker.below(BIGINT, to)));
+                ranges.add(range(BIGINT, from, false, to, false));
             }
 
             smallRanges = generateRangeSets(500_000, 2);
