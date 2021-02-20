@@ -75,7 +75,7 @@ public final class Range
         return low.getType();
     }
 
-    private Range(Type type, boolean lowInclusive, Optional<Object> lowValue, boolean highInclusive, Optional<Object> highValue)
+    Range(Type type, boolean lowInclusive, Optional<Object> lowValue, boolean highInclusive, Optional<Object> highValue)
     {
         requireNonNull(type, "type is null");
         this.type = type;
