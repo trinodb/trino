@@ -48,6 +48,43 @@ public class TestRange
                 .hasMessage("low must be less than or equal to high");
     }
 
+    /**
+     * Test Range construction when low and high bounds are equal, but one of them is not inclusive.
+     */
+    @Test
+    public void testSingleValueExclusive()
+    {
+        // (10, 10] using Marker
+        assertThatThrownBy(() -> new Range(Marker.above(BIGINT, 10L), Marker.exactly(BIGINT, 10L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid bounds for single value range");
+
+        // [10, 10) using Marker
+        assertThatThrownBy(() -> new Range(Marker.exactly(BIGINT, 10L), Marker.below(BIGINT, 10L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid bounds for single value range");
+
+        // (10, 10) using Marker
+        assertThatThrownBy(() -> new Range(Marker.above(BIGINT, 10L), Marker.below(BIGINT, 10L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid bounds for single value range");
+
+        // (10, 10]
+        assertThatThrownBy(() -> Range.range(BIGINT, 10L, false, 10L, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid bounds for single value range");
+
+        // [10, 10)
+        assertThatThrownBy(() -> Range.range(BIGINT, 10L, true, 10L, false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid bounds for single value range");
+
+        // (10, 10)
+        assertThatThrownBy(() -> Range.range(BIGINT, 10L, false, 10L, false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("invalid bounds for single value range");
+    }
+
     @Test
     public void testLowerUnboundedOnly()
     {
