@@ -28,29 +28,36 @@ import static org.testng.Assert.fail;
 
 public class TestRange
 {
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testMismatchedTypes()
     {
-        // NEVER DO THIS
-        new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(VARCHAR, utf8Slice("a")));
+        assertThatThrownBy(() -> new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(VARCHAR, utf8Slice("a"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Marker types do not match: bigint vs varchar");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testInvertedBounds()
     {
-        new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(BIGINT, 0L));
+        assertThatThrownBy(() -> new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(BIGINT, 0L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("low must be less than or equal to high");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testLowerUnboundedOnly()
     {
-        new Range(Marker.lowerUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT));
+        assertThatThrownBy(() -> new Range(Marker.lowerUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("high bound must be EXACTLY or BELOW");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testUpperUnboundedOnly()
     {
-        new Range(Marker.upperUnbounded(BIGINT), Marker.upperUnbounded(BIGINT));
+        assertThatThrownBy(() -> new Range(Marker.upperUnbounded(BIGINT), Marker.upperUnbounded(BIGINT)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("low bound must be EXACTLY or ABOVE");
     }
 
     @Test
