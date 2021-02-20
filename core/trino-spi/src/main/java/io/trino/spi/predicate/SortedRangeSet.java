@@ -988,26 +988,9 @@ public final class SortedRangeSet
 
         public Range toRange()
         {
-            if (isLowUnbounded() && isHighUnbounded()) {
-                return Range.all(type);
-            }
-
             Object low = readNativeValue(type, lowValueBlock, lowValuePosition);
             Object high = readNativeValue(type, highValueBlock, highValuePosition);
-
-            if (isLowUnbounded()) {
-                if (highInclusive) {
-                    return Range.lessThanOrEqual(type, high);
-                }
-                return Range.lessThan(type, high);
-            }
-            if (isHighUnbounded()) {
-                if (lowInclusive) {
-                    return Range.greaterThanOrEqual(type, low);
-                }
-                return Range.greaterThan(type, low);
-            }
-            return Range.range(type, low, lowInclusive, high, highInclusive);
+            return new Range(type, lowInclusive, Optional.ofNullable(low), highInclusive, Optional.ofNullable(high));
         }
 
         @Override
