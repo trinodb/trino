@@ -50,7 +50,6 @@ public class PinotQueryClient
     private static final CalciteSqlCompiler REQUEST_COMPILER = new CalciteSqlCompiler();
     private static final String PRESTO_HOST_PREFIX = "presto-pinot-master";
     private static final String SERVER_INSTANCE_PREFIX = "Server";
-    private static final boolean DEFAULT_EMIT_TABLE_LEVEL_METRICS = true;
 
     private final String prestoHostId;
     private final BrokerMetrics brokerMetrics;
@@ -64,7 +63,7 @@ public class PinotQueryClient
         prestoHostId = getDefaultPrestoId();
         this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
         MetricsRegistry registry = new MetricsRegistry();
-        this.brokerMetrics = new BrokerMetrics(registry, DEFAULT_EMIT_TABLE_LEVEL_METRICS);
+        this.brokerMetrics = new BrokerMetrics(registry);
         brokerMetrics.initializeGlobalMeters();
         queryRouter = new QueryRouter(prestoHostId, brokerMetrics);
     }

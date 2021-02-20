@@ -110,6 +110,7 @@ public class MockPinotClient
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 
