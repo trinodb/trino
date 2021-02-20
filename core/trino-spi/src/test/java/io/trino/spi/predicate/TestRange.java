@@ -28,7 +28,6 @@ import static org.testng.Assert.fail;
 
 public class TestRange
 {
-    @SuppressWarnings({"unchecked", "rawtypes"})
     @Test(expectedExceptions = IllegalArgumentException.class)
     public void testMismatchedTypes()
     {
