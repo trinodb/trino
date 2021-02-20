@@ -14,7 +14,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.pinot.version>0.5.0</dep.pinot.version>
+        <dep.pinot.version>0.6.0</dep.pinot.version>
     </properties>
 
     <dependencies>
@@ -113,7 +113,7 @@
         <dependency>
             <groupId>org.apache.helix</groupId>
             <artifactId>helix-core</artifactId>
-            <version>0.9.7</version>
+            <version>0.9.8</version>
             <exclusions>
                 <exclusion>
                     <groupId>commons-io</groupId>
@@ -274,10 +274,6 @@
                 <exclusion>
                     <groupId>org.antlr</groupId>
                     <artifactId>antlr4-annotations</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>it.unimi.dsi</groupId>
-                    <artifactId>fastutil</artifactId>
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.kafka</groupId>
