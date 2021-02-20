@@ -24,7 +24,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.AllOrNoneValueSet;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -126,9 +125,9 @@ public final class DomainCoercer
                 return coercedValue.map(value -> Range.equal(coercedValueType, value));
             }
 
-            Marker coercedLow;
+            Range coercedLow;
             if (range.isLowUnbounded()) {
-                coercedLow = Marker.lowerUnbounded(coercedValueType);
+                coercedLow = Range.all(coercedValueType);
             }
             else {
                 Object originalLowValue = range.getLowBoundedValue();
@@ -139,29 +138,29 @@ public final class DomainCoercer
 
                 if (range.isLowInclusive()) {
                     if (coercedValueIsEqualToOriginal) {
-                        coercedLow = Marker.exactly(coercedValueType, coercedLowValue);
+                        coercedLow = Range.greaterThanOrEqual(coercedValueType, coercedLowValue);
                     }
                     else if (coercedValueIsLessThanOriginal) {
-                        coercedLow = Marker.above(coercedValueType, coercedLowValue);
+                        coercedLow = Range.greaterThan(coercedValueType, coercedLowValue);
                     }
                     else {
-                        coercedLow = Marker.lowerUnbounded(coercedValueType);
+                        coercedLow = Range.all(coercedValueType);
                     }
                 }
                 else {
                     if (coercedValueIsEqualToOriginal || coercedValueIsLessThanOriginal) {
-                        coercedLow = Marker.above(coercedValueType, coercedLowValue);
+                        coercedLow = Range.greaterThan(coercedValueType, coercedLowValue);
                     }
                     else {
                         // Coerced domain is narrower than the original domain
-                        coercedLow = Marker.lowerUnbounded(coercedValueType);
+                        coercedLow = Range.all(coercedValueType);
                     }
                 }
             }
 
-            Marker coercedHigh;
+            Range coercedHigh;
             if (range.isHighUnbounded()) {
-                coercedHigh = Marker.upperUnbounded(coercedValueType);
+                coercedHigh = Range.all(coercedValueType);
             }
             else {
                 Object originalHighValue = range.getHighBoundedValue();
@@ -172,7 +171,7 @@ public final class DomainCoercer
 
                 if (range.isHighInclusive()) {
                     if (coercedValueIsEqualToOriginal || coercedValueIsLessThanOriginal) {
-                        coercedHigh = Marker.exactly(coercedValueType, coercedHighValue);
+                        coercedHigh = Range.lessThanOrEqual(coercedValueType, coercedHighValue);
                     }
                     else {
                         // Coerced range is outside the domain of target type
@@ -181,10 +180,10 @@ public final class DomainCoercer
                 }
                 else {
                     if (coercedValueIsEqualToOriginal) {
-                        coercedHigh = Marker.below(coercedValueType, coercedHighValue);
+                        coercedHigh = Range.lessThan(coercedValueType, coercedHighValue);
                     }
                     else if (coercedValueIsLessThanOriginal) {
-                        coercedHigh = Marker.exactly(coercedValueType, coercedHighValue);
+                        coercedHigh = Range.lessThanOrEqual(coercedValueType, coercedHighValue);
                     }
                     else {
                         // Coerced range is outside the domain of target type
@@ -193,11 +192,7 @@ public final class DomainCoercer
                 }
             }
 
-            if (coercedLow.compareTo(coercedHigh) > 0) {
-                // Both high and low are greater than max of target type, resulting in (max, max] after coercion
-                return Optional.empty();
-            }
-            return Optional.of(new Range(coercedLow, coercedHigh));
+            return coercedLow.intersect(coercedHigh);
         }
 
         private Optional<Object> applySaturatedCast(Object originalValue)
