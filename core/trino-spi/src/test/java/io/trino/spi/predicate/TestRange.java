@@ -42,6 +42,10 @@ public class TestRange
         assertThatThrownBy(() -> new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(BIGINT, 0L)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("low must be less than or equal to high");
+
+        assertThatThrownBy(() -> Range.range(BIGINT, 1L, true, 0L, true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("low must be less than or equal to high");
     }
 
     @Test
