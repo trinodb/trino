@@ -15,6 +15,7 @@ package io.trino.plugin.kafka;
 
 import io.airlift.units.DataSize;
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import javax.inject.Inject;
@@ -46,7 +47,7 @@ public class PlainTextKafkaConsumerFactory
     }
 
     @Override
-    public Properties configure()
+    public Properties configure(ConnectorSession session)
     {
         Properties properties = new Properties();
         properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()

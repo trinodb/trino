@@ -14,16 +14,17 @@
 
 package io.trino.plugin.kafka;
 
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.util.Properties;
 
 public interface KafkaConsumerFactory
 {
-    default KafkaConsumer<byte[], byte[]> create()
+    default KafkaConsumer<byte[], byte[]> create(ConnectorSession session)
     {
-        return new KafkaConsumer<>(configure());
+        return new KafkaConsumer<>(configure(session));
     }
 
-    Properties configure();
+    Properties configure(ConnectorSession session);
 }

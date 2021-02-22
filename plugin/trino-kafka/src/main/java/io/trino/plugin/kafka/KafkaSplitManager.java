@@ -65,7 +65,7 @@ public class KafkaSplitManager
             DynamicFilter dynamicFilter)
     {
         KafkaTableHandle kafkaTableHandle = (KafkaTableHandle) table;
-        try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create()) {
+        try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create(session)) {
             List<PartitionInfo> partitionInfos = kafkaConsumer.partitionsFor(kafkaTableHandle.getTopicName());
 
             List<TopicPartition> topicPartitions = partitionInfos.stream()
