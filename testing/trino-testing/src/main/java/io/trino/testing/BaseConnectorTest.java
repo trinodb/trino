@@ -32,26 +32,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 /**
- * Generic test for connectors exercising connector's read capabilities.
- * This is also the base class for connector-specific tests (not generic),
- * regardless whether they exercise read-only or read-write capabilities.
+ * Generic test for connectors.
  *
  * @see AbstractTestDistributedQueries
  */
 public abstract class BaseConnectorTest
-        extends AbstractTestQueryFramework
+        extends AbstractTestDistributedQueries
 {
-    /**
-     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
-     * shortcuts, not exercising certain aspects.
-     */
-    @Test
-    public void ensureDistributedQueryRunner()
-    {
-        assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
-                .isGreaterThanOrEqualTo(3);
-    }
-
     @Test
     public void testColumnsInReverseOrder()
     {
@@ -162,12 +149,6 @@ public abstract class BaseConnectorTest
     }
 
     @Test
-    public void testLimit()
-    {
-        assertEquals(computeActual("SELECT * FROM orders LIMIT 10").getRowCount(), 10);
-    }
-
-    @Test
     public void testMultipleRangesPredicate()
     {
         // List columns explicitly. Some connectors do not maintain column ordering.
@@ -256,27 +237,6 @@ public abstract class BaseConnectorTest
                         "FROM (SELECT name, regionkey, nationkey, count(*) count FROM nation GROUP BY name, regionkey, nationkey) n " +
                         "JOIN customer c ON c.nationkey = n.nationkey " +
                         "JOIN region r ON n.regionkey = r.regionkey");
-    }
-
-    @Test
-    public void testShowSchemas()
-    {
-        MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
-
-        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
-                .row(getQueryRunner().getDefaultSession().getSchema().orElse("tpch"));
-
-        assertContains(actualSchemas, resultBuilder.build());
-    }
-
-    @Test
-    public void testShowTables()
-    {
-        MaterializedResult actualTables = computeActual("SHOW TABLES").toTestTypes();
-        MaterializedResult expectedTables = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR)
-                .row("orders")
-                .build();
-        assertContains(actualTables, expectedTables);
     }
 
     @Test
