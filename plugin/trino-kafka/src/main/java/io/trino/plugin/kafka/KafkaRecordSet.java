@@ -23,6 +23,7 @@ import io.trino.decoder.RowDecoder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.MapType;
@@ -68,6 +69,7 @@ public class KafkaRecordSet
     private final KafkaSplit split;
 
     private final KafkaConsumerFactory consumerFactory;
+    private final ConnectorSession connectorSession;
     private final RowDecoder keyDecoder;
     private final RowDecoder messageDecoder;
 
@@ -77,12 +79,14 @@ public class KafkaRecordSet
     KafkaRecordSet(
             KafkaSplit split,
             KafkaConsumerFactory consumerFactory,
+            ConnectorSession connectorSession,
             List<KafkaColumnHandle> columnHandles,
             RowDecoder keyDecoder,
             RowDecoder messageDecoder)
     {
         this.split = requireNonNull(split, "split is null");
         this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
+        this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
 
         this.keyDecoder = requireNonNull(keyDecoder, "rowDecoder is null");
         this.messageDecoder = requireNonNull(messageDecoder, "rowDecoder is null");
@@ -123,7 +127,7 @@ public class KafkaRecordSet
         private KafkaRecordCursor()
         {
             topicPartition = new TopicPartition(split.getTopicName(), split.getPartitionId());
-            kafkaConsumer = consumerFactory.create();
+            kafkaConsumer = consumerFactory.create(connectorSession);
             kafkaConsumer.assign(ImmutableList.of(topicPartition));
             kafkaConsumer.seek(topicPartition, split.getMessagesRange().getBegin());
         }

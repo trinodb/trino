@@ -127,7 +127,7 @@ public class KafkaFilterManager
 
             // push down timestamp if possible
             if (offsetTimestampRanged.isPresent()) {
-                try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create()) {
+                try (KafkaConsumer<byte[], byte[]> kafkaConsumer = consumerFactory.create(session)) {
                     Optional<Range> finalOffsetTimestampRanged = offsetTimestampRanged;
                     partitionBeginOffsets = overridePartitionBeginOffsets(partitionBeginOffsets,
                             partition -> findOffsetsForTimestampGreaterOrEqual(kafkaConsumer, partition, finalOffsetTimestampRanged.get().getBegin()));
@@ -150,7 +150,7 @@ public class KafkaFilterManager
 
     private boolean isTimestampUpperBoundPushdownEnabled(ConnectorSession session, String topic)
     {
-        try (Admin adminClient = adminFactory.create()) {
+        try (Admin adminClient = adminFactory.create(session)) {
             ConfigResource topicResource = new ConfigResource(ConfigResource.Type.TOPIC, topic);
 
             DescribeConfigsResult describeResult = adminClient.describeConfigs(Collections.singleton(topicResource));
