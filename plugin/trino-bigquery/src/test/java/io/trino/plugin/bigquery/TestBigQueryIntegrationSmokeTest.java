@@ -14,7 +14,7 @@
 package io.trino.plugin.bigquery;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -29,7 +29,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Test
 public class TestBigQueryIntegrationSmokeTest
-        extends BaseConnectorTest
+        // TODO extend BaseConnectorTest
+        extends AbstractTestIntegrationSmokeTest
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;
 

@@ -14,7 +14,7 @@
 package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -26,7 +26,8 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAccumuloIntegrationSmokeTest
-        extends BaseConnectorTest
+        // TODO extend BaseConnectorTest
+        extends AbstractTestIntegrationSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()

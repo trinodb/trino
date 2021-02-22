@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.SetMultimap;
 import io.trino.spi.type.ArrayType;
-import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -57,7 +57,8 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 
 public class TestRaptorIntegrationSmokeTest
-        extends BaseConnectorTest
+        // TODO extend BaseConnectorTest
+        extends AbstractTestIntegrationSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
