@@ -17,6 +17,16 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
+    <repositories>
+        <repository>
+            <id>jitpack</id>
+            <url>https://jitpack.io</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <dependencies>
         <dependency>
             <groupId>io.trino</groupId>
