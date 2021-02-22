@@ -83,7 +83,7 @@ public class ConfluentModule
     {
         requireNonNull(confluentConfig, "confluentConfig is null");
         requireNonNull(schemaProviders, "schemaProviders is null");
-        requireNonNull(propertiesProviders, "schemaProviders is null");
+        requireNonNull(propertiesProviders, "propertiesProviders is null");
 
         List<String> baseUrl = confluentConfig.getConfluentSchemaRegistryUrls().stream()
                 .map(HostAddress::getHostText)
