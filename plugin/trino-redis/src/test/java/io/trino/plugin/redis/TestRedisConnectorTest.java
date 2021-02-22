@@ -13,22 +13,17 @@
  */
 package io.trino.plugin.redis;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.redis.util.RedisServer;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 
-@Test
-public class TestRedisIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestRedisConnectorTest
+        extends BaseConnectorTest
 {
     private RedisServer redisServer;
 
@@ -37,12 +32,60 @@ public class TestRedisIntegrationSmokeTest
             throws Exception
     {
         redisServer = new RedisServer();
-        return createRedisQueryRunner(redisServer, "string", CUSTOMER, NATION, ORDERS, REGION);
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "string", TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public void destroy()
     {
         redisServer.close();
+    }
+
+    @Override
+    protected boolean supportsCreateSchema()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCreateTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsInsert()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
     }
 }
