@@ -29,6 +29,9 @@ import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
+// With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
+// Some tests here create colliding names which can cause any other concurrent test to fail.
+@Test(singleThreaded = true)
 public class TestOracleCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
