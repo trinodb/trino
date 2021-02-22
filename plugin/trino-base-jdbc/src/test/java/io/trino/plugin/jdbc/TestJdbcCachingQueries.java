@@ -27,7 +27,8 @@ import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
-public class TestJdbcDistributedQueries
+public class TestJdbcCachingQueries
+        // TODO define shorter tests set that exercises various read and write scenarios (a.k.a. "a smoke test")
         extends AbstractTestDistributedQueries
 {
     private Map<String, String> properties;
@@ -38,6 +39,8 @@ public class TestJdbcDistributedQueries
     {
         properties = ImmutableMap.<String, String>builder()
                 .putAll(TestingH2JdbcModule.createProperties())
+                .put("metadata.cache-ttl", "10m")
+                .put("metadata.cache-missing", "true")
                 .put("allow-drop-table", "true")
                 .build();
         return createH2QueryRunner(TpchTable.getTables(), properties);
