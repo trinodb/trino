@@ -14,6 +14,7 @@
 
 package io.trino.plugin.kafka;
 
+import io.trino.spi.connector.ConnectorSession;
 import org.apache.kafka.clients.admin.Admin;
 import org.apache.kafka.clients.admin.KafkaAdminClient;
 
@@ -21,10 +22,10 @@ import java.util.Properties;
 
 public interface KafkaAdminFactory
 {
-    default Admin create()
+    default Admin create(ConnectorSession session)
     {
-        return KafkaAdminClient.create(configure());
+        return KafkaAdminClient.create(configure(session));
     }
 
-    Properties configure();
+    Properties configure(ConnectorSession session);
 }
