@@ -902,7 +902,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testPredicatePushdown()
+    public void testPredicate()
     {
         assertQuery("" +
                 "SELECT *\n" +

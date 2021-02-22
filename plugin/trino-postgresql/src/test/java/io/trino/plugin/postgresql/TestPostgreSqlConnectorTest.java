@@ -20,9 +20,11 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -31,17 +33,12 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -50,9 +47,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestPostgreSqlIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestPostgreSqlConnectorTest
+        extends BaseConnectorTest
 {
     protected TestingPostgreSqlServer postgreSqlServer;
 
@@ -65,7 +61,7 @@ public class TestPostgreSqlIntegrationSmokeTest
             postgreSqlServer.close();
             postgreSqlServer = null;
         });
-        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), List.of(CUSTOMER, NATION, ORDERS, REGION));
+        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), TpchTable.getTables());
     }
 
     @BeforeClass
@@ -73,6 +69,44 @@ public class TestPostgreSqlIntegrationSmokeTest
             throws SQLException
     {
         execute("CREATE EXTENSION file_fdw");
+    }
+
+    @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        // Arrays are supported conditionally. Check the defaults.
+        return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
     }
 
     @Test
@@ -83,16 +117,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
         assertUpdate("DROP TABLE test_drop");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
-    }
-
-    @Test
-    public void testInsert()
-            throws Exception
-    {
-        execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
-        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
-        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
-        assertUpdate("DROP TABLE test_insert");
     }
 
     @Test
