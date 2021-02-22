@@ -14,7 +14,7 @@
 package io.trino.plugin.redis;
 
 import io.trino.plugin.redis.util.RedisServer;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -27,7 +27,7 @@ import static io.trino.tpch.TpchTable.REGION;
 
 @Test
 public class TestRedisIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private RedisServer redisServer;
 

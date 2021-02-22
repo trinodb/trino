@@ -15,7 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -32,7 +32,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
 
 public class TestJdbcIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private final Map<String, String> properties = TestingH2JdbcModule.createProperties();
 

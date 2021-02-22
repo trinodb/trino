@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import io.trino.sql.planner.plan.LimitNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -45,7 +45,7 @@ import static org.testng.Assert.assertNotNull;
 
 @Test(singleThreaded = true)
 public class TestMongoIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private MongoServer server;
     private MongoClient client;
