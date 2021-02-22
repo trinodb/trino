@@ -13,24 +13,103 @@
  */
 package io.trino.plugin.jdbc;
 
-import io.trino.testing.AbstractTestQueries;
+import com.google.common.collect.ImmutableMap;
+import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.JdbcSqlExecutor;
+import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
 public class TestJdbcDistributedQueries
-        extends AbstractTestQueries
+        extends AbstractTestDistributedQueries
 {
+    private Map<String, String> properties;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createH2QueryRunner(TpchTable.getTables());
+        properties = ImmutableMap.<String, String>builder()
+                .putAll(TestingH2JdbcModule.createProperties())
+                .put("allow-drop-table", "true")
+                .build();
+        return createH2QueryRunner(TpchTable.getTables(), properties);
+    }
+
+    @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
     }
 
     @Override
     public void testLargeIn(int valuesCount)
     {
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                getSqlExecutor(),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeBaseName = dataMappingTestSetup.getTrinoTypeName().replaceAll("\\([^()]*\\)", "");
+        switch (typeBaseName) {
+            case "boolean":
+            case "decimal":
+            case "char":
+            case "varbinary":
+            case "time":
+            case "timestamp":
+            case "timestamp with time zone":
+                return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    private JdbcSqlExecutor getSqlExecutor()
+    {
+        return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
     }
 }
