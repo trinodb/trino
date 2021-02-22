@@ -92,7 +92,8 @@ public class KafkaPageSinkProvider
                 handle.getColumns(),
                 keyEncoder,
                 messageEncoder,
-                producerFactory);
+                producerFactory,
+                session);
     }
 
     private static Optional<String> getDataSchema(Optional<String> dataSchemaLocation)

@@ -15,6 +15,7 @@
 package io.trino.plugin.kafka;
 
 import io.trino.spi.HostAddress;
+import io.trino.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -39,7 +40,7 @@ public class PlainTextKafkaAdminFactory
     }
 
     @Override
-    public Properties configure()
+    public Properties configure(ConnectorSession session)
     {
         Properties properties = new Properties();
         properties.setProperty(BOOTSTRAP_SERVERS_CONFIG, nodes.stream()

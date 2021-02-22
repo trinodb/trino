@@ -73,7 +73,7 @@ public class KafkaRecordSetProvider
                         .filter(col -> !col.isKeyCodec())
                         .collect(toImmutableSet()));
 
-        return new KafkaRecordSet(kafkaSplit, consumerFactory, kafkaColumns, keyDecoder, messageDecoder);
+        return new KafkaRecordSet(kafkaSplit, consumerFactory, session, kafkaColumns, keyDecoder, messageDecoder);
     }
 
     private static Map<String, String> getDecoderParameters(Optional<String> dataSchema)
