@@ -34,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestMemSqlCaseInsensitiveMapping
         extends AbstractTestQueryFramework
 {
-    private TestingMemSqlServer memSqlServer;
+    protected TestingMemSqlServer memSqlServer;
 
     @Override
     protected QueryRunner createQueryRunner()
