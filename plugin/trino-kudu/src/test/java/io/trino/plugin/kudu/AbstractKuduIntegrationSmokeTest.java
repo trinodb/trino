@@ -14,7 +14,7 @@
 package io.trino.plugin.kudu;
 
 import io.trino.sql.planner.plan.LimitNode;
-import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -35,7 +35,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractKuduIntegrationSmokeTest
-        extends BaseConnectorTest
+        // TODO extend BaseConnectorTest
+        extends AbstractTestIntegrationSmokeTest
 {
     private TestingKuduServer kuduServer;
 
