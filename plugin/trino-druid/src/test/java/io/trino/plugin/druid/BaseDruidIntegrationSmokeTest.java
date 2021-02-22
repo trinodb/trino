@@ -17,7 +17,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.assertions.Assert;
 import org.intellij.lang.annotations.Language;
@@ -29,7 +29,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseDruidIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     protected static final String SELECT_FROM_ORDERS = "SELECT " +
             "orderdate, " +

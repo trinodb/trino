@@ -14,7 +14,7 @@
 package io.trino.plugin.thrift.integration;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.testng.annotations.Test;
@@ -24,7 +24,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.QueryAssertions.assertContains;
 
 public class TestThriftIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()

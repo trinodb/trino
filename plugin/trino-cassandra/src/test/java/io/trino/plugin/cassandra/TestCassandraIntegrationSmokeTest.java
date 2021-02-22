@@ -18,7 +18,7 @@ import com.google.common.primitives.Ints;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.type.Type;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -73,7 +73,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private static final String KEYSPACE = "smoke_test";
     private static final Session SESSION = createCassandraSession(KEYSPACE);

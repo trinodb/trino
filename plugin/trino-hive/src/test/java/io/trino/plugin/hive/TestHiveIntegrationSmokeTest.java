@@ -48,7 +48,7 @@ import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedRange;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan;
 import io.trino.sql.planner.planprinter.IoPlanPrinter.IoPlan.TableColumnInfo;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
@@ -163,7 +163,7 @@ import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertFile;
 
 public class TestHiveIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS");
     private final String catalog;
