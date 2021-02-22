@@ -2186,6 +2186,59 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testInsertIntoPartitionedBucketedTableFromBucketedTable()
+    {
+        testInsertIntoPartitionedBucketedTableFromBucketedTable(HiveStorageFormat.RCBINARY);
+    }
+
+    private void testInsertIntoPartitionedBucketedTableFromBucketedTable(HiveStorageFormat storageFormat)
+    {
+        String sourceTable = "test_insert_partitioned_bucketed_table_source";
+        String targetTable = "test_insert_partitioned_bucketed_table_target";
+        try {
+            @Language("SQL") String createSourceTable = "" +
+                    "CREATE TABLE " + sourceTable + " " +
+                    "WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "bucketed_by = ARRAY[ 'custkey' ], " +
+                    "bucket_count = 10 " +
+                    ") " +
+                    "AS " +
+                    "SELECT custkey, comment, orderstatus " +
+                    "FROM tpch.tiny.orders";
+            @Language("SQL") String createTargetTable = "" +
+                    "CREATE TABLE " + targetTable + " " +
+                    "WITH (" +
+                    "format = '" + storageFormat + "', " +
+                    "partitioned_by = ARRAY[ 'orderstatus' ], " +
+                    "bucketed_by = ARRAY[ 'custkey' ], " +
+                    "bucket_count = 10 " +
+                    ") " +
+                    "AS " +
+                    "SELECT custkey, comment, orderstatus " +
+                    "FROM tpch.tiny.orders";
+
+            assertUpdate(getParallelWriteSession(), createSourceTable, "SELECT count(*) FROM orders");
+            assertUpdate(getParallelWriteSession(), createTargetTable, "SELECT count(*) FROM orders");
+
+            transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl()).execute(
+                    getParallelWriteSession(),
+                    transactionalSession -> {
+                        assertUpdate(
+                                transactionalSession,
+                                "INSERT INTO " + targetTable + " SELECT * FROM " + sourceTable,
+                                15000,
+                                // there should be two remove exchanges, one below TableWriter and one below TableCommit
+                                assertRemoteExchangesCount(transactionalSession, 2));
+                    });
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTable);
+            assertUpdate("DROP TABLE IF EXISTS " + targetTable);
+        }
+    }
+
+    @Test
     public void testCreatePartitionedBucketedTableAsWithUnionAll()
     {
         testCreatePartitionedBucketedTableAsWithUnionAll(HiveStorageFormat.RCBINARY);
@@ -5637,13 +5690,17 @@ public class TestHiveIntegrationSmokeTest
 
     private Consumer<Plan> assertRemoteExchangesCount(int expectedRemoteExchangesCount)
     {
+        return assertRemoteExchangesCount(getSession(), expectedRemoteExchangesCount);
+    }
+
+    private Consumer<Plan> assertRemoteExchangesCount(Session session, int expectedRemoteExchangesCount)
+    {
         return plan -> {
             int actualRemoteExchangesCount = searchFrom(plan.getRoot())
                     .where(node -> node instanceof ExchangeNode && ((ExchangeNode) node).getScope() == ExchangeNode.Scope.REMOTE)
                     .findAll()
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
-                Session session = getSession();
                 Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
                 String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
