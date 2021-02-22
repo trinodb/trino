@@ -2347,6 +2347,9 @@ public class HiveMetadata
         HivePartitioningHandle leftHandle = (HivePartitioningHandle) left;
         HivePartitioningHandle rightHandle = (HivePartitioningHandle) right;
 
+        if (leftHandle.isUsePartitionedBucketing() != rightHandle.isUsePartitionedBucketing()) {
+            return Optional.empty();
+        }
         if (!leftHandle.getHiveTypes().equals(rightHandle.getHiveTypes())) {
             return Optional.empty();
         }
