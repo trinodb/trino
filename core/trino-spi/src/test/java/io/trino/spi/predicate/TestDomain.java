@@ -347,10 +347,12 @@ public class TestDomain
         }
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testUncomparableSingleValue()
     {
-        Domain.singleValue(HYPER_LOG_LOG, Slices.EMPTY_SLICE);
+        assertThatThrownBy(() -> Domain.singleValue(HYPER_LOG_LOG, Slices.EMPTY_SLICE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("empty HyperLogLog instance");
     }
 
     @Test

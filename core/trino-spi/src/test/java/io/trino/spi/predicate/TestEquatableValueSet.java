@@ -295,32 +295,40 @@ public class TestEquatableValueSet
         assertEquals(EquatableValueSet.of(ID, 0L).complement().subtract(EquatableValueSet.of(ID, 0L, 1L).complement()), EquatableValueSet.of(ID, 1L));
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testUnmodifiableCollection()
     {
-        EquatableValueSet.of(ID, 1L).getValues().clear();
+        assertThatThrownBy(() -> EquatableValueSet.of(ID, 1L).getValues().clear())
+            .isInstanceOf(UnsupportedOperationException.class)
+            .hasMessage("cannot clear values");
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testUnmodifiableValueEntries()
     {
-        EquatableValueSet.of(ID, 1L).getEntries().clear();
+        assertThatThrownBy(() -> EquatableValueSet.of(ID, 1L).getEntries().clear())
+            .isInstanceOf(UnsupportedOperationException.class)
+            .hasMessage("cannot clear entries");
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testUnmodifiableIterator()
     {
-        Iterator<Object> iterator = EquatableValueSet.of(ID, 1L).getValues().iterator();
-        iterator.next();
-        iterator.remove();
+        assertThatThrownBy(() -> Iterator<Object> iterator = EquatableValueSet.of(ID, 1L).getValues().iterator())
+            .isInstanceOf(UnsupportedOperationException.class)
+            .hasMessage("cannot iterate values");
+        assertThatThrownBy(() -> iterator.next()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> iterator.remove()).isInstanceOf(UnsupportedOperationException.class);
     }
 
-    @Test(expectedExceptions = UnsupportedOperationException.class)
+    @Test
     public void testUnmodifiableValueEntryIterator()
     {
-        Iterator<EquatableValueSet.ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator();
-        iterator.next();
-        iterator.remove();
+        assertThatThrownBy(() -> Iterator<EquatableValueSet.ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator())
+            .isInstanceOf(UnsupportedOperationException.class)
+            .hasMessage("cannot iterate entries");
+        assertThatThrownBy(() -> iterator.next()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(() -> iterator.remove()).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
