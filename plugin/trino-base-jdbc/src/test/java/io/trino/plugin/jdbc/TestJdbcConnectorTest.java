@@ -14,7 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -27,8 +27,8 @@ import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
-public class TestJdbcDistributedQueries
-        extends AbstractTestDistributedQueries
+public class TestJdbcConnectorTest
+        extends BaseConnectorTest
 {
     private Map<String, String> properties;
 
