@@ -314,20 +314,16 @@ public class TestEquatableValueSet
     @Test
     public void testUnmodifiableIterator()
     {
-        assertThatThrownBy(() -> Iterator<Object> iterator = EquatableValueSet.of(ID, 1L).getValues().iterator())
-            .isInstanceOf(UnsupportedOperationException.class)
-            .hasMessage("cannot iterate values");
-        assertThatThrownBy(() -> iterator.next()).isInstanceOf(UnsupportedOperationException.class);
+        Iterator<Object> iterator = EquatableValueSet.of(ID, 1L).getValues().iterator();
+        iterator.next();
         assertThatThrownBy(() -> iterator.remove()).isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
     public void testUnmodifiableValueEntryIterator()
     {
-        assertThatThrownBy(() -> Iterator<EquatableValueSet.ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator())
-            .isInstanceOf(UnsupportedOperationException.class)
-            .hasMessage("cannot iterate entries");
-        assertThatThrownBy(() -> iterator.next()).isInstanceOf(UnsupportedOperationException.class);
+        Iterator<EquatableValueSet.ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator();
+        iterator.next();
         assertThatThrownBy(() -> iterator.remove()).isInstanceOf(UnsupportedOperationException.class);
     }
 
