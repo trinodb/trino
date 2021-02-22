@@ -13,7 +13,7 @@ env:
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
-  MAVEN_TEST: "-B -Dair.check.skip-all -DLogTestDurationListener.enabled=true --fail-at-end"
+  MAVEN_TEST: "-B -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
 
 jobs:
