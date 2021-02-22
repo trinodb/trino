@@ -50,15 +50,12 @@ public class LogTestDurationListener
 {
     private static final Logger LOG = Logger.get(LogTestDurationListener.class);
 
-    // LogTestDurationListener does not support concurrent invocations of same test method
-    // (@Test(threadPoolSize=n)), so we need kill switch for local development purposes.
-    private static final boolean enabled = Boolean.getBoolean("LogTestDurationListener.enabled");
-
     private static final Duration SINGLE_TEST_LOGGING_THRESHOLD = Duration.valueOf("30s");
     private static final Duration CLASS_LOGGING_THRESHOLD = Duration.valueOf("1m");
     // Must be below Travis "no output" timeout (10m). E.g. TestElasticsearchIntegrationSmokeTest is known to take ~5-6m.
     private static final Duration GLOBAL_IDLE_LOGGING_THRESHOLD = Duration.valueOf("8m");
 
+    private final boolean enabled;
     private final ScheduledExecutorService scheduledExecutorService;
 
     private final Map<String, Long> started = new ConcurrentHashMap<>();
@@ -70,8 +67,22 @@ public class LogTestDurationListener
 
     public LogTestDurationListener()
     {
+        enabled = isEnabled();
         scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(daemonThreadsNamed("TestHangMonitor"));
         LOG.info("LogTestDurationListener enabled: %s", enabled);
+    }
+
+    private static boolean isEnabled()
+    {
+        if (System.getProperty("LogTestDurationListener.enabled") != null) {
+            return Boolean.getBoolean("LogTestDurationListener.enabled");
+        }
+        if (System.getenv("CONTINUOUS_INTEGRATION") != null) {
+            return true;
+        }
+        // LogTestDurationListener does not support concurrent invocations of same test method
+        // (e.g. @Test(threadPoolSize=n)), so it should be disabled for local development purposes.
+        return false;
     }
 
     @Override
