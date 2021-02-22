@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
@@ -47,7 +47,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseElasticsearchSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+        extends BaseConnectorTest
 {
     private final String image;
     private ElasticsearchServer elasticsearch;
