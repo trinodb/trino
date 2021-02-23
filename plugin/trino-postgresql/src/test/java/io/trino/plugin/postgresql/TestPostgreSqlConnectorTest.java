@@ -43,6 +43,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -725,6 +726,19 @@ public class TestPostgreSqlConnectorTest
             assertThat(query(format("SELECT id FROM %s WHERE ts_col >= TIMESTAMP '2019-01-01 00:00:00 %s'", tableName, "UTC")))
                     .matches("VALUES 1")
                     .isFullyPushedDown();
+        }
+    }
+
+    @Override
+    public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
+    {
+        try {
+            super.testCaseSensitiveDataMapping(dataMappingTestSetup);
+        }
+        catch (AssertionError ignored) {
+            // TODO https://github.com/trinodb/trino/issues/3645 - PostgreSQL has different collation than Trino
+            assertThatThrownBy(() -> super.testCaseSensitiveDataMapping(dataMappingTestSetup))
+                    .hasStackTraceContaining("not equal\nActual rows");
         }
     }
 
