@@ -17,6 +17,7 @@ import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -62,12 +63,15 @@ public class TestArrayBlockBuilder
         assertTrue(arrayBlockBuilder.getRetainedSizeInBytes() >= (expectedEntries * Long.BYTES + ClassLayout.parseClass(LongArrayBlockBuilder.class).instanceSize() + initialRetainedSize));
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "Expected current entry to be closed but was opened")
+    @Test
     public void testConcurrentWriting()
     {
         BlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, null, EXPECTED_ENTRY_COUNT);
         BlockBuilder elementBlockWriter = blockBuilder.beginBlockEntry();
         elementBlockWriter.writeLong(45).closeEntry();
-        blockBuilder.appendStructure(new LongArrayBlockBuilder(null, 1).writeLong(123).closeEntry().build());
+        Block longArrayBlockBuilder = new LongArrayBlockBuilder(null, 1).writeLong(123).closeEntry().build();
+        assertThatThrownBy(() -> blockBuilder.appendStructure(longArrayBlockBuilder))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Expected current entry to be closed but was opened");
     }
 }
