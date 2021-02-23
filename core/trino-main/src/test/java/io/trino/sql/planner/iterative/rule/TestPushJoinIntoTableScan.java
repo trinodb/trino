@@ -79,7 +79,6 @@ public class TestPushJoinIntoTableScan
     private static final Session MOCK_SESSION = testSessionBuilder()
             .setCatalog(MOCK_CATALOG)
             .setSchema(SCHEMA)
-            .setSystemProperty("join_pushdown", "EAGER")
             .build();
 
     private static final String COLUMN_A1 = "columna1";
@@ -306,7 +305,7 @@ public class TestPushJoinIntoTableScan
     public void testPushJoinIntoTableScanDoesNotFireWhenDisabled()
     {
         Session joinPushDownDisabledSession = Session.builder(MOCK_SESSION)
-                .setSystemProperty("join_pushdown", "DISABLED")
+                .setSystemProperty("allow_pushdown_into_connectors", "false")
                 .build();
 
         try (RuleTester ruleTester = defaultRuleTester()) {
