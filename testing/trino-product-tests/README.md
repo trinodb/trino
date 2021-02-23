@@ -188,7 +188,7 @@ You can obtain list of available test suites using command:
 trino-product-tests-launcher/bin/run-launcher suite list
 ```
 
-Command `trino-product-tests-launcher/bin/run-launcher/suite describe --suite <suite name>` shows list of tests that will be executed and environments 
+Command `trino-product-tests-launcher/bin/run-launcher suite describe --suite <suite name>` shows list of tests that will be executed and environments 
 that will be used when `suite run` is invoked.
 
 You can execute single suite using command:
