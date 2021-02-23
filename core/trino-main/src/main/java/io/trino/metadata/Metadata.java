@@ -16,6 +16,7 @@ package io.trino.metadata;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
@@ -625,4 +626,9 @@ public interface Metadata
      * This method is called after security checks against the original table.
      */
     Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle);
+
+    /**
+     * Redirect to another table or view. Returns the original table name if the redirection doesn't happen.
+     */
+    QualifiedObjectName redirectTable(Session session, QualifiedObjectName tableName, WarningCollector warningCollector);
 }

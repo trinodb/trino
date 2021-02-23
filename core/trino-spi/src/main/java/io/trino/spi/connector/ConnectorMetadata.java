@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -221,6 +222,15 @@ public interface ConnectorMetadata
     default Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyMap();
+    }
+
+    /**
+     * Gets the metadata for all columns that match the specified table prefix. For redirected tables, returns a {@link ListTableColumnsResult}
+     * with an Optional.empty() field value in the stream.
+     */
+    default Stream<ListTableColumnsResult> listTableColumnsStream(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return listTableColumns(session, prefix).entrySet().stream().map(entry -> new ListTableColumnsResult(entry.getKey(), Optional.of(entry.getValue())));
     }
 
     /**
@@ -598,6 +608,15 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Gets the definitions of views, possibly filtered by schema. For redirected tables, returns a {@link GetViewsResult}
+     * with an Optional.empty() field value in the stream.
+     */
+    default Stream<GetViewsResult> getViewsStream(ConnectorSession session, Optional<String> schemaName)
+    {
+        return getViews(session, schemaName).entrySet().stream().map(entry -> new GetViewsResult(entry.getKey(), Optional.of(entry.getValue())));
+    }
+
+    /**
      * Gets the view data for the specified view name.
      */
     default Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
@@ -783,6 +802,15 @@ public interface ConnectorMetadata
     default List<GrantInfo> listTablePrivileges(ConnectorSession session, SchemaTablePrefix prefix)
     {
         return emptyList();
+    }
+
+    /**
+     * List the table privileges granted to the specified grantee for the tables that have the specified prefix considering the selected session role.
+     * For redirected tables, returns a {@link ListTablePrivilegesResult} with an Optional.empty() field value in the stream.
+     */
+    default Stream<ListTablePrivilegesResult> listTablePrivilegesStream(ConnectorSession session, SchemaTablePrefix prefix)
+    {
+        return listTablePrivileges(session, prefix).stream().map(grantInfo -> new ListTablePrivilegesResult(grantInfo.getSchemaTableName(), Optional.of(grantInfo)));
     }
 
     /**
@@ -1126,6 +1154,17 @@ public interface ConnectorMetadata
     }
 
     default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Redirects table reads to other tables or views which may or may not be in the same catalog.
+     *
+     * Currently the engine tries to do redirection only for table reads and metadata listing. For metadata listing to work properly, you should
+     * consider implementing {@link #listTableColumnsStream}, {@link #getViewsStream}, and {@link #listTablePrivilegesStream}.
+     */
+    default Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         return Optional.empty();
     }

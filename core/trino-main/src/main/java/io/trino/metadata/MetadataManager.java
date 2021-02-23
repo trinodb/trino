@@ -24,11 +24,13 @@ import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
+import io.trino.spi.TrinoWarning;
 import io.trino.spi.block.ArrayBlockEncoding;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockEncoding;
@@ -73,14 +75,16 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.GetViewsResult;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
+import io.trino.spi.connector.ListTableColumnsResult;
+import io.trino.spi.connector.ListTablePrivilegesResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SampleType;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
@@ -137,6 +141,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -156,7 +161,10 @@ import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_LIMIT;
+import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_LOOP;
 import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import static io.trino.spi.connector.StandardWarningCode.TABLE_REDIRECTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -198,6 +206,8 @@ public final class MetadataManager
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
     private final ResolvedFunctionDecoder functionDecoder;
+
+    private static final int MAX_TABLE_REDIRECTIONS = 100;
 
     @Inject
     public MetadataManager(
@@ -557,8 +567,15 @@ public final class MetadataManager
 
         Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
         if (objectName.isPresent()) {
-            if (isExistingRelation(session, objectName.get())) {
-                return ImmutableList.of(objectName.get());
+            // Table cannot exist
+            if (objectName.get().getCatalogName().isEmpty() || objectName.get().getSchemaName().isEmpty() || objectName.get().getObjectName().isEmpty()) {
+                return ImmutableList.of();
+            }
+            // Try to redirect the table. It's a no-op if redirection doesn't happen
+            // TODO: Add a functional warning collector
+            QualifiedObjectName tableName = redirectTable(session, objectName.get(), WarningCollector.NOOP);
+            if (isExistingRelation(session, tableName)) {
+                return ImmutableList.of(tableName);
             }
             return ImmutableList.of();
         }
@@ -604,27 +621,38 @@ public final class MetadataManager
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
 
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-                for (Entry<SchemaTableName, List<ColumnMetadata>> entry : metadata.listTableColumns(connectorSession, tablePrefix).entrySet()) {
-                    QualifiedObjectName tableName = new QualifiedObjectName(
-                            prefix.getCatalogName(),
-                            entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName());
-                    tableColumns.put(tableName, entry.getValue());
+                try (Stream<ListTableColumnsResult> stream = metadata.listTableColumnsStream(connectorSession, tablePrefix)) {
+                    stream.forEach(result -> {
+                        QualifiedObjectName tableName = new QualifiedObjectName(
+                                prefix.getCatalogName(),
+                                result.getTableName().getSchemaName(),
+                                result.getTableName().getTableName());
+                        if (result.getColumns().isPresent()) {
+                            tableColumns.put(tableName, result.getColumns().get());
+                        }
+                        else {
+                            // Handle redirection
+                            // TODO: Add a functional warning collector
+                            QualifiedObjectName finalTable = redirectTable(session, tableName, WarningCollector.NOOP);
+                            getTableHandle(session, finalTable).ifPresent(handle ->
+                                    tableColumns.put(tableName, getTableMetadata(session, handle).getColumns()));
+                        }
+                    });
                 }
+            }
 
-                // if table and view names overlap, the view wins
-                for (Entry<QualifiedObjectName, ConnectorViewDefinition> entry : getViews(session, prefix).entrySet()) {
-                    ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-                    for (ViewColumn column : entry.getValue().getColumns()) {
-                        try {
-                            columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
-                        }
-                        catch (TypeNotFoundException e) {
-                            throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
-                        }
+            // if table and view names overlap, the view wins
+            for (Entry<QualifiedObjectName, ConnectorViewDefinition> entry : getViews(session, prefix).entrySet()) {
+                ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
+                for (ViewColumn column : entry.getValue().getColumns()) {
+                    try {
+                        columns.add(new ColumnMetadata(column.getName(), getType(column.getType())));
                     }
-                    tableColumns.put(entry.getKey(), columns.build());
+                    catch (TypeNotFoundException e) {
+                        throw new TrinoException(INVALID_VIEW, format("Unknown type '%s' for column '%s' in view: %s", column.getType(), column.getName(), entry.getKey()));
+                    }
                 }
+                tableColumns.put(entry.getKey(), columns.build());
             }
         }
         return ImmutableMap.copyOf(tableColumns);
@@ -1024,7 +1052,13 @@ public final class MetadataManager
 
         Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
         if (objectName.isPresent()) {
-            return getView(session, objectName.get())
+            // View cannot exist
+            if (objectName.get().getCatalogName().isEmpty() || objectName.get().getSchemaName().isEmpty() || objectName.get().getObjectName().isEmpty()) {
+                return ImmutableList.of();
+            }
+            // Try to redirect the view. It's a no-op if redirection doesn't happen
+            // TODO: Add a functional warning collector
+            return getView(session, redirectTable(session, objectName.get(), WarningCollector.NOOP))
                     .map(handle -> ImmutableList.of(objectName.get()))
                     .orElseGet(ImmutableList::of);
         }
@@ -1063,22 +1097,31 @@ public final class MetadataManager
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
                 ConnectorSession connectorSession = session.toConnectorSession(catalogName);
 
-                Map<SchemaTableName, ConnectorViewDefinition> viewMap;
                 if (tablePrefix.getTable().isPresent()) {
-                    viewMap = metadata.getView(connectorSession, tablePrefix.toSchemaTableName())
-                            .map(view -> ImmutableMap.of(tablePrefix.toSchemaTableName(), view))
-                            .orElse(ImmutableMap.of());
+                    // Try to redirect the view. It's a no-op if redirection doesn't happen
+                    // TODO: Add a functional warning collector
+                    QualifiedObjectName viewName = prefix.asQualifiedObjectName().get();
+                    QualifiedObjectName finalView = redirectTable(session, viewName, WarningCollector.NOOP);
+                    getView(session, finalView).ifPresent(viewDefinition -> views.put(viewName, viewDefinition));
                 }
                 else {
-                    viewMap = metadata.getViews(connectorSession, tablePrefix.getSchema());
-                }
-
-                for (Entry<SchemaTableName, ConnectorViewDefinition> entry : viewMap.entrySet()) {
-                    QualifiedObjectName viewName = new QualifiedObjectName(
-                            prefix.getCatalogName(),
-                            entry.getKey().getSchemaName(),
-                            entry.getKey().getTableName());
-                    views.put(viewName, entry.getValue());
+                    try (Stream<GetViewsResult> stream = metadata.getViewsStream(connectorSession, tablePrefix.getSchema())) {
+                        stream.forEach(result -> {
+                            QualifiedObjectName viewName = new QualifiedObjectName(
+                                    prefix.getCatalogName(),
+                                    result.getTableName().getSchemaName(),
+                                    result.getTableName().getTableName());
+                            if (result.getViewDefinition().isPresent()) {
+                                views.put(viewName, result.getViewDefinition().get());
+                            }
+                            else {
+                                // Handle redirection
+                                // TODO: Add a functional warning collector
+                                QualifiedObjectName finalView = redirectTable(session, viewName, WarningCollector.NOOP);
+                                getView(session, finalView).ifPresent(viewDefinition -> views.put(viewName, viewDefinition));
+                            }
+                        });
+                    }
                 }
             }
         }
@@ -1641,11 +1684,37 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogMetadata.getCatalogName());
 
             List<CatalogName> connectorIds = prefix.asQualifiedObjectName()
+                    // Try to redirect the table. It's a no-op if redirection doesn't happen
+                    // TODO: Add a functional warning collector
+                    .map(qualifiedTableName -> redirectTable(session, qualifiedTableName, WarningCollector.NOOP))
                     .map(qualifiedTableName -> singletonList(catalogMetadata.getConnectorId(session, qualifiedTableName)))
                     .orElseGet(catalogMetadata::listConnectorIds);
             for (CatalogName catalogName : connectorIds) {
                 ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
-                grantInfos.addAll(metadata.listTablePrivileges(connectorSession, prefix.asSchemaTablePrefix()));
+                try (Stream<ListTablePrivilegesResult> stream = metadata.listTablePrivilegesStream(connectorSession, prefix.asSchemaTablePrefix())) {
+                    stream.forEach(result -> {
+                        QualifiedObjectName tableName = new QualifiedObjectName(
+                                prefix.getCatalogName(),
+                                result.getTableName().getSchemaName(),
+                                result.getTableName().getTableName());
+                        if (result.getGrantInfo().isPresent()) {
+                            grantInfos.add(result.getGrantInfo().get());
+                        }
+                        else {
+                            // Handle redirection
+                            // TODO: Add a functional warning collector
+                            QualifiedObjectName finalTable = redirectTable(session, tableName, WarningCollector.NOOP);
+                            getOptionalCatalogMetadata(session, finalTable.getCatalogName()).ifPresent(finalCatalog -> {
+                                ConnectorSession finalConnectorSession = session.toConnectorSession(finalCatalog.getCatalogName());
+                                ConnectorMetadata finalConnectorMetadata = finalCatalog.getMetadataFor(finalCatalog.getConnectorId(session, finalTable));
+                                SchemaTablePrefix finalSchemaTablePrefix = finalTable.asQualifiedTablePrefix().asSchemaTablePrefix();
+                                try (Stream<ListTablePrivilegesResult> privileges = finalConnectorMetadata.listTablePrivilegesStream(finalConnectorSession, finalSchemaTablePrefix)) {
+                                    privileges.forEach(res -> res.getGrantInfo().ifPresent(grantInfos::add));
+                                }
+                            });
+                        }
+                    });
+                }
             }
         }
         return ImmutableList.copyOf(grantInfos.build());
@@ -2206,6 +2275,46 @@ public final class MetadataManager
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
+    }
+
+    @Override
+    public QualifiedObjectName redirectTable(Session session, QualifiedObjectName tableName, WarningCollector warningCollector)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(warningCollector, "warningCollector is null");
+
+        Set<QualifiedObjectName> visitedTableNames = new LinkedHashSet<>();
+        for (int count = 0; count < MAX_TABLE_REDIRECTIONS; count++) {
+            if (!visitedTableNames.add(tableName)) {
+                String redirectionChain = new StringBuilder()
+                        .append(visitedTableNames.stream()
+                                .map(QualifiedObjectName::toString)
+                                .collect(Collectors.joining(" -> ")))
+                        .append(" -> ")
+                        .append(tableName)
+                        .toString();
+                throw new TrinoException(TABLE_REDIRECTION_LOOP, "Table redirections form a loop: " + redirectionChain);
+            }
+            Optional<QualifiedObjectName> redirectedTableName = Optional.empty();
+            Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+            if (catalog.isPresent()) {
+                CatalogMetadata catalogMetadata = catalog.get();
+                CatalogName catalogName = catalogMetadata.getConnectorId(session, tableName);
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+                redirectedTableName = metadata.redirectTable(session.toConnectorSession(catalogName), tableName.asSchemaTableName())
+                        .map(name -> convertFromSchemaTableName(name.getCatalogName()).apply(name.getSchemaTableName()));
+            }
+            if (redirectedTableName.isEmpty()) {
+                return tableName;
+            }
+            warningCollector.add(new TrinoWarning(TABLE_REDIRECTION, format("Table or view '%s' redirected to '%s'", tableName, redirectedTableName.get())));
+            tableName = redirectedTableName.get();
+        }
+        String redirections = visitedTableNames.stream()
+                .map(QualifiedObjectName::toString)
+                .collect(Collectors.joining(" -> "));
+        throw new TrinoException(TABLE_REDIRECTION_LIMIT, format("Too many table redirections (%d): %s", MAX_TABLE_REDIRECTIONS, redirections));
     }
 
     //

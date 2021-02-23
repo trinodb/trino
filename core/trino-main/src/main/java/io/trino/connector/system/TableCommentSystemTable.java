@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.trino.FullConnectorSession;
 import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
@@ -105,7 +106,8 @@ public class TableCommentSystemTable
             }
 
             for (SchemaTableName name : names) {
-                QualifiedObjectName tableName = new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName());
+                // TODO: Add a functional warning collector
+                QualifiedObjectName tableName = metadata.redirectTable(session, new QualifiedObjectName(prefix.getCatalogName(), name.getSchemaName(), name.getTableName()), WarningCollector.NOOP);
                 Optional<String> comment = Optional.empty();
                 try {
                     comment = metadata.getTableHandle(session, tableName)

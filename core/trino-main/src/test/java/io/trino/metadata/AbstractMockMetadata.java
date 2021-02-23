@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.InternalAggregationFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
@@ -851,5 +852,12 @@ public abstract class AbstractMockMetadata
     public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public QualifiedObjectName redirectTable(Session session, QualifiedObjectName tableName, WarningCollector warningCollector)
+    {
+        // no-op
+        return tableName;
     }
 }
