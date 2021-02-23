@@ -84,7 +84,7 @@ public class GlueHiveMetastoreConfig
 
     public boolean isSessionIdentifier() { return sessionIdentifier; }
 
-    @Config("hive.metastore.glue.enable-session-user")
+    @Config("hive.metastore.glue.enable-session-identifier")
     @ConfigDescription("Should session user for the connection enabled")
     public GlueHiveMetastoreConfig setSessionIdentifier(boolean sessionIdentifier)
     {
