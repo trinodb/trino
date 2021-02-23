@@ -26,6 +26,7 @@ import io.airlift.http.client.testing.TestingResponse;
 import io.airlift.node.NodeConfig;
 import io.airlift.node.NodeInfo;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogName;
 import io.trino.failuredetector.NoOpFailureDetector;
 import io.trino.server.InternalCommunicationConfig;
 import org.testng.annotations.BeforeMethod;
@@ -49,6 +50,7 @@ import static io.trino.metadata.NodeState.INACTIVE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotSame;
+import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestDiscoveryNodeManager
@@ -90,6 +92,10 @@ public class TestDiscoveryNodeManager
         DiscoveryNodeManager manager = new DiscoveryNodeManager(selector, nodeInfo, new NoOpFailureDetector(), expectedVersion, testHttpClient, internalCommunicationConfig);
         try {
             AllNodes allNodes = manager.getAllNodes();
+
+            Set<InternalNode> connectorNodes = manager.getActiveConnectorNodes(new CatalogName("system"));
+            assertEquals(connectorNodes.size(), 4);
+            assertTrue(connectorNodes.stream().anyMatch(InternalNode::isCoordinator));
 
             Set<InternalNode> activeNodes = allNodes.getActiveNodes();
             assertEqualsIgnoreOrder(activeNodes, this.activeNodes);
