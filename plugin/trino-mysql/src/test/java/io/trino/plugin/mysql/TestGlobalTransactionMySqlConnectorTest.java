@@ -13,22 +13,20 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 
-public class TestGlobalTransactionMySqlIntegrationSmokeTest
-        extends BaseMySqlIntegrationSmokeTest
+public class TestGlobalTransactionMySqlConnectorTest
+        // TODO(https://github.com/trinodb/trino/issues/7019) define shorter tests set that exercises various read and write scenarios (a.k.a. "a smoke test")
+        extends BaseMySqlConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         mysqlServer = closeAfterClass(new TestingMySqlServer(true));
-        return createMySqlQueryRunner(mysqlServer, CUSTOMER, NATION, ORDERS, REGION);
+        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }
