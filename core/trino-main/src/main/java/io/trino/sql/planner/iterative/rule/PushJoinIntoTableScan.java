@@ -33,7 +33,6 @@ import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ExpressionUtils;
-import io.trino.sql.analyzer.FeaturesConfig.JoinPushdownMode;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
@@ -55,7 +54,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.SystemSessionProperties.getJoinPushdownMode;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
@@ -233,13 +231,7 @@ public class PushJoinIntoTableScan
     @Override
     public boolean isEnabled(Session session)
     {
-        if (getJoinPushdownMode(session) == JoinPushdownMode.DISABLED) {
-            return false;
-        }
-        if (!isAllowPushdownIntoConnectors(session)) {
-            return false;
-        }
-        return true;
+        return isAllowPushdownIntoConnectors(session);
     }
 
     private TupleDomain<ColumnHandle> transformToNewAssignments(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, ColumnHandle> newAssignments)
