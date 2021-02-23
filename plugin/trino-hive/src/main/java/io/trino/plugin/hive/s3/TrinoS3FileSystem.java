@@ -70,6 +70,7 @@ import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
+import com.google.common.net.MediaType;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -195,8 +196,6 @@ public class TrinoS3FileSystem
     public static final String S3_STREAMING_UPLOAD_PART_SIZE = "trino.s3.streaming.part-size";
     public static final String S3_STORAGE_CLASS = "trino.s3.storage-class";
 
-    static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
-
     private static final Logger log = Logger.get(TrinoS3FileSystem.class);
     private static final TrinoS3FileSystemStats STATS = new TrinoS3FileSystemStats();
     private static final RequestMetricCollector METRIC_COLLECTOR = new TrinoS3FileSystemMetricCollector(STATS);
@@ -208,6 +207,7 @@ public class TrinoS3FileSystem
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
     private static final String S3_CUSTOM_SIGNER = "TrinoS3CustomSigner";
     private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
+    private static final MediaType DIRECTORY_MEDIA_TYPE = MediaType.create("application", "x-directory");
 
     private URI uri;
     private Path workingDirectory;
@@ -414,7 +414,8 @@ public class TrinoS3FileSystem
 
         return new FileStatus(
                 getObjectSize(path, metadata),
-                S3_DIRECTORY_OBJECT_CONTENT_TYPE.equals(metadata.getContentType()),
+                // Some directories (e.g. uploaded through S3 GUI) return a charset in the Content-Type header
+                MediaType.parse(metadata.getContentType()).is(DIRECTORY_MEDIA_TYPE),
                 1,
                 BLOCK_SIZE.toBytes(),
                 lastModifiedTime(metadata),
