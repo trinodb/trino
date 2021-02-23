@@ -40,6 +40,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -636,7 +638,7 @@ public class TestTupleDomain
         assertEquals(transformed.getDomains().get(), expected);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testTransformFailsWithNonUniqueMapping()
     {
         Map<Integer, Domain> domains = ImmutableMap.<Integer, Domain>builder()
@@ -647,7 +649,9 @@ public class TestTupleDomain
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
-        domain.transform(input -> "x");
+        assertThatThrownBy(() -> domain.transform(input -> "x")).isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(format("Every argument must have a unique mapping. %s maps to %s and %s",
+                        2, Domain.singleValue(BIGINT, 2L), Domain.singleValue(BIGINT, 1L)));
     }
 
     private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)
