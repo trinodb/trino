@@ -143,9 +143,9 @@ public class DruidJdbcClient
             case Types.VARCHAR:
                 int columnSize = typeHandle.getRequiredColumnSize();
                 if (columnSize == -1) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(columnSize));
+                return Optional.of(defaultVarcharColumnMapping(columnSize, true));
         }
         // TODO implement proper type mapping
         return legacyToPrestoType(session, connection, typeHandle);
