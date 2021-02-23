@@ -68,6 +68,7 @@ public class HiveS3Config
     private boolean requesterPaysEnabled;
     private boolean s3StreamingUploadEnabled;
     private DataSize s3StreamingPartSize = DataSize.of(16, MEGABYTE);
+    private boolean s3SessionIdentifier;
 
     public String getS3AwsAccessKey()
     {
@@ -491,6 +492,15 @@ public class HiveS3Config
     public HiveS3Config setS3StreamingPartSize(DataSize s3StreamingPartSize)
     {
         this.s3StreamingPartSize = s3StreamingPartSize;
+        return this;
+    }
+
+    public boolean isS3SessionIdentifier() { return s3SessionIdentifier; }
+
+    @Config("hive.s3.session-identifier.enabled")
+    public HiveS3Config setS3SessionIdentifier(boolean s3SessionIdentifier)
+    {
+        this.s3SessionIdentifier = s3SessionIdentifier;
         return this;
     }
 }
