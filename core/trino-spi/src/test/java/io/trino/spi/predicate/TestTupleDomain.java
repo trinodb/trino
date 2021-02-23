@@ -657,8 +657,8 @@ public class TestTupleDomain
     private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)
     {
         TupleDomain<ColumnHandle> tupleDomain1 = TupleDomain.withColumnDomains(domains1);
-        TupleDomain<ColumnHandle> tupleDOmain2 = TupleDomain.withColumnDomains(domains2);
-        return tupleDomain1.overlaps(tupleDOmain2);
+        TupleDomain<ColumnHandle> tupleDomain2 = TupleDomain.withColumnDomains(domains2);
+        return tupleDomain1.overlaps(tupleDomain2);
     }
 
     private boolean contains(Map<ColumnHandle, Domain> superSet, Map<ColumnHandle, Domain> subSet)
