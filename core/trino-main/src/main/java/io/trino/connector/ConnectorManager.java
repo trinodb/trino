@@ -23,6 +23,7 @@ import io.trino.connector.system.StaticSystemTablesProvider;
 import io.trino.connector.system.SystemConnector;
 import io.trino.connector.system.SystemTablesProvider;
 import io.trino.eventlistener.EventListenerManager;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.index.IndexManager;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
@@ -105,6 +106,8 @@ public class ConnectorManager
     private final EventListenerManager eventListenerManager;
     private final TypeOperators typeOperators;
 
+    private final boolean schedulerIncludeCoordinator;
+
     @GuardedBy("this")
     private final ConcurrentMap<String, InternalConnectorFactory> connectorFactories = new ConcurrentHashMap<>();
 
@@ -131,7 +134,8 @@ public class ConnectorManager
             PageIndexerFactory pageIndexerFactory,
             TransactionManager transactionManager,
             EventListenerManager eventListenerManager,
-            TypeOperators typeOperators)
+            TypeOperators typeOperators,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         this.metadataManager = metadataManager;
         this.catalogManager = catalogManager;
@@ -150,6 +154,7 @@ public class ConnectorManager
         this.transactionManager = transactionManager;
         this.eventListenerManager = eventListenerManager;
         this.typeOperators = typeOperators;
+        this.schedulerIncludeCoordinator = nodeSchedulerConfig.isIncludeCoordinator();
     }
 
     @PreDestroy
@@ -343,7 +348,7 @@ public class ConnectorManager
     private Connector createConnector(CatalogName catalogName, InternalConnectorFactory factory, Map<String, String> properties)
     {
         ConnectorContext context = new ConnectorContextInstance(
-                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName),
+                new ConnectorAwareNodeManager(nodeManager, nodeInfo.getEnvironment(), catalogName, schedulerIncludeCoordinator),
                 versionEmbedder,
                 new InternalTypeManager(metadataManager, typeOperators),
                 pageSorter,

@@ -20,6 +20,7 @@ import io.trino.spi.NodeManager;
 
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorAwareNodeManager
@@ -28,27 +29,28 @@ public class ConnectorAwareNodeManager
     private final InternalNodeManager nodeManager;
     private final String environment;
     private final CatalogName catalogName;
+    private final boolean schedulerIncludeCoordinator;
 
-    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, CatalogName catalogName)
+    public ConnectorAwareNodeManager(InternalNodeManager nodeManager, String environment, CatalogName catalogName, boolean schedulerIncludeCoordinator)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
+        this.schedulerIncludeCoordinator = schedulerIncludeCoordinator;
     }
 
     @Override
     public Set<Node> getAllNodes()
     {
-        return ImmutableSet.<Node>builder()
-                .addAll(getWorkerNodes())
-                .addAll(nodeManager.getCoordinators())
-                .build();
+        return ImmutableSet.copyOf(nodeManager.getActiveConnectorNodes(catalogName));
     }
 
     @Override
     public Set<Node> getWorkerNodes()
     {
-        return ImmutableSet.copyOf(nodeManager.getActiveConnectorNodes(catalogName));
+        return nodeManager.getActiveConnectorNodes(catalogName).stream()
+                .filter(node -> schedulerIncludeCoordinator || !node.isCoordinator())
+                .collect(toImmutableSet());
     }
 
     @Override
