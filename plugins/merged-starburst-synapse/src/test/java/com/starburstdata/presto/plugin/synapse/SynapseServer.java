@@ -13,9 +13,11 @@ import io.airlift.log.Logger;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
@@ -44,12 +46,24 @@ public class SynapseServer
         try (Connection conn = openConnection();
                 Statement statement = conn.createStatement()) {
             for (String sql : query) {
-                LOG.debug("Executing query %s", sql);
                 statement.execute(sql);
             }
         }
         catch (SQLException e) {
             throw new RuntimeException("Failed to execute statement: " + Arrays.toString(query), e);
+        }
+    }
+
+    public <T> T executeQuery(String query, Function<ResultSet, T> resultConsumer)
+    {
+        LOG.debug("Executing query %s", query);
+        try (Connection conn = openConnection();
+                Statement statement = conn.createStatement();
+                ResultSet resultSet = statement.executeQuery(query)) {
+            return resultConsumer.apply(resultSet);
+        }
+        catch (SQLException e) {
+            throw new RuntimeException("Failed to execute statement: " + query, e);
         }
     }
 
