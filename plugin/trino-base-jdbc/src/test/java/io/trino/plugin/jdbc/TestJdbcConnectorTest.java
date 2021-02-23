@@ -110,6 +110,18 @@ public class TestJdbcConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeBaseName = dataMappingTestSetup.getTrinoTypeName().replaceAll("\\([^()]*\\)", "");
+        switch (typeBaseName) {
+            case "char":
+                return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
     private JdbcSqlExecutor getSqlExecutor()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
