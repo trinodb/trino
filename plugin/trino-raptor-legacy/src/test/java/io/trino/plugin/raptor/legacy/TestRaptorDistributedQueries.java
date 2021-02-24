@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 
 import java.util.Optional;
@@ -30,7 +31,7 @@ public class TestRaptorDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(ImmutableMap.of(), true, false);
+        return createRaptorQueryRunner(ImmutableMap.of(), TpchTable.getTables(), false, ImmutableMap.of());
     }
 
     @Override
