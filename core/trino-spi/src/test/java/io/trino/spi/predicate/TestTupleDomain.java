@@ -649,9 +649,9 @@ public class TestTupleDomain
 
         TupleDomain<Integer> domain = TupleDomain.withColumnDomains(domains);
 
-        assertThatThrownBy(() -> domain.transform(input -> "x")).isInstanceOf(IllegalArgumentException.class)
-                .hasMessage(format("Every argument must have a unique mapping. %s maps to %s and %s",
-                        2, Domain.singleValue(BIGINT, 2L), Domain.singleValue(BIGINT, 1L)));
+        assertThatThrownBy(() -> domain.transform(input -> "x"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Every argument must have a unique mapping. 2 maps to [ SortedRangeSet[type=bigint, ranges=1, {[2,2]}] ] and [ SortedRangeSet[type=bigint, ranges=1, {[1,1]}] ]");
     }
 
     private boolean overlaps(Map<ColumnHandle, Domain> domains1, Map<ColumnHandle, Domain> domains2)

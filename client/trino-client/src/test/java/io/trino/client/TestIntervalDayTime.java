@@ -56,6 +56,8 @@ public class TestIntervalDayTime
     public void testOverflow()
     {
         long days = (Long.MAX_VALUE / DAYS.toMillis(1)) + 1;
-        assertThatThrownBy(() -> toMillis(days, 0, 0, 0, 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> toMillis(days, 0, 0, 0, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("java.lang.ArithmeticException: long overflow");
     }
 }

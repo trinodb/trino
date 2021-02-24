@@ -62,6 +62,8 @@ public class TestIntervalYearMonth
     public void testOverflow()
     {
         int days = (Integer.MAX_VALUE / 12) + 1;
-        assertThatThrownBy(() -> toMonths(days, 0)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> toMonths(days, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("java.lang.ArithmeticException: integer overflow");
     }
 }

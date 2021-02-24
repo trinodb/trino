@@ -49,7 +49,8 @@ public class TestPage
     @Test
     public void testGetRegionExceptions()
     {
-        assertThatThrownBy(() -> new Page(0).getRegion(1, 1)).isInstanceOf(IndexOutOfBoundsException.class)
+        assertThatThrownBy(() -> new Page(0).getRegion(1, 1))
+                .isInstanceOf(IndexOutOfBoundsException.class)
                 .hasMessage("Invalid position 1 and length 1 in page with 0 positions");
     }
 
