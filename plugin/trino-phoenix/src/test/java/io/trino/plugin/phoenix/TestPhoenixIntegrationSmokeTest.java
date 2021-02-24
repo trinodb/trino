@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -44,7 +45,7 @@ public class TestPhoenixIntegrationSmokeTest
             throws Exception
     {
         testingPhoenixServer = TestingPhoenixServer.getInstance();
-        return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of());
+        return createPhoenixQueryRunner(testingPhoenixServer, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)

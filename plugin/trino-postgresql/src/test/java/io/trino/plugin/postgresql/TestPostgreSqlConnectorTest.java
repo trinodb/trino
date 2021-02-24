@@ -24,7 +24,6 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -62,7 +61,7 @@ public class TestPostgreSqlConnectorTest
             postgreSqlServer.close();
             postgreSqlServer = null;
         });
-        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), TpchTable.getTables());
+        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), REQUIRED_TPCH_TABLES);
     }
 
     @BeforeClass

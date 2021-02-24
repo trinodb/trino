@@ -18,7 +18,6 @@ import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 
 import java.util.Map;
@@ -43,7 +42,7 @@ public class TestJdbcCachingQueries
                 .put("metadata.cache-missing", "true")
                 .put("allow-drop-table", "true")
                 .build();
-        return createH2QueryRunner(TpchTable.getTables(), properties);
+        return createH2QueryRunner(REQUIRED_TPCH_TABLES, properties);
     }
 
     @Override

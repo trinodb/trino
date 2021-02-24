@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
@@ -32,7 +31,7 @@ public class TestRedisConnectorTest
             throws Exception
     {
         redisServer = new RedisServer();
-        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "string", TpchTable.getTables());
+        return createRedisQueryRunner(redisServer, ImmutableMap.of(), "string", REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)

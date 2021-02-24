@@ -15,7 +15,6 @@ package io.trino.plugin.mongodb;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
@@ -27,6 +26,6 @@ public class TestMongoDistributedQueries
             throws Exception
     {
         MongoServer server = closeAfterClass(new MongoServer());
-        return createMongoQueryRunner(server, ImmutableMap.of(), TpchTable.getTables());
+        return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }
