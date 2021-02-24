@@ -67,14 +67,14 @@ public class ParametricAggregation
         super(
                 new FunctionMetadata(
                         signature,
+                        details.getName(),
                         true,
                         implementations.getArgumentDefinitions(),
                         details.isHidden(),
                         true,
                         details.getDescription().orElse(""),
                         AGGREGATE,
-                        deprecated,
-                        details.getName()),
+                        deprecated),
                 details.isDecomposable(),
                 details.isOrderSensitive());
         requireNonNull(details, "details is null");

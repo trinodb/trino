@@ -22,7 +22,8 @@ import static java.util.Objects.requireNonNull;
 public class FunctionMetadata
 {
     private final FunctionId functionId;
-    private final Signature canonicalSignature;
+    private final Signature signature;
+    private final String actualName;
     private final boolean nullable;
     private final List<FunctionArgumentDefinition> argumentDefinitions;
     private final boolean hidden;
@@ -30,10 +31,9 @@ public class FunctionMetadata
     private final String description;
     private final FunctionKind kind;
     private final boolean deprecated;
-    private final String actualName;
 
     public FunctionMetadata(
-            Signature canonicalSignature,
+            Signature signature,
             boolean nullable,
             List<FunctionArgumentDefinition> argumentDefinitions,
             boolean hidden,
@@ -42,63 +42,64 @@ public class FunctionMetadata
             FunctionKind kind)
     {
         this(
-                FunctionId.toFunctionId(canonicalSignature),
-                canonicalSignature,
+                FunctionId.toFunctionId(signature),
+                signature,
+                signature.getName(),
                 nullable,
                 argumentDefinitions,
                 hidden,
                 deterministic,
                 description,
                 kind,
-                false,
-                canonicalSignature.getName());
+                false);
     }
 
     public FunctionMetadata(
-            Signature canonicalSignature,
+            Signature signature,
+            String actualName,
             boolean nullable,
             List<FunctionArgumentDefinition> argumentDefinitions,
             boolean hidden,
             boolean deterministic,
             String description,
             FunctionKind kind,
-            boolean deprecated,
-            String actualName)
+            boolean deprecated)
     {
         this(
                 FunctionId.toFunctionId(
                         new Signature(
                                 actualName,
-                                canonicalSignature.getTypeVariableConstraints(),
-                                canonicalSignature.getLongVariableConstraints(),
-                                canonicalSignature.getReturnType(),
-                                canonicalSignature.getArgumentTypes(),
-                                canonicalSignature.isVariableArity())),
-                canonicalSignature,
+                                signature.getTypeVariableConstraints(),
+                                signature.getLongVariableConstraints(),
+                                signature.getReturnType(),
+                                signature.getArgumentTypes(),
+                                signature.isVariableArity())),
+                signature,
+                actualName,
                 nullable,
                 argumentDefinitions,
                 hidden,
                 deterministic,
                 description,
                 kind,
-                deprecated,
-                actualName);
+                deprecated);
     }
 
     public FunctionMetadata(
             FunctionId functionId,
-            Signature canonicalSignature,
+            Signature signature,
+            String actualName,
             boolean nullable,
             List<FunctionArgumentDefinition> argumentDefinitions,
             boolean hidden,
             boolean deterministic,
             String description,
             FunctionKind kind,
-            boolean deprecated,
-            String actualName)
+            boolean deprecated)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
-        this.canonicalSignature = requireNonNull(canonicalSignature, "canonicalSignature is null");
+        this.signature = requireNonNull(signature, "signature is null");
+        this.actualName = requireNonNull(actualName, "actualName is null");
         this.nullable = nullable;
         this.argumentDefinitions = ImmutableList.copyOf(requireNonNull(argumentDefinitions, "argumentDefinitions is null"));
         this.hidden = hidden;
@@ -106,7 +107,6 @@ public class FunctionMetadata
         this.description = requireNonNull(description, "description is null");
         this.kind = requireNonNull(kind, "kind is null");
         this.deprecated = deprecated;
-        this.actualName = requireNonNull(actualName, "actualName is null");
     }
 
     public FunctionId getFunctionId()
@@ -116,7 +116,16 @@ public class FunctionMetadata
 
     public Signature getSignature()
     {
-        return canonicalSignature;
+        return signature;
+    }
+
+    /**
+     * Returns the name under which function is registered. Typically same as {@code getSignature().getName()}
+     * unless this is an alias.
+     */
+    public String getActualName()
+    {
+        return actualName;
     }
 
     public boolean isNullable()
@@ -154,14 +163,9 @@ public class FunctionMetadata
         return deprecated;
     }
 
-    public String getActualName()
-    {
-        return actualName;
-    }
-
     @Override
     public String toString()
     {
-        return canonicalSignature.toString();
+        return signature.toString();
     }
 }

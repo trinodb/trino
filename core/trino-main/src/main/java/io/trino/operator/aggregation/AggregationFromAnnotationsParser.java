@@ -15,7 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MoreCollectors;
 import io.trino.metadata.Signature;
@@ -35,20 +34,17 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseDescription;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.UnaryOperator.identity;
 
 public final class AggregationFromAnnotationsParser
 {
@@ -133,11 +129,11 @@ public final class AggregationFromAnnotationsParser
     {
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
 
-        return getNames(toParse, aggregationAnnotation).entrySet().stream()
-                .map(entry ->
+        return getNames(toParse, aggregationAnnotation).stream()
+                .map(aggregationFunctionName ->
                         new AggregationHeader(
-                                entry.getKey(),
-                                entry.getValue(),
+                                aggregationFunctionName.getActualName(),
+                                aggregationFunctionName.getCanonicalName(),
                                 parseDescription(aggregationDefinition, toParse),
                                 aggregationAnnotation.decomposable(),
                                 aggregationAnnotation.isOrderSensitive(),
@@ -145,12 +141,13 @@ public final class AggregationFromAnnotationsParser
                 .collect(toImmutableList());
     }
 
-    private static Map<String, String> getNames(@Nullable AnnotatedElement outputFunction, AggregationFunction aggregationAnnotation)
+    private static List<AggregationFunctionName> getNames(@Nullable AnnotatedElement outputFunction, AggregationFunction aggregationAnnotation)
     {
-        Map<String, String> defaultNames = ImmutableMap.<String, String>builder()
-                .put(aggregationAnnotation.value(), aggregationAnnotation.value())
-                .putAll(Stream.of(aggregationAnnotation.alias())
-                        .collect(toImmutableMap(identity(), value -> aggregationAnnotation.value())))
+        List<AggregationFunctionName> defaultNames = ImmutableList.<AggregationFunctionName>builder()
+                .add(new AggregationFunctionName(aggregationAnnotation.value(), aggregationAnnotation.value()))
+                .addAll(Stream.of(aggregationAnnotation.alias())
+                        .map(alias -> new AggregationFunctionName(alias, aggregationAnnotation.value()))
+                        .collect(toImmutableList()))
                 .build();
 
         if (outputFunction == null) {
@@ -162,10 +159,11 @@ public final class AggregationFromAnnotationsParser
             return defaultNames;
         }
         else {
-            return ImmutableMap.<String, String>builder()
-                    .put(annotation.value(), annotation.value())
-                    .putAll(Stream.of(annotation.alias())
-                            .collect(toImmutableMap(identity(), value -> annotation.value())))
+            return ImmutableList.<AggregationFunctionName>builder()
+                    .add(new AggregationFunctionName(annotation.value(), annotation.value()))
+                    .addAll(Stream.of(annotation.alias())
+                            .map(alias -> new AggregationFunctionName(alias, annotation.value()))
+                            .collect(toImmutableList()))
                     .build();
         }
     }
@@ -227,5 +225,27 @@ public final class AggregationFromAnnotationsParser
         checkArgument(!stateClasses.isEmpty(), "No input functions found");
 
         return stateClasses;
+    }
+
+    private static class AggregationFunctionName
+    {
+        private String actualName;
+        private String canonicalName;
+
+        public AggregationFunctionName(String actualName, String canonicalName)
+        {
+            this.actualName = actualName;
+            this.canonicalName = canonicalName;
+        }
+
+        public String getActualName()
+        {
+            return actualName;
+        }
+
+        public String getCanonicalName()
+        {
+            return canonicalName;
+        }
     }
 }

@@ -2001,14 +2001,14 @@ public final class MetadataManager
         return new FunctionMetadata(
                 functionMetadata.getFunctionId(),
                 resolvedFunction.getSignature().toSignature(),
+                functionMetadata.getActualName(),
                 functionMetadata.isNullable(),
                 argumentDefinitions,
                 functionMetadata.isHidden(),
                 functionMetadata.isDeterministic(),
                 functionMetadata.getDescription(),
                 functionMetadata.getKind(),
-                functionMetadata.isDeprecated(),
-                functionMetadata.getActualName());
+                functionMetadata.isDeprecated());
     }
 
     @Override

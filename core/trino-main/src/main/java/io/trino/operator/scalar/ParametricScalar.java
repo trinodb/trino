@@ -51,14 +51,14 @@ public class ParametricScalar
     {
         super(new FunctionMetadata(
                 signature,
+                signature.getName(),
                 implementations.isNullable(),
                 implementations.getArgumentDefinitions(),
                 details.isHidden(),
                 details.isDeterministic(),
                 details.getDescription().orElse(""),
                 SCALAR,
-                deprecated,
-                signature.getName()));
+                deprecated));
         this.implementations = requireNonNull(implementations);
     }
 
