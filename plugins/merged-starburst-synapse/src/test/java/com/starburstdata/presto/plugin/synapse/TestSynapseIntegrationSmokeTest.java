@@ -79,10 +79,11 @@ public class TestSynapseIntegrationSmokeTest
     @Test
     public void testSelectFromView()
     {
-        synapseServer.execute("CREATE VIEW test_view AS SELECT * FROM nation");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
-        assertQuery("SELECT nationkey FROM test_view", "SELECT nationkey FROM nation");
-        synapseServer.execute("DROP VIEW IF EXISTS test_view");
+        String viewName = "test_view" + randomTableSuffix();
+        synapseServer.execute(format("CREATE VIEW %s AS SELECT * FROM nation", viewName));
+        assertTrue(getQueryRunner().tableExists(getSession(), viewName));
+        assertQuery(format("SELECT nationkey FROM %s", viewName), "SELECT nationkey FROM nation");
+        synapseServer.execute(format("DROP VIEW IF EXISTS %s", viewName));
     }
 
     @Test
