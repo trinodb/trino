@@ -24,7 +24,6 @@ import io.trino.sql.planner.assertions.TopNRankingSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.WindowFrame;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -35,8 +34,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.topNRanking;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
 public class TestPushdownFilterIntoWindow
         extends BaseRuleTest
@@ -158,16 +156,7 @@ public class TestPushdownFilterIntoWindow
         return new WindowNode.Function(
                 resolvedFunction,
                 ImmutableList.of(symbol.toSymbolReference()),
-                new WindowNode.Frame(
-                        WindowFrame.Type.RANGE,
-                        UNBOUNDED_PRECEDING,
-                        Optional.empty(),
-                        Optional.empty(),
-                        CURRENT_ROW,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty()),
+                DEFAULT_FRAME,
                 false);
     }
 }
