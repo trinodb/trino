@@ -324,7 +324,7 @@ public class TestMemoryRevokingScheduler
 
     private TaskContext getOrCreateTaskContext(SqlTask sqlTask)
     {
-        if (!sqlTask.getTaskContext().isPresent()) {
+        if (sqlTask.getTaskContext().isEmpty()) {
             // update task to update underlying taskHolderReference with taskExecution + create a new taskContext
             updateTask(sqlTask, ImmutableList.of(), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
         }
