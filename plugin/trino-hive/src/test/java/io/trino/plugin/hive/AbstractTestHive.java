@@ -98,6 +98,7 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -813,6 +814,7 @@ public abstract class AbstractTestHive
                 false,
                 1000,
                 Optional.empty(),
+                Optional.empty(),
                 true,
                 TYPE_MANAGER,
                 locationService,
@@ -1062,7 +1064,10 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix());
+            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.streamTableColumns(newSession(), new SchemaTablePrefix())
+                    .collect(toImmutableMap(
+                            TableColumnsMetadata::getTable,
+                            columnsMetadata -> columnsMetadata.getColumns().orElseThrow(() -> new IllegalStateException("Unexpected table redirection"))));
             assertTrue(allColumns.containsKey(tablePartitionFormat));
             assertTrue(allColumns.containsKey(tableUnpartitioned));
         }
@@ -1073,7 +1078,10 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(database));
+            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.streamTableColumns(newSession(), new SchemaTablePrefix(database))
+                    .collect(toImmutableMap(
+                            TableColumnsMetadata::getTable,
+                            columnsMetadata -> columnsMetadata.getColumns().orElseThrow(() -> new IllegalStateException("Unexpected table redirection"))));
             assertTrue(allColumns.containsKey(tablePartitionFormat));
             assertTrue(allColumns.containsKey(tableUnpartitioned));
         }
@@ -1087,7 +1095,7 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
             assertNull(metadata.getTableHandle(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
             assertEquals(metadata.listTables(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
-            assertEquals(metadata.listTableColumns(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
+            assertEquals(metadata.streamTableColumns(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)).collect(toImmutableList()), ImmutableList.of());
             assertEquals(metadata.listViews(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
             assertEquals(metadata.getViews(session, Optional.of(INVALID_DATABASE)), ImmutableMap.of());
             assertEquals(metadata.getView(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)), Optional.empty());
@@ -1336,9 +1344,13 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(newSession(), tableOffline.toSchemaTablePrefix());
+            List<TableColumnsMetadata> columns = metadata.streamTableColumns(newSession(), tableOffline.toSchemaTablePrefix())
+                    .collect(toImmutableList());
             assertEquals(columns.size(), 1);
-            Map<String, ColumnMetadata> map = uniqueIndex(getOnlyElement(columns.values()), ColumnMetadata::getName);
+            Map<String, ColumnMetadata> map = uniqueIndex(
+                    getOnlyElement(columns).getColumns()
+                            .orElseThrow(() -> new IllegalStateException("Unexpected table redirection")),
+                    ColumnMetadata::getName);
 
             assertPrimitiveField(map, "t_string", createUnboundedVarcharType(), false);
         }
@@ -2366,7 +2378,9 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            assertEquals(metadata.listTableColumns(newSession(), new SchemaTablePrefix(view.getSchemaName(), view.getTableName())), ImmutableMap.of());
+            assertEquals(
+                    metadata.streamTableColumns(newSession(), new SchemaTablePrefix(view.getSchemaName(), view.getTableName())).collect(toImmutableList()),
+                    ImmutableList.of());
         }
     }
 
@@ -2905,15 +2919,18 @@ public abstract class AbstractTestHive
                         .doesNotContain(tableName);
 
                 // list all columns
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix()).keySet())
+                assertThat(metadata.streamTableColumns(session, new SchemaTablePrefix()))
+                        .extracting(TableColumnsMetadata::getTable)
                         .doesNotContain(tableName);
 
                 // list all columns in a schema
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName())).keySet())
+                assertThat(metadata.streamTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName())))
+                        .extracting(TableColumnsMetadata::getTable)
                         .doesNotContain(tableName);
 
                 // list all columns in a table
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName())).keySet())
+                assertThat(metadata.streamTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName())))
+                        .extracting(TableColumnsMetadata::getTable)
                         .doesNotContain(tableName);
             }
         }
@@ -3087,8 +3104,9 @@ public abstract class AbstractTestHive
         // to make sure it can still be retrieved instead of throwing exception.
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName()));
-            assertTrue(allColumns.containsKey(schemaTableName));
+            assertThat(metadata.streamTableColumns(newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName())))
+                    .extracting(TableColumnsMetadata::getTable)
+                    .containsOnlyOnce(schemaTableName);
         }
         finally {
             dropTable(schemaTableName);

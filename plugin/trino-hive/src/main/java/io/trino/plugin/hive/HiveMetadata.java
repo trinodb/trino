@@ -55,6 +55,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.CatalogSchemaName;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
@@ -80,6 +81,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
@@ -123,6 +125,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
@@ -315,6 +318,7 @@ public class HiveMetadata
     private final boolean writesToNonManagedTablesEnabled;
     private final boolean createsOfNonManagedTablesEnabled;
     private final boolean translateHiveViews;
+    private final Optional<String> icebergCatalogName;
     private final boolean hideDeltaLakeTables;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
@@ -331,6 +335,7 @@ public class HiveMetadata
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
             boolean translateHiveViews,
+            Optional<String> icebergCatalogName,
             boolean hideDeltaLakeTables,
             TypeManager typeManager,
             LocationService locationService,
@@ -352,6 +357,7 @@ public class HiveMetadata
         this.writesToNonManagedTablesEnabled = writesToNonManagedTablesEnabled;
         this.createsOfNonManagedTablesEnabled = createsOfNonManagedTablesEnabled;
         this.translateHiveViews = translateHiveViews;
+        this.icebergCatalogName = requireNonNull(icebergCatalogName, "icebergCatalogName is null");
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.prestoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
@@ -379,6 +385,8 @@ public class HiveMetadata
     public HiveTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
+        checkTableNotRedirected(session, tableName);
+
         if (isHiveSystemSchema(tableName.getSchemaName())) {
             return null;
         }
@@ -463,8 +471,18 @@ public class HiveMetadata
                 return systemTable;
             }
         }
-
         return Optional.empty();
+    }
+
+    void checkSourceTableNotRedirected(ConnectorSession session, SchemaTableName systemTableName, SchemaTableName sourceTableName)
+    {
+        Optional<CatalogSchemaTableName> redirected = redirectTable(session, sourceTableName);
+        if (redirected.isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED,
+                    format("Querying system table '%s' is not supported, because the source table is redirected to '%s'",
+                            new CatalogSchemaTableName(catalogName.toString(), systemTableName),
+                            redirected.get()));
+        }
     }
 
     @Override
@@ -664,28 +682,32 @@ public class HiveMetadata
 
     @SuppressWarnings("TryWithIdenticalCatches")
     @Override
-    public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
+    public Stream<TableColumnsMetadata> streamTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
-        ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix)) {
-            try {
-                columns.put(tableName, getTableMetadata(session, tableName).getColumns());
-            }
-            catch (HiveViewNotSupportedException e) {
-                // view is not supported
-            }
-            catch (TableNotFoundException e) {
-                // table disappeared during listing operation
-            }
-            catch (TrinoException e) {
-                // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
-                if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
-                    throw e;
-                }
-            }
-        }
-        return columns.build();
+        return listTables(session, prefix).stream()
+                .map(tableName -> {
+                    try {
+                        return redirectTable(session, tableName)
+                                .map(CatalogSchemaTableName::getSchemaTableName)
+                                .map(TableColumnsMetadata::forRedirectedTable)
+                                .orElse(TableColumnsMetadata.forTable(tableName, getTableMetadata(session, tableName).getColumns()));
+                    }
+                    catch (HiveViewNotSupportedException e) {
+                        // view is not supported
+                    }
+                    catch (TableNotFoundException e) {
+                        // table disappeared during listing operation
+                    }
+                    catch (TrinoException e) {
+                        // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
+                        if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
+                            throw e;
+                        }
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull);
     }
 
     @Override
@@ -1123,6 +1145,7 @@ public class HiveMetadata
     @Override
     public void setTableAuthorization(ConnectorSession session, SchemaTableName table, TrinoPrincipal principal)
     {
+        checkTableNotRedirected(session, table);
         metastore.setTableOwner(new HiveIdentity(session), table.getSchemaName(), table.getTableName(), HivePrincipal.from(principal));
     }
 
@@ -2705,12 +2728,14 @@ public class HiveMetadata
     @Override
     public void grantTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
+        checkTableNotRedirected(session, schemaTableName);
         accessControlMetadata.grantTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
     }
 
     @Override
     public void revokeTablePrivileges(ConnectorSession session, SchemaTableName schemaTableName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)
     {
+        checkTableNotRedirected(session, schemaTableName);
         accessControlMetadata.revokeTablePrivileges(session, schemaTableName, privileges, HivePrincipal.from(grantee), grantOption);
     }
 
@@ -2994,6 +3019,37 @@ public class HiveMetadata
     public CompletableFuture<?> refreshMaterializedView(ConnectorSession session, SchemaTableName name)
     {
         return hiveMaterializedViewMetadata.refreshMaterializedView(session, name);
+    }
+
+    @Override
+    public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (icebergCatalogName.isPresent()
+                && !isHiveSystemSchema(tableName.getSchemaName())
+                && isExistingIcebergTable(session, tableName)) {
+            return Optional.of(new CatalogSchemaTableName(icebergCatalogName.get(), tableName));
+        }
+
+        return Optional.empty();
+    }
+
+    private boolean isExistingIcebergTable(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        return metastore.getTable(new HiveIdentity(session), schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                .map(HiveUtil::isIcebergTable)
+                .orElse(false);
+    }
+
+    private void checkTableNotRedirected(ConnectorSession session, SchemaTableName tableName)
+    {
+        redirectTable(session, tableName).ifPresent(targetTable -> {
+            throw new TrinoException(NOT_SUPPORTED,
+                    format("This operation is not supported on '%s', because it is redirected to '%s'."
+                                    + " Modification operations (insert, alter, drop, delete, update, comment, grant, revoke)"
+                                    + " are not supported when redirection is enabled.",
+                            tableName,
+                            targetTable));
+        });
     }
 
     public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)

@@ -47,6 +47,8 @@ public class PropertiesSystemTableProvider
         }
 
         SchemaTableName sourceTableName = PROPERTIES.getSourceTableName(tableName);
+        metadata.checkSourceTableNotRedirected(session, tableName, sourceTableName);
+
         Optional<Table> table = metadata.getMetastore().getTable(new HiveIdentity(session), sourceTableName.getSchemaName(), sourceTableName.getTableName());
         if (table.isEmpty() || table.get().getTableType().equals(TableType.VIRTUAL_VIEW.name())) {
             throw new TableNotFoundException(tableName);

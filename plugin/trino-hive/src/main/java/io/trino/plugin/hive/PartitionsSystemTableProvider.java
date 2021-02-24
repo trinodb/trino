@@ -63,6 +63,7 @@ public class PartitionsSystemTableProvider
         }
 
         SchemaTableName sourceTableName = PARTITIONS.getSourceTableName(tableName);
+        metadata.checkSourceTableNotRedirected(session, tableName, sourceTableName);
         HiveTableHandle sourceTableHandle = metadata.getTableHandle(session, sourceTableName);
 
         if (sourceTableHandle == null) {
