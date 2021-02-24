@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
+import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.NodeTaskMap;
 import io.trino.execution.RemoteTask;
@@ -56,9 +57,9 @@ public class NodeScheduler
         this.nodeSelectorFactory = requireNonNull(nodeSelectorFactory, "nodeSelectorFactory is null");
     }
 
-    public NodeSelector createNodeSelector(Optional<CatalogName> catalogName)
+    public NodeSelector createNodeSelector(Session session, Optional<CatalogName> catalogName)
     {
-        return nodeSelectorFactory.createNodeSelector(requireNonNull(catalogName, "catalogName is null"));
+        return nodeSelectorFactory.createNodeSelector(requireNonNull(session, "session is null"), requireNonNull(catalogName, "catalogName is null"));
     }
 
     public static List<InternalNode> getAllNodes(NodeMap nodeMap, boolean includeCoordinator)
@@ -149,6 +150,7 @@ public class NodeScheduler
             NodeTaskMap nodeTaskMap,
             int maxSplitsPerNode,
             int maxPendingSplitsPerTask,
+            int maxUnacknowledgedSplitsPerTask,
             Set<Split> splits,
             List<RemoteTask> existingTasks,
             BucketNodeMap bucketNodeMap)
@@ -162,8 +164,8 @@ public class NodeScheduler
             InternalNode node = bucketNodeMap.getAssignedNode(split).get();
 
             // if node is full, don't schedule now, which will push back on the scheduling of splits
-            if (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode ||
-                    assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerTask) {
+            if (assignmentStats.getUnacknowledgedSplitCountForStage(node) < maxUnacknowledgedSplitsPerTask &&
+                    (assignmentStats.getTotalSplitCount(node) < maxSplitsPerNode || assignmentStats.getQueuedSplitCountForStage(node) < maxPendingSplitsPerTask)) {
                 assignments.put(node, split);
                 assignmentStats.addAssignedSplit(node);
             }
