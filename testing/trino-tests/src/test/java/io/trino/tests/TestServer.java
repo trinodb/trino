@@ -39,6 +39,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
@@ -257,25 +258,21 @@ public class TestServer
     @Test
     public void testVersionOnCompilerFailedError()
     {
-        int numberColumns = 170;
         String tableName = "memory.default.test_version_on_compiler_failed";
         try (TestingTrinoClient testingClient = new TestingTrinoClient(server, testSessionBuilder().build())) {
             testingClient.execute("DROP TABLE IF EXISTS " + tableName);
-            testingClient.execute("CREATE TABLE " + tableName + " AS SELECT " +
-                    IntStream.range(0, numberColumns)
-                            .mapToObj(columnNumber -> format("'' AS f%s", columnNumber))
-                            .collect(joining(", ")));
+            testingClient.execute("CREATE TABLE " + tableName + " AS SELECT '' as foo");
 
-            String pivotQuery = "SELECT x, y " +
-                    "FROM " + tableName + " " +
-                    "CROSS JOIN UNNEST(" +
-                    IntStream.range(0, numberColumns)
-                            .mapToObj(Integer::toString)
-                            .collect(joining(", ", "ARRAY[", "]")) + "," +
-                    IntStream.range(0, numberColumns)
-                            .mapToObj(columnNumber -> format("f%s", columnNumber))
-                            .collect(joining(", ", "ARRAY[", "]")) + ") t(x, y)";
-            checkVersionOnError(pivotQuery, "TrinoException: Compiler failed(?s:.*)at io.trino.sql.gen.PageFunctionCompiler.compileProjection");
+            // This query is designed to cause a compile failure, and hopefully not run too long.
+            // The exact query is not important, just that it causes a failure.
+            String array = IntStream.range(0, 254)
+                    .mapToObj(columnNumber -> "foo")
+                    .collect(joining(", ", "ARRAY[", "]"));
+            String query = "SELECT " +
+                    String.join(" || ", Collections.nCopies(10, array)) +
+                    "FROM " + tableName;
+
+            checkVersionOnError(query, "TrinoException: Compiler failed(?s:.*)at io.trino.sql.gen.ExpressionCompiler.compile");
         }
     }
 
