@@ -240,7 +240,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = OAUTH2_COOKIE + " is missing")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^" /* the test is flaky in a variety of ways due to Selenium usage */)
     public void testSuccessfulFlow()
             throws Exception
     {
@@ -252,7 +252,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = OAUTH2_COOKIE + " is missing")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6223", match = "^"  /* the test is flaky in a variety of ways due to Selenium usage */)
     public void testExpiredAccessToken()
             throws Exception
     {
