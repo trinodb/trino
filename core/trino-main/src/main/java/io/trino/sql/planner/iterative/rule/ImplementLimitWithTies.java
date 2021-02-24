@@ -20,7 +20,6 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
@@ -30,10 +29,8 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.Optional;
 
@@ -41,6 +38,7 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -84,23 +82,10 @@ public class ImplementLimitWithTies
         PlanNode child = captures.get(CHILD);
         Symbol rankSymbol = context.getSymbolAllocator().newSymbol("rank_num", BIGINT);
 
-        ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of());
-
-        WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
-                Optional.empty(),
-                Optional.empty(),
-                FrameBound.Type.CURRENT_ROW,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-
         WindowNode.Function rankFunction = new WindowNode.Function(
-                function,
+                metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of()),
                 ImmutableList.of(),
-                frame,
+                DEFAULT_FRAME,
                 false);
 
         WindowNode windowNode = new WindowNode(

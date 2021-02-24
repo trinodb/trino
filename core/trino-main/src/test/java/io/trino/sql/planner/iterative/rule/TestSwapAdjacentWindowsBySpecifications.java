@@ -22,7 +22,6 @@ import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WindowFrame;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -35,29 +34,16 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
 public class TestSwapAdjacentWindowsBySpecifications
         extends BaseRuleTest
 {
     private final MetadataManager metadata = createTestMetadataManager();
-    private WindowNode.Frame frame;
     private ResolvedFunction resolvedFunction;
 
     public TestSwapAdjacentWindowsBySpecifications()
     {
-        frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                UNBOUNDED_PRECEDING,
-                Optional.empty(),
-                Optional.empty(),
-                CURRENT_ROW,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
-
         resolvedFunction = metadata.resolveFunction(QualifiedName.of("avg"), fromTypes(BIGINT));
     }
 
@@ -77,7 +63,7 @@ public class TestSwapAdjacentWindowsBySpecifications
                                 ImmutableList.of(p.symbol("a")),
                                 Optional.empty()),
                         ImmutableMap.of(p.symbol("avg_1"),
-                                new WindowNode.Function(resolvedFunction, ImmutableList.of(), frame, false)),
+                                new WindowNode.Function(resolvedFunction, ImmutableList.of(), DEFAULT_FRAME, false)),
                         p.values(p.symbol("a"))))
                 .doesNotFire();
     }
@@ -97,12 +83,12 @@ public class TestSwapAdjacentWindowsBySpecifications
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1", DOUBLE),
-                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("a")), frame, false)),
+                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("a")), DEFAULT_FRAME, false)),
                                 p.window(new WindowNode.Specification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2", DOUBLE),
-                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("b")), frame, false)),
+                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("b")), DEFAULT_FRAME, false)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .matches(
                         window(windowMatcherBuilder -> windowMatcherBuilder
@@ -123,12 +109,12 @@ public class TestSwapAdjacentWindowsBySpecifications
                                         ImmutableList.of(p.symbol("a")),
                                         Optional.empty()),
                                 ImmutableMap.of(p.symbol("avg_1"),
-                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("avg_2")), frame, false)),
+                                        new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("avg_2")), DEFAULT_FRAME, false)),
                                 p.window(new WindowNode.Specification(
                                                 ImmutableList.of(p.symbol("a"), p.symbol("b")),
                                                 Optional.empty()),
                                         ImmutableMap.of(p.symbol("avg_2"),
-                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("a")), frame, false)),
+                                                new WindowNode.Function(resolvedFunction, ImmutableList.of(new SymbolReference("a")), DEFAULT_FRAME, false)),
                                         p.values(p.symbol("a"), p.symbol("b")))))
                 .doesNotFire();
     }
