@@ -33,3 +33,14 @@ another writer is eligible to be added. Each writer task may have multiple
 writers, controlled by ``task.writer-count``, thus this value is effectively
 divided by the number of writers per task. This can be specified on a
 per-query basis using the ``writer_min_size`` session property.
+
+``use-preferred-write-partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+* **Type:** ``boolean``
+* **Default value:** ``false``
+
+Enable preferred write partitioning. When set to ``true`` each partition is
+written by a separate writer. As a result, for some connectors such as the
+Hive connector, only a single new file is written per partition, instead of
+multiple files. Partition writer assignments are distributed across worker
+nodes for parallel processing.
