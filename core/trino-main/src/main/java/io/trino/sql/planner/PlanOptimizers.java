@@ -176,6 +176,7 @@ import io.trino.sql.planner.iterative.rule.RemoveRedundantJoin;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantLimit;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantOffset;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantSort;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantSortBelowLimitWithTies;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantTableScanPredicate;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantTopN;
 import io.trino.sql.planner.iterative.rule.RemoveTrivialFilters;
@@ -452,6 +453,7 @@ public class PlanOptimizers
                                         new RemoveRedundantLimit(),
                                         new RemoveRedundantOffset(),
                                         new RemoveRedundantSort(),
+                                        new RemoveRedundantSortBelowLimitWithTies(),
                                         new RemoveRedundantTopN(),
                                         new RemoveRedundantDistinctLimit(),
                                         new RemoveRedundantCrossJoin(),
