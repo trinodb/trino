@@ -384,7 +384,7 @@ public class ElasticsearchClient
             String nodeId = entry.getKey();
             NodesResponse.Node node = entry.getValue();
 
-            if (node.getRoles().contains("data")) {
+            if (node.getRoles().contains("data") || node.getRoles().contains("data_hot") || node.getRoles().contains("data_content")) {
                 Optional<String> address = node.getAddress()
                         .flatMap(ElasticsearchClient::extractAddress);
 
