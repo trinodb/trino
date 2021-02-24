@@ -248,16 +248,7 @@ public final class BytecodeUtils
             }
             else {
                 BytecodeNode argument = argumentCompilers.get(i).apply(Optional.empty());
-                if (argument instanceof InputReferenceNode) {
-                    argumentConventions.add(BLOCK_POSITION);
-                }
-                else if (functionMetadata.getArgumentDefinitions().get(i).isNullable()) {
-                    // a Java function can only have 255 arguments, so if the count is high use boxed nullable instead of the more efficient null flag
-                    argumentConventions.add(argumentCompilers.size() > 100 ? BOXED_NULLABLE : NULL_FLAG);
-                }
-                else {
-                    argumentConventions.add(NEVER_NULL);
-                }
+                argumentConventions.add(getPreferredArgumentConvention(argument, argumentCompilers.size(), functionMetadata.getArgumentDefinitions().get(i).isNullable()));
                 arguments.add(argument);
             }
         }
@@ -353,6 +344,21 @@ public final class BytecodeUtils
         block.visitLabel(end);
 
         return block;
+    }
+
+    private static InvocationArgumentConvention getPreferredArgumentConvention(BytecodeNode argument, int argumentCount, boolean nullable)
+    {
+        // a Java function can only have 255 arguments, so if the count is low use block position or boxed nullable as they are more efficient
+        if (argumentCount <= 100) {
+            if (argument instanceof InputReferenceNode) {
+                return BLOCK_POSITION;
+            }
+            if (nullable) {
+                return NULL_FLAG;
+            }
+        }
+
+        return nullable ? BOXED_NULLABLE : NEVER_NULL;
     }
 
     public static BytecodeBlock unboxPrimitiveIfNecessary(Scope scope, Class<?> boxedType)
