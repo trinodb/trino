@@ -16,7 +16,6 @@ package io.trino.plugin.kafka;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
-import io.trino.tpch.TpchTable;
 
 public class TestKafkaDistributedLatest
         extends AbstractTestQueries
@@ -27,7 +26,7 @@ public class TestKafkaDistributedLatest
     {
         TestingKafka testingKafka = closeAfterClass(TestingKafka.create("6.0.1"));
         return KafkaQueryRunner.builder(testingKafka)
-                .setTables(TpchTable.getTables())
+                .setTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 }

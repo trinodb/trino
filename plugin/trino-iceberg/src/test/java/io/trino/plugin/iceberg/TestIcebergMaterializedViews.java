@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.tree.ExplainType;
@@ -35,7 +36,7 @@ public class TestIcebergMaterializedViews
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), new IcebergConfig().getFileFormat(), false);
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), new IcebergConfig().getFileFormat(), ImmutableList.of());
     }
 
     @BeforeClass
