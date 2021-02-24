@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -102,8 +101,9 @@ public class PruneTableScanColumns
             newAssignments = builder.build();
         }
         else {
-            newAssignments = newOutputs.stream()
-                    .collect(toImmutableMap(Function.identity(), node.getAssignments()::get));
+            return Optional.empty();
+//            newAssignments = newOutputs.stream()
+//                    .collect(toImmutableMap(Function.identity(), node.getAssignments()::get));
         }
 
         Set<ColumnHandle> visibleColumns = ImmutableSet.copyOf(newAssignments.values());
