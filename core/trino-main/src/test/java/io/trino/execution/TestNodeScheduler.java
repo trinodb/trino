@@ -23,6 +23,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.hash.Hashing;
+import io.trino.Session;
+import io.trino.SystemSessionProperties;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
 import io.trino.execution.scheduler.NetworkLocation;
@@ -31,6 +33,7 @@ import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.NodeSelector;
 import io.trino.execution.scheduler.NodeSelectorFactory;
+import io.trino.execution.scheduler.SplitPlacementResult;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorConfig;
 import io.trino.execution.scheduler.TopologyAwareNodeSelectorFactory;
 import io.trino.execution.scheduler.UniformNodeSelector;
@@ -41,6 +44,7 @@ import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -86,27 +90,31 @@ public class TestNodeScheduler
     private FinalizerService finalizerService;
     private NodeTaskMap nodeTaskMap;
     private InMemoryNodeManager nodeManager;
+    private NodeSchedulerConfig nodeSchedulerConfig;
+    private NodeScheduler nodeScheduler;
     private NodeSelector nodeSelector;
     private Map<InternalNode, RemoteTask> taskMap;
     private ExecutorService remoteTaskExecutor;
     private ScheduledExecutorService remoteTaskScheduledExecutor;
+    private Session session;
 
     @BeforeMethod
     public void setUp()
     {
+        session = TestingSession.testSessionBuilder().build();
         finalizerService = new FinalizerService();
         nodeTaskMap = new NodeTaskMap(finalizerService);
         nodeManager = new InMemoryNodeManager();
 
-        NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig()
+        nodeSchedulerConfig = new NodeSchedulerConfig()
                 .setMaxSplitsPerNode(20)
                 .setIncludeCoordinator(false)
                 .setMaxPendingSplitsPerTask(10);
 
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
+        nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, nodeTaskMap));
         // contents of taskMap indicate the node-task map for the current stage
         taskMap = new HashMap<>();
-        nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
+        nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID));
         remoteTaskExecutor = newCachedThreadPool(daemonThreadsNamed("remoteTaskExecutor-%s"));
         remoteTaskScheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("remoteTaskScheduledExecutor-%s"));
 
@@ -130,6 +138,9 @@ public class TestNodeScheduler
         remoteTaskExecutor = null;
         remoteTaskScheduledExecutor.shutdown();
         remoteTaskScheduledExecutor = null;
+        nodeSchedulerConfig = null;
+        nodeScheduler = null;
+        nodeSelector = null;
         finalizerService.destroy();
         finalizerService = null;
     }
@@ -181,7 +192,7 @@ public class TestNodeScheduler
         TestNetworkTopology topology = new TestNetworkTopology();
         NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(topology, nodeManager, nodeSchedulerConfig, nodeTaskMap, getNetworkTopologyConfig());
         NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
-        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID));
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(CONNECTOR_ID));
 
         // Fill up the nodes with non-local data
         ImmutableSet.Builder<Split> nonRackLocalBuilder = ImmutableSet.builder();
@@ -331,6 +342,26 @@ public class TestNodeScheduler
         remoteTask2.abort();
 
         assertEquals(nodeTaskMap.getPartitionedSplitsOnNode(newNode), 0);
+    }
+
+    @Test
+    public void testBasicAssignmentMaxUnacknowledgedSplitsPerTask()
+    {
+        // Use non-default max unacknowledged splits per task
+        nodeSelector = nodeScheduler.createNodeSelector(sessionWithMaxUnacknowledgedSplitsPerTask(1), Optional.of(CONNECTOR_ID));
+        setUpNodes();
+        // One split for each node, and one extra split that can't be placed
+        int nodeCount = nodeManager.getActiveConnectorNodes(CONNECTOR_ID).size();
+        int splitCount = nodeCount + 1;
+        Set<Split> splits = new HashSet<>();
+        for (int i = 0; i < splitCount; i++) {
+            splits.add(new Split(CONNECTOR_ID, new TestSplitRemote(), Lifespan.taskWide()));
+        }
+        Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
+        assertEquals(assignments.entries().size(), nodeCount);
+        for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
+            assertTrue(assignments.keySet().contains(node));
+        }
     }
 
     @Test
@@ -767,6 +798,71 @@ public class TestNodeScheduler
 
         Multimap<InternalNode, Split> assignments3 = nodeSelector.computeAssignments(unassignedSplits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         assertTrue(assignments3.isEmpty());
+    }
+
+    @Test
+    public void testMaxUnacknowledgedSplitsPerTask()
+    {
+        int maxUnacknowledgedSplitsPerTask = 5;
+        nodeSelector = nodeScheduler.createNodeSelector(sessionWithMaxUnacknowledgedSplitsPerTask(maxUnacknowledgedSplitsPerTask), Optional.of(CONNECTOR_ID));
+        setUpNodes();
+        ImmutableList.Builder<Split> initialSplits = ImmutableList.builder();
+        for (int i = 0; i < maxUnacknowledgedSplitsPerTask; i++) {
+            initialSplits.add(new Split(CONNECTOR_ID, new TestSplitRemote(), Lifespan.taskWide()));
+        }
+
+        List<InternalNode> nodes = new ArrayList<>();
+        List<MockRemoteTaskFactory.MockRemoteTask> tasks = new ArrayList<>();
+        MockRemoteTaskFactory remoteTaskFactory = new MockRemoteTaskFactory(remoteTaskExecutor, remoteTaskScheduledExecutor);
+        int counter = 1;
+        for (InternalNode node : nodeManager.getActiveConnectorNodes(CONNECTOR_ID)) {
+            // Max out number of unacknowledged splits on each task
+            TaskId taskId = new TaskId("test", 1, counter);
+            counter++;
+            MockRemoteTaskFactory.MockRemoteTask remoteTask = remoteTaskFactory.createTableScanTask(taskId, node, initialSplits.build(), nodeTaskMap.createPartitionedSplitCountTracker(node, taskId));
+            nodeTaskMap.addTask(node, remoteTask);
+            remoteTask.setMaxUnacknowledgedSplits(maxUnacknowledgedSplitsPerTask);
+            remoteTask.setUnacknowledgedSplits(maxUnacknowledgedSplitsPerTask);
+            nodes.add(node);
+            tasks.add(remoteTask);
+        }
+
+        // One split per node
+        Set<Split> splits = new HashSet<>();
+        for (int i = 0; i < nodes.size(); i++) {
+            splits.add(new Split(CONNECTOR_ID, new TestSplitRemote(), Lifespan.taskWide()));
+        }
+        SplitPlacementResult splitPlacements = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(tasks));
+        // No splits should have been placed, max unacknowledged was already reached
+        assertEquals(splitPlacements.getAssignments().size(), 0);
+
+        // Unblock one task
+        MockRemoteTaskFactory.MockRemoteTask taskOne = tasks.get(0);
+        taskOne.finishSplits(1);
+        taskOne.setUnacknowledgedSplits(taskOne.getUnacknowledgedPartitionedSplitCount() - 1);
+        assertTrue(splitPlacements.getBlocked().isDone());
+
+        // Attempt to schedule again, only the node with the unblocked task should be chosen
+        splitPlacements = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(tasks));
+        assertEquals(splitPlacements.getAssignments().size(), 1);
+        assertTrue(splitPlacements.getAssignments().keySet().contains(nodes.get(0)));
+
+        // Make the first node appear to have no splits, unacknowledged splits alone should force the splits to be spread across nodes
+        taskOne.clearSplits();
+        // Give all tasks with room for 1 unacknowledged split
+        tasks.forEach(task -> task.setUnacknowledgedSplits(maxUnacknowledgedSplitsPerTask - 1));
+
+        splitPlacements = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(tasks));
+        // One split placed on each node
+        assertEquals(splitPlacements.getAssignments().size(), nodes.size());
+        assertTrue(splitPlacements.getAssignments().keySet().containsAll(nodes));
+    }
+
+    private static Session sessionWithMaxUnacknowledgedSplitsPerTask(int maxUnacknowledgedSplitsPerTask)
+    {
+        return TestingSession.testSessionBuilder()
+                .setSystemProperty(SystemSessionProperties.MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.toString(maxUnacknowledgedSplitsPerTask))
+                .build();
     }
 
     private static class TestSplitLocal

@@ -39,12 +39,12 @@ public final class NodeAssignmentStats
         this.stageQueuedSplitInfo = new HashMap<>(nodeMapSize);
 
         for (RemoteTask task : existingTasks) {
-            checkArgument(stageQueuedSplitInfo.put(task.getNodeId(), new PendingSplitInfo(task.getQueuedPartitionedSplitCount())) == null, "A single stage may not have multiple tasks running on the same node");
+            checkArgument(stageQueuedSplitInfo.put(task.getNodeId(), new PendingSplitInfo(task.getQueuedPartitionedSplitCount(), task.getUnacknowledgedPartitionedSplitCount())) == null, "A single stage may not have multiple tasks running on the same node");
         }
 
         // pre-populate the assignment counts with zeros
         if (existingTasks.size() < nodeMapSize) {
-            Function<String, PendingSplitInfo> createEmptySplitInfo = (ignored) -> new PendingSplitInfo(0);
+            Function<String, PendingSplitInfo> createEmptySplitInfo = (ignored) -> new PendingSplitInfo(0, 0);
             for (InternalNode node : nodeMap.getNodesByHostAndPort().values()) {
                 stageQueuedSplitInfo.computeIfAbsent(node.getNodeIdentifier(), createEmptySplitInfo);
             }
@@ -64,6 +64,12 @@ public final class NodeAssignmentStats
         return stageInfo == null ? 0 : stageInfo.getQueuedSplitCount();
     }
 
+    public int getUnacknowledgedSplitCountForStage(InternalNode node)
+    {
+        PendingSplitInfo stageInfo = stageQueuedSplitInfo.get(node.getNodeIdentifier());
+        return stageInfo == null ? 0 : stageInfo.getUnacknowledgedSplitCount();
+    }
+
     public void addAssignedSplit(InternalNode node)
     {
         getOrCreateStageSplitInfo(node).addAssignedSplit();
@@ -80,7 +86,7 @@ public final class NodeAssignmentStats
         // Avoids the extra per-invocation lambda allocation of computeIfAbsent since assigning a split to an existing task more common than creating a new task
         PendingSplitInfo stageInfo = stageQueuedSplitInfo.get(nodeId);
         if (stageInfo == null) {
-            stageInfo = new PendingSplitInfo(0);
+            stageInfo = new PendingSplitInfo(0, 0);
             stageQueuedSplitInfo.put(nodeId, stageInfo);
         }
         return stageInfo;
@@ -89,11 +95,13 @@ public final class NodeAssignmentStats
     private static final class PendingSplitInfo
     {
         private final int queuedSplitCount;
+        private final int unacknowledgedSplitCount;
         private int assignedSplits;
 
-        private PendingSplitInfo(int queuedSplitCount)
+        private PendingSplitInfo(int queuedSplitCount, int unacknowledgedSplitCount)
         {
             this.queuedSplitCount = queuedSplitCount;
+            this.unacknowledgedSplitCount = unacknowledgedSplitCount;
         }
 
         public int getAssignedSplitCount()
@@ -104,6 +112,11 @@ public final class NodeAssignmentStats
         public int getQueuedSplitCount()
         {
             return queuedSplitCount + assignedSplits;
+        }
+
+        public int getUnacknowledgedSplitCount()
+        {
+            return unacknowledgedSplitCount + assignedSplits;
         }
 
         public void addAssignedSplit()

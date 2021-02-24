@@ -24,6 +24,7 @@ import io.trino.connector.system.SystemConnector;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
@@ -792,7 +793,8 @@ public class TestAnalyzer
                 new MemoryManagerConfig(),
                 new FeaturesConfig().setMaxGroupingSets(2048),
                 new NodeMemoryConfig(),
-                new DynamicFilterConfig()))).build();
+                new DynamicFilterConfig(),
+                new NodeSchedulerConfig()))).build();
         analyze(session, "SELECT a, b, c, d, e, f, g, h, i, j, k, SUM(l)" +
                 "FROM (VALUES (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12))\n" +
                 "t (a, b, c, d, e, f, g, h, i, j, k, l)\n" +
