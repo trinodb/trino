@@ -27,7 +27,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.security.Principal;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -62,11 +61,6 @@ public class AllowAllSystemAccessControl
 
     @Override
     public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
-    {
-    }
-
-    @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
     }
 

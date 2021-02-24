@@ -15,9 +15,7 @@ package io.trino.spi.security;
 
 import io.trino.spi.TrinoException;
 
-import java.security.Principal;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -46,16 +44,6 @@ public class AccessDeniedException
     public static void denyImpersonateUser(String originalUser, String newUser, String extraInfo)
     {
         throw new AccessDeniedException(format("User %s cannot impersonate user %s%s", originalUser, newUser, formatExtraInfo(extraInfo)));
-    }
-
-    public static void denySetUser(Optional<Principal> principal, String userName)
-    {
-        denySetUser(principal, userName, null);
-    }
-
-    public static void denySetUser(Optional<Principal> principal, String userName, String extraInfo)
-    {
-        throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyReadSystemInformationAccess()

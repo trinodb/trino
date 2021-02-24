@@ -203,8 +203,6 @@ public final class HttpRequestSessionContext
 
         Identity identity = buildSessionIdentity(optionalAuthenticatedIdentity, protocolHeaders, headers, groupProvider);
 
-        accessControl.checkCanSetUser(identity.getPrincipal(), identity.getUser());
-
         // authenticated may not present for HTTP or if authentication is not setup
         optionalAuthenticatedIdentity.ifPresent(authenticatedIdentity -> {
             // only check impersonation if authenticated user is not the same as the explicitly set user

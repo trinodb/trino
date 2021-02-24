@@ -89,7 +89,7 @@ public class TestAccessControlManager
     public void testInitializing()
     {
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
-        accessControlManager.checkCanSetUser(Optional.empty(), "foo");
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("test"), "foo");
     }
 
     @Test
@@ -97,7 +97,7 @@ public class TestAccessControlManager
     {
         AccessControlManager accessControlManager = createAccessControlManager(createTestTransactionManager());
         accessControlManager.setSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(Optional.empty(), USER_NAME);
+        accessControlManager.checkCanImpersonateUser(Identity.ofUser("test"), USER_NAME);
     }
 
     @Test
@@ -109,7 +109,7 @@ public class TestAccessControlManager
         AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
         accessControlManager.setSystemAccessControl(ReadOnlySystemAccessControl.NAME, ImmutableMap.of());
-        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
+        accessControlManager.checkCanImpersonateUser(identity, USER_NAME);
         accessControlManager.checkCanSetSystemSessionProperty(identity, "property");
 
         transaction(transactionManager, accessControlManager)
@@ -150,7 +150,8 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.setSystemAccessControl("test", ImmutableMap.of());
 
-        accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
+        Identity identity = Identity.forUser("test").withPrincipal(PRINCIPAL).build();
+        accessControlManager.checkCanImpersonateUser(identity, USER_NAME);
         assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
         assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
     }
@@ -524,9 +525,9 @@ public class TestAccessControlManager
             return new SystemAccessControl()
             {
                 @Override
-                public void checkCanSetUser(Optional<Principal> principal, String userName)
+                public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
                 {
-                    checkedPrincipal = principal;
+                    checkedPrincipal = context.getIdentity().getPrincipal();
                     checkedUserName = userName;
                 }
 

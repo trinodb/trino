@@ -37,7 +37,6 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
 import java.nio.file.Paths;
-import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -89,7 +88,6 @@ import static io.trino.spi.security.AccessDeniedException.denySetCatalogSessionP
 import static io.trino.spi.security.AccessDeniedException.denySetSchemaAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denySetSystemSessionProperty;
 import static io.trino.spi.security.AccessDeniedException.denySetTableAuthorization;
-import static io.trino.spi.security.AccessDeniedException.denySetUser;
 import static io.trino.spi.security.AccessDeniedException.denySetViewAuthorization;
 import static io.trino.spi.security.AccessDeniedException.denyShowColumns;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
@@ -114,7 +112,6 @@ public class FileBasedSystemAccessControl
     private final List<CatalogAccessControlRule> catalogRules;
     private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
-    private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
     private final Optional<List<SystemInformationRule>> systemInformationRules;
     private final List<CatalogSchemaAccessControlRule> schemaRules;
     private final List<CatalogTableAccessControlRule> tableRules;
@@ -127,7 +124,6 @@ public class FileBasedSystemAccessControl
             List<CatalogAccessControlRule> catalogRules,
             Optional<List<QueryAccessRule>> queryAccessRules,
             Optional<List<ImpersonationRule>> impersonationRules,
-            Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
             Optional<List<SystemInformationRule>> systemInformationRules,
             List<CatalogSchemaAccessControlRule> schemaRules,
             List<CatalogTableAccessControlRule> tableRules,
@@ -137,7 +133,6 @@ public class FileBasedSystemAccessControl
         this.catalogRules = catalogRules;
         this.queryAccessRules = queryAccessRules;
         this.impersonationRules = impersonationRules;
-        this.principalUserMatchRules = principalUserMatchRules;
         this.systemInformationRules = systemInformationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
@@ -253,7 +248,6 @@ public class FileBasedSystemAccessControl
                     .setCatalogRules(catalogAccessControlRules)
                     .setQueryAccessRules(rules.getQueryAccessRules())
                     .setImpersonationRules(rules.getImpersonationRules())
-                    .setPrincipalUserMatchRules(rules.getPrincipalUserMatchRules())
                     .setSystemInformationRules(rules.getSystemInformationRules())
                     .setSchemaRules(rules.getSchemaRules().orElse(ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL)))
                     .setTableRules(rules.getTableRules().orElse(ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL)))
@@ -266,16 +260,7 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanImpersonateUser(SystemSecurityContext context, String userName)
     {
-        if (impersonationRules.isEmpty()) {
-            // if there are principal user match rules, we assume that impersonation checks are
-            // handled there; otherwise, impersonation must be manually configured
-            if (principalUserMatchRules.isEmpty()) {
-                denyImpersonateUser(context.getIdentity().getUser(), userName);
-            }
-            return;
-        }
-
-        for (ImpersonationRule rule : impersonationRules.get()) {
+        for (ImpersonationRule rule : impersonationRules.orElseGet(List::of)) {
             Optional<Boolean> allowed = rule.match(context.getIdentity().getUser(), userName);
             if (allowed.isPresent()) {
                 if (allowed.get()) {
@@ -286,35 +271,6 @@ public class FileBasedSystemAccessControl
         }
 
         denyImpersonateUser(context.getIdentity().getUser(), userName);
-    }
-
-    @Override
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-        requireNonNull(principal, "principal is null");
-        requireNonNull(userName, "userName is null");
-
-        if (principalUserMatchRules.isEmpty()) {
-            return;
-        }
-
-        if (principal.isEmpty()) {
-            denySetUser(principal, userName);
-        }
-
-        String principalName = principal.get().getName();
-
-        for (PrincipalUserMatchRule rule : principalUserMatchRules.get()) {
-            Optional<Boolean> allowed = rule.match(principalName, userName);
-            if (allowed.isPresent()) {
-                if (allowed.get()) {
-                    return;
-                }
-                denySetUser(principal, userName);
-            }
-        }
-
-        denySetUser(principal, userName);
     }
 
     @Override
@@ -924,7 +880,6 @@ public class FileBasedSystemAccessControl
         private List<CatalogAccessControlRule> catalogRules = ImmutableList.of(CatalogAccessControlRule.ALLOW_ALL);
         private Optional<List<QueryAccessRule>> queryAccessRules = Optional.empty();
         private Optional<List<ImpersonationRule>> impersonationRules = Optional.empty();
-        private Optional<List<PrincipalUserMatchRule>> principalUserMatchRules = Optional.empty();
         private Optional<List<SystemInformationRule>> systemInformationRules = Optional.empty();
         private List<CatalogSchemaAccessControlRule> schemaRules = ImmutableList.of(CatalogSchemaAccessControlRule.ALLOW_ALL);
         private List<CatalogTableAccessControlRule> tableRules = ImmutableList.of(CatalogTableAccessControlRule.ALLOW_ALL);
@@ -937,7 +892,6 @@ public class FileBasedSystemAccessControl
             catalogRules = ImmutableList.of();
             queryAccessRules = Optional.of(ImmutableList.of());
             impersonationRules = Optional.of(ImmutableList.of());
-            principalUserMatchRules = Optional.of(ImmutableList.of());
             systemInformationRules = Optional.of(ImmutableList.of());
             schemaRules = ImmutableList.of();
             tableRules = ImmutableList.of();
@@ -961,12 +915,6 @@ public class FileBasedSystemAccessControl
         public Builder setImpersonationRules(Optional<List<ImpersonationRule>> impersonationRules)
         {
             this.impersonationRules = impersonationRules;
-            return this;
-        }
-
-        public Builder setPrincipalUserMatchRules(Optional<List<PrincipalUserMatchRule>> principalUserMatchRules)
-        {
-            this.principalUserMatchRules = principalUserMatchRules;
             return this;
         }
 
@@ -1006,7 +954,6 @@ public class FileBasedSystemAccessControl
                     catalogRules,
                     queryAccessRules,
                     impersonationRules,
-                    principalUserMatchRules,
                     systemInformationRules,
                     schemaRules,
                     tableRules,

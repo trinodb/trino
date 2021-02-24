@@ -23,7 +23,6 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -65,13 +64,6 @@ public abstract class ForwardingAccessControl
     public void checkCanWriteSystemInformation(Identity identity)
     {
         delegate().checkCanWriteSystemInformation(identity);
-    }
-
-    @Override
-    @Deprecated
-    public void checkCanSetUser(Optional<Principal> principal, String userName)
-    {
-        delegate().checkCanSetUser(principal, userName);
     }
 
     @Override

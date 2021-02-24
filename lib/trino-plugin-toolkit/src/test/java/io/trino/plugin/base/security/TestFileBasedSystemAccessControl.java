@@ -32,8 +32,6 @@ import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import javax.security.auth.kerberos.KerberosPrincipal;
-
 import java.io.File;
 import java.util.EnumSet;
 import java.util.Optional;
@@ -56,14 +54,6 @@ import static org.testng.Assert.assertTrue;
 public class TestFileBasedSystemAccessControl
 {
     private static final Identity alice = Identity.forUser("alice").withGroups(ImmutableSet.of("staff")).build();
-    private static final Identity kerberosValidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("alice/example.com@EXAMPLE.COM")).build();
-    private static final Identity kerberosValidNonAsciiUser = Identity.forUser("\u0194\u0194\u0194").withPrincipal(new KerberosPrincipal("\u0194\u0194\u0194/example.com@EXAMPLE.COM")).build();
-    private static final Identity kerberosInvalidAlice = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("mallory/example.com@EXAMPLE.COM")).build();
-    private static final Identity kerberosValidShare = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("valid/example.com@EXAMPLE.COM")).build();
-    private static final Identity kerberosInValidShare = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("invalid/example.com@EXAMPLE.COM")).build();
-    private static final Identity validSpecialRegexWildDot = Identity.forUser(".*").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
-    private static final Identity validSpecialRegexEndQuote = Identity.forUser("\\E").withPrincipal(new KerberosPrincipal("special/\\E@EXAMPLE.COM")).build();
-    private static final Identity invalidSpecialRegex = Identity.forUser("alice").withPrincipal(new KerberosPrincipal("special/.*@EXAMPLE.COM")).build();
     private static final Identity bob = Identity.forUser("bob").withGroups(ImmutableSet.of("staff")).build();
     private static final Identity admin = Identity.forUser("admin").withGroups(ImmutableSet.of("admin", "staff")).build();
     private static final Identity nonAsciiUser = Identity.ofUser("\u0194\u0194\u0194");
@@ -131,9 +121,6 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanRenameTable(UNKNOWN,
                 new CatalogSchemaTableName("some-catalog", "unknown", "unknown"),
                 new CatalogSchemaTableName("some-catalog", "unknown", "new_unknown"));
-
-        accessControl.checkCanSetUser(Optional.empty(), "unknown");
-        accessControl.checkCanSetUser(Optional.of(new KerberosPrincipal("stuff@example.com")), "unknown");
 
         accessControl.checkCanSetSystemSessionProperty(UNKNOWN, "anything");
         accessControl.checkCanSetCatalogSessionProperty(UNKNOWN, "unknown", "anything");
@@ -639,48 +626,6 @@ public class TestFileBasedSystemAccessControl
         accessControl.checkCanRenameTable(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), new CatalogSchemaTableName("some-catalog", "aliceschema", "newalicetable"));
         assertAccessDenied(() -> accessControl.checkCanRenameTable(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), new CatalogSchemaTableName("some-catalog", "bobschema", "newbobtable")), RENAME_TABLE_ACCESS_DENIED_MESSAGE);
         assertAccessDenied(() -> accessControl.checkCanRenameTable(ALICE, new CatalogSchemaTableName("some-catalog", "aliceschema", "alicetable"), new CatalogSchemaTableName("some-catalog", "bobschema", "newalicetable")), RENAME_TABLE_ACCESS_DENIED_MESSAGE);
-    }
-
-    @Test
-    public void testCanSetUserOperations()
-    {
-        SystemAccessControl accessControl = newFileBasedSystemAccessControl("catalog_principal.json");
-
-        try {
-            accessControl.checkCanSetUser(Optional.empty(), alice.getUser());
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
-
-        accessControl.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
-        accessControl.checkCanSetUser(kerberosValidNonAsciiUser.getPrincipal(), kerberosValidNonAsciiUser.getUser());
-        try {
-            accessControl.checkCanSetUser(kerberosInvalidAlice.getPrincipal(), kerberosInvalidAlice.getUser());
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
-
-        accessControl.checkCanSetUser(kerberosValidShare.getPrincipal(), kerberosValidShare.getUser());
-        try {
-            accessControl.checkCanSetUser(kerberosInValidShare.getPrincipal(), kerberosInValidShare.getUser());
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
-
-        accessControl.checkCanSetUser(validSpecialRegexWildDot.getPrincipal(), validSpecialRegexWildDot.getUser());
-        accessControl.checkCanSetUser(validSpecialRegexEndQuote.getPrincipal(), validSpecialRegexEndQuote.getUser());
-        try {
-            accessControl.checkCanSetUser(invalidSpecialRegex.getPrincipal(), invalidSpecialRegex.getUser());
-            throw new AssertionError("expected AccessDeniedException");
-        }
-        catch (AccessDeniedException expected) {
-        }
-
-        SystemAccessControl accessControlNoPatterns = newFileBasedSystemAccessControl("catalog.json");
-        accessControlNoPatterns.checkCanSetUser(kerberosValidAlice.getPrincipal(), kerberosValidAlice.getUser());
     }
 
     @Test
