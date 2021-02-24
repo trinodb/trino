@@ -140,6 +140,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/phoenix-5">
+        <artifact id="${project.groupId}:trino-phoenix-5:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/postgresql">
         <artifact id="${project.groupId}:trino-postgresql:zip:${project.version}">
             <unpack />

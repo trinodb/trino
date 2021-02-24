@@ -18,7 +18,6 @@ import org.apache.phoenix.util.SchemaUtil;
 import java.util.Optional;
 
 import static io.trino.plugin.phoenix.PhoenixMetadata.DEFAULT_SCHEMA;
-import static org.apache.phoenix.query.QueryConstants.NULL_SCHEMA_NAME;
 
 public final class MetadataUtil
 {
@@ -31,7 +30,7 @@ public final class MetadataUtil
 
     public static Optional<String> toPhoenixSchemaName(Optional<String> prestoSchemaName)
     {
-        return prestoSchemaName.map(schemaName -> DEFAULT_SCHEMA.equalsIgnoreCase(schemaName) ? NULL_SCHEMA_NAME : schemaName);
+        return prestoSchemaName.map(schemaName -> DEFAULT_SCHEMA.equalsIgnoreCase(schemaName) ? "" : schemaName);
     }
 
     public static Optional<String> toPrestoSchemaName(Optional<String> phoenixSchemaName)
