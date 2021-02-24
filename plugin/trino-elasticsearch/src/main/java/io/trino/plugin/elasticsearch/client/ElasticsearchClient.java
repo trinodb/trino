@@ -378,13 +378,13 @@ public class ElasticsearchClient
     private Set<ElasticsearchNode> fetchNodes()
     {
         NodesResponse nodesResponse = doRequest("/_nodes/http", NODES_RESPONSE_CODEC::fromJson);
-
+        Set<String> nodeRoles = Set.of("data", "data_hot", "data_content");
         ImmutableSet.Builder<ElasticsearchNode> result = ImmutableSet.builder();
         for (Map.Entry<String, NodesResponse.Node> entry : nodesResponse.getNodes().entrySet()) {
             String nodeId = entry.getKey();
             NodesResponse.Node node = entry.getValue();
 
-            if (node.getRoles().contains("data") || node.getRoles().contains("data_hot") || node.getRoles().contains("data_content")) {
+            if (node.getRoles().stream().anyMatch(nodeRoles::contains)) {
                 Optional<String> address = node.getAddress()
                         .flatMap(ElasticsearchClient::extractAddress);
 
