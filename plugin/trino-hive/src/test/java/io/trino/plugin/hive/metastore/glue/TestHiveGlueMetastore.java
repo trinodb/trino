@@ -144,8 +144,7 @@ public class TestHiveGlueMetastore
                 glueConfig,
                 hiveConfig,
                 executor,
-                executor,
-                executor,
+                new DefaultGlueColumnStatisticsProviderFactory(glueConfig, executor, executor),
                 Optional.empty(),
                 new DefaultGlueMetastoreTableFilterProvider(
                         new MetastoreConfig()

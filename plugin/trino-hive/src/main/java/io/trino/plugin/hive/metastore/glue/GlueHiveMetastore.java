@@ -169,7 +169,6 @@ public class GlueHiveMetastore
     private final GlueColumnStatisticsProvider columnStatisticsProvider;
     private final boolean assumeCanonicalPartitionKeys;
     private final Predicate<com.amazonaws.services.glue.model.Table> tableFilter;
-    private final boolean enableColumnStatistics;
 
     @Inject
     public GlueHiveMetastore(
@@ -177,8 +176,7 @@ public class GlueHiveMetastore
             GlueHiveMetastoreConfig glueConfig,
             HiveConfig hiveConfig,
             @ForGlueHiveMetastore Executor partitionsReadExecutor,
-            @ForGlueColumnStatisticsRead Executor statisticsReadExecutor,
-            @ForGlueColumnStatisticsWrite Executor statisticsWriteExecutor,
+            GlueColumnStatisticsProviderFactory columnStatisticsProviderFactory,
             @ForGlueHiveMetastore Optional<RequestHandler2> requestHandler,
             @ForGlueHiveMetastore Predicate<com.amazonaws.services.glue.model.Table> tableFilter)
     {
@@ -192,13 +190,7 @@ public class GlueHiveMetastore
         this.partitionsReadExecutor = requireNonNull(partitionsReadExecutor, "executor is null");
         this.assumeCanonicalPartitionKeys = glueConfig.isAssumeCanonicalPartitionKeys();
         this.tableFilter = requireNonNull(tableFilter, "tableFilter is null");
-        this.enableColumnStatistics = hiveConfig.isTableStatisticsEnabled();
-        if (this.enableColumnStatistics) {
-            this.columnStatisticsProvider = new DefaultGlueColumnStatisticsProvider(glueClient, catalogId, statisticsReadExecutor, statisticsWriteExecutor);
-        }
-        else {
-            this.columnStatisticsProvider = new DisabledGlueColumnStatisticsProvider();
-        }
+        this.columnStatisticsProvider = columnStatisticsProviderFactory.createGlueColumnStatisticsProvider(glueClient);
     }
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler, RequestMetricCollector metricsCollector)

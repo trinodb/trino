@@ -17,6 +17,7 @@ import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -36,6 +37,7 @@ import java.util.function.Predicate;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -61,8 +63,22 @@ public class GlueMetastoreModule
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
+        install(installModuleIf(
+                HiveConfig.class,
+                HiveConfig::isTableStatisticsEnabled,
+                getGlueStatisticsModule(DefaultGlueColumnStatisticsProviderFactory.class),
+                getGlueStatisticsModule(DisabledGlueColumnStatisticsProviderFactory.class)));
+
         install(new RecordingHiveMetastoreModule());
         install(new CachingHiveMetastoreModule());
+    }
+
+    private Module getGlueStatisticsModule(Class<? extends GlueColumnStatisticsProviderFactory> statisticsPrividerFactoryClass)
+    {
+        return internalBinder -> newOptionalBinder(internalBinder, GlueColumnStatisticsProviderFactory.class)
+                .setDefault()
+                .to(statisticsPrividerFactoryClass)
+                .in(Scopes.SINGLETON);
     }
 
     @Provides
