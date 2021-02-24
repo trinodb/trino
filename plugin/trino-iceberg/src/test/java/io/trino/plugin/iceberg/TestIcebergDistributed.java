@@ -30,7 +30,7 @@ public class TestIcebergDistributed
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createIcebergQueryRunner(ImmutableMap.of());
+        return createIcebergQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override

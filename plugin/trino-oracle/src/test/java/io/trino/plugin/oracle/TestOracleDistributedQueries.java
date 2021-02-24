@@ -16,7 +16,6 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -46,7 +45,7 @@ public class TestOracleDistributedQueries
                         .put("oracle.connection-pool.enabled", "false")
                         .put("oracle.remarks-reporting.enabled", "false")
                         .build(),
-                TpchTable.getTables());
+                REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)

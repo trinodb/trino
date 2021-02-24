@@ -891,10 +891,7 @@ public abstract class AbstractTestDistributedQueries
                 .row(viewName, "VIEW")
                 .row("nation", "BASE TABLE")
                 .row("orders", "BASE TABLE")
-                .row("part", "BASE TABLE")
-                .row("partsupp", "BASE TABLE")
                 .row("region", "BASE TABLE")
-                .row("supplier", "BASE TABLE")
                 .build();
 
         assertContains(actual, expected);
