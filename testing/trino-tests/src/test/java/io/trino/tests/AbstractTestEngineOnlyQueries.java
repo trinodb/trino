@@ -25,6 +25,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -77,6 +78,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -5129,6 +5131,45 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEquals(functions.get("split_part").asList().get(0).getField(3), "scalar");
 
         assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");
+    }
+
+    @Test
+    public void testLargePivot()
+    {
+        int columns = 254;
+
+        MaterializedResult result = computeActual(pivotQuery(columns));
+        assertThat(result.getRowCount())
+                .as("row count")
+                .isEqualTo(columns);
+
+        MaterializedRow row = result.getMaterializedRows().get(0);
+        assertThat(row.getFieldCount())
+                .as("field count")
+                .isEqualTo(columns + 2);
+    }
+
+    @Test
+    public void testPivotExceedingMaximumArraySize()
+    {
+        int columns = 255;
+
+        assertThatThrownBy(() -> computeActual(pivotQuery(columns)))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Too many arguments for array constructor");
+    }
+
+    private static String pivotQuery(int columnsCount)
+    {
+        String values = IntStream.range(0, columnsCount)
+                .mapToObj(columnNumber -> format("%d", columnNumber))
+                .collect(joining(", "));
+
+        String columns = IntStream.range(0, columnsCount)
+                .mapToObj(columnNumber -> format("a%d", columnNumber))
+                .collect(joining(", "));
+
+        return format("SELECT * FROM (SELECT %s) a(%s) INNER JOIN unnest(ARRAY[%1$s], ARRAY[%2$s]) b(b1, b2) ON true", values, columns);
     }
 
     private static ZonedDateTime zonedDateTime(String value)
