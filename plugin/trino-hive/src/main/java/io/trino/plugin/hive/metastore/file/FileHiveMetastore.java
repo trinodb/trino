@@ -596,7 +596,7 @@ public class FileHiveMetastore
     public synchronized void commentColumn(HiveIdentity identity, String databaseName, String tableName, String columnName, Optional<String> comment)
     {
         alterTable(databaseName, tableName, oldTable -> {
-            if (!oldTable.getColumn(columnName).isPresent()) {
+            if (oldTable.getColumn(columnName).isEmpty()) {
                 SchemaTableName name = new SchemaTableName(databaseName, tableName);
                 throw new ColumnNotFoundException(name, columnName);
             }
