@@ -639,7 +639,7 @@ public abstract class AbstractTestQueries
                 .collect(toImmutableSet());
 
         MaterializedResult result = computeActual("SHOW TABLES");
-        assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
+        assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
     }
 
     @Test
@@ -653,10 +653,10 @@ public abstract class AbstractTestQueries
         String schema = getSession().getSchema().get();
 
         MaterializedResult result = computeActual("SHOW TABLES FROM " + schema);
-        assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
+        assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
 
         result = computeActual("SHOW TABLES FROM " + catalog + "." + schema);
-        assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
+        assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
 
         assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'unknown' does not exist");
         assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' does not exist");
