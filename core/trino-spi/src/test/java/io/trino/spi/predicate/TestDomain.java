@@ -35,6 +35,7 @@ import static io.trino.spi.type.TestingIdType.ID;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.longBitsToDouble;
 import static java.lang.Float.floatToRawIntBits;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -352,7 +353,7 @@ public class TestDomain
     {
         assertThatThrownBy(() -> Domain.singleValue(HYPER_LOG_LOG, Slices.EMPTY_SLICE))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("empty HyperLogLog instance");
+                .hasMessage("Cannot create discrete ValueSet with non-comparable type: HyperLogLog");
     }
 
     @Test

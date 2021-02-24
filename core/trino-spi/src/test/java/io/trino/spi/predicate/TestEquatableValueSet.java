@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 import java.util.Iterator;
 
 import static io.trino.spi.type.TestingIdType.ID;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -299,16 +300,14 @@ public class TestEquatableValueSet
     public void testUnmodifiableCollection()
     {
         assertThatThrownBy(() -> EquatableValueSet.of(ID, 1L).getValues().clear())
-            .isInstanceOf(UnsupportedOperationException.class)
-            .hasMessage("cannot clear values");
+                .isInstanceOf(UnsupportedOperationException.class).hasMessage("Cannot clear values");
     }
 
     @Test
     public void testUnmodifiableValueEntries()
     {
         assertThatThrownBy(() -> EquatableValueSet.of(ID, 1L).getEntries().clear())
-            .isInstanceOf(UnsupportedOperationException.class)
-            .hasMessage("cannot clear entries");
+                .isInstanceOf(UnsupportedOperationException.class).hasMessage("Cannot clear entries");
     }
 
     @Test
@@ -316,7 +315,8 @@ public class TestEquatableValueSet
     {
         Iterator<Object> iterator = EquatableValueSet.of(ID, 1L).getValues().iterator();
         iterator.next();
-        assertThatThrownBy(() -> iterator.remove()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(iterator::remove)
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -324,7 +324,8 @@ public class TestEquatableValueSet
     {
         Iterator<EquatableValueSet.ValueEntry> iterator = EquatableValueSet.of(ID, 1L).getEntries().iterator();
         iterator.next();
-        assertThatThrownBy(() -> iterator.remove()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(iterator::remove)
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
