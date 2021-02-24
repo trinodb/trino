@@ -23,6 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testng.services.Flaky;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
@@ -64,7 +65,7 @@ public class TestRaptorIntegrationSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(ImmutableMap.of(), true, false);
+        return createRaptorQueryRunner(ImmutableMap.of(), TpchTable.getTables(), false, ImmutableMap.of());
     }
 
     @Test
