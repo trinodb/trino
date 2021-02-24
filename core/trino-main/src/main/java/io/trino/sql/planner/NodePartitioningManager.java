@@ -145,7 +145,7 @@ public class NodePartitioningManager
             CatalogName catalogName = partitioningHandle.getConnectorId()
                     .orElseThrow(() -> new IllegalArgumentException("No connector ID for partitioning handle: " + partitioningHandle));
             bucketToNode = createArbitraryBucketToNode(
-                    nodeScheduler.createNodeSelector(Optional.of(catalogName)).allNodes(),
+                    nodeScheduler.createNodeSelector(session, Optional.of(catalogName)).allNodes(),
                     connectorBucketNodeMap.getBucketCount());
         }
 
@@ -186,7 +186,7 @@ public class NodePartitioningManager
         return new FixedBucketNodeMap(
                 getSplitToBucket(session, partitioningHandle),
                 createArbitraryBucketToNode(
-                        new ArrayList<>(nodeScheduler.createNodeSelector(catalogName).allNodes()),
+                        new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes()),
                         connectorBucketNodeMap.getBucketCount()));
     }
 

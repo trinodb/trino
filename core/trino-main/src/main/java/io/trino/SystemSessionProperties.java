@@ -19,6 +19,7 @@ import io.airlift.units.Duration;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.spi.TrinoException;
@@ -130,12 +131,13 @@ public final class SystemSessionProperties
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
     public static final String OMIT_DATETIME_TYPE_PRECISION = "omit_datetime_type_precision";
     public static final String USE_LEGACY_WINDOW_FILTER_PUSHDOWN = "use_legacy_window_filter_pushdown";
+    public static final String MAX_UNACKNOWLEDGED_SPLITS_PER_TASK = "max_unacknowledged_splits_per_task";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public SystemSessionProperties()
     {
-        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new DynamicFilterConfig());
+        this(new QueryManagerConfig(), new TaskManagerConfig(), new MemoryManagerConfig(), new FeaturesConfig(), new NodeMemoryConfig(), new DynamicFilterConfig(), new NodeSchedulerConfig());
     }
 
     @Inject
@@ -145,7 +147,8 @@ public final class SystemSessionProperties
             MemoryManagerConfig memoryManagerConfig,
             FeaturesConfig featuresConfig,
             NodeMemoryConfig nodeMemoryConfig,
-            DynamicFilterConfig dynamicFilterConfig)
+            DynamicFilterConfig dynamicFilterConfig,
+            NodeSchedulerConfig nodeSchedulerConfig)
     {
         sessionProperties = ImmutableList.of(
                 stringProperty(
@@ -585,7 +588,16 @@ public final class SystemSessionProperties
                         USE_LEGACY_WINDOW_FILTER_PUSHDOWN,
                         "Use legacy window filter pushdown optimizer",
                         featuresConfig.isUseLegacyWindowFilterPushdown(),
-                        false));
+                        false),
+                new PropertyMetadata<>(
+                        MAX_UNACKNOWLEDGED_SPLITS_PER_TASK,
+                        "Maximum number of leaf splits awaiting delivery to a given task",
+                        INTEGER,
+                        Integer.class,
+                        nodeSchedulerConfig.getMaxUnacknowledgedSplitsPerTask(),
+                        false,
+                        value -> validateIntegerValue(value, MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, 1, false),
+                        object -> object));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1051,5 +1063,10 @@ public final class SystemSessionProperties
     public static boolean useLegacyWindowFilterPushdown(Session session)
     {
         return session.getSystemProperty(USE_LEGACY_WINDOW_FILTER_PUSHDOWN, Boolean.class);
+    }
+
+    public static int getMaxUnacknowledgedSplitsPerTask(Session session)
+    {
+        return session.getSystemProperty(MAX_UNACKNOWLEDGED_SPLITS_PER_TASK, Integer.class);
     }
 }

@@ -20,6 +20,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSetMultimap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.NodeTaskMap;
 import io.trino.metadata.InternalNode;
@@ -37,6 +38,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SystemSessionProperties.getMaxUnacknowledgedSplitsPerTask;
 import static io.trino.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -92,7 +94,7 @@ public class UniformNodeSelectorFactory
     }
 
     @Override
-    public NodeSelector createNodeSelector(Optional<CatalogName> catalogName)
+    public NodeSelector createNodeSelector(Session session, Optional<CatalogName> catalogName)
     {
         requireNonNull(catalogName, "catalogName is null");
 
@@ -116,6 +118,7 @@ public class UniformNodeSelectorFactory
                 minCandidates,
                 maxSplitsPerNode,
                 maxPendingSplitsPerTask,
+                getMaxUnacknowledgedSplitsPerTask(session),
                 optimizedLocalScheduling);
     }
 
