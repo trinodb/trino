@@ -878,7 +878,7 @@ public abstract class AbstractTestHive
         return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create());
     }
 
-    interface Transaction
+    public interface Transaction
             extends AutoCloseable
     {
         ConnectorMetadata getMetadata();
@@ -4776,7 +4776,7 @@ public abstract class AbstractTestHive
         return createTableProperties(storageFormat, ImmutableList.of());
     }
 
-    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> parititonedBy)
+    protected static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> parititonedBy)
     {
         return ImmutableMap.<String, Object>builder()
                 .put(STORAGE_FORMAT_PROPERTY, storageFormat)

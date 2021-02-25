@@ -130,6 +130,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_Q
 import static io.trino.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
@@ -922,7 +923,7 @@ public class GlueHiveMetastore
                 List<Future<BatchCreatePartitionResult>> futures = new ArrayList<>();
 
                 for (List<PartitionWithStatistics> partitionBatch : Lists.partition(partitions, BATCH_CREATE_PARTITION_MAX_PAGE_SIZE)) {
-                    List<PartitionInput> partitionInputs = mappedCopy(partitionBatch, partition -> GlueInputConverter.convertPartition(partition, columnStatisticsProvider));
+                    List<PartitionInput> partitionInputs = mappedCopy(partitionBatch, partition -> GlueInputConverter.convertPartition(partition));
                     futures.add(glueClient.batchCreatePartitionAsync(new BatchCreatePartitionRequest()
                             .withCatalogId(catalogId)
                             .withDatabaseName(databaseName)
@@ -939,6 +940,11 @@ public class GlueHiveMetastore
                         Thread.currentThread().interrupt();
                         throw new TrinoException(HIVE_METASTORE_ERROR, e);
                     }
+                }
+
+                for (PartitionWithStatistics partition : partitions) {
+                    // TODO(https://github.com/trinodb/trino/issues/7033) make updates in batch
+                    columnStatisticsProvider.updatePartitionStatistics(partition.getPartition(), partition.getStatistics().getColumnStatistics());
                 }
 
                 return null;
@@ -995,7 +1001,7 @@ public class GlueHiveMetastore
     public void alterPartition(HiveIdentity identity, String databaseName, String tableName, PartitionWithStatistics partition)
     {
         try {
-            PartitionInput newPartition = GlueInputConverter.convertPartition(partition, columnStatisticsProvider);
+            PartitionInput newPartition = convertPartition(partition);
             stats.getAlterPartition().call(() ->
                     glueClient.updatePartition(new UpdatePartitionRequest()
                             .withCatalogId(catalogId)
@@ -1003,6 +1009,9 @@ public class GlueHiveMetastore
                             .withTableName(tableName)
                             .withPartitionInput(newPartition)
                             .withPartitionValueList(partition.getPartition().getValues())));
+            columnStatisticsProvider.updatePartitionStatistics(
+                    partition.getPartition(),
+                    partition.getStatistics().getColumnStatistics());
         }
         catch (EntityNotFoundException e) {
             throw new PartitionNotFoundException(new SchemaTableName(databaseName, tableName), partition.getPartition().getValues());
