@@ -25,6 +25,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -42,7 +43,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -731,14 +731,8 @@ public class TestPostgreSqlConnectorTest
     @Override
     public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
     {
-        try {
-            super.testCaseSensitiveDataMapping(dataMappingTestSetup);
-        }
-        catch (AssertionError ignored) {
-            // TODO https://github.com/trinodb/trino/issues/3645 - PostgreSQL has different collation than Trino
-            assertThatThrownBy(() -> super.testCaseSensitiveDataMapping(dataMappingTestSetup))
-                    .hasStackTraceContaining("not equal\nActual rows");
-        }
+        // TODO - https://github.com/trinodb/trino/issues/3645
+        throw new SkipException("PostgreSQL has different collation than Trino");
     }
 
     private String getLongInClause(int start, int length)
