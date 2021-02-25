@@ -64,11 +64,10 @@ public final class GlueInputConverter
         return input;
     }
 
-    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics, GlueColumnStatisticsProvider columnStatisticsProvider)
+    public static PartitionInput convertPartition(PartitionWithStatistics partitionWithStatistics)
     {
         PartitionInput input = convertPartition(partitionWithStatistics.getPartition());
         PartitionStatistics statistics = partitionWithStatistics.getStatistics();
-        columnStatisticsProvider.updatePartitionStatistics(partitionWithStatistics.getPartition(), statistics.getColumnStatistics());
         input.setParameters(updateStatisticsParameters(input.getParameters(), statistics.getBasicStatistics()));
         return input;
     }
