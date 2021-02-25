@@ -125,7 +125,7 @@ public class ElasticsearchClient
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
     private static final JsonCodec<CountResponse> COUNT_RESPONSE_CODEC = jsonCodec(CountResponse.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapperProvider().get();
-    private static final Set<String> DATA_ROLES = ImmutableSet.of("data", "data_hot", "data_content");
+    private static final Set<String> DATA_ROLES = ImmutableSet.of("data", "data_hot", "data_content", "data_warm", "data_cold");
 
     private static final Pattern ADDRESS_PATTERN = Pattern.compile("((?<cname>[^/]+)/)?(?<ip>.+):(?<port>\\d+)");
 
