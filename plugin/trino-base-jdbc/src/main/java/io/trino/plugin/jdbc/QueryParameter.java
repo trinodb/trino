@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -71,5 +72,26 @@ public final class QueryParameter
     public Optional<Object> getValue()
     {
         return value;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        QueryParameter that = (QueryParameter) o;
+        return jdbcType.equals(that.jdbcType)
+                && type.equals(that.type)
+                && value.equals(that.value);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(jdbcType, type, value);
     }
 }
