@@ -15,10 +15,14 @@ package io.trino.plugin.elasticsearch;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.plugin.elasticsearch.aggregation.MetricAggregation;
+import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.predicate.TupleDomain;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -30,7 +34,7 @@ public final class ElasticsearchTableHandle
 {
     public enum Type
     {
-        SCAN, QUERY
+        SCAN, QUERY, AGG
     }
 
     private final Type type;
@@ -39,6 +43,9 @@ public final class ElasticsearchTableHandle
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<String> query;
     private final OptionalLong limit;
+    // 保存聚合的需求
+    private final List<TermAggregation> aggTerms; // term agg字段列表，目前其实只支持一个字段
+    private final List<MetricAggregation> aggregates; // 聚合需求
 
     public ElasticsearchTableHandle(Type type, String schema, String index, Optional<String> query)
     {
@@ -49,6 +56,8 @@ public final class ElasticsearchTableHandle
 
         constraint = TupleDomain.all();
         limit = OptionalLong.empty();
+        aggTerms = Collections.emptyList();
+        aggregates = Collections.emptyList();
     }
 
     @JsonCreator
@@ -58,7 +67,9 @@ public final class ElasticsearchTableHandle
             @JsonProperty("index") String index,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("query") Optional<String> query,
-            @JsonProperty("limit") OptionalLong limit)
+            @JsonProperty("limit") OptionalLong limit,
+            @JsonProperty("aggTerms") List<TermAggregation> aggTerms,
+            @JsonProperty("aggregates") List<MetricAggregation> aggregates)
     {
         this.type = requireNonNull(type, "type is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -66,6 +77,8 @@ public final class ElasticsearchTableHandle
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.query = requireNonNull(query, "query is null");
         this.limit = requireNonNull(limit, "limit is null");
+        this.aggTerms = requireNonNull(aggTerms, "aggTerms is null");
+        this.aggregates = requireNonNull(aggregates, "aggregates is null");
     }
 
     @JsonProperty
@@ -102,6 +115,18 @@ public final class ElasticsearchTableHandle
     public Optional<String> getQuery()
     {
         return query;
+    }
+
+    @JsonProperty
+    public List<TermAggregation> getAggTerms()
+    {
+        return aggTerms;
+    }
+
+    @JsonProperty
+    public List<MetricAggregation> getAggregates()
+    {
+        return aggregates;
     }
 
     @Override

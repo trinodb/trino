@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.AGG;
 import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
@@ -54,6 +55,9 @@ public class ElasticsearchSplitManager
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
 
         if (tableHandle.getType().equals(QUERY)) {
+            return new FixedSplitSource(ImmutableList.of(new ElasticsearchSplit(tableHandle.getIndex(), 0, Optional.empty())));
+        }
+        else if (tableHandle.getType().equals(AGG)) {
             return new FixedSplitSource(ImmutableList.of(new ElasticsearchSplit(tableHandle.getIndex(), 0, Optional.empty())));
         }
         else {

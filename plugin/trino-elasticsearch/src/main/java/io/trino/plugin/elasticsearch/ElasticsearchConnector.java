@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
@@ -21,10 +22,12 @@ import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SystemTable;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.transaction.IsolationLevel;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Set;
 
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
@@ -34,15 +37,19 @@ import static java.util.Objects.requireNonNull;
 public class ElasticsearchConnector
         implements Connector
 {
+    public static final String AGGREGATION_PUSHDOWN_ENABLED = "aggregation_pushdown_enabled";
+
     private final LifeCycleManager lifeCycleManager;
     private final ElasticsearchMetadata metadata;
     private final ElasticsearchSplitManager splitManager;
     private final ElasticsearchPageSourceProvider pageSourceProvider;
     private final NodesSystemTable nodesSystemTable;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public ElasticsearchConnector(
             LifeCycleManager lifeCycleManager,
+            ElasticsearchConfig config,
             ElasticsearchMetadata metadata,
             ElasticsearchSplitManager splitManager,
             ElasticsearchPageSourceProvider pageSourceProvider,
@@ -53,6 +60,12 @@ public class ElasticsearchConnector
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.nodesSystemTable = requireNonNull(nodesSystemTable, "nodesSystemTable is null");
+        this.sessionProperties = ImmutableList.of(
+                PropertyMetadata.booleanProperty(
+                        AGGREGATION_PUSHDOWN_ENABLED,
+                        "Enable aggregation pushdown",
+                        config.isAggregationPushdownEnabled(),
+                        false));
     }
 
     @Override
@@ -84,6 +97,12 @@ public class ElasticsearchConnector
     public Set<SystemTable> getSystemTables()
     {
         return ImmutableSet.of(nodesSystemTable);
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
     }
 
     @Override

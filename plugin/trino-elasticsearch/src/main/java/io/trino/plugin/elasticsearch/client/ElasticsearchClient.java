@@ -59,6 +59,7 @@ import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -636,7 +637,15 @@ public class ElasticsearchClient
         return body;
     }
 
-    public SearchResponse beginSearch(String index, int shard, QueryBuilder query, Optional<List<String>> fields, List<String> documentFields, Optional<String> sort, OptionalLong limit)
+    public SearchResponse beginSearch(
+            String index,
+            int shard,
+            QueryBuilder query,
+            Optional<List<AggregationBuilder>> aggregations,
+            Optional<List<String>> fields,
+            List<String> documentFields,
+            Optional<String> sort,
+            OptionalLong limit)
     {
         SearchSourceBuilder sourceBuilder = SearchSourceBuilder.searchSource()
                 .query(query);
@@ -661,13 +670,22 @@ public class ElasticsearchClient
         });
         documentFields.forEach(sourceBuilder::docValueField);
 
-        LOG.debug("Begin search: %s:%s, query: %s", index, shard, sourceBuilder);
-
         SearchRequest request = new SearchRequest(index)
                 .searchType(QUERY_THEN_FETCH)
-                .preference("_shards:" + shard)
-                .scroll(new TimeValue(scrollTimeout.toMillis()))
                 .source(sourceBuilder);
+
+        // apply aggregation to sourceBuilder if the query include aggregation
+        // also must not use _shards and scroll in this case
+        if (aggregations.isPresent()) {
+            aggregations.get().forEach(sourceBuilder::aggregation);
+            sourceBuilder.size(0);
+        }
+        else {
+            request.preference("_shards:" + shard)
+                    .scroll(new TimeValue(scrollTimeout.toMillis()));
+        }
+
+        LOG.debug("Begin search: %s:%s, query: %s", index, shard, sourceBuilder);
 
         long start = System.nanoTime();
         try {

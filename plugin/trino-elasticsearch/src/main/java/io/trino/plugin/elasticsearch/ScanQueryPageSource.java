@@ -138,6 +138,7 @@ public class ScanQueryPageSource
                 split.getIndex(),
                 split.getShard(),
                 buildSearchQuery(table.getConstraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.getQuery()),
+                Optional.empty(),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort,
@@ -272,7 +273,7 @@ public class ScanQueryPageSource
                 .collect(toImmutableList());
     }
 
-    private Decoder createDecoder(String path, Type type)
+    public static Decoder createDecoder(String path, Type type)
     {
         if (type.equals(VARCHAR)) {
             return new VarcharDecoder(path);
