@@ -21,8 +21,15 @@ import static java.util.Objects.requireNonNull;
 
 public class FunctionMetadata
 {
+    // Function id contains signature with actual function name.
+    // In FunctionRegistry we use function id as map key, and we need to make sure
+    // signature inside contains the actual function name to avoid duplicate
+    // function ids.
     private final FunctionId functionId;
+    // Signature contains canonical function name. We resolve signature to
+    // canonical signature to avoid alias function names are pushed down to connectors.
     private final Signature signature;
+    // The actual function name.
     private final String actualName;
     private final boolean nullable;
     private final List<FunctionArgumentDefinition> argumentDefinitions;
