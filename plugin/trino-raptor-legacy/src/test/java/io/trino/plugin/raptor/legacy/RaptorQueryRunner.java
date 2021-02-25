@@ -83,7 +83,7 @@ public final class RaptorQueryRunner
     {
         String schema = TINY_SCHEMA_NAME;
         if (!bucketed) {
-            copyTpchTables(queryRunner, catalog, schema, session, TpchTable.getTables());
+            copyTpchTables(queryRunner, catalog, schema, session, tables);
             return;
         }
 
