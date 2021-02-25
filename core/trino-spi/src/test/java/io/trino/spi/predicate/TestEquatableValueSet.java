@@ -26,7 +26,9 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.testng.annotations.Test;
 
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.Set;
 
 import static io.trino.spi.type.TestingIdType.ID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -299,15 +301,19 @@ public class TestEquatableValueSet
     @Test
     public void testUnmodifiableCollection()
     {
-        assertThatThrownBy(() -> EquatableValueSet.of(ID, 1L).getValues().clear())
-                .isInstanceOf(UnsupportedOperationException.class).hasMessage("Cannot clear values");
+        Collection<Object> values = EquatableValueSet.of(ID, 1L).getValues();
+        assertThatThrownBy(values::clear)
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("Cannot clear values");
     }
 
     @Test
     public void testUnmodifiableValueEntries()
     {
-        assertThatThrownBy(() -> EquatableValueSet.of(ID, 1L).getEntries().clear())
-                .isInstanceOf(UnsupportedOperationException.class).hasMessage("Cannot clear entries");
+        Set<EquatableValueSet.ValueEntry> entries = EquatableValueSet.of(ID, 1L).getEntries();
+        assertThatThrownBy(entries::clear)
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessage("Cannot clear entries");
     }
 
     @Test
