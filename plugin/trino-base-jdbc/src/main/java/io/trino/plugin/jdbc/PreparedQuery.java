@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
@@ -51,5 +52,25 @@ public final class PreparedQuery
         return new PreparedQuery(
                 sqlFunction.apply(query),
                 parameters);
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        PreparedQuery that = (PreparedQuery) o;
+        return query.equals(that.query)
+                && parameters.equals(that.parameters);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(query, parameters);
     }
 }
