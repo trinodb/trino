@@ -22,6 +22,7 @@ import io.trino.plugin.kafka.KafkaTopicDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldDescription;
 import io.trino.plugin.kafka.KafkaTopicFieldGroup;
 import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
@@ -36,8 +37,10 @@ import java.util.Optional;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
 
 public class TestConfluentSchemaRegistryTableDescriptionSupplier
@@ -95,6 +98,29 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
     }
 
     @Test
+    public void testAmbiguousSubject()
+            throws Exception
+    {
+        TableDescriptionSupplier tableDescriptionSupplier = createTableDescriptionSupplier();
+        String topicName = "topic_one";
+        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName);
+
+        SCHEMA_REGISTRY_CLIENT.register(topicName + "-key", getAvroSchema(schemaTableName.getTableName(), ""));
+        SCHEMA_REGISTRY_CLIENT.register(topicName.toUpperCase(ENGLISH) + "-key", getAvroSchema(schemaTableName.getTableName(), ""));
+
+        assertTrue(tableDescriptionSupplier.listTables().contains(schemaTableName));
+
+        assertThatThrownBy(() ->
+                tableDescriptionSupplier.getTopicDescription(
+                        TestingConnectorSession.builder()
+                                .setPropertyMetadata(new ConfluentSessionProperties(new ConfluentSchemaRegistryConfig()).getSessionProperties())
+                                .build(),
+                        schemaTableName))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Unable to access 'topic_one' table. Subject is ambiguous, and may refer to one of the following: TOPIC_ONE, topic_one");
+    }
+
+    @Test
     public void testOverriddenSubject()
             throws Exception
     {
@@ -131,6 +157,27 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
                                 Optional.of(getTopicFieldGroup(
                                         overriddenSubject,
                                         ImmutableList.of(getFieldDescription("overridden_col1", INTEGER), getFieldDescription("overridden_col2", createUnboundedVarcharType()))))));
+    }
+
+    @Test
+    public void testAmbiguousOverriddenSubject()
+            throws Exception
+    {
+        TableDescriptionSupplier tableDescriptionSupplier = createTableDescriptionSupplier();
+        String topicName = "base_Topic";
+        SchemaTableName schemaTableName = new SchemaTableName(DEFAULT_NAME, topicName);
+        String overriddenSubject = "ambiguousOverriddenSubject";
+        SCHEMA_REGISTRY_CLIENT.register(overriddenSubject, getAvroSchema(schemaTableName.getTableName(), "overridden_"));
+        SCHEMA_REGISTRY_CLIENT.register(overriddenSubject.toUpperCase(ENGLISH), getAvroSchema(schemaTableName.getTableName(), "overridden_"));
+
+        assertThatThrownBy(() ->
+                tableDescriptionSupplier.getTopicDescription(
+                        TestingConnectorSession.builder()
+                                .setPropertyMetadata(new ConfluentSessionProperties(new ConfluentSchemaRegistryConfig()).getSessionProperties())
+                                .build(),
+                        new SchemaTableName(DEFAULT_NAME, format("%s&value-subject=%s", topicName, overriddenSubject))))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Subject 'ambiguousoverriddensubject' is ambiguous, and may refer to one of the following: ambiguousOverriddenSubject, AMBIGUOUSOVERRIDDENSUBJECT");
     }
 
     private KafkaTopicDescription getKafkaTopicDescription(TableDescriptionSupplier tableDescriptionSupplier, SchemaTableName schemaTableName)
