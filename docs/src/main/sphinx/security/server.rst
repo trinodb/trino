@@ -46,12 +46,11 @@ In addition, the Trino coordinator needs a `keytab file
 
 .. include:: ktadd-note.fragment
 
-Java keystore file for TLS
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Configuration for TLS
+^^^^^^^^^^^^^^^^^^^^^
 
-When using Kerberos authentication, access to the Trino coordinator should be
-through HTTPS. You can do it by creating a :ref:`server_java_keystore` on the
-coordinator.
+When using Kerberos authentication, access to the Trino coordinator must be
+through :doc:`HTTPS and TLS </security/tls>`.
 
 System access control plugin
 ----------------------------
@@ -68,10 +67,10 @@ Trino coordinator to use Kerberos authentication and HTTPS. After making the
 following environment changes, you can make the changes to the Trino
 configuration files.
 
+* :doc:`/security/tls`
 * :ref:`server_kerberos_services`
 * :ref:`server_kerberos_configuration`
 * :ref:`server_kerberos_principals`
-* :ref:`server_java_keystore`
 * :doc:`System Access Control Plugin </develop/system-access-control>`
 
 config.properties
