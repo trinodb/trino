@@ -265,6 +265,9 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 11
+      - name: Cleanup node
+        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
+        run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
