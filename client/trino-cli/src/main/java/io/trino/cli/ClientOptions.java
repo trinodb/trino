@@ -101,6 +101,9 @@ public class ClientOptions
     @Option(names = "--password", paramLabel = "<password>", description = "Prompt for password")
     public boolean password;
 
+    @Option(names = "--external-authentication", paramLabel = "<externalAuthentication>", description = "Enable external authentication")
+    public boolean externalAuthentication;
+
     @Option(names = "--source", paramLabel = "<source>", defaultValue = "trino-cli", description = "Name of source making query " + DEFAULT_VALUE)
     public String source;
 

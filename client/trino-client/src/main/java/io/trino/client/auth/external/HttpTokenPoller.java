@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -46,11 +48,24 @@ public class HttpTokenPoller
     private static final String USER_AGENT_VALUE = "TrinoTokenPoller/" +
             firstNonNull(HttpTokenPoller.class.getPackage().getImplementationVersion(), "unknown");
 
-    private final OkHttpClient client;
+    private final Supplier<OkHttpClient> client;
 
     public HttpTokenPoller(OkHttpClient client)
     {
-        this.client = requireNonNull(client, "client is null");
+        requireNonNull(client, "client is null");
+        this.client = () -> client;
+    }
+
+    public HttpTokenPoller(OkHttpClient client, Consumer<OkHttpClient.Builder> refreshableClientConfig)
+    {
+        requireNonNull(client, "client is null");
+        requireNonNull(refreshableClientConfig, "refreshableClientConfig is null");
+
+        this.client = () -> {
+            OkHttpClient.Builder builder = client.newBuilder();
+            refreshableClientConfig.accept(builder);
+            return builder.build();
+        };
     }
 
     @Override
@@ -107,7 +122,7 @@ public class HttpTokenPoller
             throws IOException
     {
         try {
-            return execute(TOKEN_POLL_CODEC, client, request);
+            return execute(TOKEN_POLL_CODEC, client.get(), request);
         }
         catch (UncheckedIOException e) {
             throw e.getCause();
