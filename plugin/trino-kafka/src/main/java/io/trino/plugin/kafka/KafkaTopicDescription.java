@@ -16,6 +16,7 @@ package io.trino.plugin.kafka;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -78,6 +79,30 @@ public class KafkaTopicDescription
     public Optional<KafkaTopicFieldGroup> getMessage()
     {
         return message;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(tableName, topicName, schemaName, key, message);
+    }
+
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        KafkaTopicDescription other = (KafkaTopicDescription) obj;
+        return Objects.equals(this.tableName, other.tableName) &&
+                Objects.equals(this.topicName, other.topicName) &&
+                Objects.equals(this.schemaName, other.schemaName) &&
+                Objects.equals(this.key, other.key) &&
+                Objects.equals(this.message, other.message);
     }
 
     @Override
