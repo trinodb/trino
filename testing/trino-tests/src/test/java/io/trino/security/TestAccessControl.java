@@ -298,7 +298,7 @@ public class TestAccessControl
     @Test
     public void testUpdateAccessControl()
     {
-        assertAccessDenied("UPDATE orders SET orderkey=123", "Cannot update columns \\[\\[orderkey]] in table .*", privilege("orders", UPDATE_TABLE));
+        assertAccessDenied("UPDATE orders SET orderkey=123", "Cannot update columns \\[orderkey] in table .*", privilege("orders", UPDATE_TABLE));
         assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "UPDATE orders SET orderkey=123"))
                 .hasMessageContaining("This connector does not support updates");
     }

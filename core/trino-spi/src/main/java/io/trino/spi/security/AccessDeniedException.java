@@ -315,7 +315,7 @@ public class AccessDeniedException
 
     public static void denyUpdateTableColumns(String tableName, Set<String> updatedColumnNames, String extraInfo)
     {
-        throw new AccessDeniedException(format("Cannot update columns [%s] in table %s%s", updatedColumnNames, tableName, formatExtraInfo(extraInfo)));
+        throw new AccessDeniedException(format("Cannot update columns %s in table %s%s", updatedColumnNames, tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyCreateView(String viewName)
