@@ -25,6 +25,7 @@ import io.trino.spi.type.TypeOperators;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,6 +41,8 @@ import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static java.util.Collections.max;
+import static java.util.Collections.min;
 import static org.testng.Assert.assertEquals;
 
 public class TestHivePartitionedBucketFunction
@@ -91,18 +94,18 @@ public class TestHivePartitionedBucketFunction
         BucketFunction hiveBucketFunction = bucketFunction(hiveBucketingVersion, numBuckets, ImmutableList.of(HIVE_LONG));
 
         int numPartitions = 8;
-        ImmutableList.Builder<Long> partitionValuesBuilder = ImmutableList.builder();
-        for (int i = 0; i < numPartitions; i++) {
-            partitionValuesBuilder.addAll(Collections.nCopies(numValues / numPartitions, i * 348349L));
+        List<Long> partitionValues = new ArrayList<>();
+        for (int i = 0; i < numPartitions - 1; i++) {
+            partitionValues.addAll(Collections.nCopies(numValues / numPartitions, i * 348349L));
         }
-        List<Long> partitionValues = partitionValuesBuilder.build();
+        partitionValues.addAll(Collections.nCopies(numValues / numPartitions, null));
         Block partitionColumn = createLongsBlock(partitionValues);
         Page page = new Page(bucketColumn, partitionColumn);
         Map<Long, HashMultimap<Integer, Integer>> partitionedBucketPositions = new HashMap<>();
 
         for (int i = 0; i < numValues; i++) {
             int hiveBucket = hiveBucketFunction.getBucket(bucketedColumnPage, i);
-            long hivePartition = partitionValues.get(i);
+            Long hivePartition = partitionValues.get(i);
             // record list of positions for each combination of hive partition and bucket
             partitionedBucketPositions.computeIfAbsent(hivePartition, ignored -> HashMultimap.create())
                     .put(hiveBucket, i);
@@ -121,6 +124,36 @@ public class TestHivePartitionedBucketFunction
                 page,
                 IntStream.range(0, numValues).boxed().collect(toImmutableList()),
                 numBuckets * numPartitions);
+    }
+
+    /**
+     * Make sure that hashes for single partitions are consecutive. This makes
+     * sure that single partition insert will be distributed across all worker nodes
+     * (when number of workers is less or equal to number of partition buckets) because
+     * workers are assigned to consecutive buckets in sequence.
+     */
+    @Test(dataProvider = "hiveBucketingVersion")
+    public void testConsecutiveBucketsWithinPartition(BucketingVersion hiveBucketingVersion)
+    {
+        BlockBuilder bucketColumn = BIGINT.createFixedSizeBlockBuilder(10);
+        BlockBuilder partitionColumn = BIGINT.createFixedSizeBlockBuilder(10);
+        for (int i = 0; i < 100; ++i) {
+            bucketColumn.writeLong(i);
+            partitionColumn.writeLong(42);
+        }
+        Page page = new Page(bucketColumn, partitionColumn);
+
+        BucketFunction hivePartitionedBucketFunction = partitionedBucketFunction(hiveBucketingVersion, 10, ImmutableList.of(HIVE_LONG), ImmutableList.of(BIGINT), 4000);
+        List<Integer> positions = new ArrayList<>();
+        for (int i = 0; i < 100; ++i) {
+            positions.add(hivePartitionedBucketFunction.getBucket(page, i));
+        }
+
+        int minPosition = min(positions);
+        int maxPosition = max(positions);
+
+        // assert that every bucket number was generated
+        assertEquals(maxPosition - minPosition + 1, 10);
     }
 
     private static void assertBucketCount(BucketFunction bucketFunction, Page page, Collection<Integer> positions, int bucketCount)

@@ -890,7 +890,7 @@ public class FunctionRegistry
                     .putAll(map.functionsByName);
             functions.stream()
                     .map(SqlFunction::getFunctionMetadata)
-                    .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getSignature().getName()), functionMetadata));
+                    .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getActualName()), functionMetadata));
             this.functionsByName = functionsByName.build();
 
             // Make sure all functions with the same name are aggregations or none of them are

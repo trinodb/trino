@@ -93,3 +93,12 @@ The summary section has a button to kill the currently running query. There are 
 available in the summary section: task execution and timeline. The full JSON document containing
 information and statistics about the query is available by clicking the *JSON* link. These visualizations
 and other statistics can be used to analyze where time is being spent for a query.
+
+Configuring query history
+-------------------------
+
+The following configuration properties affect :doc:`how query history
+is collected </admin/properties-query-management>` for display in the Web UI:
+
+* ``query.min-expire-age``
+* ``query.max-history``

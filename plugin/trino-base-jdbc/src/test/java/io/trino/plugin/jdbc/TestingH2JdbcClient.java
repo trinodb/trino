@@ -117,10 +117,10 @@ class TestingH2JdbcClient
                 return Optional.of(doubleColumnMapping());
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.VARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.DATE:
                 return Optional.of(dateColumnMapping());

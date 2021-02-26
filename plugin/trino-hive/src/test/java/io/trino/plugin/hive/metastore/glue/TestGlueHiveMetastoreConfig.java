@@ -44,6 +44,8 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(20)
                 .setAssumeCanonicalPartitionKeys(false)
                 .setSessionIdentifier(false));
+                .setReadStatisticsThreads(1)
+                .setWriteStatisticsThreads(1));
     }
 
     @Test
@@ -66,6 +68,8 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.get-partition-threads", "42")
                 .put("hive.metastore.glue.assume-canonical-partition-keys", "true")
                 .put("hive.metastore.glue.enable-session-identifier","true")
+                .put("hive.metastore.glue.read-statistics-threads", "42")
+                .put("hive.metastore.glue.write-statistics-threads", "43")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -85,6 +89,8 @@ public class TestGlueHiveMetastoreConfig
                 .setGetPartitionThreads(42)
                 .setAssumeCanonicalPartitionKeys(true)
                 .setSessionIdentifier(true);
+                .setReadStatisticsThreads(42)
+                .setWriteStatisticsThreads(43);
 
         assertFullMapping(properties, expected);
     }

@@ -40,6 +40,11 @@ import static io.trino.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
+import static io.trino.tpch.TpchTable.CUSTOMER;
+import static io.trino.tpch.TpchTable.LINE_ITEM;
+import static io.trino.tpch.TpchTable.NATION;
+import static io.trino.tpch.TpchTable.ORDERS;
+import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -50,6 +55,8 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION, LINE_ITEM);
+
     // We can just use the default type registry, since we don't use any parametric types
     protected static final List<SqlFunction> CUSTOM_FUNCTIONS = new FunctionListBuilder()
             .aggregates(CustomSum.class)
@@ -634,18 +641,18 @@ public abstract class AbstractTestQueries
     @Test
     public void testShowTables()
     {
-        Set<String> expectedTables = TpchTable.getTables().stream()
+        Set<String> expectedTables = REQUIRED_TPCH_TABLES.stream()
                 .map(TpchTable::getTableName)
                 .collect(toImmutableSet());
 
         MaterializedResult result = computeActual("SHOW TABLES");
-        assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
+        assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
     }
 
     @Test
     public void testShowTablesFrom()
     {
-        Set<String> expectedTables = TpchTable.getTables().stream()
+        Set<String> expectedTables = REQUIRED_TPCH_TABLES.stream()
                 .map(TpchTable::getTableName)
                 .collect(toImmutableSet());
 
@@ -653,10 +660,10 @@ public abstract class AbstractTestQueries
         String schema = getSession().getSchema().get();
 
         MaterializedResult result = computeActual("SHOW TABLES FROM " + schema);
-        assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
+        assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
 
         result = computeActual("SHOW TABLES FROM " + catalog + "." + schema);
-        assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
+        assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
 
         assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'unknown' does not exist");
         assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' does not exist");
@@ -902,7 +909,7 @@ public abstract class AbstractTestQueries
     }
 
     @Test
-    public void testPredicatePushdown()
+    public void testPredicate()
     {
         assertQuery("" +
                 "SELECT *\n" +

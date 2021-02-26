@@ -34,6 +34,8 @@ import io.trino.operator.aggregation.ParametricAggregation;
 import io.trino.operator.aggregation.state.NullableDoubleState;
 import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.operator.aggregation.state.SliceState;
+import io.trino.operator.aggregation.state.TriStateBooleanState;
+import io.trino.operator.aggregation.state.VarianceState;
 import io.trino.operator.annotations.LiteralImplementationDependency;
 import io.trino.operator.annotations.OperatorImplementationDependency;
 import io.trino.operator.annotations.TypeImplementationDependency;
@@ -56,6 +58,7 @@ import io.trino.spi.function.TypeParameter;
 import io.trino.spi.function.TypeParameterSpecialization;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.TypeSignatureParameter;
@@ -1155,6 +1158,73 @@ public class TestAnnotationEngineForAggregates
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(ImmutableList.of(DoubleType.DOUBLE, DoubleType.DOUBLE), specialized.getParameterTypes());
         assertEquals(specialized.name(), "partially_fixed_type_parameter_injection");
+    }
+
+    @AggregationFunction
+    @Description("Aggregation output function with alias")
+    public static final class AggregationOutputFunctionWithAlias
+    {
+        @InputFunction
+        public static void input(@AggregationState VarianceState state, @SqlType(StandardTypes.DOUBLE) double value)
+        {
+            // noop this is only for annotation testing purposes
+        }
+
+        @CombineFunction
+        public static void combine(@AggregationState VarianceState state, @AggregationState VarianceState otherState)
+        {
+            // noop this is only for annotation testing purposes
+        }
+
+        @AggregationFunction(value = "aggregation_output", alias = {"aggregation_output_alias_1", "aggregation_output_alias_2"})
+        @OutputFunction(StandardTypes.DOUBLE)
+        public static void output(@AggregationState VarianceState state, BlockBuilder out)
+        {
+            // noop this is only for annotation testing purposes
+        }
+    }
+
+    @AggregationFunction(value = "aggregation", alias = {"aggregation_alias_1", "aggregation_alias_2"})
+    @Description("Aggregation function with alias")
+    public static final class AggregationFunctionWithAlias
+    {
+        @InputFunction
+        public static void input(@AggregationState TriStateBooleanState state, @SqlType(StandardTypes.BOOLEAN) boolean value)
+        {
+            // noop this is only for annotation testing purposes
+        }
+
+        @CombineFunction
+        public static void combine(@AggregationState TriStateBooleanState state, @AggregationState TriStateBooleanState otherState)
+        {
+            // noop this is only for annotation testing purposes
+        }
+
+        @OutputFunction(StandardTypes.BOOLEAN)
+        public static void output(@AggregationState TriStateBooleanState state, BlockBuilder out)
+        {
+            // noop this is only for annotation testing purposes
+        }
+    }
+
+    @Test
+    public void testAggregateFunctionGetCanonicalName()
+    {
+        List<ParametricAggregation> aggregationOutputFunctions = parseFunctionDefinitions(AggregationOutputFunctionWithAlias.class);
+        assertEquals(aggregationOutputFunctions.size(), 3);
+        assertEquals(
+                aggregationOutputFunctions.stream()
+                        .map(aggregateFunction -> aggregateFunction.getFunctionMetadata().getSignature().getName())
+                        .collect(toImmutableList()),
+                ImmutableList.of("aggregation_output", "aggregation_output", "aggregation_output"));
+
+        List<ParametricAggregation> aggregationFunctions = parseFunctionDefinitions(AggregationFunctionWithAlias.class);
+        assertEquals(aggregationFunctions.size(), 3);
+        assertEquals(
+                aggregationFunctions.stream()
+                        .map(aggregateFunction -> aggregateFunction.getFunctionMetadata().getSignature().getName())
+                        .collect(toImmutableList()),
+                ImmutableList.of("aggregation", "aggregation", "aggregation"));
     }
 
     private static InternalAggregationFunction specializeAggregationFunction(BoundSignature boundSignature, SqlAggregationFunction aggregation)

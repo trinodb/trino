@@ -336,6 +336,7 @@ public final class DiscoveryNodeManager
     @Override
     public synchronized Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName)
     {
+        // activeNodesByCatalogName is immutable
         return activeNodesByCatalogName.get(catalogName);
     }
 

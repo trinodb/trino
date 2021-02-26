@@ -64,6 +64,7 @@ import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CL
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 
 public class TestKafkaIntegrationSmokeTest
+        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private TestingKafka testingKafka;

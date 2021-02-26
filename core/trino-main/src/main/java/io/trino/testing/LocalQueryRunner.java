@@ -363,7 +363,8 @@ public class LocalQueryRunner
                 pageIndexerFactory,
                 transactionManager,
                 eventListenerManager,
-                typeOperators);
+                typeOperators,
+                nodeSchedulerConfig);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),

@@ -29,7 +29,6 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -117,7 +116,7 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 
@@ -145,7 +144,7 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
                                         values("column2")))));
     }
 
@@ -158,7 +157,7 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 
@@ -184,7 +183,7 @@ public class TestInsert
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
-                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
                                         values("column1", "column2")))));
     }
 
@@ -192,7 +191,6 @@ public class TestInsert
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
-                .setSystemProperty(REDISTRIBUTE_WRITES, "false")
                 .setSystemProperty(TASK_WRITER_COUNT, "16")
                 .build();
     }
@@ -201,7 +199,6 @@ public class TestInsert
     {
         return Session.builder(getQueryRunner().getDefaultSession())
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
-                .setSystemProperty(REDISTRIBUTE_WRITES, "false")
                 .setSystemProperty(TASK_WRITER_COUNT, "16")
                 .build();
     }

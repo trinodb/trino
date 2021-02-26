@@ -32,6 +32,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
 
 public class TestJdbcIntegrationSmokeTest
+        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private final Map<String, String> properties = TestingH2JdbcModule.createProperties();

@@ -18,7 +18,6 @@ import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 
 import java.util.Optional;
 
@@ -46,7 +45,7 @@ public class TestMySqlDistributedQueries
                         .put("metadata.cache-ttl", "10m")
                         .put("metadata.cache-missing", "true")
                         .build(),
-                TpchTable.getTables());
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override

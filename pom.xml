@@ -128,6 +128,7 @@
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
         <module>plugin/trino-phoenix</module>
+        <module>plugin/trino-phoenix-5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
@@ -534,7 +535,7 @@
             <dependency>
                 <groupId>io.trino.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-7</version>
+                <version>3.1.2-9</version>
             </dependency>
 
             <dependency>
@@ -1700,6 +1701,7 @@
                                     -Xep:EqualsIncompatibleType:ERROR
                                     -Xep:FallThrough:ERROR
                                     -Xep:FormatString:ERROR
+                                    -Xep:GetClassOnAnnotation:ERROR
                                     -Xep:GetClassOnClass:ERROR
                                     -Xep:IdentityBinaryExpression:ERROR
                                     -Xep:ImmutableSetForContains:ERROR
@@ -1713,6 +1715,7 @@
                                     -Xep:OptionalEquality:ERROR
                                     -Xep:OptionalMapUnusedValue:ERROR
                                     -Xep:PreconditionsInvalidPlaceholder:ERROR
+                                    -Xep:ReturnValueIgnored:ERROR
                                     -Xep:StaticQualifiedUsingExpression:ERROR
                                     -Xep:ThrowIfUncheckedKnownChecked:ERROR
                                     -Xep:UnnecessaryCheckNotNull:ERROR

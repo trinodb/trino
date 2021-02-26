@@ -109,6 +109,7 @@
 * Honor precision of SQL Server's `datetime2` type . ({issue}`6654`)
 * Add support for Trino `timestamp` type in `CREATE TABLE` statement, by mapping it to SQL Server's `datetime2` type.
   Previously, it was incorrectly mapped to SQL Server's `timestamp` type. ({issue}`6654`)
+* Add support for the `time` type. ({issue}`6654`)
 * Improve performance for certain complex queries involving aggregation and predicates (e.g. `HAVING` clause)
   by pushing the aggregation and predicates computation into the remote database. ({issue}`6667`)
 * Fix failure when querying tables having indexes and constraints. ({issue}`6464`)

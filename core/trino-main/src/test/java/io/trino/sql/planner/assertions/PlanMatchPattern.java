@@ -171,6 +171,15 @@ public final class PlanMatchPattern
                         .collect(toImmutableList()));
     }
 
+    public static PlanMatchPattern strictConstrainedTableScan(String expectedTableName, Map<String, String> columnReferences, Map<String, Domain> constraint)
+    {
+        return strictTableScan(expectedTableName, columnReferences)
+                .with(new TableScanMatcher(
+                        expectedTableName,
+                        Optional.of(constraint),
+                        Optional.empty()));
+    }
+
     public static PlanMatchPattern constrainedTableScan(String expectedTableName, Map<String, Domain> constraint)
     {
         return node(TableScanNode.class)

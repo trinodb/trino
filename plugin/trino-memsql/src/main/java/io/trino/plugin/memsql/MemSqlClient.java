@@ -21,7 +21,6 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
-import io.trino.plugin.jdbc.PredicatePushdownController;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
@@ -56,22 +55,20 @@ import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRou
 import static io.trino.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
-import static io.trino.plugin.jdbc.PredicatePushdownController.PUSHDOWN_AND_KEEP;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.realWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timestampWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -143,12 +140,11 @@ public class MemSqlClient
         }
 
         switch (typeHandle.getJdbcType()) {
+            case Types.CHAR:
+            case Types.NCHAR: // TODO it it is dummy copied from StandardColumnMappings, verify if it is proper mapping
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
             case Types.VARCHAR:
-                int varcharLength = typeHandle.getRequiredColumnSize();
-                VarcharType varcharType = (varcharLength <= VarcharType.MAX_LENGTH) ? createVarcharType(varcharLength) : createUnboundedVarcharType();
-                // Remote database can be case insensitive.
-                PredicatePushdownController predicatePushdownController = PUSHDOWN_AND_KEEP;
-                return Optional.of(ColumnMapping.sliceMapping(varcharType, varcharReadFunction(varcharType), varcharWriteFunction(), predicatePushdownController));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
             case Types.DECIMAL:
                 int precision = typeHandle.getRequiredColumnSize();
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();

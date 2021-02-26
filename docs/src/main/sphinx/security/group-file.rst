@@ -1,6 +1,6 @@
-=========================
-File based group provider
-=========================
+===================
+File group provider
+===================
 
 Trino can map user names onto groups for easier access control and
 resource group management. Group file resolves group membership using

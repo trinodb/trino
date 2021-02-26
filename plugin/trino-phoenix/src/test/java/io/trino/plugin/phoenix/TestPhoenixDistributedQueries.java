@@ -30,7 +30,7 @@ public class TestPhoenixDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createPhoenixQueryRunner(TestingPhoenixServer.getInstance(), ImmutableMap.of());
+        return createPhoenixQueryRunner(TestingPhoenixServer.getInstance(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)

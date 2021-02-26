@@ -15,7 +15,6 @@ package io.trino.plugin.cassandra;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
 
 import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 
@@ -27,6 +26,6 @@ public class TestCassandraDistributedQueriesLatest
             throws Exception
     {
         CassandraServer server = closeAfterClass(new CassandraServer("3.11.9"));
-        return createCassandraQueryRunner(server, ImmutableMap.of(), TpchTable.getTables());
+        return createCassandraQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }

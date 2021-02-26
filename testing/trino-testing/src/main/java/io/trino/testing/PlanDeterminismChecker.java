@@ -19,7 +19,6 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 
 import java.util.function.Function;
-import java.util.stream.IntStream;
 
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static org.testng.Assert.assertEquals;
@@ -49,13 +48,11 @@ public class PlanDeterminismChecker
 
     public void checkPlanIsDeterministic(Session session, String sql)
     {
-        IntStream.range(1, MINIMUM_SUBSEQUENT_SAME_PLANS)
-                .mapToObj(attempt -> getPlanText(session, sql))
-                .map(planEquivalenceFunction)
-                .reduce((previous, current) -> {
-                    assertEquals(previous, current);
-                    return current;
-                });
+        String previous = planEquivalenceFunction.apply(getPlanText(session, sql));
+        for (int attempt = 1; attempt < MINIMUM_SUBSEQUENT_SAME_PLANS; attempt++) {
+            String current = planEquivalenceFunction.apply(getPlanText(session, sql));
+            assertEquals(previous, current);
+        }
     }
 
     private String getPlanText(Session session, String sql)

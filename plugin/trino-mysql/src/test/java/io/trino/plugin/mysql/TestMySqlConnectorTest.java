@@ -13,26 +13,32 @@
  */
 package io.trino.plugin.mysql;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 
-public class TestMySqlIntegrationSmokeTest
-        extends BaseMySqlIntegrationSmokeTest
+public class TestMySqlConnectorTest
+        extends BaseMySqlConnectorTest
 {
+    private TestingMySqlServer mysqlServer;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         mysqlServer = closeAfterClass(new TestingMySqlServer(false));
-        return createMySqlQueryRunner(mysqlServer, CUSTOMER, NATION, ORDERS, REGION);
+        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected SqlExecutor getMySqlExecutor()
+    {
+        return mysqlServer::execute;
     }
 
     /**

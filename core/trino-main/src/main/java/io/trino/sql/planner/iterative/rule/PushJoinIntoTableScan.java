@@ -17,24 +17,28 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.BasicRelationStatistics;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.ExpressionUtils;
-import io.trino.sql.analyzer.FeaturesConfig.JoinPushdownMode;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.Patterns;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.ComparisonExpression;
@@ -50,7 +54,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.trino.SystemSessionProperties.getJoinPushdownMode;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
@@ -62,6 +65,7 @@ import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.Join.left;
 import static io.trino.sql.planner.plan.Patterns.Join.right;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
 
 public class PushJoinIntoTableScan
@@ -120,6 +124,18 @@ public class PushJoinIntoTableScan
         Map<String, ColumnHandle> rightAssignments = right.getAssignments().entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
 
+        /*
+         * We are (lazily) computing estimated statistics for join node and left and right table
+         * and passing those to connector via applyJoin.
+         *
+         * There are a couple reasons for this approach:
+         * - the engine knows how to estimate join and connector may not
+         * - the engine may have cached stats for the table scans (within context.getStatsProvider()), so can be able to provide information more inexpensively
+         * - in the future, the engine may be able to provide stats for table scan even in case when connector no longer can (see https://github.com/trinodb/trino/issues/6998)
+         * - the pushdown feasibility assessment logic may be different (or configured differently) for different connectors/catalogs.
+         */
+        JoinStatistics joinStatistics = getJoinStatistics(joinNode, left, right, context);
+
         Optional<JoinApplicationResult<TableHandle>> joinApplicationResult = metadata.applyJoin(
                 context.getSession(),
                 getJoinType(joinNode),
@@ -128,7 +144,8 @@ public class PushJoinIntoTableScan
                 filterSplitResult.getPushableConditions(),
                 // TODO we could pass only subset of assignments here, those which are needed to resolve filterSplitResult.getPushableConditions
                 leftAssignments,
-                rightAssignments);
+                rightAssignments,
+                joinStatistics);
 
         if (joinApplicationResult.isEmpty()) {
             return Result.empty();
@@ -162,6 +179,42 @@ public class PushJoinIntoTableScan
         return Result.ofPlanNode(new TableScanNode(joinNode.getId(), handle, joinNode.getOutputSymbols(), newAssignments.build(), newEnforcedConstraint, false));
     }
 
+    private JoinStatistics getJoinStatistics(JoinNode join, TableScanNode left, TableScanNode right, Context context)
+    {
+        return new JoinStatistics()
+        {
+            @Override
+            public Optional<BasicRelationStatistics> getLeftStatistics()
+            {
+                return getBasicRelationStats(left, join.getLeftOutputSymbols(), context);
+            }
+
+            @Override
+            public Optional<BasicRelationStatistics> getRightStatistics()
+            {
+                return getBasicRelationStats(right, join.getRightOutputSymbols(), context);
+            }
+
+            @Override
+            public Optional<BasicRelationStatistics> getJoinStatistics()
+            {
+                return getBasicRelationStats(join, join.getOutputSymbols(), context);
+            }
+
+            private Optional<BasicRelationStatistics> getBasicRelationStats(PlanNode node, List<Symbol> outputSymbols, Context context)
+            {
+                PlanNodeStatsEstimate stats = context.getStatsProvider().getStats(node);
+                TypeProvider types = context.getSymbolAllocator().getTypes();
+                double outputRowCount = stats.getOutputRowCount();
+                double outputSize = stats.getOutputSizeInBytes(outputSymbols, types);
+                if (isNaN(outputRowCount) || isNaN(outputSize)) {
+                    return Optional.empty();
+                }
+                return Optional.of(new BasicRelationStatistics((long) outputRowCount, (long) outputSize));
+            }
+        };
+    }
+
     private TupleDomain<ColumnHandle> deriveConstraint(TupleDomain<ColumnHandle> sourceConstraint, Map<ColumnHandle, ColumnHandle> columnMapping, boolean nullable)
     {
         TupleDomain<ColumnHandle> constraint = sourceConstraint;
@@ -178,13 +231,7 @@ public class PushJoinIntoTableScan
     @Override
     public boolean isEnabled(Session session)
     {
-        if (getJoinPushdownMode(session) == JoinPushdownMode.DISABLED) {
-            return false;
-        }
-        if (!isAllowPushdownIntoConnectors(session)) {
-            return false;
-        }
-        return true;
+        return isAllowPushdownIntoConnectors(session);
     }
 
     private TupleDomain<ColumnHandle> transformToNewAssignments(TupleDomain<ColumnHandle> tupleDomain, Map<ColumnHandle, ColumnHandle> newAssignments)

@@ -14,7 +14,6 @@
 
 package io.trino.execution;
 
-import com.google.common.base.Functions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -304,7 +303,7 @@ public class TestMemoryRevokingScheduler
                 queryContext,
                 sqlTaskExecutionFactory,
                 executor,
-                Functions.identity(),
+                sqlTask -> {},
                 DataSize.of(32, MEGABYTE),
                 DataSize.of(200, MEGABYTE),
                 new CounterStat());
@@ -325,7 +324,7 @@ public class TestMemoryRevokingScheduler
 
     private TaskContext getOrCreateTaskContext(SqlTask sqlTask)
     {
-        if (!sqlTask.getTaskContext().isPresent()) {
+        if (sqlTask.getTaskContext().isEmpty()) {
             // update task to update underlying taskHolderReference with taskExecution + create a new taskContext
             updateTask(sqlTask, ImmutableList.of(), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
         }

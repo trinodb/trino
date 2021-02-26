@@ -17,6 +17,7 @@ import com.amazonaws.handlers.RequestHandler2;
 import com.amazonaws.services.glue.model.Table;
 import com.google.inject.Binder;
 import com.google.inject.Key;
+import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -25,6 +26,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.ForRecordingHiveMetastore;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.RecordingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreModule;
@@ -35,6 +37,7 @@ import java.util.function.Predicate;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
@@ -46,10 +49,7 @@ public class GlueMetastoreModule
     protected void setup(Binder binder)
     {
         configBinder(binder).bindConfig(GlueHiveMetastoreConfig.class);
-
-        newOptionalBinder(binder, GlueColumnStatisticsProvider.class)
-                .setDefault().to(DisabledGlueColumnStatisticsProvider.class).in(Scopes.SINGLETON);
-
+        configBinder(binder).bindConfig(HiveConfig.class);
         newOptionalBinder(binder, Key.get(RequestHandler2.class, ForGlueHiveMetastore.class));
 
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
@@ -59,11 +59,26 @@ public class GlueMetastoreModule
                 .annotatedWith(ForRecordingHiveMetastore.class)
                 .to(GlueHiveMetastore.class)
                 .in(Scopes.SINGLETON);
+
         binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
+        install(installModuleIf(
+                HiveConfig.class,
+                HiveConfig::isTableStatisticsEnabled,
+                getGlueStatisticsModule(DefaultGlueColumnStatisticsProviderFactory.class),
+                getGlueStatisticsModule(DisabledGlueColumnStatisticsProviderFactory.class)));
+
         install(new RecordingHiveMetastoreModule());
         install(new CachingHiveMetastoreModule());
+    }
+
+    private Module getGlueStatisticsModule(Class<? extends GlueColumnStatisticsProviderFactory> statisticsPrividerFactoryClass)
+    {
+        return internalBinder -> newOptionalBinder(internalBinder, GlueColumnStatisticsProviderFactory.class)
+                .setDefault()
+                .to(statisticsPrividerFactoryClass)
+                .in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -71,11 +86,32 @@ public class GlueMetastoreModule
     @ForGlueHiveMetastore
     public Executor createExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
     {
-        if (hiveConfig.getGetPartitionThreads() == 1) {
+        return createExecutor("hive-glue-partitions-%s", hiveConfig.getWriteStatisticsThreads());
+    }
+
+    @Provides
+    @Singleton
+    @ForGlueColumnStatisticsRead
+    public Executor createStatisticsReadExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    {
+        return createExecutor("hive-glue-statistics-read-%s", hiveConfig.getReadStatisticsThreads());
+    }
+
+    @Provides
+    @Singleton
+    @ForGlueColumnStatisticsWrite
+    public Executor createStatisticsWriteExecutor(CatalogName catalogName, GlueHiveMetastoreConfig hiveConfig)
+    {
+        return createExecutor("hive-glue-statistics-write-%s", hiveConfig.getWriteStatisticsThreads());
+    }
+
+    private Executor createExecutor(String nameTemplate, int threads)
+    {
+        if (threads == 1) {
             return directExecutor();
         }
         return new BoundedExecutor(
-                newCachedThreadPool(daemonThreadsNamed("hive-glue-%s")),
-                hiveConfig.getGetPartitionThreads());
+                newCachedThreadPool(daemonThreadsNamed(nameTemplate)),
+                threads);
     }
 }
