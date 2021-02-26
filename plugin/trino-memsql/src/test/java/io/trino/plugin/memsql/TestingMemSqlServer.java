@@ -30,7 +30,7 @@ public class TestingMemSqlServer
 {
     private static final String MEM_SQL_LICENSE = requireNonNull(System.getProperty("memsql.license"), "memsql.license is not set");
 
-    public static final String DEFAULT_TAG = "memsql/cluster-in-a-box:centos-7.1.4-516dfe4088-1.9.6-1.6.1";
+    public static final String DEFAULT_TAG = "memsql/cluster-in-a-box:centos-7.1.13-11ddea2a3a-3.0.0-1.9.0";
 
     public static final Integer MEMSQL_PORT = 3306;
 
