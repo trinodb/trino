@@ -18,13 +18,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import static java.lang.String.format;
 
-public class JdbcQueryRelationHandle
-        extends JdbcRelationHandle
+public class JdbcQueryRelation
+        extends JdbcRelation
 {
     private final PreparedQuery preparedQuery;
 
     @JsonCreator
-    public JdbcQueryRelationHandle(PreparedQuery preparedQuery)
+    public JdbcQueryRelation(PreparedQuery preparedQuery)
     {
         this.preparedQuery = preparedQuery;
     }

@@ -22,14 +22,14 @@ import java.util.Objects;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class JdbcNamedRelationHandle
-        extends JdbcRelationHandle
+public class JdbcNamedRelation
+        extends JdbcRelation
 {
     private final SchemaTableName schemaTableName;
     private final RemoteTableName remoteTableName;
 
     @JsonCreator
-    public JdbcNamedRelationHandle(
+    public JdbcNamedRelation(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName)
     {
@@ -58,7 +58,7 @@ public class JdbcNamedRelationHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        JdbcNamedRelationHandle that = (JdbcNamedRelationHandle) o;
+        JdbcNamedRelation that = (JdbcNamedRelation) o;
         return Objects.equals(schemaTableName, that.schemaTableName)
                 // remoteTableName is not compared here, as required by TestJdbcTableHandle#testEquivalence TODO document why this is important
                 /**/;

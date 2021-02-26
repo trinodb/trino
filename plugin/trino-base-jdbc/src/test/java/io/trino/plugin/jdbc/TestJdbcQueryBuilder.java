@@ -89,7 +89,7 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true)
 public class TestJdbcQueryBuilder
 {
-    private static final JdbcNamedRelationHandle TEST_TABLE = new JdbcNamedRelationHandle(new SchemaTableName(
+    private static final JdbcNamedRelation TEST_TABLE = new JdbcNamedRelation(new SchemaTableName(
             "some_test_schema", "test_table"),
             new RemoteTableName(Optional.empty(), Optional.empty(), "test_table"));
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()

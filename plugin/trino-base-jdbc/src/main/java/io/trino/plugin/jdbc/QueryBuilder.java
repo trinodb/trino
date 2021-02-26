@@ -62,7 +62,7 @@ public class QueryBuilder
     public PreparedQuery prepareQuery(
             ConnectorSession session,
             Connection connection,
-            JdbcRelationHandle baseRelation,
+            JdbcRelation baseRelation,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
             Map<String, String> columnExpressions,
@@ -160,13 +160,13 @@ public class QueryBuilder
                 .collect(joining(", "));
     }
 
-    private String getFrom(JdbcRelationHandle baseRelation, Consumer<QueryParameter> accumulator)
+    private String getFrom(JdbcRelation baseRelation, Consumer<QueryParameter> accumulator)
     {
-        if (baseRelation instanceof JdbcNamedRelationHandle) {
-            return " FROM " + getRelation(((JdbcNamedRelationHandle) baseRelation).getRemoteTableName());
+        if (baseRelation instanceof JdbcNamedRelation) {
+            return " FROM " + getRelation(((JdbcNamedRelation) baseRelation).getRemoteTableName());
         }
-        if (baseRelation instanceof JdbcQueryRelationHandle) {
-            PreparedQuery preparedQuery = ((JdbcQueryRelationHandle) baseRelation).getPreparedQuery();
+        if (baseRelation instanceof JdbcQueryRelation) {
+            PreparedQuery preparedQuery = ((JdbcQueryRelation) baseRelation).getPreparedQuery();
             preparedQuery.getParameters().forEach(accumulator);
             return " FROM (" + preparedQuery.getQuery() + ") o";
         }

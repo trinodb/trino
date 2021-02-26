@@ -20,10 +20,10 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
         use = JsonTypeInfo.Id.NAME,
         property = "@type")
 @JsonSubTypes({
-        @JsonSubTypes.Type(value = JdbcNamedRelationHandle.class, name = "named"),
-        @JsonSubTypes.Type(value = JdbcQueryRelationHandle.class, name = "query"),
+        @JsonSubTypes.Type(value = JdbcNamedRelation.class, name = "named"),
+        @JsonSubTypes.Type(value = JdbcQueryRelation.class, name = "query"),
 })
-public abstract class JdbcRelationHandle
+public abstract class JdbcRelation
 {
     @Override
     public abstract String toString();

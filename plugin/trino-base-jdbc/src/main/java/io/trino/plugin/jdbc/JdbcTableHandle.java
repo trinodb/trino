@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 public final class JdbcTableHandle
         implements ConnectorTableHandle
 {
-    private final JdbcRelationHandle relationHandle;
+    private final JdbcRelation relationHandle;
 
     private final TupleDomain<ColumnHandle> constraint;
 
@@ -56,7 +56,7 @@ public final class JdbcTableHandle
     public JdbcTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName)
     {
         this(
-                new JdbcNamedRelationHandle(schemaTableName, remoteTableName),
+                new JdbcNamedRelation(schemaTableName, remoteTableName),
                 TupleDomain.all(),
                 OptionalLong.empty(),
                 Optional.empty(),
@@ -65,7 +65,7 @@ public final class JdbcTableHandle
 
     @JsonCreator
     public JdbcTableHandle(
-            @JsonProperty("relationHandle") JdbcRelationHandle relationHandle,
+            @JsonProperty("relationHandle") JdbcRelation relationHandle,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
@@ -103,21 +103,21 @@ public final class JdbcTableHandle
         return getRequiredNamedRelation().getRemoteTableName();
     }
 
-    public JdbcNamedRelationHandle asPlainTable()
+    public JdbcNamedRelation asPlainTable()
     {
         checkState(!isSynthetic(), "The table handle does not represent a plain table: %s", this);
         return getRequiredNamedRelation();
     }
 
     @JsonIgnore
-    public JdbcNamedRelationHandle getRequiredNamedRelation()
+    public JdbcNamedRelation getRequiredNamedRelation()
     {
         checkState(isNamedRelation(), "The table handle does not represent a named relation: %s", this);
-        return (JdbcNamedRelationHandle) relationHandle;
+        return (JdbcNamedRelation) relationHandle;
     }
 
     @JsonProperty
-    public JdbcRelationHandle getRelationHandle()
+    public JdbcRelation getRelationHandle()
     {
         return relationHandle;
     }
@@ -190,7 +190,7 @@ public final class JdbcTableHandle
     @JsonIgnore
     public boolean isNamedRelation()
     {
-        return relationHandle instanceof JdbcNamedRelationHandle;
+        return relationHandle instanceof JdbcNamedRelation;
     }
 
     @Override

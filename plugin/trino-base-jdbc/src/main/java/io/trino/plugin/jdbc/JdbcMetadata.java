@@ -165,7 +165,7 @@ public class JdbcMetadata
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), columns, ImmutableMap.of());
         return new JdbcTableHandle(
-                new JdbcQueryRelationHandle(preparedQuery),
+                new JdbcQueryRelation(preparedQuery),
                 TupleDomain.all(),
                 OptionalLong.empty(),
                 Optional.of(columns),
@@ -279,7 +279,7 @@ public class JdbcMetadata
                         .build(),
                 expressions.build());
         handle = new JdbcTableHandle(
-                new JdbcQueryRelationHandle(preparedQuery),
+                new JdbcQueryRelation(preparedQuery),
                 TupleDomain.all(),
                 OptionalLong.empty(),
                 Optional.of(newColumnsList),

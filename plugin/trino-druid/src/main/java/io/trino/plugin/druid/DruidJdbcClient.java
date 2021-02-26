@@ -19,7 +19,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
-import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
+import io.trino.plugin.jdbc.JdbcNamedRelation;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -178,7 +178,7 @@ public class DruidJdbcClient
             checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
 
             table = new JdbcTableHandle(
-                    new JdbcNamedRelationHandle(
+                    new JdbcNamedRelation(
                             table.getRequiredNamedRelation().getSchemaTableName(),
                             // Druid doesn't like table names to be qualified with catalog names in the SQL query, hence we null out the catalog.
                             new RemoteTableName(

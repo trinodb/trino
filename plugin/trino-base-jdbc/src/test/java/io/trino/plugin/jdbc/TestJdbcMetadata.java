@@ -311,7 +311,7 @@ public class TestJdbcMetadata
                 // as firstDomain has been converted into a PreparedQuery
                 Optional.of(ImmutableMap.of(groupByColumn, secondDomain)));
         assertEquals(
-                ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
+                ((JdbcQueryRelation) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
                 "SELECT \"TEXT\", count(*) AS \"_pfgnrtd_0\" " +
                         "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
                         "WHERE \"TEXT\" IN (?,?) " +
@@ -340,7 +340,7 @@ public class TestJdbcMetadata
                 tableHandleWithFilter.getConstraint().getDomains(),
                 Optional.of(ImmutableMap.of(nonGroupByColumn, domain)));
         assertEquals(
-                ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
+                ((JdbcQueryRelation) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
                 "SELECT \"TEXT\", count(*) AS \"_pfgnrtd_0\" " +
                         "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
                         "GROUP BY \"TEXT\"");
@@ -369,7 +369,7 @@ public class TestJdbcMetadata
                 tableHandleWithFilter.getConstraint().getDomains(),
                 Optional.of(ImmutableMap.of(valueColumn, domain)));
         assertEquals(
-                ((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
+                ((JdbcQueryRelation) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery(),
                 "SELECT \"TEXT\", \"VALUE\", count(*) AS \"_pfgnrtd_0\" " +
                         "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +
                         "GROUP BY GROUPING SETS ((\"TEXT\", \"VALUE\"), (\"TEXT\"))");
