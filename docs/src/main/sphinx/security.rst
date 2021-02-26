@@ -9,6 +9,8 @@ Cluster access security
   :maxdepth: 1
 
   security/tls
+  security/inspect-pem
+  security/inspect-jks
   security/ldap
   security/password-file
   security/salesforce

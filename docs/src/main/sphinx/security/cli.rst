@@ -33,13 +33,12 @@ principal.
 
 .. include:: ktadd-note.fragment
 
-Java keystore file for TLS
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Configuration for TLS
+^^^^^^^^^^^^^^^^^^^^^
 
-Access to the Trino coordinator must be through HTTPS when using Kerberos
-authentication. The Trino coordinator uses a :ref:`Java Keystore
-<server_java_keystore>` file for its TLS configuration. This file can be
-copied to the client machine and used for its configuration.
+When using Kerberos authentication, access to the Trino coordinator must be
+through HTTPS. If you have not yet configured HTTPS/TLS for your coordinator,
+refer to :doc:`HTTPS and TLS </security/tls>`.
 
 Trino CLI execution
 --------------------
