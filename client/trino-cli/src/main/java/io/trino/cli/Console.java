@@ -179,7 +179,8 @@ public class Console
                 clientOptions.krb5ConfigPath,
                 clientOptions.krb5KeytabPath,
                 clientOptions.krb5CredentialCachePath,
-                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization)) {
+                !clientOptions.krb5DisableRemoteServiceHostnameCanonicalization,
+                clientOptions.externalAuthentication)) {
             if (hasQuery) {
                 return executeCommand(
                         queryRunner,
