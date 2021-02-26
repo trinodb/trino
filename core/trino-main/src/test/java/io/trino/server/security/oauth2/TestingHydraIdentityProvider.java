@@ -30,7 +30,7 @@ import java.time.Duration;
 
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 
-public class TestingHydraService
+public class TestingHydraIdentityProvider
         implements AutoCloseable
 {
     static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
@@ -65,7 +65,7 @@ public class TestingHydraService
 
     private final AutoCloseableCloser closer = AutoCloseableCloser.create();
 
-    TestingHydraService()
+    TestingHydraIdentityProvider()
     {
         closer.register(network);
         closer.register(consentContainer);
@@ -140,7 +140,7 @@ public class TestingHydraService
     public static void main(String[] args)
             throws Exception
     {
-        try (TestingHydraService service = new TestingHydraService()) {
+        try (TestingHydraIdentityProvider service = new TestingHydraIdentityProvider()) {
             // expose containers ports & override environment variables
             service.consentContainer
                     .withFixedExposedPort(9020, 3000);
