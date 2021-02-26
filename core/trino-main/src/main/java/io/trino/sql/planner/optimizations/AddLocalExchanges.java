@@ -95,7 +95,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
 
 public class AddLocalExchanges
@@ -534,32 +533,22 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            StreamPreferredProperties requiredProperties;
-            StreamPreferredProperties preferredProperties;
+            if (getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
+            }
+            if (node.getPartitioningScheme().isEmpty()) {
+                return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
+            }
+
+            PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
+                // arbitrary hash function on predefined set of partition columns
+                StreamPreferredProperties preference = exactlyPartitionedOn(partitioningScheme.getPartitioning().getColumns());
+                return planAndEnforceChildren(node, preference, preference);
+            }
+
             // TODO: add support for arbitrary partitioning in local exchanges
-            if (getTaskWriterCount(session) > 1) {
-                boolean hasFixedHashDistribution = node.getPartitioningScheme()
-                        .map(scheme -> scheme.getPartitioning().getHandle())
-                        .filter(isEqual(FIXED_HASH_DISTRIBUTION))
-                        .isPresent();
-                if (node.getPartitioningScheme().isEmpty()) {
-                    requiredProperties = fixedParallelism();
-                    preferredProperties = fixedParallelism();
-                }
-                else if (hasFixedHashDistribution) {
-                    requiredProperties = exactlyPartitionedOn(node.getPartitioningScheme().get().getPartitioning().getColumns());
-                    preferredProperties = requiredProperties;
-                }
-                else {
-                    requiredProperties = singleStream();
-                    preferredProperties = defaultParallelism(session);
-                }
-            }
-            else {
-                requiredProperties = singleStream();
-                preferredProperties = defaultParallelism(session);
-            }
-            return planAndEnforceChildren(node, requiredProperties, preferredProperties);
+            return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
         }
 
         //
