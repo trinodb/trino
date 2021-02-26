@@ -22,7 +22,7 @@ import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 
-public class TestMySqlConnectorTest
+public class TestMySqlConnector
         extends BaseMySqlConnectorTest
 {
     private TestingMySqlServer mysqlServer;

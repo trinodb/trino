@@ -21,7 +21,7 @@ import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
 
-public class TestRedisConnectorTest
+public class TestRedisConnector
         extends BaseConnectorTest
 {
     private RedisServer redisServer;

@@ -19,7 +19,7 @@ import io.trino.testing.sql.SqlExecutor;
 
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 
-public class TestGlobalTransactionMySqlConnectorTest
+public class TestGlobalTransactionMySqlConnector
         // TODO(https://github.com/trinodb/trino/issues/7019) define shorter tests set that exercises various read and write scenarios (a.k.a. "a smoke test")
         extends BaseMySqlConnectorTest
 {

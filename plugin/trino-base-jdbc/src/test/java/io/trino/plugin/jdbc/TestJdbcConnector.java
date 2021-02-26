@@ -26,7 +26,7 @@ import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
-public class TestJdbcConnectorTest
+public class TestJdbcConnector
         extends BaseConnectorTest
 {
     private Map<String, String> properties;
