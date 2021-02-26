@@ -171,10 +171,8 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         // Use the topic from cache, if present, in case the topic is mixed case
         String topic = topicAndSubjectsFromCache.map(TopicAndSubjects::getTopic).orElse(topicAndSubjects.getTopic());
         Optional<String> keySubject = topicAndSubjects.getKeySubject()
-                .map(this::resolveSubject)
                 .or(() -> topicAndSubjectsFromCache.flatMap(TopicAndSubjects::getKeySubject));
         Optional<String> valueSubject = topicAndSubjects.getValueSubject()
-                .map(this::resolveSubject)
                 .or(() -> topicAndSubjectsFromCache.flatMap(TopicAndSubjects::getValueSubject));
 
         if (keySubject.isEmpty() && valueSubject.isEmpty()) {
@@ -216,7 +214,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     // can be specified by adding them to the table name as follows:
     //  <tablename>&key-subject=<key subject>&value-subject=<value subject>
     // ex. kafka.default."mytable&key-subject=foo&value-subject=bar"
-    private static TopicAndSubjects parseTopicAndSubjects(SchemaTableName encodedSchemaTableName)
+    private TopicAndSubjects parseTopicAndSubjects(SchemaTableName encodedSchemaTableName)
     {
         String encodedTableName = encodedSchemaTableName.getTableName();
         List<String> parts = Splitter.on(KEY_VALUE_PAIR_DELIMITER).trimResults().splitToList(encodedTableName);
@@ -229,11 +227,13 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             checkState(subjectKeyValue.size() == 2 && (subjectKeyValue.get(0).equals(KEY_SUBJECT) || subjectKeyValue.get(0).equals(VALUE_SUBJECT)), "Unexpected parameter '%s', should be %s=<key subject>' or %s=<value subject>", parts.get(part), KEY_SUBJECT, VALUE_SUBJECT);
             if (subjectKeyValue.get(0).equals(KEY_SUBJECT)) {
                 checkState(keySubject.isEmpty(), "Key subject already defined");
-                keySubject = Optional.of(subjectKeyValue.get(1));
+                keySubject = Optional.of(subjectKeyValue.get(1))
+                        .map(this::resolveSubject);
             }
             else {
                 checkState(valueSubject.isEmpty(), "Value subject already defined");
-                valueSubject = Optional.of(subjectKeyValue.get(1));
+                valueSubject = Optional.of(subjectKeyValue.get(1))
+                        .map(this::resolveSubject);
             }
         }
         return new TopicAndSubjects(tableName, keySubject, valueSubject);
