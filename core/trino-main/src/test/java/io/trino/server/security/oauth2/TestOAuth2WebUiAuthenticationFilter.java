@@ -64,7 +64,7 @@ import java.util.UUID;
 
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.client.OkHttpUtil.setupInsecureSsl;
-import static io.trino.server.security.oauth2.TestingHydraService.TTL_ACCESS_TOKEN_IN_SECONDS;
+import static io.trino.server.security.oauth2.TestingHydraIdentityProvider.TTL_ACCESS_TOKEN_IN_SECONDS;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_BASIC;
 import static io.trino.server.security.oauth2.TokenEndpointAuthMethod.CLIENT_SECRET_POST;
 import static io.trino.server.ui.OAuthWebUiCookie.OAUTH2_COOKIE;
@@ -90,7 +90,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     private static final String UNTRUSTED_CLIENT_SECRET = "untrusted-secret";
     private static final String UNTRUSTED_CLIENT_AUDIENCE = "https://untrusted.com";
 
-    private final TestingHydraService testingHydraService = new TestingHydraService();
+    private final TestingHydraIdentityProvider hydraIdP = new TestingHydraIdentityProvider();
     private final OkHttpClient httpClient;
 
     private TestingTrinoServer server;
@@ -111,20 +111,20 @@ public class TestOAuth2WebUiAuthenticationFilter
         Logging.initialize();
 
         Testcontainers.exposeHostPorts(HTTPS_PORT);
-        testingHydraService.start();
-        testingHydraService.createClient(
+        hydraIdP.start();
+        hydraIdP.createClient(
                 TRINO_CLIENT_ID,
                 TRINO_CLIENT_SECRET,
                 CLIENT_SECRET_BASIC,
                 TRINO_AUDIENCE,
                 EXPOSED_SERVER_URL + "/oauth2/callback");
-        testingHydraService.createClient(
+        hydraIdP.createClient(
                 TRUSTED_CLIENT_ID,
                 TRUSTED_CLIENT_SECRET,
                 CLIENT_SECRET_POST,
                 TRINO_AUDIENCE,
                 EXPOSED_SERVER_URL + "/oauth2/callback");
-        testingHydraService.createClient(
+        hydraIdP.createClient(
                 UNTRUSTED_CLIENT_ID,
                 UNTRUSTED_CLIENT_SECRET,
                 CLIENT_SECRET_POST,
@@ -142,8 +142,8 @@ public class TestOAuth2WebUiAuthenticationFilter
                         .put("http-server.https.keystore.path", Resources.getResource("cert/localhost.pem").getPath())
                         .put("http-server.https.keystore.key", "")
                         .put("http-server.authentication.oauth2.auth-url", "https://hydra:4444/oauth2/auth")
-                        .put("http-server.authentication.oauth2.token-url", format("https://localhost:%s/oauth2/token", testingHydraService.getHydraPort()))
-                        .put("http-server.authentication.oauth2.jwks-url", format("https://localhost:%s/.well-known/jwks.json", testingHydraService.getHydraPort()))
+                        .put("http-server.authentication.oauth2.token-url", format("https://localhost:%s/oauth2/token", hydraIdP.getHydraPort()))
+                        .put("http-server.authentication.oauth2.jwks-url", format("https://localhost:%s/.well-known/jwks.json", hydraIdP.getHydraPort()))
                         .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
                         .put("http-server.authentication.oauth2.client-secret", TRINO_CLIENT_SECRET)
                         .put("http-server.authentication.oauth2.audience", format("https://host.testcontainers.internal:%d/ui", HTTPS_PORT))
@@ -159,7 +159,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     public void tearDown()
             throws Exception
     {
-        Closeables.closeAll(server, testingHydraService);
+        Closeables.closeAll(server, hydraIdP);
     }
 
     @Test
@@ -223,7 +223,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     public void testTokenWithInvalidAudience()
             throws IOException
     {
-        String token = testingHydraService.getToken(UNTRUSTED_CLIENT_ID, UNTRUSTED_CLIENT_SECRET, UNTRUSTED_CLIENT_AUDIENCE);
+        String token = hydraIdP.getToken(UNTRUSTED_CLIENT_ID, UNTRUSTED_CLIENT_SECRET, UNTRUSTED_CLIENT_AUDIENCE);
         try (Response response = httpClientUsingCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build())
                 .newCall(uiCall().build())
                 .execute()) {
@@ -235,7 +235,7 @@ public class TestOAuth2WebUiAuthenticationFilter
     public void testTokenFromTrustedClient()
             throws IOException
     {
-        String token = testingHydraService.getToken(TRUSTED_CLIENT_ID, TRUSTED_CLIENT_SECRET, TRINO_AUDIENCE);
+        String token = hydraIdP.getToken(TRUSTED_CLIENT_ID, TRUSTED_CLIENT_SECRET, TRINO_AUDIENCE);
         assertUICallWithCookie(new Cookie.Builder(OAUTH2_COOKIE, token).build());
     }
 
@@ -299,7 +299,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         ChromeOptions options = new ChromeOptions();
         options.setAcceptInsecureCerts(true);
         BrowserWebDriverContainer<?> chromeContainer = new BrowserWebDriverContainer<>()
-                .withNetwork(testingHydraService.getNetwork())
+                .withNetwork(hydraIdP.getNetwork())
                 .withCapabilities(options);
         chromeContainer.start();
         return chromeContainer;
@@ -339,7 +339,7 @@ public class TestOAuth2WebUiAuthenticationFilter
         assertThat(cookie.getValue()).isNotBlank();
         Jws<Claims> jwt = Jwts.parser()
                 .setSigningKeyResolver(new JwkSigningKeyResolver(new JwkService(
-                        new JwtAuthenticatorConfig().setKeyFile("https://localhost:" + testingHydraService.getHydraPort() + "/.well-known/jwks.json"),
+                        new JwtAuthenticatorConfig().setKeyFile("https://localhost:" + hydraIdP.getHydraPort() + "/.well-known/jwks.json"),
                         new JettyHttpClient(new HttpClientConfig()
                                 .setTrustStorePath(Resources.getResource("cert/localhost.pem").getPath())))))
                 .parseClaimsJws(cookie.getValue());
