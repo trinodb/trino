@@ -154,7 +154,7 @@ public class TestSqlServerIntegrationSmokeTest
         // GROUP BY above WHERE and LIMIT
         assertThat(query("" +
                 "SELECT regionkey, sum(nationkey) " +
-                "FROM (SELECT * FROM nation WHERE regionkey < 3 LIMIT 11) " +
+                "FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) " +
                 "GROUP BY regionkey"))
                 .isFullyPushedDown();
 
