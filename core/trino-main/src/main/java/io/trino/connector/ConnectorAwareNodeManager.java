@@ -20,7 +20,6 @@ import io.trino.spi.NodeManager;
 
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
 
 public class ConnectorAwareNodeManager
@@ -42,15 +41,29 @@ public class ConnectorAwareNodeManager
     @Override
     public Set<Node> getAllNodes()
     {
-        return ImmutableSet.copyOf(nodeManager.getActiveConnectorNodes(catalogName));
+        return ImmutableSet.<Node>builder()
+                .addAll(nodeManager.getActiveConnectorNodes(catalogName))
+                // append current node (before connector is registered with the node
+                // in the discovery service) since current node should have connector always loaded
+                .add(nodeManager.getCurrentNode())
+                .build();
     }
 
     @Override
     public Set<Node> getWorkerNodes()
     {
-        return nodeManager.getActiveConnectorNodes(catalogName).stream()
-                .filter(node -> schedulerIncludeCoordinator || !node.isCoordinator())
-                .collect(toImmutableSet());
+        ImmutableSet.Builder<Node> nodes = ImmutableSet.builder();
+        // getActiveConnectorNodes returns all nodes (including coordinators)
+        // that have connector registered
+        nodeManager.getActiveConnectorNodes(catalogName).stream()
+                .filter(node -> !node.isCoordinator() || schedulerIncludeCoordinator)
+                .forEach(nodes::add);
+        if (!nodeManager.getCurrentNode().isCoordinator() || schedulerIncludeCoordinator) {
+            // append current node (before connector is registered with the node
+            // in discovery service) since current node should have connector always loaded
+            nodes.add(getCurrentNode());
+        }
+        return nodes.build();
     }
 
     @Override
