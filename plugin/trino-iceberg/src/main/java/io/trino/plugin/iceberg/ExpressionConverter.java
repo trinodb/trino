@@ -120,7 +120,6 @@ public final class ExpressionConverter
                 Marker.Bound lowBound = low.getBound();
                 Marker.Bound highBound = high.getBound();
 
-                // case col <> 'val' is represented as (col < 'val' or col > 'val')
                 if (lowBound == EXACTLY && highBound == EXACTLY) {
                     // case ==
                     if (getIcebergLiteralValue(type, low).equals(getIcebergLiteralValue(type, high))) {
