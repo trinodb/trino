@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.type.TestingIdType.ID;
@@ -303,8 +304,7 @@ public class TestEquatableValueSet
     {
         Collection<Object> values = EquatableValueSet.of(ID, 1L).getValues();
         assertThatThrownBy(values::clear)
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessage("Cannot clear values");
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
@@ -312,8 +312,7 @@ public class TestEquatableValueSet
     {
         Set<EquatableValueSet.ValueEntry> entries = EquatableValueSet.of(ID, 1L).getEntries();
         assertThatThrownBy(entries::clear)
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessage("Cannot clear entries");
+                .isInstanceOf(UnsupportedOperationException.class);
     }
 
     @Test
