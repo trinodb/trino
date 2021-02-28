@@ -150,8 +150,14 @@ public class TestJdbcIntegrationSmokeTest
                     session,
                     "SHOW CREATE TABLE " + table.getName(),
                     unsupportedTableErrorMessage);
-            assertQueryReturnsEmptyResult(session, "SHOW COLUMNS FROM " + table.getName());
-            assertQueryReturnsEmptyResult(session, "DESCRIBE " + table.getName());
+            assertQueryFails(
+                    session,
+                    "SHOW COLUMNS FROM " + table.getName(),
+                    unsupportedTableErrorMessage);
+            assertQueryFails(
+                    session,
+                    "DESCRIBE " + table.getName(),
+                    unsupportedTableErrorMessage);
         }
     }
 
