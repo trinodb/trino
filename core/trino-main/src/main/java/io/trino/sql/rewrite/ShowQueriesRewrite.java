@@ -389,11 +389,28 @@ final class ShowQueriesRewrite
             if (!metadata.schemaExists(session, new CatalogSchemaName(tableName.getCatalogName(), tableName.getSchemaName()))) {
                 throw semanticException(SCHEMA_NOT_FOUND, showColumns, "Schema '%s' does not exist", tableName.getSchemaName());
             }
-            if (metadata.getView(session, tableName).isEmpty() &&
-                    metadata.getTableHandle(session, tableName).isEmpty()) {
+            Optional<ConnectorViewDefinition> view = metadata.getView(session, tableName);
+            Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
+            if (view.isEmpty() && tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, showColumns, "Table '%s' does not exist", tableName);
             }
 
+            if (view.isEmpty() && tableHandle.isPresent()) {
+                // We are using information_schema which may ignore errors when getting the list
+                // of columns for a table, since listing columns is a requirement for some tools,
+                // and thus failing due to a single bad table would make the system unusable.
+                //
+                // However, when showing columns for a single table, it is important to fail if
+                // the columns are not available, rather than erroneously returning an empty list.
+                // We thus ask for table metadata, which will hopefully fail for the same reasons
+                // that would cause an empty list of columns.
+                //
+                // We still go through information_schema, even though we appear to have all the
+                // needed information in the table metadata, so that we use the same code path for
+                // all column listing. Connectors may have different listing logic than for metadata,
+                // and we need to perform security filtering of the returned columns.
+                metadata.getTableMetadata(session, tableHandle.get());
+            }
             accessControl.checkCanShowColumns(session.toSecurityContext(), tableName.asCatalogSchemaTableName());
 
             Expression predicate = logicalAnd(

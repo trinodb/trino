@@ -200,8 +200,8 @@ public class TestPostgreSqlConnectorTest
             assertQueryFails("SELECT * FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
             assertQueryFails("SELECT 'a' FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
 
-            assertQuery("SHOW COLUMNS FROM no_supported_columns", "SELECT 'nothing' WHERE false");
-            assertQuery("SHOW COLUMNS FROM no_columns", "SELECT 'nothing' WHERE false");
+            assertQueryFails("SHOW COLUMNS FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
+            assertQueryFails("SHOW COLUMNS FROM no_columns", "Table 'tpch.no_columns' not found");
 
             // Other tables should be visible in SHOW TABLES (the no_supported_columns might be included or might be not) and information_schema.tables
             assertThat(computeActual("SHOW TABLES").getOnlyColumn())
