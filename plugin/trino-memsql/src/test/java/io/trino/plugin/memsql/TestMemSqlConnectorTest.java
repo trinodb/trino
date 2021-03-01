@@ -13,25 +13,28 @@
  */
 package io.trino.plugin.memsql;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -39,9 +42,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public class TestMemSqlIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestMemSqlConnectorTest
+        extends BaseConnectorTest
 {
     protected TestingMemSqlServer memSqlServer;
 
@@ -50,13 +52,108 @@ public class TestMemSqlIntegrationSmokeTest
             throws Exception
     {
         memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer, CUSTOMER, NATION, ORDERS, REGION);
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), TpchTable.getTables());
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
         memSqlServer.close();
+    }
+
+    @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                this::execute,
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+
+        if (typeName.equals("boolean")) {
+            // MemSQL does not have built-in support for boolean type. MemSQL provides BOOLEAN as the synonym of TINYINT(1)
+            // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
+            return Optional.empty();
+        }
+
+        if (typeName.equals("time")
+                || typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("real")
+                || typeName.equals("timestamp")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        if (typeName.equals("varchar")) {
+            // TODO fails due to case insensitive UTF-8 comparisons
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    {
+        return nullToEmpty(exception.getMessage()).matches(".*Incorrect column name.*");
+    }
+
+    @Override
+    public void testLargeIn(int valuesCount)
+    {
+        // Running this tests on MemSQL results in
+        // "Available disk space is below the value of 'minimal_disk_space' global variable (100 MB). This query cannot be executed"
+        // on followup tests
+        throw new SkipException("Running testLargeIn on MemSQL results in out-of-disk space errors");
+    }
+
+    @Override
+    public void testInsertUnicode()
+    {
+        // MemSQL's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
+        throw new SkipException("MemSQL doesn't support utf8mb4");
     }
 
     @Test
@@ -70,20 +167,11 @@ public class TestMemSqlIntegrationSmokeTest
     }
 
     @Test
-    public void testViews()
+    public void testReadFromView()
     {
         execute("CREATE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
         execute("DROP VIEW IF EXISTS tpch.test_view");
-    }
-
-    @Test
-    public void testInsert()
-    {
-        execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
-        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
-        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
-        assertUpdate("DROP TABLE test_insert");
     }
 
     @Test
