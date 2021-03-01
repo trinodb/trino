@@ -16,23 +16,22 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
-public class TestSapHanaIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestSapHanaConnectorTest
+        extends BaseConnectorTest
 {
     protected TestingSapHanaServer server;
 
@@ -48,7 +47,69 @@ public class TestSapHanaIntegrationSmokeTest
                         .put("metadata.cache-missing", "false")
                         .build(),
                 ImmutableMap.of(),
-                ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
+                TpchTable.getTables());
+    }
+
+    @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                server::execute,
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        switch (dataMappingTestSetup.getTrinoTypeName()) {
+            case "time":
+                verify(dataMappingTestSetup.getHighValueLiteral().equals("TIME '23:59:59.999'"), "super has changed high value for TIME");
+                return Optional.of(
+                        new DataMappingTestSetup(
+                                dataMappingTestSetup.getTrinoTypeName(),
+                                dataMappingTestSetup.getSampleValueLiteral(),
+                                "TIME '23:59:59.000'")); // SAP HANA does not store second fraction, so 23:59:59.999 would became 00:00:00
+
+            case "timestamp(3) with time zone":
+                return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Test

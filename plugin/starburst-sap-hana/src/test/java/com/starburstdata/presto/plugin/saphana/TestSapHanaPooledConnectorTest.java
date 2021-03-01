@@ -9,20 +9,14 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import io.trino.tpch.TpchTable;
 
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 
-@Test
-public class TestSapHanaPooledIntegrationSmokeTest
-        extends TestSapHanaIntegrationSmokeTest
+public class TestSapHanaPooledConnectorTest
+        extends TestSapHanaConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -32,11 +26,9 @@ public class TestSapHanaPooledIntegrationSmokeTest
         return createSapHanaQueryRunner(
                 server,
                 ImmutableMap.<String, String>builder()
-                        .put("metadata.cache-ttl", "0m")
-                        .put("metadata.cache-missing", "false")
                         .put("connection-pool.enabled", "true")
                         .build(),
                 ImmutableMap.of(),
-                ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
+                TpchTable.getTables());
     }
 }
