@@ -23,7 +23,10 @@ public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
     private boolean aggregationPushdownEnabled = true;
-    private boolean topNPushdownEnabled = true;
+
+    // TODO: https://github.com/trinodb/trino/issues/7031
+    private boolean topNPushdownEnabled;
+
     // Pushed domains are transformed into SQL IN lists
     // (or sequence of range predicates) in JDBC connectors.
     // Too large IN lists cause significant performance regression.
