@@ -29,24 +29,32 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.statistics.ComputedStatistics;
 
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kafka.KafkaHandleResolver.convertColumnHandle;
 import static io.trino.plugin.kafka.KafkaHandleResolver.convertTableHandle;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
+import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -98,7 +106,8 @@ public class KafkaMetadata
                         getColumnHandles(session, schemaTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
                                 .collect(toImmutableList()),
-                        TupleDomain.all()))
+                        TupleDomain.all(),
+                        OptionalLong.empty()))
                 .orElse(null);
     }
 
@@ -238,12 +247,11 @@ public class KafkaMetadata
     }
 
     @Override
-    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
         KafkaTableHandle handle = (KafkaTableHandle) table;
-        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
-        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
-        if (oldDomain.equals(newDomain)) {
+
+        if (handle.getLimit().isPresent() && handle.getLimit().getAsLong() <= limit) {
             return Optional.empty();
         }
 
@@ -258,9 +266,65 @@ public class KafkaMetadata
                 handle.getKeySubject(),
                 handle.getMessageSubject(),
                 handle.getColumns(),
-                newDomain);
+                handle.getConstraint(),
+                OptionalLong.of(limit));
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+        return Optional.of(new LimitApplicationResult<>(handle, false));
+    }
+
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        KafkaTableHandle handle = (KafkaTableHandle) table;
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        // FilterNode is not added, only if all domain match the following conditions:
+        // 1. columnName is PARTITION_ID_FIELD
+        // 2. columnName is PARTITION_OFFSET_FIELD, and offset is a singleValue or continuous range (eg: _partition_offset > 0)
+        Map<ColumnHandle, Domain> incomplete = new HashMap<>();
+        if (constraint.getSummary().getDomains().isPresent()) {
+            for (Map.Entry<ColumnHandle, Domain> entry : constraint.getSummary().getDomains().get().entrySet()) {
+                KafkaColumnHandle column = (KafkaColumnHandle) entry.getKey();
+                if (column.isInternal()) {
+                    switch (column.getName()) {
+                        case PARTITION_OFFSET_FIELD:
+                            ValueSet valueSet = entry.getValue().getValues();
+                            if (!(valueSet instanceof SortedRangeSet && ((SortedRangeSet) valueSet).getRanges().getRangeCount() == 1)) {
+                                incomplete.put(column, entry.getValue());
+                            }
+                            break;
+                        case PARTITION_ID_FIELD:
+                            break;
+                        default:
+                            incomplete.put(column, entry.getValue());
+                            break;
+                    }
+                }
+                else {
+                    incomplete.put(column, entry.getValue());
+                }
+            }
+        }
+
+        handle = new KafkaTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getTopicName(),
+                handle.getKeyDataFormat(),
+                handle.getMessageDataFormat(),
+                handle.getKeyDataSchemaLocation(),
+                handle.getMessageDataSchemaLocation(),
+                handle.getKeySubject(),
+                handle.getMessageSubject(),
+                handle.getColumns(),
+                newDomain,
+                handle.getLimit());
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(incomplete)));
     }
 
     private KafkaTopicDescription getRequiredTopicDescription(ConnectorSession session, SchemaTableName schemaTableName)
@@ -295,7 +359,8 @@ public class KafkaMetadata
                 table.getKeySubject(),
                 table.getMessageSubject(),
                 actualColumns,
-                TupleDomain.none());
+                TupleDomain.none(),
+                table.getLimit());
     }
 
     @Override

@@ -25,6 +25,7 @@ import io.trino.spi.predicate.TupleDomain;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -56,6 +57,7 @@ public final class KafkaTableHandle
     private final Optional<String> messageSubject;
     private final List<KafkaColumnHandle> columns;
     private final TupleDomain<ColumnHandle> constraint;
+    private final OptionalLong limit;
 
     @JsonCreator
     public KafkaTableHandle(
@@ -69,7 +71,8 @@ public final class KafkaTableHandle
             @JsonProperty("keySubject") Optional<String> keySubject,
             @JsonProperty("messageSubject") Optional<String> messageSubject,
             @JsonProperty("columns") List<KafkaColumnHandle> columns,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
+            @JsonProperty("limit") OptionalLong limit)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -82,6 +85,7 @@ public final class KafkaTableHandle
         this.messageSubject = requireNonNull(messageSubject, "messageSubject is null");
         this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
+        this.limit = requireNonNull(limit, "limit is null");
     }
 
     @JsonProperty
@@ -150,6 +154,12 @@ public final class KafkaTableHandle
         return constraint;
     }
 
+    @JsonProperty
+    public OptionalLong getLimit()
+    {
+        return limit;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
@@ -169,7 +179,8 @@ public final class KafkaTableHandle
                 keySubject,
                 messageSubject,
                 columns,
-                constraint);
+                constraint,
+                limit);
     }
 
     @Override
@@ -193,7 +204,8 @@ public final class KafkaTableHandle
                 && Objects.equals(this.keySubject, other.keySubject)
                 && Objects.equals(this.messageSubject, other.messageSubject)
                 && Objects.equals(this.columns, other.columns)
-                && Objects.equals(this.constraint, other.constraint);
+                && Objects.equals(this.constraint, other.constraint)
+                && Objects.equals(this.limit, other.limit);
     }
 
     @Override
@@ -211,6 +223,7 @@ public final class KafkaTableHandle
                 .add("messageSubject", messageSubject)
                 .add("columns", columns)
                 .add("constraint", constraint)
+                .add("limit", limit)
                 .toString();
     }
 }
