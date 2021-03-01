@@ -161,4 +161,13 @@ public abstract class BasePrestoConnectorDistributedQueriesWithoutWrites
                 .hasMessageStartingWith("This connector does not support creating tables");
         throw new SkipException("not supported");
     }
+
+    @Override
+    public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
+    {
+        // TODO remove override and return false from supportsCreateTable instead.
+        assertThatThrownBy(() -> super.testCaseSensitiveDataMapping(dataMappingTestSetup))
+                .hasMessageStartingWith("This connector does not support creating tables");
+        throw new SkipException("not supported");
+    }
 }

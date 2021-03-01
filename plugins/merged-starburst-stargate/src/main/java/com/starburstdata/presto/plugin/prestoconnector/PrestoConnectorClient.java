@@ -321,11 +321,11 @@ public class PrestoConnectorClient
                 return Optional.of(decimalColumnMapping(createDecimalType(typeHandle.getRequiredColumnSize(), typeHandle.getRequiredDecimalDigits())));
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.VARCHAR:
                 // Presto JDBC reports column size of VarcharType.UNBOUNDED_LENGTH for an unbounded varchar, and so it will be mapped to unbounded varchar here too
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.VARBINARY:
                 return Optional.of(varbinaryColumnMapping());
