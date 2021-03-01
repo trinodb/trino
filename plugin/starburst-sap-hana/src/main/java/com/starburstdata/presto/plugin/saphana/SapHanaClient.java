@@ -346,11 +346,11 @@ public class SapHanaClient
             case Types.CHAR:
             case Types.NCHAR:
                 verify(typeHandle.getRequiredColumnSize() < CharType.MAX_LENGTH, "Unexpected type: %s", typeHandle); // SAP HANA char is shorter than Presto's
-                return Optional.of(charColumnMapping(createCharType(typeHandle.getRequiredColumnSize())));
+                return Optional.of(charColumnMapping(createCharType(typeHandle.getRequiredColumnSize()), true));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.CLOB:
             case Types.NCLOB:
