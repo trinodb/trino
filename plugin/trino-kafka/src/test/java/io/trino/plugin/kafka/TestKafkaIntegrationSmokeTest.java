@@ -627,4 +627,48 @@ public class TestKafkaIntegrationSmokeTest
             return tableName; // for test case label in IDE
         }
     }
+
+    @Test
+    public void testApplyFilterAndLimit() {
+        long partitionNum = (long) computeScalar("SELECT count(distinct _partition_id) partition_num FROM tpch.customer");
+
+        assertQuery("SELECT _partition_id, _partition_offset" +
+                        " FROM tpch.customer" +
+                        " WHERE _partition_id = 0 AND _partition_offset > 100" +
+                        " LIMIT 100",
+                "SELECT _partition_id, _partition_offset" +
+                        " FROM tpch.customer" +
+                        " WHERE _partition_id = 0 AND _partition_offset > 100" +
+                        " ORDER BY _partition_offset" +
+                        " LIMIT 100");
+
+        assertQuery("SELECT _partition_id, _partition_offset" +
+                        " FROM tpch.customer" +
+                        " WHERE _partition_id = 0" +
+                        " LIMIT 100",
+                "SELECT _partition_id, _partition_offset" +
+                        " FROM tpch.customer" +
+                        " WHERE _partition_id = 0" +
+                        " ORDER BY _partition_offset" +
+                        " LIMIT 100");
+
+        if (partitionNum == 1) {
+            assertQuery("SELECT _partition_id, _partition_offset" +
+                            " FROM tpch.customer" +
+                            " LIMIT 100",
+                    "SELECT _partition_id, _partition_offset" +
+                            " FROM tpch.customer" +
+                            " ORDER BY _partition_offset" +
+                            " LIMIT 100");
+        }
+        else {
+            assertQuery("SELECT _partition_offset" +
+                            " FROM tpch.customer" +
+                            " LIMIT 100",
+                    "SELECT _partition_offset" +
+                            " FROM tpch.customer" +
+                            " ORDER BY _partition_offset" +
+                            " LIMIT 100");
+        }
+    }
 }
