@@ -25,7 +25,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.spi.TrinoException;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -78,7 +77,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -5152,11 +5150,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testPivotExceedingMaximumArraySize()
     {
-        int columns = 255;
-
-        assertThatThrownBy(() -> computeActual(pivotQuery(columns)))
-                .isInstanceOf(TrinoException.class)
-                .hasMessage("Too many arguments for array constructor");
+        assertQueryFails(pivotQuery(255), "Too many arguments for array constructor");
     }
 
     private static String pivotQuery(int columnsCount)
