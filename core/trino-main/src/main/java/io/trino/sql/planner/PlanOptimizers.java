@@ -185,6 +185,7 @@ import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarApplyNodes;
 import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
 import io.trino.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.trino.sql.planner.iterative.rule.ReorderJoins;
+import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
@@ -459,6 +460,7 @@ public class PlanOptimizers
                                         new RemoveRedundantDistinctLimit(),
                                         new RemoveRedundantCrossJoin(),
                                         new RemoveRedundantJoin(),
+                                        new ReplaceRedundantJoinWithProject(),
                                         new RemoveRedundantEnforceSingleRowNode(),
                                         new RemoveRedundantExists(),
                                         new ImplementFilteredAggregations(metadata),
