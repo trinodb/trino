@@ -61,7 +61,7 @@ public class TestPostgreSqlConnectorTest
             postgreSqlServer.close();
             postgreSqlServer = null;
         });
-        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), REQUIRED_TPCH_TABLES);
+        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of("topn-pushdown.enabled", "true"), REQUIRED_TPCH_TABLES);
     }
 
     @BeforeClass
