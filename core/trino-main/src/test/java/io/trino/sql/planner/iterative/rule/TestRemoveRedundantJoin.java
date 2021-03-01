@@ -88,4 +88,16 @@ public class TestRemoveRedundantJoin
                                 p.values(0)))
                 .matches(values("a"));
     }
+
+    @Test
+    public void testFullJoinRemoval()
+    {
+        tester().assertThat(new RemoveRedundantJoin())
+                .on(p ->
+                        p.join(
+                                FULL,
+                                p.values(0, p.symbol("a")),
+                                p.values(0, p.symbol("b"))))
+                .matches(values("a", "b"));
+    }
 }

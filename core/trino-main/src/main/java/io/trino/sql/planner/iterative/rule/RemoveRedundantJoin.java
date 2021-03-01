@@ -22,9 +22,6 @@ import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.planner.plan.ValuesNode;
 
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMost;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.join;
 
 public class RemoveRedundantJoin
@@ -57,15 +54,17 @@ public class RemoveRedundantJoin
 
     private boolean canRemoveJoin(Type joinType, boolean isLeftSourceEmpty, boolean isRightSourceEmpty)
     {
-        if (joinType == INNER && (isLeftSourceEmpty || isRightSourceEmpty)) {
-            return true;
+        switch (joinType) {
+            case INNER:
+                return isLeftSourceEmpty || isRightSourceEmpty;
+            case LEFT:
+                return isLeftSourceEmpty;
+            case RIGHT:
+                return isRightSourceEmpty;
+            case FULL:
+                return isLeftSourceEmpty && isRightSourceEmpty;
         }
-        if (joinType == LEFT && isLeftSourceEmpty) {
-            return true;
-        }
-        if (joinType == RIGHT && isRightSourceEmpty) {
-            return true;
-        }
+
         return false;
     }
 }
