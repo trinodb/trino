@@ -9,7 +9,7 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>trino-phoenix-5</artifactId>
+    <artifactId>trino-phoenix5</artifactId>
     <description>Trino - Phoenix 5 Connector</description>
     <packaging>trino-plugin</packaging>
 
