@@ -34,6 +34,10 @@ public interface PredicatePushdownController
         return new DomainPushdownResult(domain, Domain.all(domain.getType()));
     };
 
+    PredicatePushdownController PUSHDOWN_AND_KEEP = (session, domain) -> new DomainPushdownResult(
+            domain.simplify(getDomainCompactionThreshold(session)),
+            domain);
+
     PredicatePushdownController DISABLE_PUSHDOWN = (session, domain) -> new DomainPushdownResult(
             Domain.all(domain.getType()),
             domain);
@@ -48,9 +52,7 @@ public interface PredicatePushdownController
         }
 
         if (domain.getValues().isDiscreteSet()) {
-            return new DomainPushdownResult(
-                    domain.simplify(getDomainCompactionThreshold(session)),
-                    domain);
+            return PUSHDOWN_AND_KEEP.apply(session, domain);
         }
 
         // case insensitive predicate pushdown could return incorrect results for operators like `!=`, `<` or `>`
