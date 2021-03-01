@@ -380,6 +380,10 @@ Property Name                                      Description                  
 ``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate Hive views. You can    ``false``
                                                    alternatively set the ``legacy_hive_view_translation``
                                                    session property to ``true``.
+
+``hive.parallel-partitioned-bucketed-inserts``     Improve parallelism of partitioned and bucketed table        ``true``
+                                                   inserts. When disabled, the number of writing threads
+                                                   is limited to number of buckets.
 ================================================== ============================================================ ============
 
 Metastore configuration properties
