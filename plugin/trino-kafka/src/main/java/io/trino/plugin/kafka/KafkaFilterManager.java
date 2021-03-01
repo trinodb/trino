@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -88,6 +89,7 @@ public class KafkaFilterManager
 
         TupleDomain<ColumnHandle> constraint = kafkaTableHandle.getConstraint();
         verify(!constraint.isNone(), "constraint is none");
+        OptionalLong limit = kafkaTableHandle.getLimit();
 
         if (!constraint.isAll()) {
             Set<Long> partitionIds = partitionInfos.stream().map(partitionInfo -> (long) partitionInfo.partition()).collect(toImmutableSet());
@@ -140,10 +142,17 @@ public class KafkaFilterManager
 
             // push down partitions
             final Set<Long> finalPartitionIdsFiltered = partitionIdsFiltered;
-            List<PartitionInfo> partitionFilteredInfos = partitionInfos.stream()
+            partitionInfos = partitionInfos.stream()
                     .filter(partitionInfo -> finalPartitionIdsFiltered.contains((long) partitionInfo.partition()))
                     .collect(toImmutableList());
-            return new KafkaFilteringResult(partitionFilteredInfos, partitionBeginOffsets, partitionEndOffsets);
+        }
+
+        // push down limit
+        if (limit.isPresent()) {
+            Map<TopicPartition, Long> finalPartitionBeginOffsets = partitionBeginOffsets;
+            partitionEndOffsets = overridePartitionEndOffsets(partitionEndOffsets,
+                    partition -> (finalPartitionBeginOffsets.get(partition) != INVALID_KAFKA_RANGE_INDEX)
+                            ? Optional.of(finalPartitionBeginOffsets.get(partition) + limit.getAsLong()) : Optional.empty());
         }
         return new KafkaFilteringResult(partitionInfos, partitionBeginOffsets, partitionEndOffsets);
     }
