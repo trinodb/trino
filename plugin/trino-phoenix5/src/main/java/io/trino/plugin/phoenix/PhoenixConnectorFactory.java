@@ -42,7 +42,7 @@ public class PhoenixConnectorFactory
     @Override
     public String getName()
     {
-        return "phoenix-5";
+        return "phoenix5";
     }
 
     @Override

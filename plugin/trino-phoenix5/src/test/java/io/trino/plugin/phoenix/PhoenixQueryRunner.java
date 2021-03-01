@@ -63,7 +63,7 @@ public final class PhoenixQueryRunner
                 .build();
 
         queryRunner.installPlugin(new PhoenixPlugin());
-        queryRunner.createCatalog("phoenix", "phoenix-5", properties);
+        queryRunner.createCatalog("phoenix", "phoenix5", properties);
 
         if (!server.isTpchLoaded()) {
             createSchema(server, TPCH_SCHEMA);

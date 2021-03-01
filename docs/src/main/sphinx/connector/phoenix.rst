@@ -9,8 +9,8 @@ The Phoenix connector allows querying data stored in
 Compatibility
 -------------
 
-The Phoenix connector is compatible with all Phoenix 4.x versions starting from 4.14.1.
-The Phoenix-5 connector is compatible with all Phoenix 5.x versions starting from 5.1.0.
+The ``phoenix`` connector is compatible with all Phoenix 4.x versions starting from 4.14.1.
+The ``phoenix5`` connector is compatible with all Phoenix 5.x versions starting from 5.1.0.
 
 Configuration
 -------------
@@ -33,7 +33,7 @@ For HBase 2.x and Phoenix 5.x (5.1.0 or later) use:
 
 .. code-block:: text
 
-    connector.name=phoenix-5
+    connector.name=phoenix5
 
 Configuration properties
 ------------------------
