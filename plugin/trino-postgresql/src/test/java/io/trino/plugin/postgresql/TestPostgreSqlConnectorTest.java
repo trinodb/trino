@@ -61,6 +61,7 @@ public class TestPostgreSqlConnectorTest
             postgreSqlServer.close();
             postgreSqlServer = null;
         });
+        // TODO: https://github.com/trinodb/trino/issues/7031
         return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of("topn-pushdown.enabled", "true"), REQUIRED_TPCH_TABLES);
     }
 
