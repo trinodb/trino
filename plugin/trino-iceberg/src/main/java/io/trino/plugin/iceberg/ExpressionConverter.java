@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.trino.spi.predicate.Marker.Bound.ABOVE;
 import static io.trino.spi.predicate.Marker.Bound.BELOW;
@@ -203,10 +202,8 @@ public final class ExpressionConverter
             DecimalType decimalType = (DecimalType) type;
             Object value = requireNonNull(marker.getValue(), "The value of the marker must be non-null");
             if (Decimals.isShortDecimal(decimalType)) {
-                checkArgument(value instanceof Long, "A short decimal should be represented by a Long value but was %s", value.getClass().getName());
                 return BigDecimal.valueOf((long) value).movePointLeft(decimalType.getScale());
             }
-            checkArgument(value instanceof Slice, "A long decimal should be represented by a Slice value but was %s", value.getClass().getName());
             return new BigDecimal(Decimals.decodeUnscaledValue((Slice) value), decimalType.getScale());
         }
 
