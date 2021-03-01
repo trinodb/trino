@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -21,11 +20,14 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.sqlserver.DataCompression.NONE;
@@ -33,10 +35,6 @@ import static io.trino.plugin.sqlserver.DataCompression.PAGE;
 import static io.trino.plugin.sqlserver.DataCompression.ROW;
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
@@ -44,9 +42,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestSqlServerIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public class TestSqlServerConnectorTest
+        extends BaseConnectorTest
 {
     protected TestingSqlServer sqlServer;
 
@@ -56,16 +53,67 @@ public class TestSqlServerIntegrationSmokeTest
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
         sqlServer.start();
-        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
+        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), TpchTable.getTables());
     }
 
-    @Test
-    public void testInsert()
+    @Override
+    protected boolean supportsDelete()
     {
-        sqlServer.execute("CREATE TABLE test_insert (x bigint, y varchar(100))");
-        assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
-        assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
-        assertUpdate("DROP TABLE test_insert");
+        return false;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                sqlServer::execute,
+                "table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("varbinary")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
     }
 
     @Test
@@ -80,7 +128,7 @@ public class TestSqlServerIntegrationSmokeTest
     }
 
     @Test
-    public void testView()
+    public void testReadFromView()
     {
         sqlServer.execute("CREATE VIEW test_view AS SELECT * FROM orders");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
