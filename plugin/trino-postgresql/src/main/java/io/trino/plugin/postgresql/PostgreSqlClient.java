@@ -156,6 +156,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.trino.plugin.jdbc.VarcharPredicatePushdownSessionProperties.isUnsafeVarcharPushdownEnabled;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
 import static io.trino.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
@@ -227,6 +228,10 @@ public class PostgreSqlClient
         checkArgument(
                 domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
                 "This PredicatePushdownController can be used only for chars and varchars");
+
+        if (isUnsafeVarcharPushdownEnabled(session)) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
 
         if (domain.isOnlyNull() ||
                 // PostgreSQL is case sensitive by default

@@ -25,6 +25,7 @@ import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.VarcharPredicatePushdownModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
 import java.sql.SQLException;
@@ -42,6 +43,7 @@ public class MySqlClientModule
         configBinder(binder).bindConfig(MySqlJdbcConfig.class);
         configBinder(binder).bindConfig(MySqlConfig.class);
         binder.install(new DecimalModule());
+        binder.install(new VarcharPredicatePushdownModule());
     }
 
     @Provides

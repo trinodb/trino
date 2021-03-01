@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.VarcharPredicatePushdownModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -41,6 +42,7 @@ public class SqlServerClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SqlServerClient.class).in(Scopes.SINGLETON);
         bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
+        binder.install(new VarcharPredicatePushdownModule());
     }
 
     @Provides

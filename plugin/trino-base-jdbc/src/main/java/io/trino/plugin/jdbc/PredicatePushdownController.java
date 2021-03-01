@@ -22,6 +22,7 @@ import io.trino.spi.type.VarcharType;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
+import static io.trino.plugin.jdbc.VarcharPredicatePushdownSessionProperties.isUnsafeVarcharPushdownEnabled;
 import static java.util.Objects.requireNonNull;
 
 public interface PredicatePushdownController
@@ -46,6 +47,10 @@ public interface PredicatePushdownController
         checkArgument(
                 domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
                 "CASE_INSENSITIVE_CHARACTER_PUSHDOWN can be used only for chars and varchars");
+
+        if (isUnsafeVarcharPushdownEnabled(session)) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
 
         if (domain.isOnlyNull()) {
             return FULL_PUSHDOWN.apply(session, domain);

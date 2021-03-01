@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.DecimalModule;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
+import io.trino.plugin.jdbc.VarcharPredicatePushdownModule;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import org.postgresql.Driver;
 
@@ -40,6 +41,7 @@ public class PostgreSqlClientModule
         configBinder(binder).bindConfig(PostgreSqlConfig.class);
         bindSessionPropertiesProvider(binder, PostgreSqlSessionProperties.class);
         binder.install(new DecimalModule());
+        binder.install(new VarcharPredicatePushdownModule());
     }
 
     @Provides
