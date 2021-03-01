@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.synapse;
 import io.trino.Session;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
@@ -144,10 +145,27 @@ public class TestSynapseIntegrationSmokeTest
         assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
 
+        // GROUP BY and WHERE on bigint column
+        // GROUP BY and WHERE on aggregation key
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on varchar column
+        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey"))
+                // Synapse is case insensitive by default
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // GROUP BY above WHERE and LIMIT
+        assertThat(query("" +
+                "SELECT regionkey, sum(nationkey) " +
+                "FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) " +
+                "GROUP BY regionkey"))
+                .isFullyPushedDown();
+
         String tableName = "test_aggregation_pushdown" + randomTableSuffix();
-        try (AutoCloseable ignoreTable = withTable(tableName, "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
-            synapseServer.execute("INSERT INTO " + tableName + " VALUES (100.000, 100000000.000000000, 'ala')");
-            synapseServer.execute("INSERT INTO " + tableName + " VALUES (123.321, 123456789.987654321, 'kot')");
+        try (AutoCloseable ignoreTable = withTable(tableName, "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10), bigint_column bigint)")) {
+            synapseServer.execute("INSERT INTO " + tableName + " VALUES (100.000, 100000000.000000000, 'ala', 1)");
+            synapseServer.execute("INSERT INTO " + tableName + " VALUES (123.321, 123456789.987654321, 'kot', 2)");
 
             assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + tableName)).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + tableName)).isFullyPushedDown();
@@ -167,13 +185,19 @@ public class TestSynapseIntegrationSmokeTest
             // GROUP BY with WHERE on aggregation column
             assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on neither grouping nor aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " WHERE varchar_column = 'ala' GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " WHERE bigint_column = 1 GROUP BY short_decimal"))
+                    .isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + tableName + " WHERE varchar_column = 'ala' GROUP BY short_decimal"))
+                    // SQL Server is case insensitive by default
+                    .isNotFullyPushedDown(FilterNode.class);
             // aggregation on varchar column
             assertThat(query("SELECT min(varchar_column) FROM " + tableName)).isFullyPushedDown();
             // aggregation on varchar column with GROUPING
             assertThat(query("SELECT short_decimal, min(varchar_column) FROM " + tableName + " GROUP BY short_decimal")).isFullyPushedDown();
             // aggregation on varchar column with WHERE
-            assertThat(query("SELECT min(varchar_column) FROM " + tableName + " WHERE varchar_column ='ala'")).isFullyPushedDown();
+            assertThat(query("SELECT min(varchar_column) FROM " + tableName + " WHERE varchar_column ='ala'"))
+                    // SQL Server is case insensitive by default
+                    .isNotFullyPushedDown(FilterNode.class);
 
             assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM " + tableName + " GROUP BY short_decimal")).isFullyPushedDown();
         }
@@ -308,7 +332,9 @@ public class TestSynapseIntegrationSmokeTest
         assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
 
         // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5"))
+                // SQL Server is case insensitive by default
+                .isNotFullyPushedDown(FilterNode.class);
 
         // with aggregation
         assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
@@ -317,7 +343,9 @@ public class TestSynapseIntegrationSmokeTest
 
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3"))
+                // SQL Server is case insensitive by default
+                .isNotFullyPushedDown(FilterNode.class);
     }
 
     @Test

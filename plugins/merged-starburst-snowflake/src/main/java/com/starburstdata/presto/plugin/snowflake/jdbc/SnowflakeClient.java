@@ -255,7 +255,7 @@ public class SnowflakeClient
 
         if (typeName.equals("OBJECT") || typeName.equals("ARRAY")) {
             // TODO: better support for OBJECT (Presto MAP/ROW) and ARRAY (Presto ARRAY)
-            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createUnboundedVarcharType())));
+            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createUnboundedVarcharType(), true)));
         }
 
         if (typeHandle.getJdbcType() == Types.TIME) {
@@ -271,7 +271,7 @@ public class SnowflakeClient
 
         if (typeHandle.getJdbcType() == VARCHAR && distributedConnector) {
             // TODO test varchar values exceeding HiveVarchar.MAX_VARCHAR_LENGTH (65535)
-            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(typeHandle.getRequiredColumnSize(), HiveVarchar.MAX_VARCHAR_LENGTH)))));
+            return Optional.of(updatePushdownCotroller(varcharColumnMapping(createVarcharType(min(typeHandle.getRequiredColumnSize(), HiveVarchar.MAX_VARCHAR_LENGTH)), true)));
         }
 
         if (typeHandle.getJdbcType() == VARBINARY || typeHandle.getJdbcType() == BINARY || typeHandle.getJdbcType() == LONGVARBINARY) {
