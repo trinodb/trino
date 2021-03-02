@@ -91,13 +91,13 @@ import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
-import static io.trino.plugin.jdbc.StandardColumnMappings.fromPrestoTime;
-import static io.trino.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
+import static io.trino.plugin.jdbc.StandardColumnMappings.legacyDefaultColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.toPrestoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.toTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -278,7 +278,7 @@ public class SnowflakeClient
             return Optional.of(varbinaryColumnMapping());
         }
 
-        return jdbcTypeToPrestoType(typeHandle).map(this::updatePushdownCotroller);
+        return legacyDefaultColumnMapping(typeHandle).map(this::updatePushdownCotroller);
     }
 
     private ColumnMapping updatePushdownCotroller(ColumnMapping mapping)
@@ -390,13 +390,13 @@ public class SnowflakeClient
     {
         return ColumnMapping.longMapping(
                 TIMESTAMP_MILLIS,
-                (resultSet, columnIndex) -> toPrestoTimestamp(TIMESTAMP_MILLIS, toLocalDateTime(resultSet, columnIndex)),
+                (resultSet, columnIndex) -> toTrinoTimestamp(TIMESTAMP_MILLIS, toLocalDateTime(resultSet, columnIndex)),
                 timestampWriteFunction());
     }
 
     private static LongWriteFunction timestampWriteFunction()
     {
-        return (statement, index, value) -> statement.setString(index, fromPrestoTimestamp(value).toString());
+        return (statement, index, value) -> statement.setString(index, fromTrinoTimestamp(value).toString());
     }
 
     private static ColumnMapping timeColumnMapping()
@@ -409,7 +409,7 @@ public class SnowflakeClient
 
     private static LongWriteFunction timeWriteFunction()
     {
-        return (statement, index, value) -> statement.setString(index, fromPrestoTime(value).toString());
+        return (statement, index, value) -> statement.setString(index, fromTrinoTime(value).toString());
     }
 
     private static LocalDateTime toLocalDateTime(ResultSet resultSet, int columnIndex)
