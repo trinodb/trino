@@ -162,7 +162,7 @@ public class StarburstOracleClient
                     columnExpressions,
                     table.getConstraint(),
                     Optional.empty());
-            preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
+            preparedQuery = applyQueryTransformations(table, preparedQuery);
             return preparedQuery;
         }
         catch (SQLException e) {
@@ -184,7 +184,7 @@ public class StarburstOracleClient
                 ImmutableMap.of(),
                 table.getConstraint(),
                 split.getAdditionalPredicate());
-        preparedQuery = preparedQuery.transformQuery(tryApplyLimit(table.getLimit()));
+        preparedQuery = applyQueryTransformations(table, preparedQuery);
         return queryBuilder.prepareStatement(session, connection, preparedQuery);
     }
 
