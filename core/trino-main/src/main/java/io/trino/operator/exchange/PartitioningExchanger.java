@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
@@ -31,6 +32,7 @@ class PartitioningExchanger
 {
     private final List<Consumer<PageReference>> buffers;
     private final LocalExchangeMemoryManager memoryManager;
+    private final Function<Page, Page> partitionedPagePreparer;
     private final PartitionFunction partitionFunction;
     private final IntArrayList[] partitionAssignments;
     private final PageReleasedListener onPageReleased;
@@ -38,11 +40,13 @@ class PartitioningExchanger
     public PartitioningExchanger(
             List<Consumer<PageReference>> partitions,
             LocalExchangeMemoryManager memoryManager,
+            Function<Page, Page> partitionPagePreparer,
             PartitionFunction partitionFunction)
     {
         this.buffers = ImmutableList.copyOf(requireNonNull(partitions, "partitions is null"));
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
         this.onPageReleased = PageReleasedListener.forLocalExchangeMemoryManager(memoryManager);
+        this.partitionedPagePreparer = requireNonNull(partitionPagePreparer, "partitionPagePreparer is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
 
         partitionAssignments = new IntArrayList[partitions.size()];
@@ -60,8 +64,9 @@ class PartitioningExchanger
         }
 
         // assign each row to a partition
-        for (int position = 0; position < page.getPositionCount(); position++) {
-            int partition = partitionFunction.getPartition(page, position);
+        Page partitionPage = partitionedPagePreparer.apply(page);
+        for (int position = 0; position < partitionPage.getPositionCount(); position++) {
+            int partition = partitionFunction.getPartition(partitionPage, position);
             partitionAssignments[partition].add(position);
         }
 

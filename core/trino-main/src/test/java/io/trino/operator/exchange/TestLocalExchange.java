@@ -60,6 +60,7 @@ import static io.trino.operator.PipelineExecutionStrategy.GROUPED_EXECUTION;
 import static io.trino.operator.PipelineExecutionStrategy.UNGROUPED_EXECUTION;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -485,6 +486,7 @@ public class TestLocalExchange
                 };
             }
         };
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT);
         nodePartitioningManager.addPartitioningProvider(
                 new CatalogName("foo"),
                 connectorNodePartitioningProvider);
@@ -497,8 +499,8 @@ public class TestLocalExchange
                 SESSION,
                 partitioningHandle,
                 2,
-                TYPES,
-                ImmutableList.of(0),
+                types,
+                ImmutableList.of(1),
                 Optional.empty(),
                 executionStrategy,
                 LOCAL_EXCHANGE_MAX_BUFFERED_BYTES,
@@ -522,22 +524,22 @@ public class TestLocalExchange
             LocalExchangeSource sourceB = exchange.getSource(0);
             assertSource(sourceB, 0);
 
-            Page pageA = SequencePageBuilder.createSequencePage(TYPES, 1, 42);
+            Page pageA = SequencePageBuilder.createSequencePage(types, 1, 100, 42);
             sink.addPage(pageA);
 
             assertSource(sourceA, 1);
             assertSource(sourceB, 0);
 
-            assertRemovePage(sourceA, pageA);
+            assertRemovePage(types, sourceA, pageA);
             assertSource(sourceA, 0);
 
-            Page pageB = SequencePageBuilder.createSequencePage(TYPES, 100, 43);
+            Page pageB = SequencePageBuilder.createSequencePage(types, 100, 100, 43);
             sink.addPage(pageB);
 
             assertSource(sourceA, 0);
             assertSource(sourceB, 1);
 
-            assertRemovePage(sourceB, pageB);
+            assertRemovePage(types, sourceB, pageB);
             assertSource(sourceB, 0);
         });
     }
@@ -755,12 +757,17 @@ public class TestLocalExchange
 
     private static void assertRemovePage(LocalExchangeSource source, Page expectedPage)
     {
+        assertRemovePage(TYPES, source, expectedPage);
+    }
+
+    private static void assertRemovePage(List<Type> types, LocalExchangeSource source, Page expectedPage)
+    {
         assertTrue(source.waitForReading().isDone());
         Page actualPage = source.removePage();
         assertNotNull(actualPage);
 
         assertEquals(actualPage.getChannelCount(), expectedPage.getChannelCount());
-        PageAssertions.assertPageEquals(TYPES, actualPage, expectedPage);
+        PageAssertions.assertPageEquals(types, actualPage, expectedPage);
     }
 
     private static void assertPartitionedRemovePage(LocalExchangeSource source, int partition, int partitionCount)
