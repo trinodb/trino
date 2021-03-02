@@ -95,6 +95,10 @@ import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeDelete;
+import io.trino.sql.tree.MergeInsert;
+import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
@@ -174,8 +178,11 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.sql.QueryUtil.aliased;
 import static io.trino.sql.QueryUtil.ascending;
+import static io.trino.sql.QueryUtil.equal;
 import static io.trino.sql.QueryUtil.identifier;
+import static io.trino.sql.QueryUtil.nameReference;
 import static io.trino.sql.QueryUtil.ordering;
 import static io.trino.sql.QueryUtil.query;
 import static io.trino.sql.QueryUtil.quotedIdentifier;
@@ -1531,6 +1538,43 @@ public class TestSqlParser
                 new ComparisonExpression(ComparisonExpression.Operator.EQUAL,
                         new Identifier("a"),
                         new Identifier("b")))));
+    }
+
+    @Test
+    public void testMerge()
+    {
+        assertStatement("" +
+                        "MERGE INTO inventory AS i " +
+                        "  USING changes AS c " +
+                        "  ON i.part = c.part " +
+                        "WHEN MATCHED AND c.action = 'mod' " +
+                        "  THEN UPDATE SET " +
+                        "    qty = qty + c.qty " +
+                        "  , ts = CURRENT_TIMESTAMP " +
+                        "WHEN MATCHED AND c.action = 'del' " +
+                        "  THEN DELETE " +
+                        "WHEN NOT MATCHED AND c.action = 'new' " +
+                        "  THEN INSERT (part, qty) VALUES (c.part, c.qty)",
+                new Merge(
+                        table(QualifiedName.of("inventory")),
+                        Optional.of(new Identifier("i")),
+                        aliased(table(QualifiedName.of("changes")), "c"),
+                        equal(nameReference("i", "part"), nameReference("c", "part")),
+                        ImmutableList.of(
+                                new MergeUpdate(
+                                        Optional.of(equal(nameReference("c", "action"), new StringLiteral("mod"))),
+                                        ImmutableList.of(
+                                                new MergeUpdate.Assignment(new Identifier("qty"), new ArithmeticBinaryExpression(
+                                                        ArithmeticBinaryExpression.Operator.ADD,
+                                                        nameReference("qty"),
+                                                        nameReference("c", "qty"))),
+                                                new MergeUpdate.Assignment(new Identifier("ts"), new CurrentTime(CurrentTime.Function.TIMESTAMP)))),
+                                new MergeDelete(
+                                        Optional.of(equal(nameReference("c", "action"), new StringLiteral("del")))),
+                                new MergeInsert(
+                                        Optional.of(equal(nameReference("c", "action"), new StringLiteral("new"))),
+                                        ImmutableList.of(new Identifier("part"), new Identifier("qty")),
+                                        ImmutableList.of(nameReference("c", "part"), nameReference("c", "qty"))))));
     }
 
     @Test

@@ -637,6 +637,44 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitMerge(Merge node, C context)
+    {
+        process(node.getTable(), context);
+        node.getTargetAlias().ifPresent(target -> process(target, context));
+        process(node.getRelation(), context);
+        process(node.getExpression(), context);
+        node.getMergeCases().forEach(mergeCase -> process(mergeCase, context));
+        return null;
+    }
+
+    @Override
+    protected Void visitMergeInsert(MergeInsert node, C context)
+    {
+        node.getExpression().ifPresent(expression -> process(expression, context));
+        node.getColumns().forEach(column -> process(column, context));
+        node.getValues().forEach(expression -> process(expression, context));
+        return null;
+    }
+
+    @Override
+    protected Void visitMergeUpdate(MergeUpdate node, C context)
+    {
+        node.getExpression().ifPresent(expression -> process(expression, context));
+        node.getAssignments().forEach(assignment -> {
+            process(assignment.getTarget(), context);
+            process(assignment.getValue(), context);
+        });
+        return null;
+    }
+
+    @Override
+    protected Void visitMergeDelete(MergeDelete node, C context)
+    {
+        node.getExpression().ifPresent(expression -> process(expression, context));
+        return null;
+    }
+
+    @Override
     protected Void visitCreateTableAsSelect(CreateTableAsSelect node, C context)
     {
         process(node.getQuery(), context);
