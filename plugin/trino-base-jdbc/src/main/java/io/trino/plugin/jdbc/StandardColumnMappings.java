@@ -398,7 +398,7 @@ public final class StandardColumnMappings
     @Deprecated
     public static LongWriteFunction timeWriteFunctionUsingSqlTime()
     {
-        return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoTime(value)));
+        return (statement, index, value) -> statement.setTime(index, toSqlTime(fromTrinoTime(value)));
     }
 
     private static Time toSqlTime(LocalTime localTime)
@@ -430,7 +430,7 @@ public final class StandardColumnMappings
             if (picosOfDay == PICOSECONDS_PER_DAY) {
                 picosOfDay = 0;
             }
-            statement.setObject(index, fromPrestoTime(picosOfDay));
+            statement.setObject(index, fromTrinoTime(picosOfDay));
         };
     }
 
@@ -454,7 +454,7 @@ public final class StandardColumnMappings
                     LocalDateTime rounded = localDateTime
                             .withNano(0)
                             .plusNanos(roundedNanos);
-                    return toPrestoTimestamp(timestampType, rounded);
+                    return toTrinoTimestamp(timestampType, rounded);
                 },
                 timestampWriteFunctionUsingSqlTimestamp(timestampType),
                 // NOTE: pushdown is disabled because the values stored in remote system might not match the values as
@@ -481,7 +481,7 @@ public final class StandardColumnMappings
     public static LongReadFunction timestampReadFunction(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return (resultSet, columnIndex) -> toPrestoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
+        return (resultSet, columnIndex) -> toTrinoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
     }
 
     private static ObjectReadFunction longTimestampReadFunction(TimestampType timestampType)
@@ -503,13 +503,13 @@ public final class StandardColumnMappings
     public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromPrestoTimestamp(value)));
+        return (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromTrinoTimestamp(value)));
     }
 
     public static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
     {
         checkArgument(timestampType.getPrecision() <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", timestampType.getPrecision());
-        return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(value));
+        return (statement, index, value) -> statement.setObject(index, fromTrinoTimestamp(value));
     }
 
     public static ObjectWriteFunction longTimestampWriteFunction(TimestampType timestampType)
@@ -520,7 +520,7 @@ public final class StandardColumnMappings
                 (statement, index, value) -> statement.setObject(index, fromLongTimestamp(value, timestampType.getPrecision())));
     }
 
-    public static long toPrestoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
+    public static long toTrinoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
     {
         long precision = timestampType.getPrecision();
         checkArgument(precision <= TimestampType.MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
@@ -549,7 +549,7 @@ public final class StandardColumnMappings
         return new LongTimestamp(epochMicros, picosOfMicro);
     }
 
-    public static LocalDateTime fromPrestoTimestamp(long epochMicros)
+    public static LocalDateTime fromTrinoTimestamp(long epochMicros)
     {
         long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
         int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
@@ -568,7 +568,7 @@ public final class StandardColumnMappings
         return LocalDateTime.ofInstant(instant, UTC);
     }
 
-    public static LocalTime fromPrestoTime(long value)
+    public static LocalTime fromTrinoTime(long value)
     {
         // value can round up to NANOSECONDS_PER_DAY, so we need to do % to keep it in the desired range
         return LocalTime.ofNanoOfDay(roundDiv(value, PICOSECONDS_PER_NANOSECOND) % NANOSECONDS_PER_DAY);
@@ -578,7 +578,7 @@ public final class StandardColumnMappings
      * @deprecated Each connector should provide its own explicit type mapping, along with respective tests.
      */
     @Deprecated
-    public static Optional<ColumnMapping> jdbcTypeToPrestoType(JdbcTypeHandle typeHandle)
+    public static Optional<ColumnMapping> legacyDefaultColumnMapping(JdbcTypeHandle typeHandle)
     {
         switch (typeHandle.getJdbcType()) {
             case Types.BIT:
