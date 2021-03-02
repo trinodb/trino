@@ -19,7 +19,6 @@
 * Restore previous null handling for {func}`array_min` and {func}`array_max`. ({issue}`5787`)
 * Remove configuration properties `arrayagg.implementation`,
   `multimapagg.implementation`, and `histogram.implementation`. ({issue}`4581`)
-* Remove leftover empty directories after RPM uninstall. ({issue}`5782`)
 * Fix incorrect handling of negative offsets for the `time with time zone` type. ({issue}`5696`)
 * Fix incorrect result when casting `time(p)` to `timestamp(p)` for precisions higher than 6. ({issue}`5736`)
 * Fix incorrect query results when comparing a `timestamp` column with a `timestamp with time zone` constant. ({issue}`5685`)
@@ -43,6 +42,10 @@
 * Add `SSLVerification` JDBC connection parameter that allows configuring SSL verification. ({issue}`5610`)
 * Remove legacy `useSessionTimeZone` JDBC connection parameter. ({issue}`4521`)
 * Implement `ResultSet.getRow()`. ({issue}`5769`)
+
+## Server RPM
+
+* Remove leftover empty directories after RPM uninstall. ({issue}`5782`)
 
 ## BigQuery connector
 
