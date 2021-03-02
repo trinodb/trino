@@ -66,6 +66,7 @@ public class TestJdbcTableHandle
                                         IntegerType.INTEGER,
                                         Optional.of(1))))),
                 TupleDomain.all(),
+                Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
                 0);
@@ -79,6 +80,7 @@ public class TestJdbcTableHandle
                         new SchemaTableName("schema", "table"),
                         new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table")),
                 TupleDomain.all(),
+                Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
                 0);
