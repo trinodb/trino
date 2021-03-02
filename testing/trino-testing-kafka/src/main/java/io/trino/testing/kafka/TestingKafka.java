@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.common.util.concurrent.Futures;
 import io.airlift.log.Logger;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -47,6 +48,7 @@ import java.util.stream.Stream;
 
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
 
 public final class TestingKafka
@@ -64,6 +66,7 @@ public final class TestingKafka
     private final GenericContainer<?> schemaRegistry;
     private final boolean withSchemaRegistry;
     private final Closer closer = Closer.create();
+    private final ClassLoader classLoader;
 
     public static TestingKafka create()
     {
@@ -75,13 +78,19 @@ public final class TestingKafka
         return new TestingKafka(confluentPlatformVersions, false);
     }
 
-    public static TestingKafka createWithSchemaRegistry()
+    public static TestingKafka createWithSchemaRegistry(ClassLoader classLoader)
     {
-        return new TestingKafka(DEFAULT_CONFLUENT_PLATFORM_VERSION, true);
+        return new TestingKafka(DEFAULT_CONFLUENT_PLATFORM_VERSION, true, classLoader);
     }
 
     private TestingKafka(String confluentPlatformVersion, boolean withSchemaRegistry)
     {
+        this(confluentPlatformVersion, withSchemaRegistry, Thread.currentThread().getContextClassLoader());
+    }
+
+    private TestingKafka(String confluentPlatformVersion, boolean withSchemaRegistry, ClassLoader classLoader)
+    {
+        this.classLoader = requireNonNull(classLoader, "classLoader is null");
         this.withSchemaRegistry = withSchemaRegistry;
         kafka = new KafkaContainer(KAFKA_IMAGE_NAME.withTag(confluentPlatformVersion))
                 .withNetwork(Network.SHARED)
@@ -180,19 +189,21 @@ public final class TestingKafka
 
     public <K, V> RecordMetadata sendMessages(Stream<ProducerRecord<K, V>> recordStream, Map<String, String> extraProducerProperties)
     {
-        try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
-            Future<RecordMetadata> future = recordStream.map(record -> send(producer, record))
-                    .reduce((first, second) -> second)
-                    .orElse(Futures.immediateFuture(null));
-            producer.flush();
-            return future.get();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
-        catch (ExecutionException e) {
-            throw new RuntimeException(e);
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            try (KafkaProducer<K, V> producer = createProducer(extraProducerProperties)) {
+                Future<RecordMetadata> future = recordStream.map(record -> send(producer, record))
+                        .reduce((first, second) -> second)
+                        .orElse(Futures.immediateFuture(null));
+                producer.flush();
+                return future.get();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+            catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

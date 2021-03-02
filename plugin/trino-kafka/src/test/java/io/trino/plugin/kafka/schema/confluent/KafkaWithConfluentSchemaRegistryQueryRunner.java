@@ -15,6 +15,7 @@ package io.trino.plugin.kafka.schema.confluent;
 
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.trino.plugin.kafka.KafkaConnectorFactory;
 import io.trino.plugin.kafka.KafkaQueryRunnerBuilder;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.kafka.TestingKafka;
@@ -55,7 +56,7 @@ public final class KafkaWithConfluentSchemaRegistryQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = builder(TestingKafka.createWithSchemaRegistry())
+        DistributedQueryRunner queryRunner = builder(TestingKafka.createWithSchemaRegistry(KafkaConnectorFactory.class.getClassLoader()))
                 .build();
         Logger log = Logger.get(KafkaWithConfluentSchemaRegistryQueryRunner.class);
         log.info("======== SERVER STARTED ========");

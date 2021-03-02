@@ -21,10 +21,10 @@ import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.json.KafkaJsonSchemaSerializer;
 import io.confluent.kafka.serializers.subject.RecordNameStrategy;
 import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
+import io.trino.plugin.kafka.KafkaConnectorFactory;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
-import io.trino.testng.services.Flaky;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.avro.Schema;
@@ -73,6 +73,11 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
             .name("col_3").type().optional().doubleType()
             .endRecord();
 
+    private TestingKafka createWithSchemaRegistry()
+    {
+        return TestingKafka.createWithSchemaRegistry(KafkaConnectorFactory.class.getClassLoader());
+    }
+
     protected static QueryRunner createQueryRunner(TestingKafka testingKafka)
             throws Exception
     {
@@ -84,11 +89,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testBasicTopic()
             throws Exception
     {
-        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+        try (TestingKafka testingKafka = createWithSchemaRegistry();
                 QueryRunner queryRunner = createQueryRunner(testingKafka)) {
             String topic = "topic-basic-MixedCase-" + randomTableSuffix();
             assertTopic(
@@ -104,11 +108,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithKeySubject()
             throws Exception
     {
-        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+        try (TestingKafka testingKafka = createWithSchemaRegistry();
                 QueryRunner queryRunner = createQueryRunner(testingKafka)) {
             String topic = "topic-Key-Subject-" + randomTableSuffix();
             assertTopic(
@@ -124,11 +127,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithRecordNameStrategy()
             throws Exception
     {
-        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+        try (TestingKafka testingKafka = createWithSchemaRegistry();
                 QueryRunner queryRunner = createQueryRunner(testingKafka)) {
             String topic = "topic-Record-Name-Strategy-" + randomTableSuffix();
             assertTopic(
@@ -145,11 +147,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithTopicRecordNameStrategy()
             throws Exception
     {
-        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+        try (TestingKafka testingKafka = createWithSchemaRegistry();
                 QueryRunner queryRunner = createQueryRunner(testingKafka)) {
             String topic = "topic-Topic-Record-Name-Strategy-" + randomTableSuffix();
             assertTopic(
@@ -166,11 +167,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testUnsupportedInsert()
             throws Exception
     {
-        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+        try (TestingKafka testingKafka = createWithSchemaRegistry();
                 QueryRunner queryRunner = createQueryRunner(testingKafka)) {
             String topicName = "topic-unsupported-insert-" + randomTableSuffix();
 
@@ -192,11 +192,10 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering JSON schema: .*")
     public void testUnsupportedFormat()
             throws Exception
     {
-        try (TestingKafka testingKafka = TestingKafka.createWithSchemaRegistry();
+        try (TestingKafka testingKafka = createWithSchemaRegistry();
                 QueryRunner queryRunner = createQueryRunner(testingKafka)) {
             String topicName = "topic-unsupported-format-" + randomTableSuffix();
 
