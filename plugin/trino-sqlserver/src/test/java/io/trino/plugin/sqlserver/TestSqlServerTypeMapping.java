@@ -71,7 +71,7 @@ public class TestSqlServerTypeMapping
     }
 
     @Test
-    public void testReadTime()
+    public void testTime()
     {
         SqlDataTypeTest.create()
                 .addRoundTrip("time(0)", "'00:00:00'", createTimeType(0), "TIME '00:00:00'")
@@ -91,6 +91,58 @@ public class TestSqlServerTypeMapping
                 .addRoundTrip("time(7)", "'23:59:59.9999999'", createTimeType(7), "TIME '23:59:59.9999999'")
 
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_time"));
+
+        SqlDataTypeTest.create()
+                .addRoundTrip("TIME '00:00:00'", "TIME '00:00:00'")
+                .addRoundTrip("TIME '00:00:00.000000'", "TIME '00:00:00.000000'")
+                .addRoundTrip("TIME '00:00:00.123456'", "TIME '00:00:00.123456'")
+                .addRoundTrip("TIME '12:34:56'", "TIME '12:34:56'")
+                .addRoundTrip("TIME '12:34:56.123456'", "TIME '12:34:56.123456'")
+
+                // maximal value for a precision
+                .addRoundTrip("TIME '23:59:59'", "TIME '23:59:59'")
+                .addRoundTrip("TIME '23:59:59.9'", "TIME '23:59:59.9'")
+                .addRoundTrip("TIME '23:59:59.99'", "TIME '23:59:59.99'")
+                .addRoundTrip("TIME '23:59:59.999'", "TIME '23:59:59.999'")
+                .addRoundTrip("TIME '23:59:59.9999'", "TIME '23:59:59.9999'")
+                .addRoundTrip("TIME '23:59:59.99999'", "TIME '23:59:59.99999'")
+                .addRoundTrip("TIME '23:59:59.999999'", "TIME '23:59:59.999999'")
+                .addRoundTrip("TIME '23:59:59.9999999'", "TIME '23:59:59.9999999'")
+
+                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time"))
+                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_time"));
+
+        SqlDataTypeTest.create()
+                // round down
+                .addRoundTrip("TIME '00:00:00.00000001'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '00:00:00.000000000001'", "TIME '00:00:00.0000000'")
+
+                // round down, maximal value
+                .addRoundTrip("TIME '00:00:00.00000004'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '00:00:00.000000049'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '00:00:00.0000000449'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '00:00:00.00000004449'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '00:00:00.000000044449'", "TIME '00:00:00.0000000'")
+
+                // round up to next day, minimal value
+                .addRoundTrip("TIME '23:59:59.99999995'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '23:59:59.999999950'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '23:59:59.9999999500'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '23:59:59.99999995000'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '23:59:59.999999950000'", "TIME '00:00:00.0000000'")
+
+                // round up to next day, maximal value
+                .addRoundTrip("TIME '23:59:59.99999999'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '23:59:59.999999999'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '23:59:59.9999999999'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '23:59:59.99999999999'", "TIME '00:00:00.0000000'")
+                .addRoundTrip("TIME '23:59:59.999999999999'", "TIME '00:00:00.0000000'")
+
+                // round down
+                .addRoundTrip("TIME '23:59:59.999999949999'", "TIME '23:59:59.9999999'")
+
+                .execute(getQueryRunner(), trinoCreateAndInsert(getSession(), "test_time"))
+                .execute(getQueryRunner(), trinoCreateAsSelect(getSession(), "test_time"));
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
