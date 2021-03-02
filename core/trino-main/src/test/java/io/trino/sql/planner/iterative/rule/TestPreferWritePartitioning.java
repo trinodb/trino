@@ -51,19 +51,18 @@ public class TestPreferWritePartitioning
     private static final double NO_STATS = -1;
 
     private static final Session SESSION_WITHOUT_PREFERRED_PARTITIONING = testSessionBuilder()
+            .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "false")
             .setCatalog(MOCK_CATALOG)
             .setSchema(TEST_SCHEMA)
             .build();
     private static final Session SESSION_WITH_PREFERRED_PARTITIONING_THRESHOLD_0 = testSessionBuilder()
             .setCatalog(MOCK_CATALOG)
             .setSchema(TEST_SCHEMA)
-            .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
             .setSystemProperty(PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, "1")
             .build();
     private static final Session SESSION_WITH_PREFERRED_PARTITIONING_DEFAULT_THRESHOLD = testSessionBuilder()
             .setCatalog(MOCK_CATALOG)
             .setSchema(TEST_SCHEMA)
-            .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
             .build();
 
     private static final PlanMatchPattern SUCCESSFUL_MATCH = tableWriter(
