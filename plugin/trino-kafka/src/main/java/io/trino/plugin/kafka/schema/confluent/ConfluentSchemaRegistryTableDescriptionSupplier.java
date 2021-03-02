@@ -69,6 +69,8 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
 
     private static final String VALUE_SUBJECT = "value-subject";
 
+    private static final String KEY_COLUMNS = "key-columns";
+
     private static final String KEY_SUFFIX = "-key";
     private static final String VALUE_SUFFIX = "-value";
 
@@ -203,7 +205,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         }
         Optional<KafkaTopicFieldGroup> key = topicAndSubjects.getKeySubject().map(subject -> getFieldGroup(session, subject));
         Optional<KafkaTopicFieldGroup> message = topicAndSubjects.getValueSubject().map(subject -> getFieldGroup(session, subject));
-        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.getTopic(), key, message));
+        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.getTopic(), key, message, topicAndSubjects.getKeyColumns()));
     }
 
     private KafkaTopicFieldGroup getFieldGroup(ConnectorSession session, String subject)
@@ -241,25 +243,41 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     {
         String encodedTableName = encodedSchemaTableName.getTableName();
         List<String> parts = Splitter.on(KEY_VALUE_PAIR_DELIMITER).trimResults().splitToList(encodedTableName);
-        checkState(!parts.isEmpty() && parts.size() <= 3, "Unexpected format for encodedTableName. Expected format is <tableName>[&key-subject=<key subject>][&value-subject=<value subject>]");
+        checkState(!parts.isEmpty() && parts.size() <= 4, "Unexpected format for encodedTableName. Expected format is <tableName>[&key-subject=<key subject>][&value-subject=<value subject>][key-columns=<key_column,key_column,...>]");
         String tableName = parts.get(0);
         Optional<String> keySubject = Optional.empty();
         Optional<String> valueSubject = Optional.empty();
+        Optional<List<String>> keyColumns = Optional.empty();
         for (int part = 1; part < parts.size(); part++) {
             List<String> subjectKeyValue = Splitter.on(KEY_VALUE_DELIMITER).trimResults().splitToList(parts.get(part));
-            checkState(subjectKeyValue.size() == 2 && (subjectKeyValue.get(0).equals(KEY_SUBJECT) || subjectKeyValue.get(0).equals(VALUE_SUBJECT)), "Unexpected parameter '%s', should be %s=<key subject>' or %s=<value subject>", parts.get(part), KEY_SUBJECT, VALUE_SUBJECT);
+            checkState(subjectKeyValue.size() == 2
+                            && (subjectKeyValue.get(0).equals(KEY_SUBJECT)
+                            || subjectKeyValue.get(0).equals(VALUE_SUBJECT)
+                            || subjectKeyValue.get(0).equals(KEY_COLUMNS)),
+                    "Unexpected parameter '%s', should be [%s=<key subject>' | %s=<value subject> | %s=<key_column,key_column...> ]", parts.get(part),
+                    KEY_SUBJECT,
+                    VALUE_SUBJECT,
+                    KEY_COLUMNS);
             if (subjectKeyValue.get(0).equals(KEY_SUBJECT)) {
                 checkState(keySubject.isEmpty(), "Key subject already defined");
                 keySubject = Optional.of(subjectKeyValue.get(1))
                         .map(this::resolveSubject);
             }
-            else {
+            else if (subjectKeyValue.get(0).equals(VALUE_SUBJECT)) {
                 checkState(valueSubject.isEmpty(), "Value subject already defined");
                 valueSubject = Optional.of(subjectKeyValue.get(1))
                         .map(this::resolveSubject);
             }
+            else if (subjectKeyValue.get(0).equals(KEY_COLUMNS)) {
+                checkState(keyColumns.isEmpty(), "keyColumns already defined");
+                keyColumns = Optional.of(Splitter.on(',').omitEmptyStrings().trimResults().splitToList(subjectKeyValue.get(1)));
+                checkState(!keyColumns.get().isEmpty(), "keyColumns is empty");
+            }
+            else {
+                throw new IllegalStateException(format("Invalid key '%s'", subjectKeyValue.get(0)));
+            }
         }
-        return new TopicAndSubjects(tableName, keySubject, valueSubject);
+        return new TopicAndSubjects(tableName, keySubject, valueSubject, keyColumns);
     }
 
     @Override
@@ -314,13 +332,20 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     {
         private final Optional<String> keySubject;
         private final Optional<String> valueSubject;
+        private final Optional<List<String>> keyColumns;
         private final String topic;
 
         public TopicAndSubjects(String topic, Optional<String> keySubject, Optional<String> valueSubject)
         {
+            this(topic, keySubject, valueSubject, Optional.empty());
+        }
+
+        public TopicAndSubjects(String topic, Optional<String> keySubject, Optional<String> valueSubject, Optional<List<String>> keyColumns)
+        {
             this.topic = requireNonNull(topic, "topic is null");
             this.keySubject = requireNonNull(keySubject, "keySubject is null");
             this.valueSubject = requireNonNull(valueSubject, "valueSubject is null");
+            this.keyColumns = requireNonNull(keyColumns, "keyColumns is null");
         }
 
         public String getTableName()
@@ -343,6 +368,11 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             return valueSubject;
         }
 
+        public Optional<List<String>> getKeyColumns()
+        {
+            return keyColumns;
+        }
+
         @Override
         public boolean equals(Object other)
         {
@@ -355,13 +385,14 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             TopicAndSubjects that = (TopicAndSubjects) other;
             return topic.equals(that.topic) &&
                     keySubject.equals(that.keySubject) &&
-                    valueSubject.equals(that.valueSubject);
+                    valueSubject.equals(that.valueSubject) &&
+                    keyColumns.equals(that.keyColumns);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(topic, keySubject, valueSubject);
+            return Objects.hash(topic, keySubject, valueSubject, keyColumns);
         }
     }
 }

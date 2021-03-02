@@ -16,6 +16,7 @@ package io.trino.plugin.kafka;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -34,6 +35,17 @@ public class KafkaTopicDescription
     private final Optional<String> schemaName;
     private final Optional<KafkaTopicFieldGroup> key;
     private final Optional<KafkaTopicFieldGroup> message;
+    private final Optional<List<String>> keyColumns;
+
+    public KafkaTopicDescription(
+            String tableName,
+            Optional<String> schemaName,
+            String topicName,
+            Optional<KafkaTopicFieldGroup> key,
+            Optional<KafkaTopicFieldGroup> message)
+    {
+        this(tableName, schemaName, topicName, key, message, Optional.empty());
+    }
 
     @JsonCreator
     public KafkaTopicDescription(
@@ -41,7 +53,8 @@ public class KafkaTopicDescription
             @JsonProperty("schemaName") Optional<String> schemaName,
             @JsonProperty("topicName") String topicName,
             @JsonProperty("key") Optional<KafkaTopicFieldGroup> key,
-            @JsonProperty("message") Optional<KafkaTopicFieldGroup> message)
+            @JsonProperty("message") Optional<KafkaTopicFieldGroup> message,
+            @JsonProperty("keyColumns") Optional<List<String>> keyColumns)
     {
         checkArgument(!isNullOrEmpty(tableName), "tableName is null or is empty");
         this.tableName = tableName;
@@ -49,6 +62,7 @@ public class KafkaTopicDescription
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.key = requireNonNull(key, "key is null");
         this.message = requireNonNull(message, "message is null");
+        this.keyColumns = requireNonNull(keyColumns, "keyColumns is null");
     }
 
     @JsonProperty
@@ -79,6 +93,12 @@ public class KafkaTopicDescription
     public Optional<KafkaTopicFieldGroup> getMessage()
     {
         return message;
+    }
+
+    @JsonProperty
+    public Optional<List<String>> getKeyColumns()
+    {
+        return keyColumns;
     }
 
     @Override
@@ -114,6 +134,7 @@ public class KafkaTopicDescription
                 .add("schemaName", schemaName)
                 .add("key", key)
                 .add("message", message)
+                .add("keyColumns", keyColumns)
                 .toString();
     }
 }
