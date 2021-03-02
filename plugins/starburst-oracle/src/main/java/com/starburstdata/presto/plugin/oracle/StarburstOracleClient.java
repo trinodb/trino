@@ -348,12 +348,12 @@ public class StarburstOracleClient
         return tableStatisticsClient.getTableStatistics(session, handle);
     }
 
-    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
         if (!table.isNamedRelation()) {
             // TODO retrieve statistics for base table and derive statistics for the aggregation
-            return Optional.empty();
+            return TableStatistics.empty();
         }
 
         try (Connection connection = connectionFactory.openConnection(session);
@@ -362,14 +362,14 @@ public class StarburstOracleClient
 
             Long rowCount = statisticsDao.getRowCount(table.getSchemaName(), table.getTableName());
             if (rowCount == null) {
-                return Optional.empty();
+                return TableStatistics.empty();
             }
 
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));
 
             if (rowCount == 0) {
-                return Optional.of(tableStatistics.build());
+                return tableStatistics.build();
             }
 
             Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(table.getSchemaName(), table.getTableName()).stream()
@@ -407,7 +407,7 @@ public class StarburstOracleClient
                 tableStatistics.setColumnStatistics(column, statistics);
             }
 
-            return Optional.of(tableStatistics.build());
+            return tableStatistics.build();
         }
     }
 
