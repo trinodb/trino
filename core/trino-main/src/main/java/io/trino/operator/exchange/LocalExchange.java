@@ -47,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -61,6 +62,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 @ThreadSafe
 public class LocalExchange
@@ -135,18 +137,30 @@ public class LocalExchange
             };
         }
         else if (partitioning.equals(FIXED_HASH_DISTRIBUTION) || partitioning.getConnectorId().isPresent()) {
-            exchangerSupplier = () -> new PartitioningExchanger(
-                    buffers,
-                    memoryManager,
-                    createPartitionFunction(
-                            nodePartitioningManager,
-                            session,
-                            blockTypeOperators,
-                            partitioning,
-                            bufferCount,
-                            partitionChannels,
-                            partitionChannelTypes,
-                            partitionHashChannel));
+            exchangerSupplier = () -> {
+                PartitionFunction partitionFunction = createPartitionFunction(
+                        nodePartitioningManager,
+                        session,
+                        blockTypeOperators,
+                        partitioning,
+                        bufferCount,
+                        partitionChannels,
+                        partitionChannelTypes,
+                        partitionHashChannel);
+                Function<Page, Page> partitionPagePreparer;
+                if (isSystemPartitioning(partitioning)) {
+                    partitionPagePreparer = identity();
+                }
+                else {
+                    int[] partitionChannelsArray = Ints.toArray(partitionChannels);
+                    partitionPagePreparer = page -> page.getColumns(partitionChannelsArray);
+                }
+                return new PartitioningExchanger(
+                        buffers,
+                        memoryManager,
+                        partitionPagePreparer,
+                        partitionFunction);
+            };
         }
         else {
             throw new IllegalArgumentException("Unsupported local exchange partitioning " + partitioning);
@@ -226,11 +240,9 @@ public class LocalExchange
             bucketToPartition[bucket] = hashedBucket & (partitionCount - 1);
         }
 
-        return new ProjectingPartitionFunction(
-                new BucketPartitionFunction(
-                        nodePartitioningManager.getBucketFunction(session, partitioning, partitionChannelTypes, bucketCount),
-                        bucketToPartition),
-                Ints.toArray(partitionChannels));
+        return new BucketPartitionFunction(
+                nodePartitioningManager.getBucketFunction(session, partitioning, partitionChannelTypes, bucketCount),
+                bucketToPartition);
     }
 
     private static boolean isSystemPartitioning(PartitioningHandle partitioning)
@@ -510,31 +522,6 @@ public class LocalExchange
         public void noMoreSinkFactories()
         {
             exchange.noMoreSinkFactories();
-        }
-    }
-
-    private static class ProjectingPartitionFunction
-            implements PartitionFunction
-    {
-        private final PartitionFunction delegate;
-        private final int[] partitionChannels;
-
-        private ProjectingPartitionFunction(PartitionFunction partitionFunction, int[] partitionChannels)
-        {
-            this.delegate = requireNonNull(partitionFunction, "partitionFunction is null");
-            this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
-        }
-
-        @Override
-        public int getPartitionCount()
-        {
-            return delegate.getPartitionCount();
-        }
-
-        @Override
-        public int getPartition(Page page, int position)
-        {
-            return delegate.getPartition(page.getColumns(partitionChannels), position);
         }
     }
 }
