@@ -117,6 +117,7 @@ import io.trino.sql.tree.JoinUsing;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
@@ -1927,6 +1928,12 @@ class StatementAnalyzer
             }
 
             return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
+        }
+
+        @Override
+        protected Scope visitMerge(Merge merge, Optional<Scope> scope)
+        {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support merge");
         }
 
         private Scope analyzeJoinUsing(Join node, List<Identifier> columns, Optional<Scope> scope, Scope left, Scope right)

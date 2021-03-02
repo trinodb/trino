@@ -144,6 +144,8 @@ statement
     | UPDATE qualifiedName
         SET updateAssignment (',' updateAssignment)*
         (WHERE where=booleanExpression)?                               #update
+    | MERGE INTO qualifiedName (AS? identifier)?
+        USING relation ON expression mergeCase+                        #merge
     ;
 
 query
@@ -452,6 +454,16 @@ filter
     : FILTER '(' WHERE booleanExpression ')'
     ;
 
+mergeCase
+    : WHEN MATCHED (AND condition=expression)? THEN
+        UPDATE SET targets+=identifier EQ values+=expression
+          (',' targets+=identifier EQ values+=expression)*                  #mergeUpdate
+    | WHEN MATCHED (AND condition=expression)? THEN DELETE                  #mergeDelete
+    | WHEN NOT MATCHED (AND condition=expression)? THEN
+        INSERT ('(' targets+=identifier (',' targets+=identifier)* ')')?
+        VALUES '(' values+=expression (',' values+=expression)* ')'         #mergeInsert
+    ;
+
 over
     : OVER (windowName=identifier | '(' windowSpecification ')')
     ;
@@ -473,7 +485,7 @@ frameBound
     ;
 
 updateAssignment
-    : identifier '=' expression
+    : identifier EQ expression
     ;
 
 explainOption
@@ -558,7 +570,7 @@ nonReserved
     | IF | IGNORE | INCLUDING | INPUT | INTERVAL | INVOKER | IO | ISOLATION
     | JSON
     | LAST | LATERAL | LEVEL | LIMIT | LOGICAL
-    | MAP | MATERIALIZED | MINUTE | MONTH
+    | MAP | MATCHED | MATERIALIZED | MERGE | MINUTE | MONTH
     | NEXT | NFC | NFD | NFKC | NFKD | NO | NONE | NULLIF | NULLS
     | OFFSET | ONLY | OPTION | ORDINALITY | OUTPUT | OVER
     | PARTITION | PARTITIONS | PATH | POSITION | PRECEDING | PRECISION | PRIVILEGES | PROPERTIES
@@ -675,7 +687,9 @@ LOCALTIME: 'LOCALTIME';
 LOCALTIMESTAMP: 'LOCALTIMESTAMP';
 LOGICAL: 'LOGICAL';
 MAP: 'MAP';
+MATCHED: 'MATCHED';
 MATERIALIZED: 'MATERIALIZED';
+MERGE: 'MERGE';
 MINUTE: 'MINUTE';
 MONTH: 'MONTH';
 NATURAL: 'NATURAL';
@@ -865,7 +879,6 @@ WS
 PARAMETER
     : '?'
     ;
-
 
 // Catch-all for anything we can't recognize.
 // We use this to be able to ignore and recover all the text
