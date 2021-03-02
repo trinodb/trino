@@ -424,12 +424,12 @@ public class SnowflakeClient
         return PICOSECONDS_PER_MILLISECOND * sqlTime.getTime();
     }
 
-    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
         if (!table.isNamedRelation()) {
             // TODO retrieve statistics for base table and derive statistics for the aggregation
-            return Optional.empty();
+            return TableStatistics.empty();
         }
 
         try (Connection connection = connectionFactory.openConnection(session);
@@ -449,12 +449,12 @@ public class SnowflakeClient
                     .findOnly();
 
             if (rowCount == null) {
-                return Optional.empty();
+                return TableStatistics.empty();
             }
 
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));
-            return Optional.of(tableStatistics.build());
+            return tableStatistics.build();
         }
     }
 }
