@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.QueryRunner;
@@ -20,10 +19,6 @@ import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.KERBERIZED_
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createStandardUsers;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.createUser;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -31,6 +26,12 @@ public class TestOracleParallelSubpartitionsIntegrationSmokeTest
         extends BaseLicensedStarburstOracleIntegrationSmokeTest
 {
     private static final String SUBPARTITIONED_USER = "subpartitioned";
+
+    @Override
+    protected String getUser()
+    {
+        return SUBPARTITIONED_USER;
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -43,7 +44,6 @@ public class TestOracleParallelSubpartitionsIntegrationSmokeTest
                         .put("oracle.parallel.max-splits-per-scan", "17")
                         .build())
                 .withSessionModifier(session -> createSession(SUBPARTITIONED_USER, SUBPARTITIONED_USER))
-                .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .withCreateUsers(TestOracleParallelSubpartitionsIntegrationSmokeTest::createUsers)
                 .withProvisionTables(TestOracleParallelSubpartitionsIntegrationSmokeTest::partitionTables)
                 .withUnlockEnterpriseFeatures(true) // parallelism is license protected

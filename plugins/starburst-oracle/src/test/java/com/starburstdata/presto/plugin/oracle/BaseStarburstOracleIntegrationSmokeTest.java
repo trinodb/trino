@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.oracle.BaseOracleIntegrationSmokeTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -32,10 +31,6 @@ import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
 import static io.trino.testing.datatype.DataType.timestampDataType;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -63,7 +58,6 @@ public abstract class BaseStarburstOracleIntegrationSmokeTest
                         .putAll(TestingStarburstOracleServer.connectionProperties())
                         .putAll(additionalProperties)
                         .build())
-                .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
 

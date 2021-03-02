@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.oracle.TestOracleDistributedQueries;
+import io.trino.plugin.oracle.TestOraclePoolConnectorTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
@@ -21,7 +21,7 @@ import java.util.Properties;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStarburstOracleDistributedQueries
-        extends TestOracleDistributedQueries
+        extends TestOraclePoolConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -50,7 +50,13 @@ public class TestStarburstOracleDistributedQueries
     }
 
     @Override
-    protected SqlExecutor createJdbcSqlExecutor()
+    protected String getUser()
+    {
+        return OracleTestUsers.USER;
+    }
+
+    @Override
+    protected SqlExecutor onOracle()
     {
         Properties properties = new Properties();
         properties.setProperty("user", OracleTestUsers.USER);

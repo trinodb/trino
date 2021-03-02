@@ -9,7 +9,6 @@
  */
 package com.starburstdata.presto.plugin.oracle;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.testing.QueryRunner;
@@ -17,10 +16,6 @@ import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import static com.google.common.io.Resources.getResource;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleKerberosIntegrationSmokeTest
@@ -44,7 +39,6 @@ public class TestOracleKerberosIntegrationSmokeTest
                 .withSessionModifier(session -> Session.builder(session)
                         .setSchema("test")
                         .build())
-                .withTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
 
