@@ -76,12 +76,12 @@ public class StarburstSqlServerClient
         return tableStatisticsClient.getTableStatistics(session, handle);
     }
 
-    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
         if (!table.isNamedRelation()) {
             // TODO retrieve statistics for base table and derive statistics for the aggregation
-            return Optional.empty();
+            return TableStatistics.empty();
         }
 
         try (Connection connection = connectionFactory.openConnection(session);
@@ -94,17 +94,17 @@ public class StarburstSqlServerClient
             Long tableObjectId = statisticsDao.getTableObjectId(catalog, schema, tableName);
             if (tableObjectId == null) {
                 // Table not found
-                return Optional.empty();
+                return TableStatistics.empty();
             }
 
             Long rowCount = statisticsDao.getRowCount(tableObjectId);
             if (rowCount == null) {
                 // Table disappeared
-                return Optional.empty();
+                return TableStatistics.empty();
             }
 
             if (rowCount == 0) {
-                return Optional.of(TableStatistics.empty());
+                return TableStatistics.empty();
             }
 
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
@@ -177,7 +177,7 @@ public class StarburstSqlServerClient
                 tableStatistics.setColumnStatistics(column, statistics);
             }
 
-            return Optional.of(tableStatistics.build());
+            return tableStatistics.build();
         }
     }
 
