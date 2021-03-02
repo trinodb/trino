@@ -150,7 +150,7 @@ public class SqlServerClient
 
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
 
-    private static final int MAX_SUPPORTED_TIMESTAMP_PRECISION = 7;
+    private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
     @Inject
     public SqlServerClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
@@ -352,12 +352,15 @@ public class SqlServerClient
         }
 
         if (type instanceof TimeType) {
-            // TODO https://github.com/trinodb/trino/issues/6956
+            TimeType timeType = (TimeType) type;
+            int precision = min(timeType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
+            String dataType = format("time(%d)", precision);
+            return WriteMapping.longMapping(dataType, sqlServerTimeWriteFunction(precision));
         }
 
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
-            String dataType = format("datetime2(%d)", min(timestampType.getPrecision(), MAX_SUPPORTED_TIMESTAMP_PRECISION));
+            String dataType = format("datetime2(%d)", min(timestampType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION));
             if (timestampType.getPrecision() <= MAX_SHORT_PRECISION) {
                 return WriteMapping.longMapping(dataType, timestampWriteFunction(timestampType));
             }
