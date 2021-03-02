@@ -652,12 +652,12 @@ public class SapHanaClient
         return tableStatisticsClient.getTableStatistics(session, handle);
     }
 
-    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
         if (!table.isNamedRelation()) {
             // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4856) retrieve statistics for base table and derive statistics for the aggregation
-            return Optional.empty();
+            return TableStatistics.empty();
         }
 
         try (Connection connection = connectionFactory.openConnection(session);
@@ -671,14 +671,14 @@ public class SapHanaClient
 
             if (rowCount == null) {
                 // Table not found, or is a view.
-                return Optional.empty();
+                return TableStatistics.empty();
             }
 
             TableStatistics.Builder tableStatistics = TableStatistics.builder();
             tableStatistics.setRowCount(Estimate.of(rowCount));
 
             if (rowCount == 0) {
-                return Optional.of(tableStatistics.build());
+                return tableStatistics.build();
             }
 
             Map<String, ColumnStatisticsResult> columnStatistics = statisticsDao.getColumnStatistics(schemaName, tableName, "SIMPLE", StatisticsDao::toColumnStatisticsResult).stream()
@@ -690,7 +690,7 @@ public class SapHanaClient
 
             if (columnStatistics.isEmpty() && columnStatisticsFromHistograms.isEmpty() && columnStatisticsFromTopK.isEmpty()) {
                 // No more information to work on
-                return Optional.of(tableStatistics.build());
+                return tableStatistics.build();
             }
 
             for (JdbcColumnHandle column : getColumns(session, table)) {
@@ -724,7 +724,7 @@ public class SapHanaClient
                 }
             }
 
-            return Optional.of(tableStatistics.build());
+            return tableStatistics.build();
         }
     }
 
