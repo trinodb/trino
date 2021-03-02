@@ -339,22 +339,27 @@ public final class StandardColumnMappings
     {
         return ColumnMapping.longMapping(
                 DATE,
-                (resultSet, columnIndex) -> {
-                    /*
-                     * JDBC returns a date using a timestamp at midnight in the JVM timezone, or earliest time after that if there was no midnight.
-                     * This works correctly for all dates and zones except when the missing local times 'gap' is 24h. I.e. this fails when JVM time
-                     * zone is Pacific/Apia and date to be returned is 2011-12-30.
-                     *
-                     * `return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay()` avoids these problems but
-                     * is currently known not to work with Redshift (old Postgres connector) and SQL Server.
-                     */
-                    long localMillis = resultSet.getDate(columnIndex).getTime();
-                    // Convert it to a ~midnight in UTC.
-                    long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(DateTimeZone.UTC, localMillis);
-                    // convert to days
-                    return MILLISECONDS.toDays(utcMillis);
-                },
+                dateReadFunction(),
                 dateWriteFunction());
+    }
+
+    public static LongReadFunction dateReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            /*
+             * JDBC returns a date using a timestamp at midnight in the JVM timezone, or earliest time after that if there was no midnight.
+             * This works correctly for all dates and zones except when the missing local times 'gap' is 24h. I.e. this fails when JVM time
+             * zone is Pacific/Apia and date to be returned is 2011-12-30.
+             *
+             * `return resultSet.getObject(columnIndex, LocalDate.class).toEpochDay()` avoids these problems but
+             * is currently known not to work with Redshift (old Postgres connector) and SQL Server.
+             */
+            long localMillis = resultSet.getDate(columnIndex).getTime();
+            // Convert it to a ~midnight in UTC.
+            long utcMillis = ISOChronology.getInstance().getZone().getMillisKeepLocal(DateTimeZone.UTC, localMillis);
+            // convert to days
+            return MILLISECONDS.toDays(utcMillis);
+        };
     }
 
     public static LongWriteFunction dateWriteFunction()
