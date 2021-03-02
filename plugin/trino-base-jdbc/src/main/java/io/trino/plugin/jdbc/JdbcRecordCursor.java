@@ -227,6 +227,15 @@ public class JdbcRecordCursor
         try (Connection connection = this.connection;
                 Statement statement = this.statement;
                 ResultSet resultSet = this.resultSet) {
+            if (statement != null) {
+                try {
+                    // Trying to cancel running statement as close() may not do it
+                    statement.cancel();
+                }
+                catch (SQLException ignored) {
+                    // statement already closed or cancel is not supported
+                }
+            }
             if (connection != null) {
                 jdbcClient.abortReadConnection(connection);
             }
