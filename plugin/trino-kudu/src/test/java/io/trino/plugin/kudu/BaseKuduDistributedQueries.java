@@ -15,38 +15,19 @@ package io.trino.plugin.kudu;
 
 import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 
-public class TestKuduDistributedQueries
+public abstract class BaseKuduDistributedQueries
         extends AbstractTestDistributedQueries
 {
-    private TestingKuduServer kuduServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        kuduServer = new TestingKuduServer();
-        return createKuduQueryRunnerTpch(kuduServer, Optional.of(""), REQUIRED_TPCH_TABLES);
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void destroy()
-    {
-        kuduServer.close();
-    }
-
     @Override
     protected boolean supportsViews()
     {
