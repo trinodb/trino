@@ -9,7 +9,7 @@ systems like ClickHouse and Hive, or between two different ClickHouse instances.
 Configuration
 -------------
 
-To configure the ClickHouse connector, create a catalog properties file``etc/catalog/clickhouse.properties``,
+To configure the ClickHouse connector, create a catalog properties file ``etc/catalog/clickhouse.properties``,
 replace the connection properties as needed for your setup:
 
 .. code-block:: none
