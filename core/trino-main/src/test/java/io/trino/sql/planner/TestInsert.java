@@ -222,7 +222,7 @@ public class TestInsert
     {
         assertDistributedPlan(
                 "CREATE TABLE new_test_table_unpartitioned (column1, column2) AS SELECT * FROM (VALUES (1, 2)) t(column1, column2)",
-                withoutPreferredPartitioning(),
+                withPreferredPartitioning(),
                 anyTree(
                         node(TableWriterNode.class,
                                 // round robin
