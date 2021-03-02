@@ -613,12 +613,12 @@ public class PrestoConnectorClient
         return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
-    private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
+    private TableStatistics readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
         if (!table.isNamedRelation()) {
             // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4856) retrieve statistics for base table and derive statistics for the aggregation
-            return Optional.empty();
+            return TableStatistics.empty();
         }
 
         List<JdbcColumnHandle> jdbcColumnHandles = getColumns(session, table);
@@ -661,7 +661,7 @@ public class PrestoConnectorClient
                 }
             }
 
-            return Optional.of(tableStatisticsBuilder.build());
+            return tableStatisticsBuilder.build();
         }
     }
 
