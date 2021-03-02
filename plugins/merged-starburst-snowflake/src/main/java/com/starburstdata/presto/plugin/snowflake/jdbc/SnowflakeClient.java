@@ -214,7 +214,7 @@ public class SnowflakeClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tableStatisticsClient.getTableStatistics(session, handle, tupleDomain);
+        return tableStatisticsClient.getTableStatistics(session, handle);
     }
 
     @Override
