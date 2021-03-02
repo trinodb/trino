@@ -551,6 +551,9 @@ public class AddLocalExchanges
 
             // connector provided hash function
             verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
+            verify(
+                    partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
+                    "Table writer partitioning has constant arguments");
             PlanWithProperties source = node.getSource().accept(this, parentPreferences);
             PlanWithProperties exchange = deriveProperties(
                     partitionedExchange(
