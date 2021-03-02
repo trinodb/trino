@@ -79,7 +79,7 @@ public class FeaturesConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
-    private boolean usePreferredWritePartitioning;
+    private boolean usePreferredWritePartitioning = true;
     private int preferredWritePartitioningMinNumberOfPartitions = 50;
     private boolean scaleWriters;
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
