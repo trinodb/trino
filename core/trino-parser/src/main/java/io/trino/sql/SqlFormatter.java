@@ -63,6 +63,11 @@ import io.trino.sql.tree.JoinUsing;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.LikeClause;
 import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeDelete;
+import io.trino.sql.tree.MergeInsert;
+import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.Offset;
@@ -122,11 +127,13 @@ import io.trino.sql.tree.WithQuery;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Iterables.transform;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionFormatter.formatGroupBy;
 import static io.trino.sql.ExpressionFormatter.formatOrderBy;
@@ -628,6 +635,84 @@ public final class SqlFormatter
             }
 
             return null;
+        }
+
+        @Override
+        protected Void visitMerge(Merge node, Integer indent)
+        {
+            builder.append("MERGE INTO ")
+                    .append(node.getTable().getName());
+
+            node.getTargetAlias().ifPresent(value -> builder.append(" ").append(value));
+            builder.append("\n");
+
+            append(indent + 1, "USING ");
+
+            processRelation(node.getRelation(), indent + 2);
+
+            builder.append("\n");
+            append(indent + 1, "ON ");
+            builder.append(formatExpression(node.getExpression()));
+
+            for (MergeCase mergeCase : node.getMergeCases()) {
+                builder.append("\n");
+                process(mergeCase, indent);
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitMergeInsert(MergeInsert node, Integer indent)
+        {
+            appendMergeCaseWhen(false, node.getExpression());
+            append(indent + 1, "THEN INSERT ");
+
+            if (!node.getColumns().isEmpty()) {
+                builder.append("(");
+                Joiner.on(", ").appendTo(builder, node.getColumns());
+                builder.append(")");
+            }
+
+            builder.append("VALUES (");
+            Joiner.on(", ").appendTo(builder, transform(node.getValues(), ExpressionFormatter::formatExpression));
+            builder.append(")");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitMergeUpdate(MergeUpdate node, Integer indent)
+        {
+            appendMergeCaseWhen(true, node.getExpression());
+            append(indent + 1, "THEN UPDATE SET");
+
+            boolean first = true;
+            for (MergeUpdate.Assignment assignment : node.getAssignments()) {
+                builder.append("\n");
+                append(indent + 1, first ? "  " : ", ");
+                builder.append(assignment.getTarget())
+                        .append(" = ")
+                        .append(formatExpression(assignment.getValue()));
+                first = false;
+            }
+
+            return null;
+        }
+
+        @Override
+        protected Void visitMergeDelete(MergeDelete node, Integer indent)
+        {
+            appendMergeCaseWhen(true, node.getExpression());
+            append(indent + 1, "THEN DELETE");
+            return null;
+        }
+
+        private void appendMergeCaseWhen(boolean matched, Optional<Expression> expression)
+        {
+            builder.append(matched ? "WHEN MATCHED" : "WHEN NOT MATCHED");
+            expression.ifPresent(value -> builder.append(" AND ").append(formatExpression(value)));
+            builder.append("\n");
         }
 
         @Override

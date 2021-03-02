@@ -291,6 +291,16 @@ public class TestStatementBuilder
         printStatement("SELECT * FROM table1 WHERE a >= ALL (VALUES 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a <> ANY (SELECT 2, 3, 4)");
         printStatement("SELECT * FROM table1 WHERE a = SOME (SELECT id FROM table2)");
+
+        printStatement("" +
+                "merge into inventory as i\n" +
+                "using changes as c\n" +
+                "on i.part = c.part\n" +
+                "when matched and c.action = 'mod' then\n" +
+                "update set qty = qty + c.qty\n" +
+                "when matched and c.action = 'del' then delete\n" +
+                "when not matched and c.action = 'new' then\n" +
+                "insert (part, qty) values (c.part, c.qty)");
     }
 
     @Test

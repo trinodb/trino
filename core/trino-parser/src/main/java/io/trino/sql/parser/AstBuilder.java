@@ -112,6 +112,11 @@ import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.Limit;
 import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeDelete;
+import io.trino.sql.tree.MergeInsert;
+import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeLocation;
@@ -453,6 +458,54 @@ class AstBuilder
     public Node visitUpdateAssignment(SqlBaseParser.UpdateAssignmentContext context)
     {
         return new UpdateAssignment((Identifier) visit(context.identifier()), (Expression) visit(context.expression()));
+    }
+
+    @Override
+    public Node visitMerge(SqlBaseParser.MergeContext context)
+    {
+        return new Merge(
+                getLocation(context),
+                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
+                visitIfPresent(context.identifier(), Identifier.class),
+                (Relation) visit(context.relation()),
+                (Expression) visit(context.expression()),
+                visit(context.mergeCase(), MergeCase.class));
+    }
+
+    @Override
+    public Node visitMergeInsert(SqlBaseParser.MergeInsertContext context)
+    {
+        return new MergeInsert(
+                getLocation(context),
+                visitIfPresent(context.condition, Expression.class),
+                visitIdentifiers(context.targets),
+                visit(context.values, Expression.class));
+    }
+
+    private List<Identifier> visitIdentifiers(List<SqlBaseParser.IdentifierContext> identifiers)
+    {
+        return identifiers.stream()
+                .map(identifier -> (Identifier) visit(identifier))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public Node visitMergeUpdate(SqlBaseParser.MergeUpdateContext context)
+    {
+        ImmutableList.Builder<MergeUpdate.Assignment> assignments = ImmutableList.builder();
+        for (int i = 0; i < context.targets.size(); i++) {
+            assignments.add(new MergeUpdate.Assignment(
+                    (Identifier) visit(context.targets.get(i)),
+                    (Expression) visit(context.values.get(i))));
+        }
+
+        return new MergeUpdate(getLocation(context), visitIfPresent(context.condition, Expression.class), assignments.build());
+    }
+
+    @Override
+    public Node visitMergeDelete(SqlBaseParser.MergeDeleteContext context)
+    {
+        return new MergeDelete(getLocation(context), visitIfPresent(context.condition, Expression.class));
     }
 
     @Override
