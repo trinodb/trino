@@ -73,7 +73,7 @@ public class StarburstSqlServerClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        return tableStatisticsClient.getTableStatistics(session, handle, tupleDomain);
+        return tableStatisticsClient.getTableStatistics(session, handle);
     }
 
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
