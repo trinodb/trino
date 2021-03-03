@@ -173,7 +173,7 @@ need to execute a query::
          shippriority integer,
          comment varchar(79)
     ) WITH (
-         external_location = 'abfs[s]://file_system@account_name.dfs.core.windows.net/<path>/<path>/<file_name>`',
+         external_location = 'abfs[s]://file_system@account_name.dfs.core.windows.net/<path>/<path>/<file_name>',
          format = 'ORC' -- or 'PARQUET'
     );
 

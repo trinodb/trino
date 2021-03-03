@@ -37,8 +37,8 @@ replacing the properties as appropriate:
    ## For more details see connector documentation.
    #kudu.schema-emulation.enabled=false
 
-   ## Prefix to use for schema emulation (only relevant if `kudu.schema-emulation.enabled=true`)
-   ## The standard prefix is `presto::`. Empty prefix is also supported.
+   ## Prefix to use for schema emulation (only relevant if kudu.schema-emulation.enabled=true)
+   ## The standard prefix is presto::. Empty prefix is also supported.
    ## For more details see connector documentation.
    #kudu.schema-emulation.prefix=
 
