@@ -283,11 +283,27 @@ public class QueryAssertions
             return matches(expected);
         }
 
+        /**
+         * {@link #matches(String)} disregarding types.
+         */
+        public QueryAssert matchesValues(@Language("SQL") String query)
+        {
+            MaterializedResult expected = runner.execute(session, query);
+            return matchesValues(expected);
+        }
+
         public QueryAssert matches(MaterializedResult expected)
         {
-            return satisfies(actual -> {
-                assertTypes(actual, expected.getTypes());
+            return satisfies(actual -> assertTypes(actual, expected.getTypes()))
+                    .matchesValues(expected);
+        }
 
+        /**
+         * {@link #matches(MaterializedResult)} disregarding types.
+         */
+        public QueryAssert matchesValues(MaterializedResult expected)
+        {
+            return satisfies(actual -> {
                 ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
                         .as("Rows")
                         .withRepresentation(ROWS_REPRESENTATION);
