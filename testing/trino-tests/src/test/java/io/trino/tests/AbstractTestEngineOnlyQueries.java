@@ -4132,8 +4132,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
 
         // aggregation with having
-//        TODO: https://github.com/prestodb/presto/issues/8456
-//        assertQuery("SELECT (SELECT avg(totalprice) FROM orders GROUP BY custkey, orderdate HAVING avg(totalprice) < a) FROM (VALUES 900) t(a)");
+        assertQuery("SELECT (SELECT avg(totalprice) FROM orders GROUP BY custkey, orderdate HAVING avg(totalprice) < a) FROM (VALUES 900) t(a)");
 
         // correlation in predicate
         assertQuery("SELECT name FROM nation n WHERE 'AFRICA' = (SELECT name FROM region WHERE regionkey = n.regionkey)");
