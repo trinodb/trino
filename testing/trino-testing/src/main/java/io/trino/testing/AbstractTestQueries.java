@@ -503,26 +503,13 @@ public abstract class AbstractTestQueries
     @Test
     public void testHaving()
     {
+        // HAVING on grouping column
         assertQuery("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus HAVING orderstatus = 'O'");
-    }
-
-    @Test
-    public void testHaving2()
-    {
+        // HAVING on aggregation result
         assertQuery("SELECT custkey, sum(orderkey) FROM orders GROUP BY custkey HAVING sum(orderkey) > 400000");
-    }
-
-    @Test
-    public void testHaving3()
-    {
-        assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey");
-        assertQuery("SELECT custkey, avg(totalprice + 5) FROM orders GROUP BY custkey");
+        // HAVING with different aggregation
         assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey HAVING avg(totalprice + 5) > 10");
-    }
-
-    @Test
-    public void testHavingWithoutGroupBy()
-    {
+        // HAVING without explicit GROUP BY
         assertQuery("SELECT sum(orderkey) FROM orders HAVING sum(orderkey) > 400000");
     }
 
