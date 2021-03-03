@@ -20,8 +20,8 @@ import java.util.Optional;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 
-public class TestKuduDistributedQueriesLatest
-        extends BaseKuduDistributedQueries
+public class TestKuduLatestConnectorTest
+        extends BaseKuduConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
