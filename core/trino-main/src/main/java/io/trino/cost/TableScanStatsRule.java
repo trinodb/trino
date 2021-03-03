@@ -18,6 +18,7 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.FixedWidthType;
@@ -59,7 +60,7 @@ public class TableScanStatsRule
     protected Optional<PlanNodeStatsEstimate> doCalculate(TableScanNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types)
     {
         // TODO Construct predicate like AddExchanges's LayoutConstraintEvaluator
-        Constraint constraint = new Constraint(metadata.getTableProperties(session, node.getTable()).getPredicate());
+        Constraint constraint = new Constraint(TupleDomain.all());
 
         TableStatistics tableStatistics = metadata.getTableStatistics(session, node.getTable(), constraint);
         verifyNotNull(tableStatistics, "tableStatistics is null for %s", node);
