@@ -1009,7 +1009,7 @@ public class TestAnalyzer
 
         assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (ROWS a PRECEDING)")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:51: Window frame ROWS start value type must be INTEGER or BIGINT (actual varchar(1))");
+                .hasMessage("line 1:51: Window frame ROWS start value type must be exact numeric type with scale 0 (actual varchar(1))");
 
         assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (RANGE a PRECEDING)")
                 .hasErrorCode(MISSING_ORDER_BY)
@@ -1025,7 +1025,7 @@ public class TestAnalyzer
 
         assertFails("SELECT * FROM (VALUES 'x') t(a) WINDOW w AS (ROWS a PRECEDING)")
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:51: Window frame ROWS start value type must be INTEGER or BIGINT (actual varchar(1))");
+                .hasMessage("line 1:51: Window frame ROWS start value type must be exact numeric type with scale 0 (actual varchar(1))");
 
         // nested window
         assertFails("SELECT * FROM (VALUES 1) t(a) WINDOW w AS (PARTITION BY count(a) OVER ())")
@@ -1158,7 +1158,7 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testInvalidWindowFrameTypeRows()
+    public void testWindowFrameTypeRows()
     {
         assertFails("SELECT rank() OVER (ROWS UNBOUNDED FOLLOWING)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
@@ -1183,6 +1183,13 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT rank() OVER (ROWS BETWEEN CURRENT ROW AND 'foo' FOLLOWING)")
                 .hasErrorCode(TYPE_MISMATCH);
+
+        analyze("SELECT rank() OVER (ROWS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ROWS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ROWS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ROWS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ROWS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ROWS BETWEEN CAST(1 AS decimal(38, 0)) PRECEDING AND CAST(2 AS decimal(38, 0)) FOLLOWING) FROM (VALUES 1) t(x)");
     }
 
     @Test
@@ -1266,7 +1273,7 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testInvalidWindowFrameTypeGroups()
+    public void testWindowFrameTypeGroups()
     {
         assertFails("SELECT rank() OVER (ORDER BY x GROUPS UNBOUNDED FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(INVALID_WINDOW_FRAME);
@@ -1294,6 +1301,13 @@ public class TestAnalyzer
                 .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CURRENT ROW AND 'foo' FOLLOWING) FROM (VALUES 1) t(x)")
                 .hasErrorCode(TYPE_MISMATCH);
+
+        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) FROM (VALUES 1) t(x)");
+        analyze("SELECT rank() OVER (ORDER BY x GROUPS BETWEEN CAST(1 AS decimal(38, 0)) PRECEDING AND CAST(2 AS decimal(38, 0)) FOLLOWING) FROM (VALUES 1) t(x)");
     }
 
     @Test

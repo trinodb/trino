@@ -17,6 +17,10 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.math.BigInteger;
+
+import static java.lang.String.format;
+import static java.math.BigInteger.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -111,6 +115,76 @@ public class TestWindowFrameGroups
                         "null, " +
                         "null, " +
                         "null");
+    }
+
+    @Test
+    public void testOffsetTypes()
+    {
+        String expected = "VALUES " +
+                "ARRAY[null, null, 1, 2, 2], " +
+                "ARRAY[null, null, 1, 2, 2], " +
+                "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                "ARRAY[1, 2, 2, 3, 3, 3], " +
+                "ARRAY[1, 2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3]";
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN TINYINT '1' PRECEDING AND TINYINT '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN SMALLINT '1' PRECEDING AND SMALLINT '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN INTEGER '1' PRECEDING AND INTEGER '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN BIGINT '1' PRECEDING AND BIGINT '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        // short decimal
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN DECIMAL '1' PRECEDING AND DECIMAL '2' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
+
+        expected = "VALUES " +
+                "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                "ARRAY[null, null, 1, 2, 2, 3, 3, 3], " +
+                "ARRAY[1, 2, 2, 3, 3, 3], " +
+                "ARRAY[1, 2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3], " +
+                "ARRAY[2, 2, 3, 3, 3]";
+
+        // short decimal: no integer overflow exception when frame offset exceeds integer
+        assertThat(assertions.query(format(
+                "SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND DECIMAL '%d' FOLLOWING) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)",
+                1L + Integer.MAX_VALUE)))
+                .matches(expected);
+
+        // long decimal: value does not overflow long
+        assertThat(assertions.query(format(
+                "SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND DECIMAL '%d' FOLLOWING) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)",
+                Long.MAX_VALUE)))
+                .matches(expected);
+
+        // long decimal: value overflows long so it is truncated to max long
+        assertThat(assertions.query(format(
+                "SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND DECIMAL '%s' FOLLOWING) " +
+                        "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)",
+                BigInteger.valueOf(Long.MAX_VALUE).add(ONE))))
+                .matches(expected);
+
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC NULLS FIRST GROUPS BETWEEN 1 PRECEDING AND DECIMAL '999999999999999999999999999999' FOLLOWING) " +
+                "FROM (VALUES 3, 3, 3, 2, 2, 1, null, null) t(a)"))
+                .matches(expected);
     }
 
     @Test
@@ -334,45 +408,45 @@ public class TestWindowFrameGroups
     {
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, 1), (2, -2)) t(a, x)"))
-                .hasMessage("Window frame -2 offset must not be negative");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (2, -2)) t(a, x)"))
-                .hasMessage("Window frame -2 offset must not be negative");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, 1), (2, -2)) t(a, x)"))
-                .hasMessage("Window frame -2 offset must not be negative");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (2, -2)) t(a, x)"))
-                .hasMessage("Window frame -2 offset must not be negative");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, 1), (2, null)) t(a, x)"))
-                .hasMessage("Window frame starting offset must not be null");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (2, null)) t(a, x)"))
-                .hasMessage("Window frame ending offset must not be null");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         // fail if offset is invalid for null sort key
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (null, null)) t(a, x)"))
-                .hasMessage("Window frame ending offset must not be null");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (null, -1)) t(a, x)"))
-                .hasMessage("Window frame -1 offset must not be negative");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         // test invalid offset of different types
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, BIGINT '-1')) t(a, x)"))
-                .hasMessage("Window frame -1 offset must not be negative");
+                .hasMessage("Window frame offset value must not be negative or null");
 
         assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, INTEGER '-1')) t(a, x)"))
-                .hasMessage("Window frame -1 offset must not be negative");
+                .hasMessage("Window frame offset value must not be negative or null");
     }
 
     @Test
