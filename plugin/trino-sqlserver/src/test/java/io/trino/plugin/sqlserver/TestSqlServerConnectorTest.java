@@ -23,7 +23,6 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -53,7 +52,7 @@ public class TestSqlServerConnectorTest
     {
         sqlServer = closeAfterClass(new TestingSqlServer());
         sqlServer.start();
-        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), TpchTable.getTables());
+        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override
