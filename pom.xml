@@ -281,6 +281,12 @@
 
             <dependency>
                 <groupId>io.trino</groupId>
+                <artifactId>trino-jmx</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
                 <artifactId>trino-local-file</artifactId>
                 <version>${project.version}</version>
             </dependency>
