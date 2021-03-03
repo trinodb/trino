@@ -1127,15 +1127,15 @@ public class ExpressionAnalyzer
                     if (frame.getStart().getValue().isPresent()) {
                         Expression startValue = frame.getStart().getValue().get();
                         Type type = process(startValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, startValue, "Window frame ROWS start value type must be INTEGER or BIGINT (actual %s)", type);
+                        if (!isExactNumericWithScaleZero(type)) {
+                            throw semanticException(TYPE_MISMATCH, startValue, "Window frame ROWS start value type must be exact numeric type with scale 0 (actual %s)", type);
                         }
                     }
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
                         Expression endValue = frame.getEnd().get().getValue().get();
                         Type type = process(endValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, endValue, "Window frame ROWS end value type must be INTEGER or BIGINT (actual %s)", type);
+                        if (!isExactNumericWithScaleZero(type)) {
+                            throw semanticException(TYPE_MISMATCH, endValue, "Window frame ROWS end value type must be exact numeric type with scale 0 (actual %s)", type);
                         }
                     }
                 }
@@ -1156,8 +1156,8 @@ public class ExpressionAnalyzer
                         }
                         Expression startValue = frame.getStart().getValue().get();
                         Type type = process(startValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, startValue, "Window frame GROUPS start value type must be INTEGER or BIGINT (actual %s)", type);
+                        if (!isExactNumericWithScaleZero(type)) {
+                            throw semanticException(TYPE_MISMATCH, startValue, "Window frame GROUPS start value type must be exact numeric type with scale 0 (actual %s)", type);
                         }
                     }
                     if (frame.getEnd().isPresent() && frame.getEnd().get().getValue().isPresent()) {
@@ -1166,8 +1166,8 @@ public class ExpressionAnalyzer
                         }
                         Expression endValue = frame.getEnd().get().getValue().get();
                         Type type = process(endValue, context);
-                        if (!type.equals(INTEGER) && !type.equals(BIGINT)) {
-                            throw semanticException(TYPE_MISMATCH, endValue, "Window frame GROUPS end value type must be INTEGER or BIGINT (actual %s)", type);
+                        if (!isExactNumericWithScaleZero(type)) {
+                            throw semanticException(TYPE_MISMATCH, endValue, "Window frame GROUPS end value type must be exact numeric type with scale 0 (actual %s)", type);
                         }
                     }
                 }
@@ -2164,5 +2164,14 @@ public class ExpressionAnalyzer
                 type.equals(DOUBLE) ||
                 type.equals(REAL) ||
                 type instanceof DecimalType;
+    }
+
+    private static boolean isExactNumericWithScaleZero(Type type)
+    {
+        return type.equals(BIGINT) ||
+                type.equals(INTEGER) ||
+                type.equals(SMALLINT) ||
+                type.equals(TINYINT) ||
+                type instanceof DecimalType && ((DecimalType) type).getScale() == 0;
     }
 }

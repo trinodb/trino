@@ -33,7 +33,6 @@ import java.util.function.Predicate;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.operator.WindowOperator.FrameBoundKey.Type.END;
 import static io.trino.operator.WindowOperator.FrameBoundKey.Type.START;
-import static io.trino.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
 import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
 import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
@@ -43,7 +42,6 @@ import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 import static io.trino.sql.tree.WindowFrame.Type.GROUPS;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
-import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -599,9 +597,9 @@ public final class WindowPartition
 
     private long getFrameValue(int channel, String type)
     {
-        checkCondition(!pagesIndex.isNull(channel, currentPosition), INVALID_WINDOW_FRAME, "Window frame %s offset must not be null", type);
+        checkState(!pagesIndex.isNull(channel, currentPosition), "Window frame %s offset must not be null", type);
         long value = pagesIndex.getLong(channel, currentPosition);
-        checkCondition(value >= 0, INVALID_WINDOW_FRAME, "Window frame %s offset must not be negative", value);
+        checkState(value >= 0, "Window frame %s offset must not be negative", value);
         return value;
     }
 
