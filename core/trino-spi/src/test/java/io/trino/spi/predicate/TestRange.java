@@ -30,20 +30,8 @@ import static org.testng.Assert.fail;
 public class TestRange
 {
     @Test
-    public void testMismatchedTypes()
-    {
-        assertThatThrownBy(() -> new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(VARCHAR, utf8Slice("a"))))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Marker types do not match: bigint vs varchar");
-    }
-
-    @Test
     public void testInvertedBounds()
     {
-        assertThatThrownBy(() -> new Range(Marker.exactly(BIGINT, 1L), Marker.exactly(BIGINT, 0L)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("low must be less than or equal to high");
-
         assertThatThrownBy(() -> Range.range(BIGINT, 1L, true, 0L, true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("low must be less than or equal to high");
@@ -55,21 +43,6 @@ public class TestRange
     @Test
     public void testSingleValueExclusive()
     {
-        // (10, 10] using Marker
-        assertThatThrownBy(() -> new Range(Marker.above(BIGINT, 10L), Marker.exactly(BIGINT, 10L)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("invalid bounds for single value range");
-
-        // [10, 10) using Marker
-        assertThatThrownBy(() -> new Range(Marker.exactly(BIGINT, 10L), Marker.below(BIGINT, 10L)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("invalid bounds for single value range");
-
-        // (10, 10) using Marker
-        assertThatThrownBy(() -> new Range(Marker.above(BIGINT, 10L), Marker.below(BIGINT, 10L)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("invalid bounds for single value range");
-
         // (10, 10]
         assertThatThrownBy(() -> Range.range(BIGINT, 10L, false, 10L, true))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -87,22 +60,6 @@ public class TestRange
     }
 
     @Test
-    public void testLowerUnboundedOnly()
-    {
-        assertThatThrownBy(() -> new Range(Marker.lowerUnbounded(BIGINT), Marker.lowerUnbounded(BIGINT)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("high bound must be EXACTLY or BELOW");
-    }
-
-    @Test
-    public void testUpperUnboundedOnly()
-    {
-        assertThatThrownBy(() -> new Range(Marker.upperUnbounded(BIGINT), Marker.upperUnbounded(BIGINT)))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("low bound must be EXACTLY or ABOVE");
-    }
-
-    @Test
     public void testSingleValue()
     {
         assertTrue(Range.range(BIGINT, 1L, true, 1L, true).isSingleValue());
@@ -117,111 +74,137 @@ public class TestRange
     public void testAllRange()
     {
         Range range = Range.all(BIGINT);
-        assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
-        assertEquals(range.getHigh(), Marker.upperUnbounded(BIGINT));
+
+        assertTrue(range.isLowUnbounded());
+        assertFalse(range.isLowInclusive());
+        assertThatThrownBy(range::getLowBoundedValue)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The range is low-unbounded");
+
+        assertTrue(range.isHighUnbounded());
+        assertFalse(range.isHighInclusive());
+        assertThatThrownBy(range::getHighBoundedValue)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The range is high-unbounded");
+
         assertFalse(range.isSingleValue());
         assertTrue(range.isAll());
         assertEquals(range.getType(), BIGINT);
-        assertTrue(range.includes(Marker.lowerUnbounded(BIGINT)));
-        assertTrue(range.includes(Marker.below(BIGINT, 1L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
-        assertTrue(range.includes(Marker.above(BIGINT, 1L)));
-        assertTrue(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testGreaterThanRange()
     {
         Range range = Range.greaterThan(BIGINT, 1L);
-        assertEquals(range.getLow(), Marker.above(BIGINT, 1L));
-        assertEquals(range.getHigh(), Marker.upperUnbounded(BIGINT));
+
+        assertFalse(range.isLowUnbounded());
+        assertFalse(range.isLowInclusive());
+        assertEquals(range.getLowBoundedValue(), 1L);
+
+        assertTrue(range.isHighUnbounded());
+        assertFalse(range.isHighInclusive());
+        assertThatThrownBy(range::getHighBoundedValue)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The range is high-unbounded");
+
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
-        assertFalse(range.includes(Marker.lowerUnbounded(BIGINT)));
-        assertFalse(range.includes(Marker.exactly(BIGINT, 1L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 2L)));
-        assertTrue(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testGreaterThanOrEqualRange()
     {
         Range range = Range.greaterThanOrEqual(BIGINT, 1L);
-        assertEquals(range.getLow(), Marker.exactly(BIGINT, 1L));
-        assertEquals(range.getHigh(), Marker.upperUnbounded(BIGINT));
+
+        assertFalse(range.isLowUnbounded());
+        assertTrue(range.isLowInclusive());
+        assertEquals(range.getLowBoundedValue(), 1L);
+
+        assertTrue(range.isHighUnbounded());
+        assertFalse(range.isHighInclusive());
+        assertThatThrownBy(range::getHighBoundedValue)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The range is high-unbounded");
+
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
-        assertFalse(range.includes(Marker.lowerUnbounded(BIGINT)));
-        assertFalse(range.includes(Marker.exactly(BIGINT, 0L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 2L)));
-        assertTrue(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testLessThanRange()
     {
         Range range = Range.lessThan(BIGINT, 1L);
-        assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
-        assertEquals(range.getHigh(), Marker.below(BIGINT, 1L));
+
+        assertTrue(range.isLowUnbounded());
+        assertFalse(range.isLowInclusive());
+        assertThatThrownBy(range::getLowBoundedValue)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The range is low-unbounded");
+
+        assertFalse(range.isHighUnbounded());
+        assertFalse(range.isHighInclusive());
+        assertEquals(range.getHighBoundedValue(), 1L);
+
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
-        assertTrue(range.includes(Marker.lowerUnbounded(BIGINT)));
-        assertFalse(range.includes(Marker.exactly(BIGINT, 1L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 0L)));
-        assertFalse(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testLessThanOrEqualRange()
     {
         Range range = Range.lessThanOrEqual(BIGINT, 1L);
-        assertEquals(range.getLow(), Marker.lowerUnbounded(BIGINT));
-        assertEquals(range.getHigh(), Marker.exactly(BIGINT, 1L));
+
+        assertTrue(range.isLowUnbounded());
+        assertFalse(range.isLowInclusive());
+        assertThatThrownBy(range::getLowBoundedValue)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("The range is low-unbounded");
+
+        assertFalse(range.isHighUnbounded());
+        assertTrue(range.isHighInclusive());
+        assertEquals(range.getHighBoundedValue(), 1L);
+
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
-        assertTrue(range.includes(Marker.lowerUnbounded(BIGINT)));
-        assertFalse(range.includes(Marker.exactly(BIGINT, 2L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 0L)));
-        assertFalse(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testEqualRange()
     {
         Range range = Range.equal(BIGINT, 1L);
-        assertEquals(range.getLow(), Marker.exactly(BIGINT, 1L));
-        assertEquals(range.getHigh(), Marker.exactly(BIGINT, 1L));
+
+        assertFalse(range.isLowUnbounded());
+        assertTrue(range.isLowInclusive());
+        assertEquals(range.getLowBoundedValue(), 1L);
+
+        assertFalse(range.isHighUnbounded());
+        assertTrue(range.isHighInclusive());
+        assertEquals(range.getHighBoundedValue(), 1L);
+
         assertTrue(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
-        assertFalse(range.includes(Marker.lowerUnbounded(BIGINT)));
-        assertFalse(range.includes(Marker.exactly(BIGINT, 0L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
-        assertFalse(range.includes(Marker.exactly(BIGINT, 2L)));
-        assertFalse(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
     public void testRange()
     {
         Range range = Range.range(BIGINT, 0L, false, 2L, true);
-        assertEquals(range.getLow(), Marker.above(BIGINT, 0L));
-        assertEquals(range.getHigh(), Marker.exactly(BIGINT, 2L));
+        assertFalse(range.isLowUnbounded());
+        assertFalse(range.isLowInclusive());
+        assertEquals(range.getLowBoundedValue(), 0L);
+
+        assertFalse(range.isHighUnbounded());
+        assertTrue(range.isHighInclusive());
+        assertEquals(range.getHighBoundedValue(), 2L);
+
         assertFalse(range.isSingleValue());
         assertFalse(range.isAll());
         assertEquals(range.getType(), BIGINT);
-        assertFalse(range.includes(Marker.lowerUnbounded(BIGINT)));
-        assertFalse(range.includes(Marker.exactly(BIGINT, 0L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 1L)));
-        assertTrue(range.includes(Marker.exactly(BIGINT, 2L)));
-        assertFalse(range.includes(Marker.exactly(BIGINT, 3L)));
-        assertFalse(range.includes(Marker.upperUnbounded(BIGINT)));
     }
 
     @Test
