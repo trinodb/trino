@@ -19,7 +19,6 @@ import io.airlift.drift.annotations.ThriftEnumValue;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
-import io.trino.spi.predicate.Marker.Bound;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
 
@@ -110,19 +109,6 @@ public final class TrinoThriftRangeValueSet
         public int getValue()
         {
             return value;
-        }
-
-        public static TrinoThriftBound fromBound(Bound bound)
-        {
-            switch (bound) {
-                case BELOW:
-                    return BELOW;
-                case EXACTLY:
-                    return EXACTLY;
-                case ABOVE:
-                    return ABOVE;
-            }
-            throw new IllegalArgumentException("Unknown bound: " + bound);
         }
     }
 
