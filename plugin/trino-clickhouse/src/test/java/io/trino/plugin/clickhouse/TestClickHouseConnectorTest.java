@@ -40,10 +40,14 @@ public class TestClickHouseConnectorTest
             throws Exception
     {
         this.clickhouseServer = closeAfterClass(new TestingClickHouseServer());
-        return createClickHouseQueryRunner(clickhouseServer, ImmutableMap.of(), ImmutableMap.<String, String>builder()
-                .put("clickhouse.map-string-as-varchar", "true")
-                .put("allow-drop-table", "true")
-                .build(), TpchTable.getTables());
+        return createClickHouseQueryRunner(
+                clickhouseServer,
+                ImmutableMap.of(),
+                ImmutableMap.<String, String>builder()
+                        .put("clickhouse.map-string-as-varchar", "true")
+                        .put("allow-drop-table", "true")
+                        .build(),
+                TpchTable.getTables());
     }
 
     @Override
