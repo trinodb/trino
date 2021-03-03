@@ -16,10 +16,10 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
+import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.ResultWithQueryId;
 import io.trino.testing.sql.SqlExecutor;
@@ -39,7 +39,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseOracleConnectorTest
-        extends BaseConnectorTest
+        extends BaseJdbcConnectorTest
 {
     @Override
     protected boolean supportsDelete()

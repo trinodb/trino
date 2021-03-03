@@ -14,9 +14,9 @@
 package io.trino.plugin.memsql;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -43,7 +43,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestMemSqlConnectorTest
-        extends BaseConnectorTest
+        extends BaseJdbcConnectorTest
 {
     protected TestingMemSqlServer memSqlServer;
 
