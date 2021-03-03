@@ -18,7 +18,6 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
@@ -47,7 +46,7 @@ public class TestClickHouseConnectorTest
                         .put("clickhouse.map-string-as-varchar", "true")
                         .put("allow-drop-table", "true")
                         .build(),
-                TpchTable.getTables());
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override

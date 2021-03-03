@@ -21,7 +21,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -52,7 +51,7 @@ public class TestMemSqlConnectorTest
             throws Exception
     {
         memSqlServer = new TestingMemSqlServer();
-        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), TpchTable.getTables());
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @AfterClass(alwaysRun = true)
