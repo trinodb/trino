@@ -45,6 +45,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
@@ -78,6 +79,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -138,9 +140,20 @@ public class ClickHouseClient
     protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         ImmutableList.Builder<String> tableOptions = ImmutableList.builder();
-        ClickHouseTableProperties.getEngine(tableMetadata.getProperties())
-                .ifPresent(value -> tableOptions.add("ENGINE =" + quoted(value)));
-        return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(", ", tableOptions.build()));
+        Map<String, Object> tableProperties = tableMetadata.getProperties();
+        ClickHouseEngineType engine = ClickHouseTableProperties.getEngine(tableProperties);
+        tableOptions.add("ENGINE = " + engine.getEngineType());
+        if (engine == ClickHouseEngineType.MERGETREE && formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).isEmpty()) {
+            // order_by property is required
+            throw new TrinoException(INVALID_TABLE_PROPERTY,
+                    format("The property of %s is required for table engine %s", ClickHouseTableProperties.ORDER_BY_PROPERTY, engine.getEngineType()));
+        }
+        formatProperty(ClickHouseTableProperties.getOrderBy(tableProperties)).ifPresent(value -> tableOptions.add("ORDER BY " + value));
+        formatProperty(ClickHouseTableProperties.getPrimaryKey(tableProperties)).ifPresent(value -> tableOptions.add("PRIMARY KEY " + value));
+        formatProperty(ClickHouseTableProperties.getPartitionBy(tableProperties)).ifPresent(value -> tableOptions.add("PARTITION BY " + value));
+        ClickHouseTableProperties.getSampleBy(tableProperties).ifPresent(value -> tableOptions.add("SAMPLE BY " + value));
+
+        return format("CREATE TABLE %s (%s) %s", quoted(remoteTableName), join(", ", columns), join(" ", tableOptions.build()));
     }
 
     @Override
@@ -170,6 +183,25 @@ public class ClickHouseClient
     public void dropSchema(ConnectorSession session, String schemaName)
     {
         execute(session, "DROP DATABASE " + quoted(schemaName));
+    }
+
+    @Override
+    public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
+    {
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            String columnName = column.getName();
+            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
+                columnName = columnName.toUpperCase(ENGLISH);
+            }
+            String sql = format(
+                    "ALTER TABLE %s ADD COLUMN %s",
+                    quoted(handle.asPlainTable().getRemoteTableName()),
+                    getColumnDefinitionSql(session, column, columnName));
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -368,5 +400,26 @@ public class ClickHouseClient
             return WriteMapping.longMapping("Date", dateWriteFunction());
         }
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type);
+    }
+
+    /**
+     * format property to match ClickHouse create table statement
+     *
+     * @param prop property will be formatted
+     * @return formatted property
+     */
+    private Optional<String> formatProperty(List<String> prop)
+    {
+        if (prop == null || prop.isEmpty()) {
+            return Optional.empty();
+        }
+        else if (prop.size() == 1) {
+            // only one column
+            return Optional.of(prop.get(0));
+        }
+        else {
+            // include more than one columns
+            return Optional.of("(" + String.join(",", prop) + ")");
+        }
     }
 }
