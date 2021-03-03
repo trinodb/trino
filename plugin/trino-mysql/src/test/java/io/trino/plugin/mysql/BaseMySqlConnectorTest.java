@@ -15,12 +15,12 @@ package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.sql.SqlExecutor;
@@ -43,7 +43,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseMySqlConnectorTest
-        extends BaseConnectorTest
+        extends BaseJdbcConnectorTest
 {
     @Override
     protected boolean supportsDelete()
