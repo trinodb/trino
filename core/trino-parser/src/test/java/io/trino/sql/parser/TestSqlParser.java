@@ -128,6 +128,7 @@ import io.trino.sql.tree.RevokeRoles;
 import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetPath;
@@ -756,6 +757,22 @@ public class TestSqlParser
                                         new BooleanLiteral("true"),
                                         new LongLiteral("2"))),
                         Optional.of(new LongLiteral("3"))));
+    }
+
+    @Test
+    public void testSearchedCase()
+    {
+        assertExpression(
+                "CASE WHEN a > 3 THEN 23 WHEN b = a THEN 33 END",
+                new SearchedCaseExpression(
+                        ImmutableList.of(
+                                new WhenClause(
+                                        new ComparisonExpression(ComparisonExpression.Operator.GREATER_THAN, new Identifier("a"), new LongLiteral("3")),
+                                        new LongLiteral("23")),
+                                new WhenClause(
+                                        new ComparisonExpression(ComparisonExpression.Operator.EQUAL, new Identifier("b"), new Identifier("a")),
+                                        new LongLiteral("33"))),
+                        Optional.empty()));
     }
 
     @Test
