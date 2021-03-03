@@ -25,7 +25,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -245,7 +244,7 @@ public class TestPostgreSqlConnectorTest
         // varchar range
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar different case
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
@@ -475,7 +474,7 @@ public class TestPostgreSqlConnectorTest
 
         // GROUP BY and WHERE on varchar column
         // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
 
         // GROUP BY above WHERE and LIMIT
         assertThat(query("" +
@@ -750,7 +749,7 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
 
         // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
 
         // with aggregation
         assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
@@ -759,7 +758,7 @@ public class TestPostgreSqlConnectorTest
 
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(FilterNode.class);
 
         // with TopN
         assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
@@ -809,13 +808,6 @@ public class TestPostgreSqlConnectorTest
                     .matches("VALUES 1")
                     .isFullyPushedDown();
         }
-    }
-
-    @Override
-    public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
-    {
-        // TODO - https://github.com/trinodb/trino/issues/3645
-        throw new SkipException("PostgreSQL has different collation than Trino");
     }
 
     private String getLongInClause(int start, int length)
