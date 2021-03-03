@@ -24,7 +24,7 @@ public final class JdbcClientStats
     private final JdbcApiStats beginInsertTable = new JdbcApiStats();
     private final JdbcApiStats buildInsertSql = new JdbcApiStats();
     private final JdbcApiStats prepareQuery = new JdbcApiStats();
-    private final JdbcApiStats buildSql = new JdbcApiStats();
+    private final JdbcApiStats prepareStatement = new JdbcApiStats();
     private final JdbcApiStats commitCreateTable = new JdbcApiStats();
     private final JdbcApiStats createSchema = new JdbcApiStats();
     private final JdbcApiStats createTable = new JdbcApiStats();
@@ -96,9 +96,9 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
-    public JdbcApiStats getBuildSql()
+    public JdbcApiStats getPrepareStatement()
     {
-        return buildSql;
+        return prepareStatement;
     }
 
     @Managed

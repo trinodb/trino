@@ -38,7 +38,6 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -159,16 +158,15 @@ public class DruidJdbcClient
     }
 
     @Override
-    public PreparedQuery prepareQuery(ConnectorSession session, JdbcTableHandle table, Optional<List<List<JdbcColumnHandle>>> groupingSets, List<JdbcColumnHandle> columns, Map<String, String> columnExpressions)
+    public PreparedQuery prepareQuery(
+            ConnectorSession session,
+            JdbcTableHandle table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
+            Optional<JdbcSplit> split)
     {
-        return super.prepareQuery(session, prepareTableHandleForQuery(table), groupingSets, columns, columnExpressions);
-    }
-
-    @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
-            throws SQLException
-    {
-        return super.buildSql(session, connection, split, prepareTableHandleForQuery(table), columns);
+        return super.prepareQuery(session, prepareTableHandleForQuery(table), groupingSets, columns, columnExpressions, split);
     }
 
     private JdbcTableHandle prepareTableHandleForQuery(JdbcTableHandle table)

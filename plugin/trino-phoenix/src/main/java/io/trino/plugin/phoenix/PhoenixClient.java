@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -240,24 +239,13 @@ public class PhoenixClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public PreparedStatement prepareStatement(ConnectorSession session, Connection connection, PreparedQuery preparedQuery, JdbcSplit split)
             throws SQLException
     {
-        PhoenixSplit phoenixSplit = (PhoenixSplit) split;
         QueryBuilder queryBuilder = new QueryBuilder(this);
-        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
-                session,
-                connection,
-                table.getRelationHandle(),
-                Optional.empty(),
-                columnHandles,
-                ImmutableMap.of(),
-                table.getConstraint(),
-                split.getAdditionalPredicate());
-        preparedQuery = applyQueryTransformations(table, preparedQuery);
         PreparedStatement query = queryBuilder.prepareStatement(session, connection, preparedQuery);
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
-        ResultSet resultSet = getResultSet(phoenixSplit.getPhoenixInputSplit(), queryPlan);
+        ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
         {
             @Override

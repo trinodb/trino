@@ -88,9 +88,10 @@ public interface JdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions);
+            Map<String, String> columnExpressions,
+            Optional<JdbcSplit> split);
 
-    PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+    PreparedStatement prepareStatement(ConnectorSession session, Connection connection, PreparedQuery preparedQuery, JdbcSplit split)
             throws SQLException;
 
     boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder);

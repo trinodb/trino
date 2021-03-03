@@ -193,16 +193,17 @@ public class CachingJdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions)
+            Map<String, String> columnExpressions,
+            Optional<JdbcSplit> split)
     {
-        return delegate.prepareQuery(session, table, groupingSets, columns, columnExpressions);
+        return delegate.prepareQuery(session, table, groupingSets, columns, columnExpressions, split);
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+    public PreparedStatement prepareStatement(ConnectorSession session, Connection connection, PreparedQuery preparedQuery, JdbcSplit split)
             throws SQLException
     {
-        return delegate.buildSql(session, connection, split, table, columns);
+        return delegate.prepareStatement(session, connection, preparedQuery, split);
     }
 
     @Override

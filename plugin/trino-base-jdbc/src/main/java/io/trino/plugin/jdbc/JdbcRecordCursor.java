@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -29,6 +30,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -101,7 +103,8 @@ public class JdbcRecordCursor
                 }
             }
 
-            statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
+            PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, table, Optional.empty(), columnHandles, ImmutableMap.of(), Optional.of(split));
+            statement = jdbcClient.prepareStatement(session, connection, preparedQuery, split);
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);

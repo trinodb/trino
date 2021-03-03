@@ -170,7 +170,7 @@ public class JdbcMetadata
     private JdbcTableHandle flushAttributesAsQuery(ConnectorSession session, JdbcTableHandle handle)
     {
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
-        PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), columns, ImmutableMap.of());
+        PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), columns, ImmutableMap.of(), Optional.empty());
         return new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
@@ -286,7 +286,8 @@ public class JdbcMetadata
                                 .iterator())
                         .addAll(newColumnsList)
                         .build(),
-                expressions.build());
+                expressions.build(),
+                Optional.empty());
         handle = new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),

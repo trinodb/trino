@@ -160,16 +160,17 @@ public final class StatisticsAwareJdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions)
+            Map<String, String> columnExpressions,
+            Optional<JdbcSplit> split)
     {
-        return stats.getPrepareQuery().wrap(() -> delegate().prepareQuery(session, table, groupingSets, columns, columnExpressions));
+        return stats.getPrepareQuery().wrap(() -> delegate().prepareQuery(session, table, groupingSets, columns, columnExpressions, split));
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columnHandles)
+    public PreparedStatement prepareStatement(ConnectorSession session, Connection connection, PreparedQuery preparedQuery, JdbcSplit split)
             throws SQLException
     {
-        return stats.getBuildSql().wrap(() -> delegate().buildSql(session, connection, split, tableHandle, columnHandles));
+        return stats.getPrepareStatement().wrap(() -> delegate().prepareStatement(session, connection, preparedQuery, split));
     }
 
     @Override

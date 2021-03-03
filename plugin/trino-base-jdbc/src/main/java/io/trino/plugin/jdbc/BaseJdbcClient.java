@@ -427,7 +427,8 @@ public abstract class BaseJdbcClient
             JdbcTableHandle table,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
-            Map<String, String> columnExpressions)
+            Map<String, String> columnExpressions,
+            Optional<JdbcSplit> split)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
@@ -438,7 +439,7 @@ public abstract class BaseJdbcClient
                     columns,
                     columnExpressions,
                     table.getConstraint(),
-                    Optional.empty()));
+                    split.flatMap(JdbcSplit::getAdditionalPredicate)));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -446,20 +447,10 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+    public PreparedStatement prepareStatement(ConnectorSession session, Connection connection, PreparedQuery preparedQuery, JdbcSplit split)
             throws SQLException
     {
-        QueryBuilder queryBuilder = new QueryBuilder(this);
-        PreparedQuery preparedQuery = applyQueryTransformations(table, queryBuilder.prepareQuery(
-                session,
-                connection,
-                table.getRelationHandle(),
-                Optional.empty(),
-                columns,
-                ImmutableMap.of(),
-                table.getConstraint(),
-                split.getAdditionalPredicate()));
-        return queryBuilder.prepareStatement(session, connection, preparedQuery);
+        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
     }
 
     protected PreparedQuery applyQueryTransformations(JdbcTableHandle tableHandle, PreparedQuery query)
