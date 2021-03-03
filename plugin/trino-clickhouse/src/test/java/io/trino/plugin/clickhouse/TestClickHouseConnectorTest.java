@@ -14,7 +14,7 @@
 package io.trino.plugin.clickhouse;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.BaseConnectorTest;
+import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
@@ -31,7 +31,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestClickHouseConnectorTest
-        extends BaseConnectorTest
+        extends BaseJdbcConnectorTest
 {
     private TestingClickHouseServer clickhouseServer;
 
