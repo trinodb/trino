@@ -23,8 +23,8 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.imp
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
 import static java.lang.String.format;
 
-public class TestJdbcSnowflakeIntegrationSmokeTest
-        extends BaseSnowflakeIntegrationSmokeTest
+public class TestJdbcSnowflakeConnectorTest
+        extends BaseSnowflakeConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -35,6 +35,17 @@ public class TestJdbcSnowflakeIntegrationSmokeTest
                 .withAdditionalProperties(impersonationDisabled())
                 .withConnectionPooling()
                 .build();
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        // TODO https://starburstdata.atlassian.net/browse/PRESTO-3389
+        // Snowflake's JDBC client has a bug which truncates large double value, adjust the test to use small enough values
+        if (dataMappingTestSetup.getTrinoTypeName().equals("double")) {
+            return Optional.of(new DataMappingTestSetup("double", "DOUBLE '123456789012.123'", "DOUBLE '999999999999.999'"));
+        }
+        return super.filterDataMappingSmokeTestData(dataMappingTestSetup);
     }
 
     @Override

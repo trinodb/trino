@@ -26,8 +26,8 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
-public class TestDistributedSnowflakeIntegrationSmokeTest
-        extends BaseSnowflakeIntegrationSmokeTest
+public class TestDistributedSnowflakeConnectorTest
+        extends BaseSnowflakeConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()

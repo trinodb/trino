@@ -9,15 +9,16 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
-
-import java.util.Optional;
+import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationEnabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestJdbcSnowflakeDistributedQueries
-        extends BaseSnowflakeDistributedQueries
+public class TestJdbcSnowflakeWithImpersonationConnectorSmokeTest
+        extends BaseJdbcConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -28,20 +29,15 @@ public class TestJdbcSnowflakeDistributedQueries
                 .build();
     }
 
+    @Test
     @Override
-    protected boolean supportsCommentOnTable()
+    public void testShowCreateTable()
     {
-        return false;
-    }
-
-    @Override
-    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        // TODO https://starburstdata.atlassian.net/browse/PRESTO-3389
-        // Snowflake's JDBC client has a bug which truncates large double value, adjust the test to use small enough values
-        if (dataMappingTestSetup.getTrinoTypeName().equals("double")) {
-            return Optional.of(new DataMappingTestSetup("double", "DOUBLE '123456789012.123'", "DOUBLE '999999999999.999'"));
-        }
-        return super.filterDataMappingSmokeTestData(dataMappingTestSetup);
+        assertThat((String) computeActual("SHOW CREATE TABLE region").getOnlyValue())
+                .isEqualTo("CREATE TABLE snowflake.test_schema.region (\n" +
+                        "   regionkey decimal(38, 0),\n" +
+                        "   name varchar(25),\n" +
+                        "   comment varchar(152)\n" +
+                        ")");
     }
 }

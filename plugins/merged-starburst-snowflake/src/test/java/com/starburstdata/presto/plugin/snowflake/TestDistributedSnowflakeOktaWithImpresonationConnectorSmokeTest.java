@@ -21,9 +21,11 @@ import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_PAS
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeServer.OKTA_USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class TestDistributedSnowflakeOktaRoleIntegrationSmokeTest
-        extends BaseSnowflakeIntegrationSmokeTest
+public class TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest
+        extends BaseDistbutedSnowflakeConnectorSmokeTest
 {
+    private final SnowflakeServer server = new SnowflakeServer();
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception

@@ -14,8 +14,8 @@ import io.trino.testing.QueryRunner;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationEnabled;
 
-public class TestDistributedSnowflakeDistributedQueries
-        extends BaseSnowflakeDistributedQueries
+public class TestDistributedSnowflakeWithImpersonationConnectorSmokeTest
+        extends BaseDistbutedSnowflakeConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()

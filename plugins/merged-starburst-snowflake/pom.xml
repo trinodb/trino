@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>353-e-SNAPSHOT</version>
+        <version>354-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -242,6 +242,13 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-base-jdbc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-jmx</artifactId>
             <scope>test</scope>
         </dependency>
@@ -380,14 +387,14 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestDistributedSnowflakeDistributedQueries.java</exclude>
-                                <exclude>**/TestDistributedSnowflakeIntegrationSmokeTest.java</exclude>
-                                <exclude>**/TestDistributedSnowflakeTypeMapping.java</exclude>
-                                <exclude>**/TestJdbcSnowflakeDistributedQueries.java</exclude>
-                                <exclude>**/TestJdbcSnowflakeIntegrationSmokeTest.java</exclude>
+                                <exclude>**/TestJdbcSnowflakeConnectorTest.java</exclude>
+                                <exclude>**/TestJdbcSnowflakeWithImpersonationConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestJdbcSnowflakeTypeMapping.java</exclude>
-                                <exclude>**/TestDistributedSnowflakeOktaIntegrationSmokeTest.java</exclude>
-                                <exclude>**/TestDistributedSnowflakeOktaRoleIntegrationSmokeTest.java</exclude>
+                                <exclude>**/TestDistributedSnowflakeConnectorTest.java</exclude>
+                                <exclude>**/TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestDistributedSnowflakeWithImpersonationConnectorSmokeTest.java</exclude>
+                                <exclude>**/TestDistributedSnowflakeTypeMapping.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -403,8 +410,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestJdbcSnowflakeDistributedQueries.java</include>
-                                <include>**/TestJdbcSnowflakeIntegrationSmokeTest.java</include>
+                                <include>**/TestJdbcSnowflakeConnectorTest.java</include>
+                                <include>**/TestJdbcSnowflakeWithImpersonationConnectorSmokeTest.java</include>
                                 <include>**/TestJdbcSnowflakeTypeMapping.java</include>
                             </includes>
                         </configuration>
@@ -421,8 +428,10 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestDistributedSnowflakeDistributedQueries.java</include>
-                                <include>**/TestDistributedSnowflakeIntegrationSmokeTest.java</include>
+                                <include>**/TestDistributedSnowflakeConnectorTest.java</include>
+                                <include>**/TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest.java</include>
+                                <include>**/TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest.java</include>
+                                <include>**/TestDistributedSnowflakeWithImpersonationConnectorSmokeTest.java</include>
                                 <include>**/TestDistributedSnowflakeTypeMapping.java</include>
                             </includes>
                         </configuration>
@@ -439,8 +448,8 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestDistributedSnowflakeOktaIntegrationSmokeTest.java</include>
-                                <include>**/TestDistributedSnowflakeOktaRoleIntegrationSmokeTest.java</include>
+                                <include>**/TestDistributedNoImpresonationOktaPoolingSnowflakeTest.java</include>
+                                <include>**/TestDistributedWithImpresonationOktaSnowflakeConnectorTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>

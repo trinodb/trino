@@ -16,23 +16,30 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.TestingSession;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -41,11 +48,150 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-public abstract class BaseSnowflakeIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+public abstract class BaseSnowflakeConnectorTest
+        extends BaseConnectorTest
 {
     protected final SnowflakeServer server = new SnowflakeServer();
     protected final SqlExecutor snowflakeExecutor = server::safeExecute;
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_ARRAY:
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Override
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    {
+        // Snowflake does not support column names containing double quotes
+        return columnName.contains("\"") && nullToEmpty(exception.getMessage()).matches(".*(Snowflake columns cannot contain quotes).*");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        // Real: Snowflake does not have a REAL type, instead they are mapped to double. The round trip test fails because REAL '567.123' != DOUBLE '567.123'
+        // Char: Snowflake does not have a CHAR type. They map it to varchar, which does not have the same fixed width semantics
+        String name = dataMappingTestSetup.getTrinoTypeName();
+        if (name.equals("real") || name.startsWith("char")) {
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                server::safeExecute,
+                format("%s.test_table_with_default_columns", TEST_SCHEMA),
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(),
+                VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "decimal(38,0)", "", "")
+                .row("custkey", "decimal(38,0)", "", "")
+                .row("orderstatus", "varchar(1)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(15)", "", "")
+                .row("clerk", "varchar(15)", "", "")
+                .row("shippriority", "decimal(38,0)", "", "")
+                .row("comment", "varchar(79)", "", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        throw new SkipException("Drop column not yet implemented");
+    }
+
+    @Test
+    public void testDescribeInput()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ?")
+                .build();
+        MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
+        MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "unknown")
+                .row(1, "decimal(38,0)")
+                .row(2, "varchar(25)")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testDescribeOutput()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT * FROM nation")
+                .build();
+
+        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(38,0)", 16, false)
+                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
+                .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(38,0)", 16, false)
+                .row("comment", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(152)", 0, false)
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    public void testDescribeOutputNamedAndUnnamed()
+    {
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT 1, name, regionkey AS my_alias FROM nation")
+                .build();
+
+        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("_col0", "", "", "", "integer", 4, false)
+                .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
+                .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(38,0)", 16, true)
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
+    @Override
+    public void testInformationSchemaFiltering()
+    {
+        assertQuery(
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' AND table_schema = 'test_schema' LIMIT 1",
+                "SELECT 'orders'");
+        assertQuery(
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(38,0)' AND table_schema = 'test_schema' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
+                "SELECT 'customer'");
+    }
+
+    @Override
+    public void testTableSampleBernoulli()
+    {
+        throw new SkipException("This test takes more than 10 minutes to finish.");
+    }
 
     @Override
     public void testDescribeTable()
@@ -53,7 +199,7 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
         MaterializedResult actualColumns = computeActual(
                 getSession(), "DESC ORDERS").toTestTypes();
 
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(
+        MaterializedResult expectedColumns = resultBuilder(
                 getSession(),
                 VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(38,0)", "", "")
@@ -79,16 +225,6 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
 
         assertUpdate(format("DROP TABLE %s", tableName));
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-    }
-
-    @Test
-    public void testInsert()
-    {
-        String tableName = TEST_SCHEMA + ".test_insert";
-        try (TestTable testTable = new TestTable(snowflakeExecutor, tableName, "(x number(19), y varchar(100))")) {
-            assertUpdate(format("INSERT INTO %s VALUES (123, 'test')", testTable.getName()), 1);
-            assertQuery(format("SELECT * FROM %s", testTable.getName()), "SELECT 123 x, 'test' y");
-        }
     }
 
     @Test
@@ -260,7 +396,7 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                     .add("DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T17:45:14.753 +14:00'))");
         }
 
-        MaterializedResult.Builder expected = MaterializedResult.resultBuilder(session, createTimestampWithTimeZoneType(3))
+        MaterializedResult.Builder expected = resultBuilder(session, createTimestampWithTimeZoneType(3))
                 .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(14, 0)))
                 .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(-13, 0)))
                 .row(LocalDateTime.of(9999 + 2, 12, 31, 23, 59, 59, 999_000_000).atZone(ZoneId.of("UTC")))

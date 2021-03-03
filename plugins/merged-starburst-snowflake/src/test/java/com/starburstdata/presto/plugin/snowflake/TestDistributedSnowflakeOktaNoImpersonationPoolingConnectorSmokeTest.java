@@ -24,9 +24,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
-public class TestDistributedSnowflakeOktaIntegrationSmokeTest
-        extends BaseSnowflakeIntegrationSmokeTest
+public class TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest
+        extends BaseDistbutedSnowflakeConnectorSmokeTest
 {
+    private final SnowflakeServer server = new SnowflakeServer();
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
