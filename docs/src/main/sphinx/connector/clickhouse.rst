@@ -65,6 +65,43 @@ Run ``SELECT`` to access the ``clicks`` table in the ``web`` database::
     If you used a different name for your catalog properties file, use
     that catalog name instead of ``myclickhouse`` in the above examples.
 
+Table properties - ClickHouse
+------------------------------
+
+Table property usage example::
+
+    CREATE TABLE default.trino_ck (
+      id int NOT NULL,
+      birthday DATE,
+      name VARCHAR,
+      age BIGINT,
+      logdate DATE
+    )
+    WITH (
+      engine = 'MergeTree',
+      order_by = 'id, birthday',
+      partition_by = 'toYYYYMM(logdate)'
+    );
+
+The following are supported ClickHouse table properties from `<https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/>`_
+
+=========================== ================ ==============================================================================================================
+Property Name               Default Value    Description
+=========================== ================ ==============================================================================================================
+``engine``                  ``Log``          Name and parameters of the engine.
+
+``order_by``                (none)           list of columns to be the sorting key. It's required if ``engine`` is ``MergeTree``
+
+``partition_by``            (none)           list of columns to be the partition key. It's optional.
+
+``primary_key``             (none)           list of columns to be the primary key. It's optional.
+
+``sample_by``               (none)           An expression for sampling. It's optional.
+
+=========================== ================ ==============================================================================================================
+
+Currently the connector only supports ``Log`` and ``MergeTree`` table engines in create table.
+
 Limitations
 -----------
 
