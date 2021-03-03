@@ -34,6 +34,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetPageSource
@@ -160,14 +161,15 @@ public class ParquetPageSource
             checkState(batchId == expectedBatchId);
 
             Block block;
+            String parquetDataSourceId = parquetReader.getDataSource().getId().toString();
             try {
                 block = parquetReader.readBlock(field);
             }
             catch (ParquetCorruptionException e) {
-                throw new TrinoException(HIVE_BAD_DATA, e);
+                throw new TrinoException(HIVE_BAD_DATA, format("Corrupted parquet data; source=%s; %s", parquetDataSourceId, e.getMessage()), e);
             }
             catch (IOException e) {
-                throw new TrinoException(HIVE_CURSOR_ERROR, e);
+                throw new TrinoException(HIVE_CURSOR_ERROR, format("Failed reading parquet data; source= %s; %s", parquetDataSourceId, e.getMessage()), e);
             }
 
             loaded = true;
