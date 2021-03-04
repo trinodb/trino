@@ -108,6 +108,7 @@ import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.security.CertificateAuthenticatorManager;
+import io.trino.server.security.PasswordAuthenticatorConfig;
 import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
@@ -381,7 +382,7 @@ public class LocalQueryRunner
                 metadata,
                 new NoOpResourceGroupManager(),
                 accessControl,
-                Optional.of(new PasswordAuthenticatorManager()),
+                Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig())),
                 new CertificateAuthenticatorManager(),
                 eventListenerManager,
                 new GroupProviderManager(),

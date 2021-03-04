@@ -51,6 +51,7 @@ import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
@@ -109,6 +110,7 @@ public class TestWebUi
             .build();
     private static final String TEST_USER = "test-user";
     private static final String TEST_PASSWORD = "test-password";
+    private static final String TEST_PASSWORD2 = "test-password2";
     private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
     private static final PrivateKey JWK_PRIVATE_KEY;
 
@@ -122,9 +124,11 @@ public class TestWebUi
     }
 
     private OkHttpClient client;
+    private Path passwordConfigDummy;
 
     @BeforeClass
     public void setup()
+            throws IOException
     {
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
                 .followRedirects(false);
@@ -137,6 +141,9 @@ public class TestWebUi
                 Optional.empty(),
                 Optional.empty());
         client = clientBuilder.build();
+
+        passwordConfigDummy = Files.createTempFile("passwordConfigDummy", "");
+        passwordConfigDummy.toFile().deleteOnExit();
     }
 
     @Test
@@ -148,7 +155,7 @@ public class TestWebUi
                 .build()) {
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             // insecure authenticator takes any username, but does not allow any password
-            testFormAuthentication(server, httpServerInfo, false);
+            testFormAuthentication(server, httpServerInfo, false, TEST_PASSWORD);
         }
     }
 
@@ -160,32 +167,51 @@ public class TestWebUi
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .build())
                 .build()) {
-            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestWebUi::authenticate);
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestWebUi::authenticate);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
-            testFormAuthentication(server, httpServerInfo, true);
+            testFormAuthentication(server, httpServerInfo, true, TEST_PASSWORD);
         }
     }
 
-    private void testFormAuthentication(TestingTrinoServer server, HttpServerInfo httpServerInfo, boolean sendPasswordForHttps)
+    @Test
+    public void testMultiplePasswordAuthenticators()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("http-server.authentication.type", "password")
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .build())
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestWebUi::authenticate, TestWebUi::authenticate2);
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            testFormAuthentication(server, httpServerInfo, true, TEST_PASSWORD);
+            testFormAuthentication(server, httpServerInfo, true, TEST_PASSWORD2);
+        }
+    }
+
+    private void testFormAuthentication(TestingTrinoServer server, HttpServerInfo httpServerInfo, boolean sendPasswordForHttps, String password)
             throws Exception
     {
         testRootRedirect(httpServerInfo.getHttpUri(), client);
         testRootRedirect(httpServerInfo.getHttpsUri(), client);
 
         String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
-        testWorkerResource(nodeId, httpServerInfo.getHttpUri(), false);
-        testWorkerResource(nodeId, httpServerInfo.getHttpsUri(), sendPasswordForHttps);
+        testWorkerResource(nodeId, httpServerInfo.getHttpUri(), password, false);
+        testWorkerResource(nodeId, httpServerInfo.getHttpsUri(), password, sendPasswordForHttps);
 
         testLoggedOut(httpServerInfo.getHttpUri());
         testLoggedOut(httpServerInfo.getHttpsUri());
 
-        testLogIn(httpServerInfo.getHttpUri(), false);
-        testLogIn(httpServerInfo.getHttpsUri(), sendPasswordForHttps);
+        testLogIn(httpServerInfo.getHttpUri(), password, false);
+        testLogIn(httpServerInfo.getHttpsUri(), password, sendPasswordForHttps);
 
-        testFailedLogin(httpServerInfo.getHttpUri(), false);
-        testFailedLogin(httpServerInfo.getHttpsUri(), sendPasswordForHttps);
+        testFailedLogin(httpServerInfo.getHttpUri(), false, password);
+        testFailedLogin(httpServerInfo.getHttpsUri(), sendPasswordForHttps, password);
     }
 
     private static void testRootRedirect(URI baseUri, OkHttpClient client)
@@ -208,7 +234,7 @@ public class TestWebUi
         assertOk(client, getValidVendorLocation(baseUri));
     }
 
-    private void testLogIn(URI baseUri, boolean sendPassword)
+    private void testLogIn(URI baseUri, String password, boolean sendPassword)
             throws Exception
     {
         CookieManager cookieManager = new CookieManager();
@@ -229,7 +255,7 @@ public class TestWebUi
             assertThat(body).contains("var hidePassword = true;");
         }
 
-        logIn(baseUri, client, sendPassword);
+        logIn(baseUri, client, password, sendPassword);
         HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
         assertEquals(cookie.getPath(), "/ui");
         assertEquals(cookie.getDomain(), baseUri.getHost());
@@ -247,16 +273,16 @@ public class TestWebUi
         assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
     }
 
-    private void testFailedLogin(URI uri, boolean passwordAllowed)
+    private void testFailedLogin(URI uri, boolean passwordAllowed, String password)
             throws IOException
     {
         testFailedLogin(uri, Optional.empty(), Optional.empty());
-        testFailedLogin(uri, Optional.empty(), Optional.of(TEST_PASSWORD));
+        testFailedLogin(uri, Optional.empty(), Optional.of(password));
         testFailedLogin(uri, Optional.empty(), Optional.of("unknown"));
 
         if (passwordAllowed) {
             testFailedLogin(uri, Optional.of(TEST_USER), Optional.of("unknown"));
-            testFailedLogin(uri, Optional.of("unknown"), Optional.of(TEST_PASSWORD));
+            testFailedLogin(uri, Optional.of("unknown"), Optional.of(password));
             testFailedLogin(uri, Optional.of(TEST_USER), Optional.empty());
             testFailedLogin(uri, Optional.of("unknown"), Optional.empty());
         }
@@ -284,13 +310,13 @@ public class TestWebUi
         }
     }
 
-    private void testWorkerResource(String nodeId, URI baseUri, boolean sendPassword)
+    private void testWorkerResource(String nodeId, URI baseUri, String password, boolean sendPassword)
             throws Exception
     {
         OkHttpClient client = this.client.newBuilder()
                 .cookieJar(new JavaNetCookieJar(new CookieManager()))
                 .build();
-        logIn(baseUri, client, sendPassword);
+        logIn(baseUri, client, password, sendPassword);
 
         testWorkerResource(nodeId, baseUri, client);
     }
@@ -302,13 +328,13 @@ public class TestWebUi
         assertOk(authorizedClient, getLocation(baseUri, "/ui/api/worker/" + nodeId + "/thread"));
     }
 
-    private static void logIn(URI baseUri, OkHttpClient client, boolean sendPassword)
+    private static void logIn(URI baseUri, OkHttpClient client, String password, boolean sendPassword)
             throws IOException
     {
         FormBody.Builder formData = new FormBody.Builder()
                 .add("username", TEST_USER);
         if (sendPassword) {
-            formData.add("password", TEST_PASSWORD);
+            formData.add("password", password);
         }
 
         Request request = new Request.Builder()
@@ -362,6 +388,7 @@ public class TestWebUi
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .build())
                 .build()) {
             // a password manager is required, so a secure request will fail
@@ -369,7 +396,7 @@ public class TestWebUi
             FormAuthenticator formAuthenticator = server.getInstance(Key.get(FormAuthenticator.class));
             assertThatThrownBy(() -> formAuthenticator
                     .isValidCredential(TEST_USER, TEST_USER, true))
-                    .hasMessage("authenticator was not loaded")
+                    .hasMessage("authenticators were not loaded")
                     .isInstanceOf(IllegalStateException.class);
             assertTrue(formAuthenticator.isLoginEnabled(true));
         }
@@ -424,7 +451,7 @@ public class TestWebUi
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
 
-            testLogIn(httpServerInfo.getHttpUri(), false);
+            testLogIn(httpServerInfo.getHttpUri(), TEST_PASSWORD, false);
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
@@ -456,7 +483,7 @@ public class TestWebUi
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
 
-            testLogIn(httpServerInfo.getHttpUri(), false);
+            testLogIn(httpServerInfo.getHttpUri(), TEST_PASSWORD, false);
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
@@ -492,7 +519,7 @@ public class TestWebUi
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             String nodeId = server.getInstance(Key.get(NodeInfo.class)).getNodeId();
 
-            testLogIn(httpServerInfo.getHttpUri(), false);
+            testLogIn(httpServerInfo.getHttpUri(), TEST_PASSWORD, false);
 
             testNeverAuthorized(httpServerInfo.getHttpsUri(), client);
 
@@ -829,6 +856,14 @@ public class TestWebUi
     private static Principal authenticate(String user, String password)
     {
         if (TEST_USER.equals(user) && TEST_PASSWORD.equals(password)) {
+            return new BasicPrincipal(user);
+        }
+        throw new AccessDeniedException("Invalid credentials");
+    }
+
+    private static Principal authenticate2(String user, String password)
+    {
+        if (TEST_USER.equals(user) && TEST_PASSWORD2.equals(password)) {
             return new BasicPrincipal(user);
         }
         throw new AccessDeniedException("Invalid credentials");
