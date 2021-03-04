@@ -42,6 +42,9 @@ In ``WHEN`` clauses with ``UPDATE`` operations, the column value expressions can
 target or the source.  In the ``NOT MATCHED`` case, the ``INSERT`` expressions can depend only
 on the source.
 
+Each row in the source must match at most one row in the target table.  If more than one target table
+row is matched by a source row, a ``CONSTRAINT_VIOLATION`` exception is raised.
+
 
 Examples
 --------

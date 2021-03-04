@@ -2462,12 +2462,6 @@ class AstBuilder
                 .map(ParseTree::getText);
     }
 
-    private static Optional<String> getTextIfPresent(Token token)
-    {
-        return Optional.ofNullable(token)
-                .map(Token::getText);
-    }
-
     private Optional<Identifier> getIdentifierIfPresent(ParserRuleContext context)
     {
         return Optional.ofNullable(context).map(c -> (Identifier) visit(c));
