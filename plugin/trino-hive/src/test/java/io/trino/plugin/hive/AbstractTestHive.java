@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
@@ -174,6 +175,8 @@ import static com.google.common.collect.Maps.uniqueIndex;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.hash.Hashing.sha256;
+import static com.google.common.io.MoreFiles.deleteRecursively;
+import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -281,6 +284,7 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createTempDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
@@ -302,6 +306,8 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestHive
 {
+    private static final Logger log = Logger.get(AbstractTestHive.class);
+
     protected static final String TEMPORARY_TABLE_PREFIX = "tmp_trino_test_";
 
     protected static final String INVALID_DATABASE = "totally_invalid_database_name";
@@ -624,12 +630,16 @@ public abstract class AbstractTestHive
     protected ExecutorService executor;
 
     private ScheduledExecutorService heartbeatService;
+    private java.nio.file.Path temporaryStagingDirectory;
 
     @BeforeClass(alwaysRun = true)
     public void setupClass()
+            throws Exception
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         heartbeatService = newScheduledThreadPool(1);
+        // Use separate staging directory for each test class to prevent intermittent failures coming from test parallelism
+        temporaryStagingDirectory = createTempDirectory("trino-staging-");
     }
 
     @AfterClass(alwaysRun = true)
@@ -642,6 +652,14 @@ public abstract class AbstractTestHive
         if (heartbeatService != null) {
             heartbeatService.shutdownNow();
             heartbeatService = null;
+        }
+        if (temporaryStagingDirectory != null) {
+            try {
+                deleteRecursively(temporaryStagingDirectory, ALLOW_INSECURE);
+            }
+            catch (Exception e) {
+                log.warn(e, "Error deleting " + temporaryStagingDirectory);
+            }
         }
     }
 
@@ -857,6 +875,7 @@ public abstract class AbstractTestHive
     {
         return new HiveConfig()
                 .setMaxOpenSortFiles(10)
+                .setTemporaryStagingDirectoryPath(temporaryStagingDirectory.toAbsolutePath().toString())
                 .setWriterSortBufferSize(DataSize.of(100, KILOBYTE));
     }
 
@@ -878,7 +897,7 @@ public abstract class AbstractTestHive
         return new HiveTransaction(transactionManager, (HiveMetadata) metadataFactory.create());
     }
 
-    interface Transaction
+    protected interface Transaction
             extends AutoCloseable
     {
         ConnectorMetadata getMetadata();
@@ -4776,7 +4795,7 @@ public abstract class AbstractTestHive
         return createTableProperties(storageFormat, ImmutableList.of());
     }
 
-    private static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> parititonedBy)
+    protected static Map<String, Object> createTableProperties(HiveStorageFormat storageFormat, Iterable<String> parititonedBy)
     {
         return ImmutableMap.<String, Object>builder()
                 .put(STORAGE_FORMAT_PROPERTY, storageFormat)

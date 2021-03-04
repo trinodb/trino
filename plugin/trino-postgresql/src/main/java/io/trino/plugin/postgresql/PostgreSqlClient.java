@@ -65,6 +65,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -133,7 +134,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.defaultCharColumnMappi
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
@@ -193,6 +194,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -652,6 +654,30 @@ public class PostgreSqlClient
     }
 
     @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(this::getSortOrderSql)
+                    .collect(joining(", "));
+
+            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+        });
+    }
+
+    private String getSortOrderSql(SortItem sortItem)
+    {
+        String orderBy = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+        return format("%s %s %s", quoted(sortItem.getName()), orderBy, sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST");
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        return true;
+    }
+
+    @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
@@ -717,7 +743,7 @@ public class PostgreSqlClient
     private static void shortTimestampWriteFunction(PreparedStatement statement, int index, long epochMicros)
             throws SQLException
     {
-        LocalDateTime localDateTime = fromPrestoTimestamp(epochMicros);
+        LocalDateTime localDateTime = fromTrinoTimestamp(epochMicros);
         statement.setObject(index, toPgTimestamp(localDateTime));
     }
 

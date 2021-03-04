@@ -25,6 +25,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -42,7 +43,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -61,7 +61,8 @@ public class TestPostgreSqlConnectorTest
             postgreSqlServer.close();
             postgreSqlServer = null;
         });
-        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), REQUIRED_TPCH_TABLES);
+        // TODO: https://github.com/trinodb/trino/issues/7031
+        return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of("topn-pushdown.enabled", "true"), REQUIRED_TPCH_TABLES);
     }
 
     @BeforeClass
@@ -200,8 +201,8 @@ public class TestPostgreSqlConnectorTest
             assertQueryFails("SELECT * FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
             assertQueryFails("SELECT 'a' FROM non_existent", ".* Table .*tpch.non_existent.* does not exist");
 
-            assertQuery("SHOW COLUMNS FROM no_supported_columns", "SELECT 'nothing' WHERE false");
-            assertQuery("SHOW COLUMNS FROM no_columns", "SELECT 'nothing' WHERE false");
+            assertQueryFails("SHOW COLUMNS FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
+            assertQueryFails("SHOW COLUMNS FROM no_columns", "Table 'tpch.no_columns' not found");
 
             // Other tables should be visible in SHOW TABLES (the no_supported_columns might be included or might be not) and information_schema.tables
             assertThat(computeActual("SHOW TABLES").getOnlyColumn())
@@ -285,6 +286,23 @@ public class TestPostgreSqlConnectorTest
         // predicate over aggregation result
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
+                .isFullyPushedDown();
+
+        // predicate over TopN result
+        assertThat(query("" +
+                "SELECT orderkey " +
+                "FROM (SELECT * FROM orders ORDER BY orderdate DESC, orderkey ASC LIMIT 10)" +
+                "WHERE orderdate = DATE '1998-08-01'"))
+                .matches("VALUES BIGINT '27588', 22403, 37735")
+                .ordered()
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT custkey " +
+                "FROM (SELECT SUM(totalprice) as sum, custkey, COUNT(*) as cnt FROM orders GROUP BY custkey order by sum desc limit 10) " +
+                "WHERE cnt > 30"))
+                .matches("VALUES BIGINT '643', 898")
+                .ordered()
                 .isFullyPushedDown();
     }
 
@@ -466,6 +484,13 @@ public class TestPostgreSqlConnectorTest
                 "GROUP BY regionkey"))
                 .isFullyPushedDown();
 
+        // GROUP BY above TopN
+        assertThat(query("" +
+                "SELECT clerk, sum(totalprice) " +
+                "FROM (SELECT clerk, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) " +
+                "GROUP BY clerk"))
+                .isFullyPushedDown();
+
         // decimals
         String schemaName = getSession().getSchema().orElseThrow();
         try (TestTable testTable = new TestTable(postgreSqlServer::execute,
@@ -489,6 +514,61 @@ public class TestPostgreSqlConnectorTest
 
         // approx_set returns HyperLogLog, which is not supported
         assertThat(query("SELECT approx_set(nationkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+    }
+
+    @Test
+    public void testTopNPushdown()
+    {
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey limit 10"))
+                .ordered()
+                .isFullyPushedDown();
+
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC limit 10"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // multiple sort columns with different orders
+        assertThat(query("SELECT * FROM orders ORDER BY orderpriority DESC, totalprice ASC LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over aggregation column
+        assertThat(query("SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over TopN
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT orderkey, totalprice " +
+                "FROM (SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) " +
+                "ORDER BY 2, 1 LIMIT 5) ORDER BY 1, 2 LIMIT 3"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over limit
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 20) ORDER BY totalprice ASC LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over limit with filter
+        assertThat(query("" +
+                "SELECT orderkey, totalprice " +
+                "FROM (SELECT orderkey, totalprice FROM orders WHERE orderpriority = '1-URGENT' LIMIT 20) " +
+                "ORDER BY totalprice ASC LIMIT 5"))
+                .ordered()
+                .isFullyPushedDown();
+
+        // TopN over aggregation with filter
+        assertThat(query("" +
+                "SELECT * " +
+                "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
+                "ORDER BY sum DESC LIMIT 10"))
+                .ordered()
+                .isFullyPushedDown();
     }
 
     @Test
@@ -680,6 +760,9 @@ public class TestPostgreSqlConnectorTest
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
+
+        // with TopN
+        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
     }
 
     /**
@@ -731,14 +814,8 @@ public class TestPostgreSqlConnectorTest
     @Override
     public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
     {
-        try {
-            super.testCaseSensitiveDataMapping(dataMappingTestSetup);
-        }
-        catch (AssertionError ignored) {
-            // TODO https://github.com/trinodb/trino/issues/3645 - PostgreSQL has different collation than Trino
-            assertThatThrownBy(() -> super.testCaseSensitiveDataMapping(dataMappingTestSetup))
-                    .hasStackTraceContaining("not equal\nActual rows");
-        }
+        // TODO - https://github.com/trinodb/trino/issues/3645
+        throw new SkipException("PostgreSQL has different collation than Trino");
     }
 
     private String getLongInClause(int start, int length)

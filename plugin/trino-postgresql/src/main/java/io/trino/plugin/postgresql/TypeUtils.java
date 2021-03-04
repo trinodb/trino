@@ -42,7 +42,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTimestamp;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -196,7 +196,7 @@ final class TypeUtils
         }
 
         if (prestoType instanceof TimestampType && ((TimestampType) prestoType).isShort()) {
-            return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
+            return toPgTimestamp(fromTrinoTimestamp((long) prestoNative));
         }
 
         if (prestoType instanceof TimestampWithTimeZoneType) {

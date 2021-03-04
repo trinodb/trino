@@ -25,7 +25,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.WindowFrame;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -42,23 +41,11 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 
 public class TestMergeAdjacentWindows
         extends BaseRuleTest
 {
-    private static final WindowNode.Frame frame = new WindowNode.Frame(
-            WindowFrame.Type.RANGE,
-            UNBOUNDED_PRECEDING,
-            Optional.empty(),
-            Optional.empty(),
-            CURRENT_ROW,
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty(),
-            Optional.empty());
-
     private static final MetadataManager METADATA = createTestMetadataManager();
     private static final ResolvedFunction AVG = createWindowFunctionSignature("avg");
     private static final ResolvedFunction SUM = createWindowFunctionSignature("sum");
@@ -227,7 +214,7 @@ public class TestMergeAdjacentWindows
         return new WindowNode.Function(
                 resolvedFunction,
                 Arrays.stream(symbols).map(SymbolReference::new).collect(Collectors.toList()),
-                frame,
+                DEFAULT_FRAME,
                 false);
     }
 

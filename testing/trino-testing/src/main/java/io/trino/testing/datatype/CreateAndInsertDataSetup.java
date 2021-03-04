@@ -72,7 +72,7 @@ public class CreateAndInsertDataSetup
         return new TestTable(sqlExecutor, tableNamePrefix, tableDefinition(inputs));
     }
 
-    private String tableDefinition(List<ColumnSetup> inputs)
+    protected String tableDefinition(List<ColumnSetup> inputs)
     {
         if (inputs.stream().allMatch(input -> input.getDeclaredType().isPresent())) {
             // When all types are explicitly specified, use ordinary CREATE TABLE

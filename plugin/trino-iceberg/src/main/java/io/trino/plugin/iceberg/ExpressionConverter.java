@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
 import io.trino.spi.predicate.TupleDomain;
@@ -41,11 +40,7 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.iceberg.util.Timestamps.timestampTzToMicros;
-import static io.trino.spi.predicate.Marker.Bound.ABOVE;
-import static io.trino.spi.predicate.Marker.Bound.BELOW;
-import static io.trino.spi.predicate.Marker.Bound.EXACTLY;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
@@ -115,53 +110,7 @@ public final class ExpressionConverter
             expression = firstNonNull(expression, alwaysFalse());
 
             for (Range range : orderedRanges) {
-                Marker low = range.getLow();
-                Marker high = range.getHigh();
-                Marker.Bound lowBound = low.getBound();
-                Marker.Bound highBound = high.getBound();
-
-                // case col <> 'val' is represented as (col < 'val' or col > 'val')
-                if (lowBound == EXACTLY && highBound == EXACTLY) {
-                    // case ==
-                    if (getIcebergLiteralValue(type, low).equals(getIcebergLiteralValue(type, high))) {
-                        expression = or(expression, equal(columnName, getIcebergLiteralValue(type, low)));
-                    }
-                    else { // case between
-                        Expression between = and(
-                                greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)),
-                                lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        expression = or(expression, between);
-                    }
-                }
-                else {
-                    if (lowBound == EXACTLY && low.getValueBlock().isPresent()) {
-                        // case >=
-                        expression = or(expression, greaterThanOrEqual(columnName, getIcebergLiteralValue(type, low)));
-                    }
-                    else if (lowBound == ABOVE && low.getValueBlock().isPresent()) {
-                        // case >
-                        expression = or(expression, greaterThan(columnName, getIcebergLiteralValue(type, low)));
-                    }
-
-                    if (highBound == EXACTLY && high.getValueBlock().isPresent()) {
-                        // case <=
-                        if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                        else {
-                            expression = or(expression, lessThanOrEqual(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                    }
-                    else if (highBound == BELOW && high.getValueBlock().isPresent()) {
-                        // case <
-                        if (low.getValueBlock().isPresent()) {
-                            expression = and(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                        else {
-                            expression = or(expression, lessThan(columnName, getIcebergLiteralValue(type, high)));
-                        }
-                    }
-                }
+                expression = or(expression, toIcebergExpression(columnName, range));
             }
             return expression;
         }
@@ -169,48 +118,89 @@ public final class ExpressionConverter
         throw new VerifyException("Did not expect a domain value set other than SortedRangeSet but got " + domainValues.getClass().getSimpleName());
     }
 
-    private static Object getIcebergLiteralValue(Type type, Marker marker)
+    private static Expression toIcebergExpression(String columnName, Range range)
     {
+        Type type = range.getType();
+
+        if (range.isSingleValue()) {
+            Object icebergValue = getIcebergLiteralValue(type, range.getSingleValue());
+            return equal(columnName, icebergValue);
+        }
+
+        Expression lowBound;
+        if (range.isLowUnbounded()) {
+            lowBound = alwaysTrue();
+        }
+        else {
+            Object icebergLow = getIcebergLiteralValue(type, range.getLowBoundedValue());
+            if (range.isLowInclusive()) {
+                lowBound = greaterThanOrEqual(columnName, icebergLow);
+            }
+            else {
+                lowBound = greaterThan(columnName, icebergLow);
+            }
+        }
+
+        Expression highBound;
+        if (range.isHighUnbounded()) {
+            highBound = alwaysTrue();
+        }
+        else {
+            Object icebergHigh = getIcebergLiteralValue(type, range.getHighBoundedValue());
+            if (range.isHighInclusive()) {
+                highBound = lessThanOrEqual(columnName, icebergHigh);
+            }
+            else {
+                highBound = lessThan(columnName, icebergHigh);
+            }
+        }
+
+        return and(lowBound, highBound);
+    }
+
+    private static Object getIcebergLiteralValue(Type type, Object trinoNativeValue)
+    {
+        requireNonNull(trinoNativeValue, "trinoNativeValue is null");
+
         if (type instanceof IntegerType) {
-            return toIntExact((long) marker.getValue());
+            return toIntExact((long) trinoNativeValue);
         }
 
         if (type instanceof RealType) {
-            return intBitsToFloat(toIntExact((long) marker.getValue()));
+            return intBitsToFloat(toIntExact((long) trinoNativeValue));
         }
 
         // TODO: Remove this conversion once we move to next iceberg version
         if (type instanceof DateType) {
-            return toIntExact(((Long) marker.getValue()));
+            return toIntExact(((Long) trinoNativeValue));
         }
 
         if (type.equals(TIME_MICROS)) {
-            return ((long) marker.getValue()) / PICOSECONDS_PER_MICROSECOND;
+            return ((long) trinoNativeValue) / PICOSECONDS_PER_MICROSECOND;
         }
 
         if (type.equals(TIMESTAMP_TZ_MICROS)) {
-            return timestampTzToMicros((LongTimestampWithTimeZone) marker.getValue());
+            return timestampTzToMicros((LongTimestampWithTimeZone) trinoNativeValue);
         }
 
         if (type instanceof VarcharType) {
-            return ((Slice) marker.getValue()).toStringUtf8();
+            return ((Slice) trinoNativeValue).toStringUtf8();
         }
 
         if (type instanceof VarbinaryType) {
-            return ByteBuffer.wrap(((Slice) marker.getValue()).getBytes());
+            return ByteBuffer.wrap(((Slice) trinoNativeValue).getBytes());
         }
 
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
-            Object value = requireNonNull(marker.getValue(), "The value of the marker must be non-null");
             if (Decimals.isShortDecimal(decimalType)) {
-                checkArgument(value instanceof Long, "A short decimal should be represented by a Long value but was %s", value.getClass().getName());
-                return BigDecimal.valueOf((long) value).movePointLeft(decimalType.getScale());
+                return BigDecimal.valueOf((long) trinoNativeValue).movePointLeft(decimalType.getScale());
             }
-            checkArgument(value instanceof Slice, "A long decimal should be represented by a Slice value but was %s", value.getClass().getName());
-            return new BigDecimal(Decimals.decodeUnscaledValue((Slice) value), decimalType.getScale());
+            return new BigDecimal(Decimals.decodeUnscaledValue((Slice) trinoNativeValue), decimalType.getScale());
         }
 
-        return marker.getValue();
+        // TODO we should have explicit conversion for all supported types and fail fast on an unsupported type.
+        //  Assuming native representation is the same may lead to subtle bugs.
+        return trinoNativeValue;
     }
 }

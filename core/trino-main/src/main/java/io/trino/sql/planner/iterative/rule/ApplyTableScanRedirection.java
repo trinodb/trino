@@ -24,6 +24,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
+import io.trino.spi.connector.TableScanRedirectApplicationResult.Redirection;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.DomainTranslator;
@@ -39,8 +40,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -76,7 +79,13 @@ public class ApplyTableScanRedirection
             return Result.empty();
         }
 
-        CatalogSchemaTableName destinationTable = tableScanRedirectApplicationResult.get().getDestinationTable();
+        List<Redirection> redirections = tableScanRedirectApplicationResult.get().getRedirections();
+        if (redirections.size() != 1) {
+            throw new TrinoException(NOT_SUPPORTED, "UNION ALL redirection type is not supported");
+        }
+
+        Redirection redirection = getOnlyElement(redirections);
+        CatalogSchemaTableName destinationTable = redirection.getDestinationTable();
         Optional<TableHandle> destinationTableHandle = metadata.getTableHandle(
                 context.getSession(),
                 convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()));
@@ -87,7 +96,7 @@ public class ApplyTableScanRedirection
             return Result.empty();
         }
 
-        Map<ColumnHandle, String> columnMapping = tableScanRedirectApplicationResult.get().getDestinationColumns();
+        Map<ColumnHandle, String> columnMapping = redirection.getDestinationColumns();
         Map<String, ColumnHandle> destinationColumnHandles = metadata.getColumnHandles(context.getSession(), destinationTableHandle.get());
         Map<Symbol, ColumnHandle> newAssignments = scanNode.getAssignments().entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> {
@@ -116,7 +125,7 @@ public class ApplyTableScanRedirection
                     return destinationColumnHandle;
                 }));
 
-        TupleDomain<String> requiredFilter = tableScanRedirectApplicationResult.get().getFilter();
+        TupleDomain<String> requiredFilter = redirection.getFilter();
         if (requiredFilter.isAll()) {
             return Result.ofPlanNode(
                     new TableScanNode(

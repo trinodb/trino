@@ -380,6 +380,10 @@ Property Name                                      Description                  
 ``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate Hive views. You can    ``false``
                                                    alternatively set the ``legacy_hive_view_translation``
                                                    session property to ``true``.
+
+``hive.parallel-partitioned-bucketed-inserts``     Improve parallelism of partitioned and bucketed table        ``true``
+                                                   inserts. When disabled, the number of writing threads
+                                                   is limited to number of buckets.
 ================================================== ============================================================ ============
 
 Metastore configuration properties
@@ -517,6 +521,12 @@ Property Name                                        Description
 
 ``hive.metastore.glue.get-partition-threads``        Number of threads for parallel partition fetches from Glue,
                                                      defaults to ``20``.
+
+``hive.metastore.glue.read-statistics-threads``      Number of threads for parallel statistic fetches from Glue,
+                                                     defaults to ``1``.
+
+``hive.metastore.glue.write-statistics-threads``     Number of threads for parallel statistic writes to Glue,
+                                                     defaults to ``1``.
 ==================================================== ============================================================
 
 Google Cloud Storage configuration

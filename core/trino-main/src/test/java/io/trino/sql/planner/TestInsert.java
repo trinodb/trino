@@ -19,10 +19,17 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
+import io.trino.cost.StatsProvider;
+import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchPartitioningHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.sql.planner.assertions.BasePlanTest;
+import io.trino.sql.planner.assertions.MatchResult;
+import io.trino.sql.planner.assertions.Matcher;
+import io.trino.sql.planner.assertions.SymbolAliases;
+import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.testing.LocalQueryRunner;
 import org.testng.annotations.Test;
@@ -38,7 +45,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -61,6 +67,10 @@ public class TestInsert
                                 return new MockConnectorTableHandle(schemaTableName);
                             }
 
+                            if (schemaTableName.getTableName().equals("test_table_required_partitioning")) {
+                                return new MockConnectorTableHandle(schemaTableName);
+                            }
+
                             return null;
                         })
                         .withGetColumns(name -> ImmutableList.of(
@@ -69,6 +79,10 @@ public class TestInsert
                         .withGetInsertLayout((session, tableName) -> {
                             if (tableName.getTableName().equals("test_table_preferred_partitioning")) {
                                 return Optional.of(new ConnectorNewTableLayout(ImmutableList.of("column1")));
+                            }
+
+                            if (tableName.getTableName().equals("test_table_required_partitioning")) {
+                                return Optional.of(new ConnectorNewTableLayout(new TpchPartitioningHandle("orders", 10), ImmutableList.of("column1")));
                             }
 
                             return Optional.empty();
@@ -121,6 +135,27 @@ public class TestInsert
     }
 
     @Test
+    public void testInsertWithRequiredPartitioning()
+    {
+        testInsertWithRequiredPartitioning(withPreferredPartitioning());
+        testInsertWithRequiredPartitioning(withoutPreferredPartitioning());
+    }
+
+    private void testInsertWithRequiredPartitioning(Session session)
+    {
+        assertDistributedPlan(
+                "INSERT into test_table_required_partitioning VALUES (1, 2)",
+                session,
+                anyTree(
+                        node(TableWriterNode.class,
+                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                        exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
+                                                values("column1", "column2"))
+                                                .with(exchangeWithoutSystemPartitioning()))
+                                        .with(exchangeWithoutSystemPartitioning()))));
+    }
+
+    @Test
     public void testCreateTableAsSelectWithPreferredPartitioning()
     {
         assertDistributedPlan(
@@ -164,14 +199,22 @@ public class TestInsert
     @Test
     public void testCreateTableAsSelectWithRequiredPartitioning()
     {
+        testCreateTableAsSelectWithRequiredPartitioning(withPreferredPartitioning());
+        testCreateTableAsSelectWithRequiredPartitioning(withoutPreferredPartitioning());
+    }
+
+    private void testCreateTableAsSelectWithRequiredPartitioning(Session session)
+    {
         assertDistributedPlan(
                 "CREATE TABLE new_test_table_required_partitioning (column1, column2) AS SELECT * FROM (VALUES (1, 2)) t(column1, column2)",
-                withPreferredPartitioning(),
+                session,
                 anyTree(
                         node(TableWriterNode.class,
-                                exchange(LOCAL, GATHER, ImmutableList.of(), ImmutableSet.of(),
+                                exchange(LOCAL, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
                                         exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of("column1"),
-                                                values("column1", "column2"))))));
+                                                values("column1", "column2"))
+                                                .with(exchangeWithoutSystemPartitioning()))
+                                        .with(exchangeWithoutSystemPartitioning()))));
     }
 
     @Test
@@ -185,6 +228,24 @@ public class TestInsert
                                 // round robin
                                 exchange(REMOTE, REPARTITION, ImmutableList.of(), ImmutableSet.of(),
                                         values("column1", "column2")))));
+    }
+
+    private Matcher exchangeWithoutSystemPartitioning()
+    {
+        return new Matcher()
+        {
+            @Override
+            public boolean shapeMatches(PlanNode node)
+            {
+                return node instanceof ExchangeNode;
+            }
+
+            @Override
+            public MatchResult detailMatches(PlanNode node, StatsProvider stats, Session session, Metadata metadata, SymbolAliases symbolAliases)
+            {
+                return new MatchResult(!(((ExchangeNode) node).getPartitioningScheme().getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
+            }
+        };
     }
 
     private Session withPreferredPartitioning()

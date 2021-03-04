@@ -5131,6 +5131,41 @@ public abstract class AbstractTestEngineOnlyQueries
         assertFalse(functions.containsKey("like"), "Expected function names " + functions + " not to contain 'like'");
     }
 
+    @Test
+    public void testLargePivot()
+    {
+        int columns = 254;
+
+        MaterializedResult result = computeActual(pivotQuery(columns));
+        assertThat(result.getRowCount())
+                .as("row count")
+                .isEqualTo(columns);
+
+        MaterializedRow row = result.getMaterializedRows().get(0);
+        assertThat(row.getFieldCount())
+                .as("field count")
+                .isEqualTo(columns + 2);
+    }
+
+    @Test
+    public void testPivotExceedingMaximumArraySize()
+    {
+        assertQueryFails(pivotQuery(255), "Too many arguments for array constructor");
+    }
+
+    private static String pivotQuery(int columnsCount)
+    {
+        String values = IntStream.range(0, columnsCount)
+                .mapToObj(columnNumber -> format("%d", columnNumber))
+                .collect(joining(", "));
+
+        String columns = IntStream.range(0, columnsCount)
+                .mapToObj(columnNumber -> format("a%d", columnNumber))
+                .collect(joining(", "));
+
+        return format("SELECT * FROM (SELECT %s) a(%s) INNER JOIN unnest(ARRAY[%1$s], ARRAY[%2$s]) b(b1, b2) ON true", values, columns);
+    }
+
     private static ZonedDateTime zonedDateTime(String value)
     {
         return ZONED_DATE_TIME_FORMAT.parse(value, ZonedDateTime::from);

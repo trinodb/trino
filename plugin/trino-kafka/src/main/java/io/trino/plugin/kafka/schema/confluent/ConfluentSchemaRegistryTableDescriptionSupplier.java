@@ -16,6 +16,7 @@ package io.trino.plugin.kafka.schema.confluent;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.SetMultimap;
 import io.airlift.units.Duration;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -42,14 +43,18 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.plugin.kafka.KafkaErrorCode.SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
+import static java.lang.String.join;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
+import static java.util.stream.Collectors.joining;
 
 public class ConfluentSchemaRegistryTableDescriptionSupplier
         implements TableDescriptionSupplier
@@ -69,8 +74,8 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     private final SchemaRegistryClient schemaRegistryClient;
     private final Map<String, SchemaParser> schemaParsers;
     private final String defaultSchema;
-    private final Supplier<Map<String, TopicAndSubjects>> topicAndSubjectsSupplier;
-    private final Supplier<Map<String, String>> subjectsSupplier;
+    private final Supplier<SetMultimap<String, TopicAndSubjects>> topicAndSubjectsSupplier;
+    private final Supplier<SetMultimap<String, String>> subjectsSupplier;
 
     public ConfluentSchemaRegistryTableDescriptionSupplier(
             SchemaRegistryClient schemaRegistryClient,
@@ -117,16 +122,24 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
 
     private String resolveSubject(String candidate)
     {
-        String subject = subjectsSupplier.get().get(candidate);
-        checkState(subject != null, "Subject '%s' not found", candidate);
-        return subject;
+        Collection<String> subjects = subjectsSupplier.get().get(candidate);
+        checkState(!subjects.isEmpty(), "Subject '%s' not found", candidate);
+        if (subjects.size() != 1) {
+            throw new TrinoException(
+                    SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT,
+                    format(
+                            "Subject '%s' is ambiguous, and may refer to one of the following: %s",
+                            candidate,
+                            join(", ", subjects)));
+        }
+        return getOnlyElement(subjects);
     }
 
-    private Map<String, String> getAllSubjects()
+    private SetMultimap<String, String> getAllSubjects()
     {
         try {
             return schemaRegistryClient.getAllSubjects().stream()
-                    .collect(toImmutableMap(subject -> subject.toLowerCase(ENGLISH), identity()));
+                    .collect(toImmutableSetMultimap(subject -> subject.toLowerCase(ENGLISH), identity()));
         }
         catch (IOException | RestClientException e) {
             throw new RuntimeException("Failed to retrieve subjects from schema registry", e);
@@ -139,7 +152,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     // into the table name as follows:
     // <table name>[&key-subject=<key subject>][&value-subject=<value subject]
     // ex. kafka.default."my-topic&key-subject=foo&value-subject=bar"
-    private Map<String, TopicAndSubjects> getTopicAndSubjects()
+    private SetMultimap<String, TopicAndSubjects> getTopicAndSubjects()
     {
         ImmutableSetMultimap.Builder<String, String> topicToSubjectsBuilder = ImmutableSetMultimap.builder();
         for (String subject : subjectsSupplier.get().values()) {
@@ -147,7 +160,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
                 topicToSubjectsBuilder.put(extractTopicFromSubject(subject), subject);
             }
         }
-        ImmutableMap.Builder<String, TopicAndSubjects> topicSubjectsCacheBuilder = ImmutableMap.builder();
+        ImmutableSetMultimap.Builder<String, TopicAndSubjects> topicSubjectsCacheBuilder = ImmutableSetMultimap.builder();
         for (Map.Entry<String, Collection<String>> entry : topicToSubjectsBuilder.build().asMap().entrySet()) {
             String topic = entry.getKey();
             TopicAndSubjects topicAndSubjects = new TopicAndSubjects(
@@ -166,23 +179,30 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
         TopicAndSubjects topicAndSubjects = parseTopicAndSubjects(schemaTableName);
 
         String tableName = topicAndSubjects.getTableName();
-        Optional<TopicAndSubjects> topicAndSubjectsFromCache = Optional.ofNullable(topicAndSubjectsSupplier.get().get(tableName));
+        if (topicAndSubjectsSupplier.get().containsKey(tableName)) {
+            // Use the topic from cache, if present, in case the topic is mixed case
+            Collection<TopicAndSubjects> topicAndSubjectsCollection = topicAndSubjectsSupplier.get().get(tableName);
+            if (topicAndSubjectsCollection.size() != 1) {
+                throw new TrinoException(
+                        SCHEMA_REGISTRY_AMBIGUOUS_SUBJECT,
+                        format(
+                                "Unable to access '%s' table. Subject is ambiguous, and may refer to one of the following: %s",
+                                schemaTableName.getTableName(),
+                                topicAndSubjectsCollection.stream().map(TopicAndSubjects::getTopic).collect(joining(", "))));
+            }
+            TopicAndSubjects topicAndSubjectsFromCache = getOnlyElement(topicAndSubjectsCollection);
+            topicAndSubjects = new TopicAndSubjects(
+                    topicAndSubjectsFromCache.getTopic(),
+                    topicAndSubjects.getKeySubject().or(topicAndSubjectsFromCache::getKeySubject),
+                    topicAndSubjects.getValueSubject().or(topicAndSubjectsFromCache::getValueSubject));
+        }
 
-        // Use the topic from cache, if present, in case the topic is mixed case
-        String topic = topicAndSubjectsFromCache.map(TopicAndSubjects::getTopic).orElse(topicAndSubjects.getTopic());
-        Optional<String> keySubject = topicAndSubjects.getKeySubject()
-                .map(this::resolveSubject)
-                .or(() -> topicAndSubjectsFromCache.flatMap(TopicAndSubjects::getKeySubject));
-        Optional<String> valueSubject = topicAndSubjects.getValueSubject()
-                .map(this::resolveSubject)
-                .or(() -> topicAndSubjectsFromCache.flatMap(TopicAndSubjects::getValueSubject));
-
-        if (keySubject.isEmpty() && valueSubject.isEmpty()) {
+        if (topicAndSubjects.getKeySubject().isEmpty() && topicAndSubjects.getValueSubject().isEmpty()) {
             return Optional.empty();
         }
-        Optional<KafkaTopicFieldGroup> key = keySubject.map(subject -> getFieldGroup(session, subject));
-        Optional<KafkaTopicFieldGroup> message = valueSubject.map(subject -> getFieldGroup(session, subject));
-        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topic, key, message));
+        Optional<KafkaTopicFieldGroup> key = topicAndSubjects.getKeySubject().map(subject -> getFieldGroup(session, subject));
+        Optional<KafkaTopicFieldGroup> message = topicAndSubjects.getValueSubject().map(subject -> getFieldGroup(session, subject));
+        return Optional.of(new KafkaTopicDescription(tableName, Optional.of(schemaTableName.getSchemaName()), topicAndSubjects.getTopic(), key, message));
     }
 
     private KafkaTopicFieldGroup getFieldGroup(ConnectorSession session, String subject)
@@ -216,7 +236,7 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     // can be specified by adding them to the table name as follows:
     //  <tablename>&key-subject=<key subject>&value-subject=<value subject>
     // ex. kafka.default."mytable&key-subject=foo&value-subject=bar"
-    private static TopicAndSubjects parseTopicAndSubjects(SchemaTableName encodedSchemaTableName)
+    private TopicAndSubjects parseTopicAndSubjects(SchemaTableName encodedSchemaTableName)
     {
         String encodedTableName = encodedSchemaTableName.getTableName();
         List<String> parts = Splitter.on(KEY_VALUE_PAIR_DELIMITER).trimResults().splitToList(encodedTableName);
@@ -229,11 +249,13 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
             checkState(subjectKeyValue.size() == 2 && (subjectKeyValue.get(0).equals(KEY_SUBJECT) || subjectKeyValue.get(0).equals(VALUE_SUBJECT)), "Unexpected parameter '%s', should be %s=<key subject>' or %s=<value subject>", parts.get(part), KEY_SUBJECT, VALUE_SUBJECT);
             if (subjectKeyValue.get(0).equals(KEY_SUBJECT)) {
                 checkState(keySubject.isEmpty(), "Key subject already defined");
-                keySubject = Optional.of(subjectKeyValue.get(1));
+                keySubject = Optional.of(subjectKeyValue.get(1))
+                        .map(this::resolveSubject);
             }
             else {
                 checkState(valueSubject.isEmpty(), "Value subject already defined");
-                valueSubject = Optional.of(subjectKeyValue.get(1));
+                valueSubject = Optional.of(subjectKeyValue.get(1))
+                        .map(this::resolveSubject);
             }
         }
         return new TopicAndSubjects(tableName, keySubject, valueSubject);

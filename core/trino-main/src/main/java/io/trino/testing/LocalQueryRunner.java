@@ -106,7 +106,6 @@ import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.PluginManager;
-import io.trino.server.PluginManagerConfig;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -378,8 +377,7 @@ public class LocalQueryRunner
                 ImmutableSet.of());
 
         this.pluginManager = new PluginManager(
-                nodeInfo,
-                new PluginManagerConfig(),
+                (loader, createClassLoader) -> {},
                 connectorManager,
                 metadata,
                 new NoOpResourceGroupManager(),

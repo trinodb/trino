@@ -712,7 +712,7 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
     }
 
-    public static boolean planWithTableNodePartitioning(Session session)
+    public static boolean isPlanWithTableNodePartitioning(Session session)
     {
         return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
     }

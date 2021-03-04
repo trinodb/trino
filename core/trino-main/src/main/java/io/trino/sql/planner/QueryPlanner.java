@@ -27,6 +27,7 @@ import io.trino.metadata.TableMetadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.sql.NodeUtils;
 import io.trino.sql.analyzer.Analysis;
@@ -57,6 +58,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
+import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.Delete;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FetchFirst;
@@ -119,10 +121,10 @@ import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.DAY;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.YEAR;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
@@ -263,8 +265,7 @@ class QueryPlanner
         NodeAndMappings checkConvergenceStep = copy(recursionStep, mappings);
         Symbol countSymbol = symbolAllocator.newSymbol("count", BIGINT);
         ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("count"), ImmutableList.of());
-        WindowNode.Frame frame = new WindowNode.Frame(RANGE, UNBOUNDED_PRECEDING, Optional.empty(), Optional.empty(), CURRENT_ROW, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
-        WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), frame, false);
+        WindowNode.Function countFunction = new WindowNode.Function(function, ImmutableList.of(), DEFAULT_FRAME, false);
 
         WindowNode windowNode = new WindowNode(
                 idAllocator.getNextId(),
@@ -971,8 +972,18 @@ class QueryPlanner
                 sortKeyCoercedForFrameEndComparison = plan.getSortKeyCoercedForFrameBoundComparison();
             }
             else if (window.getFrame().isPresent() && (window.getFrame().get().getType() == ROWS || window.getFrame().get().getType() == GROUPS)) {
-                frameStart = window.getFrame().get().getStart().getValue().map(coercions::get);
-                frameEnd = window.getFrame().get().getEnd().flatMap(FrameBound::getValue).map(coercions::get);
+                Optional<Expression> startValue = window.getFrame().get().getStart().getValue();
+                Optional<Expression> endValue = window.getFrame().get().getEnd().flatMap(FrameBound::getValue);
+
+                // process frame start
+                FrameOffsetPlanAndSymbol plan = planFrameOffset(subPlan, startValue.map(coercions::get));
+                subPlan = plan.getSubPlan();
+                frameStart = plan.getFrameOffsetSymbol();
+
+                // process frame end
+                plan = planFrameOffset(subPlan, endValue.map(coercions::get));
+                subPlan = plan.getSubPlan();
+                frameEnd = plan.getFrameOffsetSymbol();
             }
             else if (window.getFrame().isPresent()) {
                 throw new IllegalArgumentException("unexpected window frame type: " + window.getFrame().get().getType());
@@ -1093,6 +1104,78 @@ class QueryPlanner
         }
 
         return new FrameBoundPlanAndSymbols(subPlan, Optional.of(frameBoundSymbol), sortKeyCoercedForFrameBoundComparison);
+    }
+
+    private FrameOffsetPlanAndSymbol planFrameOffset(PlanBuilder subPlan, Optional<Symbol> frameOffset)
+    {
+        if (frameOffset.isEmpty()) {
+            return new FrameOffsetPlanAndSymbol(subPlan, Optional.empty());
+        }
+
+        Symbol offsetSymbol = frameOffset.get();
+        Type offsetType = symbolAllocator.getTypes().get(offsetSymbol);
+
+        // Append filter to validate offset values. They mustn't be negative or null.
+        Expression zeroOffset = zeroOfType(offsetType);
+        ResolvedFunction fail = metadata.resolveFunction(QualifiedName.of("fail"), fromTypes(VARCHAR));
+        Expression predicate = new IfExpression(
+                new ComparisonExpression(GREATER_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), zeroOffset),
+                TRUE_LITERAL,
+                new Cast(
+                        new FunctionCall(
+                                fail.toQualifiedName(),
+                                ImmutableList.of(new Cast(new StringLiteral("Window frame offset value must not be negative or null"), toSqlType(VARCHAR)))),
+                        toSqlType(BOOLEAN)));
+        subPlan = subPlan.withNewRoot(new FilterNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                predicate));
+
+        if (offsetType.equals(BIGINT)) {
+            return new FrameOffsetPlanAndSymbol(subPlan, Optional.of(offsetSymbol));
+        }
+
+        Expression offsetToBigint;
+
+        if (offsetType instanceof DecimalType && !((DecimalType) offsetType).isShort()) {
+            String maxBigint = Long.toString(Long.MAX_VALUE);
+            int maxBigintPrecision = maxBigint.length();
+            int actualPrecision = ((DecimalType) offsetType).getPrecision();
+
+            if (actualPrecision < maxBigintPrecision) {
+                offsetToBigint = new Cast(offsetSymbol.toSymbolReference(), toSqlType(BIGINT));
+            }
+            else if (actualPrecision > maxBigintPrecision) {
+                // If the offset value exceeds max bigint, it implies that the frame bound falls beyond the partition bound.
+                // In such case, the frame bound is set to the partition bound. Passing max bigint as the offset value has
+                // the same effect. The offset value can be truncated to max bigint for the purpose of cast.
+                offsetToBigint = new GenericLiteral("BIGINT", maxBigint);
+            }
+            else {
+                offsetToBigint = new IfExpression(
+                        new ComparisonExpression(LESS_THAN_OR_EQUAL, offsetSymbol.toSymbolReference(), new DecimalLiteral(maxBigint)),
+                        new Cast(offsetSymbol.toSymbolReference(), toSqlType(BIGINT)),
+                        new GenericLiteral("BIGINT", maxBigint));
+            }
+        }
+        else {
+            offsetToBigint = new Cast(
+                    offsetSymbol.toSymbolReference(),
+                    toSqlType(BIGINT),
+                    false,
+                    typeCoercion.isTypeOnlyCoercion(offsetType, BIGINT));
+        }
+
+        Symbol coercedOffsetSymbol = symbolAllocator.newSymbol(offsetToBigint, BIGINT);
+        subPlan = subPlan.withNewRoot(new ProjectNode(
+                idAllocator.getNextId(),
+                subPlan.getRoot(),
+                Assignments.builder()
+                        .putIdentities(subPlan.getRoot().getOutputSymbols())
+                        .put(coercedOffsetSymbol, offsetToBigint)
+                        .build()));
+
+        return new FrameOffsetPlanAndSymbol(subPlan, Optional.of(coercedOffsetSymbol));
     }
 
     private Expression zeroOfType(Type type)
@@ -1517,6 +1600,28 @@ class QueryPlanner
         public Optional<Symbol> getSortKeyCoercedForFrameBoundComparison()
         {
             return sortKeyCoercedForFrameBoundComparison;
+        }
+    }
+
+    private static class FrameOffsetPlanAndSymbol
+    {
+        private final PlanBuilder subPlan;
+        private final Optional<Symbol> frameOffsetSymbol;
+
+        public FrameOffsetPlanAndSymbol(PlanBuilder subPlan, Optional<Symbol> frameOffsetSymbol)
+        {
+            this.subPlan = subPlan;
+            this.frameOffsetSymbol = frameOffsetSymbol;
+        }
+
+        public PlanBuilder getSubPlan()
+        {
+            return subPlan;
+        }
+
+        public Optional<Symbol> getFrameOffsetSymbol()
+        {
+            return frameOffsetSymbol;
         }
     }
 }
