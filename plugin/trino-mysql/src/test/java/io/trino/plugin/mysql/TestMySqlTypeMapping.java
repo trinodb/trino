@@ -481,8 +481,11 @@ public class TestMySqlTypeMapping
         }
     }
 
+    /**
+     * Read {@code DATATIME}s inserted by MySQL as Trino {@code TIMESTAMP}s
+     */
     @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDatetime(ZoneId sessionZone)
+    public void testMySqlDatetimeType(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -589,38 +592,16 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_timestamp"));
     }
 
+    /**
+     * Read {@code TIMESTAMP}s inserted by MySQL as Trino {@code TIMESTAMP}s
+     */
     @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    public void testTimestampFromMySql(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        // TODO we are dropping precision during writes because everything is mapped to datetime(0) (https://github.com/trinodb/trino/issues/6909)
-        SqlDataTypeTest.create()
-                // before epoch
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1958-01-01 13:18:03.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.000'")
-                // after epoch
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", TIMESTAMP_MILLIS, "TIMESTAMP '2019-03-18 10:01:18.000'")
-                // time doubled in JVM zone
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 01:33:17.000'")
-                // time double in Vilnius
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 03:33:33.000'")
-                // epoch
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 01:00:00.000'")
-                // TODO time gaps do not round-trip (https://github.com/trinodb/trino/issues/6910)
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 01:13:42.000'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-04-01 03:13:55.000'")
-                // time gap in Vilnius
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-03-25 03:17:17.000'")
-                // time gap in Kathmandu
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1986-01-01 00:13:07.000'")
-
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"))
-                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
-
-        // TODO merge this into the above SqlDataTypeTest once we support writing and reading timestamps with precisions other than 3 (TODO https://github.com/trinodb/trino/issues/6910)
         // Same as above but with inserts from MySQL - i.e. read path
         SqlDataTypeTest.create()
                 // before epoch (MySQL's timestamp type doesn't support values <= epoch)
@@ -717,6 +698,38 @@ public class TestMySqlTypeMapping
                 //.addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.99999994'", "TIMESTAMP '1969-12-31 23:59:59.999'")
 
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_timestamp"));
+    }
+
+    @Test(dataProvider = "sessionZonesDataProvider")
+    public void testTimestampFromTrino(ZoneId sessionZone)
+    {
+        Session session = Session.builder(getSession())
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
+                .build();
+
+        // TODO we are dropping precision during writes because everything is mapped to datetime(0) (https://github.com/trinodb/trino/issues/6909)
+        SqlDataTypeTest.create()
+                // before epoch
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1958-01-01 13:18:03.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.000'")
+                // after epoch
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", TIMESTAMP_MILLIS, "TIMESTAMP '2019-03-18 10:01:18.000'")
+                // time doubled in JVM zone
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 01:33:17.000'")
+                // time double in Vilnius
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 03:33:33.000'")
+                // epoch
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 01:00:00.000'")
+                // TODO time gaps do not round-trip (https://github.com/trinodb/trino/issues/6910)
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 01:13:42.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-04-01 03:13:55.000'")
+                // time gap in Vilnius
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-03-25 03:17:17.000'")
+                // time gap in Kathmandu
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1986-01-01 00:13:07.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1986-01-01 00:13:07.000'")
+
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAsSelect(getSession(), "test_timestamp"))
+                .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
     }
 
     @DataProvider
