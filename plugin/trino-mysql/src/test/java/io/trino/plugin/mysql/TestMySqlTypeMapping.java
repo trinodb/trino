@@ -707,21 +707,20 @@ public class TestMySqlTypeMapping
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        // TODO we are dropping precision during writes because everything is mapped to datetime(0) (https://github.com/trinodb/trino/issues/6909)
         SqlDataTypeTest.create()
                 // before epoch
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '1958-01-01 13:18:03.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '1958-01-01 13:18:03.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123'")
                 // after epoch
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", TIMESTAMP_MILLIS, "TIMESTAMP '2019-03-18 10:01:18.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", TIMESTAMP_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987'")
                 // time doubled in JVM zone
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 01:33:17.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 01:33:17.456'")
                 // time double in Vilnius
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 03:33:33.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 03:33:33.333'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-10-28 03:33:33.333'")
                 // epoch
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 01:00:00.000'")
                 // TODO time gaps do not round-trip (https://github.com/trinodb/trino/issues/6910)
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '1970-01-01 00:13:42.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 01:13:42.000'")
-                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-04-01 03:13:55.000'")
+                .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-04-01 02:13:55.123'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-04-01 03:13:55.123'")
                 // time gap in Vilnius
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-03-25 03:17:17.000'", TIMESTAMP_MILLIS, "TIMESTAMP '2018-03-25 03:17:17.000'")
                 // time gap in Kathmandu
