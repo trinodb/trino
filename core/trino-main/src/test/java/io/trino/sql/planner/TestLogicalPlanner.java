@@ -1260,12 +1260,10 @@ public class TestLogicalPlanner
                                                 .maxRankingPerPartition(6)
                                                 .partial(false),
                                         anyTree(
-                                                sort(
-                                                        ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
-                                                        any(
-                                                                tableScan(
-                                                                        "nation",
-                                                                        ImmutableMap.of("name", "name", "regionkey", "regionkey")))))))));
+
+                                                tableScan(
+                                                        "nation",
+                                                        ImmutableMap.of("name", "name", "regionkey", "regionkey")))))));
 
         assertPlan(
                 "SELECT name, regionkey FROM nation ORDER BY regionkey OFFSET 10 ROWS FETCH FIRST 6 ROWS WITH TIES",
@@ -1289,12 +1287,9 @@ public class TestLogicalPlanner
                                                                         .maxRankingPerPartition(16)
                                                                         .partial(false),
                                                                 anyTree(
-                                                                        sort(
-                                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
-                                                                                any(
-                                                                                        tableScan(
-                                                                                                "nation",
-                                                                                                ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))))
+                                                                        tableScan(
+                                                                                "nation",
+                                                                                ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 

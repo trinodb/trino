@@ -43,7 +43,7 @@ def setup(app):
         version = app.config.release
 
         if not text in ARTIFACTS:
-            inliner.reporter.error('Unsupported download type: ' + text)
+            inliner.reporter.error('Unsupported download type: ' + text, line=lineno)
             return [], []
 
         artifact, packaging, classifier = ARTIFACTS[text]

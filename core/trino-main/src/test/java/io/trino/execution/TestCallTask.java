@@ -137,7 +137,8 @@ public class TestCallTask
                         metadata,
                         accessControl,
                         stateMachine(transactionManager, metadata, accessControl),
-                        ImmutableList.of());
+                        ImmutableList.of(),
+                        WarningCollector.NOOP);
     }
 
     private TransactionManager createTransactionManager()

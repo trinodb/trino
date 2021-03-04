@@ -69,7 +69,7 @@ public class TestRollbackTask
         assertTrue(stateMachine.getSession().getTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
 
-        getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+        getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -86,7 +86,7 @@ public class TestRollbackTask
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue((Future<?>) new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList())))
+                () -> getFutureValue((Future<?>) new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP)))
                 .hasErrorCode(NOT_IN_TRANSACTION);
 
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
@@ -105,7 +105,7 @@ public class TestRollbackTask
                 .build();
         QueryStateMachine stateMachine = createQueryStateMachine("ROLLBACK", session, transactionManager);
 
-        getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList()));
+        getFutureValue(new RollbackTask().execute(new Rollback(), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP));
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId()); // Still issue clear signal
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 

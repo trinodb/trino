@@ -13,6 +13,9 @@
  */
 package io.trino.spi.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -22,17 +25,20 @@ public class SortItem
     private final String name;
     private final SortOrder sortOrder;
 
+    @JsonCreator
     public SortItem(String name, SortOrder sortOrder)
     {
         this.name = requireNonNull(name, "name is null");
         this.sortOrder = requireNonNull(sortOrder, "name is null");
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     public SortOrder getSortOrder()
     {
         return sortOrder;
@@ -55,5 +61,17 @@ public class SortItem
     public int hashCode()
     {
         return Objects.hash(name, sortOrder);
+    }
+
+    @Override
+    public String toString()
+    {
+        return new StringBuilder("SortItem{")
+                .append("name=")
+                .append(name)
+                .append(", sortOrder=")
+                .append(sortOrder)
+                .append("}")
+                .toString();
     }
 }

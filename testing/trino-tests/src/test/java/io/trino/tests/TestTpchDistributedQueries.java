@@ -33,8 +33,8 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.spi.predicate.Marker.Bound.EXACTLY;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
 

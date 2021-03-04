@@ -918,18 +918,18 @@ public class Analysis
                 .map(entry -> {
                     NodeRef<Table> table = entry.getKey();
 
-                    List<ColumnInfo> columns = referencedFields.get(table).stream()
-                            .filter(field -> field.getName().isPresent()) // For DELETE queries, the synthetic column for row id doesn't have a name
-                            .map(field -> {
-                                String fieldName = field.getName().get();
-
-                                return new ColumnInfo(
-                                        fieldName,
-                                        columnMasks.getOrDefault(table, ImmutableMap.of())
-                                                .getOrDefault(fieldName, ImmutableList.of()).stream()
-                                                .map(Expression::toString)
-                                                .collect(toImmutableList()));
-                            })
+                    QualifiedObjectName tableName = entry.getValue().getName();
+                    List<ColumnInfo> columns = tableColumnReferences.values().stream()
+                            .map(tablesToColumns -> tablesToColumns.get(tableName))
+                            .filter(Objects::nonNull)
+                            .flatMap(Collection::stream)
+                            .distinct()
+                            .map(fieldName -> new ColumnInfo(
+                                    fieldName,
+                                    columnMasks.getOrDefault(table, ImmutableMap.of())
+                                            .getOrDefault(fieldName, ImmutableList.of()).stream()
+                                            .map(Expression::toString)
+                                            .collect(toImmutableList())))
                             .collect(toImmutableList());
 
                     TableEntry info = entry.getValue();

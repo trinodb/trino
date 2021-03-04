@@ -29,6 +29,7 @@ import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
+import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
@@ -83,6 +84,7 @@ import static io.trino.sql.planner.optimizations.StreamPreferredProperties.any;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.defaultParallelism;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.exactlyPartitionedOn;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.fixedParallelism;
+import static io.trino.sql.planner.optimizations.StreamPreferredProperties.partitionedOn;
 import static io.trino.sql.planner.optimizations.StreamPreferredProperties.singleStream;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.FIXED;
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
@@ -95,7 +97,6 @@ import static io.trino.sql.planner.plan.ExchangeNode.gatheringExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.mergingExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.isEqual;
 import static java.util.stream.Collectors.toList;
 
 public class AddLocalExchanges
@@ -534,32 +535,32 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
         {
-            StreamPreferredProperties requiredProperties;
-            StreamPreferredProperties preferredProperties;
-            // TODO: add support for arbitrary partitioning in local exchanges
-            if (getTaskWriterCount(session) > 1) {
-                boolean hasFixedHashDistribution = node.getPartitioningScheme()
-                        .map(scheme -> scheme.getPartitioning().getHandle())
-                        .filter(isEqual(FIXED_HASH_DISTRIBUTION))
-                        .isPresent();
-                if (node.getPartitioningScheme().isEmpty()) {
-                    requiredProperties = fixedParallelism();
-                    preferredProperties = fixedParallelism();
-                }
-                else if (hasFixedHashDistribution) {
-                    requiredProperties = exactlyPartitionedOn(node.getPartitioningScheme().get().getPartitioning().getColumns());
-                    preferredProperties = requiredProperties;
-                }
-                else {
-                    requiredProperties = singleStream();
-                    preferredProperties = defaultParallelism(session);
-                }
+            if (getTaskWriterCount(session) == 1) {
+                return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
-            else {
-                requiredProperties = singleStream();
-                preferredProperties = defaultParallelism(session);
+            if (node.getPartitioningScheme().isEmpty()) {
+                return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
             }
-            return planAndEnforceChildren(node, requiredProperties, preferredProperties);
+
+            PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+            if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
+                // arbitrary hash function on predefined set of partition columns
+                StreamPreferredProperties preference = partitionedOn(partitioningScheme.getPartitioning().getColumns());
+                return planAndEnforceChildren(node, preference, preference);
+            }
+
+            // connector provided hash function
+            verify(!(partitioningScheme.getPartitioning().getHandle().getConnectorHandle() instanceof SystemPartitioningHandle));
+            PlanWithProperties source = node.getSource().accept(this, parentPreferences);
+            PlanWithProperties exchange = deriveProperties(
+                    partitionedExchange(
+                            idAllocator.getNextId(),
+                            LOCAL,
+                            source.getNode(),
+                            node.getPartitioningScheme().get()),
+                    source.getProperties());
+
+            return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
         }
 
         //

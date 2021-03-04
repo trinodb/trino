@@ -219,7 +219,8 @@ jobs:
             !:trino-sqlserver,!:trino-postgresql,!:trino-mysql,!:trino-memsql,
             !:trino-oracle,
             !:trino-kudu,
-            !:trino-phoenix,!:trino-iceberg,!:trino-druid,
+            !:trino-iceberg,!:trino-druid,
+            !:trino-phoenix,!:trino-phoenix5,
             !:trino-docs,!:trino-server,!:trino-server-rpm,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-bigquery'
@@ -243,7 +244,8 @@ jobs:
           - ":trino-sqlserver,:trino-postgresql,:trino-mysql"
           - ":trino-oracle"
           - ":trino-kudu"
-          - ":trino-phoenix,:trino-iceberg,:trino-druid"
+          - ":trino-iceberg,:trino-druid"
+          - ":trino-phoenix,:trino-phoenix5"
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
@@ -265,6 +267,9 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: 11
+      - name: Cleanup node
+        # This is required as a virtual environment update 20210219.1 left too little space for MemSQL to work
+        run: .github/bin/cleanup-node.sh
       - name: Maven Install
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"

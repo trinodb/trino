@@ -111,8 +111,6 @@ import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
-import static io.trino.spi.predicate.Marker.Bound.ABOVE;
-import static io.trino.spi.predicate.Marker.Bound.EXACTLY;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -128,6 +126,8 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
+import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.ABOVE;
+import static io.trino.sql.planner.planprinter.IoPlanPrinter.FormattedMarker.Bound.EXACTLY;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -2012,7 +2012,12 @@ public class TestHiveIntegrationSmokeTest
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc')");
 
-        assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')", 1);
+        assertUpdate(
+                parallelWriter,
+                "INSERT INTO " + tableName + " VALUES ('a0', 'b0', 'c0')",
+                1,
+                // buckets should be repartitioned locally hence local repartitioned exchange should exist in plan
+                assertLocalRepartitionedExchangesCount(1));
         assertUpdate(parallelWriter, "INSERT INTO " + tableName + " VALUES ('a1', 'b1', 'c1')", 1);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc'), ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
@@ -5707,6 +5712,33 @@ public class TestHiveIntegrationSmokeTest
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
                         actualRemoteExchangesCount,
+                        formattedPlan));
+            }
+        };
+    }
+
+    private Consumer<Plan> assertLocalRepartitionedExchangesCount(int expectedLocalExchangesCount)
+    {
+        return plan -> {
+            int actualLocalExchangesCount = searchFrom(plan.getRoot())
+                    .where(node -> {
+                        if (!(node instanceof ExchangeNode)) {
+                            return false;
+                        }
+
+                        ExchangeNode exchangeNode = (ExchangeNode) node;
+                        return exchangeNode.getScope() == ExchangeNode.Scope.LOCAL && exchangeNode.getType() == ExchangeNode.Type.REPARTITION;
+                    })
+                    .findAll()
+                    .size();
+            if (actualLocalExchangesCount != expectedLocalExchangesCount) {
+                Session session = getSession();
+                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                throw new AssertionError(format(
+                        "Expected [\n%s\n] local repartitioned exchanges but found [\n%s\n] local repartitioned exchanges. Actual plan is [\n\n%s\n]",
+                        expectedLocalExchangesCount,
+                        actualLocalExchangesCount,
                         formattedPlan));
             }
         };

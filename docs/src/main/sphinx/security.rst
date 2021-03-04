@@ -12,6 +12,7 @@ Cluster access security
   security/ldap
   security/password-file
   security/salesforce
+  security/oauth2
 
 User name management
 ====================
