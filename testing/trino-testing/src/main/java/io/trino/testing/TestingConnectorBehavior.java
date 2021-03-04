@@ -22,15 +22,30 @@ public enum TestingConnectorBehavior
     SUPPORTS_PREDICATE_PUSHDOWN,
     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY(SUPPORTS_PREDICATE_PUSHDOWN),
     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY(SUPPORTS_PREDICATE_PUSHDOWN),
+
     SUPPORTS_LIMIT_PUSHDOWN,
+
     SUPPORTS_TOPN_PUSHDOWN,
+
     SUPPORTS_AGGREGATION_PUSHDOWN,
+
     SUPPORTS_JOIN_PUSHDOWN(
             // Currently no connector supports Join pushdown by default. JDBC connectors may support Join pushdown and BaseJdbcConnectorTest
             // verifies truthfulness of SUPPORTS_JOIN_PUSHDOWN declaration, so it is a safe default.
             false),
     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN(SUPPORTS_JOIN_PUSHDOWN),
     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM(SUPPORTS_JOIN_PUSHDOWN),
+
+    SUPPORTS_CREATE_TABLE,
+    SUPPORTS_CREATE_TABLE_WITH_DATA(SUPPORTS_CREATE_TABLE),
+
+    SUPPORTS_INSERT,
+
+    SUPPORTS_DELETE(false),
+    SUPPORTS_ROW_LEVEL_DELETE(SUPPORTS_DELETE),
+
+    SUPPORTS_CREATE_SCHEMA,
+
     /**/;
 
     private final Predicate<Predicate<TestingConnectorBehavior>> hasBehaviorByDefault;

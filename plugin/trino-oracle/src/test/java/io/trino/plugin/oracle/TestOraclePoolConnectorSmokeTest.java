@@ -16,7 +16,6 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.AfterClass;
 
 import java.io.IOException;
@@ -24,8 +23,8 @@ import java.io.IOException;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
 
-public class TestRemarksReportingOraclePoolConnectorTest
-        extends BaseOracleConnectorTest
+public class TestOraclePoolConnectorSmokeTest
+        extends BaseOracleConnectorSmokeTest
 {
     private TestingOracleServer oracleServer;
 
@@ -43,7 +42,7 @@ public class TestRemarksReportingOraclePoolConnectorTest
                         .put("connection-password", TEST_PASS)
                         .put("allow-drop-table", "true")
                         .put("oracle.connection-pool.enabled", "true")
-                        .put("oracle.remarks-reporting.enabled", "true")
+                        .put("oracle.remarks-reporting.enabled", "false")
                         .build(),
                 REQUIRED_TPCH_TABLES);
     }
@@ -54,11 +53,5 @@ public class TestRemarksReportingOraclePoolConnectorTest
     {
         Closeables.closeAll(oracleServer);
         oracleServer = null;
-    }
-
-    @Override
-    protected SqlExecutor onOracle()
-    {
-        return oracleServer::execute;
     }
 }
