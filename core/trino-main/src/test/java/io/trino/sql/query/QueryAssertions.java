@@ -250,6 +250,7 @@ public class QueryAssertions
         private final Session session;
         private final String query;
         private boolean ordered;
+        private boolean skipTypesCheck;
 
         static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
         {
@@ -277,6 +278,12 @@ public class QueryAssertions
             return this;
         }
 
+        public QueryAssert skippingTypesCheck()
+        {
+            skipTypesCheck = true;
+            return this;
+        }
+
         public QueryAssert matches(@Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
@@ -286,7 +293,9 @@ public class QueryAssertions
         public QueryAssert matches(MaterializedResult expected)
         {
             return satisfies(actual -> {
-                assertTypes(actual, expected.getTypes());
+                if (!skipTypesCheck) {
+                    assertTypes(actual, expected.getTypes());
+                }
 
                 ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
                         .as("Rows")
@@ -310,7 +319,9 @@ public class QueryAssertions
         public QueryAssert containsAll(MaterializedResult expected)
         {
             return satisfies(actual -> {
-                assertTypes(actual, expected.getTypes());
+                if (!skipTypesCheck) {
+                    assertTypes(actual, expected.getTypes());
+                }
 
                 assertThat(actual.getMaterializedRows())
                         .as("Rows")
