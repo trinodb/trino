@@ -41,6 +41,8 @@ public class PinotConnector
     private final PinotPageSinkProvider pageSinkProvider;
     private final PinotNodePartitioningProvider partitioningProvider;
     private final PinotSessionProperties sessionProperties;
+    private final List<PropertyMetadata<?>> tableProperties;
+    private final List<PropertyMetadata<?>> columnProperties;
 
     @Inject
     public PinotConnector(
@@ -50,8 +52,10 @@ public class PinotConnector
             PinotPageSourceProvider pageSourceProvider,
             PinotPageSinkProvider pageSinkProvider,
             PinotNodePartitioningProvider partitioningProvider,
-            PinotSessionProperties pinotSessionProperties)
+            PinotSessionProperties pinotSessionProperties,
+            PinotTableProperties tableProperties)
     {
+        requireNonNull(tableProperties, "tableProperties is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -59,6 +63,8 @@ public class PinotConnector
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.sessionProperties = requireNonNull(pinotSessionProperties, "sessionProperties is null");
+        this.tableProperties = tableProperties.getTableProperties();
+        this.columnProperties = tableProperties.getColumnProperties();
     }
 
     @Override
@@ -101,6 +107,18 @@ public class PinotConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return ImmutableList.copyOf(sessionProperties.getSessionProperties());
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getTableProperties()
+    {
+        return tableProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getColumnProperties()
+    {
+        return columnProperties;
     }
 
     @Override

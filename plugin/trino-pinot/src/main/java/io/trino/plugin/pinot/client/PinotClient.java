@@ -217,6 +217,15 @@ public class PinotClient
                 codec);
     }
 
+    private <T> T sendHttpPostToControllerJson(String path, JsonCodec<T> codec, Optional<String> body)
+    {
+        return doHttpActionWithHeadersJson(
+                Request.builder().preparePost()
+                        .setUri(URI.create(format("http://%s/%s", getControllerUrl(), path))),
+                body,
+                codec);
+    }
+
     private <T> T sendHttpDeleteToControllerJson(String path, JsonCodec<T> codec)
     {
         return doHttpActionWithHeadersJson(Request.builder().prepareDelete().setUri(URI.create(format("http://%s/%s", getControllerUrl(), path))),
@@ -624,6 +633,30 @@ public class PinotClient
             throw new TableNotFoundException(new SchemaTableName(SCHEMA_NAME, prestoTableName));
         }
         return pinotTableName;
+    }
+
+    public void createSchema(Schema schema)
+    {
+        PinotSuccessResponse response = sendHttpPostToControllerJson(SCHEMAS_API_TEMPLATE, PINOT_SUCCESS_RESPONSE_JSON_CODEC, Optional.of(schema.toString()));
+        checkState(response.getStatus().equals(format("%s successfully added", schema.getSchemaName())), "Unexpected response: '%s'", response.getStatus());
+        verifySchema(schema.getSchemaName());
+    }
+
+    private void verifySchema(String tableName)
+    {
+        doWithRetries(10, attempt -> {
+            List<String> schemas = sendHttpGetToControllerJson(SCHEMAS_API_TEMPLATE, LIST_JSON_CODEC);
+            checkState(schemas.contains(tableName), format("Schema for '%s' not found", tableName));
+            return null;
+        });
+    }
+
+    public void createTable(TableConfig tableConfig)
+    {
+        PinotSuccessResponse response = sendHttpPostToControllerJson(GET_ALL_TABLES_API_TEMPLATE, PINOT_SUCCESS_RESPONSE_JSON_CODEC, Optional.of(tableConfig.toJsonString()));
+        // Pinot 0.5.0 had a typo in the success response message, fixed in 0.6.0
+        checkState(response.getStatus().startsWith(format("Table %s succes", tableConfig.getTableName())), "Unexpected response: '%s'", response.getStatus());
+        allTablesCache.refresh(ALL_TABLES_CACHE_KEY);
     }
 
     public PinotSuccessResponse dropTable(String tableName)

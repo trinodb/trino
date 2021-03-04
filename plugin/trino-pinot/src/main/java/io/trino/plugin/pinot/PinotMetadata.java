@@ -64,20 +64,28 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.cache.CacheLoader.asyncReloading;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotColumn.getPinotColumnsForPinotSchema;
+import static io.trino.plugin.pinot.PinotTableProperties.DATE_TIME_FORMAT_PROPERTY;
+import static io.trino.plugin.pinot.PinotTableProperties.DATE_TIME_GRANULARITY_PROPERTY;
+import static io.trino.plugin.pinot.PinotTableProperties.DATE_TIME_TRANSFORM_PROPERTY;
+import static io.trino.plugin.pinot.PinotTableProperties.FIELD_TYPE_PROPERTY;
+import static io.trino.plugin.pinot.PinotTableProperties.PINOT_COLUMN_NAME_PROPERTY;
 import static io.trino.plugin.pinot.client.PinotClient.getFromCache;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.BIGINT_AGGREGATIONS;
 import static io.trino.plugin.pinot.query.DynamicTableBuilder.DOUBLE_AGGREGATIONS;
+import static io.trino.plugin.pinot.table.PinotSchemaConverter.convert;
+import static io.trino.plugin.pinot.table.PinotTableConfigGenerator.getOfflineConfig;
+import static io.trino.plugin.pinot.table.PinotTableConfigGenerator.getRealtimeConfig;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
+import static org.apache.pinot.spi.data.FieldSpec.FieldType.DATE_TIME;
 
 public class PinotMetadata
         implements ConnectorMetadata
 {
     public static final String SCHEMA_NAME = "default";
-    private static final String PINOT_COLUMN_NAME_PROPERTY = "pinotColumnName";
 
     private final LoadingCache<String, List<PinotColumn>> pinotTableColumnCache;
     private final PinotClient pinotClient;
@@ -110,6 +118,30 @@ public class PinotMetadata
                                 return getPinotColumnsForPinotSchema(tablePinotSchema);
                             }
                         }, executor));
+    }
+
+    @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    {
+        Schema schema = convert(tableMetadata);
+        Optional<TableConfig> realtimeConfig = getRealtimeConfig(schema, tableMetadata);
+        TableConfig offlineConfig = getOfflineConfig(schema, tableMetadata);
+        pinotClient.createSchema(schema);
+        try {
+            realtimeConfig.ifPresent(pinotClient::createTable);
+        }
+        catch (Exception e) {
+            pinotClient.dropSchema(schema.getSchemaName());
+        }
+        try {
+            pinotClient.createTable(offlineConfig);
+        }
+        catch (Exception e) {
+            if (realtimeConfig.isPresent()) {
+                pinotClient.dropTable(schema.getSchemaName());
+            }
+            pinotClient.dropSchema(schema.getSchemaName());
+        }
     }
 
     @Override
@@ -438,12 +470,19 @@ public class PinotMetadata
 
     private static ColumnMetadata createPinotColumnMetadata(PinotColumn pinotColumn)
     {
+        ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
+        properties.put(PINOT_COLUMN_NAME_PROPERTY, pinotColumn.getName())
+                .put(FIELD_TYPE_PROPERTY, pinotColumn.getFieldType());
+        if (pinotColumn.getFieldType() == DATE_TIME) {
+            checkState(pinotColumn.getFormat().isPresent() && pinotColumn.getGranularity().isPresent(), "Invalid date/time column");
+            properties.put(DATE_TIME_FORMAT_PROPERTY, pinotColumn.getFormat().get())
+                    .put(DATE_TIME_GRANULARITY_PROPERTY, pinotColumn.getGranularity().get());
+            pinotColumn.getTransform().map(transform -> properties.put(DATE_TIME_TRANSFORM_PROPERTY, transform));
+        }
         return ColumnMetadata.builder()
                 .setName(pinotColumn.getName().toLowerCase(ENGLISH))
                 .setType(pinotColumn.getType())
-                .setProperties(ImmutableMap.<String, Object>builder()
-                        .put(PINOT_COLUMN_NAME_PROPERTY, pinotColumn.getName())
-                        .build())
+                .setProperties(properties.build())
                 .build();
     }
 

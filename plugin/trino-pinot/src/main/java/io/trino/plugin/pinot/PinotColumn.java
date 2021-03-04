@@ -24,8 +24,10 @@ import io.trino.spi.type.RealType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.pinot.spi.data.DateTimeFieldSpec;
 import org.apache.pinot.spi.data.FieldSpec;
 import org.apache.pinot.spi.data.FieldSpec.DataType;
+import org.apache.pinot.spi.data.FieldSpec.FieldType;
 import org.apache.pinot.spi.data.Schema;
 
 import java.util.List;
@@ -33,24 +35,58 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static java.util.Objects.requireNonNull;
+import static org.apache.pinot.spi.data.FieldSpec.FieldType.DATE_TIME;
 
 public class PinotColumn
 {
     private final String name;
     private final Type type;
+    private final FieldType fieldType;
+    private final Optional<String> format;
+    Optional<String> granularity;
+    Optional<String> transform;
+
+    public static PinotColumn fromFieldSpec(FieldSpec fieldSpec)
+    {
+        if (fieldSpec.getFieldType() == DATE_TIME) {
+            checkState(fieldSpec instanceof DateTimeFieldSpec, "Unexpected type for dateTime column");
+            DateTimeFieldSpec dateTimeFieldSpec = (DateTimeFieldSpec) fieldSpec;
+            return new PinotColumn(dateTimeFieldSpec.getName(),
+                    getTrinoTypeFromPinotType(dateTimeFieldSpec),
+                    dateTimeFieldSpec.getFieldType(),
+                    Optional.of(dateTimeFieldSpec.getFormat()),
+                    Optional.of(dateTimeFieldSpec.getGranularity()),
+                    Optional.ofNullable(dateTimeFieldSpec.getTransformFunction()));
+        }
+        return new PinotColumn(fieldSpec.getName(),
+                getTrinoTypeFromPinotType(fieldSpec),
+                fieldSpec.getFieldType(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+    }
 
     @JsonCreator
     public PinotColumn(
             @JsonProperty("name") String name,
-            @JsonProperty("type") Type type)
+            @JsonProperty("type") Type type,
+            @JsonProperty("fieldType") FieldType fieldType,
+            @JsonProperty("format") Optional<String> format,
+            @JsonProperty("granularity") Optional<String> granularity,
+            @JsonProperty("transform") Optional<String> transform)
     {
         checkArgument(!isNullOrEmpty(name), "name is null or is empty");
         this.name = name;
         this.type = requireNonNull(type, "type is null");
+        this.fieldType = requireNonNull(fieldType, "fieldType is null");
+        this.format = requireNonNull(format, "format is null");
+        this.granularity = requireNonNull(granularity, "granularity is null");
+        this.transform = requireNonNull(transform, "transform is null");
     }
 
     @JsonProperty
@@ -63,6 +99,30 @@ public class PinotColumn
     public Type getType()
     {
         return type;
+    }
+
+    @JsonProperty
+    public FieldType getFieldType()
+    {
+        return fieldType;
+    }
+
+    @JsonProperty
+    public Optional<String> getFormat()
+    {
+        return format;
+    }
+
+    @JsonProperty
+    public Optional<String> getGranularity()
+    {
+        return granularity;
+    }
+
+    @JsonProperty
+    public Optional<String> getTransform()
+    {
+        return transform;
     }
 
     @Override
@@ -95,7 +155,7 @@ public class PinotColumn
     {
         return pinotTableSchema.getColumnNames().stream()
                 .filter(columnName -> !columnName.startsWith("$")) // Hidden columns starts with "$", ignore them as we can't use them in PQL
-                .map(columnName -> new PinotColumn(columnName, getTrinoTypeFromPinotType(pinotTableSchema.getFieldSpecFor(columnName))))
+                .map(columnName -> PinotColumn.fromFieldSpec(pinotTableSchema.getFieldSpecFor(columnName)))
                 .collect(toImmutableList());
     }
 

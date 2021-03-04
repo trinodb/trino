@@ -13,7 +13,9 @@
  */
 package io.trino.plugin.pinot;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
@@ -25,10 +27,13 @@ import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.pinot.spi.data.FieldSpec.DataType;
 
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.pinot.PinotTableProperties.DEFAULT_VALUE_PROPERTY;
 
 public class PinotTypeUtils
 {
@@ -43,6 +48,18 @@ public class PinotTypeUtils
             RealType.REAL,
             DoubleType.DOUBLE,
             VarbinaryType.VARBINARY);
+
+    private static final Map<Type, DataType> PRESTO_TO_PINOT_TYPE_MAP =
+            ImmutableMap.<Type, DataType>builder()
+                    .put(BooleanType.BOOLEAN, DataType.BOOLEAN)
+                    .put(TinyintType.TINYINT, DataType.INT)
+                    .put(SmallintType.SMALLINT, DataType.INT)
+                    .put(IntegerType.INTEGER, DataType.INT)
+                    .put(BigintType.BIGINT, DataType.LONG)
+                    .put(RealType.REAL, DataType.FLOAT)
+                    .put(DoubleType.DOUBLE, DataType.DOUBLE)
+                    .put(VarcharType.VARCHAR, DataType.STRING)
+                    .build();
 
     public static boolean isSupportedPrimitive(Type type)
     {
@@ -61,5 +78,38 @@ public class PinotTypeUtils
         }
 
         return false;
+    }
+
+    public static String getStringProperty(ColumnMetadata columnMetadata, String propertyName)
+    {
+        return (String) columnMetadata.getProperties().get(propertyName);
+    }
+
+    public static DataType getPinotType(Type prestoType)
+    {
+        return PRESTO_TO_PINOT_TYPE_MAP.get(prestoType);
+    }
+
+    public static Object getDefaultNullValue(ColumnMetadata columnMetadata)
+    {
+        String defaultNullValue = getStringProperty(columnMetadata, DEFAULT_VALUE_PROPERTY);
+        if (defaultNullValue == null) {
+            return null;
+        }
+        DataType pinotDataType = PRESTO_TO_PINOT_TYPE_MAP.get(columnMetadata.getType());
+        switch (pinotDataType) {
+            case STRING:
+                return defaultNullValue;
+            case INT:
+                return Integer.parseInt(defaultNullValue);
+            case LONG:
+                return Long.parseLong(defaultNullValue);
+            case FLOAT:
+                return Float.parseFloat(defaultNullValue);
+            case DOUBLE:
+                return Double.parseDouble(defaultNullValue);
+            default:
+                throw new IllegalStateException();
+        }
     }
 }

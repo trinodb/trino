@@ -115,6 +115,7 @@ public class PinotModule
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
+        binder.bind(PinotTableProperties.class).in(Scopes.SINGLETON);
     }
 
     @SuppressWarnings("serial")
