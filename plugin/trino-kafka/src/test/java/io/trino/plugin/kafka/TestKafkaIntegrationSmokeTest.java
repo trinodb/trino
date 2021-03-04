@@ -635,41 +635,27 @@ public class TestKafkaIntegrationSmokeTest
 
         assertQuery("SELECT _partition_id, _partition_offset" +
                         " FROM kafka.tpch.customer" +
-                        " WHERE _partition_id = 0 AND _partition_offset > 100" +
-                        " LIMIT 100",
-                "SELECT _partition_id, _partition_offset" +
-                        " FROM kafka.tpch.customer" +
-                        " WHERE _partition_id = 0 AND _partition_offset > 100" +
-                        " ORDER BY _partition_offset" +
-                        " LIMIT 100");
+                        " WHERE _partition_id = 0 AND _partition_offset > 10" +
+                        " LIMIT 5",
+                "VALUES (0, 11), (0, 12), (0, 13), (0, 14), (0, 15)");
 
         assertQuery("SELECT _partition_id, _partition_offset" +
                         " FROM kafka.tpch.customer" +
                         " WHERE _partition_id = 0" +
-                        " LIMIT 100",
-                "SELECT _partition_id, _partition_offset" +
-                        " FROM kafka.tpch.customer" +
-                        " WHERE _partition_id = 0" +
-                        " ORDER BY _partition_offset" +
-                        " LIMIT 100");
+                        " LIMIT 5",
+                "VALUES (0, 0), (0, 1), (0, 2), (0, 3), (0, 4)");
 
         if (partitionNum == 1) {
             assertQuery("SELECT _partition_id, _partition_offset" +
                             " FROM kafka.tpch.customer" +
-                            " LIMIT 100",
-                    "SELECT _partition_id, _partition_offset" +
-                            " FROM kafka.tpch.customer" +
-                            " ORDER BY _partition_offset" +
-                            " LIMIT 100");
+                            " LIMIT 5",
+                    "VALUES (0, 0), (0, 1), (0, 2), (0, 3), (0, 4)");
         }
         else {
             assertQuery("SELECT _partition_offset" +
                             " FROM kafka.tpch.customer" +
                             " LIMIT 100",
-                    "SELECT _partition_offset" +
-                            " FROM kafka.tpch.customer" +
-                            " ORDER BY _partition_offset" +
-                            " LIMIT 100");
+                    "VALUES (0), (1), (2), (3), (4)");
         }
     }
 }
