@@ -18,8 +18,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.spi.HostAddress;
-import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.predicate.TupleDomain;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 
 import java.util.List;
@@ -32,18 +30,15 @@ public class PhoenixSplit
 {
     private final List<HostAddress> addresses;
     private final WrappedPhoenixInputSplit phoenixInputSplit;
-    private final TupleDomain<ColumnHandle> constraint;
 
     @JsonCreator
     public PhoenixSplit(
             @JsonProperty("addresses") List<HostAddress> addresses,
-            @JsonProperty("phoenixInputSplit") WrappedPhoenixInputSplit wrappedPhoenixInputSplit,
-            @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
+            @JsonProperty("phoenixInputSplit") WrappedPhoenixInputSplit wrappedPhoenixInputSplit)
     {
         super(Optional.empty());
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.phoenixInputSplit = requireNonNull(wrappedPhoenixInputSplit, "wrappedPhoenixInputSplit is null");
-        this.constraint = requireNonNull(constraint, "constraint is null");
     }
 
     @JsonProperty
@@ -63,11 +58,5 @@ public class PhoenixSplit
     public PhoenixInputSplit getPhoenixInputSplit()
     {
         return phoenixInputSplit.getPhoenixInputSplit();
-    }
-
-    @JsonProperty
-    public TupleDomain<ColumnHandle> getConstraint()
-    {
-        return constraint;
     }
 }
