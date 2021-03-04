@@ -42,16 +42,16 @@ public class GenericRowBuffer
     private final Map<String, List<GenericRow>> segmentRows = new HashMap<>();
     private final Optional<Comparator<GenericRow>> rowComparator;
 
-    public GenericRowBuffer(List<FieldSpec> fieldSpecs, List<Type> prestoTypes, Function<GenericRow, String> rowToSegmentFunction, Optional<Comparator<GenericRow>> rowComparator)
+    public GenericRowBuffer(List<FieldSpec> fieldSpecs, List<Type> trinoTypes, Function<GenericRow, String> rowToSegmentFunction, Optional<Comparator<GenericRow>> rowComparator)
     {
         requireNonNull(fieldSpecs, "pinotFields is null");
-        requireNonNull(prestoTypes, "prestoTypes is null");
-        checkState(fieldSpecs.size() == prestoTypes.size(), "FieldSpecs do not match prestoTypes");
+        requireNonNull(trinoTypes, "trinoTypes is null");
+        checkState(fieldSpecs.size() == trinoTypes.size(), "FieldSpecs do not match trinoTypes");
         checkState(!fieldSpecs.isEmpty(), "fieldSpecs is empty");
         this.fieldSpecs = ImmutableList.copyOf(fieldSpecs);
         ImmutableList.Builder<Encoder> encodersBuilder = ImmutableList.builder();
         for (int i = 0; i < fieldSpecs.size(); i++) {
-            encodersBuilder.add(createEncoder(fieldSpecs.get(i), prestoTypes.get(i)));
+            encodersBuilder.add(createEncoder(fieldSpecs.get(i), trinoTypes.get(i)));
         }
         encoders = encodersBuilder.build();
         this.rowToSegmentFunction = requireNonNull(rowToSegmentFunction, "rowToSegmentFunction is null");

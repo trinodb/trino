@@ -157,7 +157,7 @@ public class PinotMetadata
             DynamicTable dynamicTable = DynamicTableBuilder.buildFromPql(this, pinotClient, tableName);
             return new PinotTableHandle(tableName.getSchemaName(), dynamicTable.getTableName(), TupleDomain.all(), OptionalLong.empty(), Optional.of(dynamicTable), Optional.empty(), OptionalInt.empty(), Optional.empty());
         }
-        String pinotTableName = pinotClient.getPinotTableNameFromPrestoTableNameIfExists(tableName.getTableName());
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableNameIfExists(tableName.getTableName());
         if (pinotTableName == null) {
             return null;
         }
@@ -381,7 +381,7 @@ public class PinotMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        String pinotTableName = pinotClient.getPinotTableNameFromPrestoTableName(((PinotTableHandle) tableHandle).getTableName());
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(((PinotTableHandle) tableHandle).getTableName());
         List<PinotColumnHandle> pinotColumnHandles = columns.stream()
                 .map(column -> (PinotColumnHandle) column)
                 .collect(toImmutableList());
@@ -405,7 +405,7 @@ public class PinotMetadata
     @VisibleForTesting
     public List<PinotColumn> getPinotColumns(String tableName)
     {
-        String pinotTableName = pinotClient.getPinotTableNameFromPrestoTableName(tableName);
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(tableName);
         return getFromCache(pinotTableColumnCache, pinotTableName);
     }
 

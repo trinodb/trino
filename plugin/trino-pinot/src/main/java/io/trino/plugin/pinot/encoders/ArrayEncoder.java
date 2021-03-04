@@ -25,10 +25,10 @@ public class ArrayEncoder
 {
     private final Encoder elementEncoder;
 
-    public ArrayEncoder(FieldSpec fieldSpec, Type prestoElementType)
+    public ArrayEncoder(FieldSpec fieldSpec, Type trinoElementType)
     {
-        requireNonNull(prestoElementType, "elementType is null");
-        this.elementEncoder = EncoderFactory.createEncoder(fieldSpec, prestoElementType);
+        requireNonNull(trinoElementType, "elementType is null");
+        this.elementEncoder = EncoderFactory.createEncoder(fieldSpec, trinoElementType);
     }
 
     @Override

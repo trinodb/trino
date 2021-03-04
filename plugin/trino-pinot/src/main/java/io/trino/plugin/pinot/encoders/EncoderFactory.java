@@ -32,37 +32,37 @@ public class EncoderFactory
 {
     private EncoderFactory() {}
 
-    public static Encoder createEncoder(FieldSpec fieldSpec, Type prestoType)
+    public static Encoder createEncoder(FieldSpec fieldSpec, Type trinoType)
     {
-        requireNonNull(prestoType, "prestoType is null");
+        requireNonNull(trinoType, "trinoType is null");
         requireNonNull(fieldSpec, "fieldSpec is null");
-        checkState(isSupportedType(prestoType), "Unsupported type %s", prestoType);
+        checkState(isSupportedType(trinoType), "Unsupported type %s", trinoType);
         String fieldName = fieldSpec.getName();
-        if (prestoType instanceof ArrayType) {
-            checkState(!fieldSpec.isSingleValueField(), "Pinot and presto types are incompatible: %s, %s", prestoType, fieldSpec);
-            ArrayType arrayType = (ArrayType) prestoType;
+        if (trinoType instanceof ArrayType) {
+            checkState(!fieldSpec.isSingleValueField(), "Pinot and trino types are incompatible: %s, %s", trinoType, fieldSpec);
+            ArrayType arrayType = (ArrayType) trinoType;
             return new ArrayEncoder(fieldSpec, arrayType.getElementType());
         }
-        checkState(fieldSpec.isSingleValueField(), "Pinot and presto types are incompatible: %s, %s", prestoType, fieldSpec);
-        if (prestoType instanceof BigintType) {
+        checkState(fieldSpec.isSingleValueField(), "Pinot and trino types are incompatible: %s, %s", trinoType, fieldSpec);
+        if (trinoType instanceof BigintType) {
             return new BigintEncoder();
         }
-        else if (prestoType instanceof IntegerType) {
+        else if (trinoType instanceof IntegerType) {
             return new IntegerEncoder();
         }
-        else if (prestoType instanceof SmallintType) {
+        else if (trinoType instanceof SmallintType) {
             return new SmallintEncoder();
         }
-        else if (prestoType instanceof TinyintType) {
+        else if (trinoType instanceof TinyintType) {
             return new TinyintEncoder();
         }
-        else if (prestoType instanceof DoubleType) {
+        else if (trinoType instanceof DoubleType) {
             return new DoubleEncoder();
         }
-        else if (prestoType instanceof RealType) {
+        else if (trinoType instanceof RealType) {
             return new RealEncoder();
         }
-        else if (prestoType instanceof VarcharType) {
+        else if (trinoType instanceof VarcharType) {
             return new VarcharEncoder();
         }
         throw new UnsupportedOperationException();

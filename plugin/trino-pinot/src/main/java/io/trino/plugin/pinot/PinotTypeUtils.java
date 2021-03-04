@@ -49,7 +49,7 @@ public class PinotTypeUtils
             DoubleType.DOUBLE,
             VarbinaryType.VARBINARY);
 
-    private static final Map<Type, DataType> PRESTO_TO_PINOT_TYPE_MAP =
+    private static final Map<Type, DataType> TRINO_TO_PINOT_TYPE_MAP =
             ImmutableMap.<Type, DataType>builder()
                     .put(BooleanType.BOOLEAN, DataType.BOOLEAN)
                     .put(TinyintType.TINYINT, DataType.INT)
@@ -85,9 +85,9 @@ public class PinotTypeUtils
         return (String) columnMetadata.getProperties().get(propertyName);
     }
 
-    public static DataType getPinotType(Type prestoType)
+    public static DataType getPinotType(Type trinoType)
     {
-        return PRESTO_TO_PINOT_TYPE_MAP.get(prestoType);
+        return TRINO_TO_PINOT_TYPE_MAP.get(trinoType);
     }
 
     public static Object getDefaultNullValue(ColumnMetadata columnMetadata)
@@ -96,7 +96,7 @@ public class PinotTypeUtils
         if (defaultNullValue == null) {
             return null;
         }
-        DataType pinotDataType = PRESTO_TO_PINOT_TYPE_MAP.get(columnMetadata.getType());
+        DataType pinotDataType = TRINO_TO_PINOT_TYPE_MAP.get(columnMetadata.getType());
         switch (pinotDataType) {
             case STRING:
                 return defaultNullValue;

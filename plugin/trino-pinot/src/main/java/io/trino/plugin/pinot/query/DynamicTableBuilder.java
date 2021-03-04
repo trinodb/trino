@@ -58,7 +58,7 @@ public final class DynamicTableBuilder
         String query = schemaTableName.getTableName();
         BrokerRequest request = REQUEST_COMPILER.compileToBrokerRequest(query);
         String tableName = request.getQuerySource().getTableName();
-        String pinotTableName = pinotClient.getPinotTableNameFromPrestoTableName(stripSuffix(tableName));
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(stripSuffix(tableName));
         Optional<String> suffix = getSuffix(tableName);
 
         Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(pinotTableName);
