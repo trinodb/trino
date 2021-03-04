@@ -30,6 +30,7 @@ import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJdbcIntegrationSmokeTest
         // TODO extend BaseConnectorTest
@@ -117,6 +118,46 @@ public class TestJdbcIntegrationSmokeTest
                     convertToVarcharUnsupportedTypes,
                     "SELECT * FROM " + table.getName(),
                     "VALUES (1, NULL), (2, 'POINT (7 52)'), (3, NULL)");
+        }
+    }
+
+    @Test
+    public void testTableWithOnlyUnsupportedColumns()
+    {
+        Session session = Session.builder(getSession())
+                .setSchema("public")
+                .build();
+        try (TestTable table = new TestTable(getSqlExecutor(), "unsupported_table", "(geometry_column GEOMETRY)", ImmutableList.of("NULL", "'POINT(7 52)'"))) {
+            // SELECT all tables to avoid any optimizations that could skip the table listing
+            assertThat(getQueryRunner().execute("SELECT table_name FROM information_schema.tables").getOnlyColumn())
+                    .contains(table.getName());
+            assertQuery(
+                    format("SELECT count(*) FROM information_schema.tables WHERE table_name = '%s'", table.getName()),
+                    "SELECT 1");
+            assertQuery(
+                    format("SELECT count(*) FROM information_schema.columns WHERE table_name = '%s'", table.getName()),
+                    "SELECT 0");
+            assertQuery(
+                    session,
+                    format("SHOW TABLES LIKE '%s'", table.getName()),
+                    format("SELECT '%s'", table.getName()));
+            String unsupportedTableErrorMessage = "Table 'public.*' has no supported columns.*";
+            assertQueryFails(
+                    session,
+                    "SELECT * FROM " + table.getName(),
+                    unsupportedTableErrorMessage);
+            assertQueryFails(
+                    session,
+                    "SHOW CREATE TABLE " + table.getName(),
+                    unsupportedTableErrorMessage);
+            assertQueryFails(
+                    session,
+                    "SHOW COLUMNS FROM " + table.getName(),
+                    unsupportedTableErrorMessage);
+            assertQueryFails(
+                    session,
+                    "DESCRIBE " + table.getName(),
+                    unsupportedTableErrorMessage);
         }
     }
 

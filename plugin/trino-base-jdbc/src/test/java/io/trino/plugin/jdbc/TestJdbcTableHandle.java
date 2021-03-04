@@ -13,9 +13,16 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.testing.EquivalenceTester;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.IntegerType;
 import org.testng.annotations.Test;
+
+import java.sql.Types;
+import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.trino.plugin.jdbc.MetadataUtil.TABLE_CODEC;
 import static io.trino.plugin.jdbc.MetadataUtil.assertJsonRoundTrip;
@@ -42,6 +49,40 @@ public class TestJdbcTableHandle
                         new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalogX", "jdbcSchema", "jdbcTable"),
                         new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchemaX", "jdbcTable"),
                         new JdbcTableHandle(new SchemaTableName("schemaX", "table"), "jdbcCatalog", "jdbcSchema", "jdbcTableX"))
+                .addEquivalentGroup(createNamedHandle())
+                .addEquivalentGroup(createQueryBasedHandle())
                 .check();
+    }
+
+    private JdbcTableHandle createQueryBasedHandle()
+    {
+        JdbcTypeHandle type = new JdbcTypeHandle(Types.INTEGER, Optional.of("int"), Optional.of(1), Optional.of(2), Optional.of(3), Optional.of(CaseSensitivity.CASE_INSENSITIVE));
+        return new JdbcTableHandle(
+                new JdbcQueryRelationHandle(
+                        new PreparedQuery(
+                                "query",
+                                ImmutableList.of(new QueryParameter(
+                                        type,
+                                        IntegerType.INTEGER,
+                                        Optional.of(1))))),
+                TupleDomain.all(),
+                Optional.empty(),
+                OptionalLong.of(1),
+                Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
+                0);
+    }
+
+    private JdbcTableHandle createNamedHandle()
+    {
+        JdbcTypeHandle type = new JdbcTypeHandle(Types.INTEGER, Optional.of("int"), Optional.of(1), Optional.of(2), Optional.of(3), Optional.of(CaseSensitivity.CASE_INSENSITIVE));
+        return new JdbcTableHandle(
+                new JdbcNamedRelationHandle(
+                        new SchemaTableName("schema", "table"),
+                        new RemoteTableName(Optional.of("catalog"), Optional.of("schema"), "table")),
+                TupleDomain.all(),
+                Optional.empty(),
+                OptionalLong.of(1),
+                Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
+                0);
     }
 }

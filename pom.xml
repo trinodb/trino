@@ -107,6 +107,7 @@
         <module>plugin/trino-bigquery</module>
         <module>plugin/trino-blackhole</module>
         <module>plugin/trino-cassandra</module>
+        <module>plugin/trino-clickhouse</module>
         <module>plugin/trino-druid</module>
         <module>plugin/trino-elasticsearch</module>
         <module>plugin/trino-example-http</module>
@@ -128,7 +129,7 @@
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
         <module>plugin/trino-phoenix</module>
-        <module>plugin/trino-phoenix-5</module>
+        <module>plugin/trino-phoenix5</module>
         <module>plugin/trino-pinot</module>
         <module>plugin/trino-postgresql</module>
         <module>plugin/trino-prometheus</module>
@@ -151,6 +152,7 @@
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-product-tests</module>
         <module>testing/trino-product-tests-launcher</module>
+        <module>testing/trino-server-dev</module>
         <module>testing/trino-test-jdbc-compatibility-old-driver</module>
         <module>testing/trino-test-jdbc-compatibility-old-server</module>
         <module>testing/trino-testing</module>

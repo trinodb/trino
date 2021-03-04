@@ -164,4 +164,7 @@ Name                                   Description
                                        For example, ``abc:xyz;example.foo:bar`` sets the system property
                                        ``abc`` to the value ``xyz`` and the ``foo`` property for
                                        catalog ``example`` to the value ``bar``.
+``externalAuthentication``             Use a local web browser to authenticate with an identity provider (IdP)
+                                       that has been configured for the Trino coordinator.
+                                       See :doc:`/security/oauth2` for more details.
 ====================================== =======================================================================

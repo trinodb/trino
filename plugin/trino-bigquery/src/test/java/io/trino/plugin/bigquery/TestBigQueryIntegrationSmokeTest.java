@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestIntegrationSmokeTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
@@ -26,6 +27,8 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestBigQueryIntegrationSmokeTest
@@ -60,6 +63,128 @@ public class TestBigQueryIntegrationSmokeTest
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Test(dataProvider = "createTableSupportedTypes")
+    public void testCreateTableSupportedType(String createType, String expectedType)
+    {
+        String tableName = "test_create_table_supported_type_" + createType.replaceAll("[^a-zA-Z0-9]", "");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate(format("CREATE TABLE %s (col1 %s)", tableName, createType));
+
+        assertEquals(
+                computeScalar("SELECT data_type FROM information_schema.columns WHERE table_name = '" + tableName + "' AND column_name = 'col1'"),
+                expectedType);
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] createTableSupportedTypes()
+    {
+        return new Object[][] {
+                {"boolean", "boolean"},
+                {"tinyint", "bigint"},
+                {"smallint", "bigint"},
+                {"integer", "bigint"},
+                {"bigint", "bigint"},
+                {"double", "double"},
+                {"decimal", "decimal(38,9)"},
+                {"date", "date"},
+                {"time with time zone", "time(3) with time zone"},
+                {"timestamp", "timestamp(3)"},
+                {"timestamp with time zone", "timestamp(3) with time zone"},
+                {"char", "varchar"},
+                {"char(65535)", "varchar"},
+                {"varchar", "varchar"},
+                {"varchar(65535)", "varchar"},
+                {"varbinary", "varbinary"},
+                {"array(bigint)", "array(bigint)"},
+                {"row(x bigint, y double)", "row(x bigint, y double)"},
+                {"row(x array(bigint))", "row(x array(bigint))"},
+        };
+    }
+
+    @Test(dataProvider = "createTableUnsupportedTypes")
+    public void testCreateTableUnsupportedType(String createType)
+    {
+        String tableName = "test_create_table_unsupported_type_" + createType.replaceAll("[^a-zA-Z0-9]", "");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertQueryFails(
+                format("CREATE TABLE %s (col1 %s)", tableName, createType),
+                "Unsupported column type: " + createType);
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] createTableUnsupportedTypes()
+    {
+        return new Object[][] {
+                {"json"},
+                {"uuid"},
+                {"ipaddress"},
+        };
+    }
+
+    @Test
+    public void testCreateTableWithRowTypeWithoutField()
+    {
+        String tableName = "test_row_type_table";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(col1 row(int))",
+                "\\QROW type does not have field names declared: row(integer)\\E");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testCreateTableAlreadyExists()
+    {
+        String tableName = "test_create_table_already_exists";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + "(col1 int)");
+        assertQueryFails(
+                "CREATE TABLE " + tableName + "(col1 int)",
+                "\\Qline 1:1: Table 'bigquery.tpch.test_create_table_already_exists' already exists\\E");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testCreateTableIfNotExists()
+    {
+        String tableName = "test_create_table_if_not_exists";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + "(col1 int)");
+        assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + "(col1 int)");
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+    }
+
+    @Test
+    public void testDropTable()
+    {
+        String tableName = "test_drop_table";
+
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+
+        assertUpdate("CREATE TABLE " + tableName + "(col bigint)");
+        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
     @Test(enabled = false)

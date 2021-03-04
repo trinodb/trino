@@ -54,7 +54,7 @@ public class TestWindowFrameRange
     public void testFramePrecedingWithSortKeyCoercions()
     {
         @Language("SQL") String sql = "SELECT array_agg(key) OVER(ORDER BY key RANGE x PRECEDING) " +
-                "FROM (VALUES (1, 1.1), (2, 2.2)) T(key, x)";
+                "FROM (VALUES (1, 1.1), (2, 2.2)) t(key, x)";
 
         PlanMatchPattern pattern =
                 anyTree(
@@ -100,7 +100,7 @@ public class TestWindowFrameRange
     public void testFrameFollowingWithOffsetCoercion()
     {
         @Language("SQL") String sql = "SELECT array_agg(key) OVER(ORDER BY key RANGE BETWEEN CURRENT ROW AND x FOLLOWING) " +
-                "FROM (VALUES (1.1, 1), (2.2, 2)) T(key, x)";
+                "FROM (VALUES (1.1, 1), (2.2, 2)) t(key, x)";
 
         PlanMatchPattern pattern =
                 anyTree(
@@ -146,7 +146,7 @@ public class TestWindowFrameRange
     public void testFramePrecedingFollowingNoCoercions()
     {
         @Language("SQL") String sql = "SELECT array_agg(key) OVER(ORDER BY key RANGE BETWEEN x PRECEDING AND y FOLLOWING) " +
-                "FROM (VALUES (1, 1, 1), (2, 2, 2)) T(key, x, y)";
+                "FROM (VALUES (1, 1, 1), (2, 2, 2)) t(key, x, y)";
 
         PlanMatchPattern pattern =
                 anyTree(

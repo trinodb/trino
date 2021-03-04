@@ -16,6 +16,8 @@ package io.trino.plugin.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.Objects;
+
 import static java.lang.String.format;
 
 public class JdbcQueryRelationHandle
@@ -39,5 +41,24 @@ public class JdbcQueryRelationHandle
     public String toString()
     {
         return format("Query[%s]", preparedQuery.getQuery());
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        JdbcQueryRelationHandle that = (JdbcQueryRelationHandle) o;
+        return preparedQuery.equals(that.preparedQuery);
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(preparedQuery);
     }
 }

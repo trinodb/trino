@@ -15,7 +15,7 @@
 
 # noinspection PyDefaultArgument,PyUnusedLocal
 def backquote_role(role, rawtext, text, lineno, inliner, options={}, content=[]):
-    inliner.reporter.error('Use double backquotes for code formatting')
+    inliner.reporter.error('Use double backquotes for code formatting', line=lineno)
     return [], []
 
 

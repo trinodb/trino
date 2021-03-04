@@ -203,6 +203,16 @@ class BigQueryClient
         return bigQuery.update(table);
     }
 
+    public void createTable(TableInfo tableInfo)
+    {
+        bigQuery.create(tableInfo);
+    }
+
+    public void dropTable(TableId tableId)
+    {
+        bigQuery.delete(tableId);
+    }
+
     Job create(JobInfo jobInfo)
     {
         return bigQuery.create(jobInfo);

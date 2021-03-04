@@ -14,25 +14,24 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.net.HostAndPort;
-import io.airlift.units.Duration;
 import org.apache.thrift.transport.TTransportException;
 
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 public class MockThriftMetastoreClientFactory
-        extends DefaultThriftMetastoreClientFactory
+        implements ThriftMetastoreClientFactory
 {
-    private Map<HostAndPort, Optional<ThriftMetastoreClient>> clients;
+    private final Map<HostAndPort, Optional<ThriftMetastoreClient>> clients;
 
-    public MockThriftMetastoreClientFactory(Optional<HostAndPort> socksProxy, Duration timeout, Map<String, Optional<ThriftMetastoreClient>> clients)
+    public MockThriftMetastoreClientFactory(Map<String, Optional<ThriftMetastoreClient>> clients)
     {
-        super(Optional.empty(), socksProxy, timeout, new NoHiveMetastoreAuthentication(), "localhost");
-        this.clients = clients.entrySet().stream().collect(Collectors.toMap(entry -> createHostAndPort(entry.getKey()), Map.Entry::getValue));
+        this.clients = clients.entrySet().stream()
+                .collect(toImmutableMap(entry -> createHostAndPort(entry.getKey()), Map.Entry::getValue));
     }
 
     @Override
@@ -40,16 +39,14 @@ public class MockThriftMetastoreClientFactory
             throws TTransportException
     {
         checkArgument(delegationToken.isEmpty(), "delegation token is not supported");
-        Optional<ThriftMetastoreClient> client = clients.getOrDefault(address, Optional.empty());
-        if (client.isEmpty()) {
-            throw new TTransportException(TTransportException.TIMED_OUT);
-        }
-        return client.get();
+        return clients.getOrDefault(address, Optional.empty())
+                .orElseThrow(() -> new TTransportException(TTransportException.TIMED_OUT));
     }
 
-    private static HostAndPort createHostAndPort(String str)
+    private static HostAndPort createHostAndPort(String url)
     {
-        URI uri = URI.create(str);
+        URI uri = URI.create(url);
+        checkArgument("thrift".equals(uri.getScheme()), "Invalid URL: %s", url);
         return HostAndPort.fromParts(uri.getHost(), uri.getPort());
     }
 }

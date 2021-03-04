@@ -37,6 +37,8 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
+import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
+import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static java.util.Objects.requireNonNull;
 
@@ -219,6 +221,17 @@ public class WindowNode
     @Immutable
     public static class Frame
     {
+        public static final Frame DEFAULT_FRAME = new WindowNode.Frame(
+                RANGE,
+                UNBOUNDED_PRECEDING,
+                Optional.empty(),
+                Optional.empty(),
+                CURRENT_ROW,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+
         private final WindowFrame.Type type;
         private final FrameBound.Type startType;
         private final Optional<Symbol> startValue;

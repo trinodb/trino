@@ -94,7 +94,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.planWithTableNodePartitioning;
+import static io.trino.SystemSessionProperties.isPlanWithTableNodePartitioning;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
@@ -778,7 +778,7 @@ public final class PropertyDerivations
             Optional<List<Symbol>> streamPartitioning = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
 
-            if (planWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent()) {
+            if (isPlanWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent()) {
                 TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
                 if (assignments.keySet().containsAll(tablePartitioning.getPartitioningColumns())) {
                     List<Symbol> arguments = tablePartitioning.getPartitioningColumns().stream()
