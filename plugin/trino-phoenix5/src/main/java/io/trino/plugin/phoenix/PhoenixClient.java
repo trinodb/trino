@@ -272,12 +272,18 @@ public class PhoenixClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+        return Optional.of((sql, limit) -> {
+            if (limit > Integer.MAX_VALUE) {
+                return sql;
+            }
+            return sql + " LIMIT " + limit;
+        });
     }
 
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
+        // Note that limit exceeding Integer.MAX_VALUE gets completely ignored.
         return false;
     }
 
