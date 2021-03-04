@@ -25,8 +25,6 @@ import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.QueryAssertions.assertContains;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
@@ -43,23 +41,7 @@ public abstract class BaseConnectorTest
 {
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
-            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
-                return hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN);
-
-            case SUPPORTS_JOIN_PUSHDOWN:
-                // Currently no connector supports Join pushdown by default. JDBC connectors may support Join pushdown and BaseJdbcConnectorTest
-                // verifies truthfulness of SUPPORTS_JOIN_PUSHDOWN declaration, so it is a safe default.
-                return false;
-
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
-            case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
-                return hasBehavior(SUPPORTS_JOIN_PUSHDOWN);
-
-            default:
-                return true;
-        }
+        return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
     }
 
     @Test
