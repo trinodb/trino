@@ -53,6 +53,7 @@ import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.Principal;
 import java.security.PrivateKey;
@@ -80,6 +81,7 @@ import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static javax.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -98,6 +100,7 @@ public class TestResourceSecurity
     private static final String TEST_USER = "test-user";
     private static final String TEST_USER_LOGIN = TEST_USER + "@allowed";
     private static final String TEST_PASSWORD = "test-password";
+    private static final String TEST_PASSWORD2 = "test-password-2";
     private static final String MANAGEMENT_USER = "management-user";
     private static final String MANAGEMENT_USER_LOGIN = MANAGEMENT_USER + "@allowed";
     private static final String MANAGEMENT_PASSWORD = "management-password";
@@ -115,9 +118,11 @@ public class TestResourceSecurity
     }
 
     private OkHttpClient client;
+    private Path passwordConfigDummy;
 
     @BeforeClass
     public void setup()
+            throws IOException
     {
         OkHttpClient.Builder clientBuilder = new OkHttpClient.Builder()
                 .followRedirects(false);
@@ -130,6 +135,9 @@ public class TestResourceSecurity
                 Optional.empty(),
                 Optional.empty());
         client = clientBuilder.build();
+
+        passwordConfigDummy = Files.createTempFile("passwordConfigDummy", "");
+        passwordConfigDummy.toFile().deleteOnExit();
     }
 
     @Test
@@ -185,15 +193,61 @@ public class TestResourceSecurity
         try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .build())
                 .build()) {
-            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestResourceSecurity::authenticate);
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertAuthenticationDisabled(httpServerInfo.getHttpUri());
             assertPasswordAuthentication(httpServerInfo.getHttpsUri());
+        }
+    }
+
+    @Test
+    public void testMultiplePasswordAuthenticators()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .put("http-server.authentication.type", "password")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
+                        .build())
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate, TestResourceSecurity::authenticate2);
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            assertAuthenticationDisabled(httpServerInfo.getHttpUri());
+            assertPasswordAuthentication(httpServerInfo.getHttpsUri(), TEST_PASSWORD, TEST_PASSWORD2);
+        }
+    }
+
+    @Test
+    public void testMultiplePasswordAuthenticatorsMessages()
+            throws Exception
+    {
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
+                        .put("http-server.authentication.type", "password")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
+                        .build())
+                .build()) {
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate, TestResourceSecurity::authenticate2);
+            server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            Request request = new Request.Builder()
+                    .url(getAuthorizedUserLocation(httpServerInfo.getHttpsUri()))
+                    .headers(Headers.of("Authorization", Credentials.basic(TEST_USER_LOGIN, "wrong_password")))
+                    .build();
+            try (Response response = client.newCall(request).execute()) {
+                assertThat(response.message()).isEqualTo("Access Denied: Invalid credentials | Access Denied: Invalid credentials2");
+            }
         }
     }
 
@@ -204,12 +258,13 @@ public class TestResourceSecurity
         try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "true")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .build())
                 .build()) {
-            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestResourceSecurity::authenticate);
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertInsecureAuthentication(httpServerInfo.getHttpUri());
@@ -224,13 +279,14 @@ public class TestResourceSecurity
         try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "true")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .put("management.user", MANAGEMENT_USER)
                         .build())
                 .build()) {
-            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestResourceSecurity::authenticate);
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
 
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -246,13 +302,14 @@ public class TestResourceSecurity
         try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "false")
                         .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .put("management.user", MANAGEMENT_USER)
                         .build())
                 .build()) {
-            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestResourceSecurity::authenticate);
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
 
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -272,13 +329,14 @@ public class TestResourceSecurity
         try (TestingTrinoServer server = TestingTrinoServer.builder()
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
+                        .put("password-authenticator.config-files", passwordConfigDummy.toString())
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "true")
                         .put("management.user", MANAGEMENT_USER)
                         .put("management.user.https-enabled", "true")
                         .build())
                 .build()) {
-            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestResourceSecurity::authenticate);
+            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
 
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -595,24 +653,36 @@ public class TestResourceSecurity
     private void assertPasswordAuthentication(URI baseUri)
             throws IOException
     {
+        assertPasswordAuthentication(baseUri, TEST_PASSWORD);
+    }
+
+    private void assertPasswordAuthentication(URI baseUri, String... allowedPasswords)
+            throws IOException
+    {
         // public
         assertOk(client, getPublicLocation(baseUri));
         // authorized user
         assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED);
         assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, null);
         assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, "invalid");
-        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER_LOGIN, TEST_PASSWORD);
+        for (String password : allowedPasswords) {
+            assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER_LOGIN, password);
+        }
         // management
         assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED);
         assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, null);
         assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, "invalid");
-        assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, TEST_PASSWORD);
+        for (String password : allowedPasswords) {
+            assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, password);
+        }
         assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER_LOGIN, null);
         assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER_LOGIN, "invalid");
         assertResponseCode(client, getManagementLocation(baseUri), SC_OK, MANAGEMENT_USER_LOGIN, MANAGEMENT_PASSWORD);
         // internal
         assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN);
-        assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, TEST_PASSWORD);
+        for (String password : allowedPasswords) {
+            assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, password);
+        }
     }
 
     private static void assertAuthenticationAutomatic(URI baseUri, OkHttpClient authorizedClient)
@@ -734,6 +804,14 @@ public class TestResourceSecurity
             return new BasicPrincipal(user);
         }
         throw new AccessDeniedException("Invalid credentials");
+    }
+
+    private static Principal authenticate2(String user, String password)
+    {
+        if ((TEST_USER_LOGIN.equals(user) && TEST_PASSWORD2.equals(password)) || (MANAGEMENT_USER_LOGIN.equals(user) && MANAGEMENT_PASSWORD.equals(password))) {
+            return new BasicPrincipal(user);
+        }
+        throw new AccessDeniedException("Invalid credentials2");
     }
 
     private static class TestSystemAccessControl

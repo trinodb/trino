@@ -32,7 +32,8 @@ public class TestPasswordAuthenticatorConfig
     {
         assertRecordedDefaults(recordDefaults(PasswordAuthenticatorConfig.class)
                 .setUserMappingPattern(null)
-                .setUserMappingFile(null));
+                .setUserMappingFile(null)
+                .setPasswordAuthenticatorFiles("etc/password-authenticator.properties"));
     }
 
     @Test
@@ -40,15 +41,19 @@ public class TestPasswordAuthenticatorConfig
             throws IOException
     {
         Path userMappingFile = Files.createTempFile(null, null);
+        Path config1 = Files.createTempFile(null, null);
+        Path config2 = Files.createTempFile(null, null);
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("http-server.authentication.password.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.password.user-mapping.file", userMappingFile.toString())
+                .put("password-authenticator.config-files", config1.toString() + "," + config2.toString())
                 .build();
 
         PasswordAuthenticatorConfig expected = new PasswordAuthenticatorConfig()
                 .setUserMappingPattern("(.*)@something")
-                .setUserMappingFile(userMappingFile.toFile());
+                .setUserMappingFile(userMappingFile.toFile())
+                .setPasswordAuthenticatorFiles(config1 + "," + config2);
 
         assertFullMapping(properties, expected);
     }

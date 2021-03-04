@@ -21,6 +21,8 @@ import io.trino.spi.security.PasswordAuthenticator;
 
 import javax.inject.Inject;
 
+import java.util.List;
+
 import static java.util.Objects.requireNonNull;
 
 public class PasswordManagerFormAuthenticator
@@ -66,17 +68,20 @@ public class PasswordManagerFormAuthenticator
             return insecureAuthenticationOverHttpAllowed && password == null;
         }
 
-        PasswordAuthenticator authenticator = passwordAuthenticatorManager.getAuthenticator();
-        try {
-            authenticator.createAuthenticatedPrincipal(username, password);
-            return true;
+        List<PasswordAuthenticator> authenticators = passwordAuthenticatorManager.getAuthenticators();
+        for (PasswordAuthenticator authenticator : authenticators) {
+            try {
+                authenticator.createAuthenticatedPrincipal(username, password);
+                return true;
+            }
+            catch (AccessDeniedException e) {
+                // Try another one
+            }
+            catch (RuntimeException e) {
+                log.debug(e, "Error authenticating user for Web UI");
+            }
         }
-        catch (AccessDeniedException e) {
-            return false;
-        }
-        catch (RuntimeException e) {
-            log.debug(e, "Error authenticating user for Web UI");
-            return false;
-        }
+
+        return false;
     }
 }
