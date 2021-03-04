@@ -25,6 +25,7 @@ import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.DataType;
 import io.trino.testing.datatype.DataTypeTest;
+import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
@@ -33,11 +34,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -52,6 +51,7 @@ import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.memsql.MemSqlClient.MEMSQL_VARCHAR_MAX_LENGTH;
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -65,7 +65,6 @@ import static io.trino.testing.datatype.DataType.bigintDataType;
 import static io.trino.testing.datatype.DataType.charDataType;
 import static io.trino.testing.datatype.DataType.dataType;
 import static io.trino.testing.datatype.DataType.dateDataType;
-import static io.trino.testing.datatype.DataType.decimalDataType;
 import static io.trino.testing.datatype.DataType.doubleDataType;
 import static io.trino.testing.datatype.DataType.formatStringLiteral;
 import static io.trino.testing.datatype.DataType.integerDataType;
@@ -153,18 +152,12 @@ public class TestMemSqlTypeMapping
     @Test
     public void testUnsignedTypes()
     {
-        DataType<Short> memSqlUnsignedTinyInt = DataType.dataType("TINYINT UNSIGNED", SMALLINT, Objects::toString);
-        DataType<Integer> memSqlUnsignedSmallInt = DataType.dataType("SMALLINT UNSIGNED", INTEGER, Objects::toString);
-        DataType<Long> memSqlUnsignedInt = DataType.dataType("INT UNSIGNED", BIGINT, Objects::toString);
-        DataType<Long> memSqlUnsignedInteger = DataType.dataType("INTEGER UNSIGNED", BIGINT, Objects::toString);
-        DataType<BigDecimal> memSqlUnsignedBigint = DataType.dataType("BIGINT UNSIGNED", createDecimalType(20), Objects::toString);
-
-        DataTypeTest.create()
-                .addRoundTrip(memSqlUnsignedTinyInt, (short) 255)
-                .addRoundTrip(memSqlUnsignedSmallInt, 65_535)
-                .addRoundTrip(memSqlUnsignedInt, 4_294_967_295L)
-                .addRoundTrip(memSqlUnsignedInteger, 4_294_967_295L)
-                .addRoundTrip(memSqlUnsignedBigint, new BigDecimal("18446744073709551615"))
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint unsigned", "255", SMALLINT, "SMALLINT '255'")
+                .addRoundTrip("smallint unsigned", "65535", INTEGER)
+                .addRoundTrip("int unsigned", "4294967295", BIGINT)
+                .addRoundTrip("integer unsigned", "4294967295", BIGINT)
+                .addRoundTrip("bigint unsigned", "18446744073709551615", createDecimalType(20, 0), "CAST('18446744073709551615' AS decimal(20, 0))")
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_unsigned"));
     }
 
@@ -182,25 +175,25 @@ public class TestMemSqlTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_decimal"));
     }
 
-    private DataTypeTest decimalTests()
+    private SqlDataTypeTest decimalTests()
     {
-        return DataTypeTest.create()
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("193"))
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("19"))
-                .addRoundTrip(decimalDataType(3, 0), new BigDecimal("-193"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("10.0"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("10.1"))
-                .addRoundTrip(decimalDataType(3, 1), new BigDecimal("-10.1"))
-                .addRoundTrip(decimalDataType(4, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalDataType(4, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("2"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("2.3"))
-                .addRoundTrip(decimalDataType(24, 2), new BigDecimal("123456789.3"))
-                .addRoundTrip(decimalDataType(24, 4), new BigDecimal("12345678901234567890.31"))
-                .addRoundTrip(decimalDataType(30, 5), new BigDecimal("3141592653589793238462643.38327"))
-                .addRoundTrip(decimalDataType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
-                .addRoundTrip(decimalDataType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
-                .addRoundTrip(decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
+        return SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.0' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.0' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST('-10.1' AS decimal(3, 1))", createDecimalType(3, 1), "CAST('-10.1' AS decimal(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2' AS decimal(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST('2.3' AS decimal(4, 2))", createDecimalType(4, 2), "CAST('2.3' AS decimal(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('2.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('2.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST('123456789.3' AS decimal(24, 2))", createDecimalType(24, 2), "CAST('123456789.3' AS decimal(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))");
     }
 
     @Test
@@ -386,16 +379,14 @@ public class TestMemSqlTypeMapping
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_parameterized_char"));
     }
 
-    private DataTypeTest memSqlCharTypeTest()
+    private SqlDataTypeTest memSqlCharTypeTest()
     {
-        return DataTypeTest.create()
-                .addRoundTrip(charDataType("char", 1), "")
-                .addRoundTrip(charDataType("char", 1), "a")
-                .addRoundTrip(charDataType(1), "")
-                .addRoundTrip(charDataType(1), "a")
-                .addRoundTrip(charDataType(8), "abc")
-                .addRoundTrip(charDataType(8), "12345678")
-                .addRoundTrip(charDataType(255), "a".repeat(255));
+        return SqlDataTypeTest.create()
+                .addRoundTrip("char(1)", "''", createCharType(1), "CAST('' AS char(1))")
+                .addRoundTrip("char(1)", "'a'", createCharType(1), "CAST('a' AS char(1))")
+                .addRoundTrip("char(8)", "'abc'", createCharType(8), "CAST('abc' AS char(8))")
+                .addRoundTrip("char(8)", "'12345678'", createCharType(8), "CAST('12345678' AS char(8))")
+                .addRoundTrip("char(255)", String.format("'%s'", "a".repeat(255)), createCharType(255), String.format("CAST('%s' AS char(255))", "a".repeat(255)));
     }
 
     @Test
