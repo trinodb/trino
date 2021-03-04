@@ -24,9 +24,11 @@ import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.server.ServletSecurityUtils.sendWwwAuthenticate;
@@ -86,10 +88,17 @@ public class AuthenticationFilter
                 authenticatedIdentity = authenticator.authenticate(request);
             }
             catch (AuthenticationException e) {
-                if (e.getMessage() != null) {
-                    messages.add(e.getMessage());
-                }
-                e.getAuthenticateHeader().ifPresent(authenticateHeaders::add);
+                // Some authenticators (e.g. password) nest multiple internal authenticators.
+                // Exceptions from additional failed login attempts are suppressed in the first exception
+                Stream.concat(Stream.of(e), Arrays.stream(e.getSuppressed()))
+                        .filter(ex -> ex instanceof AuthenticationException)
+                        .map(AuthenticationException.class::cast)
+                        .forEach(ex -> {
+                            if (ex.getMessage() != null) {
+                                messages.add(ex.getMessage());
+                            }
+                            ex.getAuthenticateHeader().ifPresent(authenticateHeaders::add);
+                        });
                 continue;
             }
 

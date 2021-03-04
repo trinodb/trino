@@ -14,7 +14,9 @@
 package io.trino.server.security;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.spi.security.PasswordAuthenticator;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
@@ -23,6 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,12 +41,20 @@ public class PasswordAuthenticatorManager
 {
     private static final Logger log = Logger.get(PasswordAuthenticatorManager.class);
 
-    private static final File CONFIG_FILE = new File("etc/password-authenticator.properties");
     private static final String NAME_PROPERTY = "password-authenticator.name";
 
+    private final List<File> configFiles;
     private final AtomicBoolean required = new AtomicBoolean();
     private final Map<String, PasswordAuthenticatorFactory> factories = new ConcurrentHashMap<>();
-    private final AtomicReference<PasswordAuthenticator> authenticator = new AtomicReference<>();
+    private final AtomicReference<List<PasswordAuthenticator>> authenticators = new AtomicReference<>();
+
+    @Inject
+    public PasswordAuthenticatorManager(PasswordAuthenticatorConfig config)
+    {
+        requireNonNull(config, "config is null");
+        this.configFiles = ImmutableList.copyOf(config.getPasswordAuthenticatorFiles());
+        checkArgument(!configFiles.isEmpty(), "password authenticator files list is empty");
+    }
 
     public void setRequired()
     {
@@ -58,7 +69,7 @@ public class PasswordAuthenticatorManager
 
     public boolean isLoaded()
     {
-        return authenticator.get() != null;
+        return authenticators.get() != null;
     }
 
     public void loadPasswordAuthenticator()
@@ -67,9 +78,11 @@ public class PasswordAuthenticatorManager
             return;
         }
 
-        File configFile = CONFIG_FILE.getAbsoluteFile();
-        PasswordAuthenticator authenticator = loadAuthenticator(configFile.getAbsoluteFile());
-        this.authenticator.set(requireNonNull(authenticator, "authenticator is null"));
+        ImmutableList.Builder<PasswordAuthenticator> authenticators = ImmutableList.builder();
+        for (File configFile : configFiles) {
+            authenticators.add(loadAuthenticator(configFile.getAbsoluteFile()));
+        }
+        this.authenticators.set(authenticators.build());
     }
 
     private PasswordAuthenticator loadAuthenticator(File configFile)
@@ -94,17 +107,17 @@ public class PasswordAuthenticatorManager
         return factory.create(ImmutableMap.copyOf(properties));
     }
 
-    public PasswordAuthenticator getAuthenticator()
+    public List<PasswordAuthenticator> getAuthenticators()
     {
-        checkState(isLoaded(), "authenticator was not loaded");
-        return authenticator.get();
+        checkState(isLoaded(), "authenticators were not loaded");
+        return authenticators.get();
     }
 
     @VisibleForTesting
-    public void setAuthenticator(PasswordAuthenticator authenticator)
+    public void setAuthenticators(PasswordAuthenticator... authenticators)
     {
-        if (!this.authenticator.compareAndSet(null, authenticator)) {
-            throw new IllegalStateException("authenticator already loaded");
+        if (!this.authenticators.compareAndSet(null, ImmutableList.copyOf(authenticators))) {
+            throw new IllegalStateException("authenticators already loaded");
         }
     }
 }
