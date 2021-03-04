@@ -358,7 +358,7 @@ public class MySqlClient
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
             // TODO use `timestampWriteFunction` (https://github.com/trinodb/trino/issues/6910)
-            return WriteMapping.longMapping("datetime", timestampWriteFunctionUsingSqlTimestamp(TIMESTAMP_MILLIS));
+            return WriteMapping.longMapping("datetime(3)", timestampWriteFunctionUsingSqlTimestamp(TIMESTAMP_MILLIS));
         }
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
