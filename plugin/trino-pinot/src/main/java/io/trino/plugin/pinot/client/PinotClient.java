@@ -499,12 +499,12 @@ public class PinotClient
         }
     }
 
-    public String getPinotTableNameFromPrestoTableNameIfExists(String prestoTableName)
+    public String getPinotTableNameFromTrinoTableNameIfExists(String trinoTableName)
     {
         List<String> allTables = getPinotTableNames();
         String pinotTableName = null;
         for (String candidate : allTables) {
-            if (prestoTableName.equalsIgnoreCase(candidate)) {
+            if (trinoTableName.equalsIgnoreCase(candidate)) {
                 pinotTableName = candidate;
                 break;
             }
@@ -512,30 +512,30 @@ public class PinotClient
         return pinotTableName;
     }
 
-    public String getPinotTableNameFromPrestoTableName(String prestoTableName)
+    public String getPinotTableNameFromTrinooTableName(String trinoTableName)
     {
-        String pinotTableName = getTableFromCache(prestoTableName);
+        String pinotTableName = getTableFromCache(trinoTableName);
         if (pinotTableName == null) {
-            throw new TableNotFoundException(new SchemaTableName(SCHEMA_NAME, prestoTableName));
+            throw new TableNotFoundException(new SchemaTableName(SCHEMA_NAME, trinoTableName));
         }
         return pinotTableName;
     }
 
     public PinotSuccessResponse dropTable(String tableName)
     {
-        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName);
+        String pinotTableName = getPinotTableNameFromTrinooTableName(tableName);
         return sendHttpDeleteToControllerJson(format(TABLE_NAME_API_TEMPLATE, pinotTableName), PINOT_SUCCESS_RESPONSE_JSON_CODEC);
     }
 
     public PinotSuccessResponse dropSchema(String tableName)
     {
-        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName);
+        String pinotTableName = getPinotTableNameFromTrinooTableName(tableName);
         return sendHttpDeleteToControllerJson(format(SCHEMA_NAME_API_TEMPLATE, pinotTableName), PINOT_SUCCESS_RESPONSE_JSON_CODEC);
     }
 
     public void dropTableAndSchema(String tableName)
     {
-        String pinotTableName = getPinotTableNameFromPrestoTableName(tableName);
+        String pinotTableName = getPinotTableNameFromTrinooTableName(tableName);
         ListenableFuture<PinotSuccessResponse> dropTableFuture = listeningExecutorService.submit(() -> {
             try {
                 dropTable(tableName);
