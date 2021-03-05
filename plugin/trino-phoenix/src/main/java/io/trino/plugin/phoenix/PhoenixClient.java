@@ -275,6 +275,12 @@ public class PhoenixClient
     }
 
     @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return false;
+    }
+
+    @Override
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         PhoenixOutputTableHandle outputHandle = (PhoenixOutputTableHandle) handle;
@@ -462,12 +468,6 @@ public class PhoenixClient
             return WriteMapping.objectMapping(elementDataType + " ARRAY", arrayWriteFunction(session, elementType, elementWriteName));
         }
         return legacyToWriteMapping(session, type);
-    }
-
-    @Override
-    public boolean isLimitGuaranteed(ConnectorSession session)
-    {
-        return false;
     }
 
     @Override
