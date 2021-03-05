@@ -240,6 +240,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4984", match = ".*maxCapacityHint can't be less than initialSlabSize.*") // TODO
     public void testArrayOfArrayOfStructOfArray()
             throws Exception
     {
@@ -358,7 +359,7 @@ public abstract class AbstractTestParquetReader
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/4984", match = ".*maxCapacityHint can't be less than initialSlabSize.*")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/4984", match = ".*maxCapacityHint can't be less than initialSlabSize.*") // TODO
     // Flaky failure comes from org.apache.hadoop.hive.ql.io.parquet.write.ParquetRecordWriterWrapper used during test initialization
     public void testArrayOfMapOfStruct()
             throws Exception
