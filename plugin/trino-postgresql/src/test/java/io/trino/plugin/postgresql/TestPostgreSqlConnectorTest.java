@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
@@ -35,6 +36,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -569,7 +571,7 @@ public class TestPostgreSqlConnectorTest
                 .isFullyPushedDown();
 
         // multiple sort columns with different orders
-        assertThat(query("SELECT * FROM orders ORDER BY orderpriority DESC, totalprice ASC LIMIT 10"))
+        assertThat(query("SELECT * FROM orders ORDER BY shippriority DESC, totalprice ASC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
@@ -610,6 +612,65 @@ public class TestPostgreSqlConnectorTest
                 "ORDER BY sum DESC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testCaseSensitiveTopNPushdown()
+    {
+        // Create an enum with non-lexicographically sorted entries
+        String enumType = "test_enum_" + randomTableSuffix();
+        postgreSqlServer.execute("CREATE TYPE " + enumType + " AS ENUM ('A', 'b', 'B', 'a')");
+        try (TestTable testTable = new TestTable(
+                postgreSqlServer::execute,
+                "tpch.test_case_sensitive_topn_pushdown",
+                "(a_string varchar(10), a_char char(10), a_enum " + enumType + ", a_bigint bigint)",
+                List.of(
+                        "'A', 'A', 'A', 1",
+                        "'B', 'B', 'B', 2",
+                        "'a', 'a', 'a', 3",
+                        "'b', 'b', 'b', 4"))) {
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string ASC LIMIT 2"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string DESC LIMIT 2"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char ASC LIMIT 2"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char DESC LIMIT 2"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+
+            // enum values sort order is defined as the order in which the values were listed when creating the type
+            // If we pushdown topn on enums our results will not be ordered according to Trino unless the enum was
+            // declared with values in the same order as Trino expects
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_enum ASC LIMIT 2"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_enum DESC LIMIT 2"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+
+            // multiple sort columns with at-least one case-sensitive column
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_char LIMIT 2"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_string DESC LIMIT 2"))
+                    .ordered()
+                    .isNotFullyPushedDown(TopNNode.class);
+
+            // pushdown should still work for non-character sort column
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint ASC LIMIT 2"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint DESC LIMIT 2"))
+                    .ordered()
+                    .isFullyPushedDown();
+        }
+        finally {
+            postgreSqlServer.execute("DROP TYPE " + enumType);
+        }
     }
 
     @Test
@@ -802,8 +863,10 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(FilterNode.class);
 
-        // with TopN
-        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
+        // with TopN over numeric column
+        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
+        // with TopN over varchar column
+        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
 
         // LIMIT with JOIN
         assertThat(query(joinPushdownEnabled(getSession()), "" +
