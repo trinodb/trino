@@ -244,21 +244,17 @@ public class PhoenixClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
-        PhoenixSplit phoenixSplit = (PhoenixSplit) split;
-        QueryBuilder queryBuilder = new QueryBuilder(this);
-        PreparedQuery preparedQuery = queryBuilder.prepareQuery(
+        PreparedQuery preparedQuery = prepareQuery(
                 session,
                 connection,
-                table.getRelationHandle(),
+                table,
                 Optional.empty(),
                 columnHandles,
                 ImmutableMap.of(),
-                table.getConstraint(),
-                split.getAdditionalPredicate());
-        preparedQuery = applyQueryTransformations(table, preparedQuery);
-        PreparedStatement query = queryBuilder.prepareStatement(session, connection, preparedQuery);
+                Optional.of(split));
+        PreparedStatement query = new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
-        ResultSet resultSet = getResultSet(phoenixSplit.getPhoenixInputSplit(), queryPlan);
+        ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
         {
             @Override

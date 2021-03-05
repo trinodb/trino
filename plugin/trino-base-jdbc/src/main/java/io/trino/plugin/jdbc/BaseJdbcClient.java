@@ -432,19 +432,39 @@ public abstract class BaseJdbcClient
             Map<String, String> columnExpressions)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
-                    session,
-                    connection,
-                    table.getRelationHandle(),
-                    groupingSets,
-                    columns,
-                    columnExpressions,
-                    table.getConstraint(),
-                    Optional.empty()));
+            return prepareQuery(session, connection, table, groupingSets, columns, columnExpressions, Optional.empty());
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
+            throws SQLException
+    {
+        PreparedQuery preparedQuery = prepareQuery(session, connection, table, Optional.empty(), columns, ImmutableMap.of(), Optional.of(split));
+        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
+    }
+
+    protected PreparedQuery prepareQuery(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            Optional<List<List<JdbcColumnHandle>>> groupingSets,
+            List<JdbcColumnHandle> columns,
+            Map<String, String> columnExpressions,
+            Optional<JdbcSplit> split)
+    {
+        return applyQueryTransformations(table, new QueryBuilder(this).prepareQuery(
+                session,
+                connection,
+                table.getRelationHandle(),
+                groupingSets,
+                columns,
+                columnExpressions,
+                table.getConstraint(),
+                split.flatMap(JdbcSplit::getAdditionalPredicate)));
     }
 
     @Override
@@ -478,23 +498,6 @@ public abstract class BaseJdbcClient
     protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
     {
         return false;
-    }
-
-    @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
-            throws SQLException
-    {
-        QueryBuilder queryBuilder = new QueryBuilder(this);
-        PreparedQuery preparedQuery = applyQueryTransformations(table, queryBuilder.prepareQuery(
-                session,
-                connection,
-                table.getRelationHandle(),
-                Optional.empty(),
-                columns,
-                ImmutableMap.of(),
-                table.getConstraint(),
-                split.getAdditionalPredicate()));
-        return queryBuilder.prepareStatement(session, connection, preparedQuery);
     }
 
     protected PreparedQuery applyQueryTransformations(JdbcTableHandle tableHandle, PreparedQuery query)
