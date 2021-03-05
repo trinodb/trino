@@ -15,6 +15,7 @@ package io.trino.tests.iceberg;
 
 import io.trino.tempto.ProductTest;
 import io.trino.tempto.query.QueryResult;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Date;
@@ -43,10 +44,16 @@ public class TestSparkCompatibility
     private static final String SPARK_CATALOG = "iceberg_test";
     private static final String PRESTO_CATALOG = "iceberg";
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testPrestoReadingSparkData()
+    @DataProvider(name = "storage_formats")
+    public static Object[][] storageFormats()
     {
-        String baseTableName = "test_presto_reading_primitive_types";
+        return new String[][] {{"ORC"}, {"PARQUET"}};
+    }
+
+    @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPrestoReadingSparkData(String format)
+    {
+        String baseTableName = "test_presto_reading_primitive_types_" + format;
         String sparkTableName = sparkTableName(baseTableName);
 
         String sparkTableDefinition =
@@ -59,7 +66,7 @@ public class TestSparkCompatibility
                         ", _boolean BOOLEAN" +
                         ", _timestamp TIMESTAMP" +
                         ", _date DATE" +
-                        ") USING ICEBERG";
+                        ") USING ICEBERG TBLPROPERTIES ('write.format.default' = '" + format + "')";
         onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
 
         String values = "VALUES (" +
@@ -95,10 +102,10 @@ public class TestSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkReadingPrestoData()
+    @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testSparkReadingPrestoData(String format)
     {
-        String baseTableName = "test_spark_reading_primitive_types";
+        String baseTableName = "test_spark_reading_primitive_types_" + format;
         String prestoTableName = prestoTableName(baseTableName);
 
         String prestoTableDefinition =
@@ -111,7 +118,7 @@ public class TestSparkCompatibility
                         ", _boolean BOOLEAN" +
                         //", _timestamp TIMESTAMP" +
                         ", _date DATE" +
-                        ") WITH (format = 'ORC')";
+                        ") WITH (format = '" + format + "')";
         onPresto().executeQuery(format(prestoTableDefinition, prestoTableName));
 
         String values = "VALUES (" +
@@ -162,12 +169,12 @@ public class TestSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName(baseTableName));
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkReadsPrestoPartitionedTable()
+    @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testSparkReadsPrestoPartitionedTable(String format)
     {
-        String baseTableName = "test_spark_reads_presto_partitioned_table";
+        String baseTableName = "test_spark_reads_presto_partitioned_table_" + format;
         String prestoTableName = prestoTableName(baseTableName);
-        onPresto().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'])", prestoTableName));
+        onPresto().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (partitioning = ARRAY['_string'], format = '" + format + "')", prestoTableName));
         onPresto().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", prestoTableName));
 
         Row row = row("b", 1002);
@@ -179,12 +186,13 @@ public class TestSparkCompatibility
         onPresto().executeQuery("DROP TABLE " + prestoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testPrestoReadsSparkPartitionedTable()
+    @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPrestoReadsSparkPartitionedTable(String format)
     {
-        String baseTableName = "test_spark_reads_presto_partitioned_table";
+        String baseTableName = "test_presto_reads_spark_partitioned_table_" + format;
         String sparkTableName = sparkTableName(baseTableName);
-        onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string)", sparkTableName));
+        onSpark().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) USING ICEBERG PARTITIONED BY (_string)" +
+                "TBLPROPERTIES ('write.format.default' = '" + format + "')", sparkTableName));
         onSpark().executeQuery(format("INSERT INTO %s VALUES ('a', 1001), ('b', 1002), ('c', 1003)", sparkTableName));
 
         Row row = row("b", 1002);
@@ -197,10 +205,10 @@ public class TestSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testPrestoReadingCompositeSparkData()
+    @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPrestoReadingCompositeSparkData(String format)
     {
-        String baseTableName = "test_presto_reading_spark_composites";
+        String baseTableName = "test_presto_reading_spark_composites_" + format;
         String sparkTableName = sparkTableName(baseTableName);
 
         String sparkTableDefinition = "" +
@@ -209,7 +217,8 @@ public class TestSparkCompatibility
                 "  info MAP<STRING, INT>,\n" +
                 "  pets ARRAY<STRING>,\n" +
                 "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
-                "  USING ICEBERG";
+                "  USING ICEBERG" +
+                " TBLPROPERTIES ('write.format.default' = '" + format + "')";
         onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
 
         String insert = "" +
@@ -223,12 +232,14 @@ public class TestSparkCompatibility
         QueryResult prestoResult = onPresto().executeQuery(prestoSelect);
         Row row = row("Doc213", 28, "Cat", "Claus");
         assertThat(prestoResult).containsOnly(row);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkReadingCompositePrestoData()
+    @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testSparkReadingCompositePrestoData(String format)
     {
-        String baseTableName = "test_spark_reading_presto_composites";
+        String baseTableName = "test_spark_reading_presto_composites_" + format;
         String prestoTableName = prestoTableName(baseTableName);
 
         String prestoTableDefinition = "" +
@@ -236,7 +247,8 @@ public class TestSparkCompatibility
                 "  doc_id VARCHAR,\n" +
                 "  info MAP(VARCHAR, INTEGER),\n" +
                 "  pets ARRAY(VARCHAR),\n" +
-                "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR))";
+                "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR))" +
+                " WITH (format = '" + format + "')";
         onPresto().executeQuery(format(prestoTableDefinition, prestoTableName));
 
         String insert = "INSERT INTO %s VALUES('Doc213', MAP(ARRAY['age', 'children'], ARRAY[28, 3]), ARRAY['Dog', 'Cat', 'Pig'], ROW('Santa', 'Claus', 1000, 'MALE'))";
@@ -247,12 +259,14 @@ public class TestSparkCompatibility
         QueryResult sparkResult = onSpark().executeQuery(sparkSelect);
         Row row = row("Doc213", 28, "Cat", "Claus");
         assertThat(sparkResult).containsOnly(row);
+
+        onPresto().executeQuery("DROP TABLE " + prestoTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testPrestoReadingNestedSparkData()
+    @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPrestoReadingNestedSparkData(String format)
     {
-        String baseTableName = "test_presto_reading_nested_spark_data";
+        String baseTableName = "test_presto_reading_nested_spark_data_" + format;
         String sparkTableName = sparkTableName(baseTableName);
 
         String sparkTableDefinition = "" +
@@ -261,7 +275,8 @@ public class TestSparkCompatibility
                 ", nested_map MAP<STRING, ARRAY<STRUCT<sname: STRING, snumber: INT>>>\n" +
                 ", nested_array ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>\n" +
                 ", nested_struct STRUCT<name:STRING, complicated: ARRAY<MAP<STRING, ARRAY<STRUCT<mname: STRING, mnumber: INT>>>>>)\n" +
-                " USING ICEBERG";
+                " USING ICEBERG" +
+                " TBLPROPERTIES ('write.format.default' = '" + format + "')";
         onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
 
         String insert = "" +
@@ -303,12 +318,14 @@ public class TestSparkCompatibility
 
         QueryResult prestoResult = onPresto().executeQuery(prestoSelect + prestoTableName);
         assertThat(prestoResult).containsOnly(row);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testSparkReadingNestedPrestoData()
+    @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testSparkReadingNestedPrestoData(String format)
     {
-        String baseTableName = "test_spark_reading_nested_presto_data";
+        String baseTableName = "test_spark_reading_nested_presto_data_" + format;
         String prestoTableName = prestoTableName(baseTableName);
 
         String prestoTableDefinition = "" +
@@ -316,7 +333,8 @@ public class TestSparkCompatibility
                 "  doc_id VARCHAR\n" +
                 ", nested_map MAP(VARCHAR, ARRAY(ROW(sname VARCHAR, snumber INT)))\n" +
                 ", nested_array ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))\n" +
-                ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))";
+                ", nested_struct ROW(name VARCHAR, complicated ARRAY(MAP(VARCHAR, ARRAY(ROW(mname VARCHAR, mnumber INT))))))" +
+                " WITH (format = '" + format + "')";
         onPresto().executeQuery(format(prestoTableDefinition, prestoTableName));
 
         String insert = "" +
@@ -358,6 +376,8 @@ public class TestSparkCompatibility
 
         QueryResult sparkResult = onSpark().executeQuery(sparkSelect + sparkTableName);
         assertThat(sparkResult).containsOnly(row);
+
+        onPresto().executeQuery("DROP TABLE " + prestoTableName);
     }
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
