@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix;
+package io.trino.plugin.phoenix5;
 
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
@@ -45,9 +45,9 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.phoenix.MetadataUtil.getEscapedTableName;
-import static io.trino.plugin.phoenix.MetadataUtil.toPrestoSchemaName;
-import static io.trino.plugin.phoenix.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
+import static io.trino.plugin.phoenix5.MetadataUtil.getEscapedTableName;
+import static io.trino.plugin.phoenix5.MetadataUtil.toPrestoSchemaName;
+import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
