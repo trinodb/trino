@@ -235,6 +235,9 @@ public class StarburstOracleClient
     // TODO: migrate to OSS?
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
+        if (tableHandle.getColumns().isPresent()) {
+            return tableHandle.getColumns().get();
+        }
         if (!synonymsEnabled) {
             return super.getColumns(session, tableHandle);
         }
