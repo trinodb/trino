@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix;
+package io.trino.plugin.phoenix5;
 
 import io.airlift.log.Logger;
 import org.apache.hadoop.conf.Configuration;

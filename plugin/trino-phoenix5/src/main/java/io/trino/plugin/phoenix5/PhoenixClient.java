@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix;
+package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -134,17 +134,17 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
-import static io.trino.plugin.phoenix.MetadataUtil.getEscapedTableName;
-import static io.trino.plugin.phoenix.MetadataUtil.toPhoenixSchemaName;
-import static io.trino.plugin.phoenix.PhoenixClientModule.getConnectionProperties;
-import static io.trino.plugin.phoenix.PhoenixColumnProperties.isPrimaryKey;
-import static io.trino.plugin.phoenix.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
-import static io.trino.plugin.phoenix.PhoenixErrorCode.PHOENIX_QUERY_ERROR;
-import static io.trino.plugin.phoenix.PhoenixMetadata.DEFAULT_SCHEMA;
-import static io.trino.plugin.phoenix.TypeUtils.getArrayElementPhoenixTypeName;
-import static io.trino.plugin.phoenix.TypeUtils.getJdbcObjectArray;
-import static io.trino.plugin.phoenix.TypeUtils.jdbcObjectArrayToBlock;
-import static io.trino.plugin.phoenix.TypeUtils.toBoxedArray;
+import static io.trino.plugin.phoenix5.MetadataUtil.getEscapedTableName;
+import static io.trino.plugin.phoenix5.MetadataUtil.toPhoenixSchemaName;
+import static io.trino.plugin.phoenix5.PhoenixClientModule.getConnectionProperties;
+import static io.trino.plugin.phoenix5.PhoenixColumnProperties.isPrimaryKey;
+import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
+import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_QUERY_ERROR;
+import static io.trino.plugin.phoenix5.PhoenixMetadata.DEFAULT_SCHEMA;
+import static io.trino.plugin.phoenix5.TypeUtils.getArrayElementPhoenixTypeName;
+import static io.trino.plugin.phoenix5.TypeUtils.getJdbcObjectArray;
+import static io.trino.plugin.phoenix5.TypeUtils.jdbcObjectArrayToBlock;
+import static io.trino.plugin.phoenix5.TypeUtils.toBoxedArray;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;

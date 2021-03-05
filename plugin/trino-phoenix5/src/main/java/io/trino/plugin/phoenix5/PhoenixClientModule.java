@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix;
+package io.trino.plugin.phoenix5;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
@@ -60,7 +60,7 @@ import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
-import static io.trino.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
+import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;

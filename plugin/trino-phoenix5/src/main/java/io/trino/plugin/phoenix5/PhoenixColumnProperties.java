@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix;
+package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnMetadata;
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.phoenix.PhoenixTableProperties.getRowkeys;
+import static io.trino.plugin.phoenix5.PhoenixTableProperties.getRowkeys;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
 
 public class PhoenixColumnProperties
