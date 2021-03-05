@@ -115,6 +115,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
@@ -202,6 +203,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
@@ -675,6 +677,25 @@ public class PostgreSqlClient
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
         return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), Optional.empty(), Optional.empty()));
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    {
+        Map<String, JdbcColumnHandle> columns = getColumns(session, handle).stream()
+                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
+
+        // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
+        // TODO We could still push the sort down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
+        boolean caseSensitiveSortKey = sortOrder.stream()
+                .anyMatch(sortItem -> {
+                    verify(columns.containsKey(sortItem.getName()));
+                    Type sortItemType = columns.get(sortItem.getName()).getColumnType();
+                    // NOTE: VarcharType also includes PostgreSQL enums
+                    return sortItemType instanceof CharType || sortItemType instanceof VarcharType;
+                });
+
+        return !caseSensitiveSortKey;
     }
 
     @Override
