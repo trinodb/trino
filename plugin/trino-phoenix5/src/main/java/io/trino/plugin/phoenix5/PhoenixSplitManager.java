@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix;
+package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,8 +51,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.phoenix.PhoenixErrorCode.PHOENIX_INTERNAL_ERROR;
-import static io.trino.plugin.phoenix.PhoenixErrorCode.PHOENIX_SPLIT_ERROR;
+import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_INTERNAL_ERROR;
+import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_SPLIT_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.phoenix.coprocessor.BaseScannerRegionObserver.EXPECTED_UPPER_REGION_KEY;

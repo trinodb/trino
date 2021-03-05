@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix;
+package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestDistributedQueries;
@@ -20,7 +20,7 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
-import static io.trino.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryRunner;
+import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPhoenixDistributedQueries

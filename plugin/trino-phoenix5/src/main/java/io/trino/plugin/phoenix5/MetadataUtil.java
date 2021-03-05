@@ -11,13 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.phoenix;
+package io.trino.plugin.phoenix5;
 
 import org.apache.phoenix.util.SchemaUtil;
 
 import java.util.Optional;
 
-import static io.trino.plugin.phoenix.PhoenixMetadata.DEFAULT_SCHEMA;
+import static io.trino.plugin.phoenix5.PhoenixMetadata.DEFAULT_SCHEMA;
 
 public final class MetadataUtil
 {
