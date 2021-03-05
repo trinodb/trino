@@ -362,7 +362,8 @@ public class JdbcMetadata
                 newRightColumns.entrySet().stream()
                         .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getColumnName())),
                 newLeftColumns.entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getColumnName())));
+                        .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getColumnName())),
+                statistics);
 
         if (joinQuery.isEmpty()) {
             return Optional.empty();
