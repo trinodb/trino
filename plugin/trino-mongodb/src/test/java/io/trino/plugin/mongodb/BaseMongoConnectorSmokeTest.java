@@ -13,19 +13,20 @@
  */
 package io.trino.plugin.mongodb;
 
-import com.google.common.collect.ImmutableMap;
-import io.trino.testing.QueryRunner;
+import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.TestingConnectorBehavior;
 
-import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
-
-public class TestMongo3DistributedQueriesLatest
-        extends BaseMongoDistributedQueries
+public abstract class BaseMongoConnectorSmokeTest
+        extends BaseConnectorSmokeTest
 {
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        MongoServer server = closeAfterClass(new MongoServer("3.6.20"));
-        return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }

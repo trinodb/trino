@@ -18,8 +18,8 @@ import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.mongodb.MongoQueryRunner.createMongoQueryRunner;
 
-public class TestMongo4DistributedQueriesLatest
-        extends BaseMongoDistributedQueries
+public class TestMongo4LatestConnectorSmokeTest
+        extends BaseMongoConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
