@@ -31,6 +31,7 @@ public class TestingMemSqlServer
     private static final String MEM_SQL_LICENSE = requireNonNull(System.getProperty("memsql.license"), "memsql.license is not set");
 
     public static final String DEFAULT_TAG = "memsql/cluster-in-a-box:centos-7.1.13-11ddea2a3a-3.0.0-1.9.0";
+    public static final String LATEST_TESTED_TAG = "memsql/cluster-in-a-box:centos-7.3.4-d596a2867a-3.2.4-1.10.1";
 
     public static final Integer MEMSQL_PORT = 3306;
 
@@ -42,6 +43,7 @@ public class TestingMemSqlServer
     public TestingMemSqlServer(String dockerImageName)
     {
         super(DockerImageName.parse(dockerImageName));
+        addEnv("ROOT_PASSWORD", "memsql_root_password");
         start();
     }
 
@@ -75,7 +77,7 @@ public class TestingMemSqlServer
     @Override
     public String getPassword()
     {
-        return "";
+        return "memsql_root_password";
     }
 
     @Override
