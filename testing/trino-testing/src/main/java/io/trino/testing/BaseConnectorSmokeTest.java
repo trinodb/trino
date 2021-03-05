@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -154,8 +155,13 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testDelete()
     {
-        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+        if (!hasBehavior(SUPPORTS_DELETE)) {
             assertQueryFails("DELETE FROM region", "This connector does not support deletes");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+            assertQueryFails("DELETE FROM region WHERE regionkey = 2", ".*[Dd]elet(e|ing).*(not |un)supported.*");
             return;
         }
 
