@@ -13,12 +13,16 @@
  */
 package io.trino.plugin.kafka;
 
-import io.trino.testing.AbstractTestQueries;
+import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.kafka.TestingKafka;
+import org.testng.SkipException;
 
-public class TestKafkaDistributedLatest
-        extends AbstractTestQueries
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+public class TestKafkaLatestConnectorSmokeTest
+        extends BaseConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -28,5 +32,29 @@ public class TestKafkaDistributedLatest
         return KafkaQueryRunner.builder(testingKafka)
                 .setTables(REQUIRED_TPCH_TABLES)
                 .build();
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
+
+            case SUPPORTS_CREATE_TABLE:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Override
+    public void testInsert()
+    {
+        assertThatThrownBy(super::testInsert)
+                .hasMessage("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        // TODO implement the test for Kafka
+        throw new SkipException("TODO");
     }
 }

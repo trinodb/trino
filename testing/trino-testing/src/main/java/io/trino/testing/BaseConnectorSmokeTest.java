@@ -105,7 +105,7 @@ public abstract class BaseConnectorSmokeTest
     public void testCreateTable()
     {
         if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            assertQueryFails("CREATE TABLE xxxx (a bigint, b double)", "This connector does not support create");
+            assertQueryFails("CREATE TABLE xxxx (a bigint, b double)", "This connector does not support creating tables");
             return;
         }
 
@@ -120,7 +120,7 @@ public abstract class BaseConnectorSmokeTest
     public void testCreateTableAsSelect()
     {
         if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
-            assertQueryFails("CREATE TABLE xxxx (a bigint, b double) AS VALUES (42, -38.5)", "This connector does not support create");
+            assertQueryFails("CREATE TABLE xxxx AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", "This connector does not support creating tables with data");
             return;
         }
 
@@ -137,6 +137,10 @@ public abstract class BaseConnectorSmokeTest
         if (!hasBehavior(SUPPORTS_INSERT)) {
             assertQueryFails("INSERT INTO region (regionkey) VALUES (42)", "This connector does not support insert");
             return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
         }
 
         String tableName = "test_create_" + randomTableSuffix();
