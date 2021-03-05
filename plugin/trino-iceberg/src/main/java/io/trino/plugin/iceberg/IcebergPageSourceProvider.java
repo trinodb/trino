@@ -416,7 +416,9 @@ public class IcebergPageSourceProvider
         @Override
         public OrcColumn get(String fieldName)
         {
-            int fieldId = nameToIdMappingForTableColumns.get(fieldName);
+            int fieldId = requireNonNull(
+                    nameToIdMappingForTableColumns.get(fieldName),
+                    () -> format("Id mapping for field %s not found", fieldName));
             return idToColumnMappingForFile.get(fieldId);
         }
     }
