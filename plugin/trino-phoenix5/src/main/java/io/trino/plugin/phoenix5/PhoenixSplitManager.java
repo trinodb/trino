@@ -99,8 +99,7 @@ public class PhoenixSplitManager
                     .map(PhoenixInputSplit.class::cast)
                     .map(split -> new PhoenixSplit(
                             getSplitAddresses(split),
-                            new WrappedPhoenixInputSplit(split),
-                            tableHandle.getConstraint()))
+                            new WrappedPhoenixInputSplit(split)))
                     .collect(toImmutableList());
             return new FixedSplitSource(splits);
         }

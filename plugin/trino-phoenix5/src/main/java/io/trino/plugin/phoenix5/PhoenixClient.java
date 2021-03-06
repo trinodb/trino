@@ -253,7 +253,7 @@ public class PhoenixClient
                 Optional.empty(),
                 columnHandles,
                 ImmutableMap.of(),
-                phoenixSplit.getConstraint(),
+                table.getConstraint(),
                 split.getAdditionalPredicate());
         preparedQuery = applyQueryTransformations(table, preparedQuery);
         PreparedStatement query = queryBuilder.prepareStatement(session, connection, preparedQuery);
