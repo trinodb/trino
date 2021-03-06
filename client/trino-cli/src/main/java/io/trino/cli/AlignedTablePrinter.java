@@ -51,6 +51,7 @@ public class AlignedTablePrinter
         implements OutputPrinter
 {
     private static final Set<String> NUMERIC_TYPES = ImmutableSet.of(TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, DECIMAL);
+    private static final Set<String> DECIMAL_TYPES = ImmutableSet.of(REAL, DOUBLE, DECIMAL);
 
     private static final Splitter LINE_SPLITTER = Splitter.on('\n');
     private static final Splitter HEX_SPLITTER = Splitter.fixedLength(2);
@@ -59,6 +60,7 @@ public class AlignedTablePrinter
 
     private final List<String> fieldNames;
     private final List<Boolean> numericFields;
+    private final List<Boolean> decimalFields;
     private final Writer writer;
 
     private boolean headerOutput;
@@ -73,6 +75,10 @@ public class AlignedTablePrinter
         this.numericFields = columns.stream()
                 .map(Column::getTypeSignature)
                 .map(signature -> NUMERIC_TYPES.contains(signature.getRawType()))
+                .collect(toImmutableList());
+        this.decimalFields = columns.stream()
+                .map(Column::getTypeSignature)
+                .map(signature -> DECIMAL_TYPES.contains(signature.getRawType()))
                 .collect(toImmutableList());
         this.writer = requireNonNull(writer, "writer is null");
     }
@@ -94,12 +100,26 @@ public class AlignedTablePrinter
         int columns = fieldNames.size();
 
         int[] maxWidth = new int[columns];
+        int[] maxDecimalWidth = new int[columns];
         for (int i = 0; i < columns; i++) {
             maxWidth[i] = max(1, consoleWidth(fieldNames.get(i)));
         }
+
         for (List<?> row : rows) {
             for (int i = 0; i < row.size(); i++) {
                 String s = formatValue(row.get(i));
+                if (decimalFields.get(i) && row.get(i) != null) {
+                    maxDecimalWidth[i] = max(maxDecimalWidth[i], s.length() - s.indexOf('.'));
+                }
+            }
+        }
+
+        for (List<?> row : rows) {
+            for (int i = 0; i < row.size(); i++) {
+                String s = formatValue(row.get(i));
+                if (decimalFields.get(i)) {
+                    s = padTillDecimalWidth(s, maxDecimalWidth[i]);
+                }
                 maxWidth[i] = max(maxWidth[i], maxLineLength(s));
             }
         }
@@ -130,6 +150,9 @@ public class AlignedTablePrinter
             int maxLines = 1;
             for (int i = 0; i < columns; i++) {
                 String s = formatValue(row.get(i));
+                if (decimalFields.get(i)) {
+                    s = padTillDecimalWidth(s, maxDecimalWidth[i]);
+                }
                 ImmutableList<String> lines = ImmutableList.copyOf(LINE_SPLITTER.split(s));
                 columnLines.add(lines);
                 maxLines = max(maxLines, lines.size());
@@ -253,6 +276,17 @@ public class AlignedTablePrinter
         String large = repeat(" ", (maxWidth - width) + padding);
         String small = repeat(" ", padding);
         return right ? (large + s + small) : (small + s + large);
+    }
+
+    private static String padTillDecimalWidth(String s, int intendedDecimalWidth)
+    {
+        // Pad decimal string to intended decimal width, if possible
+        // (5.2, 5) = "5.2    ", (-3.234, 2) = "-3.234"
+        int decimalWidth = s.length() - s.indexOf('.');
+        if (!s.equalsIgnoreCase("NULL") && intendedDecimalWidth > decimalWidth) {
+            s = s + repeat(" ", intendedDecimalWidth - (decimalWidth));
+        }
+        return s;
     }
 
     static int maxLineLength(String s)
