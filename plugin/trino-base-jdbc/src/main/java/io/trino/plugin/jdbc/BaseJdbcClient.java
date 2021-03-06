@@ -30,6 +30,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
@@ -443,6 +445,39 @@ public abstract class BaseJdbcClient
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> rightAssignments,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            JoinStatistics statistics)
+    {
+        for (JdbcJoinCondition joinCondition : joinConditions) {
+            if (!isSupportedJoinCondition(joinCondition)) {
+                return Optional.empty();
+            }
+        }
+
+        QueryBuilder queryBuilder = new QueryBuilder(this);
+        return Optional.of(queryBuilder.prepareJoinQuery(
+                session,
+                joinType,
+                leftSource,
+                rightSource,
+                joinConditions,
+                leftAssignments,
+                rightAssignments));
+    }
+
+    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    {
+        return false;
     }
 
     @Override

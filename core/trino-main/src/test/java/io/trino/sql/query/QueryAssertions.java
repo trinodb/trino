@@ -250,6 +250,7 @@ public class QueryAssertions
         private final Session session;
         private final String query;
         private boolean ordered;
+        private boolean skipTypesCheck;
 
         static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
         {
@@ -277,6 +278,12 @@ public class QueryAssertions
             return this;
         }
 
+        public QueryAssert skippingTypesCheck()
+        {
+            skipTypesCheck = true;
+            return this;
+        }
+
         public QueryAssert matches(@Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
@@ -286,7 +293,9 @@ public class QueryAssertions
         public QueryAssert matches(MaterializedResult expected)
         {
             return satisfies(actual -> {
-                assertTypes(actual, expected.getTypes());
+                if (!skipTypesCheck) {
+                    assertTypes(actual, expected.getTypes());
+                }
 
                 ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
                         .as("Rows")
@@ -310,7 +319,9 @@ public class QueryAssertions
         public QueryAssert containsAll(MaterializedResult expected)
         {
             return satisfies(actual -> {
-                assertTypes(actual, expected.getTypes());
+                if (!skipTypesCheck) {
+                    assertTypes(actual, expected.getTypes());
+                }
 
                 assertThat(actual.getMaterializedRows())
                         .as("Rows")
@@ -385,6 +396,22 @@ public class QueryAssertions
         public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
             checkArgument(retainedNodes.length > 0, "No retainedNodes");
+            PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
+            for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
+                expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
+            }
+            return isNotFullyPushedDown(expectedPlan);
+        }
+
+        /**
+         * Verifies query is not fully pushed down and verifies the results are the same as when the pushdown is fully disabled.
+         * <p>
+         * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
+         * when pushdown capabilities are improved.
+         */
+        public final QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
+        {
+            PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
 
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
             verifyResultsWithPushdownDisabled();
@@ -392,11 +419,6 @@ public class QueryAssertions
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
-                        PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
-                        for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
-                            expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
-                        }
-                        expectedPlan = PlanMatchPattern.anyTree(expectedPlan);
                         assertPlan(
                                 session,
                                 runner.getMetadata(),

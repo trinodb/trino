@@ -19,13 +19,15 @@ import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -38,6 +40,8 @@ import java.util.UUID;
 
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -95,6 +99,21 @@ public class TestPostgreSqlConnectorTest
     protected boolean supportsCommentOnTable()
     {
         return false;
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
+                return false;
+
+            case SUPPORTS_JOIN_PUSHDOWN:
+                return true;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override
@@ -245,7 +264,7 @@ public class TestPostgreSqlConnectorTest
         // varchar range
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
                 .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(25)))")
-                .isFullyPushedDown();
+                .isNotFullyPushedDown(FilterNode.class);
 
         // varchar different case
         assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
@@ -304,6 +323,20 @@ public class TestPostgreSqlConnectorTest
                 .matches("VALUES BIGINT '643', 898")
                 .ordered()
                 .isFullyPushedDown();
+
+        // predicate over join
+        Session joinPushdownEnabled = joinPushdownEnabled(getSession());
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE acctbal > 8000"))
+                .isFullyPushedDown();
+
+        // varchar predicate over join
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE address = 'TcGe5gaZNgVePxU5kRrvXBfkasDTea'"))
+                .isFullyPushedDown();
+        assertThat(query(joinPushdownEnabled, "SELECT c.name, n.name FROM customer c JOIN nation n ON c.custkey = n.nationkey WHERE address < 'TcGe5gaZNgVePxU5kRrvXBfkasDTea'"))
+                .isNotFullyPushedDown(
+                        node(JoinNode.class,
+                                anyTree(node(TableScanNode.class)),
+                                anyTree(node(TableScanNode.class))));
     }
 
     @Test
@@ -475,7 +508,7 @@ public class TestPostgreSqlConnectorTest
 
         // GROUP BY and WHERE on varchar column
         // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
-        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
 
         // GROUP BY above WHERE and LIMIT
         assertThat(query("" +
@@ -489,6 +522,14 @@ public class TestPostgreSqlConnectorTest
                 "SELECT clerk, sum(totalprice) " +
                 "FROM (SELECT clerk, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) " +
                 "GROUP BY clerk"))
+                .isFullyPushedDown();
+
+        // GROUP BY with JOIN
+        assertThat(query(joinPushdownEnabled(getSession()), "" +
+                "SELECT n.regionkey, sum(c.acctbal) acctbals " +
+                "FROM nation n " +
+                "LEFT JOIN customer c USING (nationkey) " +
+                "GROUP BY 1"))
                 .isFullyPushedDown();
 
         // decimals
@@ -750,7 +791,7 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT name FROM nation WHERE regionkey = 3 LIMIT 5")).isFullyPushedDown();
 
         // with filter over varchar column
-        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT name FROM nation WHERE name < 'EEE' LIMIT 5")).isNotFullyPushedDown(FilterNode.class);
 
         // with aggregation
         assertThat(query("SELECT max(regionkey) FROM nation LIMIT 5")).isFullyPushedDown(); // global aggregation, LIMIT removed
@@ -759,10 +800,18 @@ public class TestPostgreSqlConnectorTest
 
         // with filter and aggregation
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
-        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(FilterNode.class);
 
         // with TopN
         assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
+
+        // LIMIT with JOIN
+        assertThat(query(joinPushdownEnabled(getSession()), "" +
+                "SELECT n.name, r.name " +
+                "FROM nation n " +
+                "LEFT JOIN region r USING (regionkey) " +
+                "LIMIT 30"))
+                .isFullyPushedDown();
     }
 
     /**
@@ -809,13 +858,6 @@ public class TestPostgreSqlConnectorTest
                     .matches("VALUES 1")
                     .isFullyPushedDown();
         }
-    }
-
-    @Override
-    public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
-    {
-        // TODO - https://github.com/trinodb/trino/issues/3645
-        throw new SkipException("PostgreSQL has different collation than Trino");
     }
 
     private String getLongInClause(int start, int length)

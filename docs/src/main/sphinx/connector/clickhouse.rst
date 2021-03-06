@@ -1,36 +1,41 @@
 ====================
-ClickHouse Connector
+ClickHouse connector
 ====================
 
 The ClickHouse connector allows querying tables in an external
-`Yandex ClickHouse <https://clickhouse.tech/>`_ instance. This can be used to join data between different
-systems like ClickHouse and Hive, or between two different ClickHouse instances.
+`Yandex ClickHouse <https://clickhouse.tech/>`_ instance. This can be used to
+query data in the databases on that instance, or combine it with other data
+from different catalogs accessing ClickHouse or any other supported data source.
 
 Configuration
 -------------
 
-To configure the ClickHouse connector, create a catalog properties file ``etc/catalog/clickhouse.properties``,
-replace the connection properties as needed for your setup:
+The connector can query a ClickHouse instance. Create a catalog properties file
+that specifies the ClickHouse connector by setting the ``connector.name`` to
+``clickhouse``.
+
+For example, to access an instance as ``myclickhouse``, create the file
+``etc/catalog/myclickhouse.properties``. Replace the connection properties as
+appropriate for your setup:
 
 .. code-block:: none
 
     connector.name=clickhouse
     connection-url=jdbc:clickhouse://host1:8123/
-    connection-user=default
-    connection-password=
-
+    connection-user=exampleuser
+    connection-password=examplepassword
 
 Multiple ClickHouse servers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you have multiple ClickHouse servers you need to configure one catalog for each instance.
-To add another catalog:
+If you have multiple ClickHouse instances you need to configure one catalog for
+each instance. To add another catalog:
 
 * Add another properties file to ``etc/catalog``
 * Save it with a different name that ends in ``.properties``
 
-For example, if you name the property file ``sales.properties``, Trino uses the configured
-connector to create a catalog named ``sales``.
+For example, if you name the property file ``sales.properties``, Trino uses the
+configured connector to create a catalog named ``sales``.
 
 Querying ClickHouse
 -------------------
@@ -38,31 +43,30 @@ Querying ClickHouse
 The ClickHouse connector provides a schema for every ClickHouse *database*.
 run ``SHOW SCHEMAS`` to see the available ClickHouse databases::
 
-    SHOW SCHEMAS FROM clickhouse;
+    SHOW SCHEMAS FROM myclickhouse;
 
-If you have a ClickHouse database named ``web``, run ``SHOW TABLES`` to view the tables
-in this database::
+If you have a ClickHouse database named ``web``, run ``SHOW TABLES`` to view the
+tables in this database::
 
-    SHOW TABLES FROM clickhouse.web;
+    SHOW TABLES FROM myclickhouse.web;
 
 Run ``DESCRIBE`` or ``SHOW COLUMNS`` to list the columns in the ``clicks`` table in the
 ``web`` databases::
 
-    DESCRIBE clickhouse.web.clicks;
+    DESCRIBE myclickhouse.web.clicks;
     SHOW COLUMNS FROM clickhouse.web.clicks;
 
 Run ``SELECT`` to access the ``clicks`` table in the ``web`` database::
 
-    SELECT * FROM clickhouse.web.clicks;
+    SELECT * FROM myclickhouse.web.clicks;
 
 .. note::
 
     If you used a different name for your catalog properties file, use
-    that catalog name instead of ``ClickHouse`` in the above examples.
+    that catalog name instead of ``myclickhouse`` in the above examples.
 
-
-ClickHouse Connector Limitations
---------------------------------
+Limitations
+-----------
 
 The following SQL statements aren't  supported:
 

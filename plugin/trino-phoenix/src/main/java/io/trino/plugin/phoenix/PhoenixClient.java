@@ -271,7 +271,19 @@ public class PhoenixClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+        return Optional.of((sql, limit) -> {
+            if (limit > Integer.MAX_VALUE) {
+                return sql;
+            }
+            return sql + " LIMIT " + limit;
+        });
+    }
+
+    @Override
+    public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        // Note that limit exceeding Integer.MAX_VALUE gets completely ignored.
+        return false;
     }
 
     @Override
@@ -462,12 +474,6 @@ public class PhoenixClient
             return WriteMapping.objectMapping(elementDataType + " ARRAY", arrayWriteFunction(session, elementType, elementWriteName));
         }
         return legacyToWriteMapping(session, type);
-    }
-
-    @Override
-    public boolean isLimitGuaranteed(ConnectorSession session)
-    {
-        return false;
     }
 
     @Override

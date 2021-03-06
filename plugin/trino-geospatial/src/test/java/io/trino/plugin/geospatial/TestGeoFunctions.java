@@ -1447,24 +1447,16 @@ public class TestGeoFunctions
         assertGeoToAndFromJson("LINESTRING (0 0, 1 1, 1 0, 0 1)");
 
         // extra properties are stripped from JSON
-        assertValidGeometryJson("{\"type\":\"Point\"," +
-                "\"coordinates\":[0,0], \"mykey\":\"myvalue\"}", "POINT (0 0)");
-        assertValidGeometryJson("{\"type\":\"Point\"," +
-                "\"coordinates\":[0,0], \"mykey\":\"myvalue\"}", "POINT (0 0)");
+        assertValidGeometryJson("{\"type\":\"Point\", \"coordinates\":[0,0], \"mykey\":\"myvalue\"}", "POINT (0 0)");
 
         // explicit JSON test cases should valid but return empty
-        assertValidGeometryJson("{\"type\":\"Point\"," +
-                "\"coordinates\":[]}", "POINT EMPTY");
-        assertValidGeometryJson("{\"type\":\"LineString\"," +
-                "\"coordinates\":[]}", "LINESTRING EMPTY");
-        assertValidGeometryJson("{\"type\":\"Polygon\"," +
-                "\"coordinates\":[]}", "POLYGON EMPTY");
-        assertValidGeometryJson("{\"type\":\"MultiPoint\"," +
-                "\"coordinates\":[]}", "MULTIPOINT EMPTY");
-        assertValidGeometryJson("{\"type\":\"MultiPolygon\"," +
-                "\"coordinates\":[]}", "MULTIPOLYGON EMPTY");
-        assertValidGeometryJson("{\"type\":\"MultiLineString\"," +
-                        "\"coordinates\":[[[0.0,0.0],[1,10]],[[10,10],[20,30]],[[123,123],[456,789]]]}",
+        assertValidGeometryJson("{\"type\":\"Point\", \"coordinates\":[]}", "POINT EMPTY");
+        assertValidGeometryJson("{\"type\":\"LineString\", \"coordinates\":[]}", "LINESTRING EMPTY");
+        assertValidGeometryJson("{\"type\":\"Polygon\", \"coordinates\":[]}", "POLYGON EMPTY");
+        assertValidGeometryJson("{\"type\":\"MultiPoint\", \"coordinates\":[]}", "MULTIPOINT EMPTY");
+        assertValidGeometryJson("{\"type\":\"MultiPolygon\", \"coordinates\":[]}", "MULTIPOLYGON EMPTY");
+        assertValidGeometryJson(
+                "{\"type\":\"MultiLineString\", \"coordinates\":[[[0.0,0.0],[1,10]],[[10,10],[20,30]],[[123,123],[456,789]]]}",
                 "MULTILINESTRING ((0 0, 1 10), (10 10, 20 30), (123 123, 456 789))");
 
         // Valid JSON with invalid Geometry definition

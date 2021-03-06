@@ -367,11 +367,18 @@ public class TestSparkCompatibility
         String prestoTableName = prestoTableName(baseTableName);
         String sparkTableName = sparkTableName(baseTableName);
 
-        onPresto().executeQuery(format(
-                "CREATE TABLE %s (_struct ROW(rename BIGINT, keep BIGINT, drop_and_add BIGINT), _partition BIGINT) "
-                        + "WITH (partitioning = ARRAY['_partition'])",
-                prestoTableName));
-        onPresto().executeQuery(format("INSERT INTO %s VALUES (row(1, 2, 3), 1001)", prestoTableName));
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (_struct STRUCT<rename:BIGINT, keep:BIGINT, drop_and_add:BIGINT, CaseSensitive:BIGINT>, _partition BIGINT)"
+                        + " USING ICEBERG"
+                        + " partitioned by (_partition)"
+                        + " TBLPROPERTIES ('write.format.default' = 'orc')",
+                sparkTableName));
+
+        onSpark().executeQuery(format(
+                "INSERT INTO TABLE %s SELECT "
+                        + "named_struct('rename', 1, 'keep', 2, 'drop_and_add', 3, 'CaseSensitive', 4), "
+                        + "1001",
+                sparkTableName));
 
         // Alter nested fields using Spark. Presto does not support this yet.
         onSpark().executeQuery(format("ALTER TABLE %s RENAME COLUMN _struct.rename TO renamed", sparkTableName));
@@ -383,6 +390,7 @@ public class TestSparkCompatibility
                         // Rename does not change id
                         .addField("renamed", 1L)
                         .addField("keep", 2L)
+                        .addField("CaseSensitive", 4L)
                         // Dropping and re-adding changes id
                         .addField("drop_and_add", null)
                         .build(),

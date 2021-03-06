@@ -19,6 +19,8 @@ import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
 
+import javax.inject.Inject;
+
 import static java.util.Objects.requireNonNull;
 
 public class ClassLoaderSafeEventListener
@@ -27,6 +29,7 @@ public class ClassLoaderSafeEventListener
     private final EventListener delegate;
     private final ClassLoader classLoader;
 
+    @Inject
     public ClassLoaderSafeEventListener(@ForClassLoaderSafe EventListener delegate, ClassLoader classLoader)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");

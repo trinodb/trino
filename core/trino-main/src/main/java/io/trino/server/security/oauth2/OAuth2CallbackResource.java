@@ -39,6 +39,7 @@ import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.TEXT_HTML;
 
@@ -73,10 +74,29 @@ public class OAuth2CallbackResource
             @CookieParam(NONCE_COOKIE) Cookie nonce,
             @Context UriInfo uriInfo)
     {
+        Optional<UUID> authId;
+        try {
+            authId = service.getAuthId(state);
+        }
+        catch (ChallengeFailedException e) {
+            LOG.debug(e, "Authentication response could not be verified: state=%s", state);
+            return Response.ok()
+                    .entity(service.getInternalFailureHtml("Authentication response could not be verified"))
+                    .build();
+        }
+
         // Note: the Web UI may be disabled, so REST requests can not redirect to a success or error page inside of the Web UI
 
         if (error != null) {
             LOG.debug(
+                    "OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s",
+                    error,
+                    errorDescription,
+                    errorUri,
+                    state);
+
+            passErrorToTokenExchange(
+                    authId,
                     "OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s",
                     error,
                     errorDescription,
@@ -90,19 +110,20 @@ public class OAuth2CallbackResource
         OAuthResult result;
         try {
             result = service.finishChallenge(
-                    state,
+                    authId,
                     code,
                     uriInfo.getBaseUri().resolve(CALLBACK_ENDPOINT),
                     NonceCookie.read(nonce));
         }
         catch (ChallengeFailedException | RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified: state=%s", state);
+
+            passErrorToTokenExchange(authId, "Authentication response could not be verified: state=%s", state);
             return Response.ok()
                     .entity(service.getInternalFailureHtml("Authentication response could not be verified"))
                     .build();
         }
 
-        Optional<UUID> authId = result.getAuthId();
         if (authId.isEmpty()) {
             return Response
                     .seeOther(URI.create(UI_LOCATION))
@@ -124,5 +145,13 @@ public class OAuth2CallbackResource
             builder.cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()));
         }
         return builder.build();
+    }
+
+    private void passErrorToTokenExchange(Optional<UUID> authId, String format, String... args)
+    {
+        if (tokenExchange.isEmpty() || authId.isEmpty()) {
+            return;
+        }
+        tokenExchange.orElseThrow().setTokenExchangeError(authId.orElseThrow(), format(format, args));
     }
 }

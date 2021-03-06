@@ -392,7 +392,8 @@ public class IcebergPageSourceProvider
             fieldNameToIdMappingForTableColumns.put(
                     identity.getId(),
                     identity.getChildren().stream()
-                            .collect(toImmutableMap(ColumnIdentity::getName, ColumnIdentity::getId)));
+                            // Lower casing is required here because ORC StructColumnReader does the same before mapping
+                            .collect(toImmutableMap(child -> child.getName().toLowerCase(ENGLISH), ColumnIdentity::getId)));
 
             for (ColumnIdentity child : identity.getChildren()) {
                 populateMapping(child, fieldNameToIdMappingForTableColumns);
@@ -415,7 +416,9 @@ public class IcebergPageSourceProvider
         @Override
         public OrcColumn get(String fieldName)
         {
-            int fieldId = nameToIdMappingForTableColumns.get(fieldName);
+            int fieldId = requireNonNull(
+                    nameToIdMappingForTableColumns.get(fieldName),
+                    () -> format("Id mapping for field %s not found", fieldName));
             return idToColumnMappingForFile.get(fieldId);
         }
     }

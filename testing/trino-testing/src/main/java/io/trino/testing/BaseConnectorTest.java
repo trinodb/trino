@@ -39,6 +39,11 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseConnectorTest
         extends AbstractTestDistributedQueries
 {
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
+    }
+
     @Test
     public void testColumnsInReverseOrder()
     {
