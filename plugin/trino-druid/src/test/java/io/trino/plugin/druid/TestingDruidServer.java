@@ -223,7 +223,7 @@ public class TestingDruidServer
         middleManager.withCopyFileToContainer(forHostPath(dataFilePath),
                 getMiddleManagerContainerPathForDataFile(dataFilePath));
         String indexTask = Resources.toString(getResource(indexTaskFile), Charset.defaultCharset());
-
+        indexTask = getReplacedIndexTask(datasource, indexTask);
         Request.Builder requestBuilder = new Request.Builder();
         requestBuilder.addHeader("content-type", "application/json;charset=utf-8")
                 .url("http://localhost:" + getCoordinatorOverlordPort() + "/druid/indexer/v1/task")
@@ -232,6 +232,13 @@ public class TestingDruidServer
         try (Response ignored = httpClient.newCall(ingestionRequest).execute()) {
             Assert.assertTrue(checkDatasourceAvailable(datasource), "Datasource " + datasource + " not loaded");
         }
+    }
+
+    private String getReplacedIndexTask(String targetDataSource, String indexTask)
+    {
+        indexTask = indexTask.replaceAll("dataSource\":.*,", "dataSource\": \"" + targetDataSource + "\",");
+        indexTask = indexTask.replaceAll("filter\":.*", "filter\": \"" + targetDataSource + ".tsv\"");
+        return indexTask;
     }
 
     private boolean checkDatasourceAvailable(String datasource)

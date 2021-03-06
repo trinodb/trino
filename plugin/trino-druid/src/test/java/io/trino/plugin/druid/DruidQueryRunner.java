@@ -39,7 +39,10 @@ public class DruidQueryRunner
 {
     private DruidQueryRunner() {}
 
-    public static DistributedQueryRunner createDruidQueryRunnerTpch(TestingDruidServer testingDruidServer, Map<String, String> extraProperties)
+    public static DistributedQueryRunner createDruidQueryRunnerTpch(
+            TestingDruidServer testingDruidServer,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -50,7 +53,7 @@ public class DruidQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<String, String> connectorProperties = new HashMap<>();
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("connection-url", testingDruidServer.getJdbcUrl());
             queryRunner.installPlugin(new DruidJdbcPlugin());
             queryRunner.createCatalog("druid", "druid", connectorProperties);
@@ -60,6 +63,15 @@ public class DruidQueryRunner
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    public static void copyAndIngestTpchData(MaterializedResult rows, TestingDruidServer testingDruidServer,
+            String sourceDatasource, String targetDatasource)
+            throws IOException, InterruptedException
+    {
+        String tsvFileLocation = format("%s/%s.tsv", testingDruidServer.getHostWorkingDirectory(), targetDatasource);
+        writeDataAsTsv(rows, tsvFileLocation);
+        testingDruidServer.ingestData(targetDatasource, getIngestionSpecFileName(sourceDatasource), tsvFileLocation);
     }
 
     public static void copyAndIngestTpchData(MaterializedResult rows, TestingDruidServer testingDruidServer, String druidDatasource)
@@ -109,7 +121,7 @@ public class DruidQueryRunner
 
         DistributedQueryRunner queryRunner = createDruidQueryRunnerTpch(
                 new TestingDruidServer(),
-                ImmutableMap.of("http-server.http.port", "8080"));
+                ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
 
         Logger log = Logger.get(DruidQueryRunner.class);
         log.info("======== SERVER STARTED ========");

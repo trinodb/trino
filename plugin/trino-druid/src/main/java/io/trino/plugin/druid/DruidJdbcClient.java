@@ -13,12 +13,14 @@
  */
 package io.trino.plugin.druid;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcIdentity;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
@@ -26,6 +28,7 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.RemoteTableNameCacheKey;
 import io.trino.plugin.jdbc.WriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.spi.TrinoException;
@@ -51,12 +54,15 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.Objects.requireNonNull;
 
 public class DruidJdbcClient
         extends BaseJdbcClient
@@ -85,9 +91,10 @@ public class DruidJdbcClient
     public Optional<JdbcTableHandle> getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String jdbcSchemaName = schemaTableName.getSchemaName();
-            String jdbcTableName = schemaTableName.getTableName();
-            try (ResultSet resultSet = getTables(connection, Optional.of(jdbcSchemaName), Optional.of(jdbcTableName))) {
+            JdbcIdentity identity = JdbcIdentity.from(session);
+            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            try (ResultSet resultSet = getTables(connection, Optional.of(remoteSchema), Optional.of(remoteTable))) {
                 List<JdbcTableHandle> tableHandles = new ArrayList<>();
                 while (resultSet.next()) {
                     tableHandles.add(new JdbcTableHandle(
@@ -99,14 +106,15 @@ public class DruidJdbcClient
                 if (tableHandles.isEmpty()) {
                     return Optional.empty();
                 }
+
                 return Optional.of(
                         getOnlyElement(
                                 tableHandles
                                         .stream()
                                         .filter(
                                                 jdbcTableHandle ->
-                                                        Objects.equals(jdbcTableHandle.getSchemaName(), schemaTableName.getSchemaName())
-                                                                && Objects.equals(jdbcTableHandle.getTableName(), schemaTableName.getTableName()))
+                                                        Objects.equals(jdbcTableHandle.getSchemaName(), remoteSchema)
+                                                                && Objects.equals(jdbcTableHandle.getTableName(), remoteTable))
                                         .collect(Collectors.toList())));
             }
         }
@@ -134,6 +142,68 @@ public class DruidJdbcClient
                 DRUID_SCHEMA,
                 tableName.orElse(null),
                 null);
+    }
+
+    @Override
+    protected String toRemoteSchemaName(JdbcIdentity identity, Connection connection, String schemaName)
+    {
+        requireNonNull(schemaName, "schemaName is null");
+        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(schemaName), "Expected schema name from internal metadata to be lowercase: %s", schemaName);
+
+        if (caseInsensitiveNameMatching) {
+            try {
+                Map<String, String> mapping = remoteSchemaNames.getIfPresent(identity);
+                if (mapping != null && !mapping.containsKey(schemaName)) {
+                    // This might be a schema that has just been created. Force reload.
+                    mapping = null;
+                }
+                if (mapping == null) {
+                    mapping = listSchemasByLowerCase(connection);
+                    remoteSchemaNames.put(identity, mapping);
+                }
+                String remoteSchema = mapping.get(schemaName);
+                if (remoteSchema != null) {
+                    return remoteSchema;
+                }
+            }
+            catch (RuntimeException e) {
+                throw new TrinoException(JDBC_ERROR, "Failed to find remote schema name: " + firstNonNull(e.getMessage(), e), e);
+            }
+        }
+
+        return schemaName;
+    }
+
+    @Override
+    protected String toRemoteTableName(JdbcIdentity identity, Connection connection, String remoteSchema, String tableName)
+    {
+        requireNonNull(remoteSchema, "remoteSchema is null");
+        requireNonNull(tableName, "tableName is null");
+        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(tableName), "Expected table name from internal metadata to be lowercase: %s", tableName);
+
+        if (caseInsensitiveNameMatching) {
+            try {
+                RemoteTableNameCacheKey cacheKey = new RemoteTableNameCacheKey(identity, remoteSchema);
+                Map<String, String> mapping = remoteTableNames.getIfPresent(cacheKey);
+                if (mapping != null && !mapping.containsKey(tableName)) {
+                    // This might be a table that has just been created. Force reload.
+                    mapping = null;
+                }
+                if (mapping == null) {
+                    mapping = listTablesByLowerCase(connection, remoteSchema);
+                    remoteTableNames.put(cacheKey, mapping);
+                }
+                String remoteTable = mapping.get(tableName);
+                if (remoteTable != null) {
+                    return remoteTable;
+                }
+            }
+            catch (RuntimeException e) {
+                throw new TrinoException(JDBC_ERROR, "Failed to find remote table name: " + firstNonNull(e.getMessage(), e), e);
+            }
+        }
+
+        return tableName;
     }
 
     @Override

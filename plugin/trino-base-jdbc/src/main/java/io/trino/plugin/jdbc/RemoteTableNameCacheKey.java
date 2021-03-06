@@ -18,12 +18,12 @@ import java.util.Objects;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-final class RemoteTableNameCacheKey
+public final class RemoteTableNameCacheKey
 {
     private final JdbcIdentity identity;
     private final String schema;
 
-    RemoteTableNameCacheKey(JdbcIdentity identity, String schema)
+    public RemoteTableNameCacheKey(JdbcIdentity identity, String schema)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.schema = requireNonNull(schema, "schema is null");
