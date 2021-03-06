@@ -18,3 +18,4 @@ This guide is intended for Trino contributors and plugin developers.
     develop/certificate-authenticator
     develop/group-provider
     develop/event-listener
+    develop/client-protocol
