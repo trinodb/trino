@@ -42,6 +42,10 @@ classpath, you'll typically need to restart your application in order to
 recognize the new driver. Then, depending on your application, you
 may need to manually register and configure the driver.
 
+The CLI uses the HTTP protocol and the
+:doc:`Trino client REST API </develop/client-protocol>` to communicate
+with Trino.
+
 Registering and configuring the driver
 --------------------------------------
 
