@@ -160,14 +160,14 @@ Trino data type mapping:
     - See :ref:`datetime mapping`
 
 If an Oracle table uses a type not listed in the above table, then you can use the
-``unsupported-type.handling`` configuration property to specify Trino behavior.
+``unsupported-type-handling`` configuration property to specify Trino behavior.
 For example:
 
-- If ``unsupported-type.handling`` is set to ``FAIL``, then the
+- If ``unsupported-type-handling`` is set to ``FAIL``, then the
   querying of an unsupported table fails.
-- If ``unsupported-type.handling`` is set to ``IGNORE``,
+- If ``unsupported-type-handling`` is set to ``IGNORE``,
   then you can't see the unsupported types in Trino.
-- If ``unsupported-type.handling`` is set to ``CONVERT_TO_VARCHAR``,
+- If ``unsupported-type-handling`` is set to ``CONVERT_TO_VARCHAR``,
   then the column is exposed as unbounded ``VARCHAR``.
 
 Trino to Oracle type mapping
