@@ -147,6 +147,7 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
+            <version>${dep.mysql5.version}</version>
         </dependency>
 
         <dependency>

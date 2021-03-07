@@ -63,6 +63,7 @@
         <dep.docker-java.version>3.2.7</dep.docker-java.version>
         <dep.coral.version>1.0.25</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
+        <dep.mysql5.version>5.1.48</dep.mysql5.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1250,7 +1251,7 @@
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
-                <version>5.1.48</version>
+                <version>8.0.23</version>
             </dependency>
 
             <dependency>
