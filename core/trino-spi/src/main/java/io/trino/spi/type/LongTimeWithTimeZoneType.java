@@ -25,7 +25,7 @@ import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.ScalarOperator;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.LESS_THAN;
@@ -196,7 +196,7 @@ class LongTimeWithTimeZoneType
         return XxHash64.hash(normalizePicos(picos, offsetMinutes));
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(LongTimeWithTimeZone left, LongTimeWithTimeZone right)
     {
         return comparison(
@@ -206,7 +206,7 @@ class LongTimeWithTimeZoneType
                 right.getOffsetMinutes());
     }
 
-    @ScalarOperator(COMPARISON)
+    @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
     {
         return comparison(

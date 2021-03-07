@@ -56,7 +56,8 @@ public final class TypeOperatorDeclaration
     private final Collection<OperatorMethodHandle> xxHash64Operators;
     private final Collection<OperatorMethodHandle> distinctFromOperators;
     private final Collection<OperatorMethodHandle> indeterminateOperators;
-    private final Collection<OperatorMethodHandle> comparisonOperators;
+    private final Collection<OperatorMethodHandle> comparisonUnorderedLastOperators;
+    private final Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators;
     private final Collection<OperatorMethodHandle> lessThanOperators;
     private final Collection<OperatorMethodHandle> lessThanOrEqualOperators;
 
@@ -66,7 +67,8 @@ public final class TypeOperatorDeclaration
             Collection<OperatorMethodHandle> xxHash64Operators,
             Collection<OperatorMethodHandle> distinctFromOperators,
             Collection<OperatorMethodHandle> indeterminateOperators,
-            Collection<OperatorMethodHandle> comparisonOperators,
+            Collection<OperatorMethodHandle> comparisonUnorderedLastOperators,
+            Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators,
             Collection<OperatorMethodHandle> lessThanOperators,
             Collection<OperatorMethodHandle> lessThanOrEqualOperators)
     {
@@ -75,7 +77,8 @@ public final class TypeOperatorDeclaration
         this.xxHash64Operators = List.copyOf(requireNonNull(xxHash64Operators, "xxHash64Operators is null"));
         this.distinctFromOperators = List.copyOf(requireNonNull(distinctFromOperators, "distinctFromOperators is null"));
         this.indeterminateOperators = List.copyOf(requireNonNull(indeterminateOperators, "indeterminateOperators is null"));
-        this.comparisonOperators = List.copyOf(requireNonNull(comparisonOperators, "comparisonOperators is null"));
+        this.comparisonUnorderedLastOperators = List.copyOf(requireNonNull(comparisonUnorderedLastOperators, "comparisonUnorderedLastOperators is null"));
+        this.comparisonUnorderedFirstOperators = List.copyOf(requireNonNull(comparisonUnorderedFirstOperators, "comparisonUnorderedFirstOperators is null"));
         this.lessThanOperators = List.copyOf(requireNonNull(lessThanOperators, "lessThanOperators is null"));
         this.lessThanOrEqualOperators = List.copyOf(requireNonNull(lessThanOrEqualOperators, "lessThanOrEqualOperators is null"));
     }
@@ -87,7 +90,7 @@ public final class TypeOperatorDeclaration
 
     public boolean isOrderable()
     {
-        return !comparisonOperators.isEmpty();
+        return !comparisonUnorderedLastOperators.isEmpty();
     }
 
     public Collection<OperatorMethodHandle> getEqualOperators()
@@ -115,9 +118,14 @@ public final class TypeOperatorDeclaration
         return indeterminateOperators;
     }
 
-    public Collection<OperatorMethodHandle> getComparisonOperators()
+    public Collection<OperatorMethodHandle> getComparisonUnorderedLastOperators()
     {
-        return comparisonOperators;
+        return comparisonUnorderedLastOperators;
+    }
+
+    public Collection<OperatorMethodHandle> getComparisonUnorderedFirstOperators()
+    {
+        return comparisonUnorderedFirstOperators;
     }
 
     public Collection<OperatorMethodHandle> getLessThanOperators()
@@ -151,7 +159,8 @@ public final class TypeOperatorDeclaration
         private final Collection<OperatorMethodHandle> xxHash64Operators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> distinctFromOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> indeterminateOperators = new ArrayList<>();
-        private final Collection<OperatorMethodHandle> comparisonOperators = new ArrayList<>();
+        private final Collection<OperatorMethodHandle> comparisonUnorderedLastOperators = new ArrayList<>();
+        private final Collection<OperatorMethodHandle> comparisonUnorderedFirstOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> lessThanOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> lessThanOrEqualOperators = new ArrayList<>();
 
@@ -241,19 +250,35 @@ public final class TypeOperatorDeclaration
             return this;
         }
 
-        public Builder addComparisonOperator(OperatorMethodHandle comparisonOperator)
+        public Builder addComparisonUnorderedLastOperator(OperatorMethodHandle comparisonOperator)
         {
             verifyMethodHandleSignature(2, long.class, comparisonOperator);
-            this.comparisonOperators.add(comparisonOperator);
+            this.comparisonUnorderedLastOperators.add(comparisonOperator);
             return this;
         }
 
-        public Builder addComparisonOperators(Collection<OperatorMethodHandle> comparisonOperators)
+        public Builder addComparisonUnorderedLastOperators(Collection<OperatorMethodHandle> comparisonOperators)
         {
             for (OperatorMethodHandle comparisonOperator : comparisonOperators) {
                 verifyMethodHandleSignature(2, long.class, comparisonOperator);
             }
-            this.comparisonOperators.addAll(comparisonOperators);
+            this.comparisonUnorderedLastOperators.addAll(comparisonOperators);
+            return this;
+        }
+
+        public Builder addComparisonUnorderedFirstOperator(OperatorMethodHandle comparisonOperator)
+        {
+            verifyMethodHandleSignature(2, long.class, comparisonOperator);
+            this.comparisonUnorderedFirstOperators.add(comparisonOperator);
+            return this;
+        }
+
+        public Builder addComparisonUnorderedFirstOperators(Collection<OperatorMethodHandle> comparisonOperators)
+        {
+            for (OperatorMethodHandle comparisonOperator : comparisonOperators) {
+                verifyMethodHandleSignature(2, long.class, comparisonOperator);
+            }
+            this.comparisonUnorderedFirstOperators.addAll(comparisonOperators);
             return this;
         }
 
@@ -323,8 +348,11 @@ public final class TypeOperatorDeclaration
                     case INDETERMINATE:
                         addIndeterminateOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
                         break;
-                    case COMPARISON:
-                        addComparisonOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
+                    case COMPARISON_UNORDERED_LAST:
+                        addComparisonUnorderedLastOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
+                        break;
+                    case COMPARISON_UNORDERED_FIRST:
+                        addComparisonUnorderedFirstOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
                         break;
                     case LESS_THAN:
                         addLessThanOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
@@ -515,7 +543,7 @@ public final class TypeOperatorDeclaration
                     throw new IllegalStateException("xxHash64 operators must be supplied when equal operators are supplied");
                 }
             }
-            if (comparisonOperators.isEmpty()) {
+            if (comparisonUnorderedLastOperators.isEmpty() && comparisonUnorderedFirstOperators.isEmpty()) {
                 if (!lessThanOperators.isEmpty()) {
                     throw new IllegalStateException("Less-than-operators can not be supplied when comparison operators are not supplied");
                 }
@@ -530,7 +558,8 @@ public final class TypeOperatorDeclaration
                     xxHash64Operators,
                     distinctFromOperators,
                     indeterminateOperators,
-                    comparisonOperators,
+                    comparisonUnorderedLastOperators,
+                    comparisonUnorderedFirstOperators,
                     lessThanOperators,
                     lessThanOrEqualOperators);
         }

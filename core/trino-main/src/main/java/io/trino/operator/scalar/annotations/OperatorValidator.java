@@ -41,7 +41,8 @@ public final class OperatorValidator
                 validateOperatorSignature(operatorType, returnType, argumentTypes, 1);
                 break;
             case EQUAL:
-            case COMPARISON:
+            case COMPARISON_UNORDERED_LAST:
+            case COMPARISON_UNORDERED_FIRST:
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
                 validateComparisonOperatorSignature(operatorType, returnType, argumentTypes, 2);

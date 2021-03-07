@@ -32,7 +32,7 @@ import it.unimi.dsi.fastutil.longs.LongArrays;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 
 @ScalarFunction("arrays_overlap")
 @Description("Returns true if arrays have common elements")
@@ -53,7 +53,7 @@ public final class ArraysOverlapFunction
     @SqlType(StandardTypes.BOOLEAN)
     public Boolean arraysOverlapInt(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL)) LongComparison comparisonOperator,
             @TypeParameter("E") Type type,
@@ -115,7 +115,7 @@ public final class ArraysOverlapFunction
     @SqlType(StandardTypes.BOOLEAN)
     public Boolean arraysOverlap(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"E", "E"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @TypeParameter("E") Type type,

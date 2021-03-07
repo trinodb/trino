@@ -60,7 +60,7 @@ public class SimplePagesHashStrategy
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.comparisonOperators = types.stream()
-                .map(blockTypeOperators::getComparisonOperator)
+                .map(blockTypeOperators::getComparisonUnorderedLastOperator)
                 .collect(toImmutableList());
         this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
         this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));

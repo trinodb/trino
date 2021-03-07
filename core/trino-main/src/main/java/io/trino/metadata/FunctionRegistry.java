@@ -108,7 +108,8 @@ import io.trino.operator.scalar.DataSizeFunctions;
 import io.trino.operator.scalar.DateTimeFunctions;
 import io.trino.operator.scalar.EmptyMapConstructor;
 import io.trino.operator.scalar.FailureFunction;
-import io.trino.operator.scalar.GenericComparisonOperator;
+import io.trino.operator.scalar.GenericComparisonUnorderedFirstOperator;
+import io.trino.operator.scalar.GenericComparisonUnorderedLastOperator;
 import io.trino.operator.scalar.GenericDistinctFromOperator;
 import io.trino.operator.scalar.GenericEqualOperator;
 import io.trino.operator.scalar.GenericHashCodeOperator;
@@ -597,7 +598,8 @@ public class FunctionRegistry
                 .function(new GenericXxHash64Operator(typeOperators))
                 .function(new GenericDistinctFromOperator(typeOperators))
                 .function(new GenericIndeterminateOperator(typeOperators))
-                .function(new GenericComparisonOperator(typeOperators))
+                .function(new GenericComparisonUnorderedLastOperator(typeOperators))
+                .function(new GenericComparisonUnorderedFirstOperator(typeOperators))
                 .function(new GenericLessThanOperator(typeOperators))
                 .function(new GenericLessThanOrEqualOperator(typeOperators))
                 .function(new VersionFunction(nodeVersion))
@@ -752,7 +754,8 @@ public class FunctionRegistry
                     !(function instanceof GenericXxHash64Operator) &&
                     !(function instanceof GenericDistinctFromOperator) &&
                     !(function instanceof GenericIndeterminateOperator) &&
-                    !(function instanceof GenericComparisonOperator) &&
+                    !(function instanceof GenericComparisonUnorderedLastOperator) &&
+                    !(function instanceof GenericComparisonUnorderedFirstOperator) &&
                     !(function instanceof GenericLessThanOperator) &&
                     !(function instanceof GenericLessThanOrEqualOperator)) {
                 OperatorType operatorType = unmangleOperator(name);
@@ -761,7 +764,8 @@ public class FunctionRegistry
                                 operatorType != OperatorType.XX_HASH_64 &&
                                 operatorType != OperatorType.IS_DISTINCT_FROM &&
                                 operatorType != OperatorType.INDETERMINATE &&
-                                operatorType != OperatorType.COMPARISON &&
+                                operatorType != OperatorType.COMPARISON_UNORDERED_LAST &&
+                                operatorType != OperatorType.COMPARISON_UNORDERED_FIRST &&
                                 operatorType != OperatorType.LESS_THAN &&
                                 operatorType != OperatorType.LESS_THAN_OR_EQUAL,
                         "Can not register %s function: %s", operatorType, function.getFunctionMetadata().getSignature());

@@ -86,7 +86,7 @@ public final class DomainCoercer
                         format("Saturated floor cast operator not found for coercion from %s to %s", originalValueType, coercedValueType));
             }
             this.castToOriginalTypeOperator = metadata.getCoercion(coercedValueType, originalValueType);
-            this.comparisonOperator = typeOperators.getComparisonOperator(originalValueType, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            this.comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(originalValueType, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
         }
 
         public Domain applySaturatedCasts()

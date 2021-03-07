@@ -22,8 +22,6 @@ public class MinNAggregationFunction
 
     public MinNAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
-        super(NAME,
-                type -> blockTypeOperators.getComparisonOperator(type).reversed(),
-                "Returns the minimum values of the argument");
+        super(NAME, true, "Returns the minimum values of the argument");
     }
 }

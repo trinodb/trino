@@ -27,7 +27,7 @@ import java.lang.invoke.MethodHandle;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.util.Failures.internalError;
 
 @ScalarFunction("array_min")
@@ -41,7 +41,7 @@ public final class ArrayMinFunction
     @SqlNullable
     public static Long longArrayMin(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -59,7 +59,7 @@ public final class ArrayMinFunction
     @SqlNullable
     public static Boolean booleanArrayMin(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -77,7 +77,7 @@ public final class ArrayMinFunction
     @SqlNullable
     public static Double doubleArrayMin(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
@@ -95,7 +95,7 @@ public final class ArrayMinFunction
     @SqlNullable
     public static Object objectArrayMin(
             @OperatorDependency(
-                    operator = COMPARISON,
+                    operator = COMPARISON_UNORDERED_LAST,
                     argumentTypes = {"T", "T"},
                     convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,

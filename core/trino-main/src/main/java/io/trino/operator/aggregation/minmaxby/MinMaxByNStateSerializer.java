@@ -18,19 +18,20 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionComparison;
+
+import java.lang.invoke.MethodHandle;
 
 public class MinMaxByNStateSerializer
         implements AccumulatorStateSerializer<MinMaxByNState>
 {
-    private final BlockPositionComparison blockComparison;
+    private final MethodHandle keyComparisonMethod;
     private final Type keyType;
     private final Type valueType;
     private final Type serializedType;
 
-    public MinMaxByNStateSerializer(BlockPositionComparison blockComparison, Type keyType, Type valueType)
+    public MinMaxByNStateSerializer(MethodHandle keyComparisonMethod, Type keyType, Type valueType)
     {
-        this.blockComparison = blockComparison;
+        this.keyComparisonMethod = keyComparisonMethod;
         this.keyType = keyType;
         this.valueType = valueType;
         this.serializedType = TypedKeyValueHeap.getSerializedType(keyType, valueType);
@@ -58,6 +59,6 @@ public class MinMaxByNStateSerializer
     public void deserialize(Block block, int index, MinMaxByNState state)
     {
         Block currentBlock = (Block) serializedType.getObject(block, index);
-        state.setTypedKeyValueHeap(TypedKeyValueHeap.deserialize(currentBlock, keyType, valueType, blockComparison));
+        state.setTypedKeyValueHeap(TypedKeyValueHeap.deserialize(currentBlock, keyType, valueType, keyComparisonMethod));
     }
 }

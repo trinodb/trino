@@ -163,7 +163,8 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
-import static io.trino.spi.function.OperatorType.COMPARISON;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_LAST;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
@@ -1726,8 +1727,11 @@ public final class MetadataManager
                 }
             }
             if (type.isOrderable()) {
-                if (!hasComparisonMethod(type)) {
-                    missingOperators.put(type, COMPARISON);
+                if (!hasComparisonUnorderedLastMethod(type)) {
+                    missingOperators.put(type, COMPARISON_UNORDERED_LAST);
+                }
+                if (!hasComparisonUnorderedFirstMethod(type)) {
+                    missingOperators.put(type, COMPARISON_UNORDERED_FIRST);
                 }
                 if (!hasLessThanMethod(type)) {
                     missingOperators.put(type, LESS_THAN);
@@ -1805,10 +1809,21 @@ public final class MetadataManager
         }
     }
 
-    private boolean hasComparisonMethod(Type type)
+    private boolean hasComparisonUnorderedLastMethod(Type type)
     {
         try {
-            typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            typeOperators.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasComparisonUnorderedFirstMethod(Type type)
+    {
+        try {
+            typeOperators.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
             return true;
         }
         catch (UnsupportedOperationException e) {

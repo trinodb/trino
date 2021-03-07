@@ -219,7 +219,13 @@ public abstract class AbstractTestType
         }
         else {
             try {
-                typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+                typeOperators.getComparisonUnorderedLastOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+                fail("Expected UnsupportedOperationException");
+            }
+            catch (UnsupportedOperationException expected) {
+            }
+            try {
+                typeOperators.getComparisonUnorderedFirstOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
                 fail("Expected UnsupportedOperationException");
             }
             catch (UnsupportedOperationException expected) {
