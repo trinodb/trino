@@ -38,13 +38,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
@@ -88,9 +86,9 @@ public final class KuduTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
-                                .collect(Collectors.toList())),
+                                .collect(toImmutableList()),
                         value -> value),
                 integerProperty(
                         PARTITION_BY_HASH_BUCKETS,
@@ -104,9 +102,9 @@ public final class KuduTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
-                                .collect(Collectors.toList())),
+                                .collect(toImmutableList()),
                         value -> value),
                 integerProperty(
                         PARTITION_BY_HASH_BUCKETS_2,
@@ -120,9 +118,9 @@ public final class KuduTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
-                                .collect(Collectors.toList())),
+                                .collect(toImmutableList()),
                         value -> value),
                 integerProperty(
                         NUM_REPLICAS,
