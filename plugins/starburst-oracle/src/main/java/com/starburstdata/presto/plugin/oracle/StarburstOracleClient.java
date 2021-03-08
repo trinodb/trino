@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.presto.plugin.jdbc.JoinPushdownStrategy;
 import com.starburstdata.presto.plugin.jdbc.expression.ImplementCovariancePop;
 import com.starburstdata.presto.plugin.jdbc.expression.ImplementCovarianceSamp;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
@@ -24,6 +25,7 @@ import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -50,6 +52,8 @@ import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -78,6 +82,8 @@ import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.license.StarburstPrestoFeature.ORACLE_EXTENSIONS;
+import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSessionProperties.getJoinPushdownStrategy;
+import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.shouldPushDownJoinCostAware;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
@@ -100,6 +106,39 @@ public class StarburstOracleClient
     private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final TableStatisticsClient tableStatisticsClient;
     private final TableScanRedirection tableScanRedirection;
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> rightAssignments,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            JoinStatistics statistics)
+    {
+        // Calling out to super.implementJoin() before shouldImplementJoinPushdownBasedOnStats() so we can return quickly if we know we should not push down, even without
+        // analyzing table statistics. Getting table statistics can be expensive and we want to avoid that if possible.
+        Optional<PreparedQuery> result = super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics);
+        if (result.isEmpty()) {
+            return Optional.empty();
+        }
+
+        JoinPushdownStrategy joinPushdownStrategy = getJoinPushdownStrategy(session);
+
+        switch (joinPushdownStrategy) {
+            case EAGER:
+                return result;
+
+            case AUTOMATIC:
+                if (shouldPushDownJoinCostAware(statistics)) {
+                    return result;
+                }
+                return Optional.empty();
+        }
+        throw new IllegalArgumentException("Unsupported joinPushdownStrategy: " + joinPushdownStrategy);
+    }
 
     @Inject
     public StarburstOracleClient(
