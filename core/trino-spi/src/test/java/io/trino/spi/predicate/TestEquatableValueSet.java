@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.Optional;
 import java.util.Set;
 
 import static io.trino.spi.type.TestingIdType.ID;
