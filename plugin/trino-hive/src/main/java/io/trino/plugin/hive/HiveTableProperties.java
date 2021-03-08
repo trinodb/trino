@@ -23,12 +23,10 @@ import io.trino.spi.type.ArrayType;
 
 import javax.inject.Inject;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.metastore.SortingColumn.Order.ASCENDING;
@@ -98,9 +96,9 @@ public class HiveTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
-                                .collect(Collectors.toList())),
+                                .collect(toImmutableList()),
                         value -> value),
                 new PropertyMetadata<>(
                         BUCKETED_BY_PROPERTY,
@@ -109,9 +107,9 @@ public class HiveTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ImmutableList.copyOf(((Collection<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(name -> ((String) name).toLowerCase(ENGLISH))
-                                .collect(Collectors.toList())),
+                                .collect(toImmutableList()),
                         value -> value),
                 new PropertyMetadata<>(
                         SORTED_BY_PROPERTY,
@@ -120,11 +118,11 @@ public class HiveTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ((Collection<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
                                 .map(HiveTableProperties::sortingColumnFromString)
                                 .collect(toImmutableList()),
-                        value -> ((Collection<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(SortingColumn.class::cast)
                                 .map(HiveTableProperties::sortingColumnToString)
                                 .collect(toImmutableList())),
@@ -135,7 +133,7 @@ public class HiveTableProperties
                         List.class,
                         ImmutableList.of(),
                         false,
-                        value -> ((Collection<?>) value).stream()
+                        value -> ((List<?>) value).stream()
                                 .map(String.class::cast)
                                 .map(name -> name.toLowerCase(ENGLISH))
                                 .collect(toImmutableList()),
