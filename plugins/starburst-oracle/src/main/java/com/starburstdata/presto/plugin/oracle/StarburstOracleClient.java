@@ -207,12 +207,14 @@ public class StarburstOracleClient
     }
 
     @Override
-    public OracleConnection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
-        OracleConnection connection = (OracleConnection) super.getConnection(session, split);
+        Connection connection = super.getConnection(session, split);
         try {
-            connection.setDefaultRowPrefetch(DEFAULT_ROW_FETCH_SIZE);
+            // We cannot return unwrapped connection as it won't return to connection pool upon close
+            connection.unwrap(OracleConnection.class)
+                    .setDefaultRowPrefetch(DEFAULT_ROW_FETCH_SIZE);
         }
         catch (SQLException e) {
             connection.close();
