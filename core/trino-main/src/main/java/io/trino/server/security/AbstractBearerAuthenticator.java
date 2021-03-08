@@ -21,8 +21,10 @@ import io.trino.spi.security.Identity;
 
 import javax.ws.rs.container.ContainerRequestContext;
 
-import static com.google.common.base.Strings.nullToEmpty;
+import java.util.List;
+
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractBearerAuthenticator
@@ -41,8 +43,15 @@ public abstract class AbstractBearerAuthenticator
     public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
     {
-        String header = nullToEmpty(request.getHeaders().getFirst(AUTHORIZATION));
+        List<String> headers = request.getHeaders().get(AUTHORIZATION);
+        if (headers == null || headers.size() == 0) {
+            throw needAuthentication(request, null);
+        }
+        if (headers.size() > 1) {
+            throw new IllegalArgumentException(format("Multiple %s headers detected: %s, where only single %s header is supported", AUTHORIZATION, headers, AUTHORIZATION));
+        }
 
+        String header = headers.get(0);
         int space = header.indexOf(' ');
         if ((space < 0) || !header.substring(0, space).equalsIgnoreCase("bearer")) {
             throw needAuthentication(request, null);
