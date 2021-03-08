@@ -9,18 +9,15 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import io.trino.plugin.sqlserver.TestSqlServerIntegrationSmokeTest;
+import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.sqlserver.TestSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
-import static io.trino.tpch.TpchTable.CUSTOMER;
-import static io.trino.tpch.TpchTable.NATION;
-import static io.trino.tpch.TpchTable.ORDERS;
-import static io.trino.tpch.TpchTable.REGION;
 
-public class TestStarburstSqlServerIntegrationSmokeTest
-        extends TestSqlServerIntegrationSmokeTest
+public class TestStarburstSqlServerConnectorTest
+        extends TestSqlServerConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -28,6 +25,6 @@ public class TestStarburstSqlServerIntegrationSmokeTest
     {
         sqlServer = new TestingSqlServer();
         sqlServer.start();
-        return createStarburstSqlServerQueryRunner(sqlServer, CUSTOMER, NATION, ORDERS, REGION);
+        return createStarburstSqlServerQueryRunner(sqlServer, false, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }
