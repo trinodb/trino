@@ -11,21 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.cassandra;
+package io.trino.plugin.memsql;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 
-import static io.trino.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
+import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 
-public class TestCassandraDistributedQueriesLatest
-        extends BaseCassandraDistributedQueries
+public class TestMemSqlConnectorSmokeTestLatest
+        extends BaseJdbcConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        CassandraServer server = closeAfterClass(new CassandraServer("3.11.9"));
-        return createCassandraQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        TestingMemSqlServer memSqlServer = closeAfterClass(new TestingMemSqlServer(TestingMemSqlServer.LATEST_TESTED_TAG));
+        return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 }

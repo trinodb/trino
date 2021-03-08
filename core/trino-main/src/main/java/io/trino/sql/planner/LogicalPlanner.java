@@ -105,7 +105,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Streams.zip;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
-import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -490,6 +489,7 @@ public class LogicalPlanner
             TableStatisticsMetadata statisticsMetadata)
     {
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
+        Optional<PartitioningScheme> preferredPartitioningScheme = Optional.empty();
         if (writeTableLayout.isPresent()) {
             List<Symbol> partitionFunctionArguments = new ArrayList<>();
             writeTableLayout.get().getPartitionColumns().stream()
@@ -505,10 +505,9 @@ public class LogicalPlanner
                         Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
                         outputLayout));
             }
-            else if (isUsePreferredWritePartitioning(session)) {
-                // TODO: move to iterative optimizer and use CBO
+            else {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
-                partitioningScheme = Optional.of(new PartitioningScheme(
+                preferredPartitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
                         outputLayout));
             }
@@ -547,6 +546,7 @@ public class LogicalPlanner
                             columnNames,
                             notNullColumnSymbols,
                             partitioningScheme,
+                            preferredPartitioningScheme,
                             Optional.of(partialAggregation),
                             Optional.of(result.getDescriptor().map(aggregations.getMappings()::get))),
                     target,
@@ -569,6 +569,7 @@ public class LogicalPlanner
                         columnNames,
                         notNullColumnSymbols,
                         partitioningScheme,
+                        preferredPartitioningScheme,
                         Optional.empty(),
                         Optional.empty()),
                 target,

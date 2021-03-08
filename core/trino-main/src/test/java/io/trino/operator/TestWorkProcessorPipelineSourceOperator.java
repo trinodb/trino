@@ -104,7 +104,6 @@ public class TestWorkProcessorPipelineSourceOperator
         TestWorkProcessorOperatorFactory secondOperatorFactory = new TestWorkProcessorOperatorFactory(3, secondOperatorPages);
 
         SourceOperatorFactory pipelineOperatorFactory = (SourceOperatorFactory) getOnlyElement(WorkProcessorPipelineSourceOperator.convertOperators(
-                99,
                 ImmutableList.of(sourceOperatorFactory, firstOperatorFactory, secondOperatorFactory)));
 
         DriverContext driverContext = TestingOperatorContext.create(scheduledExecutor).getDriverContext();

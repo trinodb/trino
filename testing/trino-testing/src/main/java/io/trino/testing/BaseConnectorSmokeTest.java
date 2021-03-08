@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -105,7 +106,7 @@ public abstract class BaseConnectorSmokeTest
     public void testCreateTable()
     {
         if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            assertQueryFails("CREATE TABLE xxxx (a bigint, b double)", "This connector does not support create");
+            assertQueryFails("CREATE TABLE xxxx (a bigint, b double)", "This connector does not support creating tables");
             return;
         }
 
@@ -120,7 +121,7 @@ public abstract class BaseConnectorSmokeTest
     public void testCreateTableAsSelect()
     {
         if (!hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)) {
-            assertQueryFails("CREATE TABLE xxxx (a bigint, b double) AS VALUES (42, -38.5)", "This connector does not support create");
+            assertQueryFails("CREATE TABLE xxxx AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", "This connector does not support creating tables with data");
             return;
         }
 
@@ -139,6 +140,10 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+
         String tableName = "test_create_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double)");
         assertUpdate("INSERT INTO " + tableName + " (a, b) VALUES (42, -38.5)", 1);
@@ -150,8 +155,13 @@ public abstract class BaseConnectorSmokeTest
     @Test
     public void testDelete()
     {
-        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+        if (!hasBehavior(SUPPORTS_DELETE)) {
             assertQueryFails("DELETE FROM region", "This connector does not support deletes");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_ROW_LEVEL_DELETE)) {
+            assertQueryFails("DELETE FROM region WHERE regionkey = 2", ".*[Dd]elet(e|ing).*(not |un)supported.*");
             return;
         }
 

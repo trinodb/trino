@@ -947,13 +947,14 @@ public class PlanBuilder
 
     public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)
     {
-        return tableWriter(columns, columnNames, Optional.empty(), Optional.empty(), Optional.empty(), source);
+        return tableWriter(columns, columnNames, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), source);
     }
 
     public TableWriterNode tableWriter(
             List<Symbol> columns,
             List<String> columnNames,
             Optional<PartitioningScheme> partitioningScheme,
+            Optional<PartitioningScheme> preferredPartitioningScheme,
             Optional<StatisticAggregations> statisticAggregations,
             Optional<StatisticAggregationsDescriptor<Symbol>> statisticAggregationsDescriptor,
             PlanNode source)
@@ -968,6 +969,7 @@ public class PlanBuilder
                 columnNames,
                 ImmutableSet.of(),
                 partitioningScheme,
+                preferredPartitioningScheme,
                 statisticAggregations,
                 statisticAggregationsDescriptor);
     }

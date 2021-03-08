@@ -86,7 +86,7 @@ public abstract class BaseCassandraDistributedQueries
     public void testDelete()
     {
         assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("This connector only supports delete with primary key or partition key");
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Override

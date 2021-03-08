@@ -11,22 +11,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.kafka;
+package io.trino.plugin.mongodb;
 
-import io.trino.testing.AbstractTestQueries;
-import io.trino.testing.QueryRunner;
-import io.trino.testing.kafka.TestingKafka;
+import io.trino.testing.BaseConnectorSmokeTest;
+import io.trino.testing.TestingConnectorBehavior;
 
-public class TestKafkaDistributedLatest
-        extends AbstractTestQueries
+public abstract class BaseMongoConnectorSmokeTest
+        extends BaseConnectorSmokeTest
 {
     @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        TestingKafka testingKafka = closeAfterClass(TestingKafka.create("6.0.1"));
-        return KafkaQueryRunner.builder(testingKafka)
-                .setTables(REQUIRED_TPCH_TABLES)
-                .build();
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }

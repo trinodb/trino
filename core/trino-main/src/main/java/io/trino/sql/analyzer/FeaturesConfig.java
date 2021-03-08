@@ -79,7 +79,8 @@ public class FeaturesConfig
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 9;
     private boolean redistributeWrites = true;
-    private boolean usePreferredWritePartitioning;
+    private boolean usePreferredWritePartitioning = true;
+    private int preferredWritePartitioningMinNumberOfPartitions = 50;
     private boolean scaleWriters;
     private DataSize writerMinSize = DataSize.of(32, DataSize.Unit.MEGABYTE);
     private boolean optimizeMetadataQueries;
@@ -370,6 +371,20 @@ public class FeaturesConfig
     public FeaturesConfig setUsePreferredWritePartitioning(boolean usePreferredWritePartitioning)
     {
         this.usePreferredWritePartitioning = usePreferredWritePartitioning;
+        return this;
+    }
+
+    @Min(0)
+    public int getPreferredWritePartitioningMinNumberOfPartitions()
+    {
+        return preferredWritePartitioningMinNumberOfPartitions;
+    }
+
+    @Config("preferred-write-partitioning-min-number-of-partitions")
+    @ConfigDescription("Use preferred write partitioning when the number of written partitions exceeds the configured threshold")
+    public FeaturesConfig setPreferredWritePartitioningMinNumberOfPartitions(int preferredWritePartitioningMinNumberOfPartitions)
+    {
+        this.preferredWritePartitioningMinNumberOfPartitions = preferredWritePartitioningMinNumberOfPartitions;
         return this;
     }
 
