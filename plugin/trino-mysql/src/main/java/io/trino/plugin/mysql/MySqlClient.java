@@ -189,7 +189,7 @@ public class MySqlClient
             return schemaNames.build();
         }
         catch (SQLException e) {
-            throw new RuntimeException(e);
+            throw new TrinoException(JDBC_ERROR, e);
         }
     }
 
