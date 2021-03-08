@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 public class HydraIdentityProvider
         implements EnvironmentExtender
 {
-    private static final int TTL_ACCESS_TOKEN_IN_SECONDS = 60;
+    private static final int TTL_ACCESS_TOKEN_IN_SECONDS = 5;
     private static final String HYDRA_IMAGE = "oryd/hydra:v1.9.0-sqlite";
     private final PortBinder binder;
 
