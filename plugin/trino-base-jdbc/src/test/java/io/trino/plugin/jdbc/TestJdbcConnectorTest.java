@@ -18,6 +18,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +26,9 @@ import java.util.Properties;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
+// Single-threaded because H2 DDL operations can sometimes take a global lock, leading to apparent deadlocks
+// like in https://github.com/trinodb/trino/issues/7209.
+@Test(singleThreaded = true)
 public class TestJdbcConnectorTest
         extends BaseJdbcConnectorTest
 {
@@ -72,6 +76,7 @@ public class TestJdbcConnectorTest
     }
 
     @Override
+    @Test(dataProvider = "largeInValuesCount")
     public void testLargeIn(int valuesCount)
     {
         throw new SkipException("This test should pass with H2, but takes too long (currently over a mninute) and is not that important");
