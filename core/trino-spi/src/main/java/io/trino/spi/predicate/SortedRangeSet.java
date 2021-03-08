@@ -814,11 +814,6 @@ public final class SortedRangeSet
         return TRUE.equals(equal);
     }
 
-    private int compareValues(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return compareValues(comparisonOperator, leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
     private static int compareValues(MethodHandle comparisonOperator, Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         try {
