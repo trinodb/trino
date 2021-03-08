@@ -35,7 +35,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -48,7 +47,6 @@ import static io.trino.tests.TestGroups.OAUTH2;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.openqa.selenium.support.ui.ExpectedConditions.elementToBeClickable;
 
 public class TestExternalAuthorizerOAuth2
@@ -74,16 +72,39 @@ public class TestExternalAuthorizerOAuth2
     @Test(groups = {OAUTH2, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = "https://github.com/trinodb/trino/issues/6991", match = "Last login action has failed with exception")
     public void shouldAuthenticateAndExecuteQuery()
-            throws SQLException
+            throws Exception
     {
         prepareSeleniumHandler();
         Properties properties = new Properties();
         properties.setProperty("user", "test");
         try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
-                PreparedStatement statement = connection.prepareStatement("select * from tpch.tiny.nation");
+                PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
                 ResultSet results = statement.executeQuery()) {
-            assertThatNoException().isThrownBy(() -> checkLastLoginActionExecutionFailures());
+            assertSuccessfulLogin();
             assertThat(forResultSet(results)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+        }
+    }
+
+    @Test(groups = {OAUTH2, PROFILE_SPECIFIC_TESTS})
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/6991", match = "Last login action has failed with exception")
+    public void shouldAuthenticateAfterTokenExpires()
+            throws Exception
+    {
+        prepareSeleniumHandler();
+        Properties properties = new Properties();
+        properties.setProperty("user", "test");
+        try (Connection connection = DriverManager.getConnection(jdbcUrl, properties);
+                PreparedStatement statement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
+                ResultSet results = statement.executeQuery()) {
+            assertSuccessfulLogin();
+            //Wait until the token expires. See: HydraIdentityProvider.TTL_ACCESS_TOKEN_IN_SECONDS
+            SECONDS.sleep(10);
+
+            try (PreparedStatement repeatedStatement = connection.prepareStatement("SELECT * FROM tpch.tiny.nation");
+                    ResultSet repeatedResults = repeatedStatement.executeQuery()) {
+                assertSuccessfulLogin();
+                assertThat(forResultSet(repeatedResults)).matches(TpchTableResults.PRESTO_NATION_RESULT);
+            }
         }
     }
 
@@ -156,8 +177,8 @@ public class TestExternalAuthorizerOAuth2
         log.info("accept button clicked");
     }
 
-    private void checkLastLoginActionExecutionFailures()
-            throws Throwable
+    private void assertSuccessfulLogin()
+            throws Exception
     {
         try {
             lastLoginAction.get();
