@@ -202,10 +202,10 @@ public class PhoenixClient
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
 
-    public PhoenixConnection getConnection(ConnectorSession session)
+    public Connection getConnection(ConnectorSession session)
             throws SQLException
     {
-        return connectionFactory.openConnection(session).unwrap(PhoenixConnection.class);
+        return connectionFactory.openConnection(session);
     }
 
     public org.apache.hadoop.hbase.client.Connection getHConnection()
@@ -571,8 +571,8 @@ public class PhoenixClient
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
 
-        try (PhoenixConnection connection = (PhoenixConnection) connectionFactory.openConnection(session);
-                Admin admin = connection.getQueryServices().getAdmin()) {
+        try (Connection connection = connectionFactory.openConnection(session);
+                Admin admin = connection.unwrap(PhoenixConnection.class).getQueryServices().getAdmin()) {
             String schemaName = toPhoenixSchemaName(Optional.ofNullable(handle.getSchemaName())).orElse(null);
             PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, handle.getTableName()));
 

@@ -37,7 +37,6 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.phoenix.compile.QueryPlan;
-import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
@@ -45,6 +44,7 @@ import org.apache.phoenix.query.KeyRange;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -79,7 +79,7 @@ public class PhoenixSplitManager
             DynamicFilter dynamicFilter)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        try (PhoenixConnection connection = phoenixClient.getConnection(session)) {
+        try (Connection connection = phoenixClient.getConnection(session)) {
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
