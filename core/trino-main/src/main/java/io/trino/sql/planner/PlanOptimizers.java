@@ -700,8 +700,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
                 // Prefer write partitioning rule requires accurate stats.
-                // Therefore PredicatePushDown, columnPruningOptimizer and
-                // RemoveRedundantIdentityProjections need to run beforehand.
+                // Run it before reorder joins which also depends on accurate stats.
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
