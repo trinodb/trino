@@ -87,7 +87,7 @@ public class ExternalAuthenticator
     private static Request withBearerToken(Request request, Token token)
     {
         return request.newBuilder()
-                .addHeader(AUTHORIZATION, "Bearer " + token.token())
+                .header(AUTHORIZATION, "Bearer " + token.token())
                 .build();
     }
 
