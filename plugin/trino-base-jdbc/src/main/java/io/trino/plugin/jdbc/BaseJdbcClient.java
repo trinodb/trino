@@ -1021,7 +1021,10 @@ public abstract class BaseJdbcClient
     @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
     {
-        return topNFunction().isPresent();
+        if (topNFunction().isEmpty()) {
+            return false;
+        }
+        throw new UnsupportedOperationException("topNFunction() implemented without implementing supportsTopN()");
     }
 
     protected Optional<TopNFunction> topNFunction()
