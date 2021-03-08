@@ -97,6 +97,7 @@ public class TestPhoenixConnectorTest
         assertThatThrownBy(super::testRenameTable)
                 // TODO (https://github.com/trinodb/trino/issues/7204) support table rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename table is not yet supported by Phoenix connector");
     }
 
     @Override
@@ -105,6 +106,7 @@ public class TestPhoenixConnectorTest
         assertThatThrownBy(super::testRenameColumn)
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+        throw new SkipException("Rename column is not yet supported by Phoenix connector");
     }
 
     @Override
