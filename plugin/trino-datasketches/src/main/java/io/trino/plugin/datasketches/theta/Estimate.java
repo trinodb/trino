@@ -19,22 +19,14 @@ import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 import org.apache.datasketches.memory.Memory;
-import org.apache.datasketches.theta.Sketch;
 import org.apache.datasketches.theta.Sketches;
 
 import static org.apache.datasketches.Util.DEFAULT_UPDATE_SEED;
 
-/**
- * Take the first value from a list of strings.
- */
 public class Estimate
 {
     private Estimate() {}
 
-    /**
-     * Estimate the unique count from sketch binary.
-     * @param inputValue The sketch binary
-     */
     @ScalarFunction("thetasketch_estimate")
     @Description("Converts sketch bytearrays to double estimate")
     @SqlType(StandardTypes.DOUBLE)
@@ -43,11 +35,6 @@ public class Estimate
         return estimate(inputValue, DEFAULT_UPDATE_SEED);
     }
 
-    /**
-     * Estimate the unique count from sketch binary.
-     * @param inputValue The sketch binary
-     * @param seed Seed value used to create this sketch
-     */
     @ScalarFunction("thetasketch_estimate")
     @Description("Converts sketch bytearrays to double estimate")
     @SqlType(StandardTypes.DOUBLE)
@@ -56,9 +43,6 @@ public class Estimate
         if (inputValue.getBytes() == null || inputValue.getBytes().length == 0) {
             return 0;
         }
-
-        Sketch sketch = Sketches.wrapSketch(Memory.wrap(inputValue.getBytes()), seed);
-
-        return sketch.getEstimate();
+        return Sketches.wrapSketch(Memory.wrap(inputValue.getBytes()), seed).getEstimate();
     }
 }

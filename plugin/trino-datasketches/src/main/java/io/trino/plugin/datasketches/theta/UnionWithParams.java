@@ -24,21 +24,10 @@ import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
 
-/**
- * Merges a collection of sketches into a single sketch.
- */
 @AggregationFunction("thetasketch_union")
 public final class UnionWithParams
 {
     private UnionWithParams() {}
-
-    /**
-     * Iterate over the sketchs and aggregate them.
-     * @param state Current state of the sketch
-     * @param inputValue Input to add to the aggregate
-     * @param normEntries number of norminal entries
-     * @param seed Seed value for union
-     */
 
     @InputFunction
     public static void input(@AggregationState SketchState state, @SqlType(StandardTypes.VARBINARY) Slice inputValue, @SqlType(StandardTypes.INTEGER) Integer normEntries, @SqlType(StandardTypes.BIGINT) Long seed)
@@ -47,12 +36,6 @@ public final class UnionWithParams
         state.setSeed(seed);
         state.setSketch(inputValue);
     }
-
-    /**
-     * Merge two aggregate sketchs.
-     * @param state State that will contain the combined result
-     * @param otherState Information from this state will be added to the other state
-     */
 
     @CombineFunction
     public static void combine(@AggregationState SketchState state, SketchState otherState)
@@ -70,12 +53,6 @@ public final class UnionWithParams
 
         state.merge(otherState);
     }
-
-    /**
-     * Generate an output sketch from the aggregate sketch.
-     * @param state Final sketch state
-     * @param out Output
-     */
 
     @OutputFunction(StandardTypes.VARBINARY)
     public static void output(@AggregationState SketchState state, BlockBuilder out)

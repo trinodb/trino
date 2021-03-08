@@ -13,10 +13,10 @@
  */
 package io.trino.plugin.datasketches.state;
 
+import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorStateSerializer;
@@ -44,7 +44,7 @@ public class SketchStateSerializer
         else {
             Slice slice = state.getSketch();
 
-            SliceOutput sliceOutput = Slices.allocate(SIZE_OF_LONG + SIZE_OF_INT + SIZE_OF_INT + slice.length()).getOutput();
+            SliceOutput sliceOutput = new DynamicSliceOutput(SIZE_OF_LONG + SIZE_OF_INT + SIZE_OF_INT + slice.length());
             sliceOutput.appendInt(state.getNominalEntries());
             sliceOutput.appendLong(state.getSeed());
 

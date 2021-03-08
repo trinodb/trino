@@ -148,6 +148,7 @@ public class SketchStateFactory
             setMemoryUsage(Math.max(value.length(), (int) size));
         }
 
+        @Override
         public void merge(SketchState otherState)
         {
             addSketchToUnion(otherState.getSketch(), otherState.getNominalEntries());
@@ -208,6 +209,7 @@ public class SketchStateFactory
             return estimatedSize;
         }
 
+        @Override
         public void merge(SketchState otherState)
         {
             int normEntries = Math.max(this.getNominalEntries(), otherState.getNominalEntries());

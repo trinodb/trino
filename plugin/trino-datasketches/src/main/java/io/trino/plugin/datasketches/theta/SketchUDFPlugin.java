@@ -18,9 +18,6 @@ import io.trino.spi.Plugin;
 
 import java.util.Set;
 
-/**
- * Main funnel plugin class.
- */
 public class SketchUDFPlugin
         implements Plugin
 {
