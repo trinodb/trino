@@ -67,8 +67,6 @@ public class Driver
 
     private final DriverContext driverContext;
     private final List<Operator> activeOperators;
-    // this is present only for debugging
-    @SuppressWarnings("unused")
     private final List<Operator> allOperators;
     private final Optional<SourceOperator> sourceOperator;
     private final Optional<DeleteOperator> deleteOperator;
