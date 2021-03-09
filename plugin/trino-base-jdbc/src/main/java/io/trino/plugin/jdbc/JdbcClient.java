@@ -109,7 +109,7 @@ public interface JdbcClient
 
     boolean isTopNLimitGuaranteed(ConnectorSession session);
 
-    boolean supportsLimit();
+    boolean supportsLimit(long limit);
 
     boolean isLimitGuaranteed(ConnectorSession session);
 

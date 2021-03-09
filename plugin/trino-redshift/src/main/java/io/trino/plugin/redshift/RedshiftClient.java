@@ -85,6 +85,12 @@ public class RedshiftClient
     }
 
     @Override
+    public boolean supportsLimit(long limit)
+    {
+        return limit <= Integer.MAX_VALUE;
+    }
+
+    @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);

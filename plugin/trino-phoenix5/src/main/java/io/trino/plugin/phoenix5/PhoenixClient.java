@@ -270,14 +270,15 @@ public class PhoenixClient
     }
 
     @Override
+    public boolean supportsLimit(long limit)
+    {
+        return limit <= Integer.MAX_VALUE;
+    }
+
+    @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of((sql, limit) -> {
-            if (limit > Integer.MAX_VALUE) {
-                return sql;
-            }
-            return sql + " LIMIT " + limit;
-        });
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
     }
 
     @Override

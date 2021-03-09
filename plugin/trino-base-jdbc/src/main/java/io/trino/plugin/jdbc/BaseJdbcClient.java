@@ -1040,7 +1040,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public boolean supportsLimit()
+    public boolean supportsLimit(long limit)
     {
         return limitFunction().isPresent();
     }

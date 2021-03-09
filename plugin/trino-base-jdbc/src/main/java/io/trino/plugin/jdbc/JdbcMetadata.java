@@ -415,7 +415,7 @@ public class JdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        if (!jdbcClient.supportsLimit()) {
+        if (!jdbcClient.supportsLimit(limit)) {
             return Optional.empty();
         }
 

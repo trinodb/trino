@@ -299,9 +299,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public boolean supportsLimit()
+    public boolean supportsLimit(long limit)
     {
-        return delegate().supportsLimit();
+        return delegate().supportsLimit(limit);
     }
 
     @Override
