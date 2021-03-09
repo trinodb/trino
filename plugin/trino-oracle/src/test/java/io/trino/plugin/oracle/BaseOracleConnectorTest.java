@@ -295,6 +295,24 @@ public abstract class BaseOracleConnectorTest
                 format("%s does not matches %s", actual, expectedParametrizedVarchar));
     }
 
+    /**
+     * Test showing that column comment cannot be read. See {@link TestOraclePoolRemarksReportingConnectorSmokeTest#testCommentColumn()} for test
+     * showing this works, when enabled.
+     */
+    @Test
+    @Override
+    public void testCommentColumn()
+    {
+        String tableName = "test_comment_column_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+
+        // comment set
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
+        // without remarksReporting Oracle does not return comments set
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
+    }
+
     @Override
     public void testInformationSchemaFiltering()
     {
