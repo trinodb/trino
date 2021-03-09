@@ -235,7 +235,7 @@ public class TestApplyTableScanRedirection
                                 createTableHandle(new MockConnectorTableHandle(SOURCE_TABLE, constraint, Optional.empty())),
                                 ImmutableList.of(column),
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_B), // predicate on non-projected column
-                                constraint);
+                                TupleDomain.all());
                     })
                     .withSession(MOCK_SESSION)
                     .matches(
