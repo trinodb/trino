@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>353-e-SNAPSHOT</version>
+        <version>355-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -146,6 +146,13 @@
                     <artifactId>checker-qual</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-base-jdbc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

@@ -10,10 +10,11 @@
 
 package com.starburstdata.trino.plugin.starburstremote;
 
+import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.plugin.postgresql.TestingPostgreSqlServer;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
+import io.trino.testing.TestingConnectorBehavior;
 
 import java.util.Map;
 import java.util.Optional;
@@ -22,14 +23,15 @@ import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteQuer
 import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteQueryRunner.createStarburstRemoteQueryRunnerWithPostgreSql;
 import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteQueryRunner.starburstRemoteConnectionUrl;
 
-public class TestStarburstRemoteDistributedQueriesWithPostgreSql
-        extends BaseStarburstRemoteDistributedQueriesWithoutWrites
+public class TestStarburstRemoteWithPostgreSqlConnectorSmokeTest
+        extends BaseJdbcConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         TestingPostgreSqlServer postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
+
         DistributedQueryRunner remoteStarburst = closeAfterClass(createStarburstRemoteQueryRunnerWithPostgreSql(
                 postgreSqlServer,
                 Map.of(),
@@ -37,13 +39,46 @@ public class TestStarburstRemoteDistributedQueriesWithPostgreSql
                         "connection-url", postgreSqlServer.getJdbcUrl(),
                         "connection-user", postgreSqlServer.getUser(),
                         "connection-password", postgreSqlServer.getPassword()),
-                TpchTable.getTables(),
+                REQUIRED_TPCH_TABLES,
                 Optional.empty()));
+
         return createStarburstRemoteQueryRunner(
                 false,
                 Map.of(),
                 Map.of(
                         "connection-url", starburstRemoteConnectionUrl(remoteStarburst, "postgresql"),
                         "allow-drop-table", "true"));
+    }
+
+    @Override
+    @SuppressWarnings("DuplicateBranchesInSwitch")
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN:
+                // not yet supported in Remote connector
+                return false;
+
+            case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_RENAME_TABLE:
+                // Writes are not enabled
+                return false;
+
+            case SUPPORTS_CREATE_VIEW:
+                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/PRESTO-4795)
+                return false;
+
+            case SUPPORTS_INSERT:
+            case SUPPORTS_DELETE:
+                // Writes are not enabled
+                return false;
+
+            case SUPPORTS_ARRAY:
+                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/PRESTO-4798)
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }
