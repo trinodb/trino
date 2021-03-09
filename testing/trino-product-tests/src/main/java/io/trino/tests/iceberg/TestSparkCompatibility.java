@@ -62,6 +62,12 @@ public class TestSparkCompatibility
                         ") USING ICEBERG";
         onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
 
+        // Validate queries on an empty table created by Spark
+        String snapshotsTable = prestoTableName("\"" + baseTableName + "$snapshots\"");
+        assertThat(onPresto().executeQuery(format("SELECT * FROM %s", snapshotsTable))).hasNoRows();
+        QueryResult emptyResult = onPresto().executeQuery(format("SELECT * FROM %s", prestoTableName(baseTableName)));
+        assertThat(emptyResult).hasNoRows();
+
         String values = "VALUES (" +
                 "'a_string'" +
                 ", 1000000000000000" +
