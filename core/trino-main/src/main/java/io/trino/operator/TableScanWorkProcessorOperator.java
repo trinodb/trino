@@ -115,6 +115,12 @@ public class TableScanWorkProcessorOperator
     }
 
     @Override
+    public void cancel()
+    {
+        splitToPages.cancel();
+    }
+
+    @Override
     public Duration getReadTime()
     {
         return splitToPages.getReadTime();
@@ -174,7 +180,11 @@ public class TableScanWorkProcessorOperator
                 source = new EmptyPageSource();
             }
             else {
-                source = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
+                ConnectorPageSource pageSource = pageSourceProvider.createPageSource(session, split, table, columns, dynamicFilter);
+                synchronized (this) {
+                    // this is synchronised so we can cancel it, see TableScanWorkProcessorOperator.SplitToPages.cancel
+                    source = pageSource;
+                }
             }
 
             return TransformationState.ofResult(
@@ -232,6 +242,13 @@ public class TableScanWorkProcessorOperator
             }
 
             return new Duration(source.getReadTimeNanos(), NANOSECONDS);
+        }
+
+        public synchronized void cancel()
+        {
+            if (source != null) {
+                source.cancel();
+            }
         }
 
         void close()

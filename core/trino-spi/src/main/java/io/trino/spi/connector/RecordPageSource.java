@@ -68,6 +68,12 @@ public class RecordPageSource
     }
 
     @Override
+    public void cancel()
+    {
+        cursor.cancel();
+    }
+
+    @Override
     public void close()
     {
         closed = true;

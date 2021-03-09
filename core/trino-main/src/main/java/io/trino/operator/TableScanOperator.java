@@ -295,7 +295,11 @@ public class TableScanOperator
             if (!dynamicFilter.getCurrentPredicate().isAll()) {
                 operatorContext.recordDynamicFilterSplitProcessed(1L);
             }
-            source = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
+            ConnectorPageSource pageSource = pageSourceProvider.createPageSource(operatorContext.getSession(), split, table, columns, dynamicFilter);
+            synchronized (this) {
+                // This is synchronised so we can cancel it, see TableScanOperator.cancel
+                source = pageSource;
+            }
         }
 
         Page page = source.getNextPage();
@@ -316,5 +320,13 @@ public class TableScanOperator
         systemMemoryContext.setBytes(source.getSystemMemoryUsage());
 
         return page;
+    }
+
+    @Override
+    public synchronized void cancel()
+    {
+        if (source != null) {
+            source.cancel();
+        }
     }
 }

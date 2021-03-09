@@ -158,6 +158,14 @@ public class ScanFilterAndProjectOperator
     }
 
     @Override
+    public synchronized void cancel()
+    {
+        if (cursor != null) {
+            cursor.cancel();
+        }
+    }
+
+    @Override
     public WorkProcessor<Page> getOutputPages()
     {
         return pages;
@@ -255,7 +263,10 @@ public class ScanFilterAndProjectOperator
             }
 
             if (source instanceof RecordPageSource) {
-                cursor = ((RecordPageSource) source).getCursor();
+                synchronized (this) {
+                    // This is synchronised so we can cancel it, see ScanFilterAndProjectOperator.cancel
+                    cursor = ((RecordPageSource) source).getCursor();
+                }
                 return ofResult(processColumnSource());
             }
             else {

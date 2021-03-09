@@ -225,6 +225,18 @@ public class JdbcRecordCursor
         }
     }
 
+    @Override
+    public void cancel()
+    {
+        try {
+            // Trying to cancel running statement as close() may not do it
+            statement.cancel();
+        }
+        catch (SQLException ignored) {
+            // statement already closed or cancel is not supported
+        }
+    }
+
     @SuppressWarnings("UnusedDeclaration")
     @Override
     public void close()
@@ -239,13 +251,7 @@ public class JdbcRecordCursor
                 Statement statement = this.statement;
                 ResultSet resultSet = this.resultSet) {
             if (statement != null) {
-                try {
-                    // Trying to cancel running statement as close() may not do it
-                    statement.cancel();
-                }
-                catch (SQLException ignored) {
-                    // statement already closed or cancel is not supported
-                }
+                cancel();
             }
             if (connection != null) {
                 jdbcClient.abortReadConnection(connection);

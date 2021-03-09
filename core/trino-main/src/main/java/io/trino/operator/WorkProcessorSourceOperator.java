@@ -67,4 +67,12 @@ public interface WorkProcessorSourceOperator
     {
         return 0;
     }
+
+    /**
+     * This method will be called to unblock any blocking operation that operator is doing.
+     * In order to unblock blocking operation this method is called in separate thread.
+     * Once this method is called, it is known that soon {@link close()} method will be called,
+     * so output is no longer needed.
+     */
+    default void cancel() {}
 }

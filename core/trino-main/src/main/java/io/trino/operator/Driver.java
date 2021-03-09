@@ -179,6 +179,12 @@ public class Driver
             return;
         }
 
+        for (Operator operator : allOperators) {
+            if (operator instanceof SourceOperator) {
+                ((SourceOperator) operator).cancel();
+            }
+        }
+
         exclusiveLock.interruptCurrentOwner();
 
         // if we can get the lock, attempt a clean shutdown; otherwise someone else will shutdown
