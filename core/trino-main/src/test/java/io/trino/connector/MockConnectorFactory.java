@@ -409,12 +409,12 @@ public class MockConnectorFactory
 
         public static BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> defaultGetInsertLayout()
         {
-            return (session, tableHandle) -> Optional.empty();
+            return (session, schemaTableName) -> Optional.empty();
         }
 
         public static BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> defaultGetNewTableLayout()
         {
-            return (session, tableHandle) -> Optional.empty();
+            return (session, tableMetadata) -> Optional.empty();
         }
 
         public static BiFunction<ConnectorSession, ConnectorTableHandle, ConnectorTableProperties> defaultGetTableProperties()
