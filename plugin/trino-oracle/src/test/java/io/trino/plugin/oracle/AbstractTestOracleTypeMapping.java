@@ -62,7 +62,6 @@ import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_WRITE;
 import static io.trino.plugin.oracle.OracleDataTypes.booleanDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.charDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.integerDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.ncharDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.numberDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
@@ -448,12 +447,12 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testIntegerMappings()
     {
-        testTypeMapping("integers",
-                DataTypeTest.create()
-                        .addRoundTrip(integerDataType("tinyint", 3), 0L)
-                        .addRoundTrip(integerDataType("smallint", 5), 0L)
-                        .addRoundTrip(integerDataType("integer", 10), 0L)
-                        .addRoundTrip(integerDataType("bigint", 19), 0L));
+        SqlDataTypeTest.create()
+                .addRoundTrip("tinyint", "0", createDecimalType(3, 0), "CAST(0 AS DECIMAL(3, 0))")
+                .addRoundTrip("smallint", "0", createDecimalType(5, 0), "CAST(0 AS DECIMAL(5, 0))")
+                .addRoundTrip("integer", "0", createDecimalType(10, 0), "CAST(0 AS DECIMAL(10, 0))")
+                .addRoundTrip("bigint", "0", createDecimalType(19, 0), "CAST(0 AS DECIMAL(19, 0))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("integers"));
     }
 
     @Test
