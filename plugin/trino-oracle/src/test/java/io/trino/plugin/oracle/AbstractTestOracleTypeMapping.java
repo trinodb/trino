@@ -71,6 +71,7 @@ import static io.trino.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.trino.spi.type.CharType.createCharType;
+import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -421,7 +422,27 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testDecimalMapping()
     {
-        testTypeMapping("decimals", numericTests(DataType::decimalDataType));
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "193", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "19", createDecimalType(3, 0), "CAST(19 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "-193", createDecimalType(3, 0), "CAST(-193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "10.0", createDecimalType(3, 1), "CAST(10.0 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "10.1", createDecimalType(3, 1), "CAST(10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "-10.1", createDecimalType(3, 1), "CAST(-10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "2", createDecimalType(4, 2), "CAST(2 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "2.3", createDecimalType(4, 2), "CAST(2.3 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "2", createDecimalType(24, 2), "CAST(2 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "2.3", createDecimalType(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "123456789.3", createDecimalType(24, 2), "CAST(123456789.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "12345678901234567890.31", createDecimalType(24, 4), "CAST(12345678901234567890.31 AS DECIMAL(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "3141592653589793238462643.38327", createDecimalType(30, 5), "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "-3141592653589793238462643.38327", createDecimalType(30, 5), "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "'27182818284590452353602874713526624977'", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "'-27182818284590452353602874713526624977'", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 38)", ".10000200003000040000500006000070000888", createDecimalType(38, 38), "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(38, 38)", "-.27182818284590452353602874713526624977", createDecimalType(38, 38), "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(10, 3)", "NULL", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("decimals"));
     }
 
     @Test
@@ -436,9 +457,29 @@ public abstract class AbstractTestOracleTypeMapping
     }
 
     @Test
-    public void testNumberReadMapping()
+    public void testDecimalReadMapping()
     {
-        testTypeReadMapping("read_decimals", numericTests(OracleDataTypes::oracleDecimalDataType));
+        SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "193", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "19", createDecimalType(3, 0), "CAST(19 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "-193", createDecimalType(3, 0), "CAST(-193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "10.0", createDecimalType(3, 1), "CAST(10.0 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "10.1", createDecimalType(3, 1), "CAST(10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "-10.1", createDecimalType(3, 1), "CAST(-10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "2", createDecimalType(4, 2), "CAST(2 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "2.3", createDecimalType(4, 2), "CAST(2.3 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "2", createDecimalType(24, 2), "CAST(2 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "2.3", createDecimalType(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "123456789.3", createDecimalType(24, 2), "CAST(123456789.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "12345678901234567890.31", createDecimalType(24, 4), "CAST(12345678901234567890.31 AS DECIMAL(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "3141592653589793238462643.38327", createDecimalType(30, 5), "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "-3141592653589793238462643.38327", createDecimalType(30, 5), "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "27182818284590452353602874713526624977", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "-27182818284590452353602874713526624977", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 38)", ".10000200003000040000500006000070000888", createDecimalType(38, 38), "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(38, 38)", "-.27182818284590452353602874713526624977", createDecimalType(38, 38), "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(10, 3)", "NULL", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
+                .execute(getQueryRunner(), oracleCreateAndInsert("read_decimals"));
     }
 
     private static DataTypeTest numericTests(BiFunction<Integer, Integer, DataType<BigDecimal>> decimalType)
