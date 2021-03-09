@@ -241,14 +241,6 @@ public abstract class BaseOracleConnectorTest
 
     @Test
     @Override
-    public void testQueryLoggingCount()
-    {
-        // table name has more than 30chars,max size naming on oracle.
-        // but as this methods call on private methods we disable it
-    }
-
-    @Test
-    @Override
     public void testWrittenStats()
     {
         // Replace tablename to fetch max size naming on oracle
@@ -277,8 +269,7 @@ public abstract class BaseOracleConnectorTest
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
-
-        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
@@ -289,10 +280,7 @@ public abstract class BaseOracleConnectorTest
                 .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
-
-        // Until we migrate all connectors to parametrized varchar we check two options
-        assertTrue(actual.equals(expectedParametrizedVarchar),
-                format("%s does not matches %s", actual, expectedParametrizedVarchar));
+        assertEquals(actual, expected);
     }
 
     /**
@@ -324,25 +312,21 @@ public abstract class BaseOracleConnectorTest
                 "SELECT 'customer' table_name");
     }
 
-    @Test
     @Override
-    public void testInsertUnicode()
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
     {
-        // unicode not working correctly as one unicode char takes more than one byte
-    }
+        if (columnName.equals("a\"quote") && exception.getMessage().contains("ORA-03001: unimplemented feature")) {
+            return true;
+        }
 
-    @Override
-    protected Optional<String> filterColumnNameTestData(String columnName)
-    {
-        // table names generated has more than 30chars, max size naming on oracle.
-        return Optional.empty();
+        return false;
     }
 
     @Test
     @Override
     public void testDescribeTable()
     {
-        MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("orderkey", "decimal(19,0)", "", "")
                 .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
