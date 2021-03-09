@@ -14,7 +14,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.oracle.BaseOracleConnectorTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.QueryRunner;
@@ -31,7 +30,6 @@ import java.util.Properties;
 
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -141,6 +139,27 @@ public class TestStarburstOracleConnectorTest
             gatherStats(left.getName());
             gatherStats(right.getName());
             assertThat(query(session, format("SELECT * FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans);
+        }
+
+        try (TestTable left = joinTestTable("left", 1000, 1000, 100);
+                TestTable right = joinTestTable("right", 10, 10, 100)) {
+            gatherStats(left.getName());
+            gatherStats(right.getName());
+
+            // sanity check
+            assertThat(query(session, format("SELECT * FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName()))).isFullyPushedDown();
+
+            // allow only very small tables in join pushdown
+            Session onlySmallTablesAllowed = Session.builder(session)
+                    .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "experimental_join_pushdown_automatic_max_table_size", "1kB")
+                    .build();
+            assertThat(query(onlySmallTablesAllowed, format("SELECT * FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans);
+
+            // require estimated join to be very small
+            Session verySmallJoinRequired = Session.builder(session)
+                    .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "experimental_join_pushdown_automatic_max_join_to_tables_ratio", "0.01")
+                    .build();
+            assertThat(query(verySmallJoinRequired, format("SELECT * FROM %s l JOIN %s r ON l.key = r.key", left.getName(), right.getName()))).isNotFullyPushedDown(joinOverTableScans);
         }
     }
 

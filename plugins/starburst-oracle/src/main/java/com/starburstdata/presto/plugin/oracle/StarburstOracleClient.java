@@ -132,7 +132,7 @@ public class StarburstOracleClient
                 return result;
 
             case AUTOMATIC:
-                if (shouldPushDownJoinCostAware(statistics)) {
+                if (shouldPushDownJoinCostAware(session, statistics)) {
                     return result;
                 }
                 return Optional.empty();
