@@ -2290,11 +2290,17 @@ public abstract class AbstractTestJoinQueries
     public void testOutputDuplicatesInsensitiveJoin()
     {
         assertJoinOutputPositions(
-                "SELECT n.nationkey, count(*) FROM nation n JOIN (VALUES 0, 0) t(x) ON n.nationkey = t.x GROUP BY n.nationkey",
+                "SELECT n.nationkey, count(*) " +
+                        "FROM nation n " +
+                        "JOIN (SELECT regionkey FROM nation ORDER BY regionkey LIMIT 2) t(x) " +
+                        "ON n.nationkey = t.x GROUP BY n.nationkey",
                 2);
 
         assertJoinOutputPositions(
-                "SELECT n.nationkey FROM nation n JOIN (VALUES 0, 0) t(x) ON n.nationkey = t.x GROUP BY n.nationkey",
+                "SELECT n.nationkey " +
+                        "FROM nation n " +
+                        "JOIN (SELECT regionkey FROM nation ORDER BY regionkey LIMIT 2) t(x) " +
+                        "ON n.nationkey = t.x GROUP BY n.nationkey",
                 1);
 
         assertJoinOutputPositions(
@@ -2311,7 +2317,10 @@ public abstract class AbstractTestJoinQueries
                 26);
 
         assertJoinOutputPositions(
-                "SELECT n.nationkey FROM nation n JOIN (VALUES 0, 0) t(x) ON n.nationkey = t.x GROUP BY GROUPING SETS (n.nationkey), (n.nationkey, n.nationkey)",
+                "SELECT n.nationkey " +
+                        "FROM nation n " +
+                        "JOIN (SELECT regionkey FROM nation ORDER BY regionkey LIMIT 2) t(x) " +
+                        "ON n.nationkey = t.x GROUP BY GROUPING SETS (n.nationkey), (n.nationkey, n.nationkey)",
                 1);
 
         assertJoinOutputPositions(
