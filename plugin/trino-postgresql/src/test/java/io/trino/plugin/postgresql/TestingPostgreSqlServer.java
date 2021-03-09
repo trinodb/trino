@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.postgresql;
 
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.io.Closeable;
@@ -23,6 +24,7 @@ import java.sql.Statement;
 import java.util.Properties;
 
 import static java.lang.String.format;
+import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.PostgreSQLContainer.POSTGRESQL_PORT;
 
 public class TestingPostgreSqlServer
@@ -40,7 +42,9 @@ public class TestingPostgreSqlServer
         dockerContainer = new PostgreSQLContainer<>("postgres:9.5")
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
-                .withPassword(PASSWORD);
+                .withPassword(PASSWORD)
+                .withClasspathResourceMapping("postgresql.conf", "/etc/postgresql/postgresql.conf", READ_ONLY)
+                .withCommand("postgres", "-c", "config_file=/etc/postgresql/postgresql.conf");
         dockerContainer.start();
     }
 
