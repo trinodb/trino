@@ -132,6 +132,7 @@ public class FeaturesConfig
     private boolean useLegacyWindowFilterPushdown;
     private boolean useTableScanNodePartitioning = true;
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
+    private boolean mergeProjectWithValues = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
@@ -1047,6 +1048,18 @@ public class FeaturesConfig
     public FeaturesConfig setTableScanNodePartitioningMinBucketToTaskRatio(double tableScanNodePartitioningMinBucketToTaskRatio)
     {
         this.tableScanNodePartitioningMinBucketToTaskRatio = tableScanNodePartitioningMinBucketToTaskRatio;
+        return this;
+    }
+
+    public boolean isMergeProjectWithValues()
+    {
+        return mergeProjectWithValues;
+    }
+
+    @Config("optimizer.merge-project-with-values")
+    public FeaturesConfig setMergeProjectWithValues(boolean mergeProjectWithValues)
+    {
+        this.mergeProjectWithValues = mergeProjectWithValues;
         return this;
     }
 }

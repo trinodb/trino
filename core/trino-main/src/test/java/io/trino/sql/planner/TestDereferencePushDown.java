@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
+import io.trino.sql.tree.DoubleLiteral;
+import io.trino.sql.tree.GenericLiteral;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
-
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
+import static io.trino.SystemSessionProperties.MERGE_PROJECT_WITH_VALUES;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
@@ -53,9 +53,7 @@ public class TestDereferencePushDown
                                         "b_msg_y", PlanMatchPattern.expression("b_msg_y")),
                                 join(INNER, ImmutableList.of(),
                                         values("a_msg"),
-                                        strictProject(
-                                                ImmutableMap.of("b_msg_y", PlanMatchPattern.expression("b_msg.y")),
-                                                values("b_msg"))))));
+                                        values(ImmutableList.of("b_msg_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"))))))));
     }
 
     @Test
@@ -66,40 +64,33 @@ public class TestDereferencePushDown
                         "FROM t a, t b " +
                         "WHERE a.msg.y = b.msg.y",
                 output(ImmutableList.of("b_x"),
-                        join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")),
-                                anyTree(
-                                        strictProject(ImmutableMap.of("a_y", expression("msg.y")),
-                                                values("msg"))),
-                                anyTree(
-                                        strictProject(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
-                                                values("msg"))))));
+                        join(INNER, ImmutableList.of(),
+                                values(),
+                                values(ImmutableList.of("b_x"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x > BIGINT '5'",
                 output(ImmutableList.of("a_y"),
-                        join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")),
-                                anyTree(
-                                        strictProject(ImmutableMap.of("a_y", expression("msg.y")),
-                                                filter("msg.x > BIGINT '5'",
-                                                        values("msg")))),
-                                anyTree(
-                                        strictProject(ImmutableMap.of("b_y", expression("msg.y")),
-                                                values("msg"))))));
+                        join(INNER, ImmutableList.of(),
+                                values("a_y"),
+                                values())));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10'",
                 output(ImmutableList.of("b_x"),
-                        join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")), Optional.of("a_x + b_x < BIGINT '10'"),
-                                anyTree(
-                                        strictProject(ImmutableMap.of("a_y", expression("msg.y"), "a_x", expression("msg.x")),
-                                                values("msg"))),
-                                anyTree(
-                                        strictProject(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
-                                                values("msg"))))));
+                        join(INNER, ImmutableList.of(),
+                                project(filter(
+                                        "a_y = 2e0",
+                                        values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))),
+                                project(filter(
+                                        "b_y = 2e0",
+                                        values(
+                                                ImmutableList.of("b_y", "b_x"),
+                                                ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1")))))))));
     }
 
     @Test
@@ -111,10 +102,8 @@ public class TestDereferencePushDown
                         "WHERE a.msg.x = 7 OR IS_FINITE(b.msg.y)",
                 anyTree(
                         join(INNER, ImmutableList.of(),
-                                strictProject(ImmutableMap.of("a_x", expression("msg.x"), "a_y", expression("msg.y")),
-                                        values("msg")),
-                                strictProject(ImmutableMap.of("b_x", expression("msg.x"), "b_y", expression("msg.y")),
-                                        values("msg")))));
+                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))),
+                                values(ImmutableList.of("b_x"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))));
     }
 
     @Test
@@ -124,10 +113,11 @@ public class TestDereferencePushDown
                         "SELECT msg.x AS x, ROW_NUMBER() OVER (PARTITION BY msg.y) AS rn " +
                         "FROM t ",
                 anyTree(
-                        strictProject(ImmutableMap.of("a_x", expression("msg.x"), "a_y", expression("msg.y")),
-                                values("msg"))));
+                        project(values(
+                                ImmutableList.of("y", "x"),
+                                ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1")))))));
 
-        assertPlan(
+        assertPlanWithSession(
                 "WITH t(msg1, msg2, msg3, msg4, msg5) AS (VALUES " +
                         // Use two rows to avoid any optimizations around short-circuting operations
                         "ROW(" +
@@ -151,6 +141,10 @@ public class TestDereferencePushDown
                         "   MIN(msg3) OVER (PARTITION BY msg1 ORDER BY msg2) AS msg6," +
                         "   MIN(msg4.x) OVER (PARTITION BY msg1 ORDER BY msg2) AS bigint_msg4 " +
                         "FROM t",
+                Session.builder(this.getQueryRunner().getDefaultSession())
+                        .setSystemProperty(MERGE_PROJECT_WITH_VALUES, "false")
+                        .build(),
+                true,
                 anyTree(
                         project(
                                 ImmutableMap.of(
@@ -175,12 +169,10 @@ public class TestDereferencePushDown
                         .build(),
                 anyTree(
                         semiJoin("a_x", "b_z", "semi_join_symbol",
-                                anyTree(
-                                        strictProject(ImmutableMap.of("a_x", expression("msg.x"), "a_y", expression("msg.y")),
-                                                values("msg"))),
-                                anyTree(
-                                        strictProject(ImmutableMap.of("b_z", expression("msg.z")),
-                                                values("msg"))))));
+                                project(
+                                        ImmutableMap.of("a_y", expression("msg.y")),
+                                        values(ImmutableList.of("msg", "a_x"), ImmutableList.of())),
+                                project(values(ImmutableList.of("b_z"), ImmutableList.of())))));
     }
 
     @Test
@@ -199,40 +191,33 @@ public class TestDereferencePushDown
                         "FROM t a, t b " +
                         "WHERE a.msg.y = b.msg.y " +
                         "LIMIT 100",
-                anyTree(join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")),
-                        anyTree(
-                                strictProject(ImmutableMap.of("a_y", expression("msg.y")),
-                                        values("msg"))),
-                        anyTree(
-                                strictProject(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
-                                        values("msg"))))));
+                anyTree(join(INNER, ImmutableList.of(),
+                        values(),
+                        values(ImmutableList.of("b_x"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))))));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT a.msg.y " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x > BIGINT '5' " +
                         "LIMIT 100",
-                anyTree(join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")),
-                        anyTree(
-                                strictProject(ImmutableMap.of("a_y", expression("msg.y")),
-                                        filter("msg.x > BIGINT '5'",
-                                                values("msg")))),
-                        anyTree(
-                                strictProject(ImmutableMap.of("b_y", expression("msg.y")),
-                                        values("msg"))))));
+                anyTree(join(INNER, ImmutableList.of(),
+                        values("a_y"),
+                        values())));
 
         assertPlan("WITH t(msg) AS (VALUES ROW(CAST(ROW(1, 2.0) AS ROW(x BIGINT, y DOUBLE))))" +
                         "SELECT b.msg.x " +
                         "FROM t a JOIN t b ON a.msg.y = b.msg.y " +
                         "WHERE a.msg.x + b.msg.x < BIGINT '10' " +
                         "LIMIT 100",
-                anyTree(join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")), Optional.of("a_x + b_x < BIGINT '10'"),
-                        anyTree(
-                                strictProject(ImmutableMap.of("a_y", expression("msg.y"), "a_x", expression("msg.x")),
-                                        values("msg"))),
-                        anyTree(
-                                strictProject(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
-                                        values("msg"))))));
+                anyTree(join(INNER, ImmutableList.of(),
+                        project(filter(
+                                "a_y = 2e0",
+                                values(ImmutableList.of("a_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))),
+                        project(filter(
+                                "b_y = 2e0",
+                                values(
+                                        ImmutableList.of("b_y", "b_x"),
+                                        ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0"), new GenericLiteral("BIGINT", "1")))))))));
     }
 
     @Test
@@ -246,13 +231,14 @@ public class TestDereferencePushDown
                 output(ImmutableList.of("expr"),
                         strictProject(ImmutableMap.of("expr", expression("a_x")),
                                 unnest(
-                                        join(INNER, ImmutableList.of(equiJoinClause("a_y", "b_y")),
-                                                Optional.of("a_x + b_x < BIGINT '10'"),
-                                                anyTree(
-                                                        strictProject(ImmutableMap.of("a_y", expression("msg.y"), "a_x", expression("msg.x"), "a_z", expression("array")),
-                                                                values("msg", "array"))),
-                                                anyTree(
-                                                        strictProject(ImmutableMap.of("b_y", expression("msg.y"), "b_x", expression("msg.x")),
-                                                                values("msg"))))))));
+                                        join(INNER, ImmutableList.of(),
+                                                project(
+                                                        filter(
+                                                                "a_y = 2e0",
+                                                                values("array", "a_y", "a_x"))),
+                                                project(
+                                                        filter(
+                                                                "b_y = 2e0",
+                                                                values(ImmutableList.of("b_y"), ImmutableList.of(ImmutableList.of(new DoubleLiteral("2e0")))))))))));
     }
 }

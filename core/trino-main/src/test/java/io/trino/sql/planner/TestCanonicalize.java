@@ -23,15 +23,15 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
 import io.trino.sql.planner.plan.WindowNode;
+import io.trino.sql.tree.GenericLiteral;
+import io.trino.sql.tree.LongLiteral;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.functionCall;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
@@ -51,10 +51,8 @@ public class TestCanonicalize
                         "CROSS JOIN (VALUES 1)",
                 anyTree(
                         join(INNER, ImmutableList.of(), Optional.empty(),
-                                project(
-                                        ImmutableMap.of("X", expression("BIGINT '1'")),
-                                        values(ImmutableMap.of())),
-                                values(ImmutableMap.of()))));
+                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")))),
+                                values(ImmutableList.of("field"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))));
     }
 
     @Test

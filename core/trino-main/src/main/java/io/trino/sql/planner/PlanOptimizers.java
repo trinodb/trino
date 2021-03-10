@@ -73,6 +73,7 @@ import io.trino.sql.planner.iterative.rule.MergeLimitWithDistinct;
 import io.trino.sql.planner.iterative.rule.MergeLimitWithSort;
 import io.trino.sql.planner.iterative.rule.MergeLimitWithTopN;
 import io.trino.sql.planner.iterative.rule.MergeLimits;
+import io.trino.sql.planner.iterative.rule.MergeProjectWithValues;
 import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
@@ -543,8 +544,10 @@ public class PlanOptimizers
                                 new InlineProjections(),
                                 new RemoveRedundantIdentityProjections(),
                                 new TransformCorrelatedSingleRowSubqueryToProject(),
-                                new RemoveAggregationInSemiJoin())),
+                                new RemoveAggregationInSemiJoin(),
+                                new MergeProjectWithValues(metadata))),
                 new CheckSubqueryNodesAreRewritten(),
+                simplifyOptimizer, // Should run after MergeProjectWithValues
                 new StatsRecordingPlanOptimizer(
                         optimizerStats,
                         new PredicatePushDown(metadata, typeOperators, typeAnalyzer, false, false)),
