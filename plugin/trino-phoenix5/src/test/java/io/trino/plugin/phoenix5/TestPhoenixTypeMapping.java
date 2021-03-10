@@ -16,9 +16,9 @@ package io.trino.plugin.phoenix5;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.jdbc.BaseJdbcTypeMappingTest;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
@@ -32,7 +32,6 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -40,7 +39,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunner;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -64,7 +62,7 @@ import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 
 public class TestPhoenixTypeMapping
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTypeMappingTest
 {
     private TestingPhoenixServer phoenixServer;
 
@@ -378,21 +376,6 @@ public class TestPhoenixTypeMapping
                 "date",
                 DATE,
                 value -> format("TO_DATE('%s', 'yyyy-MM-dd', 'local')", DateTimeFormatter.ofPattern("uuuu-MM-dd").format(value)));
-    }
-
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
-    }
-
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        return zone.getRules().getValidOffsets(dateTime).isEmpty();
-    }
-
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
     private DataType<Integer> primaryKey()

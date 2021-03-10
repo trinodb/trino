@@ -16,9 +16,9 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.jdbc.BaseJdbcTypeMappingTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
@@ -29,16 +29,13 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
@@ -94,43 +91,9 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 
 public abstract class AbstractTestOracleTypeMapping
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTypeMappingTest
 {
     private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
-
-    private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
-    private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-    private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
-
-    private final ZoneId jvmZone = ZoneId.systemDefault();
-    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
-    private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
-    private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
-
-    // no DST in 1970, but has DST in later years (e.g. 2018)
-    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
-    private final LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
-    private final LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
-
-    // minutes offset change since 1970-01-01, no DST
-    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
-    private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
-
-    private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
-    private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
-
-    @BeforeClass
-    public void setUp()
-    {
-        checkIsGap(jvmZone, timeGapInJvmZone1);
-        checkIsGap(jvmZone, timeGapInJvmZone2);
-        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
-
-        checkIsGap(vilnius, timeGapInVilnius);
-        checkIsDoubled(vilnius, timeDoubledInVilnius);
-
-        checkIsGap(kathmandu, timeGapInKathmandu);
-    }
 
     private DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
@@ -882,21 +845,6 @@ public abstract class AbstractTestOracleTypeMapping
     private static ToIntFunction<String> utf8Bytes()
     {
         return s -> s.getBytes(UTF_8).length;
-    }
-
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
-    }
-
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        return zone.getRules().getValidOffsets(dateTime).isEmpty();
-    }
-
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
     private TestTable oracleTable(String tableName, String schema, String data)

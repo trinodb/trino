@@ -18,13 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.trino.Session;
+import io.trino.plugin.jdbc.BaseJdbcTypeMappingTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
@@ -49,7 +49,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -60,7 +59,6 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.airlift.json.JsonCodec.listJsonCodec;
@@ -119,33 +117,12 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPostgreSqlTypeMapping
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTypeMappingTest
 {
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
     private static final JsonCodec<List<Map<String, String>>> HSTORE_CODEC = listJsonCodec(mapJsonCodec(String.class, String.class));
 
     private TestingPostgreSqlServer postgreSqlServer;
-
-    private final LocalDateTime beforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
-    private final LocalDateTime epoch = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
-    private final LocalDateTime afterEpoch = LocalDateTime.of(2019, 3, 18, 10, 1, 17, 987_000_000);
-
-    private final ZoneId jvmZone = ZoneId.systemDefault();
-    private final LocalDateTime timeGapInJvmZone1 = LocalDateTime.of(1970, 1, 1, 0, 13, 42);
-    private final LocalDateTime timeGapInJvmZone2 = LocalDateTime.of(2018, 4, 1, 2, 13, 55, 123_000_000);
-    private final LocalDateTime timeDoubledInJvmZone = LocalDateTime.of(2018, 10, 28, 1, 33, 17, 456_000_000);
-
-    // no DST in 1970, but has DST in later years (e.g. 2018)
-    private final ZoneId vilnius = ZoneId.of("Europe/Vilnius");
-    private final LocalDateTime timeGapInVilnius = LocalDateTime.of(2018, 3, 25, 3, 17, 17);
-    private final LocalDateTime timeDoubledInVilnius = LocalDateTime.of(2018, 10, 28, 3, 33, 33, 333_000_000);
-
-    // minutes offset change since 1970-01-01, no DST
-    private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
-    private final LocalDateTime timeGapInKathmandu = LocalDateTime.of(1986, 1, 1, 0, 13, 7);
-
-    private final ZoneOffset fixedOffsetEast = ZoneOffset.ofHoursMinutes(2, 17);
-    private final ZoneOffset fixedOffsetWest = ZoneOffset.ofHoursMinutes(-7, -31);
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -166,15 +143,6 @@ public class TestPostgreSqlTypeMapping
     @BeforeClass
     public void setUp()
     {
-        checkIsGap(jvmZone, timeGapInJvmZone1);
-        checkIsGap(jvmZone, timeGapInJvmZone2);
-        checkIsDoubled(jvmZone, timeDoubledInJvmZone);
-
-        checkIsGap(vilnius, timeGapInVilnius);
-        checkIsDoubled(vilnius, timeDoubledInVilnius);
-
-        checkIsGap(kathmandu, timeGapInKathmandu);
-
         JdbcSqlExecutor executor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
         executor.execute("CREATE EXTENSION hstore");
     }
@@ -1839,18 +1807,4 @@ public class TestPostgreSqlTypeMapping
         return new CreateAndTrinoInsertDataSetup(new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()), new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
     }
 
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
-    }
-
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        return zone.getRules().getValidOffsets(dateTime).isEmpty();
-    }
-
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
-    }
 }

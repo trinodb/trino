@@ -16,8 +16,8 @@ package io.trino.plugin.clickhouse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.jdbc.BaseJdbcTypeMappingTest;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
@@ -29,11 +29,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.clickhouse.ClickHouseQueryRunner.createClickHouseQueryRunner;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -48,24 +46,9 @@ import static io.trino.testing.datatype.DataType.smallintDataType;
 import static io.trino.testing.datatype.DataType.tinyintDataType;
 
 public class TestClickHouseTypeMapping
-        extends AbstractTestQueryFramework
+        extends BaseJdbcTypeMappingTest
 {
     private TestingClickHouseServer clickhouseServer;
-
-    private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(isGap(zone, dateTime), "Expected %s to be a gap in %s", dateTime, zone);
-    }
-
-    private static boolean isGap(ZoneId zone, LocalDateTime dateTime)
-    {
-        return zone.getRules().getValidOffsets(dateTime).isEmpty();
-    }
-
-    private static void checkIsDoubled(ZoneId zone, LocalDateTime dateTime)
-    {
-        verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
-    }
 
     @Override
     protected QueryRunner createQueryRunner()
