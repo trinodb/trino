@@ -409,6 +409,10 @@ public class SnowflakeSplitSource
             return Function.identity();
         }
 
+        if (limit.getAsLong() > Integer.MAX_VALUE) {
+            return Function.identity();
+        }
+
         return sql -> SnowflakeClient.applyLimit(sql, limit.getAsLong());
     }
 
