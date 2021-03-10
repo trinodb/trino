@@ -25,11 +25,9 @@ import java.io.IOException;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_SCHEMA;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
-import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleConnectorTest
         extends BaseOracleConnectorTest
@@ -81,20 +79,6 @@ public class TestOracleConnectorTest
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
-    }
-
-    @Test
-    @Override
-    public void testCommentColumn()
-    {
-        String tableName = "test_comment_column_" + randomTableSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
-
-        // comment set
-        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
-        // without remarksReporting Oracle does not return comments set
-        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
     }
 
     @Override

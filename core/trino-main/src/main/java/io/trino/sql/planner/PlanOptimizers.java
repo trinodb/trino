@@ -169,7 +169,6 @@ import io.trino.sql.planner.iterative.rule.RemoveAggregationInSemiJoin;
 import io.trino.sql.planner.iterative.rule.RemoveDuplicateConditions;
 import io.trino.sql.planner.iterative.rule.RemoveEmptyDelete;
 import io.trino.sql.planner.iterative.rule.RemoveFullSample;
-import io.trino.sql.planner.iterative.rule.RemoveRedundantCrossJoin;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantDistinctLimit;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantEnforceSingleRowNode;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantExists;
@@ -187,6 +186,7 @@ import io.trino.sql.planner.iterative.rule.RemoveUnreferencedScalarSubqueries;
 import io.trino.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.trino.sql.planner.iterative.rule.ReorderJoins;
 import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithProject;
+import io.trino.sql.planner.iterative.rule.ReplaceRedundantJoinWithSource;
 import io.trino.sql.planner.iterative.rule.ReplaceWindowWithRowNumber;
 import io.trino.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
 import io.trino.sql.planner.iterative.rule.SimplifyCountOverConstant;
@@ -459,7 +459,7 @@ public class PlanOptimizers
                                         new RemoveRedundantSortBelowLimitWithTies(),
                                         new RemoveRedundantTopN(),
                                         new RemoveRedundantDistinctLimit(),
-                                        new RemoveRedundantCrossJoin(),
+                                        new ReplaceRedundantJoinWithSource(),
                                         new RemoveRedundantJoin(),
                                         new ReplaceRedundantJoinWithProject(),
                                         new RemoveRedundantEnforceSingleRowNode(),
@@ -617,7 +617,7 @@ public class PlanOptimizers
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
                                 new PushAggregationThroughOuterJoin(),
-                                new RemoveRedundantCrossJoin())), // Run this after PredicatePushDown optimizer as it inlines filter constants
+                                new ReplaceRedundantJoinWithSource())), // Run this after PredicatePushDown optimizer as it inlines filter constants
                 inlineProjections,
                 simplifyOptimizer, // Re-run the SimplifyExpressions to simplify any recomposed expressions from other optimizations
                 projectionPushDown,
