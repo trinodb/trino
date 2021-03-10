@@ -324,7 +324,7 @@ public class ScanQueryPageSource
         if (type instanceof ArrayType) {
             Type elementType = ((ArrayType) type).getElementType();
 
-            return new ArrayDecoder(path, createDecoder(path, elementType));
+            return new ArrayDecoder(createDecoder(path, elementType));
         }
 
         throw new UnsupportedOperationException("Type not supported: " + type);
