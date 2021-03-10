@@ -15,7 +15,9 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -34,6 +36,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -108,5 +111,34 @@ public class TestJdbcClient
                 new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),
                 new JdbcColumnHandle("COL4", JDBC_REAL, REAL)));
+    }
+
+    @Test
+    public void testCreateSchema()
+    {
+        String schemaName = "test schema";
+        jdbcClient.createSchema(session, schemaName);
+        assertThat(jdbcClient.getSchemaNames(session)).contains(schemaName);
+        jdbcClient.dropSchema(session, schemaName);
+        assertThat(jdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        String schemaName = "test_schema";
+        SchemaTableName oldTable = new SchemaTableName(schemaName, "foo");
+        SchemaTableName newTable = new SchemaTableName(schemaName, "bar");
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
+                oldTable,
+                ImmutableList.of(new ColumnMetadata("text", VARCHAR)));
+
+        jdbcClient.createSchema(session, schemaName);
+        jdbcClient.createTable(session, tableMetadata);
+        jdbcClient.renameTable(session, jdbcClient.getTableHandle(session, oldTable).get(), newTable);
+        jdbcClient.dropTable(session, jdbcClient.getTableHandle(session, newTable).get());
+        jdbcClient.dropSchema(session, schemaName);
+        assertThat(jdbcClient.getTableNames(session, Optional.empty())).doesNotContain(oldTable).doesNotContain(newTable);
+        assertThat(jdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
     }
 }

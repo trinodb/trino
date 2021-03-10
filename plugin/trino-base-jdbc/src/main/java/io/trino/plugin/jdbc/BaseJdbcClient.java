@@ -950,13 +950,37 @@ public abstract class BaseJdbcClient
     @Override
     public void createSchema(ConnectorSession session, String schemaName)
     {
-        execute(session, "CREATE SCHEMA " + quoted(schemaName));
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            schemaName = toRemoteSchemaName(identity, connection, schemaName);
+            execute(connection, createSchemaSql(schemaName));
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    protected String createSchemaSql(String schemaName)
+    {
+        return "CREATE SCHEMA " + quoted(schemaName);
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        execute(session, "DROP SCHEMA " + quoted(schemaName));
+        JdbcIdentity identity = JdbcIdentity.from(session);
+        try (Connection connection = connectionFactory.openConnection(session)) {
+            schemaName = toRemoteSchemaName(identity, connection, schemaName);
+            execute(connection, dropSchemaSql(schemaName));
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    protected String dropSchemaSql(String schemaName)
+    {
+        return "DROP SCHEMA " + quoted(schemaName);
     }
 
     protected void execute(ConnectorSession session, String query)
