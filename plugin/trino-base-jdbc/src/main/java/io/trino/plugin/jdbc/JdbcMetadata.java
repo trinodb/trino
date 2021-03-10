@@ -415,6 +415,11 @@ public class JdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
+        if (limit > Integer.MAX_VALUE) {
+            // Some databases, e.g. Phoenix, Redshift, do not support limit exceeding 2147483647.
+            return Optional.empty();
+        }
+
         if (!jdbcClient.supportsLimit()) {
             return Optional.empty();
         }
