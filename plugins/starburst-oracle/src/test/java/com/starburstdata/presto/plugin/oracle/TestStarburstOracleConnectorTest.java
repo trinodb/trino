@@ -10,18 +10,22 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.oracle.TestOraclePoolConnectorTest;
+import io.trino.plugin.oracle.BaseOracleConnectorTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import java.util.Properties;
 
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestStarburstOracleDistributedQueries
-        extends TestOraclePoolConnectorTest
+public class TestStarburstOracleConnectorTest
+        extends BaseOracleConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -37,6 +41,17 @@ public class TestStarburstOracleDistributedQueries
     }
 
     @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_LIMIT_PUSHDOWN:
+                return true;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
+    @Override
     public void testColumnName(String columnName)
     {
         if (columnName.equals("a\"quote")) {
@@ -47,6 +62,24 @@ public class TestStarburstOracleDistributedQueries
         }
 
         super.testColumnName(columnName);
+    }
+
+    @Test
+    @Override
+    public void testCommentColumn()
+    {
+        // TODO remove test override after https://github.com/trinodb/trino/pull/7230
+        assertThatThrownBy(super::testCommentColumn)
+                .hasMessageContaining("to contain:\n <\"COMMENT 'new comment'\"> ");
+
+        String tableName = "test_comment_column_" + randomTableSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
+
+        // comment set
+        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
+        // without remarksReporting Oracle does not return comments set
+        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
     }
 
     @Override

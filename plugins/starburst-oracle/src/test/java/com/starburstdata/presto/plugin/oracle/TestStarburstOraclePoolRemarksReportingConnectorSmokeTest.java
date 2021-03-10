@@ -10,12 +10,11 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.oracle.TestRemarksReportingOraclePoolConnectorTest;
+import io.trino.plugin.oracle.TestOraclePoolRemarksReportingConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.SqlExecutor;
 
-public class TestStarburstRemarksReportingOracleDistributedQueries
-        extends TestRemarksReportingOraclePoolConnectorTest
+public class TestStarburstOraclePoolRemarksReportingConnectorSmokeTest
+        extends TestOraclePoolRemarksReportingConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -29,17 +28,5 @@ public class TestStarburstRemarksReportingOracleDistributedQueries
                         .put("oracle.remarks-reporting.enabled", "true")
                         .build())
                 .build();
-    }
-
-    @Override
-    protected String getUser()
-    {
-        return OracleTestUsers.USER;
-    }
-
-    @Override
-    protected SqlExecutor onOracle()
-    {
-        return TestingStarburstOracleServer::executeInOracle;
     }
 }
