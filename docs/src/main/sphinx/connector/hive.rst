@@ -101,6 +101,8 @@ Materialized views
 The Hive connector supports reading from Hive materialized views.
 In Trino, these views are presented as regular, read-only tables.
 
+.. _hive-views:
+
 Hive views
 ----------
 
@@ -127,6 +129,10 @@ A very simple implementation to execute Hive views, and therefore allow read
 access to the data in Trino, can be enabled with
 ``hive.translate-hive-views=true`` and
 ``hive.legacy-hive-view-translation=true``.
+
+For temporary usage of the legacy behavior for a specific catalog, you can set
+the``legacy_hive_view_translation`` :doc:`catalog session property
+</sql/set-session>` to ``true``.
 
 This legacy behavior interprets any HiveQL query that defines a view as if it
 is written in SQL. It does not do any translation, but instead relies on the
@@ -375,11 +381,12 @@ Property Name                                      Description                  
                                                    is used for write operations. The ``${USER}`` placeholder
                                                    can be used to use a different location for each user.
 
-``hive.translate-hive-views``                      Enable translation for Hive views. (experimental)            ``false``
+``hive.translate-hive-views``                      Enable translation for :ref:`Hive views <hive-views>`.       ``false``
 
-``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate Hive views. You can    ``false``
-                                                   alternatively set the ``legacy_hive_view_translation``
-                                                   session property to ``true``.
+``hive.legacy-hive-view-translation``              Use the legacy algorithm to translate                        ``false``
+                                                   :ref:`Hive views <hive-views>`. You can use the
+                                                   ``legacy_hive_view_translation`` catalog session property
+                                                   for temporary, catalog specific use.
 
 ``hive.parallel-partitioned-bucketed-inserts``     Improve parallelism of partitioned and bucketed table        ``true``
                                                    inserts. When disabled, the number of writing threads
