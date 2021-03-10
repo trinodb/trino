@@ -110,7 +110,8 @@ public class TestFeaturesConfig
                 .setOptimizeDuplicateInsensitiveJoins(true)
                 .setUseLegacyWindowFilterPushdown(false)
                 .setUseTableScanNodePartitioning(true)
-                .setTableScanNodePartitioningMinBucketToTaskRatio(0.5));
+                .setTableScanNodePartitioningMinBucketToTaskRatio(0.5)
+                .setMergeProjectWithValues(true));
     }
 
     @Test
@@ -186,6 +187,7 @@ public class TestFeaturesConfig
                 .put("optimizer.use-legacy-window-filter-pushdown", "true")
                 .put("optimizer.use-table-scan-node-partitioning", "false")
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
+                .put("optimizer.merge-project-with-values", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -257,7 +259,8 @@ public class TestFeaturesConfig
                 .setOptimizeDuplicateInsensitiveJoins(false)
                 .setUseLegacyWindowFilterPushdown(true)
                 .setUseTableScanNodePartitioning(false)
-                .setTableScanNodePartitioningMinBucketToTaskRatio(0.0);
+                .setTableScanNodePartitioningMinBucketToTaskRatio(0.0)
+                .setMergeProjectWithValues(false);
         assertFullMapping(properties, expected);
     }
 }

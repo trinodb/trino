@@ -57,8 +57,10 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Cast;
+import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
+import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.tests.QueryTemplate;
@@ -258,6 +260,10 @@ public class TestLogicalPlanner
     @Test
     public void testAllFieldsDereferenceFromNonDeterministic()
     {
+        FunctionCall randomFunction = new FunctionCall(
+                getQueryRunner().getMetadata().resolveFunction(QualifiedName.of("rand"), ImmutableList.of()).toQualifiedName(),
+                ImmutableList.of());
+
         assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
                 any(
                         project(
@@ -266,9 +272,9 @@ public class TestLogicalPlanner
                                         "output_2", expression("CAST(row AS ROW(f0 double,f1 double)).f1")),
                                 project(
                                         ImmutableMap.of("row", expression("ROW(\"rand\", \"rand\")")),
-                                        project(
-                                                ImmutableMap.of("rand", expression("rand()")),
-                                                values())))));
+                                        values(
+                                                ImmutableList.of("rand"),
+                                                ImmutableList.of(ImmutableList.of(randomFunction)))))));
 
         assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1) t(x)",
                 any(
@@ -276,9 +282,9 @@ public class TestLogicalPlanner
                                 ImmutableMap.of(
                                         "output_1", expression("CAST(r AS ROW(f0 double,f1 double)).f0"),
                                         "output_2", expression("CAST(r AS ROW(f0 double,f1 double)).f1")),
-                                project(
-                                        ImmutableMap.of("r", expression("ROW(rand(), rand())")),
-                                        values()))));
+                                values(
+                                        ImmutableList.of("r"),
+                                        ImmutableList.of(ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))));
 
         // Ensure the calls to rand() are not duplicated by the ORDER BY clause
         assertPlan("SELECT (rand(), rand()).* FROM (VALUES 1, 2) t(x) ORDER BY 1",
@@ -289,9 +295,11 @@ public class TestLogicalPlanner
                                                 ImmutableMap.of(
                                                         "output_1", expression("CAST(row AS ROW(f0 double,f1 double)).f0"),
                                                         "output_2", expression("CAST(row AS ROW(f0 double,f1 double)).f1")),
-                                                project(
-                                                        ImmutableMap.of("row", expression("ROW(rand(), rand())")),
-                                                        values()))))));
+                                                values(
+                                                        ImmutableList.of("row"),
+                                                        ImmutableList.of(
+                                                                ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))),
+                                                                ImmutableList.of(new Row(ImmutableList.of(randomFunction, randomFunction))))))))));
     }
 
     @Test
@@ -1499,8 +1507,7 @@ public class TestLogicalPlanner
                         node(JoinNode.class,
                                 filter("REGIONKEY = BIGINT '1'",
                                         tableScan("nation", ImmutableMap.of("REGIONKEY", "regionkey"))),
-                                node(ProjectNode.class,
-                                        values(ImmutableMap.of())))));
+                                values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("1")))))));
     }
 
     @Test
@@ -1529,6 +1536,102 @@ public class TestLogicalPlanner
         assertPlan("SELECT regionkey FROM nation RIGHT JOIN (SELECT nationkey FROM customer LIMIT 0) USING (nationkey)",
                 output(
                         values(ImmutableList.of("regionkey"))));
+    }
+
+    @Test
+    public void testMergeProjectWithValues()
+    {
+        assertPlan(
+                "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1) t(a))",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("nation"),
+                                values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("2")))))));
+
+        assertPlan(
+                "SELECT * FROM nation, (SELECT a * 2 FROM (VALUES 1, 2, 3) t(a))",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("nation"),
+                                values(ImmutableList.of("a"), ImmutableList.of(
+                                        ImmutableList.of(new LongLiteral("2")),
+                                        ImmutableList.of(new LongLiteral("4")),
+                                        ImmutableList.of(new LongLiteral("6")))))));
+
+        assertPlan(
+                "SELECT * FROM nation, (SELECT b * 3 FROM (SELECT a * 2 FROM (VALUES 1) t1(a)) t2(b))",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("nation"),
+                                values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("6")))))));
+
+        assertPlan(
+                "SELECT * FROM nation, (SELECT b * 3 FROM (SELECT a * 2 FROM (SELECT 1) t1(a)) t2(b))",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(),
+                                tableScan("nation"),
+                                values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("6")))))));
+
+        // Constraint is enforced on table scan, based on constant value in the other branch of the join.
+        // The scalar constant branch of the join becomes obsolete, and join is removed.
+        assertPlan(
+                "SELECT orderkey, t2.s " +
+                        "FROM orders " +
+                        "JOIN (SELECT '' || x FROM (VALUES 'F') t(x)) t2(s) " +
+                        "ON orders.orderstatus = t2.s",
+                any(project(
+                        ImmutableMap.of("cast", expression("CAST(ORDER_STATUS AS varchar)")),
+                        strictConstrainedTableScan(
+                                "orders",
+                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                ImmutableMap.of("orderstatus", Domain.singleValue(createVarcharType(1), utf8Slice("F")))))));
+
+        // Constraint is enforced on table scan, based on constant values in the other branch of the join.
+        assertPlan(
+                "SELECT orderkey, t2.s " +
+                        "FROM orders " +
+                        "JOIN (SELECT CAST('' || x AS varchar(1)) FROM (VALUES 'O', 'F') t(x)) t2(s) " +
+                        "ON orders.orderstatus = t2.s",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("expr", "ORDER_STATUS")),
+                                project(filter(
+                                        "expr IN ('F', 'O')",
+                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F")))))),
+                                exchange(project(strictConstrainedTableScan(
+                                        "orders",
+                                        ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                        ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))))));
+
+        // Constraint for the table is derived, based on constant values in the other branch of the join.
+        // It is not accepted by the connector, and remains in form of a filter over TableScan.
+        assertPlan(
+                "SELECT orderstatus, t2.s " +
+                        "FROM orders " +
+                        "JOIN (SELECT x * 1 FROM (VALUES BIGINT '1', BIGINT '2') t(x)) t2(s) " +
+                        "ON orders.orderkey = t2.s",
+                anyTree(
+                        join(
+                                INNER,
+                                ImmutableList.of(equiJoinClause("expr", "ORDER_KEY")),
+                                project(filter(
+                                        "expr IN (BIGINT '1', BIGINT '2')",
+                                        values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")), ImmutableList.of(new GenericLiteral("BIGINT", "2")))))),
+                                anyTree(filter(
+                                        "ORDER_KEY IN (BIGINT '1', BIGINT '2')",
+                                        strictConstrainedTableScan(
+                                                "orders",
+                                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                                ImmutableMap.of()))))));
     }
 
     @Test
