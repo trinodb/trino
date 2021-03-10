@@ -134,7 +134,8 @@ public class ApplyTableScanRedirection
                             scanNode.getOutputSymbols(),
                             newAssignments,
                             TupleDomain.all(),
-                            scanNode.isUpdateTarget()));
+                            scanNode.isUpdateTarget(),
+                            Optional.empty()));
         }
 
         ImmutableMap.Builder<Symbol, ColumnHandle> newAssignmentsBuilder = ImmutableMap.<Symbol, ColumnHandle>builder()
@@ -185,7 +186,8 @@ public class ApplyTableScanRedirection
                 newOutputSymbols,
                 newAssignmentsBuilder.build(),
                 TupleDomain.all(),
-                scanNode.isUpdateTarget());
+                scanNode.isUpdateTarget(),
+                Optional.empty());
 
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),

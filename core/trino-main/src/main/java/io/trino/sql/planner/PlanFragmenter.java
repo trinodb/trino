@@ -786,7 +786,10 @@ public class PlanFragmenter
                     node.getOutputSymbols(),
                     node.getAssignments(),
                     node.getEnforcedConstraint(),
-                    node.isUpdateTarget());
+                    node.isUpdateTarget(),
+                    // plan was already fragmented with scan node's partitioning
+                    // and new partitioning is compatible with previous one
+                    node.getUseConnectorNodePartitioning());
         }
     }
 }

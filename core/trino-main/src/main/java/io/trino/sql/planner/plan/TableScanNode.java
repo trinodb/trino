@@ -15,6 +15,7 @@ package io.trino.sql.planner.plan;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.metadata.TableHandle;
@@ -26,6 +27,7 @@ import javax.annotation.concurrent.Immutable;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -42,6 +44,7 @@ public class TableScanNode
 
     private final TupleDomain<ColumnHandle> enforcedConstraint;
     private final boolean updateTarget;
+    private final Optional<Boolean> useConnectorNodePartitioning;
 
     // We need this factory method to disambiguate with the constructor used for deserializing
     // from a json object. The deserializer sets some fields which are never transported
@@ -51,9 +54,10 @@ public class TableScanNode
             TableHandle table,
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
-            boolean updateTarget)
+            boolean updateTarget,
+            Optional<Boolean> useConnectorNodePartitioning)
     {
-        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), updateTarget);
+        return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), updateTarget, useConnectorNodePartitioning);
     }
 
     /*
@@ -67,7 +71,8 @@ public class TableScanNode
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
-            @JsonProperty("updateTarget") boolean updateTarget)
+            @JsonProperty("updateTarget") boolean updateTarget,
+            @JsonProperty("useConnectorNodePartitioning") Optional<Boolean> useConnectorNodePartitioning)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -76,6 +81,7 @@ public class TableScanNode
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.enforcedConstraint = null;
         this.updateTarget = updateTarget;
+        this.useConnectorNodePartitioning = requireNonNull(useConnectorNodePartitioning, "useConnectorNodePartitioning is null");
     }
 
     public TableScanNode(
@@ -84,7 +90,8 @@ public class TableScanNode
             List<Symbol> outputs,
             Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> enforcedConstraint,
-            boolean updateTarget)
+            boolean updateTarget,
+            Optional<Boolean> useConnectorNodePartitioning)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
@@ -93,6 +100,7 @@ public class TableScanNode
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.updateTarget = updateTarget;
+        this.useConnectorNodePartitioning = requireNonNull(useConnectorNodePartitioning, "useTableNodePartitioning is null");
     }
 
     @JsonProperty("table")
@@ -135,6 +143,18 @@ public class TableScanNode
         return updateTarget;
     }
 
+    @JsonProperty("useConnectorNodePartitioning")
+    public Optional<Boolean> getUseConnectorNodePartitioning()
+    {
+        return useConnectorNodePartitioning;
+    }
+
+    public boolean isUseConnectorNodePartitioning()
+    {
+        return useConnectorNodePartitioning
+                .orElseThrow(() -> new VerifyException("useConnectorNodePartitioning is not present"));
+    }
+
     @Override
     public List<PlanNode> getSources()
     {
@@ -164,5 +184,17 @@ public class TableScanNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
+    }
+
+    public TableScanNode withUseConnectorNodePartitioning(boolean useConnectorNodePartitioning)
+    {
+        return new TableScanNode(
+                getId(),
+                table,
+                outputSymbols,
+                assignments,
+                enforcedConstraint,
+                updateTarget,
+                Optional.of(useConnectorNodePartitioning));
     }
 }
