@@ -41,6 +41,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -96,7 +97,7 @@ public class TestJdbcRecordSetProvider
         assertNotNull(cursor, "cursor is null");
 
         Map<String, Long> data = new LinkedHashMap<>();
-        while (cursor.advanceNextPosition()) {
+        while (cursor.nextPosition() == DATA_AVAILABLE) {
             data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(2));
             assertEquals(cursor.getSlice(0), cursor.getSlice(1));
         }

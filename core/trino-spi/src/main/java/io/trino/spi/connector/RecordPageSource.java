@@ -21,6 +21,9 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.YIELD;
 import static java.util.Objects.requireNonNull;
 
 public class RecordPageSource
@@ -85,9 +88,16 @@ public class RecordPageSource
     {
         if (!closed) {
             for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull(); i++) {
-                if (!cursor.advanceNextPosition()) {
+                RecordCursor.AdvanceStatus advanceStatus = cursor.nextPosition();
+                if (advanceStatus == YIELD) {
+                    break;
+                }
+                if (advanceStatus == NO_MORE_DATA) {
                     closed = true;
                     break;
+                }
+                if (advanceStatus != DATA_AVAILABLE) {
+                    throw new IllegalStateException("Unsupported advance status: " + advanceStatus);
                 }
 
                 pageBuilder.declarePosition();

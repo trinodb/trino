@@ -26,9 +26,11 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -82,7 +84,7 @@ public class HiveBucketAdapterRecordCursor
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceStatus nextPosition()
     {
         while (true) {
             if (Thread.interrupted()) {
@@ -91,10 +93,12 @@ public class HiveBucketAdapterRecordCursor
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, "RecordCursor was interrupted");
             }
 
-            boolean hasNextPosition = delegate.advanceNextPosition();
-            if (!hasNextPosition) {
-                return false;
+            AdvanceStatus advanceStatus = delegate.nextPosition();
+            if (advanceStatus == AdvanceStatus.NO_MORE_DATA || advanceStatus == AdvanceStatus.YIELD) {
+                return advanceStatus;
             }
+            verify(advanceStatus == DATA_AVAILABLE);
+
             for (int i = 0; i < scratch.length; i++) {
                 int index = bucketColumnIndices[i];
                 if (delegate.isNull(index)) {
@@ -128,7 +132,7 @@ public class HiveBucketAdapterRecordCursor
                         bucket, bucketToKeep % partitionBucketCount, partitionBucketCount));
             }
             if (bucket == bucketToKeep) {
-                return true;
+                return DATA_AVAILABLE;
             }
         }
     }

@@ -29,6 +29,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static java.lang.String.format;
 
 class TableStatisticsRecorder
@@ -47,7 +48,7 @@ class TableStatisticsRecorder
         List<ColumnStatisticsRecorder> statisticsRecorders = createStatisticsRecorders(columns);
         long rowCount = 0;
 
-        while (recordCursor.advanceNextPosition()) {
+        while (recordCursor.nextPosition() == DATA_AVAILABLE) {
             rowCount++;
             for (int columnId = 0; columnId < columns.size(); columnId++) {
                 Comparable<?> value = getTrinoValue(recordCursor, columns, columnId);

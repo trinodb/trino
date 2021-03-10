@@ -25,6 +25,7 @@ import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
@@ -70,7 +71,7 @@ public class TestExampleRecordSet
         assertEquals(cursor.getType(1), BIGINT);
 
         Map<String, Long> data = new LinkedHashMap<>();
-        while (cursor.advanceNextPosition()) {
+        while (cursor.nextPosition() == DATA_AVAILABLE) {
             data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(1));
             assertFalse(cursor.isNull(0));
             assertFalse(cursor.isNull(1));
@@ -92,7 +93,7 @@ public class TestExampleRecordSet
         RecordCursor cursor = recordSet.cursor();
 
         Map<String, Long> data = new LinkedHashMap<>();
-        while (cursor.advanceNextPosition()) {
+        while (cursor.nextPosition() == DATA_AVAILABLE) {
             assertEquals(cursor.getLong(0), cursor.getLong(1));
             data.put(cursor.getSlice(2).toStringUtf8(), cursor.getLong(0));
         }

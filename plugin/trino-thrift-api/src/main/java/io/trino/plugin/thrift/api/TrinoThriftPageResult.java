@@ -20,6 +20,7 @@ import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordCursor.AdvanceStatus;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
@@ -153,9 +154,17 @@ public final class TrinoThriftPageResult
     {
         RecordCursor cursor = recordSet.cursor();
         int result = 0;
-        while (cursor.advanceNextPosition()) {
-            result++;
+        while (true) {
+            AdvanceStatus advanceStatus = cursor.nextPosition();
+            switch (advanceStatus) {
+                case DATA_AVAILABLE:
+                    result++;
+                    break;
+                case NO_MORE_DATA:
+                    return result;
+                case YIELD:
+                    throw new IllegalStateException("Yielding not supported");
+            }
         }
-        return result;
     }
 }

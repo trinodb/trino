@@ -42,6 +42,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.operator.GroupByHash.createGroupByHash;
 import static io.trino.operator.index.IndexSnapshot.UNLOADED_INDEX_KEY;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static java.util.Objects.requireNonNull;
 
 public class UnloadedIndexKeyRecordSet
@@ -166,11 +168,11 @@ public class UnloadedIndexKeyRecordSet
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceStatus nextPosition()
         {
             while (positionIterator == null || !positionIterator.hasNext()) {
                 if (!pageAndPositionsIterator.hasNext()) {
-                    return false;
+                    return NO_MORE_DATA;
                 }
                 PageAndPositions pageAndPositions = pageAndPositionsIterator.next();
                 page = pageAndPositions.getUpdateRequest().getPage();
@@ -180,7 +182,7 @@ public class UnloadedIndexKeyRecordSet
 
             position = positionIterator.nextInt();
 
-            return true;
+            return DATA_AVAILABLE;
         }
 
         public Page getPage()

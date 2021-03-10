@@ -26,6 +26,7 @@ import io.trino.plugin.tpch.TpchRecordSetProvider;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordCursor.AdvanceStatus;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -45,6 +46,8 @@ import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static java.util.Objects.requireNonNull;
 
 public class TpchIndexedData
@@ -114,7 +117,12 @@ public class TpchIndexedData
         List<Type> keyTypes = extractPositionValues(outputTypes, keyPositions);
 
         RecordCursor cursor = recordSet.cursor();
-        while (cursor.advanceNextPosition()) {
+        while (true) {
+            AdvanceStatus advanceStatus = cursor.nextPosition();
+            if (advanceStatus == NO_MORE_DATA) {
+                break;
+            }
+            checkState(advanceStatus == DATA_AVAILABLE, "Unsupported advance status: %s", advanceStatus);
             List<Object> values = extractValues(cursor, outputTypes);
             List<Object> keyValues = extractPositionValues(values, keyPositions);
 
@@ -212,9 +220,11 @@ public class TpchIndexedData
                 @Override
                 protected MaterializedTuple computeNext()
                 {
-                    if (!cursor.advanceNextPosition()) {
+                    AdvanceStatus advanceStatus = cursor.nextPosition();
+                    if (advanceStatus == NO_MORE_DATA) {
                         return endOfData();
                     }
+                    checkState(advanceStatus == DATA_AVAILABLE, "Unsupported advance status: %s", advanceStatus);
                     return new MaterializedTuple(extractValues(cursor, recordSet.getColumnTypes()));
                 }
             };

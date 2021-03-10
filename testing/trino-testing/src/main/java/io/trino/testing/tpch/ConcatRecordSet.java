@@ -24,6 +24,8 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkPositionIndex;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.transform;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static java.util.Objects.requireNonNull;
 
 class ConcatRecordSet
@@ -95,19 +97,19 @@ class ConcatRecordSet
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceStatus nextPosition()
         {
             checkState(!closed);
-            while (currentCursor == null || !currentCursor.advanceNextPosition()) {
+            while (currentCursor == null || currentCursor.nextPosition() == NO_MORE_DATA) {
                 if (!iterator.hasNext()) {
-                    return false;
+                    return NO_MORE_DATA;
                 }
                 if (currentCursor != null) {
                     currentCursor.close();
                 }
                 currentCursor = iterator.next();
             }
-            return true;
+            return DATA_AVAILABLE;
         }
 
         @Override

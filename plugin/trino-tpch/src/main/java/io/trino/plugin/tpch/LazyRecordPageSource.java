@@ -22,11 +22,16 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordCursor.AdvanceStatus;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.YIELD;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -89,10 +94,15 @@ class LazyRecordPageSource
     {
         if (!closed) {
             for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull() && pageBuilder.getPositionCount() < maxRowsPerPage; i++) {
-                if (!cursor.advanceNextPosition()) {
+                AdvanceStatus advanceStatus = cursor.nextPosition();
+                if (advanceStatus == YIELD) {
+                    break;
+                }
+                if (advanceStatus == NO_MORE_DATA) {
                     closed = true;
                     break;
                 }
+                verify(advanceStatus == DATA_AVAILABLE);
 
                 pageBuilder.declarePosition();
                 for (int column = 0; column < types.size(); column++) {

@@ -28,10 +28,12 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import java.util.List;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
 import static io.trino.plugin.hive.HivePageSource.BucketValidator.VALIDATION_STRIDE;
 import static io.trino.plugin.hive.util.HiveBucketing.getHiveBucket;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -88,15 +90,17 @@ public class HiveBucketValidationRecordCursor
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceStatus nextPosition()
     {
-        if (!delegate.advanceNextPosition()) {
-            return false;
+        AdvanceStatus advanceStatus = delegate.nextPosition();
+        if (advanceStatus == AdvanceStatus.NO_MORE_DATA || advanceStatus == AdvanceStatus.YIELD) {
+            return advanceStatus;
         }
+        verify(advanceStatus == DATA_AVAILABLE);
 
         if (validationCounter > 0) {
             validationCounter--;
-            return true;
+            return DATA_AVAILABLE;
         }
         validationCounter = VALIDATION_STRIDE - 1;
 
@@ -133,6 +137,6 @@ public class HiveBucketValidationRecordCursor
                     format("Hive table is corrupt. File '%s' is for bucket %s, but contains a row for bucket %s.", path, expectedBucket, bucket));
         }
 
-        return true;
+        return DATA_AVAILABLE;
     }
 }

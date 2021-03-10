@@ -23,6 +23,7 @@ import java.util.OptionalInt;
 import java.util.stream.Collectors;
 
 import static io.trino.plugin.localfile.LocalFileTables.HttpRequestLogTable.getSchemaTableName;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -67,7 +68,7 @@ public class TestLocalFileRecordSet
         }
 
         // test one row
-        assertTrue(cursor.advanceNextPosition());
+        assertEquals(cursor.nextPosition(), DATA_AVAILABLE);
         assertEquals(cursor.getSlice(0).toStringUtf8(), address.toString());
         assertEquals(cursor.getSlice(2).toStringUtf8(), "127.0.0.1");
         assertEquals(cursor.getSlice(3).toStringUtf8(), "POST");
@@ -80,7 +81,8 @@ public class TestLocalFileRecordSet
         assertEquals(cursor.getLong(10), 10);
         assertTrue(cursor.isNull(11));
 
-        assertTrue(cursor.advanceNextPosition());
+        assertEquals(cursor.nextPosition(), DATA_AVAILABLE);
+        assertEquals(cursor.getSlice(0).toStringUtf8(), address.toString());
         assertEquals(cursor.getSlice(0).toStringUtf8(), address.toString());
         assertEquals(cursor.getSlice(2).toStringUtf8(), "127.0.0.1");
         assertEquals(cursor.getSlice(3).toStringUtf8(), "GET");

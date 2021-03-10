@@ -37,6 +37,7 @@ import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
@@ -82,7 +83,7 @@ public class TestPrometheusRecordSetProvider
         assertNotNull(cursor, "cursor is null");
 
         Map<Instant, Map<?, ?>> actual = new LinkedHashMap<>();
-        while (cursor.advanceNextPosition()) {
+        while (cursor.nextPosition() == DATA_AVAILABLE) {
             actual.put((Instant) cursor.getObject(1), getMapFromBlock(varcharMapType, (Block) cursor.getObject(0)));
         }
         Map<Instant, Map<String, String>> expected = ImmutableMap.<Instant, Map<String, String>>builder()

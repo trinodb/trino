@@ -20,9 +20,12 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -36,7 +39,7 @@ public class TestListBasedRecordSet
         ListBasedRecordSet recordSet = new ListBasedRecordSet(ImmutableList.of(), ImmutableList.of(BIGINT, INTEGER));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, INTEGER));
         RecordCursor cursor = recordSet.cursor();
-        assertFalse(cursor.advanceNextPosition());
+        assertThat(cursor.nextPosition()).isEqualTo(NO_MORE_DATA);
     }
 
     @Test
@@ -49,7 +52,7 @@ public class TestListBasedRecordSet
                 ImmutableList.of(BIGINT, VARCHAR));
         assertEquals(recordSet.getColumnTypes(), ImmutableList.of(BIGINT, VARCHAR));
         RecordCursor cursor = recordSet.cursor();
-        assertTrue(cursor.advanceNextPosition());
+        assertThat(cursor.nextPosition()).isEqualTo(DATA_AVAILABLE);
         assertEquals(cursor.getType(0), BIGINT);
         assertEquals(cursor.getType(1), VARCHAR);
         assertThatThrownBy(() -> cursor.getLong(2))
@@ -57,13 +60,13 @@ public class TestListBasedRecordSet
                 .hasMessage("Index 2 out of bounds for length 2");
         assertEquals(cursor.getLong(0), 1L);
         assertEquals(cursor.getSlice(1), Slices.utf8Slice("ab"));
-        assertTrue(cursor.advanceNextPosition());
+        assertThat(cursor.nextPosition()).isEqualTo(DATA_AVAILABLE);
         assertTrue(cursor.isNull(0));
         assertEquals(cursor.getSlice(1), Slices.utf8Slice("c"));
-        assertTrue(cursor.advanceNextPosition());
+        assertThat(cursor.nextPosition()).isEqualTo(DATA_AVAILABLE);
         assertEquals(cursor.getLong(0), 3L);
         assertTrue(cursor.isNull(1));
-        assertFalse(cursor.advanceNextPosition());
+        assertThat(cursor.nextPosition()).isEqualTo(DATA_AVAILABLE);
         assertThatThrownBy(() -> cursor.getLong(0))
                 .isInstanceOf(IndexOutOfBoundsException.class)
                 .hasMessage("Index 3 out of bounds for length 3");

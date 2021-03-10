@@ -37,6 +37,7 @@ import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.trino.plugin.prometheus.PrometheusRecordCursor.getBlockFromMap;
 import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static java.time.Instant.ofEpochMilli;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -66,7 +67,7 @@ public class TestPrometheusRecordSet
         assertEquals(cursor.getType(2), DoubleType.DOUBLE);
 
         List<PrometheusStandardizedRow> actual = new ArrayList<>();
-        while (cursor.advanceNextPosition()) {
+        while (cursor.nextPosition() == DATA_AVAILABLE) {
             actual.add(new PrometheusStandardizedRow(
                     (Block) cursor.getObject(0),
                     (Instant) cursor.getObject(1),

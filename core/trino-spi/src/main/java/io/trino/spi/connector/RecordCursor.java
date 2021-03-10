@@ -18,6 +18,9 @@ import io.trino.spi.type.Type;
 
 import java.io.Closeable;
 
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
+
 public interface RecordCursor
         extends Closeable
 {
@@ -33,7 +36,21 @@ public interface RecordCursor
 
     Type getType(int field);
 
-    boolean advanceNextPosition();
+    default AdvanceStatus nextPosition()
+    {
+        return advanceNextPosition() ? DATA_AVAILABLE : NO_MORE_DATA;
+    }
+
+    /**
+     * Please use {@link #nextPosition()} instead.
+     *
+     * @return
+     */
+    @Deprecated
+    default boolean advanceNextPosition()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     boolean getBoolean(int field);
 
@@ -55,4 +72,11 @@ public interface RecordCursor
 
     @Override
     void close();
+
+    enum AdvanceStatus
+    {
+        YIELD,
+        DATA_AVAILABLE,
+        NO_MORE_DATA,
+    }
 }

@@ -53,6 +53,8 @@ import static io.trino.plugin.kafka.KafkaInternalFieldManager.MESSAGE_LENGTH_FIE
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.OFFSET_TIMESTAMP_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
 import static io.trino.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
@@ -148,25 +150,25 @@ public class KafkaRecordSet
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceStatus nextPosition()
         {
             if (!records.hasNext()) {
                 if (kafkaConsumer.position(topicPartition) >= split.getMessagesRange().getEnd()) {
-                    return false;
+                    return NO_MORE_DATA;
                 }
                 records = kafkaConsumer.poll(CONSUMER_POLL_TIMEOUT).iterator();
-                return advanceNextPosition();
+                return nextPosition();
             }
 
             return nextRow(records.next());
         }
 
-        private boolean nextRow(ConsumerRecord<byte[], byte[]> message)
+        private AdvanceStatus nextRow(ConsumerRecord<byte[], byte[]> message)
         {
             requireNonNull(message, "message is null");
 
             if (message.offset() >= split.getMessagesRange().getEnd()) {
-                return false;
+                return NO_MORE_DATA;
             }
 
             completedBytes += max(message.serializedKeySize(), 0) + max(message.serializedValueSize(), 0);
@@ -235,7 +237,7 @@ public class KafkaRecordSet
                 currentRowValues[i] = currentRowValuesMap.get(columnHandle);
             }
 
-            return true; // Advanced successfully.
+            return DATA_AVAILABLE;
         }
 
         @Override

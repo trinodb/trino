@@ -41,6 +41,12 @@ public abstract class ForwardingRecordCursor
     }
 
     @Override
+    public AdvanceStatus nextPosition()
+    {
+        return delegate().nextPosition();
+    }
+
+    @Override
     public boolean advanceNextPosition()
     {
         return delegate().advanceNextPosition();

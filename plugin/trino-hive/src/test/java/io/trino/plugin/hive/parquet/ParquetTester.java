@@ -103,6 +103,7 @@ import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
 import static io.trino.plugin.hive.util.HiveUtil.isMapType;
 import static io.trino.plugin.hive.util.HiveUtil.isRowType;
 import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -481,7 +482,7 @@ public class ParquetTester
 
     private static void assertRecordCursor(List<Type> types, Iterator<?>[] valuesByField, RecordCursor cursor)
     {
-        while (cursor.advanceNextPosition()) {
+        while (cursor.nextPosition() == DATA_AVAILABLE) {
             for (int field = 0; field < types.size(); field++) {
                 assertTrue(valuesByField[field].hasNext());
                 Object expected = valuesByField[field].next();

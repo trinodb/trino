@@ -27,7 +27,10 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
@@ -125,14 +128,19 @@ public class FieldSetFilteringRecordSet
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceStatus nextPosition()
         {
-            while (delegate.advanceNextPosition()) {
+            while (true) {
+                AdvanceStatus advanceStatus = delegate.nextPosition();
+                if (advanceStatus == NO_MORE_DATA) {
+                    break;
+                }
+                checkState(advanceStatus == DATA_AVAILABLE, "Unsupported advance status: %s", advanceStatus);
                 if (fieldSetsEqual(delegate, fieldSets)) {
-                    return true;
+                    return DATA_AVAILABLE;
                 }
             }
-            return false;
+            return NO_MORE_DATA;
         }
 
         private static boolean fieldSetsEqual(RecordCursor cursor, List<Set<Field>> fieldSets)

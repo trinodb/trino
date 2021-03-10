@@ -56,6 +56,7 @@ import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataB
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.systemtables.ShardMetadataRecordCursor.SHARD_METADATA;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.lessThanOrEqual;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -220,7 +221,7 @@ public class TestShardMetadataRecordCursor
             assertEquals(cursor.getType(i), types.get(i));
         }
 
-        while (cursor.advanceNextPosition()) {
+        while (cursor.nextPosition() == DATA_AVAILABLE) {
             List<Object> values = new ArrayList<>();
             for (int i = 0; i < columns.size(); i++) {
                 Type type = columns.get(i).getType();

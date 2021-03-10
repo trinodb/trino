@@ -51,6 +51,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.StandardTypes.HYPER_LOG_LOG;
 import static io.trino.spi.type.StandardTypes.JSON;
@@ -341,7 +343,7 @@ public final class TrinoThriftBlock
         Class<?> javaType = type.getJavaType();
         RecordCursor cursor = recordSet.cursor();
         for (int position = 0; position < positions; position++) {
-            checkState(cursor.advanceNextPosition(), "cursor has less values than expected");
+            checkState(cursor.nextPosition() == DATA_AVAILABLE, "cursor has less values than expected");
             if (cursor.isNull(columnIndex)) {
                 output.appendNull();
             }
@@ -364,7 +366,7 @@ public final class TrinoThriftBlock
                 }
             }
         }
-        checkState(!cursor.advanceNextPosition(), "cursor has more values than expected");
+        checkState(cursor.nextPosition() == NO_MORE_DATA, "cursor has more values than expected");
         return output.build();
     }
 

@@ -84,9 +84,9 @@ public class MappedRecordSet
         }
 
         @Override
-        public boolean advanceNextPosition()
+        public AdvanceStatus nextPosition()
         {
-            return delegate.advanceNextPosition();
+            return delegate.nextPosition();
         }
 
         @Override

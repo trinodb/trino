@@ -20,6 +20,7 @@ import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.RecordCursor;
+import io.trino.spi.connector.RecordCursor.AdvanceStatus;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.ArrayType;
@@ -63,6 +64,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.scalar.JsonFunctions.jsonParse;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.plugin.tpch.TpchRecordSet.createTpchRecordSet;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.Chars.padSpaces;
@@ -405,12 +408,14 @@ public class H2QueryRunner
             // insert 1000 rows at a time
             PreparedBatch batch = handle.prepareBatch(sql);
             for (int row = 0; row < 1000; row++) {
-                if (!cursor.advanceNextPosition()) {
+                AdvanceStatus advanceStatus = cursor.nextPosition();
+                if (advanceStatus == NO_MORE_DATA) {
                     if (batch.size() > 0) {
                         batch.execute();
                     }
                     return;
                 }
+                checkState(advanceStatus == DATA_AVAILABLE, "Unsupported advance status: %s", advanceStatus);
                 for (int column = 0; column < columns.size(); column++) {
                     Type type = columns.get(column).getType();
                     if (BOOLEAN.equals(type)) {

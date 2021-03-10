@@ -26,6 +26,7 @@ import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -51,7 +52,7 @@ public class TestExampleRecordSetProvider
         assertNotNull(cursor, "cursor is null");
 
         Map<String, Long> data = new LinkedHashMap<>();
-        while (cursor.advanceNextPosition()) {
+        while (cursor.nextPosition() == DATA_AVAILABLE) {
             data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(1));
         }
         assertEquals(data, ImmutableMap.<String, Long>builder()

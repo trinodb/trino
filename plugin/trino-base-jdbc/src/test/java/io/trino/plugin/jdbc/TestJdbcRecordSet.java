@@ -28,6 +28,7 @@ import java.util.Map;
 
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -99,7 +100,7 @@ public class TestJdbcRecordSet
             assertEquals(cursor.getType(2), BIGINT);
 
             Map<String, Long> data = new LinkedHashMap<>();
-            while (cursor.advanceNextPosition()) {
+            while (cursor.nextPosition() == DATA_AVAILABLE) {
                 data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(2));
                 assertEquals(cursor.getSlice(0), cursor.getSlice(1));
                 assertFalse(cursor.isNull(0));
@@ -132,7 +133,7 @@ public class TestJdbcRecordSet
             assertEquals(cursor.getType(2), VARCHAR);
 
             Map<String, Long> data = new LinkedHashMap<>();
-            while (cursor.advanceNextPosition()) {
+            while (cursor.nextPosition() == DATA_AVAILABLE) {
                 assertEquals(cursor.getLong(0), cursor.getLong(1));
                 data.put(cursor.getSlice(2).toStringUtf8(), cursor.getLong(0));
             }

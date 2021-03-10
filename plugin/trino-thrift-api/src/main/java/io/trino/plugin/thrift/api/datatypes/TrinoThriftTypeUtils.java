@@ -22,6 +22,8 @@ import io.trino.spi.type.Type;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 
 final class TrinoThriftTypeUtils
 {
@@ -63,7 +65,7 @@ final class TrinoThriftTypeUtils
         long[] longs = null;
         RecordCursor cursor = recordSet.cursor();
         for (int position = 0; position < positions; position++) {
-            checkState(cursor.advanceNextPosition(), "cursor has less values than expected");
+            checkState(cursor.nextPosition() == DATA_AVAILABLE, "cursor has less values than expected");
             if (cursor.isNull(columnIndex)) {
                 if (nulls == null) {
                     nulls = new boolean[positions];
@@ -77,7 +79,7 @@ final class TrinoThriftTypeUtils
                 longs[position] = cursor.getLong(columnIndex);
             }
         }
-        checkState(!cursor.advanceNextPosition(), "cursor has more values than expected");
+        checkState(cursor.nextPosition() == NO_MORE_DATA, "cursor has more values than expected");
         return result.apply(nulls, longs);
     }
 
@@ -115,7 +117,7 @@ final class TrinoThriftTypeUtils
         int[] ints = null;
         RecordCursor cursor = recordSet.cursor();
         for (int position = 0; position < positions; position++) {
-            checkState(cursor.advanceNextPosition(), "cursor has less values than expected");
+            checkState(cursor.nextPosition() == DATA_AVAILABLE, "cursor has less values than expected");
             if (cursor.isNull(columnIndex)) {
                 if (nulls == null) {
                     nulls = new boolean[positions];
@@ -129,7 +131,7 @@ final class TrinoThriftTypeUtils
                 ints[position] = (int) cursor.getLong(columnIndex);
             }
         }
-        checkState(!cursor.advanceNextPosition(), "cursor has more values than expected");
+        checkState(cursor.nextPosition() == NO_MORE_DATA, "cursor has more values than expected");
         return result.apply(nulls, ints);
     }
 

@@ -88,14 +88,14 @@ public class HiveCoercionRecordCursor
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceStatus nextPosition()
     {
         for (int i = 0; i < columnMappings.size(); i++) {
             if (coercers[i] != null) {
                 coercers[i].reset();
             }
         }
-        return delegate.advanceNextPosition();
+        return delegate.nextPosition();
     }
 
     @Override

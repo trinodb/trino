@@ -50,6 +50,7 @@ import static io.trino.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.trino.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static io.trino.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -140,7 +141,7 @@ public class TestJmxSplitManager
         for (SchemaTableName schemaTableName : metadata.listTables(SESSION, Optional.of(JMX_SCHEMA_NAME))) {
             RecordSet recordSet = getRecordSet(schemaTableName);
             try (RecordCursor cursor = recordSet.cursor()) {
-                while (cursor.advanceNextPosition()) {
+                while (cursor.nextPosition() == DATA_AVAILABLE) {
                     for (int i = 0; i < recordSet.getColumnTypes().size(); i++) {
                         cursor.isNull(i);
                     }
@@ -175,7 +176,7 @@ public class TestJmxSplitManager
     {
         ImmutableList.Builder<Long> result = ImmutableList.builder();
         try (RecordCursor cursor = recordSet.cursor()) {
-            while (cursor.advanceNextPosition()) {
+            while (cursor.nextPosition() == DATA_AVAILABLE) {
                 for (int i = 0; i < recordSet.getColumnTypes().size(); i++) {
                     cursor.isNull(i);
                 }

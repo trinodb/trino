@@ -23,6 +23,7 @@ import io.trino.operator.index.UnloadedIndexKeyRecordSet.UnloadedIndexKeyRecordC
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 
 import java.util.ArrayList;
@@ -33,6 +34,8 @@ import java.util.OptionalInt;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static java.util.Objects.requireNonNull;
 
 public class IndexSnapshotBuilder
@@ -136,7 +139,12 @@ public class IndexSnapshotBuilder
         // Build a page containing the keys that produced no output rows, so in future requests can skip these keys
         verify(missingKeysPageBuilder.isEmpty());
         UnloadedIndexKeyRecordCursor indexKeysRecordCursor = indexKeysRecordSet.cursor();
-        while (indexKeysRecordCursor.advanceNextPosition()) {
+        while (true) {
+            RecordCursor.AdvanceStatus advanceStatus = indexKeysRecordCursor.nextPosition();
+            if (advanceStatus == NO_MORE_DATA) {
+                break;
+            }
+            checkState(advanceStatus == DATA_AVAILABLE, "Unsupported advance status: %s", advanceStatus);
             Page page = indexKeysRecordCursor.getPage();
             int position = indexKeysRecordCursor.getPosition();
             if (lookupSource.getJoinPosition(position, page, page) < 0) {
