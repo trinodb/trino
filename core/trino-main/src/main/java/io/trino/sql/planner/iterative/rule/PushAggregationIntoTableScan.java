@@ -204,7 +204,9 @@ public class PushAggregationIntoTableScan
                                 result.getHandle(),
                                 newScanOutputs.build(),
                                 scanAssignments,
-                                tableScan.isUpdateTarget()),
+                                tableScan.isUpdateTarget(),
+                                // table scan partitioning might have changed with new table handle
+                                Optional.empty()),
                         assignmentBuilder.build()));
     }
 

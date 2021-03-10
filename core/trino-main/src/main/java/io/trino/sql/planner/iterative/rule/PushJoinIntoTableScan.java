@@ -194,7 +194,8 @@ public class PushJoinIntoTableScan
                                 ImmutableList.copyOf(assignments.keySet()),
                                 assignments,
                                 newEnforcedConstraint,
-                                false),
+                                false,
+                                Optional.empty()),
                         Assignments.identity(joinNode.getOutputSymbols())));
     }
 
