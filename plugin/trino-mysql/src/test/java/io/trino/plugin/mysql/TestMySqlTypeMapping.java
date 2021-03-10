@@ -60,6 +60,7 @@ import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -539,7 +540,6 @@ public class TestMySqlTypeMapping
 
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_datetime"));
 
-        // Note that MySQL treats TIMESTAMP literals as datetime type
         SqlDataTypeTest.create()
                 // TODO support higher precision timestamps (https://github.com/trinodb/trino/issues/6910)
                 // before epoch with second fraction
@@ -547,47 +547,47 @@ public class TestMySqlTypeMapping
                 //.addRoundTrip("timestamp(7)", "TIMESTAMP '1969-12-31 23:59:59.1234567'", createTimestampType(7), "TIMESTAMP '1969-12-31 23:59:59.1234567'")
 
                 // precision 0 ends up as precision 0
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:01'", "TIMESTAMP '1970-01-01 01:00:01.000'")
+                .addRoundTrip("datetime(0)", "TIMESTAMP '1970-01-01 00:00:01'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:01.000'")
 
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.1'", "TIMESTAMP '1970-01-01 01:00:00.100'")
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.9'", "TIMESTAMP '1970-01-01 01:00:00.900'")
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123'", "TIMESTAMP '1970-01-01 01:00:00.123'")
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123000'", "TIMESTAMP '1970-01-01 01:00:00.123'")
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.999'", "TIMESTAMP '1970-01-01 01:00:00.999'")
+                .addRoundTrip("datetime(1)", "TIMESTAMP '1970-01-01 00:00:00.1'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.100'")
+                .addRoundTrip("datetime(1)", "TIMESTAMP '1970-01-01 00:00:00.9'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.900'")
+                .addRoundTrip("datetime(3)", "TIMESTAMP '1970-01-01 00:00:00.123'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.123'")
+                .addRoundTrip("datetime(3)", "TIMESTAMP '1970-01-01 00:00:00.999'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.999'")
                 // max supported precision
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 01:00:00.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.123'")
 
-                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.1'", "TIMESTAMP '2020-09-27 12:34:56.100'")
-                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.9'", "TIMESTAMP '2020-09-27 12:34:56.900'")
-                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123'", "TIMESTAMP '2020-09-27 12:34:56.123'")
-                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123000'", "TIMESTAMP '2020-09-27 12:34:56.123'")
-                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.999'", "TIMESTAMP '2020-09-27 12:34:56.999'")
+                .addRoundTrip("datetime(1)", "TIMESTAMP '2020-09-27 12:34:56.1'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.100'")
+                .addRoundTrip("datetime(1)", "TIMESTAMP '2020-09-27 12:34:56.9'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.900'")
+                .addRoundTrip("datetime(3)", "TIMESTAMP '2020-09-27 12:34:56.123'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.123'")
+                .addRoundTrip("datetime(3)", "TIMESTAMP '2020-09-27 12:34:56.999'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.999'")
                 // max supported precision
-                .addRoundTrip("TIMESTAMP '2020-09-27 12:34:56.123456'", "TIMESTAMP '2020-09-27 12:34:56.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'", createTimestampType(3), "TIMESTAMP '2020-09-27 12:34:56.123'")
 
                 // round down
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123451'", "TIMESTAMP '1970-01-01 01:00:00.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 00:00:00.123451'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.123'")
 
                 // nanos round up, end result rounds down
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123499'", "TIMESTAMP '1970-01-01 01:00:00.123'")
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123399'", "TIMESTAMP '1970-01-01 01:00:00.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 00:00:00.123499'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 00:00:00.123399'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.123'")
 
                 // round up
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123999'", "TIMESTAMP '1970-01-01 01:00:00.124'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 00:00:00.123999'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.124'")
 
                 // max precision
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.123456'", "TIMESTAMP '1970-01-01 01:00:00.123'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:00.123'")
 
                 // round up to next second
-                .addRoundTrip("TIMESTAMP '1970-01-01 00:00:00.999999'", "TIMESTAMP '1970-01-01 01:00:01.000'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 00:00:00.999999'", createTimestampType(3), "TIMESTAMP '1970-01-01 01:00:01.000'")
 
                 // round up to next day
-                .addRoundTrip("TIMESTAMP '1970-01-01 23:59:59.999999'", "TIMESTAMP '1970-01-02 00:00:00.000'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1970-01-01 23:59:59.999999'", createTimestampType(3), "TIMESTAMP '1970-01-02 00:00:00.000'")
 
                 // negative epoch - round up
-                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999995'", "TIMESTAMP '1970-01-01 00:00:00.000'")
-                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999949'", "TIMESTAMP '1970-01-01 00:00:00.000'")
-                .addRoundTrip("TIMESTAMP '1969-12-31 23:59:59.999994'", "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999995'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999949'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip("datetime(6)", "TIMESTAMP '1969-12-31 23:59:59.999994'", createTimestampType(3), "TIMESTAMP '1970-01-01 00:00:00.000'")
 
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_timestamp"));
     }
