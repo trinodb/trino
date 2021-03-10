@@ -2613,7 +2613,7 @@ public class HiveMetadata
                                 .map(hiveTypeMap::get)
                                 .collect(toImmutableList()),
                         OptionalInt.of(bucketProperty.get().getBucketCount()),
-                        !partitionedBy.isEmpty()),
+                        !partitionedBy.isEmpty() && isParallelPartitionedBucketedInsert(session)),
                 ImmutableList.<String>builder()
                         .addAll(bucketedBy)
                         .addAll(partitionedBy)
