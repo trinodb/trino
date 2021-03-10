@@ -18,6 +18,7 @@ import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveBucketProperty;
+import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -77,13 +78,13 @@ public final class GlueToTrinoConverter
                 .setOwner(nullToEmpty(glueTable.getOwner()))
                 // Athena treats missing table type as EXTERNAL_TABLE.
                 .setTableType(firstNonNull(glueTable.getTableType(), EXTERNAL_TABLE.name()))
-                .setDataColumns(convertColumns(sd.getColumns()))
+                .setDataColumns(convertColumns(sd.getColumns(), sd.getSerdeInfo().getSerializationLibrary()))
                 .setParameters(tableParameters)
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
                 .setViewExpandedText(Optional.ofNullable(glueTable.getViewExpandedText()));
 
         if (glueTable.getPartitionKeys() != null) {
-            tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys()));
+            tableBuilder.setPartitionColumns(convertColumns(glueTable.getPartitionKeys(), sd.getSerdeInfo().getSerializationLibrary()));
         }
         else {
             tableBuilder.setPartitionColumns(ImmutableList.of());
@@ -93,14 +94,22 @@ public final class GlueToTrinoConverter
         return tableBuilder.build();
     }
 
-    private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn)
+    private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn, String serDe)
     {
-        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
+        // OpenCSVSerde deserializes columns from csv file into strings, so we set the column type from the metastore
+        // to string to avoid cast exceptions.
+        if (HiveStorageFormat.CSV.getSerDe().equals(serDe)) {
+            //TODO(https://github.com/trinodb/trino/issues/7240) Add tests
+            return new Column(glueColumn.getName(), HiveType.HIVE_STRING, Optional.ofNullable(glueColumn.getComment()));
+        }
+        else {
+            return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
+        }
     }
 
-    private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns)
+    private static List<Column> convertColumns(List<com.amazonaws.services.glue.model.Column> glueColumns, String serDe)
     {
-        return mappedCopy(glueColumns, GlueToTrinoConverter::convertColumn);
+        return mappedCopy(glueColumns, glueColumn -> convertColumn(glueColumn, serDe));
     }
 
     private static Map<String, String> convertParameters(Map<String, String> parameters)
@@ -124,8 +133,7 @@ public final class GlueToTrinoConverter
     public static final class GluePartitionConverter
             implements Function<com.amazonaws.services.glue.model.Partition, Partition>
     {
-        private final Function<List<com.amazonaws.services.glue.model.Column>, List<Column>> columnsConverter = memoizeLast(
-                GlueToTrinoConverter::convertColumns);
+        private final Function<List<com.amazonaws.services.glue.model.Column>, List<Column>> columnsConverter;
         private final Function<Map<String, String>, Map<String, String>> parametersConverter = parametersConverter();
         private final StorageConverter storageConverter = new StorageConverter();
         private final String databaseName;
@@ -138,6 +146,8 @@ public final class GlueToTrinoConverter
             this.databaseName = requireNonNull(table.getDatabaseName(), "databaseName is null");
             this.tableName = requireNonNull(table.getTableName(), "tableName is null");
             this.tableParameters = convertParameters(table.getParameters());
+            this.columnsConverter = memoizeLast(glueColumns -> convertColumns(glueColumns,
+                    table.getStorage().getStorageFormat().getSerDe()));
         }
 
         @Override
@@ -152,7 +162,6 @@ public final class GlueToTrinoConverter
             if (!tableName.equals(gluePartition.getTableName())) {
                 throw new IllegalArgumentException(format("Unexpected tableName, expected: %s, but found: %s", tableName, gluePartition.getTableName()));
             }
-
             Partition.Builder partitionBuilder = Partition.builder()
                     .setDatabaseName(databaseName)
                     .setTableName(tableName)

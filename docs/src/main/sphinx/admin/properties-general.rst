@@ -52,6 +52,4 @@ all clients together with the release, or immediately afterwards, and then
 remove usage of this property.
 
 Ensure to use this only as a temporary measure to assist in your migration
-efforts, for example if you continue to operate clusters with an older version
-of Trino.
-
+efforts.
