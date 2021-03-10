@@ -56,15 +56,16 @@ public final class EnvironmentModule
         binder.bind(PortBinder.class).in(SINGLETON);
         binder.bind(EnvironmentFactory.class).in(SINGLETON);
         binder.bind(EnvironmentConfigFactory.class).in(SINGLETON);
-        binder.bind(Standard.class).in(SINGLETON);
-        binder.bind(StandardMultinode.class).in(SINGLETON);
+        binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
+
         binder.bind(Hadoop.class).in(SINGLETON);
         binder.bind(HadoopKerberos.class).in(SINGLETON);
         binder.bind(HadoopKerberosKms.class).in(SINGLETON);
-        binder.bind(Kafka.class).in(SINGLETON);
         binder.bind(HydraIdentityProvider.class).in(SINGLETON);
+        binder.bind(Kafka.class).in(SINGLETON);
         binder.bind(SeleniumChrome.class).in(SINGLETON);
-        binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
+        binder.bind(Standard.class).in(SINGLETON);
+        binder.bind(StandardMultinode.class).in(SINGLETON);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         Environments.findByBasePackage(BASE_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz).in(SINGLETON));
