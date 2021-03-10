@@ -284,6 +284,47 @@ public abstract class BaseElasticsearchSmokeTest
     }
 
     @Test
+    public void testMixedArray()
+            throws IOException
+    {
+        String indexName = "test_mixed_arrays";
+
+        @Language("JSON")
+        String mapping = "" +
+                "{" +
+                "      \"_meta\": {" +
+                "        \"presto\": {" +
+                "          \"a\": {" +
+                "                \"isArray\": true" +
+                "          }" +
+                "        }" +
+                "      }," +
+                "      \"properties\": {" +
+                "        \"a\": {" +
+                "          \"type\": \"keyword\"" +
+                "        }" +
+                "      }" +
+                "}";
+
+        createIndex(indexName, mapping);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("a", "hello")
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("a", ImmutableList.of("foo", "bar"))
+                .build());
+
+        assertQuery(
+                "SELECT a FROM test_mixed_arrays",
+                "VALUES NULL, ARRAY['hello'], ARRAY['foo', 'bar']");
+    }
+
+    @Test
     public void testEmptyObjectFields()
             throws IOException
     {
