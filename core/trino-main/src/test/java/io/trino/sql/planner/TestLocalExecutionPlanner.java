@@ -46,9 +46,9 @@ public class TestLocalExecutionPlanner
     public void testProjectionCompilerFailure()
     {
         String inner = "(" + Joiner.on(" + ").join(nCopies(100, "rand()")) + ")";
-        String outer = Joiner.on(" + ").join(nCopies(100, inner));
+        String outer = "x + x + " + Joiner.on(" + ").join(nCopies(100, inner));
 
-        assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer))
+        assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer + " FROM (VALUES rand()) t(x)"))
                 .hasErrorCode(COMPILER_ERROR)
                 .hasMessageStartingWith("Query exceeded maximum columns");
     }
