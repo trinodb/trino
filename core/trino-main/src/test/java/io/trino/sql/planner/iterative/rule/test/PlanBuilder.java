@@ -498,7 +498,8 @@ public class PlanBuilder
                 symbols,
                 symbols.stream().collect(toImmutableMap(identity(), symbol -> new TestingMetadata.TestingColumnHandle(symbol.getName()))),
                 TupleDomain.all(),
-                forDelete);
+                forDelete,
+                Optional.empty());
     }
 
     public TableScanNode tableScan(List<Symbol> symbols, Map<Symbol, ColumnHandle> assignments)
@@ -529,7 +530,8 @@ public class PlanBuilder
                 symbols,
                 assignments,
                 TupleDomain.all(),
-                forDelete);
+                forDelete,
+                Optional.empty());
     }
 
     public TableScanNode tableScan(
@@ -544,7 +546,8 @@ public class PlanBuilder
                 symbols,
                 assignments,
                 enforcedConstraint,
-                false);
+                false,
+                Optional.empty());
     }
 
     public TableFinishNode tableDelete(SchemaTableName schemaTableName, PlanNode deleteSource, Symbol deleteRowId)

@@ -24,6 +24,8 @@ import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SampleNode.Type;
 import io.trino.sql.planner.plan.TableScanNode;
 
+import java.util.Optional;
+
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.plan.Patterns.Sample.sampleType;
@@ -70,7 +72,9 @@ public class PushSampleIntoTableScan
                         tableScan.getOutputSymbols(),
                         tableScan.getAssignments(),
                         tableScan.getEnforcedConstraint(),
-                        tableScan.isUpdateTarget())))
+                        tableScan.isUpdateTarget(),
+                        // table scan partitioning might have changed with new table handle
+                        Optional.empty())))
                 .orElseGet(Result::empty);
     }
 

@@ -269,7 +269,9 @@ public class BeginTableWrite
                         scan.getOutputSymbols(),
                         scan.getAssignments(),
                         scan.getEnforcedConstraint(),
-                        scan.isUpdateTarget());
+                        scan.isUpdateTarget(),
+                        // partitioning should not change with write table handle
+                        scan.getUseConnectorNodePartitioning());
             }
 
             if (node instanceof FilterNode) {

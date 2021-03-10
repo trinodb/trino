@@ -182,7 +182,8 @@ public class TestPhasedExecutionSchedule
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                false);
+                false,
+                Optional.empty());
 
         RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPLICATE);
         PlanNode join = new JoinNode(
@@ -236,7 +237,8 @@ public class TestPhasedExecutionSchedule
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(symbol),
                 ImmutableMap.of(symbol, new TestingColumnHandle("column")),
-                false);
+                false,
+                Optional.empty());
 
         return createFragment(planNode);
     }

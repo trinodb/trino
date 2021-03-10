@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.TopNNode.Step;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -86,7 +87,9 @@ public class PushTopNIntoTableScan
                             result.getHandle(),
                             tableScan.getOutputSymbols(),
                             tableScan.getAssignments(),
-                            tableScan.isUpdateTarget());
+                            tableScan.isUpdateTarget(),
+                            // table scan partitioning might have changed with new table handle
+                            Optional.empty());
 
                     if (!result.isTopNGuaranteed()) {
                         node = topNNode.replaceChildren(ImmutableList.of(node));
