@@ -39,6 +39,7 @@ import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
+import static io.trino.spi.session.PropertyMetadata.doubleProperty;
 import static io.trino.spi.session.PropertyMetadata.enumProperty;
 import static io.trino.spi.session.PropertyMetadata.integerProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -76,6 +77,7 @@ public final class SystemSessionProperties
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
     public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
+    public static final String TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO = "table_scan_node_partitioning_min_bucket_to_task_ratio";
     public static final String SPATIAL_JOIN = "spatial_join";
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
@@ -318,6 +320,11 @@ public final class SystemSessionProperties
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Adapt plan to pre-partitioned tables",
                         featuresConfig.isPlanWithTableNodePartitioning(),
+                        false),
+                doubleProperty(
+                        TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO,
+                        "Min table scan bucket to task ratio for which plan will be adopted to node pre-partitioned tables",
+                        featuresConfig.getTableScanNodePartitioningMinBucketToTaskRatio(),
                         false),
                 enumProperty(
                         JOIN_REORDERING_STRATEGY,
@@ -743,6 +750,11 @@ public final class SystemSessionProperties
     public static boolean isPlanWithTableNodePartitioning(Session session)
     {
         return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
+    }
+
+    public static double getTableScanNodePartitioningMinBucketToTaskRatio(Session session)
+    {
+        return session.getSystemProperty(TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO, Double.class);
     }
 
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
