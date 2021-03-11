@@ -113,6 +113,7 @@ public class TestDomainTranslator
     private static final Symbol C_BIGINT_1 = new Symbol("c_bigint_1");
     private static final Symbol C_DOUBLE_1 = new Symbol("c_double_1");
     private static final Symbol C_VARCHAR_1 = new Symbol("c_varchar_1");
+    private static final Symbol C_BOOLEAN_1 = new Symbol("c_boolean_1");
     private static final Symbol C_TIMESTAMP = new Symbol("c_timestamp");
     private static final Symbol C_DATE = new Symbol("c_date");
     private static final Symbol C_COLOR = new Symbol("c_color");
@@ -139,6 +140,7 @@ public class TestDomainTranslator
             .put(C_BIGINT_1, BIGINT)
             .put(C_DOUBLE_1, DOUBLE)
             .put(C_VARCHAR_1, VARCHAR)
+            .put(C_BOOLEAN_1, BOOLEAN)
             .put(C_TIMESTAMP, TIMESTAMP_MILLIS)
             .put(C_DATE, DATE)
             .put(C_COLOR, COLOR) // Equatable, but not orderable
@@ -550,6 +552,39 @@ public class TestDomainTranslator
         result = fromPredicate(originalPredicate);
         assertEquals(result.getRemainingExpression(), and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
         assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false))));
+    }
+
+    @Test
+    public void testFromSingleBooleanReference()
+    {
+        Expression originalPredicate = C_BOOLEAN.toSymbolReference();
+        ExtractionResult result = fromPredicate(originalPredicate);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(
+                C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false))));
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+
+        originalPredicate = not(C_BOOLEAN.toSymbolReference());
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(
+                C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)).complement(), false))));
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+
+        originalPredicate = and(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference());
+        result = fromPredicate(originalPredicate);
+        Domain domain = Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false);
+        assertEquals(result.getTupleDomain(), withColumnDomains(ImmutableMap.of(
+                C_BOOLEAN, domain, C_BOOLEAN_1, domain)));
+        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+
+        originalPredicate = or(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference());
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+        assertEquals(result.getRemainingExpression(), originalPredicate);
+
+        originalPredicate = not(and(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference()));
+        result = fromPredicate(originalPredicate);
+        assertEquals(result.getTupleDomain(), TupleDomain.all());
+        assertEquals(result.getRemainingExpression(), originalPredicate);
     }
 
     @Test
