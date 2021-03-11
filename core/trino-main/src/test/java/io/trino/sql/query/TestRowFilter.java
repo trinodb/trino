@@ -276,7 +276,7 @@ public class TestRowFilter
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 1"));
         assertThatThrownBy(() -> assertions.query(
                 "SELECT (SELECT min(name) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
-                .hasMessageMatching("\\Qline 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved\\E");
+                .hasMessage("line 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved");
     }
 
     @Test
@@ -304,7 +304,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "$$$"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Invalid row filter for 'local.tiny.orders': mismatched input '$'. Expecting: <expression>\\E");
+                .hasMessage("line 1:22: Invalid row filter for 'local.tiny.orders': mismatched input '$'. Expecting: <expression>");
 
         // unknown column
         accessControl.reset();
@@ -314,7 +314,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "unknown_column"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved\\E");
+                .hasMessage("line 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved");
 
         // invalid type
         accessControl.reset();
@@ -324,7 +324,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "1"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Expected row filter for 'local.tiny.orders' to be of type BOOLEAN, but was integer\\E");
+                .hasMessage("line 1:22: Expected row filter for 'local.tiny.orders' to be of type BOOLEAN, but was integer");
 
         // aggregation
         accessControl.reset();
@@ -334,7 +334,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "count(*) > 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:10: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [count(*)]\\E");
+                .hasMessage("line 1:10: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [count(*)]");
 
         // window function
         accessControl.reset();
@@ -344,7 +344,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "row_number() OVER () > 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:22: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]\\E");
+                .hasMessage("line 1:22: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]");
 
         // window function
         accessControl.reset();
@@ -354,7 +354,7 @@ public class TestRowFilter
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "grouping(orderkey) = 0"));
 
         assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
-                .hasMessageMatching("\\Qline 1:20: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
+                .hasMessage("line 1:20: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]");
     }
 
     @Test
