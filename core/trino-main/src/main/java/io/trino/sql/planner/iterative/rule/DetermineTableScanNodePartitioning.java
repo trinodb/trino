@@ -25,7 +25,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import static io.trino.SystemSessionProperties.getTableScanNodePartitioningMinBucketToTaskRatio;
-import static io.trino.SystemSessionProperties.isPlanWithTableNodePartitioning;
+import static io.trino.SystemSessionProperties.isUseTableScanNodePartitioning;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -68,7 +68,7 @@ public class DetermineTableScanNodePartitioning
             return Result.ofPlanNode(node.withUseConnectorNodePartitioning(true));
         }
 
-        if (!isPlanWithTableNodePartitioning(context.getSession())) {
+        if (!isUseTableScanNodePartitioning(context.getSession())) {
             return Result.ofPlanNode(node.withUseConnectorNodePartitioning(false));
         }
 

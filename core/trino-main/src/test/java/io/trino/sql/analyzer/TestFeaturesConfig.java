@@ -109,7 +109,7 @@ public class TestFeaturesConfig
                 .setRewriteFilteringSemiJoinToInnerJoin(true)
                 .setOptimizeDuplicateInsensitiveJoins(true)
                 .setUseLegacyWindowFilterPushdown(false)
-                .setPlanWithTableNodePartitioning(true)
+                .setUseTableScanNodePartitioning(true)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.5));
     }
 
@@ -184,7 +184,7 @@ public class TestFeaturesConfig
                 .put("optimizer.rewrite-filtering-semi-join-to-inner-join", "false")
                 .put("optimizer.optimize-duplicate-insensitive-joins", "false")
                 .put("optimizer.use-legacy-window-filter-pushdown", "true")
-                .put("optimizer.plan-with-table-node-partitioning", "false")
+                .put("optimizer.use-table-scan-node-partitioning", "false")
                 .put("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio", "0.0")
                 .build();
 
@@ -256,7 +256,7 @@ public class TestFeaturesConfig
                 .setRewriteFilteringSemiJoinToInnerJoin(false)
                 .setOptimizeDuplicateInsensitiveJoins(false)
                 .setUseLegacyWindowFilterPushdown(true)
-                .setPlanWithTableNodePartitioning(false)
+                .setUseTableScanNodePartitioning(false)
                 .setTableScanNodePartitioningMinBucketToTaskRatio(0.0);
         assertFullMapping(properties, expected);
     }

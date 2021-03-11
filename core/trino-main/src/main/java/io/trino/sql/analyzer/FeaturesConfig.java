@@ -130,7 +130,7 @@ public class FeaturesConfig
     private boolean rewriteFilteringSemiJoinToInnerJoin = true;
     private boolean optimizeDuplicateInsensitiveJoins = true;
     private boolean useLegacyWindowFilterPushdown;
-    private boolean planWithTableNodePartitioning = true;
+    private boolean useTableScanNodePartitioning = true;
     private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
@@ -1021,16 +1021,17 @@ public class FeaturesConfig
         return this;
     }
 
-    public boolean isPlanWithTableNodePartitioning()
+    public boolean isUseTableScanNodePartitioning()
     {
-        return planWithTableNodePartitioning;
+        return useTableScanNodePartitioning;
     }
 
-    @Config("optimizer.plan-with-table-node-partitioning")
-    @ConfigDescription("Adapt plan to pre-partitioned tables")
-    public FeaturesConfig setPlanWithTableNodePartitioning(boolean planWithTableNodePartitioning)
+    @Config("optimizer.use-table-scan-node-partitioning")
+    @LegacyConfig("optimizer.plan-with-table-node-partitioning")
+    @ConfigDescription("Adapt plan to node pre-partitioned tables")
+    public FeaturesConfig setUseTableScanNodePartitioning(boolean useTableScanNodePartitioning)
     {
-        this.planWithTableNodePartitioning = planWithTableNodePartitioning;
+        this.useTableScanNodePartitioning = useTableScanNodePartitioning;
         return this;
     }
 

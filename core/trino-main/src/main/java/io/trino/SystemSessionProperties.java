@@ -76,7 +76,7 @@ public final class SystemSessionProperties
     public static final String PUSH_TABLE_WRITE_THROUGH_UNION = "push_table_write_through_union";
     public static final String EXECUTION_POLICY = "execution_policy";
     public static final String DICTIONARY_AGGREGATION = "dictionary_aggregation";
-    public static final String PLAN_WITH_TABLE_NODE_PARTITIONING = "plan_with_table_node_partitioning";
+    public static final String USE_TABLE_SCAN_NODE_PARTITIONING = "use_table_scan_node_partitioning";
     public static final String TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO = "table_scan_node_partitioning_min_bucket_to_task_ratio";
     public static final String SPATIAL_JOIN = "spatial_join";
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
@@ -317,9 +317,9 @@ public final class SystemSessionProperties
                         1,
                         false),
                 booleanProperty(
-                        PLAN_WITH_TABLE_NODE_PARTITIONING,
-                        "Adapt plan to pre-partitioned tables",
-                        featuresConfig.isPlanWithTableNodePartitioning(),
+                        USE_TABLE_SCAN_NODE_PARTITIONING,
+                        "Adapt plan to node pre-partitioned tables",
+                        featuresConfig.isUseTableScanNodePartitioning(),
                         false),
                 doubleProperty(
                         TABLE_SCAN_NODE_PARTITIONING_MIN_BUCKET_TO_TASK_RATIO,
@@ -747,9 +747,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(QUERY_MAX_STAGE_COUNT, Integer.class);
     }
 
-    public static boolean isPlanWithTableNodePartitioning(Session session)
+    public static boolean isUseTableScanNodePartitioning(Session session)
     {
-        return session.getSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, Boolean.class);
+        return session.getSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, Boolean.class);
     }
 
     public static double getTableScanNodePartitioningMinBucketToTaskRatio(Session session)
