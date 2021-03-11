@@ -47,7 +47,7 @@ public final class HiveSessionProperties
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
-    private static final String PARALLEL_PARTITIONED_BUCKETED_INSERT = "parallel_partitioned_bucketed_insert";
+    private static final String PARALLEL_PARTITIONED_BUCKETED_WRITES = "parallel_partitioned_bucketed_writes";
     private static final String FORCE_LOCAL_SCHEDULING = "force_local_scheduling";
     private static final String INSERT_EXISTING_PARTITIONS_BEHAVIOR = "insert_existing_partitions_behavior";
     private static final String ORC_BLOOM_FILTERS_ENABLED = "orc_bloom_filters_enabled";
@@ -139,9 +139,9 @@ public final class HiveSessionProperties
                         hiveConfig.isValidateBucketing(),
                         false),
                 booleanProperty(
-                        PARALLEL_PARTITIONED_BUCKETED_INSERT,
-                        "Improve parallelism of partitioned and bucketed table inserts",
-                        hiveConfig.isParallelPartitionedBucketedInserts(),
+                        PARALLEL_PARTITIONED_BUCKETED_WRITES,
+                        "Improve parallelism of partitioned and bucketed table writes",
+                        hiveConfig.isParallelPartitionedBucketedWrites(),
                         false),
                 booleanProperty(
                         FORCE_LOCAL_SCHEDULING,
@@ -420,9 +420,9 @@ public final class HiveSessionProperties
         return session.getProperty(VALIDATE_BUCKETING, Boolean.class);
     }
 
-    public static boolean isParallelPartitionedBucketedInsert(ConnectorSession session)
+    public static boolean isParallelPartitionedBucketedWrites(ConnectorSession session)
     {
-        return session.getProperty(PARALLEL_PARTITIONED_BUCKETED_INSERT, Boolean.class);
+        return session.getProperty(PARALLEL_PARTITIONED_BUCKETED_WRITES, Boolean.class);
     }
 
     public static boolean isForceLocalScheduling(ConnectorSession session)
