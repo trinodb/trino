@@ -24,6 +24,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.ExpectedValueProvider;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
+import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.plan.WindowNode;
 import org.intellij.lang.annotations.Language;
@@ -90,14 +91,14 @@ public class TestEliminateSorts
     {
         TypeAnalyzer typeAnalyzer = new TypeAnalyzer(new SqlParser(), getQueryRunner().getMetadata());
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
-                new AddExchanges(getQueryRunner().getMetadata(), getQueryRunner().getTypeOperators(), typeAnalyzer),
-                new PruneUnreferencedOutputs(getQueryRunner().getMetadata()),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),
                         getQueryRunner().getCostCalculator(),
-                        ImmutableSet.of(new RemoveRedundantIdentityProjections())));
+                        ImmutableSet.of(
+                                new RemoveRedundantIdentityProjections(),
+                                new DetermineTableScanNodePartitioning(getQueryRunner().getMetadata(), getQueryRunner().getNodePartitioningManager()))),
+                new AddExchanges(getQueryRunner().getMetadata(), getQueryRunner().getTypeOperators(), typeAnalyzer));
 
         assertPlan(sql, pattern, optimizers);
     }

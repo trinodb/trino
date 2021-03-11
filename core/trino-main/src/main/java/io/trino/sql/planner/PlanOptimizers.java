@@ -47,6 +47,7 @@ import io.trino.sql.planner.iterative.rule.DesugarTryExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.DeterminePreferredWritePartitioning;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
+import io.trino.sql.planner.iterative.rule.DetermineTableScanNodePartitioning;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
 import io.trino.sql.planner.iterative.rule.ExtractDereferencesFromFilterAboveScan;
@@ -257,7 +258,8 @@ public class PlanOptimizers
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            RuleStatsRecorder ruleStats)
+            RuleStatsRecorder ruleStats,
+            NodePartitioningManager nodePartitioningManager)
     {
         this(metadata,
                 typeOperators,
@@ -272,7 +274,8 @@ public class PlanOptimizers
                 estimatedExchangesCostCalculator,
                 costComparator,
                 taskCountEstimator,
-                ruleStats);
+                ruleStats,
+                nodePartitioningManager);
     }
 
     @PostConstruct
@@ -303,7 +306,8 @@ public class PlanOptimizers
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
             TaskCountEstimator taskCountEstimator,
-            RuleStatsRecorder ruleStats)
+            RuleStatsRecorder ruleStats,
+            NodePartitioningManager nodePartitioningManager)
     {
         this.ruleStats = ruleStats;
         this.exporter = exporter;
@@ -743,6 +747,7 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         // Must run before AddExchanges
                         new PushDeleteIntoConnector(metadata),
+                        new DetermineTableScanNodePartitioning(metadata, nodePartitioningManager),
                         // Must run after join reordering because join reordering creates
                         // new join nodes without JoinNode.maySkipOutputDuplicates flag set
                         new OptimizeDuplicateInsensitiveJoins(metadata))));

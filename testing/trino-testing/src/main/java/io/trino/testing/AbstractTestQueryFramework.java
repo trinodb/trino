@@ -434,7 +434,8 @@ public abstract class AbstractTestQueryFramework
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                new RuleStatsRecorder()).get();
+                new RuleStatsRecorder(),
+                queryRunner.getNodePartitioningManager()).get();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
