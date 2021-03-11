@@ -59,7 +59,6 @@ import static io.trino.plugin.oracle.OracleDataTypes.MAX_NCHAR;
 import static io.trino.plugin.oracle.OracleDataTypes.MAX_NVARCHAR2;
 import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_READ;
 import static io.trino.plugin.oracle.OracleDataTypes.MAX_VARCHAR2_ON_WRITE;
-import static io.trino.plugin.oracle.OracleDataTypes.booleanDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.charDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.ncharDataType;
@@ -646,9 +645,9 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testBooleanType()
     {
-        DataTypeTest.create()
-                .addRoundTrip(booleanDataType(), true)
-                .addRoundTrip(booleanDataType(), false)
+        SqlDataTypeTest.create()
+                .addRoundTrip("boolean", "true", createDecimalType(1, 0), "CAST(true AS DECIMAL(1, 0))")
+                .addRoundTrip("boolean", "false", createDecimalType(1, 0), "CAST(false AS DECIMAL(1, 0))")
                 .execute(getQueryRunner(), trinoCreateAsSelect("boolean_types"));
     }
 
