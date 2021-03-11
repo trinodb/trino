@@ -38,6 +38,9 @@ public class TestCassandraLatestConnectorSmokeTest
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
 
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
             case SUPPORTS_DELETE:
                 return true;
 

@@ -16,6 +16,7 @@ package io.trino.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -59,6 +60,21 @@ public class TestOracleConnectorTest
     {
         Closeables.closeAll(oracleServer);
         oracleServer = null;
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
+
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     /**

@@ -51,6 +51,9 @@ public class TestRedisConnectorTest
             case SUPPORTS_CREATE_TABLE:
                 return false;
 
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;

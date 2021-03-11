@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.tpch.TpchTable;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -25,6 +26,8 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_DATA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static io.trino.tpch.TpchTable.NATION;
@@ -199,6 +202,86 @@ public abstract class BaseConnectorSmokeTest
         assertThat(query("SHOW SCHEMAS"))
                 .skippingTypesCheck()
                 .containsAll(format("VALUES '%s', '%s'", getSession().getSchema().orElseThrow(), schemaName));
+        assertUpdate("DROP SCHEMA " + schemaName);
+    }
+
+    @Test
+    public void testRenameTable()
+    {
+        if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
+            assertQueryFails("ALTER TABLE nation RENAME TO yyyy", "This connector does not support renaming tables");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test ALTER TABLE RENAME without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+
+        String oldTable = "test_rename_old_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+
+        String newTable = "test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+
+        assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .returnsEmptyResult();
+
+        if (hasBehavior(SUPPORTS_INSERT)) {
+            assertUpdate("INSERT INTO " + newTable + " (a, b) VALUES (42, -38.5)", 1);
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + newTable))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
+
+        assertUpdate("DROP TABLE " + newTable);
+        assertThat(query("SHOW TABLES LIKE '" + newTable + "'"))
+                .returnsEmptyResult();
+    }
+
+    @Test
+    public void testRenameTableAcrossSchemas()
+    {
+        if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
+            if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
+                throw new SkipException("Skipping since rename table is not supported at all");
+            }
+            assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
+            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE SCHEMA, the test needs to be implemented in a connector-specific way");
+        }
+
+        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
+            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE TABLE, the test needs to be implemented in a connector-specific way");
+        }
+
+        String oldTable = "test_rename_old_" + randomTableSuffix();
+        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+
+        String schemaName = "test_schema_" + randomTableSuffix();
+        assertUpdate("CREATE SCHEMA " + schemaName);
+
+        String newTable = schemaName + ".test_rename_new_" + randomTableSuffix();
+        assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
+
+        assertThat(query("SHOW TABLES LIKE '" + oldTable + "'"))
+                .returnsEmptyResult();
+        assertThat(query("SELECT a, b FROM " + newTable))
+                .returnsEmptyResult();
+
+        if (hasBehavior(SUPPORTS_INSERT)) {
+            assertUpdate("INSERT INTO " + newTable + " (a, b) VALUES (42, -38.5)", 1);
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + newTable))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
+
+        assertUpdate("DROP TABLE " + newTable);
+        assertThat(query("SHOW TABLES LIKE '" + newTable + "'"))
+                .returnsEmptyResult();
+
         assertUpdate("DROP SCHEMA " + schemaName);
     }
 

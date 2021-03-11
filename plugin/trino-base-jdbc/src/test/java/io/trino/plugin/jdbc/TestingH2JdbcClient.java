@@ -20,6 +20,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
@@ -172,5 +173,14 @@ class TestingH2JdbcClient
         }
 
         throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    {
+        if (!schemaName.equalsIgnoreCase(newTable.getSchemaName())) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
+        }
+        super.renameTable(session, catalogName, schemaName, tableName, newTable);
     }
 }
