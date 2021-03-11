@@ -869,7 +869,8 @@ public class LocalQueryRunner
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig),
                 taskCountEstimator,
-                new RuleStatsRecorder()).get();
+                new RuleStatsRecorder(),
+                nodePartitioningManager).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)

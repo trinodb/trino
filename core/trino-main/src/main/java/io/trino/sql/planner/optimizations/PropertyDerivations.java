@@ -94,7 +94,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.SystemSessionProperties.isPlanWithTableNodePartitioning;
 import static io.trino.spi.predicate.TupleDomain.extractFixedValues;
 import static io.trino.sql.planner.SystemPartitioningHandle.ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitraryPartition;
@@ -761,7 +760,7 @@ public final class PropertyDerivations
             properties.constants(symbolConstants);
 
             // Partitioning properties
-            properties.global(deriveGlobalProperties(layout, assignments, globalConstants));
+            properties.global(deriveGlobalProperties(node, layout, assignments, globalConstants));
 
             // Append the global constants onto the local properties to maximize their translation potential
             List<LocalProperty<ColumnHandle>> constantAppendedLocalProperties = ImmutableList.<LocalProperty<ColumnHandle>>builder()
@@ -773,12 +772,12 @@ public final class PropertyDerivations
             return properties.build();
         }
 
-        private Global deriveGlobalProperties(TableProperties layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, NullableValue> constants)
+        private Global deriveGlobalProperties(TableScanNode node, TableProperties layout, Map<ColumnHandle, Symbol> assignments, Map<ColumnHandle, NullableValue> constants)
         {
             Optional<List<Symbol>> streamPartitioning = layout.getStreamPartitioningColumns()
                     .flatMap(columns -> translateToNonConstantSymbols(columns, assignments, constants));
 
-            if (isPlanWithTableNodePartitioning(session) && layout.getTablePartitioning().isPresent()) {
+            if (layout.getTablePartitioning().isPresent() && node.isUseConnectorNodePartitioning()) {
                 TablePartitioning tablePartitioning = layout.getTablePartitioning().get();
                 if (assignments.keySet().containsAll(tablePartitioning.getPartitioningColumns())) {
                     List<Symbol> arguments = tablePartitioning.getPartitioningColumns().stream()
