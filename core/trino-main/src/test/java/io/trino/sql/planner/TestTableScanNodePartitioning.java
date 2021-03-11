@@ -47,7 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 
-import static io.trino.SystemSessionProperties.PLAN_WITH_TABLE_NODE_PARTITIONING;
+import static io.trino.SystemSessionProperties.USE_TABLE_SCAN_NODE_PARTITIONING;
 import static io.trino.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -77,12 +77,12 @@ public class TestTableScanNodePartitioning
     public static final Session ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
             .setCatalog(MOCK_CATALOG)
             .setSchema(TEST_SCHEMA)
-            .setSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, "true")
+            .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "true")
             .build();
     public static final Session DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING = testSessionBuilder()
             .setCatalog(MOCK_CATALOG)
             .setSchema(TEST_SCHEMA)
-            .setSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, "false")
+            .setSystemProperty(USE_TABLE_SCAN_NODE_PARTITIONING, "false")
             .build();
 
     public static final int BUCKET_COUNT = 10;
