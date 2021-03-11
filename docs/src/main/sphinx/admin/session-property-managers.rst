@@ -69,20 +69,20 @@ These requirements can be expressed with the following rules:
     [
       {
         "group": "global.*",
-        "session_properties": {
-          "query_max_execution_time": "8h",
+        "sessionProperties": {
+          "query_max_execution_time": "8h"
         }
       },
       {
         "group": "global.interactive.*",
-        "session_properties": {
+        "sessionProperties": {
           "query_max_execution_time": "1h"
         }
       },
       {
         "group": "global.pipeline.*",
         "clientTags": ["etl"],
-        "session_properties": {
+        "sessionProperties": {
           "scale_writers": "true",
           "writer_min_size": "1GB",
           "hive.insert_existing_partitions_behavior": "overwrite"
