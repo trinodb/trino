@@ -63,10 +63,8 @@ import static io.trino.plugin.oracle.OracleDataTypes.booleanDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.charDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.ncharDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.numberDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
-import static io.trino.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.trino.spi.type.CharType.createCharType;
@@ -508,24 +506,22 @@ public abstract class AbstractTestOracleTypeMapping
     @Test
     public void testNumberWithoutScaleReadMapping()
     {
-        DataTypeTest.create()
-                .addRoundTrip(numberDataType(1), BigDecimal.valueOf(1))
-                .addRoundTrip(numberDataType(2), BigDecimal.valueOf(99))
-                .addRoundTrip(numberDataType(38),
-                        new BigDecimal("99999999999999999999999999999999999999")) // max
-                .addRoundTrip(numberDataType(38),
-                        new BigDecimal("-99999999999999999999999999999999999999")) // min
+        SqlDataTypeTest.create()
+                .addRoundTrip("number(1)", "1", createDecimalType(1, 0), "CAST (1 AS DECIMAL(1, 0))")
+                .addRoundTrip("number(2)", "99", createDecimalType(2, 0), "CAST (99 AS DECIMAL(2, 0))")
+                .addRoundTrip("number(38)", "99999999999999999999999999999999999999", createDecimalType(38, 0), "CAST ('99999999999999999999999999999999999999' AS DECIMAL(38, 0))") // max
+                .addRoundTrip("number(38)", "-99999999999999999999999999999999999999", createDecimalType(38, 0), "CAST ('-99999999999999999999999999999999999999' AS DECIMAL(38, 0))") // min
                 .execute(getQueryRunner(), oracleCreateAndInsert("number_without_scale"));
     }
 
     @Test
     public void testNumberWithoutPrecisionAndScaleReadMapping()
     {
-        DataTypeTest.create()
-                .addRoundTrip(unspecifiedNumberDataType(9), BigDecimal.valueOf(1))
-                .addRoundTrip(unspecifiedNumberDataType(9), BigDecimal.valueOf(99))
-                .addRoundTrip(unspecifiedNumberDataType(9), new BigDecimal("9999999999999999999999999999.999999999")) // max
-                .addRoundTrip(unspecifiedNumberDataType(9), new BigDecimal("-999999999999999999999999999.999999999")) // min
+        SqlDataTypeTest.create()
+                .addRoundTrip("number", "1", createDecimalType(38, 9), "CAST(1 AS DECIMAL(38, 9))")
+                .addRoundTrip("number", "99", createDecimalType(38, 9), "CAST(99 AS DECIMAL(38, 9))")
+                .addRoundTrip("number", "9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // max
+                .addRoundTrip("number", "-9999999999999999999999999999.999999999", createDecimalType(38, 9), "CAST('-9999999999999999999999999999.999999999' AS DECIMAL(38, 9))") // min
                 .execute(getQueryRunner(), number(9), oracleCreateAndInsert("number_wo_prec_and_scale"));
     }
 
@@ -560,23 +556,21 @@ public abstract class AbstractTestOracleTypeMapping
         // TODO: Add similar tests for write mappings.
         // Those tests would require the table to be created in Oracle, but values inserted
         // by Trino, which is outside the capabilities of the current DataSetup classes.
-        DataTypeTest.create()
-                .addRoundTrip(numberDataType(1, -1), BigDecimal.valueOf(2_0))
-                .addRoundTrip(numberDataType(1, -1), BigDecimal.valueOf(3_5)) // More useful as a test for write mappings.
-                .addRoundTrip(numberDataType(2, -4), BigDecimal.valueOf(47_0000))
-                .addRoundTrip(numberDataType(2, -4), BigDecimal.valueOf(-8_0000))
-                .addRoundTrip(numberDataType(8, -3), BigDecimal.valueOf(-88888888, -3))
-                .addRoundTrip(numberDataType(8, -3), BigDecimal.valueOf(4050_000))
-                .addRoundTrip(numberDataType(14, -14), BigDecimal.valueOf(14000014000014L, -14))
-                .addRoundTrip(numberDataType(14, -14), BigDecimal.valueOf(1, -21))
-                .addRoundTrip(numberDataType(5, -33), BigDecimal.valueOf(12345, -33))
-                .addRoundTrip(numberDataType(5, -33), BigDecimal.valueOf(-12345, -33))
-                .addRoundTrip(numberDataType(1, -37), BigDecimal.valueOf(1, -37))
-                .addRoundTrip(numberDataType(1, -37), BigDecimal.valueOf(-1, -37))
-                .addRoundTrip(numberDataType(37, -1),
-                        new BigDecimal("99999999999999999999999999999999999990")) // max
-                .addRoundTrip(numberDataType(37, -1),
-                        new BigDecimal("-99999999999999999999999999999999999990")) // min
+        SqlDataTypeTest.create()
+                .addRoundTrip("number(1, -1)", "20", createDecimalType(2, 0), "CAST(20 AS DECIMAL(2, 0))")
+                .addRoundTrip("number(1, -1)", "35", createDecimalType(2, 0), "CAST(40 AS DECIMAL(2, 0))") // More useful as a test for write mappings.
+                .addRoundTrip("number(2, -4)", "470000", createDecimalType(6, 0), "CAST(470000 AS DECIMAL(6, 0))")
+                .addRoundTrip("number(2, -4)", "-80000", createDecimalType(6, 0), "CAST(-80000 AS DECIMAL(6, 0))")
+                .addRoundTrip("number(8, -3)", "-8.8888888E+10", createDecimalType(11, 0), "CAST(-8.8888888E+10 AS DECIMAL(11, 0))")
+                .addRoundTrip("number(8, -3)", "4050000", createDecimalType(11, 0), "CAST(4050000 AS DECIMAL(11, 0))")
+                .addRoundTrip("number(14, -14)", "1.4000014000014E+27", createDecimalType(28, 0), "CAST(1.4000014000014E+27 AS DECIMAL(28, 0))")
+                .addRoundTrip("number(14, -14)", "1E+21", createDecimalType(28, 0), "CAST(1E+21 AS DECIMAL(28, 0))")
+                .addRoundTrip("number(5, -33)", "1.2345E+37", createDecimalType(38, 0), "CAST(1.2345E+37 AS DECIMAL(38, 0))")
+                .addRoundTrip("number(5, -33)", "-1.2345E+37", createDecimalType(38, 0), "CAST(-1.2345E+37 AS DECIMAL(38, 0))")
+                .addRoundTrip("number(1, -37)", "1E+37", createDecimalType(38, 0), "CAST(1E+37 AS DECIMAL(38, 0))")
+                .addRoundTrip("number(1, -37)", "-1E+37", createDecimalType(38, 0), "CAST(-1E+37 AS DECIMAL(38, 0))")
+                .addRoundTrip("number(37, -1)", "99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // max
+                .addRoundTrip("number(37, -1)", "-99999999999999999999999999999999999990", createDecimalType(38, 0), "CAST('-99999999999999999999999999999999999990' AS DECIMAL(38, 0))") // min
                 .execute(getQueryRunner(), oracleCreateAndInsert("number_negative_s"));
     }
 
