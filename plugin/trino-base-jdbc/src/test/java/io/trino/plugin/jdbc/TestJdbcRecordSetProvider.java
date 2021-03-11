@@ -36,15 +36,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -63,6 +67,8 @@ public class TestJdbcRecordSetProvider
     private JdbcColumnHandle textShortColumn;
     private JdbcColumnHandle valueColumn;
 
+    private ExecutorService executor;
+
     @BeforeClass
     public void setUp()
             throws Exception
@@ -76,6 +82,7 @@ public class TestJdbcRecordSetProvider
         textColumn = columns.get("text");
         textShortColumn = columns.get("text_short");
         valueColumn = columns.get("value");
+        executor = newCachedThreadPool(daemonThreadsNamed("TestJdbcRecordSet-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -83,13 +90,14 @@ public class TestJdbcRecordSetProvider
             throws Exception
     {
         database.close();
+        assertThat(executor.shutdownNow()).isEmpty();
     }
 
     @Test
     public void testGetRecordSet()
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
+        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor);
         RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn));
         assertNotNull(recordSet, "recordSet is null");
 
@@ -196,7 +204,7 @@ public class TestJdbcRecordSetProvider
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
+        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient, executor);
         RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, jdbcTableHandle, columns);
 
         return recordSet.cursor();

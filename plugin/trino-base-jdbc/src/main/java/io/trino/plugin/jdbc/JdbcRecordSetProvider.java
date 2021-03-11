@@ -25,6 +25,8 @@ import io.trino.spi.connector.RecordSet;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -33,11 +35,13 @@ public class JdbcRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final JdbcClient jdbcClient;
+    private final ExecutorService executor;
 
     @Inject
-    public JdbcRecordSetProvider(JdbcClient jdbcClient)
+    public JdbcRecordSetProvider(JdbcClient jdbcClient, ExecutorService executor)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -58,6 +62,6 @@ public class JdbcRecordSetProvider
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, jdbcTable, handles.build());
+        return new JdbcRecordSet(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build());
     }
 }

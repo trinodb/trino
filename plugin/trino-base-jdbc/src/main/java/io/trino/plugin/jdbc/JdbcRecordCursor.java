@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.VerifyException;
+import com.google.common.util.concurrent.Futures;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
@@ -29,11 +30,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
+import static io.trino.spi.connector.RecordCursor.AdvanceStatus.NO_MORE_DATA;
 import static java.util.Objects.requireNonNull;
 
 public class JdbcRecordCursor
@@ -41,6 +47,7 @@ public class JdbcRecordCursor
 {
     private static final Logger log = Logger.get(JdbcRecordCursor.class);
 
+    private final ExecutorService executor;
     private final JdbcColumnHandle[] columnHandles;
     private final ReadFunction[] readFunctions;
     private final BooleanReadFunction[] booleanReadFunctions;
@@ -52,13 +59,21 @@ public class JdbcRecordCursor
     private final JdbcClient jdbcClient;
     private final Connection connection;
     private final PreparedStatement statement;
+    private final Future<ResultSet> resultSetFuture;
     @Nullable
     private ResultSet resultSet;
     private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcRecordCursor(
+            JdbcClient jdbcClient,
+            ExecutorService executor,
+            ConnectorSession session,
+            JdbcSplit split,
+            JdbcTableHandle table,
+            List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
 
         this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
 
@@ -102,6 +117,10 @@ public class JdbcRecordCursor
             }
 
             statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
+            resultSetFuture = executor.submit(() -> {
+                log.debug("Executing: %s", statement.toString());
+                return statement.executeQuery();
+            });
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -127,18 +146,28 @@ public class JdbcRecordCursor
     }
 
     @Override
-    public boolean advanceNextPosition()
+    public AdvanceStatus nextPosition()
     {
         if (closed) {
-            return false;
+            return NO_MORE_DATA;
         }
 
         try {
             if (resultSet == null) {
-                log.debug("Executing: %s", statement.toString());
-                resultSet = statement.executeQuery();
+                if (!resultSetFuture.isDone()) {
+                    return AdvanceStatus.YIELD;
+                }
+                try {
+                    resultSet = Futures.getDone(resultSetFuture);
+                }
+                catch (ExecutionException e) {
+                    if (e.getCause() instanceof SQLException) {
+                        throw (SQLException) e.getCause();
+                    }
+                    throw new RuntimeException(e);
+                }
             }
-            return resultSet.next();
+            return resultSet.next() ? DATA_AVAILABLE : NO_MORE_DATA;
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);

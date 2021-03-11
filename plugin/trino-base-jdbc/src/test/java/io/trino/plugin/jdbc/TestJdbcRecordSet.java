@@ -25,7 +25,9 @@ import org.testng.annotations.Test;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.connector.RecordCursor.AdvanceStatus.DATA_AVAILABLE;
@@ -33,6 +35,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -43,6 +47,7 @@ public class TestJdbcRecordSet
     private JdbcTableHandle table;
     private JdbcSplit split;
     private Map<String, JdbcColumnHandle> columnHandles;
+    private ExecutorService executor;
 
     @BeforeClass
     public void setUp()
@@ -53,6 +58,7 @@ public class TestJdbcRecordSet
         table = database.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
         split = database.getSplit(SESSION, table);
         columnHandles = database.getColumnHandles(SESSION, table);
+        executor = newCachedThreadPool(daemonThreadsNamed("TestJdbcRecordSet-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -60,6 +66,7 @@ public class TestJdbcRecordSet
             throws Exception
     {
         database.close();
+        assertThat(executor.shutdownNow()).isEmpty();
     }
 
     @Test
@@ -164,6 +171,6 @@ public class TestJdbcRecordSet
 
     private JdbcRecordSet createRecordSet(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcRecordSet(jdbcClient, SESSION, split, table, columnHandles);
+        return new JdbcRecordSet(jdbcClient, executor, SESSION, split, table, columnHandles);
     }
 }

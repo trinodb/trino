@@ -26,13 +26,19 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class JdbcModule
         implements Module
@@ -70,6 +76,8 @@ public class JdbcModule
         binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
+
+        binder.bind(Executor.class).to(ExecutorService.class).in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -107,5 +115,18 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    @Singleton
+    @Provides
+    public ExecutorService createHiveTransactionHeartbeatExecutor(CatalogName catalogName)
+    {
+        return newCachedThreadPool(daemonThreadsNamed(catalogName + "-jdbc-connector-%s"));
+    }
+
+    @PreDestroy
+    public void shutdownExecutorService(ExecutorService executor)
+    {
+        executor.shutdown();
     }
 }
