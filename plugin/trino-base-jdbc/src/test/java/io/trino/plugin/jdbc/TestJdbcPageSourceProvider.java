@@ -15,39 +15,44 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.RecordCursor;
-import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.Type;
+import io.trino.spi.type.VarcharType;
 import io.trino.testing.TestingConnectorSession;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.operator.PageAssertions.assertPageEquals;
+import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-public class TestJdbcRecordSetProvider
+public class TestJdbcPageSourceProvider
 {
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(new JdbcMetadataSessionProperties(new JdbcMetadataConfig(), Optional.empty()).getSessionProperties())
@@ -85,71 +90,68 @@ public class TestJdbcRecordSetProvider
     }
 
     @Test
-    public void testGetRecordSet()
+    public void testReadPage()
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn));
-        assertNotNull(recordSet, "recordSet is null");
+        JdbcPageSourceProvider jdbcPageSourceProvider = new JdbcPageSourceProvider(jdbcClient);
+        ConnectorPageSource pageSource = jdbcPageSourceProvider.createPageSource(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn), EMPTY);
+        assertNotNull(pageSource, "pageSource is null");
 
-        RecordCursor cursor = recordSet.cursor();
-        assertNotNull(cursor, "cursor is null");
+        Page page = pageSource.getNextPage();
+        assertNotNull(page, "page is null");
 
-        Map<String, Long> data = new LinkedHashMap<>();
-        while (cursor.advanceNextPosition()) {
-            data.put(cursor.getSlice(0).toStringUtf8(), cursor.getLong(2));
-            assertEquals(cursor.getSlice(0), cursor.getSlice(1));
-        }
-        assertEquals(data, ImmutableMap.<String, Long>builder()
-                .put("one", 1L)
-                .put("two", 2L)
-                .put("three", 3L)
-                .put("ten", 10L)
-                .put("eleven", 11L)
-                .put("twelve", 12L)
-                .build());
+        List<Type> types = ImmutableList.of(VARCHAR, VARCHAR, BIGINT);
+        PageBuilder expected = new PageBuilder(types);
+        append(expected, types, "one", "one", 1);
+        append(expected, types, "two", "two", 2);
+        append(expected, types, "three", "three", 3);
+        append(expected, types, "ten", "ten", 10);
+        append(expected, types, "eleven", "eleven", 11);
+        append(expected, types, "twelve", "twelve", 12);
+
+        assertPageEquals(types, page, expected.build());
     }
 
     @Test
     public void testTupleDomain()
     {
         // single value
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.singleValue(VARCHAR, utf8Slice("foo")))));
 
         // multiple values (string)
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue(VARCHAR, utf8Slice("foo")), Domain.singleValue(VARCHAR, utf8Slice("bar")))))));
 
         // inequality (string)
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("foo"))), false))));
 
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARCHAR, utf8Slice("foo"))), false))));
 
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, utf8Slice("foo"))), false))));
 
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.lessThan(VARCHAR, utf8Slice("foo"))), false))));
 
         // is null
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.onlyNull(VARCHAR))));
 
         // not null
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.notNull(VARCHAR))));
 
         // specific value or null
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.union(ImmutableList.of(Domain.singleValue(VARCHAR, utf8Slice("foo")), Domain.onlyNull(VARCHAR))))));
 
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(textColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("bar"), true, utf8Slice("foo"), true)), false))));
 
-        getCursor(table, ImmutableList.of(textColumn, textShortColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, textShortColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         textColumn,
                         Domain.create(ValueSet.ofRanges(
@@ -163,7 +165,7 @@ public class TestJdbcRecordSetProvider
                                 Range.range(createVarcharType(32), utf8Slice("hello"), false, utf8Slice("world"), false)),
                                 false))));
 
-        getCursor(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
+        getPage(table, ImmutableList.of(textColumn, valueColumn), TupleDomain.withColumnDomains(
                 ImmutableMap.of(
                         textColumn,
                         Domain.create(ValueSet.ofRanges(
@@ -181,7 +183,7 @@ public class TestJdbcRecordSetProvider
                                 true))));
     }
 
-    private RecordCursor getCursor(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
+    private Page getPage(JdbcTableHandle jdbcTableHandle, List<JdbcColumnHandle> columns, TupleDomain<ColumnHandle> domain)
     {
         jdbcTableHandle = new JdbcTableHandle(
                 jdbcTableHandle.getRelationHandle(),
@@ -195,9 +197,37 @@ public class TestJdbcRecordSetProvider
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcRecordSetProvider recordSetProvider = new JdbcRecordSetProvider(jdbcClient);
-        RecordSet recordSet = recordSetProvider.getRecordSet(transaction, SESSION, split, jdbcTableHandle, columns);
+        JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient);
+        ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
+                transaction,
+                SESSION,
+                split,
+                jdbcTableHandle,
+                columns.stream()
+                        .map(ColumnHandle.class::cast)
+                        .collect(toImmutableList()),
+                EMPTY);
 
-        return recordSet.cursor();
+        return pageSource.getNextPage();
+    }
+
+    public static void append(PageBuilder builder, List<Type> types, Object... values)
+    {
+        checkArgument(types.size() == values.length);
+        builder.declarePosition();
+        for (int i = 0; i < types.size(); i++) {
+            Type type = types.get(i);
+            if (type instanceof VarcharType) {
+                checkArgument(values[i] instanceof String);
+                type.writeSlice(builder.getBlockBuilder(i), utf8Slice((String) values[i]));
+                continue;
+            }
+            if (type == BIGINT) {
+                checkArgument(values[i] instanceof Integer);
+                type.writeLong(builder.getBlockBuilder(i), (Integer) values[i]);
+                continue;
+            }
+            throw new IllegalArgumentException();
+        }
     }
 }

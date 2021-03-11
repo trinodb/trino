@@ -22,6 +22,7 @@ import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.base.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
@@ -57,7 +58,7 @@ public class JdbcModule
 
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, ConnectorRecordSetProvider.class).setDefault().to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(JdbcPageSourceProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSinkProvider.class).setDefault().to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);

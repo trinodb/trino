@@ -15,12 +15,13 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
-import io.trino.spi.connector.RecordSet;
+import io.trino.spi.connector.DynamicFilter;
 
 import javax.inject.Inject;
 
@@ -29,19 +30,25 @@ import java.util.List;
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
 
-public class JdbcRecordSetProvider
-        implements ConnectorRecordSetProvider
+public class JdbcPageSourceProvider
+        implements ConnectorPageSourceProvider
 {
     private final JdbcClient jdbcClient;
 
     @Inject
-    public JdbcRecordSetProvider(JdbcClient jdbcClient)
+    public JdbcPageSourceProvider(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
     @Override
-    public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter)
     {
         JdbcSplit jdbcSplit = (JdbcSplit) split;
         JdbcTableHandle jdbcTable = (JdbcTableHandle) table;
@@ -58,6 +65,6 @@ public class JdbcRecordSetProvider
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcRecordSet(jdbcClient, session, jdbcSplit, jdbcTable, handles.build());
+        return new JdbcPageSource(jdbcClient, session, jdbcSplit, jdbcTable, handles.build());
     }
 }

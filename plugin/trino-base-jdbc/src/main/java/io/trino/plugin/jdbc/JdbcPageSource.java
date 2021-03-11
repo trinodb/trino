@@ -14,11 +14,15 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import io.trino.spi.Page;
+import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
+import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.type.Type;
 
 import javax.annotation.Nullable;
@@ -30,16 +34,19 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
-public class JdbcRecordCursor
-        implements RecordCursor
+public class JdbcPageSource
+        implements ConnectorPageSource
 {
-    private static final Logger log = Logger.get(JdbcRecordCursor.class);
+    private static final Logger log = Logger.get(JdbcPageSource.class);
+
+    private static final int ROWS_PER_REQUEST = 4096;
+    private final PageBuilder pageBuilder;
+    private boolean closed;
 
     private final JdbcColumnHandle[] columnHandles;
     private final ReadFunction[] readFunctions;
@@ -48,26 +55,28 @@ public class JdbcRecordCursor
     private final LongReadFunction[] longReadFunctions;
     private final SliceReadFunction[] sliceReadFunctions;
     private final ObjectReadFunction[] objectReadFunctions;
+    private final Type[] types;
 
     private final JdbcClient jdbcClient;
     private final Connection connection;
     private final PreparedStatement statement;
     @Nullable
     private ResultSet resultSet;
-    private boolean closed;
 
-    public JdbcRecordCursor(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcPageSource(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
 
         this.columnHandles = columnHandles.toArray(new JdbcColumnHandle[0]);
 
-        readFunctions = new ReadFunction[columnHandles.size()];
-        booleanReadFunctions = new BooleanReadFunction[columnHandles.size()];
-        doubleReadFunctions = new DoubleReadFunction[columnHandles.size()];
-        longReadFunctions = new LongReadFunction[columnHandles.size()];
-        sliceReadFunctions = new SliceReadFunction[columnHandles.size()];
-        objectReadFunctions = new ObjectReadFunction[columnHandles.size()];
+        int columnsCount = columnHandles.size();
+        readFunctions = new ReadFunction[columnsCount];
+        booleanReadFunctions = new BooleanReadFunction[columnsCount];
+        doubleReadFunctions = new DoubleReadFunction[columnsCount];
+        longReadFunctions = new LongReadFunction[columnsCount];
+        sliceReadFunctions = new SliceReadFunction[columnsCount];
+        objectReadFunctions = new ObjectReadFunction[columnsCount];
+        types = new Type[columnsCount];
 
         try {
             connection = jdbcClient.getConnection(session, split);
@@ -99,7 +108,9 @@ public class JdbcRecordCursor
                 else {
                     objectReadFunctions[i] = (ObjectReadFunction) readFunction;
                 }
+                types[i] = columnHandle.getColumnType();
             }
+            this.pageBuilder = new PageBuilder(ImmutableList.copyOf(types));
 
             statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
         }
@@ -121,108 +132,79 @@ public class JdbcRecordCursor
     }
 
     @Override
-    public Type getType(int field)
+    public Page getNextPage()
     {
-        return columnHandles[field].getColumnType();
-    }
-
-    @Override
-    public boolean advanceNextPosition()
-    {
-        if (closed) {
-            return false;
-        }
-
-        try {
-            if (resultSet == null) {
-                log.debug("Executing: %s", statement.toString());
-                resultSet = statement.executeQuery();
+        if (!closed) {
+            try {
+                if (resultSet == null) {
+                    log.debug("Executing: %s", statement.toString());
+                    resultSet = statement.executeQuery();
+                }
+                for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull(); i++) {
+                    if (!resultSet.next()) {
+                        closed = true;
+                        break;
+                    }
+                    readPosition();
+                }
             }
-            return resultSet.next();
+            catch (SQLException | RuntimeException e) {
+                throw handleSqlException(e);
+            }
         }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
+
+        // only return a page if the buffer is full or we are finishing
+        if ((closed && !pageBuilder.isEmpty()) || pageBuilder.isFull()) {
+            Page page = pageBuilder.build();
+            pageBuilder.reset();
+            return page;
+        }
+
+        return null;
+    }
+
+    private void readPosition()
+            throws SQLException
+    {
+        pageBuilder.declarePosition();
+        for (int column = 0; column < types.length; column++) {
+            BlockBuilder output = pageBuilder.getBlockBuilder(column);
+            if (readFunctions[column].isNull(resultSet, column + 1)) {
+                output.appendNull();
+            }
+            else {
+                Type type = types[column];
+                Class<?> javaType = type.getJavaType();
+                if (javaType == boolean.class) {
+                    type.writeBoolean(output, booleanReadFunctions[column].readBoolean(resultSet, column + 1));
+                }
+                else if (javaType == long.class) {
+                    type.writeLong(output, longReadFunctions[column].readLong(resultSet, column + 1));
+                }
+                else if (javaType == double.class) {
+                    type.writeDouble(output, doubleReadFunctions[column].readDouble(resultSet, column + 1));
+                }
+                else if (javaType == Slice.class) {
+                    Slice slice = sliceReadFunctions[column].readSlice(resultSet, column + 1);
+                    type.writeSlice(output, slice, 0, slice.length());
+                }
+                else {
+                    type.writeObject(output, objectReadFunctions[column].readObject(resultSet, column + 1));
+                }
+            }
         }
     }
 
     @Override
-    public boolean getBoolean(int field)
+    public long getSystemMemoryUsage()
     {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return booleanReadFunctions[field].readBoolean(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
+        return pageBuilder.getSizeInBytes();
     }
 
     @Override
-    public long getLong(int field)
+    public boolean isFinished()
     {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return longReadFunctions[field].readLong(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public double getDouble(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return doubleReadFunctions[field].readDouble(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public Slice getSlice(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return sliceReadFunctions[field].readSlice(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public Object getObject(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        requireNonNull(resultSet, "resultSet is null");
-        try {
-            return objectReadFunctions[field].readObject(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
-    }
-
-    @Override
-    public boolean isNull(int field)
-    {
-        checkState(!closed, "cursor is closed");
-        checkArgument(field < columnHandles.length, "Invalid field index");
-        requireNonNull(resultSet, "resultSet is null");
-
-        try {
-            return readFunctions[field].isNull(resultSet, field + 1);
-        }
-        catch (SQLException | RuntimeException e) {
-            throw handleSqlException(e);
-        }
+        return closed && pageBuilder.isEmpty();
     }
 
     @SuppressWarnings("UnusedDeclaration")
