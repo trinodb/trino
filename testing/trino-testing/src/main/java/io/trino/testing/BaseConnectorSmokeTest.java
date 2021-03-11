@@ -58,6 +58,15 @@ public abstract class BaseConnectorSmokeTest
     }
 
     @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        // Enforce a naming convention to make code navigation easier.
+        assertThat(getClass().getName())
+                .endsWith("ConnectorSmokeTest");
+    }
+
+    @Test
     public void testSelect()
     {
         assertQuery("SELECT name FROM region");

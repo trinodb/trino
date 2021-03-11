@@ -20,7 +20,7 @@ import java.util.Map;
 
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 
-public class TestJdbcCachingQueries
+public class TestJdbcCachingConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
     @Override
