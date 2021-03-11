@@ -32,6 +32,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +85,7 @@ import static io.trino.jdbc.ConnectionProperties.SslVerificationMode;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.CA;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.FULL;
 import static io.trino.jdbc.ConnectionProperties.SslVerificationMode.NONE;
+import static io.trino.jdbc.ConnectionProperties.TIMEZONE_ID;
 import static io.trino.jdbc.ConnectionProperties.TRACE_TOKEN;
 import static io.trino.jdbc.ConnectionProperties.USER;
 import static java.lang.String.format;
@@ -191,6 +193,21 @@ public final class TrinoDriverUri
     public Properties getProperties()
     {
         return properties;
+    }
+
+    public Optional<String> getTimeZoneID()
+            throws SQLException
+    {
+        Optional<String> tzId = TIMEZONE_ID.getValue(properties);
+
+        if (tzId.isPresent()) {
+            List<String> ids = Arrays.asList(java.util.TimeZone.getAvailableIDs());
+            if (ids.contains(tzId.get())) {
+                return tzId;
+            }
+            throw new SQLException("Specified TimeZoneID is not supported");
+        }
+        return tzId;
     }
 
     public Map<String, String> getExtraCredentials()
