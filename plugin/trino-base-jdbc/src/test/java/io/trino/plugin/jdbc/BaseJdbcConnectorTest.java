@@ -13,7 +13,11 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
+import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -21,20 +25,31 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.TestTable;
+import net.jodah.failsafe.function.CheckedRunnable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.trino.plugin.jdbc.RemoteDatabaseEvent.Status.CANCELLED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_AGGREGATION_PUSHDOWN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CANCELLATION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN;
@@ -42,13 +57,26 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
+import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
+import static java.lang.Thread.sleep;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertEquals;
 
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
 {
     // TODO move common tests from connector-specific classes here
+
+    private final ExecutorService threadPool = newCachedThreadPool(daemonThreadsNamed("base-connector-test"));
+
+    @AfterClass(alwaysRun = true)
+    public void afterClass()
+    {
+        assertThat(threadPool.shutdownNow()).isEmpty();
+    }
 
     @Test
     public void testJoinPushdownDisabled()
@@ -326,5 +354,67 @@ public abstract class BaseJdbcConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_enabled", "true")
                 .build();
+    }
+
+    @Test(timeOut = 60_000)
+    public void testCancellation()
+            throws Throwable
+    {
+        if (!hasBehavior(SUPPORTS_CANCELLATION)) {
+            throw new SkipException("Cancellation is not supported by given connector");
+        }
+
+        Duration minimalQueryDuration = new Duration(1, MINUTES);
+
+        // verify that long lasting query is correct
+        assertQuerySucceeds("EXPLAIN " + getLongLastingQuery(minimalQueryDuration));
+
+        Set<RemoteDatabaseEvent> remoteEvents = captureRemoteEventsDuring(() -> {
+            String longLastingQuery = getLongLastingQuery(minimalQueryDuration);
+            Future<?> future = threadPool.submit(() -> assertQueryFails(longLastingQuery, "Query killed. Message: Killed by test"));
+            QueryId queryId = getQueryId(longLastingQuery);
+            sleep(1_000); // to make sure remote data source is queried
+            assertUpdate(format("CALL system.runtime.kill_query(query_id => '%s', message => '%s')", queryId, "Killed by test"));
+            sleep(1_000); // to make sure query is cancelled
+            future.get();
+        });
+
+        assertThat(remoteEvents).isNotEmpty();
+        assertThat(remoteEvents.stream())
+                .map(RemoteDatabaseEvent::getStatus)
+                .contains(CANCELLED);
+    }
+
+    private QueryId getQueryId(String query)
+    {
+        AtomicReference<QueryId> queryId = new AtomicReference<>();
+        assertEventually(() -> {
+            MaterializedResult queriesResult = getQueryRunner().execute(format(
+                    "SELECT query_id FROM system.runtime.queries WHERE state = 'RUNNING' AND query = '%s' AND query NOT LIKE '%%system.runtime.queries%%'",
+                    query));
+            assertEquals(queriesResult.getRowCount(), 1);
+            queryId.set(new QueryId((String) queriesResult.getOnlyValue()));
+        });
+        return queryId.get();
+    }
+
+    private Set<RemoteDatabaseEvent> captureRemoteEventsDuring(CheckedRunnable runnable)
+            throws Throwable
+    {
+        ImmutableSet<RemoteDatabaseEvent> before = getRemoteDatabaseEvents();
+        runnable.run();
+        ImmutableSet<RemoteDatabaseEvent> after = getRemoteDatabaseEvents();
+        return Sets.difference(after, before);
+    }
+
+    // Using ImmutableSet as events are ordered
+    protected ImmutableSet<RemoteDatabaseEvent> getRemoteDatabaseEvents()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    protected String getLongLastingQuery(Duration minimalQueryDuration)
+    {
+        throw new UnsupportedOperationException();
     }
 }

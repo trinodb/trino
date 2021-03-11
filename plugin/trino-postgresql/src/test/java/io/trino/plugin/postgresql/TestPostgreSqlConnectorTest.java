@@ -14,8 +14,11 @@
 package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
+import io.trino.plugin.jdbc.RemoteDatabaseEvent;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -40,12 +43,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -111,6 +116,9 @@ public class TestPostgreSqlConnectorTest
                 return false;
 
             case SUPPORTS_JOIN_PUSHDOWN:
+                return true;
+
+            case SUPPORTS_CANCELLATION:
                 return true;
 
             default:
@@ -966,5 +974,18 @@ public class TestPostgreSqlConnectorTest
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }
+    }
+
+    @Override
+    protected ImmutableSet<RemoteDatabaseEvent> getRemoteDatabaseEvents()
+    {
+        return postgreSqlServer.getRemoteDatabaseEvents();
+    }
+
+    @Override
+    protected String getLongLastingQuery(Duration minimalQueryDuration)
+    {
+        checkArgument(minimalQueryDuration.compareTo(new Duration(1, MINUTES)) <= 0, "Unable to sleep that long");
+        return "SELECT * FROM public.sleep_for_a_minute";
     }
 }
