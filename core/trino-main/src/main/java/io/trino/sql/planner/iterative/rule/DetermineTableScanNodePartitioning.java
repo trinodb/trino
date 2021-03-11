@@ -13,17 +13,21 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import io.trino.cost.TaskCountEstimator;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableProperties;
 import io.trino.metadata.TableProperties.TablePartitioning;
+import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.TableScanNode;
 
+import static io.trino.SystemSessionProperties.getTableScanNodePartitioningMinBucketToTaskRatio;
 import static io.trino.SystemSessionProperties.isPlanWithTableNodePartitioning;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
+import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
 public class DetermineTableScanNodePartitioning
@@ -34,11 +38,13 @@ public class DetermineTableScanNodePartitioning
 
     private final Metadata metadata;
     private final NodePartitioningManager nodePartitioningManager;
+    private final TaskCountEstimator taskCountEstimator;
 
-    public DetermineTableScanNodePartitioning(Metadata metadata, NodePartitioningManager nodePartitioningManager)
+    public DetermineTableScanNodePartitioning(Metadata metadata, NodePartitioningManager nodePartitioningManager, TaskCountEstimator taskCountEstimator)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
+        this.taskCountEstimator = requireNonNull(taskCountEstimator, "taskCountEstimator is null");
     }
 
     @Override
@@ -56,11 +62,20 @@ public class DetermineTableScanNodePartitioning
         }
 
         TablePartitioning partitioning = properties.getTablePartitioning().get();
-        if (nodePartitioningManager.getConnectorBucketNodeMap(context.getSession(), partitioning.getPartitioningHandle()).hasFixedMapping()) {
+        ConnectorBucketNodeMap bucketNodeMap = nodePartitioningManager.getConnectorBucketNodeMap(context.getSession(), partitioning.getPartitioningHandle());
+        if (bucketNodeMap.hasFixedMapping()) {
             // use connector table scan node partitioning when bucket to node assignments are fixed
             return Result.ofPlanNode(node.withUseConnectorNodePartitioning(true));
         }
 
-        return Result.ofPlanNode(node.withUseConnectorNodePartitioning(isPlanWithTableNodePartitioning(context.getSession())));
+        if (!isPlanWithTableNodePartitioning(context.getSession())) {
+            return Result.ofPlanNode(node.withUseConnectorNodePartitioning(false));
+        }
+
+        int numberOfBuckets = bucketNodeMap.getBucketCount();
+        int numberOfTasks = max(taskCountEstimator.estimateSourceDistributedTaskCount(context.getSession()), 1);
+
+        return Result.ofPlanNode(node
+                .withUseConnectorNodePartitioning((double) numberOfBuckets / numberOfTasks >= getTableScanNodePartitioningMinBucketToTaskRatio(context.getSession())));
     }
 }

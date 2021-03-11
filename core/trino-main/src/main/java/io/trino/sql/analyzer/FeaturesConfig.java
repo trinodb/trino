@@ -131,6 +131,7 @@ public class FeaturesConfig
     private boolean optimizeDuplicateInsensitiveJoins = true;
     private boolean useLegacyWindowFilterPushdown;
     private boolean planWithTableNodePartitioning = true;
+    private double tableScanNodePartitioningMinBucketToTaskRatio = 0.5;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
@@ -1030,6 +1031,20 @@ public class FeaturesConfig
     public FeaturesConfig setPlanWithTableNodePartitioning(boolean planWithTableNodePartitioning)
     {
         this.planWithTableNodePartitioning = planWithTableNodePartitioning;
+        return this;
+    }
+
+    @Min(0)
+    public double getTableScanNodePartitioningMinBucketToTaskRatio()
+    {
+        return tableScanNodePartitioningMinBucketToTaskRatio;
+    }
+
+    @Config("optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio")
+    @ConfigDescription("Min table scan bucket to task ratio for which plan will be adopted to node pre-partitioned tables")
+    public FeaturesConfig setTableScanNodePartitioningMinBucketToTaskRatio(double tableScanNodePartitioningMinBucketToTaskRatio)
+    {
+        this.tableScanNodePartitioningMinBucketToTaskRatio = tableScanNodePartitioningMinBucketToTaskRatio;
         return this;
     }
 }

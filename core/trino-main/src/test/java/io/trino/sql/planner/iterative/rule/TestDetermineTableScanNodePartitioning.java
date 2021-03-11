@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsProvider;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
@@ -37,18 +38,21 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Predicates.equalTo;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.trino.sql.planner.TestTableScanNodePartitioning.BUCKET_COUNT;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_A;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_B;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_HANDLE_A;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.COLUMN_HANDLE_B;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_PARTITIONED_TABLE_HANDLE;
+import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.CONNECTOR_UNPARTITIONED_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.FIXED_PARTITIONED_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.MOCK_CATALOG;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.PARTITIONED_TABLE_HANDLE;
+import static io.trino.sql.planner.TestTableScanNodePartitioning.SINGLE_BUCKET_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.UNPARTITIONED_TABLE_HANDLE;
 import static io.trino.sql.planner.TestTableScanNodePartitioning.createMockFactory;
 import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
@@ -83,6 +87,7 @@ public class TestDetermineTableScanNodePartitioning
                 ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
                 PARTITIONED_TABLE_HANDLE,
                 CONNECTOR_PARTITIONED_TABLE_HANDLE,
+                BUCKET_COUNT,
                 true);
     }
 
@@ -93,6 +98,7 @@ public class TestDetermineTableScanNodePartitioning
                 DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
                 PARTITIONED_TABLE_HANDLE,
                 CONNECTOR_PARTITIONED_TABLE_HANDLE,
+                BUCKET_COUNT,
                 false);
     }
 
@@ -103,6 +109,7 @@ public class TestDetermineTableScanNodePartitioning
                 ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
                 UNPARTITIONED_TABLE_HANDLE,
                 CONNECTOR_UNPARTITIONED_TABLE_HANDLE,
+                BUCKET_COUNT,
                 false);
     }
 
@@ -113,16 +120,43 @@ public class TestDetermineTableScanNodePartitioning
                 DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
                 FIXED_PARTITIONED_TABLE_HANDLE,
                 CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE,
+                BUCKET_COUNT,
                 true);
+    }
+
+    @Test
+    public void testTableScanWithInsufficientBucketToTaskRatio()
+    {
+        testPlanWithTableNodePartitioning(
+                ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
+                PARTITIONED_TABLE_HANDLE,
+                CONNECTOR_PARTITIONED_TABLE_HANDLE,
+                BUCKET_COUNT * 2,
+                true);
+
+        testPlanWithTableNodePartitioning(
+                ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
+                PARTITIONED_TABLE_HANDLE,
+                CONNECTOR_PARTITIONED_TABLE_HANDLE,
+                BUCKET_COUNT * 2 + 1,
+                false);
+
+        testPlanWithTableNodePartitioning(
+                ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING,
+                SINGLE_BUCKET_TABLE_HANDLE,
+                CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE,
+                3,
+                false);
     }
 
     private void testPlanWithTableNodePartitioning(
             Session session,
             TableHandle tableHandle,
             ConnectorTableHandle connectorTableHandle,
+            int numberOfTasks,
             boolean expectedEnabled)
     {
-        tester.assertThat(new DetermineTableScanNodePartitioning(tester.getMetadata(), tester.getQueryRunner().getNodePartitioningManager()))
+        tester.assertThat(new DetermineTableScanNodePartitioning(tester.getMetadata(), tester.getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> numberOfTasks)))
                 .on(p -> {
                     Symbol a = p.symbol(COLUMN_A);
                     Symbol b = p.symbol(COLUMN_B);

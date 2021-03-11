@@ -16,6 +16,7 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.cost.TaskCountEstimator;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.RuleStatsRecorder;
@@ -97,7 +98,7 @@ public class TestEliminateSorts
                         getQueryRunner().getCostCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new DetermineTableScanNodePartitioning(getQueryRunner().getMetadata(), getQueryRunner().getNodePartitioningManager()))),
+                                new DetermineTableScanNodePartitioning(getQueryRunner().getMetadata(), getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> 10)))),
                 new AddExchanges(getQueryRunner().getMetadata(), getQueryRunner().getTypeOperators(), typeAnalyzer));
 
         assertPlan(sql, pattern, optimizers);
