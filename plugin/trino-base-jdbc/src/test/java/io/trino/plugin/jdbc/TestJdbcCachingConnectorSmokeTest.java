@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 
 import java.util.Map;
 
@@ -34,5 +35,17 @@ public class TestJdbcCachingConnectorSmokeTest
                 .put("allow-drop-table", "true")
                 .build();
         return createH2QueryRunner(REQUIRED_TPCH_TABLES, properties);
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }

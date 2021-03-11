@@ -272,12 +272,6 @@ public class CassandraMetadata
     }
 
     @Override
-    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "Renaming tables not yet supported for Cassandra");
-    }
-
-    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         return createTable(tableMetadata);

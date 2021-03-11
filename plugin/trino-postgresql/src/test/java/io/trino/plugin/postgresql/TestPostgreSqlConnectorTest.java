@@ -97,6 +97,9 @@ public class TestPostgreSqlConnectorTest
                 // Arrays are supported conditionally. Check the defaults.
                 return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
 
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

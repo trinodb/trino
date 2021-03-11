@@ -67,6 +67,9 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -83,7 +86,7 @@ public class TestPhoenixConnectorTest
     {
         assertThatThrownBy(super::testRenameTable)
                 // TODO (https://github.com/trinodb/trino/issues/7204) support table rename in Phoenix
-                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
+                .hasMessageContaining("This connector does not support renaming tables");
         throw new SkipException("Rename table is not yet supported by Phoenix connector");
     }
 

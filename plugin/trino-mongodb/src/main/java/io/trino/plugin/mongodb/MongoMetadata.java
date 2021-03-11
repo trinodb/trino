@@ -168,12 +168,6 @@ public class MongoMetadata
     }
 
     @Override
-    public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         mongoSession.addColumn(((MongoTableHandle) tableHandle).getSchemaTableName(), column);

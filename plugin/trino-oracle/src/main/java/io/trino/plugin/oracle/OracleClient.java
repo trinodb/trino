@@ -204,7 +204,7 @@ public class OracleClient
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equalsIgnoreCase(newTable.getSchemaName())) {
-            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported in Oracle");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
         String newTableName = newTable.getTableName().toUpperCase(ENGLISH);
