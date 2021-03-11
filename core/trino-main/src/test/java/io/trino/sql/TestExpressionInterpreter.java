@@ -77,8 +77,6 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
-import static io.trino.sql.planner.ExpressionInterpreter.expressionInterpreter;
-import static io.trino.sql.planner.ExpressionInterpreter.expressionOptimizer;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.String.format;
@@ -1482,7 +1480,7 @@ public class TestExpressionInterpreter
     static Object optimize(Expression parsedExpression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = expressionOptimizer(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
         return interpreter.optimize(symbol -> {
             switch (symbol.getName().toLowerCase(ENGLISH)) {
                 case "bound_integer":
@@ -1559,7 +1557,7 @@ public class TestExpressionInterpreter
     private static Object evaluate(Expression expression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = expressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
+        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate();
     }

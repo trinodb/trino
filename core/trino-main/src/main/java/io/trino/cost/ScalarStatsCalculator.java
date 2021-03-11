@@ -133,7 +133,7 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(session, node, types);
-            ExpressionInterpreter interpreter = ExpressionInterpreter.expressionOptimizer(node, metadata, session, expressionTypes);
+            ExpressionInterpreter interpreter = new ExpressionInterpreter(node, metadata, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
             if (value == null || value instanceof NullLiteral) {

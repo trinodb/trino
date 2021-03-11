@@ -707,7 +707,7 @@ public final class FunctionAssertions
     private Object interpret(Expression expression, Type expectedType, Session session)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(session, metadata, INPUT_TYPES, expression);
-        ExpressionInterpreter evaluator = ExpressionInterpreter.expressionInterpreter(expression, metadata, session, expressionTypes);
+        ExpressionInterpreter evaluator = new ExpressionInterpreter(expression, metadata, session, expressionTypes);
 
         Object result = evaluator.evaluate(symbol -> {
             int position = 0;

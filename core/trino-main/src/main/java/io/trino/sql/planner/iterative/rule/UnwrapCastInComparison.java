@@ -181,7 +181,7 @@ public class UnwrapCastInComparison
                 return expression;
             }
 
-            Object right = ExpressionInterpreter.expressionOptimizer(expression.getRight(), metadata, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
+            Object right = new ExpressionInterpreter(expression.getRight(), metadata, session, typeAnalyzer.getTypes(session, types, expression.getRight()))
                     .optimize(NoOpSymbolResolver.INSTANCE);
 
             Cast cast = (Cast) expression.getLeft();

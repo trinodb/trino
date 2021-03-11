@@ -302,7 +302,7 @@ public class PushPredicateIntoTableScan
         {
             this.assignments = assignments;
 
-            evaluator = ExpressionInterpreter.expressionOptimizer(expression, metadata, session, typeAnalyzer.getTypes(session, types, expression));
+            evaluator = new ExpressionInterpreter(expression, metadata, session, typeAnalyzer.getTypes(session, types, expression));
             arguments = SymbolsExtractor.extractUnique(expression).stream()
                     .map(assignments::get)
                     .collect(toImmutableSet());
