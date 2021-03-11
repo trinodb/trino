@@ -381,8 +381,8 @@ Property Name                                      Description                  
                                                    alternatively set the ``legacy_hive_view_translation``
                                                    session property to ``true``.
 
-``hive.parallel-partitioned-bucketed-inserts``     Improve parallelism of partitioned and bucketed table        ``true``
-                                                   inserts. When disabled, the number of writing threads
+``hive.parallel-partitioned-bucketed-writes``      Improve parallelism of partitioned and bucketed table        ``true``
+                                                   writes. When disabled, the number of writing threads
                                                    is limited to number of buckets.
 ================================================== ============================================================ ============
 

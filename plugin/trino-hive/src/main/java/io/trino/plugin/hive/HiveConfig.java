@@ -92,7 +92,7 @@ public class HiveConfig
     private int maxOpenSortFiles = 50;
     private int writeValidationThreads = 16;
     private boolean validateBucketing = true;
-    private boolean parallelPartitionedBucketedInserts = true;
+    private boolean parallelPartitionedBucketedWrites = true;
 
     private DataSize textMaxLineLength = DataSize.of(100, MEGABYTE);
 
@@ -565,16 +565,17 @@ public class HiveConfig
         return this;
     }
 
-    public boolean isParallelPartitionedBucketedInserts()
+    public boolean isParallelPartitionedBucketedWrites()
     {
-        return parallelPartitionedBucketedInserts;
+        return parallelPartitionedBucketedWrites;
     }
 
-    @Config("hive.parallel-partitioned-bucketed-inserts")
-    @ConfigDescription("Improve parallelism of partitioned and bucketed table inserts")
-    public HiveConfig setParallelPartitionedBucketedInserts(boolean parallelPartitionedBucketedInserts)
+    @Config("hive.parallel-partitioned-bucketed-writes")
+    @LegacyConfig("hive.parallel-partitioned-bucketed-inserts")
+    @ConfigDescription("Improve parallelism of partitioned and bucketed table writes")
+    public HiveConfig setParallelPartitionedBucketedWrites(boolean parallelPartitionedBucketedWrites)
     {
-        this.parallelPartitionedBucketedInserts = parallelPartitionedBucketedInserts;
+        this.parallelPartitionedBucketedWrites = parallelPartitionedBucketedWrites;
         return this;
     }
 
