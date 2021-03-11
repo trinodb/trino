@@ -85,21 +85,28 @@ public class TestTableScanNodePartitioning
             .setSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, "false")
             .build();
 
+    public static final int BUCKET_COUNT = 10;
+
     public static final String PARTITIONED_TABLE = "partitioned_table";
+    public static final String SINGLE_BUCKET_TABLE = "single_bucket_table";
     public static final String FIXED_PARTITIONED_TABLE = "fixed_partitioned_table";
     public static final String UNPARTITIONED_TABLE = "unpartitioned_table";
 
     public static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
+    public static final ConnectorPartitioningHandle SINGLE_BUCKET_HANDLE = new ConnectorPartitioningHandle() {};
     public static final ConnectorPartitioningHandle FIXED_PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
 
     public static final ConnectorTableHandle CONNECTOR_PARTITIONED_TABLE_HANDLE =
             new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, PARTITIONED_TABLE));
+    public static final ConnectorTableHandle CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE =
+            new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, SINGLE_BUCKET_TABLE));
     public static final ConnectorTableHandle CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE =
             new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, FIXED_PARTITIONED_TABLE));
     public static final ConnectorTableHandle CONNECTOR_UNPARTITIONED_TABLE_HANDLE =
             new MockConnectorTableHandle(new SchemaTableName(TEST_SCHEMA, UNPARTITIONED_TABLE));
 
     public static final TableHandle PARTITIONED_TABLE_HANDLE = tableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE);
+    public static final TableHandle SINGLE_BUCKET_TABLE_HANDLE = tableHandle(CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE);
     public static final TableHandle FIXED_PARTITIONED_TABLE_HANDLE = tableHandle(CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE);
     public static final TableHandle UNPARTITIONED_TABLE_HANDLE = tableHandle(CONNECTOR_UNPARTITIONED_TABLE_HANDLE);
 
@@ -116,7 +123,9 @@ public class TestTableScanNodePartitioning
                 .setCatalog(MOCK_CATALOG)
                 .setSchema(TEST_SCHEMA);
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
+        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
+                .withNodeCountForStats(10)
+                .build();
         queryRunner.createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
         queryRunner.getNodePartitioningManager().addPartitioningProvider(
                 new CatalogName(MOCK_CATALOG),
@@ -146,6 +155,12 @@ public class TestTableScanNodePartitioning
     public void testTableScanWithFixedConnectorPartitioning()
     {
         assertTableScanPlannedWithPartitioning(DISABLE_PLAN_WITH_TABLE_NODE_PARTITIONING, FIXED_PARTITIONED_TABLE, FIXED_PARTITIONING_HANDLE);
+    }
+
+    @Test
+    public void testTableScanWithInsufficientBucketToTaskRatio()
+    {
+        assertTableScanPlannedWithoutPartitioning(ENABLE_PLAN_WITH_TABLE_NODE_PARTITIONING, SINGLE_BUCKET_TABLE);
     }
 
     void assertTableScanPlannedWithPartitioning(Session session, String table, ConnectorPartitioningHandle expectedPartitioning)
@@ -195,6 +210,14 @@ public class TestTableScanNodePartitioning
                                 Optional.empty(),
                                 ImmutableList.of());
                     }
+                    if (tableHandle.equals(CONNECTOR_SINGLE_BUCKET_TABLE_HANDLE)) {
+                        return new ConnectorTableProperties(
+                                TupleDomain.all(),
+                                Optional.of(new ConnectorTablePartitioning(SINGLE_BUCKET_HANDLE, ImmutableList.of(COLUMN_HANDLE_A))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of());
+                    }
                     if (tableHandle.equals(CONNECTOR_FIXED_PARTITIONED_TABLE_HANDLE)) {
                         return new ConnectorTableProperties(
                                 TupleDomain.all(),
@@ -222,7 +245,10 @@ public class TestTableScanNodePartitioning
         public ConnectorBucketNodeMap getBucketNodeMap(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorPartitioningHandle partitioningHandle)
         {
             if (partitioningHandle.equals(PARTITIONING_HANDLE)) {
-                return createBucketNodeMap(10);
+                return createBucketNodeMap(BUCKET_COUNT);
+            }
+            if (partitioningHandle.equals(SINGLE_BUCKET_HANDLE)) {
+                return createBucketNodeMap(1);
             }
             if (partitioningHandle.equals(FIXED_PARTITIONING_HANDLE)) {
                 return createBucketNodeMap(ImmutableList.of(nodeManager.getCurrentNode()));
