@@ -44,6 +44,9 @@ public class TestKafkaLatestConnectorSmokeTest
             case SUPPORTS_CREATE_TABLE:
                 return false;
 
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }

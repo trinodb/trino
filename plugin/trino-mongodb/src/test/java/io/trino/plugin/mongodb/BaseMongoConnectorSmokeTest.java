@@ -25,6 +25,10 @@ public abstract class BaseMongoConnectorSmokeTest
         switch (connectorBehavior) {
             case SUPPORTS_CREATE_SCHEMA:
                 return false;
+
+            case SUPPORTS_RENAME_TABLE:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
