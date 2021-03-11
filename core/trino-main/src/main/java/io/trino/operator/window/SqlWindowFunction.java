@@ -37,6 +37,7 @@ public class SqlWindowFunction
         Signature signature = supplier.getSignature();
         functionMetadata = new FunctionMetadata(
                 signature,
+                signature.getName(),
                 true,
                 nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(true)),
                 false,

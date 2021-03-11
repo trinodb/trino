@@ -40,8 +40,7 @@ public class ParquetTypeConverter
                 return Type.INT96;
             case FIXED_LEN_BYTE_ARRAY:
                 return Type.FIXED_LEN_BYTE_ARRAY;
-            default:
-                throw new RuntimeException("Unknown primitive type " + type);
         }
+        throw new RuntimeException("Unknown primitive type " + type);
     }
 }

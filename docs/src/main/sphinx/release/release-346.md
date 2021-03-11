@@ -1,6 +1,6 @@
 # Release 346 (10 Nov 2020)
 
-## General changes
+## General
 
 * Add support for `RANGE BETWEEN <value> PRECEDING AND <value> FOLLOWING` window frames. ({issue}`609`)
 * Add support for window frames based on `GROUPS`. ({issue}`5713`)
@@ -19,7 +19,6 @@
 * Restore previous null handling for {func}`array_min` and {func}`array_max`. ({issue}`5787`)
 * Remove configuration properties `arrayagg.implementation`,
   `multimapagg.implementation`, and `histogram.implementation`. ({issue}`4581`)
-* Remove leftover empty directories after RPM uninstall. ({issue}`5782`)
 * Fix incorrect handling of negative offsets for the `time with time zone` type. ({issue}`5696`)
 * Fix incorrect result when casting `time(p)` to `timestamp(p)` for precisions higher than 6. ({issue}`5736`)
 * Fix incorrect query results when comparing a `timestamp` column with a `timestamp with time zone` constant. ({issue}`5685`)
@@ -32,11 +31,11 @@
 * Fix failure when {func}`approx_distinct` is used with high precision `timestamp(p)`/`timestamp(p) with time zone`/`time(p) with time zone`
   data types. ({issue}`5392`)
 
-## Web UI changes
+## Web UI
 
 * Fix "Capture Snapshot" button on the Worker page. ({issue}`5759`)
 
-## JDBC driver changes
+## JDBC driver
 
 * Support number accessor methods like `ResultSet.getLong()` or `ResultSet.getDouble()`
   on `decimal` values, as well as `char` or `varchar` values that can be unambiguously interpreted as numbers. ({issue}`5509`)
@@ -44,20 +43,24 @@
 * Remove legacy `useSessionTimeZone` JDBC connection parameter. ({issue}`4521`)
 * Implement `ResultSet.getRow()`. ({issue}`5769`)
 
-## BigQuery connector changes
+## Server RPM
+
+* Remove leftover empty directories after RPM uninstall. ({issue}`5782`)
+
+## BigQuery connector
 
 * Fix issue when query could return invalid results if some column references were pruned out during query optimization. ({issue}`5618`)
 
-## Cassandra connector changes
+## Cassandra connector
 
 * Improve performance of `INSERT` queries with batch statement. The batch size can be configured via the `cassandra.batch-size`
   configuration property. ({issue}`5047`)
 
-## Elasticsearch connector changes
+## Elasticsearch connector
 
 * Fix failure when index mappings do not contain a `properties` section. ({issue}`5807`)
 
-## Hive connector changes
+## Hive connector
 
 * Add support for `ALTER TABLE ... SET AUTHORIZATION` SQL syntax to change the table owner. ({issue}`5717`)
 * Add support for writing timestamps with microsecond or nanosecond precision, in addition to milliseconds. ({issue}`5283`)
@@ -74,41 +77,41 @@
 * Fix failure when the declared length of a `varchar(n)` column in the partition schema differs from the table schema. ({issue}`5484`)
 * Fix Glue metastore pushdown for complex expressions. ({issue}`5698`)
 
-## Iceberg connector changes
+## Iceberg connector
 
 * Add support for materialized views. ({issue}`4832`)
 * Remove deprecated `parquet.fail-on-corrupted-statistics` (previously known as `hive.parquet.fail-on-corrupted-statistics`).
   A new configuration property, `parquet.ignore-statistics`, can be used to deal with Parquet files with incorrect metadata.  ({issue}`3077`)
 
-## Kafka connector changes
+## Kafka connector
 
 * Fix incorrect column comment. ({issue}`5751`)
 
-## Kudu connector changes
+## Kudu connector
 
 * Improve performance of queries having only `LIMIT` clause. ({issue}`3691`)
 
-## MySQL connector changes
+## MySQL connector
 
 * Improve performance for queries containing a predicate on a `varbinary` column. ({issue}`5672`)
 
-## Oracle connector changes
+## Oracle connector
 
 * Add support for setting column comments. ({issue}`5399`)
 * Allow enabling remarks reporting via `oracle.remarks-reporting.enabled` configuration property. ({issue}`5720`)
 
-## PostgreSQL connector changes
+## PostgreSQL connector
 
 * Improve performance of queries comparing a `timestamp` column with a `timestamp with time zone` constants
   for `timestamp with time zone` precision higher than 3. ({issue}`5543`)
 
-## Other connector changes
+## Other connectors
 
 * Improve performance of queries with `DISTINCT` or `LIMIT`, or with `GROUP BY` and no aggregate functions and `LIMIT`,
   when the computation can be pushed down to the underlying database for the PostgreSQL, MySQL, Oracle, Redshift and
   SQL Server connectors. ({issue}`5522`)
 
-## SPI changes
+## SPI
 
 * Fix propagation of connector session properties to `ConnectorNodePartitioningProvider`. ({issue}`5690`)
 * Add user groups to query events. ({issue}`5643`)

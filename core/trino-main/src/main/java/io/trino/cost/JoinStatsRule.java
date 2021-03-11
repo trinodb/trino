@@ -91,9 +91,8 @@ public class JoinStatsRule
                 return Optional.of(computeRightJoinStats(node, leftStats, rightStats, crossJoinStats, session, types));
             case FULL:
                 return Optional.of(computeFullJoinStats(node, leftStats, rightStats, crossJoinStats, session, types));
-            default:
-                throw new IllegalStateException("Unknown join type: " + node.getType());
         }
+        throw new IllegalStateException("Unknown join type: " + node.getType());
     }
 
     private PlanNodeStatsEstimate computeFullJoinStats(

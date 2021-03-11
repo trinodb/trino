@@ -190,7 +190,7 @@ public final class ScalarFunctionAdapter
         requireNonNull(methodHandle, "methodHandle is null");
         requireNonNull(actualConvention, "actualConvention is null");
         requireNonNull(expectedConvention, "expectedConvention is null");
-        if (expectedConvention.getArgumentConventions().size() != expectedConvention.getArgumentConventions().size()) {
+        if (actualConvention.getArgumentConventions().size() != expectedConvention.getArgumentConventions().size()) {
             throw new IllegalArgumentException("Actual and expected conventions have different number of arguments");
         }
 
@@ -354,7 +354,7 @@ public final class ScalarFunctionAdapter
 
             if (actualArgumentConvention == NULL_FLAG) {
                 // The conversion is described below in reverse order as this is how method handle adaptation works.  The provided example
-                // signature is based on a a boxed Long argument.
+                // signature is based on a boxed Long argument.
 
                 // 3. unbox the value (if null the java default is sent)
                 // long, boolean => Long, boolean

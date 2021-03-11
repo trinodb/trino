@@ -50,7 +50,6 @@ public class TestHivePartitionSchemaEvolution
     {
         setSessionProperty(onPresto().getConnection(), "hive.parquet_use_column_names", "true");
         setSessionProperty(onPresto().getConnection(), "hive.orc_use_column_names", "true");
-        setSessionProperty(onPresto().getConnection(), "hive.partition_use_column_names", "true");
     }
 
     @Test

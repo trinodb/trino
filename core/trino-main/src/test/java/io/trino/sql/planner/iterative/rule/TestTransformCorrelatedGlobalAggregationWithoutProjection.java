@@ -170,15 +170,15 @@ public class TestTransformCorrelatedGlobalAggregationWithoutProjection
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                                p.aggregation(outerBuilder -> outerBuilder
-                                        .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
-                                        .addAggregation(p.symbol("count"), PlanBuilder.expression("count()"), ImmutableList.of())
-                                        .globalGrouping()
-                                        .source(p.aggregation(innerBuilder -> innerBuilder
-                                                .singleGroupingSet(p.symbol("a"))
-                                                .source(p.filter(
-                                                        PlanBuilder.expression("b > corr"),
-                                                        p.values(p.symbol("a"), p.symbol("b")))))))))
+                        p.aggregation(outerBuilder -> outerBuilder
+                                .addAggregation(p.symbol("sum"), PlanBuilder.expression("sum(a)"), ImmutableList.of(BIGINT))
+                                .addAggregation(p.symbol("count"), PlanBuilder.expression("count()"), ImmutableList.of())
+                                .globalGrouping()
+                                .source(p.aggregation(innerBuilder -> innerBuilder
+                                        .singleGroupingSet(p.symbol("a"))
+                                        .source(p.filter(
+                                                PlanBuilder.expression("b > corr"),
+                                                p.values(p.symbol("a"), p.symbol("b")))))))))
                 .matches(
                         project(ImmutableMap.of("corr", expression("corr"), "sum_agg", expression("sum_agg"), "count_agg", expression("count_agg")),
                                 aggregation(

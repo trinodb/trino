@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.predicate.TupleDomain;
 
 import javax.annotation.concurrent.Immutable;
@@ -40,8 +41,8 @@ public class PartitionFilter
             @JsonProperty("partitionKeysFilter") TupleDomain<String> partitionKeysFilter)
     {
         this.hiveTableName = requireNonNull(hiveTableName, "hiveTableName is null");
-        this.partitionColumnNames = partitionColumnNames;
-        this.partitionKeysFilter = TupleDomain.fromColumnDomains(requireNonNull(partitionKeysFilter.getColumnDomains(), "parts is null"));
+        this.partitionColumnNames = ImmutableList.copyOf(requireNonNull(partitionColumnNames, "partitionColumnNames is null"));
+        this.partitionKeysFilter = requireNonNull(partitionKeysFilter, "partitionKeysFilter is null");
     }
 
     public static PartitionFilter partitionFilter(String databaseName, String tableName, List<String> partitionColumnNames, TupleDomain<String> partitionKeysFilter)

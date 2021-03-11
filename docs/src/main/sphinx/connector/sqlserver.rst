@@ -90,6 +90,25 @@ following aggregate functions:
 * :func:`var_pop`
 * :func:`var_samp`
 
+Data compression
+----------------
+
+You can specify the `data compression policy for SQL Server tables
+<https://docs.microsoft.com/en-us/sql/relational-databases/data-compression/data-compression>`_
+with the ``data_compression`` table property. Valid policies are ``NONE``, ``ROW`` or ``PAGE``.
+
+Example::
+
+    CREATE TABLE myschema.scientists (
+      recordkey VARCHAR,
+      name VARCHAR,
+      age BIGINT,
+      birthday DATE
+    )
+    WITH (
+      data_compression = 'ROW'
+    );
+
 Limitations
 -----------
 
@@ -109,6 +128,7 @@ SQL Server Type               Trino Type
 ``char(n)``                   ``char(n)``
 ``varchar(n)``                ``varchar(n)``
 ``date``                      ``date``
+``datetime2(n)``              ``timestamp(n)``
 ============================= ============================
 
 Complete list of `SQL Server data types

@@ -61,13 +61,13 @@ import java.util.concurrent.atomic.AtomicLong;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.trino.spi.connector.SampleType.SYSTEM;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toMap;
 
 @ThreadSafe
 public class MemoryMetadata
@@ -174,7 +174,7 @@ public class MemoryMetadata
         MemoryTableHandle handle = (MemoryTableHandle) tableHandle;
         return tables.get(handle.getId())
                 .getColumns().stream()
-                .collect(toMap(ColumnInfo::getName, ColumnInfo::getHandle));
+                .collect(toImmutableMap(ColumnInfo::getName, ColumnInfo::getHandle));
     }
 
     @Override
@@ -191,7 +191,7 @@ public class MemoryMetadata
     {
         return tables.values().stream()
                 .filter(table -> prefix.matches(table.getSchemaTableName()))
-                .collect(toMap(TableInfo::getSchemaTableName, handle -> handle.getMetadata().getColumns()));
+                .collect(toImmutableMap(TableInfo::getSchemaTableName, handle -> handle.getMetadata().getColumns()));
     }
 
     @Override

@@ -2,8 +2,8 @@
 Release 0.168
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix correctness issues for certain ``JOIN`` queries that require implicit coercions
   for terms in the join criteria.
@@ -26,15 +26,15 @@ General changes
   This allows using them in comparison expressions, ``ORDER BY`` and
   functions that require orderable types (e.g., :func:`max`).
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Update ``DatabaseMetaData`` to reflect features that are now supported.
 * Update advertised JDBC version to 4.2, which part of Java 8.
 * Return correct driver and server versions rather than ``1.0``.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix reading decimals for RCFile text format using non-optimized reader.
 * Fix bug which prevented the file based metastore from being used.
@@ -44,18 +44,18 @@ Hive changes
   ``rcfile_optimized_writer_enabled`` session property or the ``hive.rcfile-optimized-writer.enabled``
   Hive catalog property.
 
-Cassandra changes
------------------
+Cassandra
+---------
 
 * Add predicate pushdown for clustering key.
 
-MongoDB changes
----------------
+MongoDB
+-------
 
 * Allow SSL connections using the ``mongodb.ssl.enabled`` config flag.
 
-SPI changes
------------
+SPI
+---
 
 * ConnectorIndex now returns ``ConnectorPageSource`` instead of ``RecordSet``.  Existing connectors
   that support index join can use the ``RecordPageSource`` to adapt to the new API.

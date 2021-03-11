@@ -2,8 +2,8 @@
 Release 0.99
 ============
 
-General changes
----------------
+General
+-------
 * Reduce lock contention in ``TaskExecutor``.
 * Fix reading maps with null keys from ORC.
 * Fix precomputed hash optimization for nulls values.

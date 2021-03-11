@@ -17,20 +17,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Shorts;
 import com.google.common.primitives.SignedBytes;
 import io.trino.spi.block.Block;
-import io.trino.spi.type.BigintType;
-import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
-import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.DoubleType;
-import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.LongTimestamp;
-import io.trino.spi.type.RealType;
-import io.trino.spi.type.SmallintType;
+import io.trino.spi.type.MapType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.TimestampType;
-import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.hadoop.hive.serde2.io.DateWritableV2;
@@ -54,14 +48,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.hive.util.HiveUtil.isArrayType;
-import static io.trino.plugin.hive.util.HiveUtil.isMapType;
-import static io.trino.plugin.hive.util.HiveUtil.isRowType;
+import static io.trino.plugin.hive.util.HiveWriteUtils.getField;
 import static io.trino.plugin.hive.util.HiveWriteUtils.getHiveDecimal;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
+import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.trino.spi.type.TinyintType.TINYINT;
+import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
@@ -79,71 +80,55 @@ public final class FieldSetterFactory
 
     public FieldSetter create(SettableStructObjectInspector rowInspector, Object row, StructField field, Type type)
     {
-        if (type.equals(BooleanType.BOOLEAN)) {
+        if (BOOLEAN.equals(type)) {
             return new BooleanFieldSetter(rowInspector, row, field);
         }
-
-        if (type.equals(BigintType.BIGINT)) {
-            return new BigintFieldBuilder(rowInspector, row, field);
+        if (BIGINT.equals(type)) {
+            return new BigintFieldSetter(rowInspector, row, field);
         }
-
-        if (type.equals(IntegerType.INTEGER)) {
+        if (INTEGER.equals(type)) {
             return new IntFieldSetter(rowInspector, row, field);
         }
-
-        if (type.equals(SmallintType.SMALLINT)) {
+        if (SMALLINT.equals(type)) {
             return new SmallintFieldSetter(rowInspector, row, field);
         }
-
-        if (type.equals(TinyintType.TINYINT)) {
+        if (TINYINT.equals(type)) {
             return new TinyintFieldSetter(rowInspector, row, field);
         }
-
-        if (type.equals(RealType.REAL)) {
+        if (REAL.equals(type)) {
             return new FloatFieldSetter(rowInspector, row, field);
         }
-
-        if (type.equals(DoubleType.DOUBLE)) {
+        if (DOUBLE.equals(type)) {
             return new DoubleFieldSetter(rowInspector, row, field);
         }
-
         if (type instanceof VarcharType) {
             return new VarcharFieldSetter(rowInspector, row, field, type);
         }
-
         if (type instanceof CharType) {
             return new CharFieldSetter(rowInspector, row, field, type);
         }
-
-        if (type.equals(VarbinaryType.VARBINARY)) {
+        if (VARBINARY.equals(type)) {
             return new BinaryFieldSetter(rowInspector, row, field);
         }
-
-        if (type.equals(DateType.DATE)) {
+        if (DATE.equals(type)) {
             return new DateFieldSetter(rowInspector, row, field);
         }
-
         if (type instanceof TimestampType) {
             return new TimestampFieldSetter(rowInspector, row, field, (TimestampType) type, timeZone);
         }
-
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             return new DecimalFieldSetter(rowInspector, row, field, decimalType);
         }
-
-        if (isArrayType(type)) {
-            return new ArrayFieldSetter(rowInspector, row, field, type.getTypeParameters().get(0));
+        if (type instanceof ArrayType) {
+            return new ArrayFieldSetter(rowInspector, row, field, ((ArrayType) type).getElementType());
         }
-
-        if (isMapType(type)) {
-            return new MapFieldSetter(rowInspector, row, field, type.getTypeParameters().get(0), type.getTypeParameters().get(1));
+        if (type instanceof MapType) {
+            return new MapFieldSetter(rowInspector, row, field, ((MapType) type).getKeyType(), ((MapType) type).getValueType());
         }
-
-        if (isRowType(type)) {
+        if (type instanceof RowType) {
             return new RowFieldSetter(rowInspector, row, field, type.getTypeParameters());
         }
-
         throw new IllegalArgumentException("unsupported type: " + type);
     }
 
@@ -176,17 +161,17 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(BooleanType.BOOLEAN.getBoolean(block, position));
+            value.set(BOOLEAN.getBoolean(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
 
-    private static class BigintFieldBuilder
+    private static class BigintFieldSetter
             extends FieldSetter
     {
         private final LongWritable value = new LongWritable();
 
-        public BigintFieldBuilder(SettableStructObjectInspector rowInspector, Object row, StructField field)
+        public BigintFieldSetter(SettableStructObjectInspector rowInspector, Object row, StructField field)
         {
             super(rowInspector, row, field);
         }
@@ -194,7 +179,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(BigintType.BIGINT.getLong(block, position));
+            value.set(BIGINT.getLong(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -212,7 +197,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(toIntExact(IntegerType.INTEGER.getLong(block, position)));
+            value.set(toIntExact(INTEGER.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -230,7 +215,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(Shorts.checkedCast(SmallintType.SMALLINT.getLong(block, position)));
+            value.set(Shorts.checkedCast(SMALLINT.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -248,7 +233,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(SignedBytes.checkedCast(TinyintType.TINYINT.getLong(block, position)));
+            value.set(SignedBytes.checkedCast(TINYINT.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -266,7 +251,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(DoubleType.DOUBLE.getDouble(block, position));
+            value.set(DOUBLE.getDouble(block, position));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -284,7 +269,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(intBitsToFloat((int) RealType.REAL.getLong(block, position)));
+            value.set(intBitsToFloat((int) REAL.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -342,7 +327,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            byte[] bytes = VarbinaryType.VARBINARY.getSlice(block, position).getBytes();
+            byte[] bytes = VARBINARY.getSlice(block, position).getBytes();
             value.set(bytes, 0, bytes.length);
             rowInspector.setStructFieldData(row, field, value);
         }
@@ -361,7 +346,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            value.set(toIntExact(DateType.DATE.getLong(block, position)));
+            value.set(toIntExact(DATE.getLong(block, position)));
             rowInspector.setStructFieldData(row, field, value);
         }
     }
@@ -399,7 +384,7 @@ public final class FieldSetterFactory
             long picosOfSecond = (long) floorMod(epochMicros, MICROSECONDS_PER_SECOND) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
 
             epochSeconds = convertLocalEpochSecondsToUtc(epochSeconds);
-            // no rounding since the the data has nanosecond precision, at most
+            // no rounding since the data has nanosecond precision, at most
             int nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
 
             Timestamp timestamp = Timestamp.ofEpochSecond(epochSeconds, nanosOfSecond);
@@ -435,7 +420,7 @@ public final class FieldSetterFactory
         }
     }
 
-    private static class ArrayFieldSetter
+    private class ArrayFieldSetter
             extends FieldSetter
     {
         private final Type elementType;
@@ -453,15 +438,14 @@ public final class FieldSetterFactory
 
             List<Object> list = new ArrayList<>(arrayBlock.getPositionCount());
             for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-                Object element = HiveWriteUtils.getField(elementType, arrayBlock, i);
-                list.add(element);
+                list.add(getField(timeZone, elementType, arrayBlock, i));
             }
 
             rowInspector.setStructFieldData(row, field, list);
         }
     }
 
-    private static class MapFieldSetter
+    private class MapFieldSetter
             extends FieldSetter
     {
         private final Type keyType;
@@ -480,16 +464,16 @@ public final class FieldSetterFactory
             Block mapBlock = block.getObject(position, Block.class);
             Map<Object, Object> map = new HashMap<>(mapBlock.getPositionCount() * 2);
             for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                Object key = HiveWriteUtils.getField(keyType, mapBlock, i);
-                Object value = HiveWriteUtils.getField(valueType, mapBlock, i + 1);
-                map.put(key, value);
+                map.put(
+                        getField(timeZone, keyType, mapBlock, i),
+                        getField(timeZone, valueType, mapBlock, i + 1));
             }
 
             rowInspector.setStructFieldData(row, field, map);
         }
     }
 
-    private static class RowFieldSetter
+    private class RowFieldSetter
             extends FieldSetter
     {
         private final List<Type> fieldTypes;
@@ -511,8 +495,7 @@ public final class FieldSetterFactory
             // (multiple blocks vs all fields packed in a single block)
             List<Object> value = new ArrayList<>(fieldTypes.size());
             for (int i = 0; i < fieldTypes.size(); i++) {
-                Object element = HiveWriteUtils.getField(fieldTypes.get(i), rowBlock, i);
-                value.add(element);
+                value.add(getField(timeZone, fieldTypes.get(i), rowBlock, i));
             }
 
             rowInspector.setStructFieldData(row, field, value);

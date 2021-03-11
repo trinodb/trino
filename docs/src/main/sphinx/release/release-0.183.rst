@@ -2,8 +2,8 @@
 Release 0.183
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix planning failure for queries that use ``GROUPING`` and contain aggregation expressions
   that require implicit coercions.
@@ -25,13 +25,13 @@ General changes
   from disk using the ``experimental.aggregation-operator-unspill-memory-limit`` config
   property or the ``aggregation_operator_unspill_memory_limit`` session property.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Add output rows, output size, written rows and written size to query detail page.
 
-Hive changes
-------------
+Hive
+----
 
 * Work around `ORC-222 <https://issues.apache.org/jira/browse/ORC-222>`_ which results in
   invalid summary statistics in ORC or DWRF files when the input data contains invalid string data.
@@ -42,18 +42,18 @@ Hive changes
 * Improve error message for small ORC files that are completely corrupt or not actually ORC.
 * Add predicate pushdown for the hidden column ``"$path"``.
 
-TPCH changes
-------------
+TPCH
+----
 
 * Add column statistics for schemas ``tiny`` and ``sf1``.
 
-TPCDS changes
--------------
+TPCDS
+-----
 
 * Add column statistics for schemas ``tiny`` and ``sf1``.
 
-SPI changes
------------
+SPI
+---
 
 * Map columns or values represented with ``ArrayBlock`` and ``InterleavedBlock`` are
   no longer supported. They must be represented as ``MapBlock`` or ``SingleMapBlock``.

@@ -35,16 +35,16 @@ This is an experimental feature and will likely change in a future release.  It
 is also expected that this will eventually be handled automatically by the
 query planner and these options will be removed entirely.
 
-Hive changes
-------------
+Hive
+----
 
 * Removed the ``hive.max-split-iterator-threads`` parameter and renamed
   ``hive.max-global-split-iterator-threads`` to ``hive.max-split-iterator-threads``.
 * Fix excessive object creation when querying tables with a large number of partitions.
 * Do not retry requests when an S3 path is not found.
 
-General changes
----------------
+General
+-------
 
 * Add :func:`array_remove`.
 * Fix NPE in :func:`max_by` and :func:`min_by` caused when few rows were present in the aggregation.

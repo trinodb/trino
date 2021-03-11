@@ -22,7 +22,6 @@ import com.google.common.primitives.Shorts;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -31,7 +30,6 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
-import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
@@ -161,7 +159,8 @@ public final class ThriftMetastoreUtil
         result.setName(database.getDatabaseName());
         database.getLocation().ifPresent(result::setLocationUri);
         result.setOwnerName(database.getOwnerName());
-        result.setOwnerType(toMetastoreApiPrincipalType(database.getOwnerType()));
+
+        result.setOwnerType(fromTrinoPrincipalType(database.getOwnerType()));
         database.getComment().ifPresent(result::setDescription);
         result.setParameters(database.getParameters());
         return result;
@@ -219,18 +218,6 @@ public final class ThriftMetastoreUtil
                 privilegeInfo.isGrantOption());
     }
 
-    private static org.apache.hadoop.hive.metastore.api.PrincipalType toMetastoreApiPrincipalType(PrincipalType principalType)
-    {
-        switch (principalType) {
-            case USER:
-                return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
-            case ROLE:
-                return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-            default:
-                throw new IllegalArgumentException("Unsupported principal type: " + principalType);
-        }
-    }
-
     public static Stream<RoleGrant> listApplicableRoles(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
         return Streams.stream(new AbstractIterator<>()
@@ -263,43 +250,27 @@ public final class ThriftMetastoreUtil
         });
     }
 
-    public static boolean isRoleApplicable(SemiTransactionalHiveMetastore metastore, HivePrincipal principal, String role)
+    public static boolean isRoleApplicable(HivePrincipal principal, String role, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
         if (principal.getType() == ROLE && principal.getName().equals(role)) {
             return true;
         }
-        return listApplicableRoles(metastore, principal)
+        return listApplicableRoleNames(principal, listRoleGrants)
                 .anyMatch(role::equals);
     }
 
-    public static Stream<String> listApplicableRoles(SemiTransactionalHiveMetastore metastore, HivePrincipal principal)
+    private static Stream<String> listApplicableRoleNames(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        return listApplicableRoles(principal, metastore::listRoleGrants)
+        return listApplicableRoles(principal, listRoleGrants)
                 .map(RoleGrant::getRoleName);
     }
 
-    public static Stream<HivePrincipal> listEnabledPrincipals(SemiTransactionalHiveMetastore metastore, ConnectorIdentity identity)
+    public static Stream<HivePrincipal> listEnabledPrincipals(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
         return Stream.concat(
                 Stream.of(new HivePrincipal(USER, identity.getUser())),
-                listEnabledRoles(identity, metastore::listRoleGrants)
+                listEnabledRoles(identity, listRoleGrants)
                         .map(role -> new HivePrincipal(ROLE, role)));
-    }
-
-    public static Stream<HivePrivilegeInfo> listApplicableTablePrivileges(SemiTransactionalHiveMetastore metastore, String databaseName, String tableName, ConnectorIdentity identity)
-    {
-        String user = identity.getUser();
-        HivePrincipal userPrincipal = new HivePrincipal(USER, user);
-        Stream<HivePrincipal> principals = Stream.concat(
-                Stream.of(userPrincipal),
-                listApplicableRoles(metastore, userPrincipal)
-                        .map(role -> new HivePrincipal(ROLE, role)));
-        return listTablePrivileges(metastore, new HiveIdentity(identity), databaseName, tableName, principals);
-    }
-
-    private static Stream<HivePrivilegeInfo> listTablePrivileges(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, String databaseName, String tableName, Stream<HivePrincipal> principals)
-    {
-        return principals.flatMap(principal -> metastore.listTablePrivileges(identity, databaseName, tableName, Optional.of(principal)).stream());
     }
 
     public static boolean isRoleEnabled(ConnectorIdentity identity, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants, String role)
@@ -677,9 +648,8 @@ public final class ThriftMetastoreUtil
                 return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
             case ROLE:
                 return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
-            default:
-                throw new IllegalArgumentException("Unsupported principal type: " + principalType);
         }
+        throw new IllegalArgumentException("Unsupported principal type: " + principalType);
     }
 
     public static PrincipalType fromMetastoreApiPrincipalType(org.apache.hadoop.hive.metastore.api.PrincipalType principalType)
@@ -690,9 +660,11 @@ public final class ThriftMetastoreUtil
                 return USER;
             case ROLE:
                 return ROLE;
-            default:
-                throw new IllegalArgumentException("Unsupported principal type: " + principalType);
+            case GROUP:
+                // TODO
+                break;
         }
+        throw new IllegalArgumentException("Unsupported principal type: " + principalType);
     }
 
     public static FieldSchema toMetastoreApiFieldSchema(Column column)
@@ -852,9 +824,16 @@ public final class ThriftMetastoreUtil
                 return createBinaryStatistics(columnName, columnType, statistics, rowCount);
             case DECIMAL:
                 return createDecimalStatistics(columnName, columnType, statistics);
-            default:
-                throw new IllegalArgumentException(format("unsupported type: %s", columnType));
+
+            case TIMESTAMPLOCALTZ:
+            case INTERVAL_YEAR_MONTH:
+            case INTERVAL_DAY_TIME:
+                // TODO support these, when we add support for these Hive types
+            case VOID:
+            case UNKNOWN:
+                break;
         }
+        throw new IllegalArgumentException(format("unsupported type: %s", columnType));
     }
 
     private static ColumnStatisticsObj createBooleanStatistics(String columnName, HiveType columnType, HiveColumnStatistics statistics)
@@ -945,7 +924,7 @@ public final class ThriftMetastoreUtil
         return new Decimal(Shorts.checkedCast(decimal.scale()), ByteBuffer.wrap(decimal.unscaledValue().toByteArray()));
     }
 
-    private static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)
+    public static OptionalLong toMetastoreDistinctValuesCount(OptionalLong distinctValuesCount, OptionalLong nullsCount)
     {
         // metastore counts null as a distinct value
         if (distinctValuesCount.isPresent() && nullsCount.isPresent()) {
@@ -954,7 +933,7 @@ public final class ThriftMetastoreUtil
         return OptionalLong.empty();
     }
 
-    private static OptionalDouble getAverageColumnLength(OptionalLong totalSizeInBytes, OptionalLong rowCount, OptionalLong nullsCount)
+    public static OptionalDouble getAverageColumnLength(OptionalLong totalSizeInBytes, OptionalLong rowCount, OptionalLong nullsCount)
     {
         if (totalSizeInBytes.isPresent() && rowCount.isPresent() && nullsCount.isPresent()) {
             long nonNullsCount = rowCount.getAsLong() - nullsCount.getAsLong();

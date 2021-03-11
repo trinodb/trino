@@ -28,8 +28,8 @@ with the ``query.low-memory-killer.enabled`` config flag, and the delay between
 when the cluster runs low on memory and when the killer will be invoked can be
 configured with the ``query.low-memory-killer.delay`` option.
 
-General changes
----------------
+General
+-------
 
 * Add :func:`multimap_agg` function.
 * Add :func:`checksum` function.

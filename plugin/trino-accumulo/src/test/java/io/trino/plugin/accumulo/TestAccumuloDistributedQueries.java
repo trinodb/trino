@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.accumulo;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.MaterializedResult;
@@ -193,96 +192,6 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    public void testScalarSubquery()
-    {
-        // Override because of extra UUID column in lineitem table, cannot SELECT *
-
-        // nested
-        assertQuery("SELECT (SELECT (SELECT (SELECT 1)))");
-
-        // aggregation
-        assertQuery("SELECT "
-                + "orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment "
-                + "FROM lineitem WHERE orderkey = \n"
-                + "(SELECT max(orderkey) FROM orders)");
-
-        // no output
-        assertQuery("SELECT "
-                + "orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment "
-                + "FROM lineitem WHERE orderkey = \n"
-                + "(SELECT orderkey FROM orders WHERE 0=1)");
-
-        // no output matching with null test
-        assertQuery("SELECT "
-                + "orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment "
-                + "FROM lineitem WHERE \n"
-                + "(SELECT orderkey FROM orders WHERE 0=1) "
-                + "is null");
-        assertQuery("SELECT "
-                + "orderkey, partkey, suppkey, linenumber, quantity, "
-                + "extendedprice, discount, tax, returnflag, linestatus, "
-                + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment "
-                + "FROM lineitem WHERE \n"
-                + "(SELECT orderkey FROM orders WHERE 0=1) "
-                + "is not null");
-
-        // subquery results and in in-predicate
-        assertQuery("SELECT (SELECT 1) IN (1, 2, 3)");
-        assertQuery("SELECT (SELECT 1) IN (   2, 3)");
-
-        // multiple subqueries
-        assertQuery("SELECT (SELECT 1) = (SELECT 3)");
-        assertQuery("SELECT (SELECT 1) < (SELECT 3)");
-        assertQuery("SELECT COUNT(*) FROM lineitem WHERE " +
-                "(SELECT min(orderkey) FROM orders)" +
-                "<" +
-                "(SELECT max(orderkey) FROM orders)");
-
-        // distinct
-        assertQuery("SELECT DISTINCT orderkey FROM lineitem " +
-                "WHERE orderkey BETWEEN" +
-                "   (SELECT avg(orderkey) FROM orders) - 10 " +
-                "   AND" +
-                "   (SELECT avg(orderkey) FROM orders) + 10");
-
-        // subqueries with joins
-        for (String joinType : ImmutableList.of("INNER", "LEFT OUTER")) {
-            assertQuery("SELECT l.orderkey, COUNT(*) " +
-                    "FROM lineitem l " + joinType + " JOIN orders o ON l.orderkey = o.orderkey " +
-                    "WHERE l.orderkey BETWEEN" +
-                    "   (SELECT avg(orderkey) FROM orders) - 10 " +
-                    "   AND" +
-                    "   (SELECT avg(orderkey) FROM orders) + 10 " +
-                    "GROUP BY l.orderkey");
-        }
-
-        // subqueries with ORDER BY
-        assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY (SELECT 2)");
-
-        // subquery returns multiple rows
-        String multipleRowsErrorMsg = "Scalar sub-query has returned multiple rows";
-        assertQueryFails("SELECT "
-                        + "orderkey, partkey, suppkey, linenumber, quantity, "
-                        + "extendedprice, discount, tax, returnflag, linestatus, "
-                        + "shipdate, commitdate, receiptdate, shipinstruct, shipmode, comment "
-                        + "FROM lineitem WHERE orderkey = (\n"
-                        + "SELECT orderkey FROM orders ORDER BY totalprice)",
-                multipleRowsErrorMsg);
-        assertQueryFails("SELECT orderkey, totalprice FROM orders ORDER BY (VALUES 1, 2)",
-                multipleRowsErrorMsg);
-
-        // exposes a bug in optimize hash generation because EnforceSingleNode does not
-        // support more than one column from the underlying query
-        assertQuery("SELECT custkey, (SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 1) FROM orders");
-    }
-
-    @Override
     public void testShowColumns()
     {
         // Override base class because table descriptions for Accumulo connector include comments
@@ -355,6 +264,16 @@ public class TestAccumuloDistributedQueries
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
         return Optional.of(dataMappingTestSetup);
     }
 }

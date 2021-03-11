@@ -31,6 +31,9 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.JoinApplicationResult;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -65,6 +68,7 @@ public class MockConnectorFactory
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final ApplyProjection applyProjection;
     private final ApplyAggregation applyAggregation;
+    private final ApplyJoin applyJoin;
     private final ApplyTopN applyTopN;
     private final ApplyFilter applyFilter;
     private final ApplyTableScanRedirect applyTableScanRedirect;
@@ -82,6 +86,7 @@ public class MockConnectorFactory
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             ApplyProjection applyProjection,
             ApplyAggregation applyAggregation,
+            ApplyJoin applyJoin,
             ApplyTopN applyTopN,
             ApplyFilter applyFilter,
             ApplyTableScanRedirect applyTableScanRedirect,
@@ -98,6 +103,7 @@ public class MockConnectorFactory
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
         this.applyAggregation = requireNonNull(applyAggregation, "applyAggregation is null");
+        this.applyJoin = requireNonNull(applyJoin, "applyJoin is null");
         this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.applyFilter = requireNonNull(applyFilter, "applyFilter is null");
         this.applyTableScanRedirect = requireNonNull(applyTableScanRedirect, "applyTableScanRedirection is null");
@@ -131,6 +137,7 @@ public class MockConnectorFactory
                 getColumns,
                 applyProjection,
                 applyAggregation,
+                applyJoin,
                 applyTopN,
                 applyFilter,
                 applyTableScanRedirect,
@@ -165,6 +172,19 @@ public class MockConnectorFactory
                 List<AggregateFunction> aggregates,
                 Map<String, ColumnHandle> assignments,
                 List<List<ColumnHandle>> groupingSets);
+    }
+
+    @FunctionalInterface
+    public interface ApplyJoin
+    {
+        Optional<JoinApplicationResult<ConnectorTableHandle>> apply(
+                ConnectorSession session,
+                JoinType joinType,
+                ConnectorTableHandle left,
+                ConnectorTableHandle right,
+                List<JoinCondition> joinConditions,
+                Map<String, ColumnHandle> leftAssignments,
+                Map<String, ColumnHandle> rightAssignments);
     }
 
     @FunctionalInterface
@@ -205,6 +225,7 @@ public class MockConnectorFactory
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
         private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
+        private ApplyJoin applyJoin = (session, joinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.empty();
         private BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout = defaultGetInsertLayout();
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
@@ -260,6 +281,12 @@ public class MockConnectorFactory
         public Builder withApplyAggregation(ApplyAggregation applyAggregation)
         {
             this.applyAggregation = applyAggregation;
+            return this;
+        }
+
+        public Builder withApplyJoin(ApplyJoin applyJoin)
+        {
+            this.applyJoin = applyJoin;
             return this;
         }
 
@@ -331,6 +358,7 @@ public class MockConnectorFactory
                     getColumns,
                     applyProjection,
                     applyAggregation,
+                    applyJoin,
                     applyTopN,
                     applyFilter,
                     applyTableScanRedirect,

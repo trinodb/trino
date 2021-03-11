@@ -40,22 +40,22 @@ public class TestPredicatePushdown
     public void testConditionalExpressionWithFailingExpression()
     {
         assertThat(assertions.query("" +
-                        "WITH t (k, a) AS ( " +
-                        "    VALUES " +
-                        "        (1, 1), " +
-                        "        (2, 0) " +
-                        ")," +
-                        "u (k, v) AS ( " +
-                        "    VALUES" +
-                        "        (1, 'x'), " +
-                        "        (2, 'y') " +
-                        ") " +
-                        "SELECT * " +
-                        "FROM ( " +
-                        "    SELECT v, if(v = 'x', 1 / a) AS r" +
-                        "    FROM t JOIN u ON t.k = u.k " +
-                        ") " +
-                        "WHERE v = 'x' AND r IS NOT NULL"))
+                "WITH t (k, a) AS ( " +
+                "    VALUES " +
+                "        (1, 1), " +
+                "        (2, 0) " +
+                ")," +
+                "u (k, v) AS ( " +
+                "    VALUES" +
+                "        (1, 'x'), " +
+                "        (2, 'y') " +
+                ") " +
+                "SELECT * " +
+                "FROM ( " +
+                "    SELECT v, if(v = 'x', 1 / a) AS r" +
+                "    FROM t JOIN u ON t.k = u.k " +
+                ") " +
+                "WHERE v = 'x' AND r IS NOT NULL"))
                 .matches("VALUES ('x', 1)");
 
         assertThat(assertions.query(

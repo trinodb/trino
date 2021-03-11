@@ -2,8 +2,8 @@
 Release 0.119
 =============
 
-General changes
----------------
+General
+-------
 
 * Add :doc:`/connector/redis`.
 * Add :func:`geometric_mean` function.
@@ -25,8 +25,8 @@ General changes
   the same side.
 * Support ``RENAME COLUMN`` in :doc:`/sql/alter-table`.
 
-SPI changes
------------
+SPI
+---
 
 * Add more system table distribution modes.
 * Add owner to view metadata.
@@ -37,8 +37,8 @@ SPI changes
     new APIs.
 
 
-CLI changes
------------
+CLI
+---
 
 * Fix handling of full width characters.
 * Skip printing query URL if terminal is too narrow.
@@ -47,28 +47,28 @@ CLI changes
 * Fix handling of query abortion after result has been partially received.
 * Fix handling of ``ctrl-C`` when displaying results without a pager.
 
-Verifier changes
-----------------
+Verifier
+--------
 
 * Add ``expected-double-precision`` config to specify the expected level of
   precision when comparing double values.
 * Return non-zero exit code when there are failures.
 
-Cassandra changes
------------------
+Cassandra
+---------
 
 * Add support for Cassandra blob types.
 
-Hive changes
-------------
+Hive
+----
 
 * Support adding and renaming columns using :doc:`/sql/alter-table`.
 * Automatically configure the S3 region when running in EC2.
 * Allow configuring multiple Hive metastores for high availability.
 * Add support for ``TIMESTAMP`` and ``VARBINARY`` in Parquet.
 
-MySQL and PostgreSQL changes
-----------------------------
+MySQL and PostgreSQL
+--------------------
 
 * Enable streaming results instead of buffering everything in memory.
 * Fix handling of pattern characters when matching table or column names.

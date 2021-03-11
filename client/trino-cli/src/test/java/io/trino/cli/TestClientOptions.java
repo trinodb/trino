@@ -37,7 +37,7 @@ public class TestClientOptions
     {
         Console console = createConsole();
         ClientOptions options = console.clientOptions;
-        assertEquals(options.krb5ServicePrincipalPattern, "${SERVICE}@${HOST}");
+        assertEquals(options.krb5ServicePrincipalPattern, Optional.of("${SERVICE}@${HOST}"));
         ClientSession session = options.toClientSession();
         assertEquals(session.getServer().toString(), "http://localhost:8080");
         assertEquals(session.getSource(), "trino-cli");
@@ -112,7 +112,7 @@ public class TestClientOptions
     {
         Console console = createConsole("--socks-proxy=abc:123");
         ClientOptions options = console.clientOptions;
-        assertEquals(options.socksProxy, HostAndPort.fromParts("abc", 123));
+        assertEquals(options.socksProxy, Optional.of(HostAndPort.fromParts("abc", 123)));
     }
 
     @Test
@@ -224,7 +224,7 @@ public class TestClientOptions
     private static Console createConsole(String... args)
     {
         Console console = new Console();
-        createCommandLine(console).parseArgs(args);
+        createCommandLine(console).setDefaultValueProvider(null).parseArgs(args);
         return console;
     }
 }

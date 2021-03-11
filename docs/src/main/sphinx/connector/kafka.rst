@@ -61,30 +61,17 @@ The following configuration properties are available:
 ========================================================== ==============================================================================
 Property Name                                              Description
 ========================================================== ==============================================================================
-``kafka.table-names``                                      List of all tables provided by the catalog
 ``kafka.default-schema``                                   Default schema name for tables
 ``kafka.nodes``                                            List of nodes in the Kafka cluster
 ``kafka.buffer-size``                                      Kafka read buffer size
-``kafka.table-description-dir``                            Directory containing topic description files
 ``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
 ``kafka.messages-per-split``                               Number of messages that are processed by each Trino split, defaults to 100000
 ``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
 ========================================================== ==============================================================================
 
-``kafka.table-names``
-^^^^^^^^^^^^^^^^^^^^^
+In addition, you need to configure :ref:`table schema and schema registry usage
+<kafka-table-schema-registry>` with the relevant properties.
 
-Comma-separated list of all tables provided by this catalog. A table name can be
-unqualified (simple name), and is then placed into the default schema (see
-below), or it can be qualified with a schema name
-(``<schema-name>.<table-name>``).
-
-For each table defined here, a table description file (see below) may
-exist. If no table description file exists, the table name is used as the
-topic name on Kafka and no data columns are mapped into the table. The
-table still contains all internal columns (see below).
-
-This property is required; there is no default and at least one table must be defined.
 
 ``kafka.default-schema``
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -115,14 +102,6 @@ buffer must be able to hold at least one message and ideally can hold many
 messages. There is one data buffer allocated per worker and data node.
 
 This property is optional; the default is ``64kb``.
-
-``kafka.table-description-dir``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-References a folder within Trino deployment that holds one or more JSON
-files (must end with ``.json``) which contain table description files.
-
-This property is optional; the default is ``etc/kafka``.
 
 ``kafka.timestamp-upper-bound-force-push-down-enabled``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -172,8 +151,58 @@ Column name             Type                            Description
 For tables without a table definition file, the ``_key_corrupt`` and
 ``_message_corrupt`` columns will always be ``false``.
 
+.. _kafka-table-schema-registry:
+
+Table schema and schema registry usage
+--------------------------------------
+
+The table schema for the messages can be supplied to the connector with a
+configuration file or a schema registry. It also provides a mechanism for the
+connector to discover tables.
+
+You have to configure the supplier with the ``kafka.table-description-supplier``
+property, setting it to ``FILE`` or ``CONFLUENT``. Each table description
+supplier has a separate set of configuration properties.
+
+Refer to the following subsections for more detail. The ``FILE`` table
+description supplier is the default and the value is case insensitive.
+
+File table description supplier
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In order to use the file based table description supplier, the
+``kafka.table-description-supplier`` must be set to ``FILE`` which is the
+default.
+
+In addition, you must set ``kafka.table-names`` and
+``kafka.table-description-dir`` as described in the following sections:
+
+``kafka.table-names``
+"""""""""""""""""""""
+
+Comma-separated list of all tables provided by this catalog. A table name can be
+unqualified (simple name), and is then placed into the default schema (see
+below), or it can be qualified with a schema name
+(``<schema-name>.<table-name>``).
+
+For each table defined here, a table description file (see below) may exist. If
+no table description file exists, the table name is used as the topic name on
+Kafka and no data columns are mapped into the table. The table still contains
+all internal columns (see below).
+
+This property is required; there is no default and at least one table must be
+defined.
+
+``kafka.table-description-dir``
+"""""""""""""""""""""""""""""""
+
+References a folder within Trino deployment that holds one or more JSON files
+(must end with ``.json``) which contain table description files.
+
+This property is optional; the default is ``etc/kafka``.
+
 Table definition files
-----------------------
+""""""""""""""""""""""
 
 Kafka maintains topics only as byte messages and leaves it to producers
 and consumers to define how a message should be interpreted. For Trino,
@@ -224,7 +253,7 @@ Field           Required  Type           Description
 =============== ========= ============== =============================
 
 Key and message in Kafka
-------------------------
+""""""""""""""""""""""""
 
 Starting with Kafka 0.8, each message in a topic can have an optional key.
 A table definition file contains sections for both key and message to map
@@ -268,6 +297,76 @@ Field           Required  Type      Description
 =============== ========= ========= =============================
 
 There is no limit on field descriptions for either key or message.
+
+Confluent table description supplier
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The Confluent table description supplier uses the `Confluent Schema Registry
+<https://docs.confluent.io/1.0/schema-registry/docs/intro.html>`_ to discover
+table definitions. Set ``kafka.table-description-supplier`` to ``CONFLUENT`` to
+use it and configure the additional properties in the following table.
+
+The benefits of using the schema registry is that new tables can be defined
+without a cluster restart, schema updates are detected and there is no need to
+define tables manually.
+
+.. note::
+
+    Inserts are not supported and the only data format supported is AVRO.
+
+.. list-table:: Confluent table description supplier properties
+  :widths: 30, 55, 15
+  :header-rows: 1
+
+  * - Property name
+    - Description
+    - Default value
+  * - ``kafka.confluent-schema-registry-url``
+    - Comma-separated list of URL addresses for the Confluent schema registry.
+      For example, ``http://schema-registry-1.example.org:8081,http://schema-registry-2.example.org:8081``
+    -
+  * - ``kafka.confluent-schema-registry-client-cache-size``
+    - The maximum number of subjects that can be stored in the local cache. The
+      cache stores the schemas locally by subjectId, and is provided by the
+      Confluent ``CachingSchemaRegistry`` client.
+    - 1000
+  * - ``kafka.empty-field-strategy``
+    - Avro allows empty struct fields but this is not allowed in Trino. There
+      are three strategies for handling empty struct fields:
+
+        - ``IGNORE``, ignore structs with no fields. This propagate to parents.
+          For example an array of structs with no fields is ignored.
+        - ``FAIL``, fail the query if a struct with no fields is defined.
+        - ``DUMMY``, add a dummy boolean field called ``dummy`` which is null.
+          This may be desired if the struct represents a marker field.
+    - ``IGNORE``
+  * - ``kafka.confluent-subjects-cache-refresh-interval``
+    - The interval used for refreshing the list of subjects and the definition
+      of the schema for the subject in the subjects cache
+    - ``1s``
+
+
+Confluent subject to table name mapping
+"""""""""""""""""""""""""""""""""""""""
+
+The `subject naming strategy
+<https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#sr-schemas-subject-name-strategy>`_
+determines how a subject is resolved from the table name.
+
+The default strategy is the ``TopicNameStrategy`` where the key subject is
+defined as ``<topic-name>-key`` and the value subject is defined as
+``<topic-name>-value``. If other strategies are used there is no way to
+determine the subject name beforehand so it must be specified manually in the
+table name.
+
+To manually specify the key and value subjects just append to the table name,
+for example: ``<topic name>&key-subject=<key subject>&value-subject=<value
+subject``. Both the ``key-subject`` and ``value-subject`` parameters are
+optional. If either is not specified then the default ``TopicNameStrategy`` is
+used to resolve the subject name via the topic name. Note that a case
+insensitive match must be done, as identifiers cannot contain upper case
+characters.
+
 
 Kafka inserts
 -------------
@@ -969,7 +1068,7 @@ Trino data type                       Allowed Avro data type
 ===================================== =======================================
 
 Avro schema evolution
-#####################
+"""""""""""""""""""""
 
 The Avro decoder supports schema evolution feature with backward compatibility. With backward compatibility,
 a newer schema can be used to read Avro data created with an older schema. Any change in the Avro schema must also be

@@ -86,7 +86,7 @@ public abstract class BaseCassandraDistributedQueries
     public void testDelete()
     {
         assertThatThrownBy(super::testDelete)
-                .hasStackTraceContaining("This connector only supports delete with primary key or partition key");
+                .hasStackTraceContaining("Delete without primary key or partition key is not supported");
     }
 
     @Override
@@ -124,6 +124,17 @@ public abstract class BaseCassandraDistributedQueries
                 || typeName.equals("decimal(5,3)")
                 || typeName.equals("decimal(15,3)")
                 || typeName.equals("char(3)")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
             // TODO this should either work or fail cleanly
             return Optional.empty();
         }

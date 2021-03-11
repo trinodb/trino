@@ -141,8 +141,8 @@ Optimizations
   upgrade was using inadvertently GZIP compression and has a bug in the
   buffer management resulting in high CPU usage.
 
-SPI changes
------------
+SPI
+---
 
 In this release we have made a number of backward incompatible changes to the SPI:
 

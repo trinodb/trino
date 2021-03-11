@@ -43,7 +43,7 @@ public class AliasedRelation
     {
         super(location);
         requireNonNull(relation, "relation is null");
-        requireNonNull(alias, " is null");
+        requireNonNull(alias, "alias is null");
 
         this.relation = relation;
         this.alias = alias;

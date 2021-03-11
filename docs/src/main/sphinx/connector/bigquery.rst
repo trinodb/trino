@@ -120,23 +120,27 @@ a few caveats:
 Configuration properties
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-All configuration properties are optional.
-
-========================================= ============================================================== ==============================================
-Property                                  Description                                                    Default
-========================================= ============================================================== ==============================================
-``bigquery.project-id``                   The Google Cloud Project ID where the data reside              Taken from the service account
-``bigquery.parent-project-id``            The project ID Google Cloud Project to bill for the export     Taken from the service account
-``bigquery.parallelism``                  The number of partitions to split the data into                The number of executors
-``bigquery.views-enabled``                Enables the connector to read from views and not only tables.  ``false``
-                                          Please read `this section <#reading-from-views>`_ before
-                                          enabling this feature.
-``bigquery.view-materialization-project`` The project where the materialized view is going to be created The view's project
-``bigquery.view-materialization-dataset`` The dataset where the materialized view is going to be created The view's dataset
-``bigquery.max-read-rows-retries``        The number of retries in case of retryable server issues       ``3``
-``bigquery.credentials-key``              The base64 encoded credentials key                             None. See `authentication <#authentication>`_
-``bigquery.credentials-file``             The path to the JSON credentials file                          None. See `authentication <#authentication>`_
-========================================= ============================================================== ==============================================
+===================================================== ============================================================== ==============================================
+Property                                              Description                                                    Default
+===================================================== ============================================================== ==============================================
+``bigquery.project-id``                               The Google Cloud Project ID where the data reside              Taken from the service account
+``bigquery.parent-project-id``                        The project ID Google Cloud Project to bill for the export     Taken from the service account
+``bigquery.parallelism``                              The number of partitions to split the data into                The number of executors
+``bigquery.views-enabled``                            Enables the connector to read from views and not only tables.  ``false``
+                                                      Please read `this section <#reading-from-views>`_ before
+                                                      enabling this feature.
+``bigquery.view-materialization-project``             The project where the materialized view is going to be created The view's project
+``bigquery.view-materialization-dataset``             The dataset where the materialized view is going to be created The view's dataset
+``bigquery.max-read-rows-retries``                    The number of retries in case of retryable server issues       ``3``
+``bigquery.credentials-key``                          The base64 encoded credentials key                             None. See `authentication <#authentication>`_
+``bigquery.credentials-file``                         The path to the JSON credentials file                          None. See `authentication <#authentication>`_
+``bigquery.case-insensitive-name-matching``           Match dataset and table names case-insensitively               ``false``
+``bigquery.case-insensitive-name-matching.cache-ttl`` Duration for which remote dataset and table names will be      ``1m``
+                                                      cached. Higher values reduce the number of API calls to
+                                                      BigQuery but can cause newly created dataset or tables to not
+                                                      be visible until the configured duration. Set to ``0ms`` to
+                                                      disable the cache.
+===================================================== ============================================================== ==============================================
 
 Data types
 ----------
@@ -160,6 +164,13 @@ BigQuery       Trino                        Notes
 ``TIME``       ``TIME_WITH_TIME_ZONE``      Time zone is UTC
 ``TIMESTAMP``  ``TIMESTAMP_WITH_TIME_ZONE`` Time zone is UTC
 =============  ============================ =============================================================================================================
+
+System tables
+-------------
+
+For each Trino table which maps to BigQuery view there exists a system table which exposes BigQuery view definition.
+Given a BigQuery view ``customer_view`` you can send query
+``SELECT * customer_view$view_definition`` to see the SQL which defines view in BigQuery.
 
 FAQ
 ---

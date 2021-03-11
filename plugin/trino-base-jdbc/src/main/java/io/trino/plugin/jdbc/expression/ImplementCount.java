@@ -70,7 +70,7 @@ public class ImplementCount
         verify(aggregateFunction.getOutputType() == BIGINT);
 
         return Optional.of(new JdbcExpression(
-                format("count(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
+                format("count(%s)", context.getIdentifierQuote().apply(columnHandle.getColumnName())),
                 bigintTypeHandle));
     }
 }

@@ -42,7 +42,7 @@ center or even different cloud-provider region query performance is slow. Adding
 caching using fast, local storage has a significant impact and makes your
 queries much faster.
 
-On the other hand, if you object storage is already running at very high
+On the other hand, if your object storage is already running at very high
 performance for I/O and network access, and your local cache storage is at
 similar speeds, or even slower, performance benefits can be minimal.
 
@@ -101,7 +101,7 @@ directories  and different BookKeeper and data-transfer ports.
     - ``false``
   * - ``hive.cache.location``
     - Required directory location to use for the cache storage on each worker.
-      Separate multiple directories, which can be mountpoints for separate drives, with commas
+      Separate multiple directories, which can be mount points for separate drives, with commas
       ``hive.cache.location=/var/lib/trino/cache1,/var/lib/trino/cache2``.
       More tips can be found in the :ref:`recommendations
       <hive-cache-recommendations>`.

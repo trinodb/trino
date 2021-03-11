@@ -84,18 +84,18 @@ public interface TaskManager
 
     /**
      * Updates the task plan, sources and output buffers.  If the task does not
-     * already exist, is is created and then updated.
+     * already exist, it is created and then updated.
      */
     TaskInfo updateTask(Session session, TaskId taskId, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions);
 
     /**
-     * Cancels a task.  If the task does not already exist, is is created and then
+     * Cancels a task.  If the task does not already exist, it is created and then
      * canceled.
      */
     TaskInfo cancelTask(TaskId taskId);
 
     /**
-     * Aborts a task.  If the task does not already exist, is is created and then
+     * Aborts a task.  If the task does not already exist, it is created and then
      * aborted.
      */
     TaskInfo abortTask(TaskId taskId);

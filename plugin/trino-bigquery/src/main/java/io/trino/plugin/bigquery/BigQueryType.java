@@ -14,19 +14,27 @@
 package io.trino.plugin.bigquery;
 
 import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
+import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.BooleanType;
+import io.trino.spi.type.CharType;
 import io.trino.spi.type.DateTimeEncoding;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.DoubleType;
+import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.SmallintType;
 import io.trino.spi.type.TimeWithTimeZoneType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
+import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
@@ -42,9 +50,13 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.cloud.bigquery.Field.Mode.REPEATED;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
 import static io.trino.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
+import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
@@ -182,6 +194,82 @@ public enum BigQueryType
         return format("FROM_BASE64('%s')", Base64.getEncoder().encodeToString(slice.getBytes()));
     }
 
+    public static Field toField(String name, Type type)
+    {
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
+            return toInnerField(name, elementType, true);
+        }
+        return toInnerField(name, type, false);
+    }
+
+    private static Field toInnerField(String name, Type type, boolean repeated)
+    {
+        Field.Builder builder;
+        if (type instanceof RowType) {
+            builder = Field.newBuilder(name, StandardSQLTypeName.STRUCT, toFieldList((RowType) type));
+        }
+        else {
+            builder = Field.newBuilder(name, toStandardSqlTypeName(type));
+        }
+        if (repeated) {
+            builder = builder.setMode(REPEATED);
+        }
+        return builder.build();
+    }
+
+    private static FieldList toFieldList(RowType rowType)
+    {
+        ImmutableList.Builder<Field> fields = new ImmutableList.Builder<>();
+        for (RowType.Field field : rowType.getFields()) {
+            String fieldName = field.getName()
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "ROW type does not have field names declared: " + rowType));
+            fields.add(toField(fieldName, field.getType()));
+        }
+        return FieldList.of(fields.build());
+    }
+
+    private static StandardSQLTypeName toStandardSqlTypeName(Type type)
+    {
+        if (type == BooleanType.BOOLEAN) {
+            return StandardSQLTypeName.BOOL;
+        }
+        if (type == TinyintType.TINYINT || type == SmallintType.SMALLINT || type == IntegerType.INTEGER || type == BigintType.BIGINT) {
+            return StandardSQLTypeName.INT64;
+        }
+        if (type == DoubleType.DOUBLE) {
+            return StandardSQLTypeName.FLOAT64;
+        }
+        if (type instanceof DecimalType) {
+            return StandardSQLTypeName.NUMERIC;
+        }
+        if (type == DateType.DATE) {
+            return StandardSQLTypeName.DATE;
+        }
+        if (type == createTimeWithTimeZoneType(DEFAULT_PRECISION)) {
+            return StandardSQLTypeName.TIME;
+        }
+        if (type == TimestampType.TIMESTAMP_MILLIS) {
+            return StandardSQLTypeName.DATETIME;
+        }
+        if (type == TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS) {
+            return StandardSQLTypeName.TIMESTAMP;
+        }
+        if (type instanceof CharType || type instanceof VarcharType) {
+            return StandardSQLTypeName.STRING;
+        }
+        if (type == VarbinaryType.VARBINARY) {
+            return StandardSQLTypeName.BYTES;
+        }
+        if (type instanceof ArrayType) {
+            return StandardSQLTypeName.ARRAY;
+        }
+        if (type instanceof RowType) {
+            return StandardSQLTypeName.STRUCT;
+        }
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
     private static String quote(String value)
     {
         return "'" + value + "'";
@@ -217,7 +305,7 @@ public enum BigQueryType
         default Type getTrinoType()
         {
             Type rawType = getBigQueryType().getNativeType(this);
-            return getMode() == Field.Mode.REPEATED ? new ArrayType(rawType) : rawType;
+            return getMode() == REPEATED ? new ArrayType(rawType) : rawType;
         }
     }
 

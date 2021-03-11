@@ -12,8 +12,8 @@ can be used to change how frequently adjustments happen. The session properties
 ``initial_splits_per_node`` and ``split_concurrency_adjustment_interval`` can
 also be used.
 
-General changes
----------------
+General
+-------
 
 * Fix planning bug that causes some joins to not be redistributed when
   ``distributed-joins-enabled`` is true.
@@ -21,8 +21,8 @@ General changes
 * Add experimental ``task.join-concurrency`` config which can be used to increase
   concurrency for the probe side of joins.
 
-Hive changes
-------------
+Hive
+----
 
 * Remove cursor-based readers for ORC and DWRF file formats, as they have been
   replaced by page-based readers.

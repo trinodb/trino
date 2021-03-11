@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.plugin.jmx.JmxPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
@@ -91,6 +92,9 @@ public final class PostgreSqlQueryRunner
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 TpchTable.getTables());
+
+        queryRunner.installPlugin(new JmxPlugin());
+        queryRunner.createCatalog("jmx", "jmx");
 
         Logger log = Logger.get(PostgreSqlQueryRunner.class);
         log.info("======== SERVER STARTED ========");

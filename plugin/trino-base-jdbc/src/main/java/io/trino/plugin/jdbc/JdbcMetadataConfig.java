@@ -22,7 +22,18 @@ import javax.validation.constraints.Min;
 public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
+    /*
+     * Join pushdown is disabled by default as this is the safer option.
+     * Pushing down a join which substantially increases the row count vs
+     * sizes of left and right table separately, may incur huge cost both
+     * in terms of performance and money due to an increased network traffic.
+     */
+    private boolean joinPushdownEnabled;
     private boolean aggregationPushdownEnabled = true;
+
+    // TODO: https://github.com/trinodb/trino/issues/7031
+    private boolean topNPushdownEnabled;
+
     // Pushed domains are transformed into SQL IN lists
     // (or sequence of range predicates) in JDBC connectors.
     // Too large IN lists cause significant performance regression.
@@ -43,6 +54,19 @@ public class JdbcMetadataConfig
         return this;
     }
 
+    public boolean isJoinPushdownEnabled()
+    {
+        return joinPushdownEnabled;
+    }
+
+    @Config("experimental.join-pushdown.enabled")
+    @ConfigDescription("Enable join pushdown")
+    public JdbcMetadataConfig setJoinPushdownEnabled(boolean joinPushdownEnabled)
+    {
+        this.joinPushdownEnabled = joinPushdownEnabled;
+        return this;
+    }
+
     public boolean isAggregationPushdownEnabled()
     {
         return aggregationPushdownEnabled;
@@ -55,6 +79,19 @@ public class JdbcMetadataConfig
     {
         this.aggregationPushdownEnabled = aggregationPushdownEnabled;
         return this;
+    }
+
+    @Config("topn-pushdown.enabled")
+    @ConfigDescription("Enable TopN pushdown")
+    public JdbcMetadataConfig setTopNPushdownEnabled(boolean enabled)
+    {
+        this.topNPushdownEnabled = enabled;
+        return this;
+    }
+
+    public Boolean isTopNPushdownEnabled()
+    {
+        return this.topNPushdownEnabled;
     }
 
     @Min(1)

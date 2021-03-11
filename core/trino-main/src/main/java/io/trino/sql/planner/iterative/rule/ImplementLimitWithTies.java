@@ -20,8 +20,9 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.ResolvedFunction;
+import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
@@ -30,17 +31,18 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.sql.tree.WindowFrame;
 
+import java.util.List;
 import java.util.Optional;
 
+import static com.clearspring.analytics.util.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.source;
+import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -82,49 +84,59 @@ public class ImplementLimitWithTies
     public Result apply(LimitNode parent, Captures captures, Context context)
     {
         PlanNode child = captures.get(CHILD);
-        Symbol rankSymbol = context.getSymbolAllocator().newSymbol("rank_num", BIGINT);
 
-        ResolvedFunction function = metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of());
+        PlanNode rewritten = rewriteLimitWithTies(parent, child, metadata, context.getIdAllocator(), context.getSymbolAllocator());
 
-        WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
-                FrameBound.Type.UNBOUNDED_PRECEDING,
-                Optional.empty(),
-                Optional.empty(),
-                FrameBound.Type.CURRENT_ROW,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty());
+        ProjectNode projectNode = new ProjectNode(
+                context.getIdAllocator().getNextId(),
+                rewritten,
+                Assignments.identity(parent.getOutputSymbols()));
+
+        return Result.ofPlanNode(projectNode);
+    }
+
+    private static PlanNode rewriteLimitWithTies(LimitNode limitNode, PlanNode source, Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator)
+    {
+        return rewriteLimitWithTiesWithPartitioning(limitNode, source, metadata, idAllocator, symbolAllocator, ImmutableList.of());
+    }
+
+    /**
+     * Rewrite LimitNode with ties to WindowNode and FilterNode, with partitioning defined by partitionBy.
+     * <p>
+     * This method does not prune outputs of the rewritten plan. After the rewrite, the output consists of
+     * source's output symbols and the newly created rankSymbol.
+     * Passing all input symbols is intentional, because this method is used for de-correlation in the scenario
+     * where the original LimitNode is in the correlated subquery, and the rewrite result is placed on top of
+     * de-correlated join.
+     * It is the responsibility of the caller to prune redundant outputs.
+     */
+    public static PlanNode rewriteLimitWithTiesWithPartitioning(LimitNode limitNode, PlanNode source, Metadata metadata, PlanNodeIdAllocator idAllocator, SymbolAllocator symbolAllocator, List<Symbol> partitionBy)
+    {
+        checkArgument(limitNode.isWithTies(), "Expected LimitNode with ties");
+
+        Symbol rankSymbol = symbolAllocator.newSymbol("rank_num", BIGINT);
 
         WindowNode.Function rankFunction = new WindowNode.Function(
-                function,
+                metadata.resolveFunction(QualifiedName.of("rank"), ImmutableList.of()),
                 ImmutableList.of(),
-                frame,
+                DEFAULT_FRAME,
                 false);
 
         WindowNode windowNode = new WindowNode(
-                context.getIdAllocator().getNextId(),
-                child,
-                new WindowNode.Specification(ImmutableList.of(), parent.getTiesResolvingScheme()),
+                idAllocator.getNextId(),
+                source,
+                new WindowNode.Specification(partitionBy, limitNode.getTiesResolvingScheme()),
                 ImmutableMap.of(rankSymbol, rankFunction),
                 Optional.empty(),
                 ImmutableSet.of(),
                 0);
 
-        FilterNode filterNode = new FilterNode(
-                context.getIdAllocator().getNextId(),
+        return new FilterNode(
+                idAllocator.getNextId(),
                 windowNode,
                 new ComparisonExpression(
                         ComparisonExpression.Operator.LESS_THAN_OR_EQUAL,
                         rankSymbol.toSymbolReference(),
-                        new GenericLiteral("BIGINT", Long.toString(parent.getCount()))));
-
-        ProjectNode projectNode = new ProjectNode(
-                context.getIdAllocator().getNextId(),
-                filterNode,
-                Assignments.identity(parent.getOutputSymbols()));
-
-        return Result.ofPlanNode(projectNode);
+                        new GenericLiteral("BIGINT", Long.toString(limitNode.getCount()))));
     }
 }

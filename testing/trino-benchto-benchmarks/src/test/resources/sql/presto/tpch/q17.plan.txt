@@ -4,10 +4,10 @@ final aggregation over ()
             partial aggregation over ()
                 cross join:
                     join (RIGHT, PARTITIONED):
-                        final aggregation over (partkey_4)
+                        final aggregation over (partkey_5)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["partkey_4"])
-                                    partial aggregation over (partkey_4)
+                                remote exchange (REPARTITION, HASH, ["partkey_5"])
+                                    partial aggregation over (partkey_5)
                                         scan lineitem
                         local exchange (GATHER, SINGLE, [])
                             remote exchange (REPARTITION, HASH, ["partkey"])

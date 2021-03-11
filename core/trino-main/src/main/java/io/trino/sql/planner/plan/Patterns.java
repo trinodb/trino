@@ -58,6 +58,11 @@ public final class Patterns
         return typeOf(DeleteNode.class);
     }
 
+    public static Pattern<UpdateNode> update()
+    {
+        return typeOf(UpdateNode.class);
+    }
+
     public static Pattern<ExchangeNode> exchange()
     {
         return typeOf(ExchangeNode.class);
@@ -272,6 +277,16 @@ public final class Patterns
         public static Property<JoinNode, Lookup, JoinNode.Type> type()
         {
             return property("type", JoinNode::getType);
+        }
+
+        public static Property<JoinNode, Lookup, PlanNode> left()
+        {
+            return property("left", (JoinNode joinNode, Lookup lookup) -> lookup.resolve(joinNode.getLeft()));
+        }
+
+        public static Property<JoinNode, Lookup, PlanNode> right()
+        {
+            return property("right", (JoinNode joinNode, Lookup lookup) -> lookup.resolve(joinNode.getRight()));
         }
     }
 

@@ -1,6 +1,6 @@
-================================
-File based system access control
-================================
+==========================
+File system access control
+==========================
 
 This access control plugin allows you to specify authorization rules in a JSON file.
 
@@ -40,7 +40,7 @@ Catalog, schema, and table access
 Access to catalogs, schemas, tables, and views is controlled by the catalog, schema, and table
 rules.  The catalog rules are course grained rules used to restrict all access or write
 access to catalogs. They do not explicitly grant any specific schema or table permissions.
-The table and schema rules are used to specify who can can create, drop, alter, select, insert,
+The table and schema rules are used to specify who can create, drop, alter, select, insert,
 delete, etc. for schemas and tables.
 
 .. note::
@@ -223,7 +223,7 @@ Column constraint
 These constraints can be used to restrict access to column data.
 
 * ``name``: name of the column.
-* ``allowed`` (optional): if false, column can not be accessed.
+* ``allow`` (optional): if false, column can not be accessed.
 * ``mask`` (optional): mask expression applied to column.
 * ``mask_environment`` (optional): environment use during mask evaluation.
 

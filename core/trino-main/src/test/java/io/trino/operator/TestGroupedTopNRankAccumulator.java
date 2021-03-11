@@ -14,7 +14,6 @@
 package io.trino.operator;
 
 import io.trino.array.LongBigArray;
-import io.trino.operator.GroupedTopNRankAccumulator.RowComparisonStrategy;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -26,28 +25,21 @@ import java.util.List;
 import static com.google.common.collect.Lists.cartesianProduct;
 import static java.lang.Math.min;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
 public class TestGroupedTopNRankAccumulator
 {
-    private static final long NULL_ROW_ID = Long.MIN_VALUE;
-    private static final RowComparisonStrategy ROW_COMPARISON_STRATEGY = new RowComparisonStrategy()
+    private static final RowIdComparisonHashStrategy STRATEGY = new RowIdComparisonHashStrategy()
     {
         @Override
         public int compare(long leftRowId, long rightRowId)
         {
-            // Null rowIds should never be observed
-            assertNotEquals(leftRowId, NULL_ROW_ID);
-            assertNotEquals(rightRowId, NULL_ROW_ID);
             return Long.compare(leftRowId, rightRowId);
         }
 
         @Override
         public long hashCode(long rowId)
         {
-            // Null rowIds should never be observed
-            assertNotEquals(rowId, NULL_ROW_ID);
             return rowId;
         }
     };
@@ -75,7 +67,7 @@ public class TestGroupedTopNRankAccumulator
     public void testSinglePeerGroupInsert(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
-        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(ROW_COMPARISON_STRATEGY, NULL_ROW_ID, topN, evicted::add);
+        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
         accumulator.verifyIntegrity();
 
         // Add the same value repeatedly, so everything should be accepted, and all results will have a rank of 1
@@ -83,7 +75,7 @@ public class TestGroupedTopNRankAccumulator
 
         for (int i = 0; i < valueCount; i++) {
             for (int groupId = 0; groupId < groupCount; groupId++) {
-                assertTrue(accumulator.add(groupId, rowId));
+                assertTrue(accumulator.add(groupId, toRowReference(rowId)));
                 accumulator.verifyIntegrity();
 
                 // No evictions because rank does not change for the same input
@@ -116,13 +108,13 @@ public class TestGroupedTopNRankAccumulator
     public void testIncreasingAllUniqueValues(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
-        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(ROW_COMPARISON_STRATEGY, NULL_ROW_ID, topN, evicted::add);
+        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
         accumulator.verifyIntegrity();
 
         for (int rowId = 0; rowId < valueCount; rowId++) {
             for (int groupId = 0; groupId < groupCount; groupId++) {
                 // Since rowIds are in increasing order, only the first topN will be accepted
-                assertEquals(accumulator.add(groupId, rowId), rowId < topN);
+                assertEquals(accumulator.add(groupId, toRowReference(rowId)), rowId < topN);
                 accumulator.verifyIntegrity();
 
                 // No evictions because all results should be rejected at add()
@@ -157,14 +149,14 @@ public class TestGroupedTopNRankAccumulator
     public void testDecreasingAllUniqueValues(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
-        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(ROW_COMPARISON_STRATEGY, NULL_ROW_ID, topN, evicted::add);
+        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
         accumulator.verifyIntegrity();
 
         List<Long> expectedEvicted = new ArrayList<>();
         for (long rowId = valueCount - 1; rowId >= 0; rowId--) {
             for (int groupId = 0; groupId < groupCount; groupId++) {
                 // Since rowIds are in decreasing order, new rowIds will always be accepted, potentially evicting older rows
-                assertTrue(accumulator.add(groupId, rowId));
+                assertTrue(accumulator.add(groupId, toRowReference(rowId)));
                 accumulator.verifyIntegrity();
 
                 if (rowId >= topN) {
@@ -205,41 +197,41 @@ public class TestGroupedTopNRankAccumulator
         int topN = 3;
 
         List<Long> evicted = new LongArrayList();
-        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(ROW_COMPARISON_STRATEGY, NULL_ROW_ID, topN, evicted::add);
+        GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
         accumulator.verifyIntegrity();
 
         // Add rowId 0
-        assertTrue(accumulator.add(0, 0));
+        assertTrue(accumulator.add(0, toRowReference(0)));
         accumulator.verifyIntegrity();
         assertTrue(evicted.isEmpty());
 
         // Add rowId 1
-        assertTrue(accumulator.add(0, 1));
+        assertTrue(accumulator.add(0, toRowReference(1)));
         accumulator.verifyIntegrity();
         assertTrue(evicted.isEmpty());
 
         // Add rowId 0 again, putting rowId 1 at effective rank of 3
-        assertTrue(accumulator.add(0, 0));
+        assertTrue(accumulator.add(0, toRowReference(0)));
         accumulator.verifyIntegrity();
         assertTrue(evicted.isEmpty());
 
         // Add rowId 1 again, but rowId 1 should still have an effective rank of 3
-        assertTrue(accumulator.add(0, 1));
+        assertTrue(accumulator.add(0, toRowReference(1)));
         accumulator.verifyIntegrity();
         assertTrue(evicted.isEmpty());
 
         // Add rowId 0 again, which should force both values of rowId1 to be evicted
-        assertTrue(accumulator.add(0, 0));
+        assertTrue(accumulator.add(0, toRowReference(0)));
         accumulator.verifyIntegrity();
         assertEquals(evicted, Arrays.asList(1L, 1L));
 
         // Add rowId -1, putting rowId 0 at rank 2
-        assertTrue(accumulator.add(0, -1));
+        assertTrue(accumulator.add(0, toRowReference(-1)));
         accumulator.verifyIntegrity();
         assertEquals(evicted, Arrays.asList(1L, 1L));
 
         // Add rowId -1 again, putting rowId 0 at rank 3
-        assertTrue(accumulator.add(0, -1));
+        assertTrue(accumulator.add(0, toRowReference(-1)));
         accumulator.verifyIntegrity();
         assertEquals(evicted, Arrays.asList(1L, 1L));
 
@@ -258,5 +250,35 @@ public class TestGroupedTopNRankAccumulator
         assertEquals(rankingOutput.get(3), 3);
         assertEquals(rowIdOutput.get(4), 0);
         assertEquals(rankingOutput.get(4), 3);
+    }
+
+    private static RowReference toRowReference(long rowId)
+    {
+        return new RowReference()
+        {
+            @Override
+            public int compareTo(RowIdComparisonStrategy strategy, long otherRowId)
+            {
+                return strategy.compare(rowId, otherRowId);
+            }
+
+            @Override
+            public boolean equals(RowIdHashStrategy strategy, long otherRowId)
+            {
+                return strategy.equals(rowId, otherRowId);
+            }
+
+            @Override
+            public long hash(RowIdHashStrategy strategy)
+            {
+                return strategy.hashCode(rowId);
+            }
+
+            @Override
+            public long allocateRowId()
+            {
+                return rowId;
+            }
+        };
     }
 }

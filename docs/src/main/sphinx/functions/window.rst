@@ -5,22 +5,7 @@ Window functions
 Window functions perform calculations across rows of the query result.
 They run after the ``HAVING`` clause but before the ``ORDER BY`` clause.
 Invoking a window function requires special syntax using the ``OVER``
-clause to specify the window. A window has three components:
-
-* The partition specification, which separates the input rows into different
-  partitions. This is analogous to how the ``GROUP BY`` clause separates rows
-  into different groups for aggregate functions.
-* The ordering specification, which determines the order in which input rows
-  will be processed by the window function.
-* The window frame, which specifies a sliding window of rows to be processed
-  by the function for a given row. If the frame is not specified, it defaults
-  to ``RANGE UNBOUNDED PRECEDING``, which is the same as
-  ``RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW``. This frame contains all
-  rows from the start of the partition up to the last peer of the current row.
-  In the absence of ``ORDER BY``, all rows are considered peers, so ``RANGE
-  BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW`` is equivalent to ``BETWEEN
-  UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING``
-
+clause to specify the window.
 For example, the following query ranks orders for each clerk by price::
 
     SELECT orderkey, clerk, totalprice,
@@ -28,6 +13,12 @@ For example, the following query ranks orders for each clerk by price::
                         ORDER BY totalprice DESC) AS rnk
     FROM orders
     ORDER BY clerk, rnk
+
+The window can be specified in two ways (see :ref:`window_clause`):
+
+* By a reference to a named window specification defined in the ``WINDOW`` clause,
+* By an in-line window specification which allows to define window components
+  as well as refer to the window components pre-defined in the ``WINDOW`` clause.
 
 Aggregate functions
 -------------------

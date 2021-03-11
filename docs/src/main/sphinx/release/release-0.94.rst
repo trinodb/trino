@@ -15,8 +15,8 @@ single ORC buffer, and for larger columns we instead stream the data. This
 reduces heap fragmentation and excessive buffers in ORC at the expense of
 HDFS IOPS. The default value is ``8MB``.
 
-General changes
----------------
+General
+-------
 
 * Update Hive CDH 4 connector to CDH 4.7.1
 * Fix ``ORDER BY`` with ``LIMIT 0``

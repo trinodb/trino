@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.tree.ExplainType;
@@ -35,7 +36,7 @@ public class TestIcebergMaterializedViews
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), new IcebergConfig().getFileFormat(), false);
+        return IcebergQueryRunner.createIcebergQueryRunner(ImmutableMap.of(), new IcebergConfig().getFileFormat(), ImmutableList.of());
     }
 
     @BeforeClass
@@ -221,11 +222,11 @@ public class TestIcebergMaterializedViews
 
         assertQuery(session, "show create materialized view  materialized_view_window",
                 "VALUES ('CREATE MATERIALIZED VIEW iceberg.tpch.materialized_view_window AS\n" +
-                    "SELECT\n" +
-                    "  _date\n" +
-                    ", sum(_bigint) OVER (PARTITION BY _date ORDER BY _date ASC) sum_ints\n" +
-                    "FROM\n" +
-                    "  base_table1')");
+                        "SELECT\n" +
+                        "  _date\n" +
+                        ", sum(_bigint) OVER (PARTITION BY _date ORDER BY _date ASC) sum_ints\n" +
+                        "FROM\n" +
+                        "  base_table1')");
 
         assertQueryFails("INSERT INTO materialized_view_window VALUES (0, '2019-09-08'), (1, DATE '2019-09-09'), (2, DATE '2019-09-09')",
                 "Inserting into materialized views is not supported");

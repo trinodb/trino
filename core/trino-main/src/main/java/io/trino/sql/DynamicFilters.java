@@ -303,19 +303,19 @@ public final class DynamicFilters
                     }
                     return domain;
                 case LESS_THAN: {
-                    Range range = Range.lessThan(span.getType(), span.getHigh().getValue());
+                    Range range = Range.lessThan(span.getType(), span.getHighBoundedValue());
                     return Domain.create(ValueSet.ofRanges(range), false);
                 }
                 case LESS_THAN_OR_EQUAL: {
-                    Range range = Range.lessThanOrEqual(span.getType(), span.getHigh().getValue());
+                    Range range = Range.lessThanOrEqual(span.getType(), span.getHighBoundedValue());
                     return Domain.create(ValueSet.ofRanges(range), false);
                 }
                 case GREATER_THAN: {
-                    Range range = Range.greaterThan(span.getType(), span.getLow().getValue());
+                    Range range = Range.greaterThan(span.getType(), span.getLowBoundedValue());
                     return Domain.create(ValueSet.ofRanges(range), false);
                 }
                 case GREATER_THAN_OR_EQUAL: {
-                    Range range = Range.greaterThanOrEqual(span.getType(), span.getLow().getValue());
+                    Range range = Range.greaterThanOrEqual(span.getType(), span.getLowBoundedValue());
                     return Domain.create(ValueSet.ofRanges(range), false);
                 }
                 default:

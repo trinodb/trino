@@ -2,26 +2,26 @@
 Release 315 (14 Jun 2019)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Fix incorrect results when dividing certain decimal numbers. (:issue:`958`)
 * Add support for ``FETCH FIRST ... WITH TIES`` syntax. (:issue:`832`)
 * Add locality awareness to default split scheduler. (:issue:`680`)
 * Add :func:`format` function. (:issue:`548`)
 
-Server RPM changes
-------------------
+Server RPM
+----------
 
 * Require JDK version 8u161+ during installation, which is the version the server requires. (:issue:`983`)
 
-CLI changes
------------
+CLI
+---
 
 * Fix alignment of nulls for numeric columns in aligned output format. (:issue:`871`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix regression in partition pruning for certain query shapes. (:issue:`984`)
 * Correctly identify EMRFS as S3 when deciding to use a temporary location for writes. (:issue:`935`)
@@ -33,14 +33,14 @@ Hive connector changes
   by turning on ``DEBUG`` logging for
   ``io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient``. (:issue:`946`)
 
-MongoDB connector changes
--------------------------
+MongoDB connector
+-----------------
 
 * Fix query failure when ``ROW`` with an ``ObjectId`` field is used as a join key. (:issue:`933`)
 * Add cast from ``ObjectId`` to ``VARCHAR``. (:issue:`933`)
 
-SPI changes
------------
+SPI
+---
 
 * Allow connectors to provide view definitions. ``ConnectorViewDefinition`` now contains
   the real view definition rather than an opaque blob. Connectors that support view storage

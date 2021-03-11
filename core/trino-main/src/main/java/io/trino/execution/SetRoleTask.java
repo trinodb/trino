@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.Session;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
@@ -39,7 +40,14 @@ public class SetRoleTask
     }
 
     @Override
-    public ListenableFuture<?> execute(SetRole statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
+    public ListenableFuture<?> execute(
+            SetRole statement,
+            TransactionManager transactionManager,
+            Metadata metadata,
+            AccessControl accessControl,
+            QueryStateMachine stateMachine,
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
         Session session = stateMachine.getSession();
         String catalog = getSessionCatalog(metadata, session, statement);
@@ -49,21 +57,21 @@ public class SetRoleTask
                     statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH)).get(),
                     catalog);
         }
-        SelectedRole.Type type;
-        switch (statement.getType()) {
-            case ROLE:
-                type = SelectedRole.Type.ROLE;
-                break;
-            case ALL:
-                type = SelectedRole.Type.ALL;
-                break;
-            case NONE:
-                type = SelectedRole.Type.NONE;
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported type: " + statement.getType());
-        }
+        SelectedRole.Type type = toSelectedRoleType(statement.getType());
         stateMachine.addSetRole(catalog, new SelectedRole(type, statement.getRole().map(c -> c.getValue().toLowerCase(ENGLISH))));
         return immediateFuture(null);
+    }
+
+    private static SelectedRole.Type toSelectedRoleType(SetRole.Type statementRoleType)
+    {
+        switch (statementRoleType) {
+            case ROLE:
+                return SelectedRole.Type.ROLE;
+            case ALL:
+                return SelectedRole.Type.ALL;
+            case NONE:
+                return SelectedRole.Type.NONE;
+        }
+        throw new IllegalArgumentException("Unsupported type: " + statementRoleType);
     }
 }

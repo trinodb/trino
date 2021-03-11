@@ -41,6 +41,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.airlift.slice.Slices;
 import io.trino.geospatial.GeometryType;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.Rectangle;
@@ -97,10 +98,13 @@ import static io.trino.geospatial.GeometryType.MULTI_POLYGON;
 import static io.trino.geospatial.GeometryType.POINT;
 import static io.trino.geospatial.GeometryType.POLYGON;
 import static io.trino.geospatial.GeometryUtils.getPointCount;
+import static io.trino.geospatial.GeometryUtils.jsonFromJtsGeometry;
+import static io.trino.geospatial.GeometryUtils.jtsGeometryFromJson;
 import static io.trino.geospatial.serde.GeometrySerde.deserialize;
 import static io.trino.geospatial.serde.GeometrySerde.deserializeEnvelope;
 import static io.trino.geospatial.serde.GeometrySerde.deserializeType;
 import static io.trino.geospatial.serde.GeometrySerde.serialize;
+import static io.trino.geospatial.serde.JtsGeometrySerde.serialize;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY;
 import static io.trino.plugin.geospatial.GeometryType.GEOMETRY_TYPE_NAME;
 import static io.trino.plugin.geospatial.SphericalGeographyType.SPHERICAL_GEOGRAPHY_TYPE_NAME;
@@ -1394,6 +1398,23 @@ public final class GeoFunctions
         }
 
         return spatialPartitions((KdbTree) kdbTree, new Rectangle(envelope.getXMin(), envelope.getYMin(), envelope.getXMax(), envelope.getYMax()));
+    }
+
+    @ScalarFunction("from_geojson_geometry")
+    @Description("Returns a spherical geography from a GeoJSON string")
+    @SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME)
+    public static Slice fromGeoJsonGeometry(@SqlType(VARCHAR) Slice input)
+    {
+        return serialize(jtsGeometryFromJson(input.toStringUtf8()));
+    }
+
+    @SqlNullable
+    @ScalarFunction("to_geojson_geometry")
+    @Description("Returns GeoJSON string based on the input spherical geography")
+    @SqlType(VARCHAR)
+    public static Slice toGeoJsonGeometry(@SqlType(SPHERICAL_GEOGRAPHY_TYPE_NAME) Slice input)
+    {
+        return Slices.utf8Slice(jsonFromJtsGeometry(JtsGeometrySerde.deserialize(input)));
     }
 
     @ScalarFunction

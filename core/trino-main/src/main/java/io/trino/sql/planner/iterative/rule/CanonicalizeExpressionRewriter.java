@@ -162,9 +162,8 @@ public final class CanonicalizeExpressionRewriter
                             .setName(QualifiedName.of("$localtimestamp"))
                             .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
                             .build();
-                default:
-                    throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());
             }
+            throw new UnsupportedOperationException("not yet implemented: " + node.getFunction());
         }
 
         @Override

@@ -440,7 +440,8 @@ public class TestHttpPageBufferClient
         TrinoException expectedException = new TrinoException(EXCEEDED_LOCAL_MEMORY_LIMIT, "Memory limit exceeded");
         AtomicBoolean addPagesCalled = new AtomicBoolean(false);
 
-        TestingClientCallback callback = new TestingClientCallback(requestComplete) {
+        TestingClientCallback callback = new TestingClientCallback(requestComplete)
+        {
             @Override
             public boolean addPages(HttpPageBufferClient client, List<SerializedPage> pages)
             {

@@ -17,12 +17,14 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -36,8 +38,10 @@ public class S3SecurityMapping
     private final Predicate<String> user;
     private final Predicate<Collection<String>> group;
     private final Predicate<URI> prefix;
-    private final List<String> allowedIamRoles;
     private final Optional<String> iamRole;
+    private final Set<String> allowedIamRoles;
+    private final Optional<String> kmsKeyId;
+    private final Set<String> allowedKmsKeyIds;
     private final Optional<BasicAWSCredentials> credentials;
     private final boolean useClusterDefault;
     private final Optional<String> endpoint;
@@ -49,6 +53,8 @@ public class S3SecurityMapping
             @JsonProperty("prefix") Optional<URI> prefix,
             @JsonProperty("iamRole") Optional<String> iamRole,
             @JsonProperty("allowedIamRoles") Optional<List<String>> allowedIamRoles,
+            @JsonProperty("kmsKeyId") Optional<String> kmsKeyId,
+            @JsonProperty("allowedKmsKeyIds") Optional<List<String>> allowedKmsKeyIds,
             @JsonProperty("accessKey") Optional<String> accessKey,
             @JsonProperty("secretKey") Optional<String> secretKey,
             @JsonProperty("useClusterDefault") Optional<Boolean> useClusterDefault,
@@ -67,8 +73,13 @@ public class S3SecurityMapping
 
         this.iamRole = requireNonNull(iamRole, "iamRole is null");
 
-        this.allowedIamRoles = requireNonNull(allowedIamRoles, "allowedIamRoles is null")
-                .orElse(ImmutableList.of());
+        this.allowedIamRoles = ImmutableSet.copyOf(requireNonNull(allowedIamRoles, "allowedIamRoles is null")
+                .orElse(ImmutableList.of()));
+
+        this.kmsKeyId = requireNonNull(kmsKeyId, "kmsKeyId is null");
+
+        this.allowedKmsKeyIds = ImmutableSet.copyOf(
+                requireNonNull(allowedKmsKeyIds, "allowedKmsKeyIds is null").orElse(ImmutableList.of()));
 
         requireNonNull(accessKey, "accessKey is null");
         requireNonNull(secretKey, "secretKey is null");
@@ -79,6 +90,8 @@ public class S3SecurityMapping
                 .orElse(false);
         boolean roleOrCredentialsArePresent = !this.allowedIamRoles.isEmpty() || iamRole.isPresent() || credentials.isPresent();
         checkArgument(this.useClusterDefault ^ roleOrCredentialsArePresent, "must either allow useClusterDefault role or provide role and/or credentials");
+
+        checkArgument(!(this.useClusterDefault && this.kmsKeyId.isPresent()), "KMS key ID cannot be provided together with useClusterDefault");
 
         this.endpoint = requireNonNull(endpoint, "endpoint is null");
     }
@@ -95,9 +108,19 @@ public class S3SecurityMapping
         return iamRole;
     }
 
-    public List<String> getAllowedIamRoles()
+    public Set<String> getAllowedIamRoles()
     {
         return allowedIamRoles;
+    }
+
+    public Optional<String> getKmsKeyId()
+    {
+        return kmsKeyId;
+    }
+
+    public Set<String> getAllowedKmsKeyIds()
+    {
+        return allowedKmsKeyIds;
     }
 
     public Optional<BasicAWSCredentials> getCredentials()
@@ -124,6 +147,8 @@ public class S3SecurityMapping
                 .add("prefix", prefix)
                 .add("iamRole", iamRole)
                 .add("allowedIamRoles", allowedIamRoles)
+                .add("kmsKeyId", kmsKeyId)
+                .add("allowedKmsKeyIds", allowedKmsKeyIds)
                 .add("credentials", credentials)
                 .add("useClusterDefault", useClusterDefault)
                 .add("endpoint", endpoint.orElse(null))

@@ -47,11 +47,11 @@ import java.util.concurrent.Callable;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.tests.product.launcher.cli.Commands.runCommand;
-import static io.trino.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.trino.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.EnvironmentListener.getStandardListeners;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
+import static io.trino.tests.product.launcher.testcontainers.PortBinder.unsafelyExposePort;
 import static java.lang.StrictMath.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
@@ -252,7 +252,7 @@ public final class TestRun
                 if (debug) {
                     temptoJavaOptions = new ArrayList<>(temptoJavaOptions);
                     temptoJavaOptions.add("-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:5007");
-                    exposePort(container, 5007); // debug port
+                    unsafelyExposePort(container, 5007); // debug port
                 }
 
                 if (System.getenv("CONTINUOUS_INTEGRATION") != null) {

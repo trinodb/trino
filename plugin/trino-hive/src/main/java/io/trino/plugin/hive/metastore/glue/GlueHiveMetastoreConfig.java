@@ -40,6 +40,8 @@ public class GlueHiveMetastoreConfig
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
+    private int readStatisticsThreads = 1;
+    private int writeStatisticsThreads = 1;
     private boolean assumeCanonicalPartitionKeys;
 
     public Optional<String> getGlueRegion()
@@ -240,6 +242,34 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
+    }
+
+    @Min(1)
+    public int getReadStatisticsThreads()
+    {
+        return readStatisticsThreads;
+    }
+
+    @Config("hive.metastore.glue.read-statistics-threads")
+    @ConfigDescription("Number of threads for parallel statistics reads from Glue")
+    public GlueHiveMetastoreConfig setReadStatisticsThreads(int getReadStatisticsThreads)
+    {
+        this.readStatisticsThreads = getReadStatisticsThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getWriteStatisticsThreads()
+    {
+        return writeStatisticsThreads;
+    }
+
+    @Config("hive.metastore.glue.write-statistics-threads")
+    @ConfigDescription("Number of threads for parallel statistics writes to Glue")
+    public GlueHiveMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
+    {
+        this.writeStatisticsThreads = writeStatisticsThreads;
         return this;
     }
 }

@@ -33,6 +33,10 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.JoinApplicationResult;
+import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
@@ -289,9 +293,14 @@ public interface Metadata
             List<TableHandle> sourceTableHandles);
 
     /**
-     * Get the row ID column handle used with UpdatablePageSource.
+     * Get the row ID column handle used with UpdatablePageSource#deleteRows.
      */
-    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle);
+    ColumnHandle getDeleteRowIdColumnHandle(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the row ID column handle used with UpdatablePageSource#updateRows.
+     */
+    ColumnHandle getUpdateRowIdColumnHandle(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
 
     /**
      * @return whether delete without table scan is supported
@@ -317,6 +326,16 @@ public interface Metadata
      * Finish delete query
      */
     void finishDelete(Session session, TableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Begin update query
+     */
+    TableHandle beginUpdate(Session session, TableHandle tableHandle, List<ColumnHandle> updatedColumns);
+
+    /**
+     * Finish update query
+     */
+    void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
 
     /**
      * Returns a connector id for the specified catalog name.
@@ -397,6 +416,16 @@ public interface Metadata
             List<AggregateFunction> aggregations,
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets);
+
+    Optional<JoinApplicationResult<TableHandle>> applyJoin(
+            Session session,
+            JoinType joinType,
+            TableHandle left,
+            TableHandle right,
+            List<JoinCondition> joinConditions,
+            Map<String, ColumnHandle> leftAssignments,
+            Map<String, ColumnHandle> rightAssignments,
+            JoinStatistics statistics);
 
     Optional<TopNApplicationResult<TableHandle>> applyTopN(
             Session session,

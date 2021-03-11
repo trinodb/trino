@@ -8,8 +8,8 @@ Release 0.150
     disable them by adding ``hive.bucket-execution=false`` to your
     Hive catalog properties.
 
-General changes
----------------
+General
+-------
 
 * Fix web UI bug that caused rendering to fail when a stage has no tasks.
 * Fix failure due to ambiguity when calling :func:`round` on ``tinyint`` arguments.
@@ -17,8 +17,8 @@ General changes
 * Add support for parsing timestamps with nanosecond precision in :func:`date_parse`.
 * Add CPU quotas to resource groups.
 
-Hive changes
-------------
+Hive
+----
 
 * Add support for writing to bucketed tables.
 * Add execution optimizations for bucketed tables.

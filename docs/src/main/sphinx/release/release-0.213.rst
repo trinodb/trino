@@ -2,8 +2,8 @@
 Release 0.213
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix split scheduling backpressure when plan contains colocated join. Previously, splits
   for the second and subsequent scan nodes (in scheduling order) were scheduled continuously
@@ -39,8 +39,8 @@ General changes
 * Add experimental config option ``experimental.reserved-pool-enabled`` to disable the reserved memory pool.
 * Add ``targetResultSize`` query parameter to ``/v1/statement`` endpoint to control response data size.
 
-Geospatial changes
-------------------
+Geospatial
+----------
 
 * Fix :func:`ST_Distance` function to return ``NULL`` if any of the inputs is an
   empty geometry as required by the SQL/MM specification.
@@ -48,21 +48,21 @@ Geospatial changes
 * Add :func:`geometry_union` function to efficiently union arrays of geometries.
 * Add support for distributed spatial joins (:issue:`x11072`).
 
-Server RPM changes
-------------------
+Server RPM
+----------
 
 * Allow running on a JVM from any vendor.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Remove legacy plan UI.
 * Add support for filtering queries by all error categories.
 * Add dialog to show errors refreshing data from coordinator.
 * Change worker thread list to not show thread stacks by default to improve page peformance.
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix LZO and LZOP decompression to work with certain data compressed by Hadoop.
 * Fix ORC writer validation percentage so that zero does not result in 100% validation.
@@ -88,18 +88,18 @@ Hive connector changes
   configuration properties and ``parquet_writer_block_size`` and
   ``parquet_writer_page_size`` session properties for tuning Parquet writer options.
 
-Memory connector changes
-------------------------
+Memory connector
+----------------
 
 * Improve table data size accounting.
 
-Thrift connector changes
-------------------------
+Thrift connector
+----------------
 
 * Include constraint in explain plan for index joins.
 * Improve readability of columns, tables, layouts, and indexes in explain plans.
 
-Verifier changes
-----------------
+Verifier
+--------
 
 * Rewrite queries in parallel when shadowing writes.

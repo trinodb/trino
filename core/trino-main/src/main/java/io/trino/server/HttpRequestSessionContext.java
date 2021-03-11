@@ -428,16 +428,15 @@ public final class HttpRequestSessionContext
                 switch (name.toUpperCase(ENGLISH)) {
                     case ResourceEstimates.EXECUTION_TIME:
                         builder.setExecutionTime(Duration.valueOf(value));
-                        break;
+                        return;
                     case ResourceEstimates.CPU_TIME:
                         builder.setCpuTime(Duration.valueOf(value));
-                        break;
+                        return;
                     case ResourceEstimates.PEAK_MEMORY:
                         builder.setPeakMemory(DataSize.valueOf(value));
-                        break;
-                    default:
-                        throw badRequest(format("Unsupported resource name %s", name));
+                        return;
                 }
+                throw badRequest(format("Unsupported resource name %s", name));
             }
             catch (IllegalArgumentException e) {
                 throw badRequest(format("Unsupported format for resource estimate '%s': %s", value, e));

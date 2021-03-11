@@ -13,6 +13,7 @@
  */
 package io.trino.sql.query;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.execution.warnings.WarningCollector;
@@ -43,6 +44,7 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
@@ -248,6 +250,7 @@ public class QueryAssertions
         private final Session session;
         private final String query;
         private boolean ordered;
+        private boolean skipTypesCheck;
 
         static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
         {
@@ -275,6 +278,12 @@ public class QueryAssertions
             return this;
         }
 
+        public QueryAssert skippingTypesCheck()
+        {
+            skipTypesCheck = true;
+            return this;
+        }
+
         public QueryAssert matches(@Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
@@ -284,7 +293,9 @@ public class QueryAssertions
         public QueryAssert matches(MaterializedResult expected)
         {
             return satisfies(actual -> {
-                assertTypes(actual, expected.getTypes());
+                if (!skipTypesCheck) {
+                    assertTypes(actual, expected.getTypes());
+                }
 
                 ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
                         .as("Rows")
@@ -308,7 +319,9 @@ public class QueryAssertions
         public QueryAssert containsAll(MaterializedResult expected)
         {
             return satisfies(actual -> {
-                assertTypes(actual, expected.getTypes());
+                if (!skipTypesCheck) {
+                    assertTypes(actual, expected.getTypes());
+                }
 
                 assertThat(actual.getMaterializedRows())
                         .as("Rows")
@@ -379,8 +392,27 @@ public class QueryAssertions
          * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
          * when pushdown capabilities are improved.
          */
-        public QueryAssert isNotFullyPushedDown(Class<? extends PlanNode> retainedNode)
+        @SafeVarargs
+        public final QueryAssert isNotFullyPushedDown(Class<? extends PlanNode>... retainedNodes)
         {
+            checkArgument(retainedNodes.length > 0, "No retainedNodes");
+            PlanMatchPattern expectedPlan = PlanMatchPattern.node(TableScanNode.class);
+            for (Class<? extends PlanNode> retainedNode : ImmutableList.copyOf(retainedNodes).reverse()) {
+                expectedPlan = PlanMatchPattern.node(retainedNode, expectedPlan);
+            }
+            return isNotFullyPushedDown(expectedPlan);
+        }
+
+        /**
+         * Verifies query is not fully pushed down and verifies the results are the same as when the pushdown is fully disabled.
+         * <p>
+         * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isFullyPushedDown()}
+         * when pushdown capabilities are improved.
+         */
+        public final QueryAssert isNotFullyPushedDown(PlanMatchPattern retainedSubplan)
+        {
+            PlanMatchPattern expectedPlan = PlanMatchPattern.anyTree(retainedSubplan);
+
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
             verifyResultsWithPushdownDisabled();
 
@@ -392,9 +424,7 @@ public class QueryAssertions
                                 runner.getMetadata(),
                                 (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
                                 plan,
-                                PlanMatchPattern.anyTree(
-                                        PlanMatchPattern.node(retainedNode,
-                                                PlanMatchPattern.node(TableScanNode.class))));
+                                expectedPlan);
                     });
 
             return this;

@@ -15,16 +15,24 @@ package io.trino.plugin.mysql;
 
 import org.testcontainers.containers.MySQLContainer;
 
+import java.io.Closeable;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
+import static org.testcontainers.containers.MySQLContainer.MYSQL_PORT;
 
 public class TestingMySqlServer
-        extends MySQLContainer<TestingMySqlServer>
+        implements AutoCloseable
 {
+    private final MySQLContainer<?> container;
+    private final Closeable cleanup;
+
     public TestingMySqlServer()
     {
         this(false);
@@ -37,19 +45,23 @@ public class TestingMySqlServer
 
     public TestingMySqlServer(String dockerImageName, boolean globalTransactionEnable)
     {
-        super(dockerImageName);
-        withDatabaseName("tpch");
+        MySQLContainer<?> container = new MySQLContainer<>(dockerImageName);
+        container = container.withDatabaseName("tpch");
         if (globalTransactionEnable) {
-            withCommand("--gtid-mode=ON", "--enforce-gtid-consistency=ON");
+            container = container.withCommand("--gtid-mode=ON", "--enforce-gtid-consistency=ON");
         }
-        start();
-        execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", getUsername()), "root", getPassword());
+        this.container = container;
+        configureContainer(container);
+        cleanup = startOrReuse(container);
+        execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", container.getUsername()), "root", container.getPassword());
     }
 
-    @Override
-    public String getJdbcUrl()
+    protected void configureContainer(MySQLContainer<?> container) {}
+
+    public Connection createConnection()
+            throws SQLException
     {
-        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", getContainerIpAddress(), getMappedPort(MYSQL_PORT));
+        return container.createConnection("");
     }
 
     public void execute(String sql)
@@ -65,6 +77,37 @@ public class TestingMySqlServer
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public String getUsername()
+    {
+        return container.getUsername();
+    }
+
+    public String getPassword()
+    {
+        return container.getPassword();
+    }
+
+    public String getDatabaseName()
+    {
+        return container.getDatabaseName();
+    }
+
+    public String getJdbcUrl()
+    {
+        return format("jdbc:mysql://%s:%s?useSSL=false&allowPublicKeyRetrieval=true", container.getContainerIpAddress(), container.getMappedPort(MYSQL_PORT));
+    }
+
+    @Override
+    public void close()
+    {
+        try {
+            cleanup.close();
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
     }
 }

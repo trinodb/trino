@@ -6,7 +6,7 @@ RC binary 2-4x gain in CPU efficiency
 -------------------------------------
 
 Presto uses custom fast-path decoding logic for specific Hive file
-formats.  In this release we have added a fast path for for RCFile when using
+formats.  In this release we have added a fast path for RCFile when using
 the Binary SerDe (``LazyBinaryColumnarSerDe``).  In our
 micro benchmarks, we see a gain between 2x and 4x in CPU efficiency compared
 to the generic (slow) path.  Since Hive data decoding accounts for a

@@ -18,6 +18,7 @@ import org.testng.annotations.Test;
 import static io.trino.client.IntervalYearMonth.formatMonths;
 import static io.trino.client.IntervalYearMonth.parseMonths;
 import static io.trino.client.IntervalYearMonth.toMonths;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestIntervalYearMonth
@@ -57,10 +58,12 @@ public class TestIntervalYearMonth
         assertEquals(toMonths(years, 0), years * 12);
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class)
+    @Test
     public void testOverflow()
     {
         int days = (Integer.MAX_VALUE / 12) + 1;
-        toMonths(days, 0);
+        assertThatThrownBy(() -> toMonths(days, 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("java.lang.ArithmeticException: integer overflow");
     }
 }

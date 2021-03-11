@@ -504,24 +504,28 @@ public final class SqlStageExecution
             }
 
             TaskState taskState = taskStatus.getState();
-            if (taskState == TaskState.FAILED) {
-                RuntimeException failure = taskStatus.getFailures().stream()
-                        .findFirst()
-                        .map(this::rewriteTransportFailure)
-                        .map(ExecutionFailureInfo::toException)
-                        .orElse(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
-                stateMachine.transitionToFailed(failure);
-            }
-            else if (taskState == TaskState.ABORTED) {
-                // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
-                stateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
-            }
-            else if (taskState == TaskState.FLUSHING) {
-                flushingTasks.add(taskStatus.getTaskId());
-            }
-            else if (taskState == TaskState.FINISHED) {
-                finishedTasks.add(taskStatus.getTaskId());
-                flushingTasks.remove(taskStatus.getTaskId());
+
+            switch (taskState) {
+                case FAILED:
+                    RuntimeException failure = taskStatus.getFailures().stream()
+                            .findFirst()
+                            .map(this::rewriteTransportFailure)
+                            .map(ExecutionFailureInfo::toException)
+                            .orElse(new TrinoException(GENERIC_INTERNAL_ERROR, "A task failed for an unknown reason"));
+                    stateMachine.transitionToFailed(failure);
+                    break;
+                case ABORTED:
+                    // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
+                    stateMachine.transitionToFailed(new TrinoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
+                    break;
+                case FLUSHING:
+                    flushingTasks.add(taskStatus.getTaskId());
+                    break;
+                case FINISHED:
+                    finishedTasks.add(taskStatus.getTaskId());
+                    flushingTasks.remove(taskStatus.getTaskId());
+                    break;
+                default:
             }
 
             if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING || stageState == StageState.FLUSHING) {

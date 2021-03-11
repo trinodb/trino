@@ -45,12 +45,12 @@ import static java.lang.Math.addExact;
 /**
  * Concatenate all but the first argument with separators. The first parameter is used as a separator.
  * The function needs at least 2 params.
- *
+ * <p>
  * Null behavior:
  * concat_ws(null, ...) returns null.
  * concat_ws(sep, arg1, arg2,..., argN) returns arg1 through argN concatenated with separator 'sep'.
  * Null arguments are ignored.
- *
+ * <p>
  * concat_ws(sep, array[strings]) returns elements in the array concatenated with separators.
  */
 public final class ConcatWsFunction
@@ -135,7 +135,8 @@ public final class ConcatWsFunction
     {
         return concatWs(
                 separator,
-                new SliceArray() {
+                new SliceArray()
+                {
                     @Override
                     public Slice getElement(int i)
                     {

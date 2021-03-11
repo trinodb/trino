@@ -321,7 +321,8 @@ public class KafkaRecordSet
 
         mapBlockBuilder.closeEntry();
 
-        return new FieldValueProvider() {
+        return new FieldValueProvider()
+        {
             @Override
             public boolean isNull()
             {

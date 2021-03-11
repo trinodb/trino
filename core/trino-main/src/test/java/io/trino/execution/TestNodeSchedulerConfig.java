@@ -34,6 +34,7 @@ public class TestNodeSchedulerConfig
                 .setMinCandidates(10)
                 .setMaxSplitsPerNode(100)
                 .setMaxPendingSplitsPerTask(10)
+                .setMaxUnacknowledgedSplitsPerTask(500)
                 .setIncludeCoordinator(true)
                 .setOptimizedLocalScheduling(true));
     }
@@ -47,6 +48,7 @@ public class TestNodeSchedulerConfig
                 .put("node-scheduler.include-coordinator", "false")
                 .put("node-scheduler.max-pending-splits-per-task", "11")
                 .put("node-scheduler.max-splits-per-node", "101")
+                .put("node-scheduler.max-unacknowledged-splits-per-task", "501")
                 .put("node-scheduler.optimized-local-scheduling", "false")
                 .build();
 
@@ -55,6 +57,7 @@ public class TestNodeSchedulerConfig
                 .setIncludeCoordinator(false)
                 .setMaxSplitsPerNode(101)
                 .setMaxPendingSplitsPerTask(11)
+                .setMaxUnacknowledgedSplitsPerTask(501)
                 .setMinCandidates(11)
                 .setOptimizedLocalScheduling(false);
 

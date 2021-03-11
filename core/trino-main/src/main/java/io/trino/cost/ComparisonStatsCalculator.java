@@ -53,9 +53,8 @@ public final class ComparisonStatsCalculator
                 return estimateExpressionGreaterThanLiteral(inputStatistics, expressionStatistics, expressionSymbol, literalValue);
             case IS_DISTINCT_FROM:
                 return PlanNodeStatsEstimate.unknown();
-            default:
-                throw new IllegalArgumentException("Unexpected comparison operator: " + operator);
         }
+        throw new IllegalArgumentException("Unexpected comparison operator: " + operator);
     }
 
     private static PlanNodeStatsEstimate estimateExpressionEqualToLiteral(
@@ -167,9 +166,8 @@ public final class ComparisonStatsCalculator
             case GREATER_THAN_OR_EQUAL:
             case IS_DISTINCT_FROM:
                 return PlanNodeStatsEstimate.unknown();
-            default:
-                throw new IllegalArgumentException("Unexpected comparison operator: " + operator);
         }
+        throw new IllegalArgumentException("Unexpected comparison operator: " + operator);
     }
 
     private static PlanNodeStatsEstimate estimateExpressionEqualToExpression(

@@ -32,9 +32,11 @@ import java.util.HashMap;
 import java.util.List;
 
 import static com.amazonaws.util.CollectionUtils.isNullOrEmpty;
+import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestColumn;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestDatabase;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestPartition;
+import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestStorageDescriptor;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getGlueTestTable;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.testng.Assert.assertEquals;
@@ -92,6 +94,29 @@ public class TestGlueToTrinoConverter
         assertStorage(trinoTable.getStorage(), testTable.getStorageDescriptor());
         assertEquals(trinoTable.getViewOriginalText().get(), testTable.getViewOriginalText());
         assertEquals(trinoTable.getViewExpandedText().get(), testTable.getViewExpandedText());
+    }
+
+    @Test
+    public void testConvertTableWithOpenCSVSerDe()
+    {
+        Table glueTable = getGlueTestTable(testDatabase.getName());
+        glueTable.setStorageDescriptor(getGlueTestStorageDescriptor(
+                ImmutableList.of(getGlueTestColumn("int")),
+                "org.apache.hadoop.hive.serde2.OpenCSVSerde"));
+        io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(glueTable, testDatabase.getName());
+
+        assertEquals(trinoTable.getTableName(), glueTable.getName());
+        assertEquals(trinoTable.getDatabaseName(), testDatabase.getName());
+        assertEquals(trinoTable.getTableType(), glueTable.getTableType());
+        assertEquals(trinoTable.getOwner(), glueTable.getOwner());
+        assertEquals(trinoTable.getParameters(), glueTable.getParameters());
+        assertEquals(trinoTable.getDataColumns().size(), 1);
+        assertEquals(trinoTable.getDataColumns().get(0).getType(), HIVE_STRING);
+
+        assertColumnList(trinoTable.getPartitionColumns(), glueTable.getPartitionKeys());
+        assertStorage(trinoTable.getStorage(), glueTable.getStorageDescriptor());
+        assertEquals(trinoTable.getViewOriginalText().get(), glueTable.getViewOriginalText());
+        assertEquals(trinoTable.getViewExpandedText().get(), glueTable.getViewExpandedText());
     }
 
     @Test

@@ -66,8 +66,8 @@ public final class ServletSecurityUtils
     public static void setAuthenticatedIdentity(ContainerRequestContext request, String username)
     {
         setAuthenticatedIdentity(request, Identity.forUser(username)
-                        .withPrincipal(new BasicPrincipal(username))
-                        .build());
+                .withPrincipal(new BasicPrincipal(username))
+                .build());
     }
 
     public static void setAuthenticatedIdentity(ContainerRequestContext request, Identity authenticatedIdentity)

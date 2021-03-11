@@ -161,9 +161,8 @@ public final class ParquetTypeUtils
                 return ParquetEncoding.DELTA_BYTE_ARRAY;
             case RLE_DICTIONARY:
                 return ParquetEncoding.RLE_DICTIONARY;
-            default:
-                throw new ParquetDecodingException("Unsupported Parquet encoding: " + encoding);
         }
+        throw new ParquetDecodingException("Unsupported Parquet encoding: " + encoding);
     }
 
     public static org.apache.parquet.schema.Type getParquetTypeByName(String columnName, GroupType groupType)

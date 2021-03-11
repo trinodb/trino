@@ -96,7 +96,7 @@ final class Util
 
         checkArgument(
                 (node.getSources().size() == permittedChildOutputs.size()),
-                "Mismatched child (%d) and permitted outputs (%d) sizes",
+                "Mismatched child (%s) and permitted outputs (%s) sizes",
                 node.getSources().size(),
                 permittedChildOutputs.size());
 
