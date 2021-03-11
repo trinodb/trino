@@ -13,8 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.services.glue.model.PartitionInput;
-import com.amazonaws.services.glue.model.TableInput;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
@@ -51,7 +49,7 @@ public class DisabledGlueColumnStatisticsProvider
     }
 
     @Override
-    public void updateTableColumnStatistics(TableInput table, Map<String, HiveColumnStatistics> columnStatistics)
+    public void updateTableColumnStatistics(Table table, Map<String, HiveColumnStatistics> columnStatistics)
     {
         if (!columnStatistics.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Glue metastore column level statistics are disabled");
@@ -59,7 +57,7 @@ public class DisabledGlueColumnStatisticsProvider
     }
 
     @Override
-    public void updatePartitionStatistics(PartitionInput partition, Map<String, HiveColumnStatistics> columnStatistics)
+    public void updatePartitionStatistics(Partition partition, Map<String, HiveColumnStatistics> columnStatistics)
     {
         if (!columnStatistics.isEmpty()) {
             throw new TrinoException(NOT_SUPPORTED, "Glue metastore column level statistics are disabled");

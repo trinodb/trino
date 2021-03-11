@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.memory.context.AggregatedMemoryContext;
+import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
@@ -33,6 +34,7 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveColumnProjectionInfo;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceFactory;
+import io.trino.plugin.hive.HiveUpdateProcessor;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.acid.AcidSchema;
@@ -94,6 +96,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnable
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -101,6 +104,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -263,7 +267,8 @@ public class OrcPageSourceFactory
             if (isFullAcid && !originalFilesPresent) {
                 verifyAcidSchema(reader, path);
                 Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
-                fileColumns = acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns();
+
+                fileColumns = ensureColumnNameConsistency(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ROW_STRUCT.toLowerCase(ENGLISH)).getNestedColumns(), columns);
 
                 fileReadColumns.add(acidColumnsByName.get(AcidSchema.ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
@@ -366,7 +371,8 @@ public class OrcPageSourceFactory
                     legacyFileTimeZone,
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE,
-                    exception -> handleException(orcDataSource.getId(), exception));
+                    exception -> handleException(orcDataSource.getId(), exception),
+                    NameBasedFieldMapper::create);
 
             Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
@@ -399,6 +405,13 @@ public class OrcPageSourceFactory
                     columnAdaptations.add(ColumnAdaptation.rowIdColumn());
                 }
             }
+            else if (transaction.isUpdate()) {
+                HiveUpdateProcessor updateProcessor = transaction.getUpdateProcessor().orElseThrow(() -> new IllegalArgumentException("updateProcessor not present"));
+                List<HiveColumnHandle> dependencyColumns = projections.stream()
+                        .filter(HiveColumnHandle::isBaseColumn)
+                        .collect(toImmutableList());
+                columnAdaptations.add(updatedRowColumns(updateProcessor, dependencyColumns));
+            }
 
             return new OrcPageSource(
                     recordReader,
@@ -424,6 +437,35 @@ public class OrcPageSourceFactory
             }
             throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    /**
+     * Recreate the list of fileColumns, updating the names of any whose names have changed in the
+     * corresponding elements of the desiredColumns list.  NOTE: this renaming is only applied to
+     * top-level columns, not nested columns.
+     *
+     * @param fileColumns All OrcColumns nested in the root column of the table.
+     * @param desiredColumns HiveColumnHandles for the metastore's table columns.
+     * @return Return the fileColumns list with any OrcColumn corresponding to a desiredColumn renamed if
+     * the names differ from those specified in the desiredColumns.
+     */
+    private static List<OrcColumn> ensureColumnNameConsistency(List<OrcColumn> fileColumns, List<HiveColumnHandle> desiredColumns)
+    {
+        int columnCount = fileColumns.size();
+        ImmutableList.Builder<OrcColumn> builder = ImmutableList.builderWithExpectedSize(columnCount);
+
+        Map<Integer, HiveColumnHandle> desiredColumnsByNumber = desiredColumns.stream()
+                .collect(toImmutableMap(HiveColumnHandle::getBaseHiveColumnIndex, identity()));
+
+        for (int index = 0; index < columnCount; index++) {
+            OrcColumn column = fileColumns.get(index);
+            HiveColumnHandle handle = desiredColumnsByNumber.get(index);
+            if (handle != null && !column.getColumnName().equals(handle.getName())) {
+                column = new OrcColumn(column.getPath(), column.getColumnId(), handle.getName(), column.getColumnType(), column.getOrcDataSourceId(), column.getNestedColumns(), column.getAttributes());
+            }
+            builder.add(column);
+        }
+        return builder.build();
     }
 
     private static boolean hasOriginalFilesAndDeleteDeltas(AcidInfo acidInfo)

@@ -15,10 +15,10 @@ package io.trino.plugin.bigquery;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableInfo;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
@@ -32,9 +32,8 @@ import static java.util.Objects.requireNonNull;
 public class BigQueryTableHandle
         implements ConnectorTableHandle
 {
-    private final String projectId;
-    private final String schemaName;
-    private final String tableName;
+    private final SchemaTableName schemaTableName;
+    private final RemoteTableName remoteTableName;
     private final String type;
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<List<ColumnHandle>> projectedColumns;
@@ -42,46 +41,42 @@ public class BigQueryTableHandle
 
     @JsonCreator
     public BigQueryTableHandle(
-            @JsonProperty("projectId") String projectId,
-            @JsonProperty("schemaName") String schemaName,
-            @JsonProperty("tableName") String tableName,
+            @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("type") String type,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("projectedColumns") Optional<List<ColumnHandle>> projectedColumns,
             @JsonProperty("limit") OptionalLong limit)
     {
-        this.projectId = requireNonNull(projectId, "projectId is null");
-        this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.type = requireNonNull(type, "type is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.projectedColumns = requireNonNull(projectedColumns, "projectedColumns is null");
         this.limit = requireNonNull(limit, "limit is null");
     }
 
-    public static BigQueryTableHandle from(TableInfo tableInfo)
+    public BigQueryTableHandle(SchemaTableName schemaTableName, RemoteTableName remoteTableName, TableInfo tableInfo)
     {
-        TableId tableId = tableInfo.getTableId();
-        String type = tableInfo.getDefinition().getType().toString();
-        return new BigQueryTableHandle(tableId.getProject(), tableId.getDataset(), tableId.getTable(), type, TupleDomain.all(), Optional.empty(), OptionalLong.empty());
+        this(
+                schemaTableName,
+                remoteTableName,
+                tableInfo.getDefinition().getType().toString(),
+                TupleDomain.all(),
+                Optional.empty(),
+                OptionalLong.empty());
     }
 
     @JsonProperty
-    public String getProjectId()
+    public RemoteTableName getRemoteTableName()
     {
-        return projectId;
+        return remoteTableName;
     }
 
     @JsonProperty
-    public String getSchemaName()
+    public SchemaTableName getSchemaTableName()
     {
-        return schemaName;
-    }
-
-    @JsonProperty
-    public String getTableName()
-    {
-        return tableName;
+        return schemaTableName;
     }
 
     @JsonProperty
@@ -118,10 +113,10 @@ public class BigQueryTableHandle
             return false;
         }
         BigQueryTableHandle that = (BigQueryTableHandle) o;
-        return Objects.equals(projectId, that.projectId) &&
-                Objects.equals(schemaName, that.schemaName) &&
-                Objects.equals(tableName, that.tableName) &&
-                Objects.equals(type, that.tableName) &&
+        // NOTE remoteTableName is not compared here because two handles differing in only remoteTableName will create ambiguity
+        // TOOD: Add tests for this (see TestJdbcTableHandle#testEquivalence for reference)
+        return Objects.equals(schemaTableName, that.schemaTableName) &&
+                Objects.equals(type, that.type) &&
                 Objects.equals(constraint, that.constraint) &&
                 Objects.equals(projectedColumns, that.projectedColumns) &&
                 Objects.equals(limit, that.limit);
@@ -130,16 +125,15 @@ public class BigQueryTableHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(projectId, schemaName, tableName, type, constraint, projectedColumns, limit);
+        return Objects.hash(schemaTableName, type, constraint, projectedColumns, limit);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("projectId", projectId)
-                .add("schemaName", schemaName)
-                .add("tableName", tableName)
+                .add("remoteTableName", remoteTableName)
+                .add("schemaTableName", schemaTableName)
                 .add("type", type)
                 .add("constraint", constraint)
                 .add("projectedColumns", projectedColumns)
@@ -147,23 +141,18 @@ public class BigQueryTableHandle
                 .toString();
     }
 
-    public TableId getTableId()
-    {
-        return TableId.of(projectId, schemaName, tableName);
-    }
-
     BigQueryTableHandle withConstraint(TupleDomain<ColumnHandle> newConstraint)
     {
-        return new BigQueryTableHandle(projectId, schemaName, tableName, type, newConstraint, projectedColumns, limit);
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, newConstraint, projectedColumns, limit);
     }
 
     BigQueryTableHandle withProjectedColumns(List<ColumnHandle> newProjectedColumns)
     {
-        return new BigQueryTableHandle(projectId, schemaName, tableName, type, constraint, Optional.of(newProjectedColumns), limit);
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, constraint, Optional.of(newProjectedColumns), limit);
     }
 
     BigQueryTableHandle withLimit(long newLimit)
     {
-        return new BigQueryTableHandle(projectId, schemaName, tableName, type, constraint, projectedColumns, OptionalLong.of(newLimit));
+        return new BigQueryTableHandle(schemaTableName, remoteTableName, type, constraint, projectedColumns, OptionalLong.of(newLimit));
     }
 }

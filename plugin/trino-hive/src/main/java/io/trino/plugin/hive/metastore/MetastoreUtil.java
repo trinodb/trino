@@ -458,7 +458,7 @@ public final class MetastoreUtil
         Long count = Longs.tryParse(existingRowCount);
         requireNonNull(count, format("For %s, the existing row count (%s) is not a digit string", description, existingRowCount));
         long newRowCount = count + rowCountAdjustment;
-        checkArgument(newRowCount >= 0, "For %s, the subtracted row count (%s) is less than zero, existing count %s, rows deleted %d", description, newRowCount, existingRowCount, rowCountAdjustment);
+        checkArgument(newRowCount >= 0, "For %s, the subtracted row count (%s) is less than zero, existing count %s, rows deleted %s", description, newRowCount, existingRowCount, rowCountAdjustment);
         Map<String, String> copiedParameters = new HashMap<>(parameters);
         copiedParameters.put(NUM_ROWS, String.valueOf(newRowCount));
         return ImmutableMap.copyOf(copiedParameters);

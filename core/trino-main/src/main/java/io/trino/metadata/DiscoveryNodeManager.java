@@ -329,14 +329,14 @@ public final class DiscoveryNodeManager
                 return getAllNodes().getInactiveNodes();
             case SHUTTING_DOWN:
                 return getAllNodes().getShuttingDownNodes();
-            default:
-                throw new IllegalArgumentException("Unknown node state " + state);
         }
+        throw new IllegalArgumentException("Unknown node state " + state);
     }
 
     @Override
     public synchronized Set<InternalNode> getActiveConnectorNodes(CatalogName catalogName)
     {
+        // activeNodesByCatalogName is immutable
         return activeNodesByCatalogName.get(catalogName);
     }
 

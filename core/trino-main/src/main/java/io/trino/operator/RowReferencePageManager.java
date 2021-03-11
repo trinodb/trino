@@ -20,7 +20,6 @@ import io.trino.spi.Page;
 import io.trino.util.LongBigArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongComparator;
 import org.openjdk.jol.info.ClassLayout;
 
 import javax.annotation.Nullable;
@@ -41,7 +40,6 @@ public class RowReferencePageManager
     private static final long INSTANCE_SIZE = ClassLayout.parseClass(RowReferencePageManager.class).instanceSize();
     private static final long PAGE_ACCOUNTING_INSTANCE_SIZE = ClassLayout.parseClass(PageAccounting.class).instanceSize();
     private static final int RESERVED_ROW_ID_FOR_CURSOR = -1;
-    public static final long RESERVED_UNUSED_ROW_ID = -2;
 
     private final IdRegistry<PageAccounting> pages = new IdRegistry<>();
     private final RowIdBuffer rowIdBuffer = new RowIdBuffer();
@@ -164,7 +162,7 @@ public class RowReferencePageManager
      * quickly skip positions that won't be needed.
      */
     public static class LoadCursor
-            implements AutoCloseable
+            implements RowReference, AutoCloseable
     {
         private final PageAccounting pageAccounting;
         private final Runnable closeCallback;
@@ -197,12 +195,28 @@ public class RowReferencePageManager
             return true;
         }
 
-        public int compareTo(LongComparator rowIdComparator, long rowId)
+        @Override
+        public int compareTo(RowIdComparisonStrategy strategy, long rowId)
         {
             checkState(currentPosition >= 0, "Not yet advanced");
-            return rowIdComparator.compare(RESERVED_ROW_ID_FOR_CURSOR, rowId);
+            return strategy.compare(RESERVED_ROW_ID_FOR_CURSOR, rowId);
         }
 
+        @Override
+        public boolean equals(RowIdHashStrategy strategy, long rowId)
+        {
+            checkState(currentPosition >= 0, "Not yet advanced");
+            return strategy.equals(RESERVED_ROW_ID_FOR_CURSOR, rowId);
+        }
+
+        @Override
+        public long hash(RowIdHashStrategy strategy)
+        {
+            checkState(currentPosition >= 0, "Not yet advanced");
+            return strategy.hashCode(RESERVED_ROW_ID_FOR_CURSOR);
+        }
+
+        @Override
         public long allocateRowId()
         {
             checkState(currentPosition >= 0, "Not yet advanced");

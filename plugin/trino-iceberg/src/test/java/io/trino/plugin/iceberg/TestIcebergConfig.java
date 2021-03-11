@@ -36,7 +36,9 @@ public class TestIcebergConfig
         assertRecordedDefaults(recordDefaults(IcebergConfig.class)
                 .setCatalogType(HIVE)
                 .setFileFormat(ORC)
-                .setCompressionCodec(GZIP));
+                .setCompressionCodec(GZIP)
+                .setUseFileSizeFromMetadata(true)
+                .setMaxPartitionsPerWriter(100));
     }
 
     @Test
@@ -46,12 +48,16 @@ public class TestIcebergConfig
                 .put("iceberg.catalog-type", "hadoop")
                 .put("iceberg.file-format", "Parquet")
                 .put("iceberg.compression-codec", "NONE")
+                .put("iceberg.use-file-size-from-metadata", "false")
+                .put("iceberg.max-partitions-per-writer", "222")
                 .build();
 
         IcebergConfig expected = new IcebergConfig()
                 .setCatalogType(HADOOP)
                 .setFileFormat(PARQUET)
-                .setCompressionCodec(HiveCompressionCodec.NONE);
+                .setCompressionCodec(HiveCompressionCodec.NONE)
+                .setUseFileSizeFromMetadata(false)
+                .setMaxPartitionsPerWriter(222);
 
         assertFullMapping(properties, expected);
     }

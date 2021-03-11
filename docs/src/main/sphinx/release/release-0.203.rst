@@ -2,8 +2,8 @@
 Release 0.203
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix spurious duplicate key errors from :func:`map`.
 * Fix planning failure when a correlated subquery containing a ``LIMIT``
@@ -21,8 +21,8 @@ General changes
 * Remove support for legacy ``ORDER BY`` semantics.
 * Distinguish between inner and left spatial joins in explain plans.
 
-Security changes
-----------------
+Security
+--------
 
 * Fix sending authentication challenge when at least two of the
   ``KERBEROS``, ``PASSWORD``, or ``JWT`` authentication types are configured.
@@ -30,28 +30,28 @@ Security changes
   and the HTTP client used for internal communication. This was already supported
   for the CLI and JDBC driver.
 
-Server RPM changes
-------------------
+Server RPM
+----------
 
 * Declare a dependency on ``uuidgen``. The ``uuidgen`` program is required during
   installation of the Presto server RPM package and lack of it resulted in an invalid
   config file being generated during installation.
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix complex type handling in the optimized Parquet reader. Previously, null values,
   optional fields, and Parquet backward compatibility rules were not handled correctly.
 * Fix an issue that could cause the optimized ORC writer to fail with a ``LazyBlock`` error.
 * Improve error message for max open writers.
 
-Thrift connector changes
-------------------------
+Thrift connector
+----------------
 
 * Fix retry of requests when the remote Thrift server indicates that the
   error is retryable.
 
-Local file connector changes
-----------------------------
+Local file connector
+--------------------
 
 * Fix parsing of timestamps when the JVM time zone is UTC (:issue:`x9601`).

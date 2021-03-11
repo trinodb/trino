@@ -609,7 +609,8 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testMemoryUpdateRecursively()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor()) {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        {
             @Override
             public void triggerProcessQueuedQueries()
             {
@@ -753,7 +754,8 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedScheduling()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor()) {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        {
             @Override
             public void triggerProcessQueuedQueries()
             {
@@ -808,7 +810,8 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairScheduling()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor()) {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        {
             @Override
             public void triggerProcessQueuedQueries()
             {
@@ -857,7 +860,8 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairSchedulingEqualWeights()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor()) {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        {
             @Override
             public void triggerProcessQueuedQueries()
             {
@@ -922,7 +926,8 @@ public class TestResourceGroups
     @Test(timeOut = 10_000)
     public void testWeightedFairSchedulingNoStarvation()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor()) {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        {
             @Override
             public void triggerProcessQueuedQueries()
             {
@@ -969,7 +974,8 @@ public class TestResourceGroups
     @Test
     public void testGetInfo()
     {
-        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor()) {
+        InternalResourceGroup root = new InternalResourceGroup("root", (group, export) -> {}, directExecutor())
+        {
             @Override
             public void triggerProcessQueuedQueries()
             {

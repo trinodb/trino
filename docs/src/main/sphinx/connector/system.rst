@@ -87,7 +87,7 @@ was queued and analyzed.
 ^^^^^^^^^^^^^^^^^
 
 The tasks table contains information about the tasks involved in a
-Trino query, including where they were executed, and and how many rows
+Trino query, including where they were executed, and how many rows
 and bytes each task processed.
 
 ``runtime.transactions``

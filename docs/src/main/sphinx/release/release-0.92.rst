@@ -2,7 +2,7 @@
 Release 0.92
 ============
 
-General changes
----------------
+General
+-------
 
 * Fix buffer leak when a query fails.

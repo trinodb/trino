@@ -233,6 +233,18 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testInsertBucketedTableLayout()
+    {
+        // Alluxio metastore does not support insert layout operations
+    }
+
+    @Override
+    public void testInsertPartitionedBucketedTableLayout()
+    {
+        // Alluxio metastore does not support insert layout operations
+    }
+
+    @Override
     public void testStorePartitionWithStatistics()
     {
         // Alluxio metastore does not support create operations

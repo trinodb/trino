@@ -28,6 +28,7 @@ import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveTableHandle;
 import io.trino.plugin.hive.HiveType;
+import io.trino.plugin.hive.HiveUpdateProcessor;
 import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.PartitionAndStatementId;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -36,6 +37,7 @@ import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.authentication.HiveIdentity;
+import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
@@ -114,6 +116,7 @@ import static org.apache.hadoop.hive.metastore.conf.MetastoreConf.ConfVars.TXN_T
 import static org.apache.hadoop.hive.metastore.conf.MetastoreConf.getTimeVar;
 
 public class SemiTransactionalHiveMetastore
+        implements SqlStandardAccessControlMetadataMetastore
 {
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
@@ -207,12 +210,15 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 return Optional.of(tableAction.getData().getTable());
             case DROP:
                 return Optional.empty();
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized Set<ColumnStatisticType> getSupportedColumnStatistics(Type type)
@@ -232,12 +238,15 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 return tableAction.getData().getStatistics();
             case DROP:
                 return PartitionStatistics.empty();
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized Map<String, PartitionStatistics> getPartitionStatistics(HiveIdentity identity, String databaseName, String tableName, Set<String> partitionNames)
@@ -302,10 +311,13 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 return TableSource.PRE_EXISTING_TABLE;
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized HivePageSinkMetadata generatePageSinkMetadata(HiveIdentity identity, SchemaTableName schemaTableName)
@@ -440,15 +452,19 @@ public class SemiTransactionalHiveMetastore
                 }
                 HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
                 tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, hdfsContext, identity));
-                break;
+                return;
+
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 throw new TableAlreadyExistsException(table.getSchemaTableName());
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void dropTable(ConnectorSession session, String databaseName, String tableName)
@@ -471,10 +487,13 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 throw new UnsupportedOperationException("dropping a table added/modified in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void replaceTable(HiveIdentity identity, String databaseName, String tableName, Table table, PrincipalPrivileges principalPrivileges)
@@ -562,10 +581,14 @@ public class SemiTransactionalHiveMetastore
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
+            case DELETE_ROWS:
+            case UPDATE:
                 throw new UnsupportedOperationException("Inserting into an unpartitioned table that were added, altered, or inserted into in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     private boolean isAcidTransactionRunning()
@@ -608,8 +631,6 @@ public class SemiTransactionalHiveMetastore
             Path currentLocation,
             List<PartitionAndStatementId> partitionAndStatementIds)
     {
-        // Data can only be inserted into partitions and unpartitioned tables. They can never be inserted into a partitioned table.
-        // Therefore, this method assumes that the table is unpartitioned.
         if (partitionAndStatementIds.isEmpty()) {
             return;
         }
@@ -625,7 +646,7 @@ public class SemiTransactionalHiveMetastore
                     schemaTableName,
                     new Action<>(
                             ActionType.DELETE_ROWS,
-                            new TableAndDeleteDirectories(
+                            new TableAndAcidDirectories(
                                     table,
                                     identity,
                                     Optional.of(principalPrivileges),
@@ -643,10 +664,62 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 throw new UnsupportedOperationException("Inserting or deleting in an unpartitioned table that were added, altered, or inserted into in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
+    }
+
+    public synchronized void finishUpdate(
+            ConnectorSession session,
+            String databaseName,
+            String tableName,
+            Path currentLocation,
+            List<PartitionAndStatementId> partitionAndStatementIds)
+    {
+        if (partitionAndStatementIds.isEmpty()) {
+            return;
+        }
+        setShared();
+        HiveIdentity identity = new HiveIdentity(session);
+        SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
+        Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
+        if (oldTableAction == null) {
+            Table table = getExistingTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+            HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
+            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
+            tableActions.put(
+                    schemaTableName,
+                    new Action<>(
+                            ActionType.UPDATE,
+                            new TableAndAcidDirectories(
+                                    table,
+                                    identity,
+                                    Optional.of(principalPrivileges),
+                                    Optional.of(currentLocation),
+                                    partitionAndStatementIds),
+                            hdfsContext,
+                            identity));
+            return;
+        }
+
+        switch (oldTableAction.getType()) {
+            case DROP:
+                throw new TableNotFoundException(schemaTableName);
+            case ADD:
+            case ALTER:
+            case INSERT_EXISTING:
+            case DELETE_ROWS:
+            case UPDATE:
+                throw new UnsupportedOperationException("Inserting, updating or deleting in a table that was added, altered, inserted into, updated or deleted from in the same transaction is not supported");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
+        }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
@@ -730,6 +803,7 @@ public class SemiTransactionalHiveMetastore
                 case ALTER:
                 case INSERT_EXISTING:
                 case DELETE_ROWS:
+                case UPDATE:
                     resultBuilder.add(partitionName);
                     break;
                 default:
@@ -795,13 +869,13 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 return Optional.of(partitionAction.getData().getAugmentedPartitionForInTransactionRead());
             case DROP:
             case DROP_PRESERVE_DATA:
                 return Optional.empty();
-            default:
-                throw new IllegalStateException("Unknown action type");
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void addPartition(
@@ -833,15 +907,15 @@ public class SemiTransactionalHiveMetastore
                 partitionActionsOfTable.put(
                         partition.getValues(),
                         new Action<>(ActionType.ALTER, new PartitionAndMore(identity, partition, currentLocation, Optional.empty(), statistics, statistics), hdfsContext, identity));
-                break;
+                return;
             case ADD:
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 throw new TrinoException(ALREADY_EXISTS, format("Partition already exists for table '%s.%s': %s", databaseName, tableName, partition.getValues()));
-            default:
-                throw new IllegalStateException("Unknown action type");
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void dropPartition(ConnectorSession session, String databaseName, String tableName, List<String> partitionValues, boolean deleteData)
@@ -868,12 +942,12 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 throw new TrinoException(
                         NOT_SUPPORTED,
                         format("dropping a partition added in the same transaction is not supported: %s %s %s", databaseName, tableName, partitionValues));
-            default:
-                throw new IllegalStateException("Unknown action type");
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized void finishInsertIntoExistingPartition(
@@ -923,10 +997,10 @@ public class SemiTransactionalHiveMetastore
             case ALTER:
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 throw new UnsupportedOperationException("Inserting into a partition that were added, altered, or inserted into in the same transaction is not supported");
-            default:
-                throw new IllegalStateException("Unknown action type");
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     private synchronized AcidTransaction getCurrentAcidTransaction()
@@ -950,44 +1024,52 @@ public class SemiTransactionalHiveMetastore
         return makePartName(columnNames, partitionValues);
     }
 
+    @Override
     public synchronized void createRole(String role, String grantor)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.createRole(role, grantor));
     }
 
+    @Override
     public synchronized void dropRole(String role)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.dropRole(role));
     }
 
+    @Override
     public synchronized Set<String> listRoles()
     {
         checkReadable();
         return delegate.listRoles();
     }
 
+    @Override
     public synchronized void grantRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.grantRoles(roles, grantees, adminOption, grantor));
     }
 
+    @Override
     public synchronized void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeRoles(roles, grantees, adminOption, grantor));
     }
 
+    @Override
     public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
     {
         checkReadable();
         return delegate.listGrantedPrincipals(role);
     }
 
+    @Override
     public synchronized Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         checkReadable();
         return delegate.listRoleGrants(principal);
     }
 
+    @Override
     public synchronized Set<HivePrivilegeInfo> listTablePrivileges(HiveIdentity identity, String databaseName, String tableName, Optional<HivePrincipal> principal)
     {
         checkReadable();
@@ -1013,12 +1095,15 @@ public class SemiTransactionalHiveMetastore
                         .build();
             case INSERT_EXISTING:
             case DELETE_ROWS:
+            case UPDATE:
                 return delegate.listTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), principal);
             case DROP:
                 throw new TableNotFoundException(schemaTableName);
-            default:
-                throw new IllegalStateException("Unknown action type");
+            case DROP_PRESERVE_DATA:
+                // TODO
+                break;
         }
+        throw new IllegalStateException("Unknown action type");
     }
 
     public synchronized String getTableOwner(HiveIdentity identity, String databaseName, String tableName)
@@ -1032,11 +1117,13 @@ public class SemiTransactionalHiveMetastore
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
     }
 
+    @Override
     public synchronized void grantTablePrivileges(HiveIdentity identity, String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.grantTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), grantee, privileges));
     }
 
+    @Override
     public synchronized void revokeTablePrivileges(HiveIdentity identity, String databaseName, String tableName, HivePrincipal grantee, Set<HivePrivilegeInfo> privileges)
     {
         setExclusive((delegate, hdfsEnvironment) -> delegate.revokeTablePrivileges(databaseName, tableName, getTableOwner(identity, databaseName, tableName), grantee, privileges));
@@ -1066,19 +1153,18 @@ public class SemiTransactionalHiveMetastore
         try {
             switch (state) {
                 case EMPTY:
-                    break;
+                    return;
                 case SHARED_OPERATION_BUFFERED:
                     commitShared();
-                    break;
+                    return;
                 case EXCLUSIVE_OPERATION_BUFFERED:
                     requireNonNull(bufferedExclusiveOperation, "bufferedExclusiveOperation is null");
                     bufferedExclusiveOperation.execute(delegate, hdfsEnvironment);
-                    break;
+                    return;
                 case FINISHED:
                     throw new IllegalStateException("Tried to commit buffered metastore operations after transaction has been committed/aborted");
-                default:
-                    throw new IllegalStateException("Unknown state");
             }
+            throw new IllegalStateException("Unknown state: " + state);
         }
         finally {
             state = State.FINISHED;
@@ -1091,15 +1177,14 @@ public class SemiTransactionalHiveMetastore
             switch (state) {
                 case EMPTY:
                 case EXCLUSIVE_OPERATION_BUFFERED:
-                    break;
+                    return;
                 case SHARED_OPERATION_BUFFERED:
                     rollbackShared();
-                    break;
+                    return;
                 case FINISHED:
                     throw new IllegalStateException("Tried to rollback buffered metastore operations after transaction has been committed/aborted");
-                default:
-                    throw new IllegalStateException("Unknown state");
             }
+            throw new IllegalStateException("Unknown state: " + state);
         }
         finally {
             state = State.FINISHED;
@@ -1124,15 +1209,20 @@ public class SemiTransactionalHiveMetastore
 
     public AcidTransaction beginInsert(ConnectorSession session, Table table)
     {
-        return beginOperation(session, table, "insert", AcidOperation.INSERT, DataOperationType.INSERT);
+        return beginOperation(session, table, "insert", AcidOperation.INSERT, DataOperationType.INSERT, Optional.empty());
     }
 
     public AcidTransaction beginDelete(ConnectorSession session, Table table)
     {
-        return beginOperation(session, table, "delete", AcidOperation.DELETE, DataOperationType.DELETE);
+        return beginOperation(session, table, "delete", AcidOperation.DELETE, DataOperationType.DELETE, Optional.empty());
     }
 
-    private AcidTransaction beginOperation(ConnectorSession session, Table table, String description, AcidOperation operation, DataOperationType hiveOperation)
+    public AcidTransaction beginUpdate(ConnectorSession session, Table table, HiveUpdateProcessor updateProcessor)
+    {
+        return beginOperation(session, table, "update", AcidOperation.UPDATE, DataOperationType.UPDATE, Optional.of(updateProcessor));
+    }
+
+    private AcidTransaction beginOperation(ConnectorSession session, Table table, String description, AcidOperation operation, DataOperationType hiveOperation, Optional<HiveUpdateProcessor> updateProcessor)
     {
         String queryId = session.getQueryId();
 
@@ -1151,7 +1241,7 @@ public class SemiTransactionalHiveMetastore
                         hiveOperation,
                         !table.getPartitionColumns().isEmpty());
                 long writeId = allocateWriteId(new HiveIdentity(session), table.getDatabaseName(), table.getTableName(), transactionId);
-                return new AcidTransaction(operation, transactionId, writeId);
+                return new AcidTransaction(operation, transactionId, writeId, updateProcessor);
             });
             hiveTransactionSupplier = Optional.of(() -> hiveTransaction);
             currentHiveTransaction = Optional.of(hiveTransaction);
@@ -1264,6 +1354,9 @@ public class SemiTransactionalHiveMetastore
                     case DELETE_ROWS:
                         committer.prepareDeleteRowsFromExistingTable(action.getHdfsContext(), action.getData());
                         break;
+                    case UPDATE:
+                        committer.prepareUpdateExistingTable(action.getHdfsContext(), action.getData());
+                        break;
                     default:
                         throw new IllegalStateException("Unknown action type");
                 }
@@ -1289,6 +1382,7 @@ public class SemiTransactionalHiveMetastore
                         case INSERT_EXISTING:
                             committer.prepareInsertExistingPartition(action.getHdfsContext(), action.getIdentity(), action.getData());
                             break;
+                        case UPDATE:
                         case DELETE_ROWS:
                             break;
                         default:
@@ -1540,7 +1634,7 @@ public class SemiTransactionalHiveMetastore
 
         private void prepareDeleteRowsFromExistingTable(HdfsContext context, TableAndMore tableAndMore)
         {
-            TableAndDeleteDirectories deletionState = (TableAndDeleteDirectories) tableAndMore;
+            TableAndAcidDirectories deletionState = (TableAndAcidDirectories) tableAndMore;
             List<PartitionAndStatementId> partitionAndStatementIds = deletionState.getPartitionAndStatementIds();
             checkArgument(!partitionAndStatementIds.isEmpty(), "partitionAndStatementIds is empty");
 
@@ -1622,6 +1716,32 @@ public class SemiTransactionalHiveMetastore
                 addDynamicPartitions(identity, databaseName, tableName, ImmutableList.copyOf(updatedPartitions.keySet()), transactionId, writeId, AcidOperation.DELETE);
             }
             updateTableWriteId(identity, databaseName, tableName, transactionId, writeId, OptionalLong.of(-totalRowsDeleted));
+        }
+
+        private void prepareUpdateExistingTable(HdfsContext context, TableAndMore tableAndMore)
+        {
+            TableAndAcidDirectories updateState = (TableAndAcidDirectories) tableAndMore;
+            List<PartitionAndStatementId> partitionAndStatementIds = updateState.getPartitionAndStatementIds();
+            checkArgument(!partitionAndStatementIds.isEmpty(), "partitionAndStatementIds is empty");
+
+            Table table = updateState.getTable();
+            checkArgument(currentHiveTransaction.isPresent(), "currentHiveTransaction isn't present");
+            AcidTransaction transaction = currentHiveTransaction.get().getTransaction();
+            checkArgument(transaction.isUpdate(), "transaction should be update, but is %s", transaction);
+
+            updateState.getPartitionAndStatementIds().stream()
+                    .flatMap(ps -> ps.getAllDirectories().stream())
+                    .forEach(directory ->
+                            cleanUpTasksForAbort.add(new DirectoryCleanUpTask(context, new Path(directory), true)));
+
+            HiveIdentity identity = updateState.getIdentity();
+            String databaseName = table.getDatabaseName();
+            String tableName = table.getTableName();
+
+            // Finally, tell the metastore what has changed
+            long writeId = transaction.getWriteId();
+            long transactionId = transaction.getAcidTransactionId();
+            updateTableWriteId(identity, databaseName, tableName, transactionId, writeId, OptionalLong.empty());
         }
 
         private void prepareDropPartition(HiveIdentity identity, SchemaTableName schemaTableName, List<String> partitionValues, boolean deleteData)
@@ -2461,7 +2581,8 @@ public class SemiTransactionalHiveMetastore
         ADD,
         ALTER,
         INSERT_EXISTING,
-        DELETE_ROWS
+        DELETE_ROWS,
+        UPDATE,
     }
 
     private enum TableSource
@@ -2613,12 +2734,12 @@ public class SemiTransactionalHiveMetastore
         }
     }
 
-    private static class TableAndDeleteDirectories
+    private static class TableAndAcidDirectories
             extends TableAndMore
     {
         private final List<PartitionAndStatementId> partitionAndStatementIds;
 
-        public TableAndDeleteDirectories(Table table, HiveIdentity identity, Optional<PrincipalPrivileges> principalPrivileges, Optional<Path> currentLocation, List<PartitionAndStatementId> partitionAndStatementIds)
+        public TableAndAcidDirectories(Table table, HiveIdentity identity, Optional<PrincipalPrivileges> principalPrivileges, Optional<Path> currentLocation, List<PartitionAndStatementId> partitionAndStatementIds)
         {
             super(table, identity, principalPrivileges, currentLocation, Optional.empty(), false, PartitionStatistics.empty(), PartitionStatistics.empty());
             this.partitionAndStatementIds = partitionAndStatementIds;

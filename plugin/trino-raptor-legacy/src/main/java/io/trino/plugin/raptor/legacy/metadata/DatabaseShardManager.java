@@ -249,6 +249,7 @@ public class DatabaseShardManager
     {
         String columnType = sqlColumnType(column.getType());
         if (columnType == null) {
+            // TODO we should probably fail here
             return;
         }
 
@@ -879,6 +880,8 @@ public class DatabaseShardManager
                     return "int";
                 case VARBINARY:
                     return format("varbinary(%s)", MAX_BINARY_INDEX_SIZE);
+                default:
+                    break;
             }
         }
         return null;

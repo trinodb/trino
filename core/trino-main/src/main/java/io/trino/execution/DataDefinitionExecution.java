@@ -59,6 +59,7 @@ public class DataDefinitionExecution<T extends Statement>
     private final AccessControl accessControl;
     private final QueryStateMachine stateMachine;
     private final List<Expression> parameters;
+    private final WarningCollector warningCollector;
 
     private DataDefinitionExecution(
             DataDefinitionTask<T> task,
@@ -68,7 +69,8 @@ public class DataDefinitionExecution<T extends Statement>
             Metadata metadata,
             AccessControl accessControl,
             QueryStateMachine stateMachine,
-            List<Expression> parameters)
+            List<Expression> parameters,
+            WarningCollector warningCollector)
     {
         this.task = requireNonNull(task, "task is null");
         this.statement = requireNonNull(statement, "statement is null");
@@ -78,6 +80,7 @@ public class DataDefinitionExecution<T extends Statement>
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.stateMachine = requireNonNull(stateMachine, "stateMachine is null");
         this.parameters = parameters;
+        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
     }
 
     @Override
@@ -164,7 +167,7 @@ public class DataDefinitionExecution<T extends Statement>
                 return;
             }
 
-            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters);
+            ListenableFuture<?> future = task.execute(statement, transactionManager, metadata, accessControl, stateMachine, parameters, warningCollector);
             Futures.addCallback(future, new FutureCallback<Object>()
             {
                 @Override
@@ -309,21 +312,22 @@ public class DataDefinitionExecution<T extends Statement>
                 Slug slug,
                 WarningCollector warningCollector)
         {
-            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug);
+            return createDataDefinitionExecution(preparedQuery.getStatement(), preparedQuery.getParameters(), stateMachine, slug, warningCollector);
         }
 
         private <T extends Statement> DataDefinitionExecution<T> createDataDefinitionExecution(
                 T statement,
                 List<Expression> parameters,
                 QueryStateMachine stateMachine,
-                Slug slug)
+                Slug slug,
+                WarningCollector warningCollector)
         {
             @SuppressWarnings("unchecked")
             DataDefinitionTask<T> task = (DataDefinitionTask<T>) tasks.get(statement.getClass());
             checkArgument(task != null, "no task for statement: %s", statement.getClass().getSimpleName());
 
             stateMachine.setUpdateType(task.getName());
-            return new DataDefinitionExecution<>(task, statement, slug, transactionManager, metadata, accessControl, stateMachine, parameters);
+            return new DataDefinitionExecution<>(task, statement, slug, transactionManager, metadata, accessControl, stateMachine, parameters, warningCollector);
         }
     }
 }

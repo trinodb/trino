@@ -47,9 +47,8 @@ public class SampleNode
                     return Type.BERNOULLI;
                 case SYSTEM:
                     return Type.SYSTEM;
-                default:
-                    throw new UnsupportedOperationException("Unsupported sample type: " + sampleType);
             }
+            throw new UnsupportedOperationException("Unsupported sample type: " + sampleType);
         }
     }
 

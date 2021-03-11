@@ -21,8 +21,11 @@ import com.google.inject.multibindings.MapBinder;
 import io.trino.tests.product.launcher.env.common.Hadoop;
 import io.trino.tests.product.launcher.env.common.HadoopKerberos;
 import io.trino.tests.product.launcher.env.common.HadoopKerberosKms;
+import io.trino.tests.product.launcher.env.common.HydraIdentityProvider;
 import io.trino.tests.product.launcher.env.common.Kafka;
+import io.trino.tests.product.launcher.env.common.SeleniumChrome;
 import io.trino.tests.product.launcher.env.common.Standard;
+import io.trino.tests.product.launcher.env.common.StandardMultinode;
 import io.trino.tests.product.launcher.testcontainers.PortBinder;
 
 import java.io.File;
@@ -54,10 +57,13 @@ public final class EnvironmentModule
         binder.bind(EnvironmentFactory.class).in(SINGLETON);
         binder.bind(EnvironmentConfigFactory.class).in(SINGLETON);
         binder.bind(Standard.class).in(SINGLETON);
+        binder.bind(StandardMultinode.class).in(SINGLETON);
         binder.bind(Hadoop.class).in(SINGLETON);
         binder.bind(HadoopKerberos.class).in(SINGLETON);
         binder.bind(HadoopKerberosKms.class).in(SINGLETON);
         binder.bind(Kafka.class).in(SINGLETON);
+        binder.bind(HydraIdentityProvider.class).in(SINGLETON);
+        binder.bind(SeleniumChrome.class).in(SINGLETON);
         binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);

@@ -13,20 +13,49 @@
  */
 package io.trino.tests.utils;
 
+import io.trino.tempto.query.QueryExecutionException;
 import io.trino.tempto.query.QueryExecutor;
+import io.trino.tempto.query.QueryResult;
+import net.jodah.failsafe.Failsafe;
+
+import java.sql.Connection;
 
 import static io.trino.tempto.context.ThreadLocalTestContextHolder.testContext;
+import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY;
 
 public final class QueryExecutors
 {
     public static QueryExecutor onPresto()
     {
-        return testContext().getDependency(QueryExecutor.class, "presto");
+        return connectToPresto("presto");
     }
 
     public static QueryExecutor connectToPresto(String prestoConfig)
     {
-        return testContext().getDependency(QueryExecutor.class, prestoConfig);
+        return new QueryExecutor()
+        {
+            private final QueryExecutor delegate = testContext().getDependency(QueryExecutor.class, prestoConfig);
+
+            @Override
+            public QueryResult executeQuery(String sql, QueryParam... params)
+                    throws QueryExecutionException
+            {
+                return Failsafe.with(ERROR_COMMITTING_WRITE_TO_HIVE_RETRY_POLICY)
+                        .get(() -> delegate.executeQuery(sql, params));
+            }
+
+            @Override
+            public Connection getConnection()
+            {
+                return delegate.getConnection();
+            }
+
+            @Override
+            public void close()
+            {
+                delegate.close();
+            }
+        };
     }
 
     public static QueryExecutor onHive()

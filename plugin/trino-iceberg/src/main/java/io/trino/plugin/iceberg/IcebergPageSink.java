@@ -81,8 +81,7 @@ public class IcebergPageSink
 {
     private static final int MAX_PAGE_POSITIONS = 4096;
 
-    @SuppressWarnings({"FieldCanBeLocal", "FieldMayBeStatic"})
-    private final int maxOpenWriters = 100;  // TODO: make this configurable
+    private final int maxOpenWriters;
     private final Schema outputSchema;
     private final PartitionSpec partitionSpec;
     private final String outputPath;
@@ -112,7 +111,8 @@ public class IcebergPageSink
             List<IcebergColumnHandle> inputColumns,
             JsonCodec<CommitTaskData> jsonCodec,
             ConnectorSession session,
-            FileFormat fileFormat)
+            FileFormat fileFormat,
+            int maxOpenWriters)
     {
         requireNonNull(inputColumns, "inputColumns is null");
         this.outputSchema = requireNonNull(outputSchema, "outputSchema is null");
@@ -125,6 +125,7 @@ public class IcebergPageSink
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
+        this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
     }
 

@@ -1,6 +1,6 @@
 # Release 342 (24 Sep 2020)
 
-## General changes
+## General
 
 * Add {func}`from_iso8601_timestamp_nanos` function. ({issue}`5048`)
 * Improve performance of queries that use the `DECIMAL` type. ({issue}`4886`)
@@ -14,15 +14,15 @@
   session property. ({issue}`5262`)
 * Fix query failure when lambda expression references a table column containing a dot. ({issue}`5087`)
 
-## Atop connector changes
+## Atop connector
 
 * Fix incorrect query results when query contains predicates on `start_time` or `end_time` column. ({issue}`5125`)
 
-## Elasticsearch connector changes
+## Elasticsearch connector
 
 * Allow reading boolean values stored as strings. ({issue}`5269`)
 
-## Hive connector changes
+## Hive connector
 
 * Add support for S3 encrypted files. ({issue}`2536`)
 * Add support for ABFS OAuth authentication. ({issue}`5052`)
@@ -39,11 +39,11 @@
 * Improve planning time for queries with non-equality filters on partition columns when using the Glue metastore. ({issue}`5060`)
 * Improve performance when reading `JSON` and `CSV` file formats. ({issue}`5142`)
 
-## Iceberg connector changes
+## Iceberg connector
 
 * Fix partition transforms for temporal columns for dates before 1970. ({issue}`5273`)
 
-## Kafka connector changes
+## Kafka connector
 
 * Expose message headers as a `_headers` column of `MAP(VARCHAR, ARRAY(VARBINARY))` type. ({issue}`4462`)
 * Add write support for `TIME`, `TIME WITH TIME ZONE`, `TIMESTAMP` and `TIMESTAMP WITH TIME ZONE`
@@ -54,22 +54,22 @@
   - `milliseconds-since-epoch`: `TIME WITH TIME ZONE`, `TIMESTAMP WITH TIME ZONE`
   - `seconds-since-epoch`: `TIME WITH TIME ZONE`, `TIMESTAMP WITH TIME ZONE`
 
-## MySQL connector changes
+## MySQL connector
 
 * Improve performance of `INSERT` queries when GTID mode is disabled in MySQL. ({issue}`4995`)
 
-## PostgreSQL connector changes
+## PostgreSQL connector
 
 * Add support for variable-precision TIMESTAMP and TIMESTAMP WITH TIME ZONE types. ({issue}`5124`, {issue}`5105`)
 
-## SQL Server connector changes
+## SQL Server connector
 
 * Fix failure when inserting `NULL` into a `VARBINARY` column. ({issue}`4846`)
 * Improve performance of aggregation queries by computing aggregations within SQL Server database.
   Currently, the following aggregate functions are eligible for pushdown:
   `count`,  `min`, `max`, `sum` and `avg`. ({issue}`4139`)
 
-## SPI changes
+## SPI
 
 * Add `DynamicFilter.isAwaitable()` method that returns whether or not the dynamic filter is complete
   and can be awaited for using the `isBlocked()` method. ({issue}`5043`)

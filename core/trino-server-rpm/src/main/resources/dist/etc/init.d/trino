@@ -25,45 +25,61 @@ SERVICE_USER='trino'
 # Use data-dir from node.properties file (assumes it to be at /etc/trino). For other args use defaults from rpm install
 NODE_PROPERTIES=/etc/trino/node.properties
 DATA_DIR=$(grep -Po "(?<=^node.data-dir=).*" $NODE_PROPERTIES | tail -n 1)
-SERVER_LOG_FILE=$(grep -Po "(?<=^node.server-log-file=).*" $NODE_PROPERTIES  | tail -n 1)
-LAUNCHER_LOG_FILE=$(grep -Po "(?<=^node.launcher-log-file=).*" $NODE_PROPERTIES  | tail -n 1)
-CONFIGURATION=(--launcher-config /usr/lib/trino/bin/launcher.properties --data-dir "$DATA_DIR" --node-config "$NODE_PROPERTIES" --jvm-config /etc/trino/jvm.config --config /etc/trino/config.properties --launcher-log-file "${LAUNCHER_LOG_FILE:-/var/log/trino/launcher.log}" --server-log-file "${SERVER_LOG_FILE:-/var/log/trino/server.log}")
+SERVER_LOG_FILE=$(grep -Po "(?<=^node.server-log-file=).*" $NODE_PROPERTIES | tail -n 1)
+LAUNCHER_LOG_FILE=$(grep -Po "(?<=^node.launcher-log-file=).*" $NODE_PROPERTIES | tail -n 1)
+CONFIGURATION=(
+    --launcher-config /usr/lib/trino/bin/launcher.properties
+    --data-dir "$DATA_DIR"
+    --node-config "$NODE_PROPERTIES"
+    --jvm-config /etc/trino/jvm.config
+    --config /etc/trino/config.properties
+    --launcher-log-file "${LAUNCHER_LOG_FILE:-/var/log/trino/launcher.log}"
+    --server-log-file "${SERVER_LOG_FILE:-/var/log/trino/server.log}"
+)
 
+declare -A CONFIG_ENV
+# Don't need shellcheck to follow env.sh
+# shellcheck disable=1091
 source /etc/trino/env.sh
 
-start () {
+sudo_options=(-u "$SERVICE_USER")
+if [ -z "${JAVA_HOME}" ]; then
+    # Don't expand JAVA_HOME in the error message
+    # shellcheck disable=2016
+    echo 'Warning: No value found for $JAVA_HOME. Default Java will be used.' >&2
+else
+    sudo_options+=("PATH=${JAVA_HOME}/bin:$PATH")
+fi
+for key in "${!CONFIG_ENV[@]}"; do
+    sudo_options+=("$key=${CONFIG_ENV[$key]}")
+done
+
+start() {
     echo "Starting ${SERVICE_NAME} "
-    if [ -z "${JAVA_HOME}" ]
-    then
-        echo "Warning: No value found for \$JAVA_HOME. Default Java will be used." >&2
-        sudo -u $SERVICE_USER /usr/lib/trino/bin/launcher start "${CONFIGURATION[@]}"
-    else
-        sudo -u $SERVICE_USER PATH=${JAVA_HOME}/bin:$PATH /usr/lib/trino/bin/launcher start "${CONFIGURATION[@]}"
-    fi
+    sudo "${sudo_options[@]}" /usr/lib/trino/bin/launcher start "${CONFIGURATION[@]}"
     return $?
 }
 
-stop () {
+stop() {
     echo "Stopping ${SERVICE_NAME} "
-    sudo -u $SERVICE_USER /usr/lib/trino/bin/launcher stop "${CONFIGURATION[@]}"
+    sudo "${sudo_options[@]}" /usr/lib/trino/bin/launcher stop "${CONFIGURATION[@]}"
     return $?
 }
 
-status () {
+status() {
     echo "Getting status for ${SERVICE_NAME} "
-    sudo -u $SERVICE_USER /usr/lib/trino/bin/launcher status "${CONFIGURATION[@]}"
+    sudo "${sudo_options[@]}" /usr/lib/trino/bin/launcher status "${CONFIGURATION[@]}"
     return $?
 }
 
-
-restart () {
-    sudo -u $SERVICE_USER /usr/lib/trino/bin/launcher restart "${CONFIGURATION[@]}"
+restart() {
+    sudo "${sudo_options[@]}" /usr/lib/trino/bin/launcher restart "${CONFIGURATION[@]}"
     return $?
 }
 
 # TODO: Add kill
 
-usage () {
+usage() {
     echo $"Usage: ${SCRIPT_NAME} {start|stop|restart|status}"
     return 3
 }
@@ -84,4 +100,5 @@ case "${ACTION_NAME}" in
     *)
         echo $"Usage: $0 {start|stop|restart|status}"
         exit 3
+        ;;
 esac

@@ -12,8 +12,8 @@ using a 32-bit signed integer.
     representation, so if you have written a connector, you will need to update
     your code before deploying this release.
 
-General changes
----------------
+General
+-------
 
 * ``USE CATALOG`` and ``USE SCHEMA`` have been replaced with :doc:`/sql/use`.
 * Fix issue where ``SELECT NULL`` incorrectly returns 0 rows.

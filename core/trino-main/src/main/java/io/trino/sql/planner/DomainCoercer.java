@@ -24,7 +24,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.AllOrNoneValueSet;
 import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.Marker;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.Ranges;
 import io.trino.spi.predicate.SortedRangeSet;
@@ -126,90 +125,74 @@ public final class DomainCoercer
                 return coercedValue.map(value -> Range.equal(coercedValueType, value));
             }
 
-            Marker coercedLow;
-            if (range.getLow().isLowerUnbounded()) {
-                coercedLow = Marker.lowerUnbounded(coercedValueType);
+            Range coercedLow;
+            if (range.isLowUnbounded()) {
+                coercedLow = Range.all(coercedValueType);
             }
             else {
-                Object originalLowValue = range.getLow().getValue();
+                Object originalLowValue = range.getLowBoundedValue();
                 Object coercedLowValue = floorValue(saturatedFloorCastOperator, originalLowValue);
                 int originalComparedToCoerced = compareOriginalValueToCoerced(castToOriginalTypeOperator, comparisonOperator, originalLowValue, coercedLowValue);
                 boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
                 boolean coercedValueIsLessThanOriginal = originalComparedToCoerced > 0;
 
-                switch (range.getLow().getBound()) {
-                    case ABOVE:
-                        if (coercedValueIsEqualToOriginal || coercedValueIsLessThanOriginal) {
-                            coercedLow = Marker.above(coercedValueType, coercedLowValue);
-                        }
-                        else {
-                            // Coerced domain is narrower than the original domain
-                            coercedLow = Marker.lowerUnbounded(coercedValueType);
-                        }
-                        break;
-                    case EXACTLY:
-                        if (coercedValueIsEqualToOriginal) {
-                            coercedLow = Marker.exactly(coercedValueType, coercedLowValue);
-                        }
-                        else if (coercedValueIsLessThanOriginal) {
-                            coercedLow = Marker.above(coercedValueType, coercedLowValue);
-                        }
-                        else {
-                            coercedLow = Marker.lowerUnbounded(coercedValueType);
-                        }
-                        break;
-                    case BELOW:
-                        throw new IllegalStateException("Low Marker should never use BELOW bound: " + range);
-                    default:
-                        throw new IllegalStateException("Unhandled bound: " + range.getLow().getBound());
+                if (range.isLowInclusive()) {
+                    if (coercedValueIsEqualToOriginal) {
+                        coercedLow = Range.greaterThanOrEqual(coercedValueType, coercedLowValue);
+                    }
+                    else if (coercedValueIsLessThanOriginal) {
+                        coercedLow = Range.greaterThan(coercedValueType, coercedLowValue);
+                    }
+                    else {
+                        coercedLow = Range.all(coercedValueType);
+                    }
+                }
+                else {
+                    if (coercedValueIsEqualToOriginal || coercedValueIsLessThanOriginal) {
+                        coercedLow = Range.greaterThan(coercedValueType, coercedLowValue);
+                    }
+                    else {
+                        // Coerced domain is narrower than the original domain
+                        coercedLow = Range.all(coercedValueType);
+                    }
                 }
             }
 
-            Marker coercedHigh;
-            if (range.getHigh().isUpperUnbounded()) {
-                coercedHigh = Marker.upperUnbounded(coercedValueType);
+            Range coercedHigh;
+            if (range.isHighUnbounded()) {
+                coercedHigh = Range.all(coercedValueType);
             }
             else {
-                Object originalHighValue = range.getHigh().getValue();
+                Object originalHighValue = range.getHighBoundedValue();
                 Object coercedHighValue = floorValue(saturatedFloorCastOperator, originalHighValue);
                 int originalComparedToCoerced = compareOriginalValueToCoerced(castToOriginalTypeOperator, comparisonOperator, originalHighValue, coercedHighValue);
                 boolean coercedValueIsEqualToOriginal = originalComparedToCoerced == 0;
                 boolean coercedValueIsLessThanOriginal = originalComparedToCoerced > 0;
 
-                switch (range.getHigh().getBound()) {
-                    case ABOVE:
-                        throw new IllegalStateException("High Marker should never use ABOVE bound: " + range);
-                    case EXACTLY:
-                        if (coercedValueIsEqualToOriginal || coercedValueIsLessThanOriginal) {
-                            coercedHigh = Marker.exactly(coercedValueType, coercedHighValue);
-                        }
-                        else {
-                            // Coerced range is outside the domain of target type
-                            return Optional.empty();
-                        }
-                        break;
-                    case BELOW:
-                        if (coercedValueIsEqualToOriginal) {
-                            coercedHigh = Marker.below(coercedValueType, coercedHighValue);
-                        }
-                        else if (coercedValueIsLessThanOriginal) {
-                            coercedHigh = Marker.exactly(coercedValueType, coercedHighValue);
-                        }
-                        else {
-                            // Coerced range is outside the domain of target type
-                            return Optional.empty();
-                        }
-                        break;
-                    default:
-                        throw new IllegalStateException("Unhandled bound: " + range.getHigh().getBound());
+                if (range.isHighInclusive()) {
+                    if (coercedValueIsEqualToOriginal || coercedValueIsLessThanOriginal) {
+                        coercedHigh = Range.lessThanOrEqual(coercedValueType, coercedHighValue);
+                    }
+                    else {
+                        // Coerced range is outside the domain of target type
+                        return Optional.empty();
+                    }
+                }
+                else {
+                    if (coercedValueIsEqualToOriginal) {
+                        coercedHigh = Range.lessThan(coercedValueType, coercedHighValue);
+                    }
+                    else if (coercedValueIsLessThanOriginal) {
+                        coercedHigh = Range.lessThanOrEqual(coercedValueType, coercedHighValue);
+                    }
+                    else {
+                        // Coerced range is outside the domain of target type
+                        return Optional.empty();
+                    }
                 }
             }
 
-            if (coercedLow.compareTo(coercedHigh) > 0) {
-                // Both high and low are greater than max of target type, resulting in (max, max] after coercion
-                return Optional.empty();
-            }
-            return Optional.of(new Range(coercedLow, coercedHigh));
+            return coercedLow.intersect(coercedHigh);
         }
 
         private Optional<Object> applySaturatedCast(Object originalValue)

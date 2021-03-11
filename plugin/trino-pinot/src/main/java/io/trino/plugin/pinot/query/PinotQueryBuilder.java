@@ -119,37 +119,15 @@ public final class PinotQueryBuilder
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                singleValues.add(range.getLow().getValue());
+                singleValues.add(range.getSingleValue());
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
-                if (!range.getLow().isLowerUnbounded()) {
-                    switch (range.getLow().getBound()) {
-                        case ABOVE:
-                            rangeConjuncts.add(toConjunct(columnName, ">", range.getLow().getValue()));
-                            break;
-                        case EXACTLY:
-                            rangeConjuncts.add(toConjunct(columnName, ">=", range.getLow().getValue()));
-                            break;
-                        case BELOW:
-                            throw new IllegalArgumentException("Low marker should never use BELOW bound");
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-                    }
+                if (!range.isLowUnbounded()) {
+                    rangeConjuncts.add(toConjunct(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue()));
                 }
-                if (!range.getHigh().isUpperUnbounded()) {
-                    switch (range.getHigh().getBound()) {
-                        case ABOVE:
-                            throw new IllegalArgumentException("High marker should never use ABOVE bound");
-                        case EXACTLY:
-                            rangeConjuncts.add(toConjunct(columnName, "<=", range.getHigh().getValue()));
-                            break;
-                        case BELOW:
-                            rangeConjuncts.add(toConjunct(columnName, "<", range.getHigh().getValue()));
-                            break;
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-                    }
+                if (!range.isHighUnbounded()) {
+                    rangeConjuncts.add(toConjunct(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue()));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which is not supported in pql
                 checkState(!rangeConjuncts.isEmpty());

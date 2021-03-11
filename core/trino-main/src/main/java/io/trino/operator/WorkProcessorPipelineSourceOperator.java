@@ -55,6 +55,7 @@ public class WorkProcessorPipelineSourceOperator
 {
     private static final Logger log = Logger.get(WorkProcessorPipelineSourceOperator.class);
     private static final Duration ZERO_DURATION = new Duration(0, NANOSECONDS);
+    private static final int OPERATOR_ID = Integer.MAX_VALUE;
 
     private final int stageId;
     private final int pipelineId;
@@ -71,7 +72,7 @@ public class WorkProcessorPipelineSourceOperator
     private SettableFuture<?> blockedOnSplits = SettableFuture.create();
     private boolean operatorFinishing;
 
-    public static List<OperatorFactory> convertOperators(int operatorId, List<OperatorFactory> operatorFactories)
+    public static List<OperatorFactory> convertOperators(List<OperatorFactory> operatorFactories)
     {
         if (operatorFactories.isEmpty() || !(operatorFactories.get(0) instanceof WorkProcessorSourceOperatorFactory)) {
             return operatorFactories;
@@ -93,13 +94,12 @@ public class WorkProcessorPipelineSourceOperator
         }
 
         return ImmutableList.<OperatorFactory>builder()
-                .add(new WorkProcessorPipelineSourceOperatorFactory(operatorId, sourceOperatorFactory, workProcessorOperatorFactories))
+                .add(new WorkProcessorPipelineSourceOperatorFactory(sourceOperatorFactory, workProcessorOperatorFactories))
                 .addAll(operatorFactories.subList(operatorIndex, operatorFactories.size()))
                 .build();
     }
 
     private WorkProcessorPipelineSourceOperator(
-            int operatorId,
             DriverContext driverContext,
             WorkProcessorSourceOperatorFactory sourceOperatorFactory,
             List<WorkProcessorOperatorFactory> operatorFactories)
@@ -110,7 +110,7 @@ public class WorkProcessorPipelineSourceOperator
         this.stageId = driverContext.getTaskId().getStageId().getId();
         this.pipelineId = driverContext.getPipelineContext().getPipelineId();
         this.sourceId = requireNonNull(sourceOperatorFactory.getSourceId(), "sourceId is null");
-        this.operatorContext = driverContext.addOperatorContext(operatorId, sourceId, WorkProcessorPipelineSourceOperator.class.getSimpleName());
+        this.operatorContext = driverContext.addOperatorContext(OPERATOR_ID, sourceId, WorkProcessorPipelineSourceOperator.class.getSimpleName());
         this.timer = new OperationTimer(
                 operatorContext.getDriverContext().isCpuTimerEnabled(),
                 operatorContext.getDriverContext().isCpuTimerEnabled() && operatorContext.getDriverContext().isPerOperatorCpuTimerEnabled());
@@ -687,17 +687,14 @@ public class WorkProcessorPipelineSourceOperator
     public static class WorkProcessorPipelineSourceOperatorFactory
             implements SourceOperatorFactory
     {
-        private final int operatorId;
         private final WorkProcessorSourceOperatorFactory sourceOperatorFactory;
         private final List<WorkProcessorOperatorFactory> operatorFactories;
         private boolean closed;
 
         private WorkProcessorPipelineSourceOperatorFactory(
-                int operatorId,
                 WorkProcessorSourceOperatorFactory sourceOperatorFactory,
                 List<WorkProcessorOperatorFactory> operatorFactories)
         {
-            this.operatorId = operatorId;
             this.sourceOperatorFactory = requireNonNull(sourceOperatorFactory, "sourceOperatorFactory is null");
             this.operatorFactories = requireNonNull(operatorFactories, "operatorFactories is null");
         }
@@ -712,7 +709,7 @@ public class WorkProcessorPipelineSourceOperator
         public SourceOperator createOperator(DriverContext driverContext)
         {
             checkState(!closed, "Factory is already closed");
-            return new WorkProcessorPipelineSourceOperator(operatorId, driverContext, sourceOperatorFactory, operatorFactories);
+            return new WorkProcessorPipelineSourceOperator(driverContext, sourceOperatorFactory, operatorFactories);
         }
 
         @Override

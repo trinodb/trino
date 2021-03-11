@@ -15,8 +15,8 @@ Trino documentation
     functions
     language
     sql
-    migration
     develop
+    appendix
 
 .. toctree::
     :titlesonly:

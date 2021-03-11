@@ -261,13 +261,13 @@ public class LazyBlock
 
     public Block getBlock()
     {
-        return lazyData.getBlock();
+        return lazyData.getTopLevelBlock();
     }
 
     @Override
     public boolean isLoaded()
     {
-        return lazyData.isLoaded();
+        return lazyData.isFullyLoaded();
     }
 
     @Override
@@ -301,7 +301,7 @@ public class LazyBlock
         @Override
         public Block load()
         {
-            return delegate.getBlock().getRegion(positionOffset, length);
+            return delegate.getTopLevelBlock().getRegion(positionOffset, length);
         }
     }
 
@@ -324,7 +324,7 @@ public class LazyBlock
         @Override
         public Block load()
         {
-            return delegate.getBlock().getPositions(positions, offset, length);
+            return delegate.getTopLevelBlock().getPositions(positions, offset, length);
         }
     }
 
@@ -344,12 +344,17 @@ public class LazyBlock
             this.loader = requireNonNull(loader, "loader is null");
         }
 
-        public boolean isLoaded()
+        public boolean isFullyLoaded()
         {
             return block != null && block.isLoaded();
         }
 
-        public Block getBlock()
+        public boolean isTopLevelBlockLoaded()
+        {
+            return block != null;
+        }
+
+        public Block getTopLevelBlock()
         {
             load(false);
             return block;
@@ -357,14 +362,18 @@ public class LazyBlock
 
         public Block getFullyLoadedBlock()
         {
+            if (block != null) {
+                return block.getLoadedBlock();
+            }
+
             load(true);
             return block;
         }
 
         private void addListeners(List<Consumer<Block>> listeners)
         {
-            if (isLoaded()) {
-                throw new IllegalStateException("Block is already loaded");
+            if (isTopLevelBlockLoaded()) {
+                throw new IllegalStateException("Top level block is already loaded");
             }
             if (this.listeners == null) {
                 this.listeners = new ArrayList<>();
@@ -417,7 +426,7 @@ public class LazyBlock
         {
             if (block instanceof LazyBlock) {
                 LazyData lazyData = ((LazyBlock) block).lazyData;
-                if (!lazyData.isLoaded()) {
+                if (!lazyData.isTopLevelBlockLoaded()) {
                     lazyData.addListeners(listeners);
                     return;
                 }

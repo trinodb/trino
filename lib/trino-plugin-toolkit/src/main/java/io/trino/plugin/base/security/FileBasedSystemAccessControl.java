@@ -57,6 +57,7 @@ import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivileg
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.OWNERSHIP;
 import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.SELECT;
+import static io.trino.plugin.base.security.TableAccessControlRule.TablePrivilege.UPDATE;
 import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.trino.spi.security.AccessDeniedException.denyAddColumn;
@@ -95,6 +96,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
+import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static io.trino.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 import static java.lang.String.format;
@@ -656,6 +658,14 @@ public class FileBasedSystemAccessControl
     {
         if (!checkTablePermission(context, table, DELETE)) {
             denyDeleteTable(table.toString());
+        }
+    }
+
+    @Override
+    public void checkCanUpdateTableColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        if (!checkTablePermission(context, table, UPDATE)) {
+            denyUpdateTableColumns(table.toString(), updatedColumnNames);
         }
     }
 

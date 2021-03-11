@@ -50,9 +50,12 @@ public class TestPrometheusIntegrationMetrics
 
     @BeforeClass
     protected void createQueryRunner()
+            throws Exception
     {
         this.server = new PrometheusServer();
         this.client = createPrometheusClient(server);
+
+        PrometheusServer.checkServerReady(this.client);
     }
 
     @AfterClass(alwaysRun = true)
@@ -63,13 +66,11 @@ public class TestPrometheusIntegrationMetrics
 
     @Test
     public void testRetrieveUpValue()
-            throws Exception
     {
-        PrometheusServer.checkServerReady(this.client);
         assertTrue(client.getTableNames("default").contains("up"), "Prometheus' own `up` metric should be available in default");
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testHandleErrorResponse()
     {
         assertThatThrownBy(() -> client.getTableNames("unknown"))
@@ -79,14 +80,14 @@ public class TestPrometheusIntegrationMetrics
         assertNull(table);
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testListSchemaNames()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         assertEquals(metadata.listSchemaNames(SESSION), ImmutableSet.of("default"));
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testGetColumnMetadata()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -100,7 +101,7 @@ public class TestPrometheusIntegrationMetrics
         // directly.
     }
 
-    @Test(expectedExceptions = TrinoException.class, dependsOnMethods = "testRetrieveUpValue")
+    @Test(expectedExceptions = TrinoException.class)
     public void testCreateTable()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
@@ -112,14 +113,14 @@ public class TestPrometheusIntegrationMetrics
                 false);
     }
 
-    @Test(expectedExceptions = TrinoException.class, dependsOnMethods = "testRetrieveUpValue")
+    @Test(expectedExceptions = TrinoException.class)
     public void testDropTableTable()
     {
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         metadata.dropTable(SESSION, RUNTIME_DETERMINED_TABLE_HANDLE);
     }
 
-    @Test(dependsOnMethods = "testRetrieveUpValue")
+    @Test
     public void testGetColumnTypes()
     {
         URI dataUri = server.getUri();

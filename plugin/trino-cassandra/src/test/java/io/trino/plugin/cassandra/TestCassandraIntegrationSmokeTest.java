@@ -73,6 +73,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestCassandraIntegrationSmokeTest
+        // TODO extend BaseConnectorTest and merge with TestCassandraDistributedQueries
         extends AbstractTestIntegrationSmokeTest
 {
     private static final String KEYSPACE = "smoke_test";

@@ -2,8 +2,8 @@
 Release 0.193
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix an infinite loop during planning for queries containing non-trivial predicates.
 * Fix ``row_number()`` optimization that causes query failure or incorrect results
@@ -20,25 +20,25 @@ General changes
 * Turn on new local scheduling algorithm by default (see :doc:`release-0.181`).
 * Remove the ``information_schema.__internal_partitions__`` table.
 
-Security changes
-----------------
+Security
+--------
 
 * Apply the authentication methods in the order they are listed in the
   ``http-server.authentication.type`` configuration.
 
-CLI changes
------------
+CLI
+---
 
 * Fix rendering of maps of Bing tiles.
 * Abort the query when the result pager exits.
 
-JDBC driver changes
--------------------
+JDBC driver
+-----------
 
 * Use SSL by default for port 443.
 
-Hive changes
-------------
+Hive
+----
 
 * Allow dropping any column in a table. Previously, dropping columns other
   than the last one would fail with ``ConcurrentModificationException``.
@@ -52,19 +52,19 @@ Hive changes
   that have more than ``hive.max-partitions-per-scan`` partitions as long as
   the specified ``<condition>`` reduces the number of partitions to below this limit.
 
-Blackhole changes
------------------
+Blackhole
+---------
 
 * Do not allow creating tables in a nonexistent schema.
 * Add support for ``CREATE SCHEMA``.
 
-Memory connector changes
-------------------------
+Memory connector
+----------------
 
 * Allow renaming tables across schemas. Previously, the target schema was ignored.
 * Do not allow creating tables in a nonexistent schema.
 
-MongoDB changes
----------------
+MongoDB
+-------
 
 * Add ``INSERT`` support. It was previously removed in 0.155.

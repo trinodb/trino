@@ -13,7 +13,11 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableList;
+import io.trino.matching.Captures;
+import io.trino.matching.Match;
 import io.trino.matching.Pattern;
+import io.trino.matching.PatternVisitor;
 import io.trino.matching.Property;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.expression.ConnectorExpression;
@@ -22,6 +26,11 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.util.Objects.requireNonNull;
 
 public final class AggregateFunctionPatterns
 {
@@ -81,8 +90,41 @@ public final class AggregateFunctionPatterns
         return Pattern.typeOf(Variable.class);
     }
 
+    public static Pattern<List<Variable>> variables()
+    {
+        return new Pattern<>(Optional.empty())
+        {
+            @Override
+            public <C> Stream<Match> accept(Object object, Captures captures, C context)
+            {
+                if (!(object instanceof List)) {
+                    return Stream.of();
+                }
+                @SuppressWarnings("unchecked")
+                List<ConnectorExpression> arguments = (List<ConnectorExpression>) object;
+                if (!arguments.stream().allMatch(Variable.class::isInstance)) {
+                    return Stream.of();
+                }
+                return Stream.of(Match.of(captures));
+            }
+
+            @Override
+            public void accept(PatternVisitor patternVisitor)
+            {
+            }
+        };
+    }
+
     public static Property<ConnectorExpression, ?, Type> expressionType()
     {
         return Property.property("type", ConnectorExpression::getType);
+    }
+
+    public static Predicate<List<? extends ConnectorExpression>> expressionTypes(Type... types)
+    {
+        List<Type> expectedTypes = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        return expressions -> expectedTypes.equals(expressions.stream()
+                .map(ConnectorExpression::getType)
+                .collect(toImmutableList()));
     }
 }

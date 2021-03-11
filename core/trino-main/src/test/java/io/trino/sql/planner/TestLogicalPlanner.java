@@ -60,6 +60,7 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Row;
+import io.trino.sql.tree.StringLiteral;
 import io.trino.tests.QueryTemplate;
 import io.trino.util.MorePredicates;
 import org.testng.annotations.Test;
@@ -82,7 +83,7 @@ import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.OPTIMIZE_HASH_GENERATION;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.spi.StandardErrorCode.SUBQUERY_MULTIPLE_ROWS;
-import static io.trino.spi.predicate.Domain.singleValue;
+import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
@@ -116,6 +117,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.rowNumber;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.sort;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.strictConstrainedTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.strictTableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -974,7 +976,8 @@ public class TestLogicalPlanner
                 output(
                         constrainedTableScanWithTableLayout(
                                 "orders",
-                                ImmutableMap.of("orderstatus", singleValue(createVarcharType(1), utf8Slice("F"))),
+                                // No orderstatus constraint, as it has been fully consumed by the connector, and orderstatus column is no longer referenced in the query
+                                ImmutableMap.of(),
                                 ImmutableMap.of("orderkey", "orderkey"))));
     }
 
@@ -1260,12 +1263,10 @@ public class TestLogicalPlanner
                                                 .maxRankingPerPartition(6)
                                                 .partial(false),
                                         anyTree(
-                                                sort(
-                                                        ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
-                                                        any(
-                                                                tableScan(
-                                                                        "nation",
-                                                                        ImmutableMap.of("name", "name", "regionkey", "regionkey")))))))));
+
+                                                tableScan(
+                                                        "nation",
+                                                        ImmutableMap.of("name", "name", "regionkey", "regionkey")))))));
 
         assertPlan(
                 "SELECT name, regionkey FROM nation ORDER BY regionkey OFFSET 10 ROWS FETCH FIRST 6 ROWS WITH TIES",
@@ -1289,12 +1290,9 @@ public class TestLogicalPlanner
                                                                         .maxRankingPerPartition(16)
                                                                         .partial(false),
                                                                 anyTree(
-                                                                        sort(
-                                                                                ImmutableList.of(sort("regionkey", ASCENDING, LAST)),
-                                                                                any(
-                                                                                        tableScan(
-                                                                                                "nation",
-                                                                                                ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))))
+                                                                        tableScan(
+                                                                                "nation",
+                                                                                ImmutableMap.of("name", "name", "regionkey", "regionkey"))))))
                                                 .withAlias("row_num", new RowNumberSymbolMatcher())))));
     }
 
@@ -1450,6 +1448,24 @@ public class TestLogicalPlanner
                                                                 exchange(REMOTE, REPARTITION,
                                                                         node(ProjectNode.class,
                                                                                 node(TableScanNode.class))))))))));
+    }
+
+    @Test
+    public void testRemoveRedundantFilter()
+    {
+        assertPlan(
+                "SELECT orderkey, t2.s " +
+                        "FROM orders " +
+                        "JOIN (VALUES CAST('' || 'O' AS varchar(1)), CAST('' || 'F' AS varchar(1))) t2(s) " +
+                        "ON orders.orderstatus = t2.s",
+                any(join(
+                        INNER,
+                        ImmutableList.of(equiJoinClause("expr", "ORDER_STATUS")),
+                        anyTree(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F"))))),
+                        exchange(project(strictConstrainedTableScan(
+                                "orders",
+                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))))));
     }
 
     @Test

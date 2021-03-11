@@ -143,6 +143,17 @@ public class HivePageSourceProvider
         List<HiveColumnHandle> hiveColumns = columns.stream()
                 .map(HiveColumnHandle.class::cast)
                 .collect(toList());
+
+        List<HiveColumnHandle> dependencyColumns = hiveColumns.stream()
+                .filter(HiveColumnHandle::isBaseColumn)
+                .collect(toImmutableList());
+
+        if (hiveTable.isAcidUpdate()) {
+            hiveColumns = hiveTable.getUpdateProcessor()
+                    .orElseThrow(() -> new IllegalArgumentException("update processor not present"))
+                    .mergeWithNonUpdatedColumns(hiveColumns);
+        }
+
         Path path = new Path(hiveSplit.getPath());
         boolean originalFile = ORIGINAL_FILE_PATH_MATCHER.matcher(path.toString()).matches();
 
@@ -178,7 +189,7 @@ public class HivePageSourceProvider
 
         if (pageSource.isPresent()) {
             ConnectorPageSource source = pageSource.get();
-            if (hiveTable.isAcidDelete()) {
+            if (hiveTable.isAcidDelete() || hiveTable.isAcidUpdate()) {
                 checkArgument(orcFileWriterFactory.isPresent(), "orcFileWriterFactory not supplied but required for DELETEs");
                 HivePageSource hivePageSource = (HivePageSource) source;
                 OrcPageSource orcPageSource = (OrcPageSource) hivePageSource.getDelegate();
@@ -197,7 +208,9 @@ public class HivePageSourceProvider
                         orcFileWriterFactory.get(),
                         configuration,
                         session,
-                        rowType);
+                        rowType,
+                        dependencyColumns,
+                        hiveTable.getTransaction().getOperation());
             }
 
             return source;

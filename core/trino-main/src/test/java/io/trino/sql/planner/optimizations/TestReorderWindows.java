@@ -248,11 +248,11 @@ public class TestReorderWindows
                         window(windowMatcherBuilder -> windowMatcherBuilder
                                         .specification(windowA)
                                         .addFunction(functionCall("avg", commonFrame, ImmutableList.of(QUANTITY_ALIAS))),
-                                        filter("NOT (" + RECEIPTDATE_ALIAS + " IS NULL)",
-                                                window(windowMatcherBuilder -> windowMatcherBuilder
-                                                                .specification(windowApp)
-                                                                .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
-                                                        LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQPRSST) but anyTree does not handle zero nodes case correctly
+                                filter("NOT (" + RECEIPTDATE_ALIAS + " IS NULL)",
+                                        window(windowMatcherBuilder -> windowMatcherBuilder
+                                                        .specification(windowApp)
+                                                        .addFunction(functionCall("avg", commonFrame, ImmutableList.of(DISCOUNT_ALIAS))),
+                                                LINEITEM_TABLESCAN_DOQRST))))); // should be anyTree(LINEITEM_TABLESCAN_DOQPRSST) but anyTree does not handle zero nodes case correctly
     }
 
     @Test

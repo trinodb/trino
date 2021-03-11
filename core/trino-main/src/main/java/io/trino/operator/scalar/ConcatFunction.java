@@ -84,10 +84,10 @@ public final class ConcatFunction
         MethodHandle customMethodHandle = arrayMethodHandle.asCollector(Slice[].class, arity);
 
         return new ChoicesScalarFunctionImplementation(
-            functionBinding,
-            FAIL_ON_NULL,
-            nCopies(arity, NEVER_NULL),
-            customMethodHandle);
+                functionBinding,
+                FAIL_ON_NULL,
+                nCopies(arity, NEVER_NULL),
+                customMethodHandle);
     }
 
     public static Slice concat(Slice[] values)

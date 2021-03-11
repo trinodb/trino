@@ -15,6 +15,8 @@ package io.trino.testing.assertions;
 
 import io.airlift.units.Duration;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 /**
  * This class provides replacements for TestNG's faulty assertion methods.
  * <p>
@@ -48,6 +50,11 @@ public class Assert
             //if we're here, the Iterables differ on their fields. Use the original error message.
             throw error;
         }
+    }
+
+    public static void assertEventually(Runnable assertion)
+    {
+        assertEventually(new Duration(30, SECONDS), assertion);
     }
 
     public static void assertEventually(Duration timeout, Runnable assertion)

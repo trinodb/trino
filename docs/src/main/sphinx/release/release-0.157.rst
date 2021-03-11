@@ -2,8 +2,8 @@
 Release 0.157
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix regression that could cause queries containing scalar subqueries to fail
   during planning.
@@ -18,8 +18,8 @@ General changes
   ``node-scheduler.max-pending-splits-per-task``. The old name may still be used, but is
   deprecated and will be removed in a future version.
 
-Hive changes
-------------
+Hive
+----
 
 * Fail attempts to create tables that are bucketed on non-existent columns.
 * Improve error message when trying to query tables that are bucketed on non-existent columns.

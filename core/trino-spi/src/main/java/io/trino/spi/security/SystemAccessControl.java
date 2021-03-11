@@ -65,6 +65,7 @@ import static io.trino.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.trino.spi.security.AccessDeniedException.denyShowRoles;
 import static io.trino.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.trino.spi.security.AccessDeniedException.denyShowTables;
+import static io.trino.spi.security.AccessDeniedException.denyUpdateTableColumns;
 import static io.trino.spi.security.AccessDeniedException.denyViewQuery;
 import static java.lang.String.format;
 import static java.util.Collections.emptySet;
@@ -429,6 +430,16 @@ public interface SystemAccessControl
     default void checkCanDeleteFromTable(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyDeleteTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to update the supplied columns in the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanUpdateTableColumns(SystemSecurityContext securityContext, CatalogSchemaTableName table, Set<String> updatedColumnNames)
+    {
+        denyUpdateTableColumns(table.toString(), updatedColumnNames);
     }
 
     /**

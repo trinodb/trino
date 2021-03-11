@@ -93,37 +93,15 @@ class BigQueryFilterQueryBuilder
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             checkState(!range.isAll()); // Already checked
             if (range.isSingleValue()) {
-                singleValues.add(range.getLow().getValue());
+                singleValues.add(range.getSingleValue());
             }
             else {
                 List<String> rangeConjuncts = new ArrayList<>();
-                if (!range.getLow().isLowerUnbounded()) {
-                    switch (range.getLow().getBound()) {
-                        case ABOVE:
-                            rangeConjuncts.add(toPredicate(columnName, ">", range.getLow().getValue(), column));
-                            break;
-                        case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue(), column));
-                            break;
-                        case BELOW:
-                            throw new IllegalArgumentException("Low marker should never use BELOW bound");
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getLow().getBound());
-                    }
+                if (!range.isLowUnbounded()) {
+                    rangeConjuncts.add(toPredicate(columnName, range.isLowInclusive() ? ">=" : ">", range.getLowBoundedValue(), column));
                 }
-                if (!range.getHigh().isUpperUnbounded()) {
-                    switch (range.getHigh().getBound()) {
-                        case ABOVE:
-                            throw new IllegalArgumentException("High marker should never use ABOVE bound");
-                        case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue(), column));
-                            break;
-                        case BELOW:
-                            rangeConjuncts.add(toPredicate(columnName, "<", range.getHigh().getValue(), column));
-                            break;
-                        default:
-                            throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
-                    }
+                if (!range.isHighUnbounded()) {
+                    rangeConjuncts.add(toPredicate(columnName, range.isHighInclusive() ? "<=" : "<", range.getHighBoundedValue(), column));
                 }
                 // If rangeConjuncts is null, then the range was ALL, which should already have been checked for
                 checkState(!rangeConjuncts.isEmpty());

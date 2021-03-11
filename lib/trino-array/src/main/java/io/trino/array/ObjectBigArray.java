@@ -76,10 +76,27 @@ public final class ObjectBigArray<T>
      * Sets the element of this big array at specified index.
      *
      * @param index a position in this big array.
+     * @return true if the previous value was null
      */
     public void set(long index, T value)
     {
         array[segment(index)][offset(index)] = value;
+    }
+
+    /**
+     * Replaces the element of this big array at specified index.
+     *
+     * @param index a position in this big array.
+     * @return true if the previous value was not null
+     */
+    public boolean replace(long index, T value)
+    {
+        Object[] segment = array[segment(index)];
+
+        boolean existed = segment[offset(index)] != null;
+        segment[offset(index)] = value;
+
+        return existed;
     }
 
     /**

@@ -148,7 +148,7 @@ String functions
 .. function:: split_part(string, delimiter, index) -> varchar
 
     Splits ``string`` on ``delimiter`` and returns the field ``index``.
-    Field indexes start with ``1``. If the index is larger than than
+    Field indexes start with ``1``. If the index is larger than
     the number of fields, then null is returned.
 
 .. function:: split_to_map(string, entryDelimiter, keyValueDelimiter) -> map<varchar, varchar>
@@ -252,7 +252,7 @@ Unicode functions
     :noindex:
 
     Transforms ``string`` with the specified normalization form.
-    ``form`` must be be one of the following keywords:
+    ``form`` must be one of the following keywords:
 
     ======== ===========
     Form     Description

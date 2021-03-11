@@ -2,13 +2,13 @@
 Release 0.182
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix correctness issue that causes :func:`corr` to return positive numbers for inverse correlations.
 * Fix the :doc:`/sql/explain` query plan for tables that are partitioned
   on ``TIMESTAMP`` or ``DATE`` columns.
-* Fix query failure when when using certain window functions that take arrays or maps as arguments (e.g., :func:`approx_percentile`).
+* Fix query failure when using certain window functions that take arrays or maps as arguments (e.g., :func:`approx_percentile`).
 * Implement subtraction for all ``TIME`` and ``TIMESTAMP`` types.
 * Improve planning performance for queries that join multiple tables with
   a large number columns.
@@ -25,13 +25,13 @@ General changes
 * Add :doc:`/connector/tpcds`. This connector provides a set of schemas to
   support the TPC Benchmark™ DS (TPC-DS).
 
-CLI changes
------------
+CLI
+---
 
 * Fix an issue that would sometimes prevent queries from being cancelled when exiting from the pager.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix reading decimal values in the optimized Parquet reader when they are backed
   by the ``int32`` or ``int64`` types.

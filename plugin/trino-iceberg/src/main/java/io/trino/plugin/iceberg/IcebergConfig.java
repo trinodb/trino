@@ -14,9 +14,11 @@
 package io.trino.plugin.iceberg;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import org.apache.iceberg.FileFormat;
 
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import static io.trino.plugin.hive.HiveCompressionCodec.GZIP;
@@ -28,6 +30,8 @@ public class IcebergConfig
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
     private IcebergCatalogType type = HIVE;
+    private boolean useFileSizeFromMetadata = true;
+    private int maxPartitionsPerWriter = 100;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -65,6 +69,41 @@ public class IcebergConfig
     public IcebergConfig setCatalogType(IcebergCatalogType type)
     {
         this.type = type;
+        return this;
+    }
+
+    @Deprecated
+    public boolean isUseFileSizeFromMetadata()
+    {
+        return useFileSizeFromMetadata;
+    }
+
+    /**
+     * Some Iceberg writers populate incorrect file sizes in the metadata. When
+     * this property is set to false, Trino ignores the stored values and fetches
+     * them with a getFileStatus call. This means an additional call per split,
+     * so it is recommended for a Trino admin to fix the metadata, rather than
+     * relying on this property for too long.
+     */
+    @Deprecated
+    @Config("iceberg.use-file-size-from-metadata")
+    public IcebergConfig setUseFileSizeFromMetadata(boolean useFileSizeFromMetadata)
+    {
+        this.useFileSizeFromMetadata = useFileSizeFromMetadata;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxPartitionsPerWriter()
+    {
+        return maxPartitionsPerWriter;
+    }
+
+    @Config("iceberg.max-partitions-per-writer")
+    @ConfigDescription("Maximum number of partitions per writer")
+    public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
+    {
+        this.maxPartitionsPerWriter = maxPartitionsPerWriter;
         return this;
     }
 }

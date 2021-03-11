@@ -39,7 +39,9 @@ public class TestOAuth2Config
                 .setClientId(null)
                 .setClientSecret(null)
                 .setAudience(null)
+                .setScopes("openid")
                 .setChallengeTimeout(Duration.valueOf("15m"))
+                .setPrincipalField("sub")
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null));
     }
@@ -57,6 +59,8 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.client-id", "another-consumer")
                 .put("http-server.authentication.oauth2.client-secret", "consumer-secret")
                 .put("http-server.authentication.oauth2.audience", "https://127.0.0.1:8443")
+                .put("http-server.authentication.oauth2.scopes", "email,offline")
+                .put("http-server.authentication.oauth2.principal-field", "some-field")
                 .put("http-server.authentication.oauth2.challenge-timeout", "90s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
@@ -70,6 +74,8 @@ public class TestOAuth2Config
                 .setClientId("another-consumer")
                 .setClientSecret("consumer-secret")
                 .setAudience("https://127.0.0.1:8443")
+                .setScopes("email, offline")
+                .setPrincipalField("some-field")
                 .setChallengeTimeout(Duration.valueOf("90s"))
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile());

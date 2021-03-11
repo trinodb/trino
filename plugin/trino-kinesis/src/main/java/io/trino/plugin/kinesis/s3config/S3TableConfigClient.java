@@ -48,7 +48,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -199,7 +198,6 @@ public class S3TableConfigClient
                 }
                 catch (IOException iox) {
                     log.error("Problem reading input stream from object.", iox);
-                    throwIfUnchecked(iox);
                     throw new RuntimeException(iox);
                 }
             }

@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.base.CatalogName;
@@ -26,6 +27,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 
 import javax.inject.Provider;
+import javax.inject.Singleton;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -66,9 +68,15 @@ public class JdbcModule
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
 
         binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
-        binder.bind(ConnectionFactory.class).to(Key.get(ConnectionFactory.class, StatsCollecting.class));
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
+    }
+
+    @Provides
+    @Singleton
+    public ConnectionFactory createConnectionFactory(@StatsCollecting ConnectionFactory connectionFactory)
+    {
+        return new LazyConnectionFactory(connectionFactory);
     }
 
     public static Multibinder<SessionPropertiesProvider> sessionPropertiesProviderBinder(Binder binder)

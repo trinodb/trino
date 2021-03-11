@@ -30,8 +30,8 @@ public class Suite1
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-            testOnEnvironment(Multinode.class)
-                    .withExcludedGroups("big_query", "storage_formats", "profile_specific_tests", "tpcds", "hive_compression")
-                    .build());
+                testOnEnvironment(Multinode.class)
+                        .withExcludedGroups("big_query", "storage_formats", "profile_specific_tests", "tpcds", "hive_compression")
+                        .build());
     }
 }

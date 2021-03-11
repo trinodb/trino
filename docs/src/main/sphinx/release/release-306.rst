@@ -2,8 +2,8 @@
 Release 306 (16 Mar 2019)
 =========================
 
-General changes
----------------
+General
+-------
 
 * Fix planning failure for queries containing a ``LIMIT`` after a global
   aggregation. (:issue:`437`)
@@ -33,42 +33,42 @@ General changes
 * Remove deprecated ``distributed_join`` system property. Use ``join_distribution_type``
   instead. (:issue:`452`)
 
-Hive connector changes
-----------------------
+Hive connector
+--------------
 
 * Fix calling procedures immediately after startup, before any other queries are run.
   Previously, the procedure call would fail and also cause all subsequent Hive queries
   to fail. (:issue:`414`)
 * Improve ORC reader performance for decoding ``REAL`` and ``DOUBLE`` types. (:issue:`465`)
 
-MySQL connector changes
------------------------
+MySQL connector
+---------------
 
 * Allow creating or renaming tables, and adding, renaming, or dropping columns. (:issue:`418`)
 
-PostgreSQL connector changes
-----------------------------
+PostgreSQL connector
+--------------------
 
 * Fix predicate pushdown for PostgreSQL ``ENUM`` type. (:issue:`408`)
 * Allow creating or renaming tables, and adding, renaming, or dropping columns. (:issue:`418`)
 
-Redshift connector changes
---------------------------
+Redshift connector
+------------------
 
 * Allow creating or renaming tables, and adding, renaming, or dropping columns. (:issue:`418`)
 
-SQL Server connector changes
-----------------------------
+SQL Server connector
+--------------------
 
 * Allow creating or renaming tables, and adding, renaming, or dropping columns. (:issue:`418`)
 
-Base-JDBC connector library changes
------------------------------------
+Base-JDBC connector library
+---------------------------
 
 * Allow mapping column type to Presto type based on ``Block``. (:issue:`454`)
 
-SPI changes
------------
+SPI
+---
 
 * Deprecate Table Layout APIs. Connectors can opt out of the legacy behavior by implementing
   ``ConnectorMetadata.usesLegacyTableLayouts()``. (:issue:`420`)

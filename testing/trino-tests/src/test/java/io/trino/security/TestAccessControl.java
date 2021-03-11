@@ -46,6 +46,7 @@ import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SET_USER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_COLUMNS;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.UPDATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -292,6 +293,14 @@ public class TestAccessControl
         assertAccessDenied("DELETE FROM orders WHERE orderkey < 12", "Cannot select from columns \\[orderkey] in table or view .*." + "orders" + ".*", privilege("orders" + ".orderkey", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders WHERE orderkey < 12", privilege("orders" + ".orderdate", SELECT_COLUMN));
         assertAccessAllowed("DELETE FROM orders", privilege("orders", SELECT_COLUMN));
+    }
+
+    @Test
+    public void testUpdateAccessControl()
+    {
+        assertAccessDenied("UPDATE orders SET orderkey=123", "Cannot update columns \\[orderkey] in table .*", privilege("orders", UPDATE_TABLE));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "UPDATE orders SET orderkey=123"))
+                .hasMessageContaining("This connector does not support updates");
     }
 
     @Test

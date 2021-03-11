@@ -24,6 +24,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.QueryAssertions.assertContains;
 
 public class TestThriftIntegrationSmokeTest
+        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     @Override

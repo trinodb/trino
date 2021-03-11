@@ -44,8 +44,8 @@ partition keys for partitions that have no rows. In particular, the Hive connect
 can return empty partitions, if they were created by other systems. Trino cannot
 create them.
 
-``optimizer.push-aggregation-through-join``
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``optimizer.push-aggregation-through-outer-join``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * **Type:** ``boolean``
 * **Default value:** ``true``
@@ -107,3 +107,12 @@ the maximum number of joins that can be reordered at once.
 
     The number of possible join orders scales factorially with the number of
     relations, so increasing this value can cause serious performance issues.
+
+``optimizer.optimize-duplicate-insensitive-joins``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Reduces number of rows produced by joins when optimizer detects that duplicated
+join output rows can be skipped.

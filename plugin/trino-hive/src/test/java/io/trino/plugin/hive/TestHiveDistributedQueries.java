@@ -24,7 +24,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
-import static io.trino.tpch.TpchTable.getTables;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -36,7 +35,7 @@ public class TestHiveDistributedQueries
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setInitialTables(getTables())
+                .setInitialTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 
@@ -55,7 +54,8 @@ public class TestHiveDistributedQueries
     @Override
     public void testDelete()
     {
-        // Hive connector currently does not support row-by-row delete
+        // Hive connector supports row-by-row delete only for ACID tables
+        // but these currently cannot be used with file metastore.
     }
 
     @Test

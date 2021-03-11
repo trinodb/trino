@@ -2,8 +2,8 @@
 Release 0.171
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix planning regression for queries that compute a mix of distinct and non-distinct aggregations.
 * Fix casting from certain complex types to ``JSON`` when source type contains ``JSON`` or ``DECIMAL``.
@@ -16,13 +16,13 @@ General changes
 * Improve validation of resource group configuration.
 * Fail queries when casting unsupported types to JSON; see :doc:`/functions/json` for supported types.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Fix the threads UI (``/ui/thread``).
 
-Hive changes
-------------
+Hive
+----
 
 * Fix issue where some files are not deleted on cancellation of ``INSERT`` or ``CREATE`` queries.
 * Allow writing to non-managed (external) Hive tables. This is disabled by default but can be

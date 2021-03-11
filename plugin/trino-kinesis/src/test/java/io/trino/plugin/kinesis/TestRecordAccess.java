@@ -29,13 +29,17 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.StandaloneQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.zip.GZIPOutputStream;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -63,6 +67,8 @@ public class TestRecordAccess
 
     private String dummyStreamName;
     private String jsonStreamName;
+    private String jsonGzipCompressStreamName;
+    private String jsonAutomaticCompressStreamName;
     private StandaloneQueryRunner queryRunner;
     private MockKinesisClient mockClient;
 
@@ -71,6 +77,8 @@ public class TestRecordAccess
     {
         dummyStreamName = "test123";
         jsonStreamName = "sampleTable";
+        jsonGzipCompressStreamName = "sampleGzipCompressTable";
+        jsonAutomaticCompressStreamName = "sampleAutomaticCompressTable";
         this.queryRunner = new StandaloneQueryRunner(SESSION);
         mockClient = TestUtils.installKinesisPlugin(queryRunner);
     }
@@ -97,7 +105,7 @@ public class TestRecordAccess
         mockClient.putRecords(putRecordsRequest);
     }
 
-    private void createJsonMessages(String streamName, int count, int idStart)
+    private void createJsonMessages(String streamName, int count, int idStart, boolean compress)
     {
         String jsonFormat = "{\"id\" : %d, \"name\" : \"%s\"}";
         PutRecordsRequest putRecordsRequest = new PutRecordsRequest();
@@ -110,13 +118,31 @@ public class TestRecordAccess
             String jsonVal = format(jsonFormat, id, name);
 
             // ? with StandardCharsets.UTF_8
-            putRecordsRequestEntry.setData(ByteBuffer.wrap(jsonVal.getBytes(UTF_8)));
+            if (compress) {
+                putRecordsRequestEntry.setData(ByteBuffer.wrap(compressMessage(jsonVal.getBytes(UTF_8))));
+            }
+            else {
+                putRecordsRequestEntry.setData(ByteBuffer.wrap(jsonVal.getBytes(UTF_8)));
+            }
             putRecordsRequestEntry.setPartitionKey(Long.toString(id));
             putRecordsRequestEntryList.add(putRecordsRequestEntry);
         }
 
         putRecordsRequest.setRecords(putRecordsRequestEntryList);
         mockClient.putRecords(putRecordsRequest);
+    }
+
+    private static byte[] compressMessage(byte[] data)
+    {
+        try (ByteArrayOutputStream byteOS = new ByteArrayOutputStream()) {
+            GZIPOutputStream gzipOS = new GZIPOutputStream(byteOS);
+            gzipOS.write(data);
+            gzipOS.close(); //Explict close is needed to end the stream
+            return byteOS.toByteArray();
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Test
@@ -156,14 +182,18 @@ public class TestRecordAccess
         log.info("Completed second test (select counts)");
     }
 
-    @Test
-    public void testJsonStream()
+    @Test(dataProvider = "testJsonStreamProvider")
+    public void testJsonStream(int uncompressedMessages, int compressedMessages, String streamName)
     {
         // Simple case: add a few specific items, query object and internal fields:
-        createJsonMessages(jsonStreamName, 4, 100);
-
-        MaterializedResult result = queryRunner.execute("Select id, name, _shard_id, _message_length, _message from " + jsonStreamName + " where _message_length >= 1");
-        assertEquals(result.getRowCount(), 4);
+        if (uncompressedMessages > 0) {
+            createJsonMessages(streamName, uncompressedMessages, 100, false);
+        }
+        if (compressedMessages > 0) {
+            createJsonMessages(streamName, compressedMessages, 100 + uncompressedMessages, true);
+        }
+        MaterializedResult result = queryRunner.execute("Select id, name, _shard_id, _message_length, _message from " + streamName + " where _message_length >= 1");
+        assertEquals(result.getRowCount(), uncompressedMessages + compressedMessages);
 
         List<Type> types = result.getTypes();
         assertEquals(types.size(), 5);
@@ -172,10 +202,21 @@ public class TestRecordAccess
         log.info("Types : " + types.toString());
 
         List<MaterializedRow> rows = result.getMaterializedRows();
-        assertEquals(rows.size(), 4);
+        assertEquals(rows.size(), uncompressedMessages + compressedMessages);
         for (MaterializedRow row : rows) {
             assertEquals(row.getFieldCount(), 5);
+            assertTrue((long) row.getFields().get(0) >= 100);
             log.info("ROW: " + row.toString());
         }
+    }
+
+    @DataProvider
+    public Object[][] testJsonStreamProvider()
+    {
+        return new Object[][] {
+                {4, 0, jsonStreamName},
+                {0, 4, jsonGzipCompressStreamName},
+                {2, 2, jsonAutomaticCompressStreamName},
+        };
     }
 }

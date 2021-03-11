@@ -2,8 +2,8 @@
 Release 0.154
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix planning issue that could cause ``JOIN`` queries involving functions
   that return null on non-null input to produce incorrect results.
@@ -22,8 +22,8 @@ General changes
 * Add support for ``DESCRIBE INPUT`` to describe the requirements for
   the input parameters to a prepared statement.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix handling of metastore cache TTL. With the introduction of the
   per-transaction cache, the cache timeout was reset after each access,

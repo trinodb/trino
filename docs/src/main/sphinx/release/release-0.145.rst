@@ -2,8 +2,8 @@
 Release 0.145
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix potential memory leak in coordinator query history.
 * Fix column resolution issue when qualified name refers to a view.
@@ -22,21 +22,21 @@ General changes
 * Improve reliability in highly congested networks by adjusting the default
   connection idle timeouts.
 
-Verifier changes
-----------------
+Verifier
+--------
 
 * Change verifier to only run read-only queries by default. This behavior can be
   changed with the ``control.query-types`` and ``test.query-types`` config flags.
 
-CLI changes
------------
+CLI
+---
 
 * Improve performance of output in batch mode.
 * Fix hex rendering in batch mode.
 * Abort running queries when CLI is terminated.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix bug when grouping on a bucketed column which causes incorrect results.
 * Add ``max_split_size`` and ``max_initial_split_size`` session properties to control

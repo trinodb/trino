@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import io.trino.decoder.DecoderColumnHandle;
 import io.trino.decoder.FieldValueProvider;
 import io.trino.decoder.RowDecoder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -34,6 +35,8 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Date;
 import java.util.HashMap;
@@ -41,12 +44,17 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.zip.GZIPInputStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.decoder.FieldValueProviders.booleanValueProvider;
 import static io.trino.decoder.FieldValueProviders.bytesValueProvider;
 import static io.trino.decoder.FieldValueProviders.longValueProvider;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.AUTOMATIC;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.GZIP;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.UNCOMPRESSED;
+import static io.trino.plugin.kinesis.KinesisCompressionCodec.canUseGzip;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.getBatchSize;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.getCheckpointLogicalName;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.getIterationNumber;
@@ -55,8 +63,11 @@ import static io.trino.plugin.kinesis.KinesisSessionProperties.getIteratorStartT
 import static io.trino.plugin.kinesis.KinesisSessionProperties.getMaxBatches;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.isCheckpointEnabled;
 import static io.trino.plugin.kinesis.KinesisSessionProperties.isIteratorFromTimestamp;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static java.util.zip.GZIPInputStream.GZIP_MAGIC;
 
 public class KinesisRecordSet
         implements RecordSet
@@ -220,7 +231,9 @@ public class KinesisRecordSet
         {
             if (shardIterator == null && getRecordsRequest == null) {
                 getIterator(); // first shard iterator
-                log.debug("Starting read.  Retrieved first shard iterator from AWS Kinesis.");
+                log.debug("(%s:%s) Starting read.  Retrieved first shard iterator from AWS Kinesis.",
+                        split.getStreamName(),
+                        split.getShardId());
             }
 
             if (getRecordsRequest == null || (!listIterator.hasNext() && shouldGetMoreRecords())) {
@@ -231,7 +244,12 @@ public class KinesisRecordSet
                 return nextRow();
             }
             else {
-                log.debug("Read all of the records from the shard:  %d batches and %d messages and %d total bytes.", batchesRead, totalMessages, totalBytes);
+                log.debug("(%s:%s) Read all of the records from the shard:  %d batches and %d messages and %d total bytes.",
+                        split.getStreamName(),
+                        split.getShardId(),
+                        batchesRead,
+                        totalMessages,
+                        totalBytes);
                 return false;
             }
         }
@@ -278,7 +296,12 @@ public class KinesisRecordSet
                 shardIterator = getRecordsResult.getNextShardIterator();
                 kinesisRecords = getRecordsResult.getRecords();
                 if (isLogBatches) {
-                    log.info("Fetched %d records from Kinesis.  MillisBehindLatest=%d", kinesisRecords.size(), getRecordsResult.getMillisBehindLatest());
+                    log.info("(%s:%s) Fetched %d records from Kinesis.  MillisBehindLatest=%d Attempt=%d",
+                            split.getStreamName(),
+                            split.getShardId(),
+                            kinesisRecords.size(),
+                            getRecordsResult.getMillisBehindLatest(),
+                            attempts);
                 }
 
                 fetchedRecords = (kinesisRecords.size() > 0 || getMillisBehindLatest() <= MILLIS_BEHIND_LIMIT);
@@ -294,7 +317,10 @@ public class KinesisRecordSet
         {
             Record currentRecord = listIterator.next();
             String partitionKey = currentRecord.getPartitionKey();
-            log.debug("Reading record with partition key %s", partitionKey);
+            log.debug("(%s:%s) Reading record with partition key %s",
+                    split.getStreamName(),
+                    split.getShardId(),
+                    partitionKey);
 
             byte[] messageData = EMPTY_BYTE_ARRAY;
             ByteBuffer message = currentRecord.getData();
@@ -305,9 +331,13 @@ public class KinesisRecordSet
             totalBytes += messageData.length;
             totalMessages++;
 
-            log.debug("Fetching %d bytes from current record. %d messages read so far", messageData.length, totalMessages);
+            log.debug("(%s:%s) Fetching %d bytes from current record. %d messages read so far",
+                    split.getStreamName(),
+                    split.getShardId(),
+                    messageData.length,
+                    totalMessages);
 
-            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData);
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = decodeMessage(messageData);
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
             for (DecoderColumnHandle columnHandle : columnHandles) {
@@ -348,6 +378,31 @@ public class KinesisRecordSet
             }
 
             return true;
+        }
+
+        private Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeMessage(byte[] messageData)
+        {
+            KinesisCompressionCodec kinesisCompressionCodec = split.getCompressionCodec();
+            if (kinesisCompressionCodec == UNCOMPRESSED) {
+                return messageDecoder.decodeRow(messageData);
+            }
+            if (isGZipped(messageData)) {
+                if (!canUseGzip(kinesisCompressionCodec)) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, format("A %s message was found that did not match the required %s compression codec. Consider using %s or %s compressionCodec in table description", GZIP, kinesisCompressionCodec, GZIP, AUTOMATIC));
+                }
+                try (
+                        ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(messageData);
+                        GZIPInputStream gZIPInputStream = new GZIPInputStream(byteArrayInputStream)) {
+                    return messageDecoder.decodeRow(gZIPInputStream.readAllBytes());
+                }
+                catch (IOException e) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+                }
+            }
+            if (kinesisCompressionCodec == AUTOMATIC) {
+                return messageDecoder.decodeRow(messageData);
+            }
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, format("A message was found that did not match the required %s compression codec. Consider using %s or %s compressionCodec in table description", kinesisCompressionCodec, UNCOMPRESSED, AUTOMATIC));
         }
 
         /**
@@ -408,8 +463,13 @@ public class KinesisRecordSet
         @Override
         public void close()
         {
-            log.info("Closing cursor - read complete.  Total read: %d batches %d messages, processed: %d messages and %d bytes.",
-                    batchesRead, messagesRead, totalMessages, totalBytes);
+            log.info("(%s:%s) Closing cursor - read complete.  Total read: %d batches %d messages, processed: %d messages and %d bytes.",
+                    split.getStreamName(),
+                    split.getShardId(),
+                    batchesRead,
+                    messagesRead,
+                    totalMessages,
+                    totalBytes);
             if (checkpointEnabled && lastReadSequenceNumber != null) {
                 shardCheckpointer.checkpoint(lastReadSequenceNumber);
             }
@@ -456,5 +516,14 @@ public class KinesisRecordSet
             GetShardIteratorResult getShardIteratorResult = clientManager.getClient().getShardIterator(getShardIteratorRequest);
             shardIterator = getShardIteratorResult.getShardIterator();
         }
+    }
+
+    private static boolean isGZipped(byte[] data)
+    {
+        if (data == null || data.length < 2) {
+            return false;
+        }
+        int magic = data[0] & 0xff | ((data[1] << 8) & 0xff00);
+        return magic == GZIP_MAGIC;
     }
 }

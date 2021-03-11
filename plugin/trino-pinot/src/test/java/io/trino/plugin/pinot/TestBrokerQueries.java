@@ -49,9 +49,8 @@ public class TestBrokerQueries
 
     private PinotClient testingPinotClient;
 
-    static
-    {
-        DATA_SCHEMA = new DataSchema(new String[]{"col_1", "col_2", "col_3"}, new ColumnDataType[]{STRING, LONG, STRING});
+    static {
+        DATA_SCHEMA = new DataSchema(new String[] {"col_1", "col_2", "col_3"}, new ColumnDataType[] {STRING, LONG, STRING});
         TEST_DATA = ImmutableList.of(new Object[] {"col_1_data", 2L, "col_3_data"});
         RESULT_TABLE = new ResultTable(DATA_SCHEMA, TEST_DATA);
         RESPONSE = new BrokerResponseNative();

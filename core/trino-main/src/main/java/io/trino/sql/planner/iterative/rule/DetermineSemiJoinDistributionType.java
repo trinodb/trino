@@ -76,9 +76,8 @@ public class DetermineSemiJoinDistributionType
                 return Result.ofPlanNode(semiJoinNode.withDistributionType(PARTITIONED));
             case BROADCAST:
                 return Result.ofPlanNode(semiJoinNode.withDistributionType(REPLICATED));
-            default:
-                throw new IllegalArgumentException("Unknown join_distribution_type: " + joinDistributionType);
         }
+        throw new IllegalArgumentException("Unknown join_distribution_type: " + joinDistributionType);
     }
 
     private PlanNode getCostBasedDistributionType(SemiJoinNode node, Context context)

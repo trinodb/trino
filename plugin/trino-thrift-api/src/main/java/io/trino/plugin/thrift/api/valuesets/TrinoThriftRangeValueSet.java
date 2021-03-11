@@ -19,8 +19,6 @@ import io.airlift.drift.annotations.ThriftEnumValue;
 import io.airlift.drift.annotations.ThriftField;
 import io.airlift.drift.annotations.ThriftStruct;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
-import io.trino.spi.predicate.Marker;
-import io.trino.spi.predicate.Marker.Bound;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.SortedRangeSet;
 
@@ -33,9 +31,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.drift.annotations.ThriftField.Requiredness.OPTIONAL;
-import static io.trino.plugin.thrift.api.TrinoThriftBlock.fromBlock;
-import static io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThriftBound.fromBound;
-import static io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThriftMarker.fromMarker;
+import static io.trino.plugin.thrift.api.TrinoThriftBlock.fromNativeValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -114,20 +110,6 @@ public final class TrinoThriftRangeValueSet
         {
             return value;
         }
-
-        public static TrinoThriftBound fromBound(Bound bound)
-        {
-            switch (bound) {
-                case BELOW:
-                    return BELOW;
-                case EXACTLY:
-                    return EXACTLY;
-                case ABOVE:
-                    return ABOVE;
-                default:
-                    throw new IllegalArgumentException("Unknown bound: " + bound);
-            }
-        }
     }
 
     /**
@@ -189,12 +171,6 @@ public final class TrinoThriftRangeValueSet
                     .add("bound", bound)
                     .toString();
         }
-
-        public static TrinoThriftMarker fromMarker(Marker marker)
-        {
-            TrinoThriftBlock value = marker.getValueBlock().isPresent() ? fromBlock(marker.getValueBlock().get(), marker.getType()) : null;
-            return new TrinoThriftMarker(value, fromBound(marker.getBound()));
-        }
     }
 
     @ThriftStruct
@@ -253,7 +229,19 @@ public final class TrinoThriftRangeValueSet
 
         public static TrinoThriftRange fromRange(Range range)
         {
-            return new TrinoThriftRange(fromMarker(range.getLow()), fromMarker(range.getHigh()));
+            TrinoThriftMarker low = new TrinoThriftMarker(
+                    range.getLowValue()
+                            .map(trinoNativeValue -> fromNativeValue(trinoNativeValue, range.getType()))
+                            .orElse(null),
+                    range.isLowInclusive() ? TrinoThriftBound.EXACTLY : TrinoThriftBound.ABOVE);
+
+            TrinoThriftMarker high = new TrinoThriftMarker(
+                    range.getHighValue()
+                            .map(trinoNativeValue -> fromNativeValue(trinoNativeValue, range.getType()))
+                            .orElse(null),
+                    range.isHighInclusive() ? TrinoThriftBound.EXACTLY : TrinoThriftBound.BELOW);
+
+            return new TrinoThriftRange(low, high);
         }
     }
 }

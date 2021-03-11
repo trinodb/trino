@@ -14,9 +14,9 @@
 package io.trino.plugin.kafka.schema.confluent;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -41,16 +41,17 @@ import io.trino.plugin.kafka.schema.TableDescriptionSupplier;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 
-import javax.inject.Inject;
-import javax.inject.Provider;
+import javax.inject.Singleton;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.kafka.encoder.EncoderModule.encoderFactory;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -66,40 +67,41 @@ public class ConfluentModule
         install(new ConfluentDecoderModule());
         install(new ConfluentEncoderModule());
         binder.bind(ContentSchemaReader.class).to(AvroConfluentContentSchemaReader.class).in(Scopes.SINGLETON);
+        newSetBinder(binder, SchemaRegistryClientPropertiesProvider.class);
         newSetBinder(binder, SchemaProvider.class).addBinding().to(AvroSchemaProvider.class).in(Scopes.SINGLETON);
         newSetBinder(binder, SessionPropertiesProvider.class).addBinding().to(ConfluentSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(TableDescriptionSupplier.class).toProvider(ConfluentSchemaRegistryTableDescriptionSupplier.Factory.class).in(Scopes.SINGLETON);
         newMapBinder(binder, String.class, SchemaParser.class).addBinding("AVRO").to(AvroSchemaParser.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder, SchemaRegistryClient.class)
-                .setDefault()
-                .toProvider(SchemaRegistryClientProvider.class)
-                .in(Scopes.SINGLETON);
     }
 
-    private static class SchemaRegistryClientProvider
-            implements Provider<SchemaRegistryClient>
+    @Provides
+    @Singleton
+    public static SchemaRegistryClient createSchemaRegistryClient(
+            ConfluentSchemaRegistryConfig confluentConfig,
+            Set<SchemaProvider> schemaProviders,
+            Set<SchemaRegistryClientPropertiesProvider> propertiesProviders,
+            ClassLoader classLoader)
     {
-        private final SchemaRegistryClient schemaRegistryClient;
+        requireNonNull(confluentConfig, "confluentConfig is null");
+        requireNonNull(schemaProviders, "schemaProviders is null");
+        requireNonNull(propertiesProviders, "propertiesProviders is null");
 
-        @Inject
-        public SchemaRegistryClientProvider(ConfluentSchemaRegistryConfig confluentConfig, Set<SchemaProvider> schemaProviders)
-        {
-            requireNonNull(confluentConfig, "confluentConfig is null");
-            requireNonNull(schemaProviders, "confluentConfig is null");
-            schemaRegistryClient = new CachedSchemaRegistryClient(
-                    confluentConfig.getConfluentSchemaRegistryUrls().stream()
-                            .map(HostAddress::getHostText)
-                            .collect(toImmutableList()),
-                    confluentConfig.getConfluentSchemaRegistryClientCacheSize(),
-                    ImmutableList.copyOf(schemaProviders),
-                    ImmutableMap.of());
-        }
+        List<String> baseUrl = confluentConfig.getConfluentSchemaRegistryUrls().stream()
+                .map(HostAddress::getHostText)
+                .collect(toImmutableList());
 
-        @Override
-        public SchemaRegistryClient get()
-        {
-            return schemaRegistryClient;
-        }
+        Map<String, ?> schemaRegistryClientProperties = propertiesProviders.stream()
+                .map(SchemaRegistryClientPropertiesProvider::getSchemaRegistryClientProperties)
+                .flatMap(properties -> properties.entrySet().stream())
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        return new ClassLoaderSafeSchemaRegistryClient(
+                new CachedSchemaRegistryClient(
+                        baseUrl,
+                        confluentConfig.getConfluentSchemaRegistryClientCacheSize(),
+                        ImmutableList.copyOf(schemaProviders),
+                        schemaRegistryClientProperties),
+                classLoader);
     }
 
     private static class ConfluentDecoderModule

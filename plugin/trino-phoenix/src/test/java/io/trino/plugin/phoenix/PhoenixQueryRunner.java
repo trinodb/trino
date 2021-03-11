@@ -28,6 +28,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -47,7 +48,7 @@ public final class PhoenixQueryRunner
     {
     }
 
-    public static DistributedQueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties)
+    public static DistributedQueryRunner createPhoenixQueryRunner(TestingPhoenixServer server, Map<String, String> extraProperties, List<TpchTable<?>> tables)
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
@@ -67,7 +68,7 @@ public final class PhoenixQueryRunner
 
         if (!server.isTpchLoaded()) {
             createSchema(server, TPCH_SCHEMA);
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), TpchTable.getTables());
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);
             server.setTpchLoaded();
         }
         else {
@@ -143,7 +144,8 @@ public final class PhoenixQueryRunner
 
         DistributedQueryRunner queryRunner = createPhoenixQueryRunner(
                 TestingPhoenixServer.getInstance(),
-                ImmutableMap.of("http-server.http.port", "8080"));
+                ImmutableMap.of("http-server.http.port", "8080"),
+                TpchTable.getTables());
 
         Logger log = Logger.get(PhoenixQueryRunner.class);
         log.info("======== SERVER STARTED ========");

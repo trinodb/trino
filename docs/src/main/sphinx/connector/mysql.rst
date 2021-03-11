@@ -82,6 +82,12 @@ following aggregate functions:
 * :func:`max`
 * :func:`min`
 * :func:`sum`
+* :func:`stddev`
+* :func:`stddev_pop`
+* :func:`stddev_samp`
+* :func:`variance`
+* :func:`var_pop`
+* :func:`var_samp`
 
 Limitations
 -----------

@@ -18,13 +18,18 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.validation.FileExists;
+import io.airlift.units.Duration;
+import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotNull;
 
 import java.io.IOException;
 import java.util.Optional;
 import java.util.OptionalInt;
+
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BigQueryConfig
 {
@@ -40,6 +45,8 @@ public class BigQueryConfig
     private Optional<String> viewMaterializationProject = Optional.empty();
     private Optional<String> viewMaterializationDataset = Optional.empty();
     private int maxReadRowsRetries = DEFAULT_MAX_READ_ROWS_RETRIES;
+    private boolean caseInsensitiveNameMatching;
+    private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
 
     @AssertTrue(message = "Exactly one of 'bigquery.credentials-key' or 'bigquery.credentials-file' must be specified, or the default GoogleCredentials could be created")
     public boolean isCredentialsConfigurationValid()
@@ -181,6 +188,34 @@ public class BigQueryConfig
     public BigQueryConfig setMaxReadRowsRetries(int maxReadRowsRetries)
     {
         this.maxReadRowsRetries = maxReadRowsRetries;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("bigquery.case-insensitive-name-matching")
+    @ConfigDescription("Match dataset and table names case-insensitively")
+    public BigQueryConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
+        return this;
+    }
+
+    @NotNull
+    @MinDuration("0ms")
+    public Duration getCaseInsensitiveNameMatchingCacheTtl()
+    {
+        return caseInsensitiveNameMatchingCacheTtl;
+    }
+
+    @Config("bigquery.case-insensitive-name-matching.cache-ttl")
+    @ConfigDescription("Duration for which remote dataset and table names will be cached")
+    public BigQueryConfig setCaseInsensitiveNameMatchingCacheTtl(Duration caseInsensitiveNameMatchingCacheTtl)
+    {
+        this.caseInsensitiveNameMatchingCacheTtl = caseInsensitiveNameMatchingCacheTtl;
         return this;
     }
 

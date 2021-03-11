@@ -616,9 +616,8 @@ public class PlanFragmenter
                     //   As a result, there is no reason to change currentNodeCapable or subTreeUseful to false.
                     //
                     return left;
-                default:
-                    throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
             }
+            throw new UnsupportedOperationException("Unknown distribution type: " + node.getDistributionType());
         }
 
         @Override

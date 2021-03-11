@@ -16,7 +16,6 @@ package io.trino.operator;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.trino.array.LongBigArray;
-import io.trino.operator.GroupedTopNRankAccumulator.RowComparisonStrategy;
 import io.trino.operator.RowReferencePageManager.LoadCursor;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
@@ -62,7 +61,7 @@ public class GroupedTopNRankBuilder
         requireNonNull(comparator, "comparator is null");
         requireNonNull(equalsAndHash, "equalsAndHash is null");
         groupedTopNRankAccumulator = new GroupedTopNRankAccumulator(
-                new RowComparisonStrategy()
+                new RowIdComparisonHashStrategy()
                 {
                     @Override
                     public int compare(long leftRowId, long rightRowId)
@@ -92,7 +91,6 @@ public class GroupedTopNRankBuilder
                         return equalsAndHash.hashCode(page, position);
                     }
                 },
-                RowReferencePageManager.RESERVED_UNUSED_ROW_ID,
                 topN,
                 pageManager::dereference);
     }
@@ -129,10 +127,7 @@ public class GroupedTopNRankBuilder
             for (int position = 0; position < newPage.getPositionCount(); position++) {
                 long groupId = groupIds.getGroupId(position);
                 loadCursor.advance();
-                long rowId = loadCursor.allocateRowId();
-                if (!groupedTopNRankAccumulator.add(groupId, rowId)) {
-                    pageManager.dereference(rowId);
-                }
+                groupedTopNRankAccumulator.add(groupId, loadCursor);
             }
             verify(!loadCursor.advance());
         }

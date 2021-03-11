@@ -2,8 +2,8 @@
 Release 0.135
 =============
 
-General changes
----------------
+General
+-------
 
 * Add summary of change in CPU usage to verifier output.
 * Add cast between JSON and VARCHAR, BOOLEAN, DOUBLE, BIGINT. For the old

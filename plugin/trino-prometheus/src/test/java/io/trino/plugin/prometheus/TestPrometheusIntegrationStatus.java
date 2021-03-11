@@ -32,7 +32,7 @@ import static org.testng.Assert.fail;
 /**
  * Integration tests against Prometheus container
  */
-@Test(priority = 1, singleThreaded = true)
+@Test(singleThreaded = true)
 public class TestPrometheusIntegrationStatus
         extends AbstractTestQueryFramework
 {
@@ -97,7 +97,7 @@ public class TestPrometheusIntegrationStatus
         assertEquals(row.getField(0).toString(), "{instance=localhost:9090, __name__=up, job=prometheus}");
     }
 
-    @Test(priority = 2, dependsOnMethods = "testConfirmMetricAvailableAndCheckUp")
+    @Test
     public void testPushDown()
     {
         // default interval on the `up` metric that Prometheus records on itself is 15 seconds, so this should only yield one row

@@ -116,8 +116,9 @@ public class IcebergFileWriterFactory
                 return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
             case ORC:
                 return createOrcWriter(outputPath, icebergSchema, jobConf, session);
+            default:
+                throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
         }
-        throw new TrinoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 
     private IcebergFileWriter createParquetWriter(

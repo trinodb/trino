@@ -23,6 +23,7 @@ import io.airlift.units.Duration;
 import io.jsonwebtoken.SigningKeyResolver;
 import io.trino.server.security.jwt.JwkService;
 import io.trino.server.security.jwt.JwkSigningKeyResolver;
+import io.trino.server.ui.OAuth2WebUiInstalled;
 
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +40,8 @@ public class OAuth2ServiceModule
     protected void setup(Binder binder)
     {
         jaxrsBinder(binder).bind(OAuth2CallbackResource.class);
+        newOptionalBinder(binder, OAuth2WebUiInstalled.class);
+        newOptionalBinder(binder, OAuth2TokenExchange.class);
 
         configBinder(binder).bindConfig(OAuth2Config.class);
         binder.bind(OAuth2Service.class).in(Scopes.SINGLETON);
@@ -54,7 +57,9 @@ public class OAuth2ServiceModule
     @ForOAuth2
     public static SigningKeyResolver createSigningKeyResolver(OAuth2Config oauth2Config, @ForOAuth2 HttpClient httpClient)
     {
-        return new JwkSigningKeyResolver(new JwkService(URI.create(oauth2Config.getJwksUrl()), httpClient, new Duration(15, TimeUnit.MINUTES)));
+        JwkService jwkService = new JwkService(URI.create(oauth2Config.getJwksUrl()), httpClient, new Duration(15, TimeUnit.MINUTES));
+        jwkService.start();
+        return new JwkSigningKeyResolver(jwkService);
     }
 
     @Override

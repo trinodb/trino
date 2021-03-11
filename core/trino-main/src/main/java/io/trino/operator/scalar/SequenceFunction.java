@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -87,14 +86,13 @@ public final class SequenceFunction
     @ScalarFunction("sequence")
     @SqlType("array(date)")
     public static Block sequenceDateYearToMonth(
-            ConnectorSession session,
             @SqlType(StandardTypes.DATE) long start,
             @SqlType(StandardTypes.DATE) long stop,
             @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
     {
         checkValidStep(start, stop, step);
 
-        int length = toIntExact(diffDate(session, MONTH, start, stop) / step + 1);
+        int length = toIntExact(diffDate(MONTH, start, stop) / step + 1);
         checkMaxEntry(length);
 
         BlockBuilder blockBuilder = DATE.createBlockBuilder(null, length);

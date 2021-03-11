@@ -17,7 +17,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.DiscreteValues;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Ranges;
+import io.trino.spi.type.CharType;
+import io.trino.spi.type.VarcharType;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.getDomainCompactionThreshold;
 import static java.util.Objects.requireNonNull;
 
@@ -30,12 +33,29 @@ public interface PredicatePushdownController
         }
         return new DomainPushdownResult(domain, Domain.all(domain.getType()));
     };
-    PredicatePushdownController PUSHDOWN_AND_KEEP = (session, domain) -> new DomainPushdownResult(
-            domain.simplify(getDomainCompactionThreshold(session)),
-            domain);
+
     PredicatePushdownController DISABLE_PUSHDOWN = (session, domain) -> new DomainPushdownResult(
             Domain.all(domain.getType()),
             domain);
+
+    PredicatePushdownController CASE_INSENSITIVE_CHARACTER_PUSHDOWN = (session, domain) -> {
+        checkArgument(
+                domain.getType() instanceof VarcharType || domain.getType() instanceof CharType,
+                "CASE_INSENSITIVE_CHARACTER_PUSHDOWN can be used only for chars and varchars");
+
+        if (domain.isOnlyNull()) {
+            return FULL_PUSHDOWN.apply(session, domain);
+        }
+
+        if (domain.getValues().isDiscreteSet()) {
+            return new DomainPushdownResult(
+                    domain.simplify(getDomainCompactionThreshold(session)),
+                    domain);
+        }
+
+        // case insensitive predicate pushdown could return incorrect results for operators like `!=`, `<` or `>`
+        return DISABLE_PUSHDOWN.apply(session, domain);
+    };
 
     DomainPushdownResult apply(ConnectorSession session, Domain domain);
 

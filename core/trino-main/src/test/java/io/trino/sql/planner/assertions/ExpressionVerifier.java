@@ -504,7 +504,7 @@ public final class ExpressionVerifier
                 extractFunctionName(actual.getName()).equals(extractFunctionName(expected.getName())) &&
                 process(actual.getArguments(), expected.getArguments()) &&
                 process(actual.getFilter(), expected.getFilter()) &&
-                process(actual.getWindow(), expected.getWindow());
+                process(actual.getWindow().map(Node.class::cast), expected.getWindow().map(Node.class::cast));
     }
 
     @Override

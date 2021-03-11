@@ -36,14 +36,14 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
  *   - X
  *   - S with cardinality >= 1
  * </pre>
- *
+ * <p>
  * Produces:
  *
  * <pre>
  * - Project [X.*, e = true]
  *   - X
  * </pre>
- *
+ * <p>
  * Given:
  *
  * <pre>
@@ -51,7 +51,7 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
  *   - X
  *   - S with cardinality = 0
  * </pre>
- *
+ * <p>
  * Produces:
  *
  * <pre>

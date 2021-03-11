@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -117,6 +118,7 @@ public final class AggregationFromAnnotationsParser
         requireNonNull(aggregationAnnotation, "aggregationAnnotation is null");
         return new AggregationHeader(
                 aggregationAnnotation.value(),
+                aggregationAnnotation.value(),
                 parseDescription(aggregationDefinition),
                 aggregationAnnotation.decomposable(),
                 aggregationAnnotation.isOrderSensitive(),
@@ -128,9 +130,10 @@ public final class AggregationFromAnnotationsParser
         AggregationFunction aggregationAnnotation = aggregationDefinition.getAnnotation(AggregationFunction.class);
 
         return getNames(toParse, aggregationAnnotation).stream()
-                .map(name ->
+                .map(aggregationFunctionName ->
                         new AggregationHeader(
-                                name,
+                                aggregationFunctionName.getActualName(),
+                                aggregationFunctionName.getCanonicalName(),
                                 parseDescription(aggregationDefinition, toParse),
                                 aggregationAnnotation.decomposable(),
                                 aggregationAnnotation.isOrderSensitive(),
@@ -138,9 +141,14 @@ public final class AggregationFromAnnotationsParser
                 .collect(toImmutableList());
     }
 
-    private static List<String> getNames(@Nullable AnnotatedElement outputFunction, AggregationFunction aggregationAnnotation)
+    private static List<AggregationFunctionName> getNames(@Nullable AnnotatedElement outputFunction, AggregationFunction aggregationAnnotation)
     {
-        List<String> defaultNames = ImmutableList.<String>builder().add(aggregationAnnotation.value()).addAll(Arrays.asList(aggregationAnnotation.alias())).build();
+        List<AggregationFunctionName> defaultNames = ImmutableList.<AggregationFunctionName>builder()
+                .add(new AggregationFunctionName(aggregationAnnotation.value(), aggregationAnnotation.value()))
+                .addAll(Stream.of(aggregationAnnotation.alias())
+                        .map(alias -> new AggregationFunctionName(alias, aggregationAnnotation.value()))
+                        .collect(toImmutableList()))
+                .build();
 
         if (outputFunction == null) {
             return defaultNames;
@@ -151,7 +159,12 @@ public final class AggregationFromAnnotationsParser
             return defaultNames;
         }
         else {
-            return ImmutableList.<String>builder().add(annotation.value()).addAll(Arrays.asList(annotation.alias())).build();
+            return ImmutableList.<AggregationFunctionName>builder()
+                    .add(new AggregationFunctionName(annotation.value(), annotation.value()))
+                    .addAll(Stream.of(annotation.alias())
+                            .map(alias -> new AggregationFunctionName(alias, annotation.value()))
+                            .collect(toImmutableList()))
+                    .build();
         }
     }
 
@@ -212,5 +225,27 @@ public final class AggregationFromAnnotationsParser
         checkArgument(!stateClasses.isEmpty(), "No input functions found");
 
         return stateClasses;
+    }
+
+    private static class AggregationFunctionName
+    {
+        private String actualName;
+        private String canonicalName;
+
+        public AggregationFunctionName(String actualName, String canonicalName)
+        {
+            this.actualName = actualName;
+            this.canonicalName = canonicalName;
+        }
+
+        public String getActualName()
+        {
+            return actualName;
+        }
+
+        public String getCanonicalName()
+        {
+            return canonicalName;
+        }
     }
 }

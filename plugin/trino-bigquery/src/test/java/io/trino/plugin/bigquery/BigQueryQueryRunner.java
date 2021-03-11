@@ -16,30 +16,34 @@ package io.trino.plugin.bigquery;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
+import com.google.cloud.bigquery.DatasetInfo;
+import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.sql.SqlExecutor;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class BigQueryQueryRunner
+public final class BigQueryQueryRunner
 {
     private static final String TPCH_SCHEMA = "tpch";
 
     private BigQueryQueryRunner() {}
 
-    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+    public static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -51,31 +55,20 @@ public class BigQueryQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
+            connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
+            connectorProperties.putIfAbsent("bigquery.views-enabled", "true");
+
             queryRunner.installPlugin(new BigQueryPlugin());
             queryRunner.createCatalog(
                     "bigquery",
                     "bigquery",
-                    ImmutableMap.of("bigquery.views-enabled", "true"));
+                    connectorProperties);
 
             return queryRunner;
         }
         catch (Throwable e) {
             closeAllSuppress(e, queryRunner);
             throw e;
-        }
-    }
-
-    public static BigQuery createBigQueryClient()
-    {
-        try {
-            InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(System.getProperty("bigquery.credentials-key")));
-            return BigQueryOptions.newBuilder()
-                    .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
-                    .build()
-                    .getService();
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
         }
     }
 
@@ -87,11 +80,58 @@ public class BigQueryQueryRunner
                 .build();
     }
 
+    public static class BigQuerySqlExecutor
+            implements SqlExecutor
+    {
+        private final BigQuery bigQuery;
+
+        public BigQuerySqlExecutor()
+        {
+            this.bigQuery = createBigQueryClient();
+        }
+
+        @Override
+        public void execute(String sql)
+        {
+            try {
+                bigQuery.query(QueryJobConfiguration.of(sql));
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+
+        public void createDataset(String dataset)
+        {
+            bigQuery.create(DatasetInfo.newBuilder(dataset).build());
+        }
+
+        public void dropDataset(String dataset)
+        {
+            bigQuery.delete(dataset);
+        }
+
+        private static BigQuery createBigQueryClient()
+        {
+            try {
+                InputStream jsonKey = new ByteArrayInputStream(Base64.getDecoder().decode(System.getProperty("bigquery.credentials-key")));
+                return BigQueryOptions.newBuilder()
+                        .setCredentials(ServiceAccountCredentials.fromStream(jsonKey))
+                        .build()
+                        .getService();
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+    }
+
     public static void main(String[] args)
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"), ImmutableMap.of());
         Thread.sleep(10);
         Logger log = Logger.get(BigQueryQueryRunner.class);
         log.info("======== SERVER STARTED ========");

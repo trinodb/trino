@@ -1,6 +1,6 @@
 # Release 338 (07 Jul 2020)
 
-## General changes
+## General
 
 * Fix incorrect results when joining tables on a masked column. ({issue}`4251`)
 * Fix planning failure when multiple columns have a mask. ({issue}`4322`)
@@ -18,16 +18,16 @@
   configuration property or `omit_datetime_type_precision` session property. ({issue}`4349`, {issue}`4377`)
 * Enforce `NOT NULL` column declarations when writing data. ({issue}`4144`)
 
-## JDBC driver changes
+## JDBC driver
 
 * Fix excessive CPU usage when reading query results. ({issue}`3928`)
 * Implement `DatabaseMetaData.getClientInfoProperties()`. ({issue}`4318`)
 
-## Elasticsearch connector changes
+## Elasticsearch connector
 
 * Add support for reading numeric values encoded as strings. ({issue}`4341`)
 
-## Hive connector changes
+## Hive connector
 
 * Fix incorrect query results when Parquet file has no min/max statistics for an integral column. ({issue}`4200`)
 * Fix query failure when reading from a table partitioned on a `real` or `double` column containing
@@ -39,20 +39,20 @@
 * Add support for setting column comments. ({issue}`2516`)
 * Add hidden `$partition` column for partitioned tables that contains the partition name. ({issue}`3582`)
 
-## Kafka connector changes
+## Kafka connector
 
 * Fix query failure when a column is projected and also referenced in a query predicate
   when reading from Kafka topic using `RAW` decoder. ({issue}`4183`)
 
-## MySQL connector changes
+## MySQL connector
 
 * Fix type mapping for unsigned integer types. ({issue}`4187`)
 
-## Oracle connector changes
+## Oracle connector
 
 * Exclude internal schemas (e.g., sys) from schema listings. ({issue}`3784`)
 * Add support for connection pooling. ({issue}`3770`)
 
-## Base-JDBC connector library changes
+## Base-JDBC connector library
 
 * Exclude the underlying database's `information_schema` from schema listings. ({issue}`3834`)

@@ -61,6 +61,7 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
+import io.trino.sql.planner.plan.UpdateNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 
@@ -291,10 +292,8 @@ public class DistributedExecutionPlanner
                     }
                     // table sampling on a sub query without splits is meaningless
                     return nodeSplits;
-
-                default:
-                    throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
             }
+            throw new UnsupportedOperationException("Sampling is not supported for type " + node.getSampleType());
         }
 
         @Override
@@ -407,6 +406,12 @@ public class DistributedExecutionPlanner
 
         @Override
         public Map<PlanNodeId, SplitSource> visitDelete(DeleteNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitUpdate(UpdateNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

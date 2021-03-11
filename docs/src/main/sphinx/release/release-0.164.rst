@@ -2,8 +2,8 @@
 Release 0.164
 =============
 
-General changes
----------------
+General
+-------
 
 * Fix correctness issue for queries that perform ``DISTINCT`` and ``LIMIT`` on the results of a ``JOIN``.
 * Fix correctness issue when casting between maps where the key or value is the ``REAL`` type.
@@ -19,13 +19,13 @@ General changes
 * Improve client error message for invalid session.
 * Add ``VALIDATE`` mode for :doc:`/sql/explain`.
 
-Web UI changes
---------------
+Web UI
+------
 
 * Add resource group to query detail page.
 
-Hive changes
-------------
+Hive
+----
 
 * Fix handling of ORC files containing extremely large metadata.
 * Fix failure when creating views in file based metastore.
