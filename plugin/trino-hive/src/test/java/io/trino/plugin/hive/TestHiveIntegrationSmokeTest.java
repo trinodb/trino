@@ -96,6 +96,7 @@ import static io.trino.SystemSessionProperties.DYNAMIC_SCHEDULE_FOR_GROUPED_EXEC
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.GROUPED_EXECUTION;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.trino.SystemSessionProperties.PLAN_WITH_TABLE_NODE_PARTITIONING;
 import static io.trino.plugin.hive.HiveColumnHandle.BUCKET_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_MODIFIED_TIME_COLUMN_NAME;
 import static io.trino.plugin.hive.HiveColumnHandle.FILE_SIZE_COLUMN_NAME;
@@ -5169,6 +5170,33 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketingN");
             assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out32");
             assertUpdate("DROP TABLE IF EXISTS test_mismatch_bucketing_out8");
+        }
+    }
+
+    @Test
+    public void testBucketedSelect()
+    {
+        try {
+            assertUpdate(
+                    "CREATE TABLE test_bucketed_select\n" +
+                            "WITH (bucket_count = 13, bucketed_by = ARRAY['key1']) AS\n" +
+                            "SELECT orderkey key1, comment value1 FROM orders",
+                    15000);
+            Session planWithTableNodePartitioning = Session.builder(getSession())
+                    .setSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, "true")
+                    .build();
+            Session planWithoutTableNodePartitioning = Session.builder(getSession())
+                    .setSystemProperty(PLAN_WITH_TABLE_NODE_PARTITIONING, "false")
+                    .build();
+
+            @Language("SQL") String query = "SELECT count(value1) FROM test_bucketed_select GROUP BY key1";
+            @Language("SQL") String expectedQuery = "SELECT count(comment) FROM orders GROUP BY orderkey";
+
+            assertQuery(planWithTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(1));
+            assertQuery(planWithoutTableNodePartitioning, query, expectedQuery, assertRemoteExchangesCount(2));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS test_bucketed_select");
         }
     }
 

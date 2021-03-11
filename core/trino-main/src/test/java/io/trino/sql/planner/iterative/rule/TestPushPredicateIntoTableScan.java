@@ -16,13 +16,23 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
+import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.connector.MockConnectorColumnHandle;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorTableHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTableLayoutHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorPartitioningHandle;
+import io.trino.spi.connector.ConnectorTableHandle;
+import io.trino.spi.connector.ConnectorTablePartitioning;
+import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConstraintApplicationResult;
+import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -40,6 +50,7 @@ import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
+import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -49,19 +60,35 @@ import java.util.Optional;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.constrainedTableScanWithTableLayout;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.MODULUS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.LogicalBinaryExpression.Operator.AND;
 import static io.trino.sql.tree.LogicalBinaryExpression.Operator.OR;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushPredicateIntoTableScan
         extends BaseRuleTest
 {
+    private static final String MOCK_CATALOG = "mock_catalog";
+    private static final ConnectorTableHandle CONNECTOR_PARTITIONED_TABLE_HANDLE =
+            new MockConnectorTableHandle(new SchemaTableName("schema", "partitioned"));
+    private static final ConnectorTableHandle CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED =
+            new MockConnectorTableHandle(new SchemaTableName("schema", "partitioned_to_unpartitioned"));
+    private static final ConnectorTableHandle CONNECTOR_UNPARTITIONED_TABLE_HANDLE =
+            new MockConnectorTableHandle(new SchemaTableName("schema", "unpartitioned"));
+    private static final TableHandle PARTITIONED_TABLE_HANDLE = tableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE);
+    private static final TableHandle PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED = tableHandle(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED);
+    private static final ConnectorPartitioningHandle PARTITIONING_HANDLE = new ConnectorPartitioningHandle() {};
+    private static final ColumnHandle MOCK_COLUMN_HANDLE = new MockConnectorColumnHandle("col", VARCHAR);
+
     private PushPredicateIntoTableScan pushPredicateIntoTableScan;
     private TableHandle nationTableHandle;
     private TableHandle ordersTableHandle;
@@ -72,6 +99,7 @@ public class TestPushPredicateIntoTableScan
         pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeOperators(), new TypeAnalyzer(new SqlParser(), tester().getMetadata()));
 
         CatalogName catalogName = tester().getCurrentConnectorId();
+        tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
 
         TpchTableHandle nation = new TpchTableHandle("nation", 1.0);
         nationTableHandle = new TableHandle(
@@ -324,5 +352,69 @@ public class TestPushPredicateIntoTableScan
                                         "orders",
                                         ImmutableMap.of("orderstatus", singleValue(orderStatusType, utf8Slice("O"))),
                                         ImmutableMap.of("orderstatus", "orderstatus"))));
+    }
+
+    @Test
+    public void testPartitioningChanged()
+    {
+        Session session = Session.builder(tester().getSession())
+                .setCatalog(MOCK_CATALOG)
+                .build();
+        assertThatThrownBy(() -> tester().assertThat(pushPredicateIntoTableScan)
+                .withSession(session)
+                .on(p -> p.filter(expression("col = 'G'"),
+                        p.tableScan(
+                                PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED,
+                                ImmutableList.of(p.symbol("col", VARCHAR)),
+                                ImmutableMap.of(p.symbol("col", VARCHAR), MOCK_COLUMN_HANDLE),
+                                Optional.of(true))))
+                .matches(anyTree()))
+                .hasMessage("Partitioning must not change after predicate is pushed down");
+
+        tester().assertThat(pushPredicateIntoTableScan)
+                .withSession(session)
+                .on(p -> p.filter(expression("col = 'G'"),
+                        p.tableScan(
+                                PARTITIONED_TABLE_HANDLE,
+                                ImmutableList.of(p.symbol("col", VARCHAR)),
+                                ImmutableMap.of(p.symbol("col", VARCHAR), MOCK_COLUMN_HANDLE),
+                                Optional.of(true))))
+                .matches(tableScan("partitioned"));
+    }
+
+    public static MockConnectorFactory createMockFactory()
+    {
+        MockConnectorFactory.Builder builder = MockConnectorFactory.builder();
+        builder
+                .withApplyFilter((session, tableHandle, constraint) -> {
+                    if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED)) {
+                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_UNPARTITIONED_TABLE_HANDLE, TupleDomain.all()));
+                    }
+                    if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE)) {
+                        return Optional.of(new ConstraintApplicationResult<>(CONNECTOR_PARTITIONED_TABLE_HANDLE, TupleDomain.all()));
+                    }
+                    return Optional.empty();
+                })
+                .withGetTableProperties((session, tableHandle) -> {
+                    if (tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE) || tableHandle.equals(CONNECTOR_PARTITIONED_TABLE_HANDLE_TO_UNPARTITIONED)) {
+                        return new ConnectorTableProperties(
+                                TupleDomain.all(),
+                                Optional.of(new ConnectorTablePartitioning(PARTITIONING_HANDLE, ImmutableList.of(MOCK_COLUMN_HANDLE))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of());
+                    }
+                    return new ConnectorTableProperties();
+                });
+        return builder.build();
+    }
+
+    private static TableHandle tableHandle(ConnectorTableHandle connectorTableHandle)
+    {
+        return new TableHandle(
+                new CatalogName(MOCK_CATALOG),
+                connectorTableHandle,
+                TestingTransactionHandle.create(),
+                Optional.empty());
     }
 }

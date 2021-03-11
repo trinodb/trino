@@ -307,6 +307,7 @@ public class PlanFragmenter
         {
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
+                    .filter(value -> node.isUseConnectorNodePartitioning())
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
 
@@ -668,7 +669,7 @@ public class PlanFragmenter
         public GroupedExecutionProperties visitTableScan(TableScanNode node, Void context)
         {
             Optional<TablePartitioning> tablePartitioning = metadata.getTableProperties(session, node.getTable()).getTablePartitioning();
-            if (tablePartitioning.isEmpty()) {
+            if (tablePartitioning.isEmpty() || !node.isUseConnectorNodePartitioning()) {
                 return GroupedExecutionProperties.notCapable();
             }
             List<ConnectorPartitionHandle> partitionHandles = nodePartitioningManager.listPartitionHandles(session, tablePartitioning.get().getPartitioningHandle());
@@ -772,6 +773,7 @@ public class PlanFragmenter
         {
             PartitioningHandle partitioning = metadata.getTableProperties(session, node.getTable())
                     .getTablePartitioning()
+                    .filter(value -> node.isUseConnectorNodePartitioning())
                     .map(TablePartitioning::getPartitioningHandle)
                     .orElse(SOURCE_DISTRIBUTION);
             if (partitioning.equals(fragmentPartitioningHandle)) {

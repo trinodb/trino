@@ -538,6 +538,22 @@ public class PlanBuilder
             TableHandle tableHandle,
             List<Symbol> symbols,
             Map<Symbol, ColumnHandle> assignments,
+            Optional<Boolean> useConnectorNodePartitioning)
+    {
+        return new TableScanNode(
+                idAllocator.getNextId(),
+                tableHandle,
+                symbols,
+                assignments,
+                TupleDomain.all(),
+                false,
+                useConnectorNodePartitioning);
+    }
+
+    public TableScanNode tableScan(
+            TableHandle tableHandle,
+            List<Symbol> symbols,
+            Map<Symbol, ColumnHandle> assignments,
             TupleDomain<ColumnHandle> enforcedConstraint)
     {
         return new TableScanNode(
