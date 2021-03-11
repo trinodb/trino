@@ -156,29 +156,24 @@ public class ExpressionInterpreter
     private final Metadata metadata;
     private final LiteralEncoder literalEncoder;
     private final ConnectorSession session;
-    private final boolean optimize;
     private final Map<NodeRef<Expression>, Type> expressionTypes;
     private final InterpretedFunctionInvoker functionInvoker;
     private final TypeCoercion typeCoercion;
-
-    private final Visitor visitor;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
     private final IdentityHashMap<LikePredicate, JoniRegexp> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
-    public static ExpressionInterpreter expressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
+    public ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
     {
-        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, false);
-    }
-
-    public static ExpressionInterpreter expressionOptimizer(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
-    {
-        requireNonNull(expression, "expression is null");
-        requireNonNull(metadata, "metadata is null");
-        requireNonNull(session, "session is null");
-
-        return new ExpressionInterpreter(expression, metadata, session, expressionTypes, true);
+        this.expression = requireNonNull(expression, "expression is null");
+        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.literalEncoder = new LiteralEncoder(metadata);
+        this.session = requireNonNull(session, "session is null").toConnectorSession();
+        this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
+        verify((expressionTypes.containsKey(NodeRef.of(expression))));
+        this.functionInvoker = new InterpretedFunctionInvoker(metadata);
+        this.typeCoercion = new TypeCoercion(metadata::getType);
     }
 
     public static Object evaluateConstantExpression(
@@ -251,24 +246,9 @@ public class ExpressionInterpreter
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression
-        Object result = expressionInterpreter(resolved, metadata, session, analyzer.getExpressionTypes()).evaluate();
+        Object result = new ExpressionInterpreter(resolved, metadata, session, analyzer.getExpressionTypes()).evaluate();
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
-    }
-
-    private ExpressionInterpreter(Expression expression, Metadata metadata, Session session, Map<NodeRef<Expression>, Type> expressionTypes, boolean optimize)
-    {
-        this.expression = requireNonNull(expression, "expression is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
-        this.literalEncoder = new LiteralEncoder(metadata);
-        this.session = requireNonNull(session, "session is null").toConnectorSession();
-        this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
-        verify((expressionTypes.containsKey(NodeRef.of(expression))));
-        this.optimize = optimize;
-        this.functionInvoker = new InterpretedFunctionInvoker(metadata);
-        this.typeCoercion = new TypeCoercion(metadata::getType);
-
-        this.visitor = new Visitor();
     }
 
     public Type getType()
@@ -278,25 +258,29 @@ public class ExpressionInterpreter
 
     public Object evaluate()
     {
-        checkState(!optimize, "evaluate() not allowed for optimizer");
-        return visitor.process(expression, new NoPagePositionContext());
+        return new Visitor(false).process(expression, new NoPagePositionContext());
     }
 
     public Object evaluate(SymbolResolver inputs)
     {
-        checkState(!optimize, "evaluate(int, Page) not allowed for optimizer");
-        return visitor.process(expression, inputs);
+        return new Visitor(false).process(expression, inputs);
     }
 
     public Object optimize(SymbolResolver inputs)
     {
-        checkState(optimize, "evaluate(SymbolResolver) not allowed for interpreter");
-        return visitor.process(expression, inputs);
+        return new Visitor(true).process(expression, inputs);
     }
 
     private class Visitor
             extends AstVisitor<Object, Object>
     {
+        private final boolean optimize;
+
+        private Visitor(boolean optimize)
+        {
+            this.optimize = optimize;
+        }
+
         @Override
         public Object visitFieldReference(FieldReference node, Object context)
         {
