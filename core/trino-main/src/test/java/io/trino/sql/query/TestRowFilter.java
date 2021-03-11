@@ -389,4 +389,20 @@ public class TestRowFilter
         assertThatThrownBy(() -> assertions.query("DELETE FROM orders WHERE orderkey IN (10, 20, 30)"))
                 .hasMessage("line 1:1: Delete from table with row filter");
     }
+
+    @Test
+    public void testUpdate()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey < 10"));
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET totalprice = totalprice * 2"))
+                .hasMessage("line 1:1: Updating a table with a row filter is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET totalprice = totalprice * 2 WHERE orderkey IN (1, 2, 3)"))
+                .hasMessage("line 1:1: Updating a table with a row filter is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET totalprice = totalprice * 2 WHERE orderkey IN (10, 20, 30)"))
+                .hasMessage("line 1:1: Updating a table with a row filter is not supported");
+    }
 }
