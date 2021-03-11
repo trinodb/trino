@@ -541,6 +541,23 @@ public class TestColumnMask
     }
 
     @Test
+    public void testUpdateWithColumnMasking()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "clerk",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "clerk"));
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET clerk = 'X'"))
+                .hasMessage("line 1:1: Updating a table with column masks is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET orderkey = -orderkey"))
+                .hasMessage("line 1:1: Updating a table with column masks is not supported");
+        assertThatThrownBy(() -> assertions.query("UPDATE orders SET clerk = 'X', orderkey = -orderkey"))
+                .hasMessage("line 1:1: Updating a table with column masks is not supported");
+    }
+
+    @Test
     public void testNotReferencedAndDeniedColumnMasking()
     {
         // mask on not used varchar column
