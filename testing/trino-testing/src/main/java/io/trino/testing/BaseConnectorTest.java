@@ -45,6 +45,15 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    @Override
+    public void ensureTestNamingConvention()
+    {
+        // Enforce a naming convention to make code navigation easier.
+        assertThat(getClass().getName())
+                .endsWith("ConnectorTest");
+    }
+
+    @Test
     public void testColumnsInReverseOrder()
     {
         assertQuery("SELECT shippriority, clerk, totalprice FROM orders");
