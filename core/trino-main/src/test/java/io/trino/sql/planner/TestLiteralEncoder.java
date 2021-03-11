@@ -66,7 +66,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.SqlFormatter.formatSql;
-import static io.trino.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
@@ -280,7 +279,7 @@ public class TestLiteralEncoder
 
     private Object getExpressionValue(Expression expression)
     {
-        return expressionInterpreter(expression, metadata, TEST_SESSION, getExpressionTypes(expression)).evaluate();
+        return new ExpressionInterpreter(expression, metadata, TEST_SESSION, getExpressionTypes(expression)).evaluate();
     }
 
     private Type getExpressionType(Expression expression)
