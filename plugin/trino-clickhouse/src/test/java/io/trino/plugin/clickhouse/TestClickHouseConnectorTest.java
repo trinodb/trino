@@ -61,6 +61,9 @@ public class TestClickHouseConnectorTest
             case SUPPORTS_ARRAY:
                 return false;
 
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
