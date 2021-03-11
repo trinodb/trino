@@ -64,6 +64,9 @@ public class TestPhoenixConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
