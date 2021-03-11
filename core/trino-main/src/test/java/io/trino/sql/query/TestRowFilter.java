@@ -373,4 +373,20 @@ public class TestRowFilter
                                 "(CAST('custkey' AS varchar), 0e1, 0e1, 1e0, CAST(NULL AS double), CAST(NULL AS varchar), CAST(NULL AS varchar))," +
                                 "(NULL, NULL, NULL, NULL, 0e1, NULL, NULL)");
     }
+
+    @Test
+    public void testDelete()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey < 10"));
+        assertThatThrownBy(() -> assertions.query("DELETE FROM orders"))
+                .hasMessage("line 1:1: Delete from table with row filter");
+        assertThatThrownBy(() -> assertions.query("DELETE FROM orders WHERE orderkey IN (1, 2, 3)"))
+                .hasMessage("line 1:1: Delete from table with row filter");
+        assertThatThrownBy(() -> assertions.query("DELETE FROM orders WHERE orderkey IN (10, 20, 30)"))
+                .hasMessage("line 1:1: Delete from table with row filter");
+    }
 }
