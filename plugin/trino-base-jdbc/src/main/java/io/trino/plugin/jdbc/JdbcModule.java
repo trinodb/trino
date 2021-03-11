@@ -23,17 +23,21 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
-import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
+import java.util.concurrent.ExecutorService;
+
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class JdbcModule
         implements Module
@@ -108,5 +112,19 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    @Singleton
+    @ForPageSource
+    @Provides
+    public ExecutorService createPageSourceExecutor(CatalogName catalogName)
+    {
+        return newCachedThreadPool(daemonThreadsNamed(catalogName + "-jdbc-connector-%s"));
+    }
+
+    @PreDestroy
+    public void shutdownPageSourceExecutor(@ForPageSource ExecutorService executor)
+    {
+        executor.shutdown();
     }
 }

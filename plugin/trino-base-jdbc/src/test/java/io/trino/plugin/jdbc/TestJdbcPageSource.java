@@ -24,12 +24,16 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.plugin.jdbc.TestJdbcPageSourceProvider.append;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.testng.AssertJUnit.assertTrue;
 
 public class TestJdbcPageSource
 {
@@ -38,6 +42,7 @@ public class TestJdbcPageSource
     private JdbcTableHandle table;
     private JdbcSplit split;
     private Map<String, JdbcColumnHandle> columnHandles;
+    private ExecutorService executor;
 
     @BeforeClass
     public void setUp()
@@ -48,6 +53,8 @@ public class TestJdbcPageSource
         table = database.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
         split = database.getSplit(SESSION, table);
         columnHandles = database.getColumnHandles(SESSION, table);
+
+        executor = newCachedThreadPool(daemonThreadsNamed("TestJdbcPageSourceProvider-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -55,6 +62,7 @@ public class TestJdbcPageSource
             throws Exception
     {
         database.close();
+        assertTrue(executor.shutdownNow().isEmpty());
     }
 
     @Test
@@ -116,6 +124,6 @@ public class TestJdbcPageSource
 
     private JdbcPageSource createPageSource(List<JdbcColumnHandle> columnHandles)
     {
-        return new JdbcPageSource(jdbcClient, SESSION, split, table, columnHandles);
+        return new JdbcPageSource(jdbcClient, executor, SESSION, split, table, columnHandles);
     }
 }

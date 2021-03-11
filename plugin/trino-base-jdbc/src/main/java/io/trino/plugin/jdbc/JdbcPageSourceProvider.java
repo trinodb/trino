@@ -26,6 +26,7 @@ import io.trino.spi.connector.DynamicFilter;
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -34,11 +35,13 @@ public class JdbcPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final JdbcClient jdbcClient;
+    private final ExecutorService executor;
 
     @Inject
-    public JdbcPageSourceProvider(JdbcClient jdbcClient)
+    public JdbcPageSourceProvider(JdbcClient jdbcClient, @ForPageSource ExecutorService executor)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+        this.executor = requireNonNull(executor, "executor is null");
     }
 
     @Override
@@ -65,6 +68,6 @@ public class JdbcPageSourceProvider
             handles.add((JdbcColumnHandle) handle);
         }
 
-        return new JdbcPageSource(jdbcClient, session, jdbcSplit, jdbcTable, handles.build());
+        return new JdbcPageSource(jdbcClient, executor, session, jdbcSplit, jdbcTable, handles.build());
     }
 }

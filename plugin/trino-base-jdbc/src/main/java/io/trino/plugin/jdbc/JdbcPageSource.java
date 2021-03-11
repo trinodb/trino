@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
@@ -33,9 +34,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -60,10 +63,11 @@ public class JdbcPageSource
     private final JdbcClient jdbcClient;
     private final Connection connection;
     private final PreparedStatement statement;
+    private final Future<ResultSet> resultSetFuture;
     @Nullable
     private ResultSet resultSet;
 
-    public JdbcPageSource(JdbcClient jdbcClient, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
+    public JdbcPageSource(JdbcClient jdbcClient, ExecutorService executor, ConnectorSession session, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
 
@@ -113,6 +117,10 @@ public class JdbcPageSource
             this.pageBuilder = new PageBuilder(ImmutableList.copyOf(types));
 
             statement = jdbcClient.buildSql(session, connection, split, table, columnHandles);
+            resultSetFuture = executor.submit(() -> {
+                log.debug("Executing: %s", statement.toString());
+                return statement.executeQuery();
+            });
         }
         catch (SQLException | RuntimeException e) {
             throw handleSqlException(e);
@@ -136,9 +144,19 @@ public class JdbcPageSource
     {
         if (!closed) {
             try {
+                if (!resultSetFuture.isDone()) {
+                    return null;
+                }
                 if (resultSet == null) {
-                    log.debug("Executing: %s", statement.toString());
-                    resultSet = statement.executeQuery();
+                    try {
+                        resultSet = Futures.getDone(resultSetFuture);
+                    }
+                    catch (ExecutionException e) {
+                        if (e.getCause() instanceof SQLException) {
+                            throw (SQLException) e.getCause();
+                        }
+                        throw new RuntimeException(e);
+                    }
                 }
                 for (int i = 0; i < ROWS_PER_REQUEST && !pageBuilder.isFull(); i++) {
                     if (!resultSet.next()) {

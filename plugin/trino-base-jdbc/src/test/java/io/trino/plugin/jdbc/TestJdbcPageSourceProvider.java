@@ -38,11 +38,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.operator.PageAssertions.assertPageEquals;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
@@ -50,7 +52,9 @@ import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITION
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestJdbcPageSourceProvider
 {
@@ -67,6 +71,8 @@ public class TestJdbcPageSourceProvider
     private JdbcColumnHandle textShortColumn;
     private JdbcColumnHandle valueColumn;
 
+    private ExecutorService executor;
+
     @BeforeClass
     public void setUp()
             throws Exception
@@ -80,6 +86,8 @@ public class TestJdbcPageSourceProvider
         textColumn = columns.get("text");
         textShortColumn = columns.get("text_short");
         valueColumn = columns.get("value");
+
+        executor = newCachedThreadPool(daemonThreadsNamed("TestJdbcPageSourceProvider-%s"));
     }
 
     @AfterClass(alwaysRun = true)
@@ -87,13 +95,14 @@ public class TestJdbcPageSourceProvider
             throws Exception
     {
         database.close();
+        assertTrue(executor.shutdownNow().isEmpty());
     }
 
     @Test
     public void testReadPage()
     {
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcPageSourceProvider jdbcPageSourceProvider = new JdbcPageSourceProvider(jdbcClient);
+        JdbcPageSourceProvider jdbcPageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor);
         ConnectorPageSource pageSource = jdbcPageSourceProvider.createPageSource(transaction, SESSION, split, table, ImmutableList.of(textColumn, textShortColumn, valueColumn), EMPTY);
         assertNotNull(pageSource, "pageSource is null");
 
@@ -197,7 +206,7 @@ public class TestJdbcPageSourceProvider
         JdbcSplit split = (JdbcSplit) getOnlyElement(getFutureValue(splits.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
 
         ConnectorTransactionHandle transaction = new JdbcTransactionHandle();
-        JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient);
+        JdbcPageSourceProvider pageSourceProvider = new JdbcPageSourceProvider(jdbcClient, executor);
         ConnectorPageSource pageSource = pageSourceProvider.createPageSource(
                 transaction,
                 SESSION,
