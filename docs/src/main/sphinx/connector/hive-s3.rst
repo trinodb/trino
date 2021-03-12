@@ -76,7 +76,13 @@ Property Name                                Description
                                              the object has been created.
 
 ``hive.s3.upload-acl-type``                  Canned ACL to use while uploading files to S3, defaults
-                                             to ``Private``.
+                                             to ``PRIVATE``. If the files are to be uploaded to a S3
+                                             bucket owned by a different user, the canned ACL has to be
+                                             set to one of the following: ``AUTHENTICATED_READ``,
+                                             ``AWS_EXEC_READ``, ``BUCKET_OWNER_FULL_CONTROL``, ``BUCKET_OWNER_READ``,
+                                             ``LOG_DELIVERY_WRITE``, ``PUBLIC_READ``, ``PUBLIC_READ_WRITE``.
+                                             Refer to the `AWS canned ACL <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-s3-acls.html>`_
+                                             guide to understand each option's definition.
 
 ``hive.s3.skip-glacier-objects``             Ignore Glacier objects rather than failing the query. This
                                              skips data that may be expected to be part of the table
