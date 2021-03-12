@@ -245,9 +245,7 @@ public class ExpressionInterpreter
         analyzer.analyze(resolved, Scope.create());
 
         // evaluate the expression
-        Object result = new ExpressionInterpreter(resolved, metadata, session, analyzer.getExpressionTypes()).evaluate();
-        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
-        return result;
+        return new ExpressionInterpreter(resolved, metadata, session, analyzer.getExpressionTypes()).evaluate();
     }
 
     public Type getType()
@@ -257,12 +255,16 @@ public class ExpressionInterpreter
 
     public Object evaluate()
     {
-        return new Visitor(false).processWithExceptionHandling(expression, new NoPagePositionContext());
+        Object result = new Visitor(false).processWithExceptionHandling(expression, new NoPagePositionContext());
+        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
+        return result;
     }
 
     public Object evaluate(SymbolResolver inputs)
     {
-        return new Visitor(false).processWithExceptionHandling(expression, inputs);
+        Object result = new Visitor(false).processWithExceptionHandling(expression, inputs);
+        verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
+        return result;
     }
 
     public Object optimize(SymbolResolver inputs)
