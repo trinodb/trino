@@ -30,10 +30,13 @@ import static java.lang.Double.isNaN;
 public class PreferWritePartitioning
         implements Rule<TableWriterNode>
 {
+    public static final Pattern<TableWriterNode> WRITER_NODE_WITH_PREFERRED_PARTITIONING = tableWriterNode()
+            .matching(node -> node.getPreferredPartitioningScheme().isPresent());
+
     @Override
     public Pattern<TableWriterNode> getPattern()
     {
-        return tableWriterNode();
+        return WRITER_NODE_WITH_PREFERRED_PARTITIONING;
     }
 
     @Override
@@ -45,10 +48,6 @@ public class PreferWritePartitioning
     @Override
     public Result apply(TableWriterNode node, Captures captures, Context context)
     {
-        if (node.getPreferredPartitioningScheme().isEmpty()) {
-            return Result.empty();
-        }
-
         int minimumNumberOfPartitions = getPreferredWritePartitioningMinNumberOfPartitions(context.getSession());
         if (minimumNumberOfPartitions <= 1) {
             // Force 'preferred write partitioning' even if stats are missing or broken
