@@ -14,6 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -27,7 +28,6 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.ExpressionInterpreter;
-import io.trino.sql.planner.FunctionCallBuilder;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
@@ -52,10 +52,10 @@ import org.testng.annotations.Test;
 
 import java.math.BigInteger;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
@@ -81,6 +81,7 @@ import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -1456,18 +1457,18 @@ public class TestExpressionInterpreter
 
     private static void assertOptimizedMatches(@Language("SQL") String actual, @Language("SQL") String expected)
     {
-        // replaces FunctionCalls to FailureFunction by fail()
-        Object actualOptimized = optimize(actual);
-        if (actualOptimized instanceof Expression) {
-            actualOptimized = ExpressionTreeRewriter.rewriteWith(new FailedFunctionRewriter(), (Expression) actualOptimized);
-        }
+        Expression actualOptimized = (Expression) optimize(actual);
 
-        SymbolAliases.Builder aliases = SymbolAliases.builder();
-        for (Entry<Symbol, Type> entry : SYMBOL_TYPES.allTypes().entrySet()) {
-            aliases.put(entry.getKey().getName(), new SymbolReference(entry.getKey().getName()));
-        }
+        // replace FunctionCalls to FailureFunction by fail('fail')
+        actualOptimized = ExpressionTreeRewriter.rewriteWith(new FailedFunctionRewriter(), actualOptimized);
+
+        SymbolAliases.Builder aliases = SymbolAliases.builder()
+                .putAll(SYMBOL_TYPES.allTypes().keySet().stream()
+                        .map(Symbol::getName)
+                        .collect(toImmutableMap(identity(), SymbolReference::new)));
+
         Expression rewrittenExpected = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions()));
-        assertExpressionEquals((Expression) actualOptimized, rewrittenExpected, aliases.build());
+        assertExpressionEquals(actualOptimized, rewrittenExpected, aliases.build());
     }
 
     private static Object optimize(@Language("SQL") String expression)
@@ -1569,10 +1570,7 @@ public class TestExpressionInterpreter
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             if (extractFunctionName(node.getName()).equals("fail")) {
-                return new FunctionCallBuilder(METADATA)
-                        .setName(QualifiedName.of("fail"))
-                        .addArgument(VARCHAR, new StringLiteral("fail"))
-                        .build();
+                return new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new StringLiteral("fail")));
             }
             return node;
         }
