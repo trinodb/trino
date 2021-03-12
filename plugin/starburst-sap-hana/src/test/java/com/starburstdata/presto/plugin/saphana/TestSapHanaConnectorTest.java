@@ -56,14 +56,19 @@ public class TestSapHanaConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            case SUPPORTS_JOIN_PUSHDOWN:
+                return true;
+            case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
+                return false;
+
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
                 return false;
 
             case SUPPORTS_ARRAY:
-                return false;
-
-            case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
 
             default:
