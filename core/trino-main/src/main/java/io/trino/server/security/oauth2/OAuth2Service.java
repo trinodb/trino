@@ -42,6 +42,7 @@ import java.util.UUID;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.hash.Hashing.sha256;
+import static com.google.common.io.Resources.getResource;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 
@@ -67,6 +68,8 @@ public class OAuth2Service
     private final TemporalAmount challengeTimeout;
     private final byte[] stateHmac;
 
+    private final boolean printOutTokenForWebUI;
+
     @Inject
     public OAuth2Service(OAuth2Client client, @ForOAuth2 SigningKeyResolver signingKeyResolver, OAuth2Config oauth2Config)
             throws IOException
@@ -74,8 +77,8 @@ public class OAuth2Service
         this.client = requireNonNull(client, "client is null");
         this.signingKeyResolver = requireNonNull(signingKeyResolver, "signingKeyResolver is null");
 
-        this.successHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/success.html"), UTF_8);
-        this.failureHtml = Resources.toString(Resources.getResource(getClass(), "/oauth2/failure.html"), UTF_8);
+        this.successHtml = Resources.toString(getResource(getClass(), "/oauth2/success.html"), UTF_8);
+        this.failureHtml = Resources.toString(getResource(getClass(), "/oauth2/failure.html"), UTF_8);
         verify(failureHtml.contains(FAILURE_REPLACEMENT_TEXT), "login.html does not contain the replacement text");
 
         requireNonNull(oauth2Config, "oauth2Config is null");
@@ -84,6 +87,7 @@ public class OAuth2Service
         this.stateHmac = oauth2Config.getStateKey()
                 .map(key -> sha256().hashString(key, UTF_8).asBytes())
                 .orElseGet(() -> secureRandomBytes(32));
+        this.printOutTokenForWebUI = oauth2Config.isPrintOutTokenForWebUI();
     }
 
     public OAuthChallenge startWebUiChallenge(URI callbackUri)
@@ -187,6 +191,18 @@ public class OAuth2Service
     public String getSuccessHtml()
     {
         return successHtml;
+    }
+
+    public boolean showTokenOnSuccessfulWebLogin()
+    {
+        return printOutTokenForWebUI;
+    }
+
+    public String getSuccessWebHtml(String token)
+            throws IOException
+    {
+        String successUITemplate = Resources.toString(getResource(getClass(), "/oauth2/success_ui.html"), UTF_8);
+        return successUITemplate.replaceAll("\\{OAUTH2_TOKEN\\}", token);
     }
 
     public String getCallbackErrorHtml(String errorCode)

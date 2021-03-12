@@ -40,6 +40,7 @@ public class OAuth2ServiceModule
     protected void setup(Binder binder)
     {
         jaxrsBinder(binder).bind(OAuth2CallbackResource.class);
+        jaxrsBinder(binder).bind(OAuth2UISuccessResource.class);
         newOptionalBinder(binder, OAuth2WebUiInstalled.class);
         newOptionalBinder(binder, OAuth2TokenExchange.class);
 

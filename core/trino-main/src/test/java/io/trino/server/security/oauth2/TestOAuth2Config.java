@@ -43,7 +43,8 @@ public class TestOAuth2Config
                 .setChallengeTimeout(Duration.valueOf("15m"))
                 .setPrincipalField("sub")
                 .setUserMappingPattern(null)
-                .setUserMappingFile(null));
+                .setUserMappingFile(null)
+                .setPrintOutTokenForWebUI(true));
     }
 
     @Test
@@ -64,6 +65,7 @@ public class TestOAuth2Config
                 .put("http-server.authentication.oauth2.challenge-timeout", "90s")
                 .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@something")
                 .put("http-server.authentication.oauth2.user-mapping.file", userMappingFile.toString())
+                .put("web-ui.authentication.print-token", "false")
                 .build();
 
         OAuth2Config expected = new OAuth2Config()
@@ -78,7 +80,8 @@ public class TestOAuth2Config
                 .setPrincipalField("some-field")
                 .setChallengeTimeout(Duration.valueOf("90s"))
                 .setUserMappingPattern("(.*)@something")
-                .setUserMappingFile(userMappingFile.toFile());
+                .setUserMappingFile(userMappingFile.toFile())
+                .setPrintOutTokenForWebUI(false);
 
         assertFullMapping(properties, expected);
     }
