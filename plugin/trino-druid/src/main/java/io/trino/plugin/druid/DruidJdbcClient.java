@@ -55,6 +55,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 
 public class DruidJdbcClient
@@ -222,66 +223,66 @@ public class DruidJdbcClient
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
     public JdbcOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
     }
 
     @Override
     public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     @Override
     public void commitCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
     public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming columns");
     }
 
     @Override
     public void dropColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping columns");
     }
 
     @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle handle)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping tables");
     }
 
     @Override
     public void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
     }
 
     @Override
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DML_NOT_SUPPORTED, "DML operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support inserts");
     }
 
     @Override
     public void createSchema(ConnectorSession session, String schemaName)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating schemas");
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        throw new TrinoException(DruidErrorCode.DRUID_DDL_NOT_SUPPORTED, "DDL operations are not supported in the Trino Druid connector");
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
     }
 }
