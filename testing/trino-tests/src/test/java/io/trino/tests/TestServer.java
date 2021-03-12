@@ -249,8 +249,8 @@ public class TestServer
         checkVersionOnError("SELECT query that fails parsing", "ParsingException: line 1:19: mismatched input 'fails'. Expecting");
         // fails during analysis
         checkVersionOnError("SELECT foo FROM some_catalog.some_schema.no_such_table", "TrinoException: line 1:17: Catalog 'some_catalog' does not exist");
-        // fails during optimization
-        checkVersionOnError("SELECT 1 / 0", "TrinoException: Division by zero(?s:.*)at io.trino.sql.planner.iterative.rule.SimplifyExpressions");
+        // fails during execution
+        checkVersionOnError("SELECT 1 / 0", "TrinoException: Division by zero(?s:.*)at io.trino.operator.Driver.processInternal");
         // fails during execution
         checkVersionOnError("select 1 / a from (values 0) t(a)", "TrinoException: Division by zero(?s:.*)at io.trino.operator.Driver.processInternal");
     }
