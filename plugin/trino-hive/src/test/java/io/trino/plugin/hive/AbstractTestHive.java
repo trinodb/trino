@@ -2812,10 +2812,10 @@ public abstract class AbstractTestHive
 
         AtomicReference<PartitionStatistics> expectedStatistics = new AtomicReference<>(initialStatistics);
         for (PartitionStatistics partitionStatistics : statistics) {
-            metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), actualStatistics -> {
+            metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), NO_ACID_TRANSACTION, actualStatistics -> {
                 assertThat(actualStatistics).isEqualTo(expectedStatistics.get());
                 return partitionStatistics;
-            }, NO_ACID_TRANSACTION);
+            });
             assertThat(metastoreClient.getTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName()))
                     .isEqualTo(partitionStatistics);
             expectedStatistics.set(partitionStatistics);
@@ -2824,10 +2824,10 @@ public abstract class AbstractTestHive
         assertThat(metastoreClient.getTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName()))
                 .isEqualTo(expectedStatistics.get());
 
-        metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), actualStatistics -> {
+        metastoreClient.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), NO_ACID_TRANSACTION, actualStatistics -> {
             assertThat(actualStatistics).isEqualTo(expectedStatistics.get());
             return initialStatistics;
-        }, NO_ACID_TRANSACTION);
+        });
 
         assertThat(metastoreClient.getTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName()))
                 .isEqualTo(initialStatistics);
@@ -4123,7 +4123,7 @@ public abstract class AbstractTestHive
     {
         HiveMetastore metastoreClient = getMetastoreClient();
         HiveIdentity identity = new HiveIdentity(SESSION);
-        metastoreClient.updateTableStatistics(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), statistics -> new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()), NO_ACID_TRANSACTION);
+        metastoreClient.updateTableStatistics(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), NO_ACID_TRANSACTION, statistics -> new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));
         Table table = metastoreClient.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName));
         List<String> partitionColumns = table.getPartitionColumns().stream()
