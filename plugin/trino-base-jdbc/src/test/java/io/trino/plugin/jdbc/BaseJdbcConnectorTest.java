@@ -21,6 +21,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -48,6 +49,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
 {
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_VIEW:
+                // Not supported by JdbcMetadata
+                return false;
+
+            case SUPPORTS_DELETE:
+                // Not supported by JdbcMetadata
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
     // TODO move common tests from connector-specific classes here
 
     @Test
