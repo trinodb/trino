@@ -21,9 +21,9 @@ import javax.inject.Inject;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.trino.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.trino.spi.session.PropertyMetadata.booleanProperty;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
@@ -117,19 +117,6 @@ public class SnowflakeDistributedSessionProperties
                         false,
                         value -> checkArgument(!value, "Enabling optimize_symlink_listing not supported for Snowflake"),
                         true));
-    }
-
-    private static PropertyMetadata<DataSize> dataSizeProperty(String name, String description, DataSize defaultValue, boolean hidden)
-    {
-        return new PropertyMetadata<>(
-                name,
-                description,
-                VARCHAR,
-                DataSize.class,
-                defaultValue,
-                hidden,
-                value -> DataSize.valueOf((String) value),
-                DataSize::toString);
     }
 
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
