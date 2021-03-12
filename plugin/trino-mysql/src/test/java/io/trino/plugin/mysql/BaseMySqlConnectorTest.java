@@ -47,36 +47,6 @@ public abstract class BaseMySqlConnectorTest
         extends BaseJdbcConnectorTest
 {
     @Override
-    protected boolean supportsDelete()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsArrays()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnTable()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnColumn()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
@@ -92,6 +62,13 @@ public abstract class BaseMySqlConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN:
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_ARRAY:
                 return false;
 
             default:

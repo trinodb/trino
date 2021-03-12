@@ -25,6 +25,14 @@ import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.QueryAssertions.assertContains;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
@@ -39,6 +47,86 @@ import static org.testng.Assert.assertTrue;
 public abstract class BaseConnectorTest
         extends AbstractTestDistributedQueries
 {
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected final boolean supportsCreateSchema()
+    {
+        return hasBehavior(SUPPORTS_CREATE_SCHEMA);
+    }
+
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected final boolean supportsCreateTable()
+    {
+        return hasBehavior(SUPPORTS_CREATE_TABLE);
+    }
+
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected final boolean supportsInsert()
+    {
+        return hasBehavior(SUPPORTS_INSERT);
+    }
+
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected final boolean supportsDelete()
+    {
+        return hasBehavior(SUPPORTS_DELETE);
+    }
+
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected final boolean supportsViews()
+    {
+        return hasBehavior(SUPPORTS_CREATE_VIEW);
+    }
+
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected final boolean supportsArrays()
+    {
+        return hasBehavior(SUPPORTS_ARRAY);
+    }
+
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected final boolean supportsCommentOnTable()
+    {
+        return hasBehavior(SUPPORTS_COMMENT_ON_TABLE);
+    }
+
+    /**
+     * @deprecated Use {@link #hasBehavior(TestingConnectorBehavior)} instead.
+     */
+    @Deprecated
+    @Override
+    protected final boolean supportsCommentOnColumn()
+    {
+        return hasBehavior(SUPPORTS_COMMENT_ON_COLUMN);
+    }
+
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);

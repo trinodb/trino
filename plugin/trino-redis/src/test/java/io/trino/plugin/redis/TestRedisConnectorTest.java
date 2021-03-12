@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.AfterClass;
 
 import static io.trino.plugin.redis.RedisQueryRunner.createRedisQueryRunner;
@@ -41,50 +42,30 @@ public class TestRedisConnectorTest
     }
 
     @Override
-    protected boolean supportsCreateSchema()
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        return false;
-    }
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
 
-    @Override
-    protected boolean supportsCreateTable()
-    {
-        return false;
-    }
+            case SUPPORTS_CREATE_TABLE:
+                return false;
 
-    @Override
-    protected boolean supportsInsert()
-    {
-        return false;
-    }
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
 
-    @Override
-    protected boolean supportsDelete()
-    {
-        return false;
-    }
+            case SUPPORTS_INSERT:
+                return false;
 
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
+            case SUPPORTS_DELETE:
+                return false;
 
-    @Override
-    protected boolean supportsArrays()
-    {
-        return false;
-    }
+            case SUPPORTS_ARRAY:
+                return false;
 
-    @Override
-    protected boolean supportsCommentOnTable()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnColumn()
-    {
-        return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }

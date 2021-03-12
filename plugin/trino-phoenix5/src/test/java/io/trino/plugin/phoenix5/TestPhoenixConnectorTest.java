@@ -18,6 +18,7 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -56,33 +57,16 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
-    protected boolean supportsDelete()
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        return false;
-    }
+        switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
 
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsArrays()
-    {
-        return true;
-    }
-
-    @Override
-    protected boolean supportsCommentOnTable()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnColumn()
-    {
-        return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override
