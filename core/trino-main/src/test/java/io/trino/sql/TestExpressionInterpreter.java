@@ -14,13 +14,11 @@
 package io.trino.sql;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.TrinoException;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
@@ -29,17 +27,14 @@ import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolResolver;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
-import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.transaction.TestingTransactionManager;
@@ -59,7 +54,8 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
+import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -77,12 +73,12 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.function.Function.identity;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -119,6 +115,37 @@ public class TestExpressionInterpreter
             .put(new Symbol("unbound_pattern"), VARCHAR)
             .put(new Symbol("unbound_null_string"), VARCHAR)
             .build());
+
+    private static final SymbolResolver INPUTS = symbol -> {
+        switch (symbol.getName().toLowerCase(ENGLISH)) {
+            case "bound_integer":
+                return 1234L;
+            case "bound_long":
+                return 1234L;
+            case "bound_string":
+                return utf8Slice("hello");
+            case "bound_double":
+                return 12.34;
+            case "bound_date":
+                return new LocalDate(2001, 8, 22).toDateMidnight(UTC).getMillis();
+            case "bound_time":
+                return new LocalTime(3, 4, 5, 321).toDateTime(new DateTime(0, UTC)).getMillis();
+            case "bound_timestamp":
+                return scaleEpochMillisToMicros(new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
+            case "bound_pattern":
+                return utf8Slice("%el%");
+            case "bound_timestamp_with_timezone":
+                return SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 1, 0, 0, 999, UTC).getMillis(), 0, getTimeZoneKey("Z"));
+            case "bound_varbinary":
+                return Slices.wrappedBuffer((byte) 0xab);
+            case "bound_decimal_short":
+                return 12345L;
+            case "bound_decimal_long":
+                return Decimals.encodeUnscaledValue(new BigInteger("12345678901234567890123"));
+        }
+
+        return symbol.toSymbolReference();
+    };
 
     private static final SqlParser SQL_PARSER = new SqlParser();
     private static final Metadata METADATA = createTestMetadataManager();
@@ -465,6 +492,19 @@ public class TestExpressionInterpreter
 
         assertOptimizedEquals("unbound_integer IN (1)", "unbound_integer = 1");
         assertOptimizedEquals("unbound_long IN (unbound_long2)", "unbound_long = unbound_long2");
+
+        assertOptimizedEquals("3 in (2, 4, 3, 5 / 0)", "3 in (2, 4, 3, 5 / 0)");
+        assertOptimizedEquals("null in (2, 4, 3, 5 / 0)", "null in (2, 4, 3, 5 / 0)");
+        assertOptimizedEquals("3 in (2, 4, 3, null, 5 / 0)", "3 in (2, 4, 3, null, 5 / 0)");
+        assertOptimizedEquals("null in (2, 4, null, 5 / 0)", "null in (2, 4, null, 5 / 0)");
+        assertOptimizedEquals("3 in (5 / 0, 5 / 0)", "3 in (5 / 0, 5 / 0)");
+        assertTrinoExceptionThrownBy(() -> evaluate("3 in (2, 4, 3, 5 / 0)"))
+                .hasErrorCode(DIVISION_BY_ZERO);
+
+        assertOptimizedEquals("0 / 0 in (2, 4, 3, 5)", "0 / 0 in (2, 4, 3, 5)");
+        assertOptimizedEquals("0 / 0 in (2, 4, 2, 4)", "0 / 0 in (2, 4)");
+        assertOptimizedEquals("0 / 0 in (rand(), 2, 4)", "0 / 0 in (2, 4, rand())");
+        assertOptimizedEquals("0 / 0 in (2, 2)", "0 / 0 = 2");
     }
 
     @Test
@@ -866,9 +906,9 @@ public class TestExpressionInterpreter
                         "END");
 
         assertOptimizedMatches("CASE WHEN 0 / 0 = 0 THEN 1 END",
-                "CASE WHEN CAST(fail('fail') AS boolean) THEN 1 END");
+                "CASE WHEN ((0 / 0) = 0) THEN 1 END");
 
-        assertOptimizedMatches("IF(false, 1, 0 / 0)", "CAST(fail('fail') AS integer)");
+        assertOptimizedMatches("IF(false, 1, 0 / 0)", "0 / 0");
 
         assertOptimizedEquals("CASE " +
                         "WHEN false THEN 2.2 " +
@@ -1089,7 +1129,7 @@ public class TestExpressionInterpreter
                 "" +
                         "CASE BIGINT '1' " +
                         "WHEN unbound_long THEN 1 " +
-                        "WHEN CAST(fail('fail') AS bigint) THEN 2 " +
+                        "WHEN CAST((0 / 0) AS bigint) THEN 2 " +
                         "ELSE 1 " +
                         "END");
 
@@ -1100,8 +1140,8 @@ public class TestExpressionInterpreter
                         "END",
                 "" +
                         "CASE 1 " +
-                        "WHEN CAST(fail('fail') AS integer) THEN 1 " +
-                        "WHEN CAST(fail('fail') AS integer) THEN 2 " +
+                        "WHEN 0 / 0 THEN 1 " +
+                        "WHEN 0 / 0 THEN 2 " +
                         "ELSE 1 " +
                         "END");
 
@@ -1139,7 +1179,7 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("coalesce(unbound_integer * (2 * 3), 1.0E0/2.0E0, NULL)", "coalesce(6 * unbound_integer, 0.5E0)");
         assertOptimizedEquals("coalesce(unbound_integer, 2, 1.0E0/2.0E0, 12.34E0, NULL)", "coalesce(unbound_integer, 2.0E0, 0.5E0, 12.34E0)");
         assertOptimizedMatches("coalesce(0 / 0 < 1, unbound_boolean, 0 / 0 = 0)",
-                "coalesce(CAST(fail('fail') AS boolean), unbound_boolean)");
+                "COALESCE(((0 / 0) < 1), unbound_boolean, ((0 / 0) = 0))");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long)", "unbound_long");
         assertOptimizedMatches("coalesce(2 * unbound_long, 2 * unbound_long)", "unbound_long * BIGINT '2'");
         assertOptimizedMatches("coalesce(unbound_long, unbound_long2, unbound_long)", "coalesce(unbound_long, unbound_long2)");
@@ -1282,22 +1322,37 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testInvalidLike()
+    public void testOptimizeInvalidLike()
     {
-        assertThatThrownBy(() -> optimize("unbound_string LIKE 'abc' ESCAPE ''"))
-                .isInstanceOf(TrinoException.class)
+        assertOptimizedMatches("unbound_string LIKE 'abc' ESCAPE ''", "unbound_string LIKE 'abc' ESCAPE ''");
+        assertOptimizedMatches("unbound_string LIKE 'abc' ESCAPE 'bc'", "unbound_string LIKE 'abc' ESCAPE 'bc'");
+        assertOptimizedMatches("unbound_string LIKE '#' ESCAPE '#'", "unbound_string LIKE '#' ESCAPE '#'");
+        assertOptimizedMatches("unbound_string LIKE '#abc' ESCAPE '#'", "unbound_string LIKE '#abc' ESCAPE '#'");
+        assertOptimizedMatches("unbound_string LIKE 'ab#' ESCAPE '#'", "unbound_string LIKE 'ab#' ESCAPE '#'");
+    }
+
+    @Test
+    public void testEvaluateInvalidLike()
+    {
+        // TODO This doesn't fail (https://github.com/trinodb/trino/issues/7273)
+        /*assertTrinoExceptionThrownBy(() -> evaluate("'some_string' LIKE 'abc' ESCAPE ''"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Escape string must be a single character");*/
+
+        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE 'abc' ESCAPE 'bc'"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape string must be a single character");
-        assertThatThrownBy(() -> optimize("unbound_string LIKE 'abc' ESCAPE 'bc'"))
-                .isInstanceOf(TrinoException.class)
-                .hasMessage("Escape string must be a single character");
-        assertThatThrownBy(() -> optimize("unbound_string LIKE '#' ESCAPE '#'"))
-                .isInstanceOf(TrinoException.class)
+
+        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE '#' ESCAPE '#'"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
-        assertThatThrownBy(() -> optimize("unbound_string LIKE '#abc' ESCAPE '#'"))
-                .isInstanceOf(TrinoException.class)
+
+        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE '#abc' ESCAPE '#'"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
-        assertThatThrownBy(() -> optimize("unbound_string LIKE 'ab#' ESCAPE '#'"))
-                .isInstanceOf(TrinoException.class)
+
+        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE 'ab#' ESCAPE '#'"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
     }
 
@@ -1308,28 +1363,31 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("IF(unbound_boolean, 0 / 0, 1)", "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
 
         assertOptimizedMatches("CASE unbound_long WHEN 1 THEN 1 WHEN 0 / 0 THEN 2 END",
-                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN CAST(fail('fail') AS bigint) THEN 2 END");
+                "CASE unbound_long WHEN BIGINT '1' THEN 1 WHEN CAST((0 / 0) AS bigint) THEN 2 END");
 
         assertOptimizedMatches("CASE unbound_boolean WHEN true THEN 1 ELSE 0 / 0 END",
-                "CASE unbound_boolean WHEN true THEN 1 ELSE CAST(fail('fail') AS integer) END");
+                "CASE unbound_boolean WHEN true THEN 1 ELSE 0 / 0 END");
 
         assertOptimizedMatches("CASE bound_long WHEN unbound_long THEN 1 WHEN 0 / 0 THEN 2 ELSE 1 END",
-                "CASE BIGINT '1234' WHEN unbound_long THEN 1 WHEN CAST(fail('fail') AS bigint) THEN 2 ELSE 1 END");
+                "CASE BIGINT '1234' WHEN unbound_long THEN 1 WHEN CAST((0 / 0) AS bigint) THEN 2 ELSE 1 END");
 
         assertOptimizedMatches("CASE WHEN unbound_boolean THEN 1 WHEN 0 / 0 = 0 THEN 2 END",
-                "CASE WHEN unbound_boolean THEN 1 WHEN CAST(fail('fail') AS boolean) THEN 2 END");
+                "CASE WHEN unbound_boolean THEN 1 WHEN 0 / 0 = 0 THEN 2 END");
 
-        assertOptimizedMatches("CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0  END",
-                "CASE WHEN unbound_boolean THEN 1 ELSE CAST(fail('fail') AS integer) END");
+        assertOptimizedMatches("CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END",
+                "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
 
         assertOptimizedMatches("CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END",
-                "CASE WHEN unbound_boolean THEN CAST(fail('fail') AS integer) ELSE 1 END");
+                "CASE WHEN unbound_boolean THEN 0 / 0 ELSE 1 END");
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testOptimizeDivideByZero()
     {
-        optimize("0 / 0");
+        assertOptimizedEquals("0 / 0", "0 / 0");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("0 / 0"))
+                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test
@@ -1380,22 +1438,34 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("ROW(1, 'a', ROW(2, 'b', ROW(3, 'c')))[3][3][2]", "'c'");
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testArraySubscriptConstantNegativeIndex()
     {
-        optimize("ARRAY[1, 2, 3][-1]");
+        assertOptimizedEquals("ARRAY[1, 2, 3][-1]", "ARRAY[1,2,3][CAST(-1 AS bigint)]");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("ARRAY[1, 2, 3][-1]"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Array subscript is negative: -1");
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testArraySubscriptConstantZeroIndex()
     {
-        optimize("ARRAY[1, 2, 3][0]");
+        assertOptimizedEquals("ARRAY[1, 2, 3][0]", "ARRAY[1,2,3][CAST(0 AS bigint)]");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("ARRAY[1, 2, 3][0]"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("SQL array indices start at 1");
     }
 
-    @Test(expectedExceptions = TrinoException.class)
+    @Test
     public void testMapSubscriptMissingKey()
     {
-        optimize("MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]");
+        assertOptimizedEquals("MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]", "MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("MAP(ARRAY[1, 2], ARRAY[3, 4])[-1]"))
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Key not present in map: -1");
     }
 
     @Test
@@ -1459,9 +1529,6 @@ public class TestExpressionInterpreter
     {
         Expression actualOptimized = (Expression) optimize(actual);
 
-        // replace FunctionCalls to FailureFunction by fail('fail')
-        actualOptimized = ExpressionTreeRewriter.rewriteWith(new FailedFunctionRewriter(), actualOptimized);
-
         SymbolAliases.Builder aliases = SymbolAliases.builder()
                 .putAll(SYMBOL_TYPES.allTypes().keySet().stream()
                         .map(Symbol::getName)
@@ -1482,36 +1549,7 @@ public class TestExpressionInterpreter
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, parsedExpression);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, METADATA, TEST_SESSION, expressionTypes);
-        return interpreter.optimize(symbol -> {
-            switch (symbol.getName().toLowerCase(ENGLISH)) {
-                case "bound_integer":
-                    return 1234L;
-                case "bound_long":
-                    return 1234L;
-                case "bound_string":
-                    return utf8Slice("hello");
-                case "bound_double":
-                    return 12.34;
-                case "bound_date":
-                    return new LocalDate(2001, 8, 22).toDateMidnight(UTC).getMillis();
-                case "bound_time":
-                    return new LocalTime(3, 4, 5, 321).toDateTime(new DateTime(0, UTC)).getMillis();
-                case "bound_timestamp":
-                    return scaleEpochMillisToMicros(new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
-                case "bound_pattern":
-                    return utf8Slice("%el%");
-                case "bound_timestamp_with_timezone":
-                    return SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 1, 0, 0, 999, UTC).getMillis(), 0, getTimeZoneKey("Z"));
-                case "bound_varbinary":
-                    return Slices.wrappedBuffer((byte) 0xab);
-                case "bound_decimal_short":
-                    return 12345L;
-                case "bound_decimal_long":
-                    return Decimals.encodeUnscaledValue(new BigInteger("12345678901234567890123"));
-            }
-
-            return symbol.toSymbolReference();
-        });
+        return interpreter.optimize(INPUTS);
     }
 
     // TODO replace that method with io.trino.sql.ExpressionTestUtils.planExpression
@@ -1560,19 +1598,6 @@ public class TestExpressionInterpreter
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, METADATA, SYMBOL_TYPES, expression);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, METADATA, TEST_SESSION, expressionTypes);
 
-        return interpreter.evaluate();
-    }
-
-    private static class FailedFunctionRewriter
-            extends ExpressionRewriter<Void>
-    {
-        @Override
-        public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-        {
-            if (extractFunctionName(node.getName()).equals("fail")) {
-                return new FunctionCall(QualifiedName.of("fail"), ImmutableList.of(new StringLiteral("fail")));
-            }
-            return node;
-        }
+        return interpreter.evaluate(INPUTS);
     }
 }
