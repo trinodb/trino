@@ -17,8 +17,9 @@ import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.plan.AggregationNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.assertions.Assert;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
@@ -26,11 +27,11 @@ import org.testng.annotations.Test;
 
 import static io.trino.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public abstract class BaseDruidIntegrationSmokeTest
-        // TODO extend BaseConnectorTest
-        extends AbstractTestIntegrationSmokeTest
+public abstract class BaseDruidConnectorTest
+        extends BaseConnectorTest
 {
     protected static final String SELECT_FROM_ORDERS = "SELECT " +
             "orderdate, " +
@@ -115,6 +116,23 @@ public abstract class BaseDruidIntegrationSmokeTest
         }
     }
 
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_DELETE:
+            case SUPPORTS_INSERT:
+            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_CREATE_TABLE:
+            case SUPPORTS_CREATE_TABLE_WITH_DATA:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_COMMENT_ON_TABLE:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
     @Test
     @Override
     public void testDescribeTable()
@@ -133,6 +151,27 @@ public abstract class BaseDruidIntegrationSmokeTest
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
         Assert.assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expected = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("__time", "timestamp(3)", "", "")
+                .row("clerk", "varchar", "", "")
+                .row("comment", "varchar", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderdate", "varchar", "", "")
+                .row("orderkey", "bigint", "", "")
+                .row("orderpriority", "varchar", "", "")
+                .row("orderstatus", "varchar", "", "")
+                .row("shippriority", "bigint", "", "")
+                .row("totalprice", "double", "", "")
+                .build();
+
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -253,7 +292,8 @@ public abstract class BaseDruidIntegrationSmokeTest
     }
 
     @Test
-    public void testLimitPushdown()
+    @Override
+    public void testLimitPushDown()
     {
         assertThat(query("SELECT name FROM nation LIMIT 30")).isFullyPushedDown(); // Use high limit for result determinism
 

@@ -24,14 +24,16 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.PART;
 import static io.trino.tpch.TpchTable.REGION;
 
-public class TestDruidIntegrationSmokeTest
-        extends BaseDruidIntegrationSmokeTest
+public class TestDruidLatestConnectorTest
+        extends BaseDruidConnectorTest
 {
+    private static final String LATEST_DRUID_DOCKER_IMAGE = "apache/druid:0.20.0";
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.druidServer = new TestingDruidServer();
+        this.druidServer = new TestingDruidServer(LATEST_DRUID_DOCKER_IMAGE);
         QueryRunner runner = DruidQueryRunner.createDruidQueryRunnerTpch(druidServer, ImmutableMap.of());
         copyAndIngestTpchData(runner.execute(SELECT_FROM_ORDERS), this.druidServer, ORDERS.getTableName());
         copyAndIngestTpchData(runner.execute(SELECT_FROM_LINEITEM), this.druidServer, LINE_ITEM.getTableName());
