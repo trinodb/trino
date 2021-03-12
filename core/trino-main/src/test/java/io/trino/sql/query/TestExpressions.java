@@ -52,6 +52,19 @@ public class TestExpressions
     }
 
     @Test
+    public void testInShortCircuit()
+    {
+        // Because of the failing in-list item 5 / 0, the in-predicate cannot be simplified.
+        // It is instead processed with the use of generated code which applies the short-circuit
+        // logic and finds a match without evaluating the failing item.
+        // According to in-predicate semantics, this query should fail, as all the in-list items
+        // should be successfully evaluated before a check for the match is performed.
+        // However, the execution of in-predicate is optimized for efficiency at the cost of
+        // correctness in this edge case.
+        assertThat(assertions.query("SELECT 3 IN (2, 4, 3, 5 / 0)")).matches("VALUES true");
+    }
+
+    @Test
     public void testInlineNullBind()
     {
         // https://github.com/trinodb/trino/issues/3411
