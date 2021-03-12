@@ -77,7 +77,7 @@ Property Name                                Description
 
 ``hive.s3.upload-acl-type``                  Canned ACL to use while uploading files to S3, defaults
                                              to ``PRIVATE``. If the files are to be uploaded to a S3
-                                             bucket owned by a different user, the canned ACL has to be
+                                             bucket owned by a different AWS user, the canned ACL has to be
                                              set to one of the following: ``AUTHENTICATED_READ``,
                                              ``AWS_EXEC_READ``, ``BUCKET_OWNER_FULL_CONTROL``, ``BUCKET_OWNER_READ``,
                                              ``LOG_DELIVERY_WRITE``, ``PUBLIC_READ``, ``PUBLIC_READ_WRITE``.
