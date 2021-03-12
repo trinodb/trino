@@ -398,11 +398,11 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
         identity = updateIdentity(identity);
         try {
-            delegate.updatePartitionStatistics(identity, table, partitionName, update);
+            delegate.updatePartitionStatistics(identity, table, partitionName, transaction, update);
         }
         finally {
             HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
@@ -413,10 +413,10 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, AcidTransaction transaction, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         try {
-            delegate.updatePartitionStatistics(updateIdentity(identity), table, updates);
+            delegate.updatePartitionStatistics(updateIdentity(identity), table, transaction, updates);
         }
         finally {
             HiveIdentity hiveIdentity = updateIdentity(identity);

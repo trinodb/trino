@@ -383,7 +383,7 @@ public class SemiTransactionalHiveMetastore
     // TODO: Allow updating statistics for 2 tables in the same transaction
     public synchronized void setTableStatistics(HiveIdentity identity, Table table, PartitionStatistics tableStatistics)
     {
-        AcidTransaction transaction = currentHiveTransaction.isPresent() ? currentHiveTransaction.get().getTransaction() : NO_ACID_TRANSACTION;
+        AcidTransaction transaction = getTransactionForStatisticsUpdate();
         setExclusive((delegate, hdfsEnvironment) ->
                 delegate.updateTableStatistics(identity, table.getDatabaseName(), table.getTableName(), transaction, statistics -> updatePartitionStatistics(statistics, tableStatistics)));
     }
@@ -395,12 +395,19 @@ public class SemiTransactionalHiveMetastore
                 toImmutableMap(
                         entry -> getPartitionName(table, entry.getKey()),
                         entry -> oldPartitionStats -> updatePartitionStatistics(oldPartitionStats, entry.getValue())));
+        AcidTransaction transaction = getTransactionForStatisticsUpdate();
         setExclusive((delegate, hdfsEnvironment) ->
                 delegate.updatePartitionStatistics(
                         identity,
                         table.getDatabaseName(),
                         table.getTableName(),
+                        transaction,
                         updates));
+    }
+
+    private AcidTransaction getTransactionForStatisticsUpdate()
+    {
+        return currentHiveTransaction.isPresent() ? currentHiveTransaction.get().getTransaction() : NO_ACID_TRANSACTION;
     }
 
     // For HiveBasicStatistics, we only overwrite the original statistics if the new one is not empty.
@@ -1249,6 +1256,11 @@ public class SemiTransactionalHiveMetastore
     public AcidTransaction beginUpdate(ConnectorSession session, Table table, HiveUpdateProcessor updateProcessor)
     {
         return beginOperation(session, table, AcidOperation.UPDATE, DataOperationType.UPDATE, Optional.of(updateProcessor));
+    }
+
+    public AcidTransaction beginStatisticsCollection(ConnectorSession session, Table table)
+    {
+        return beginOperation(session, table, AcidOperation.ANALYZE, DataOperationType.UPDATE, Optional.empty());
     }
 
     private AcidTransaction beginOperation(ConnectorSession session, Table table, AcidOperation operation, DataOperationType hiveOperation, Optional<HiveUpdateProcessor> updateProcessor)
@@ -3295,7 +3307,7 @@ public class SemiTransactionalHiveMetastore
         public void run(HiveMetastoreClosure metastore, AcidTransaction transaction)
         {
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics);
+                metastore.updatePartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), transaction, this::updateStatistics);
             }
             else {
                 metastore.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), transaction, this::updateStatistics);
@@ -3309,7 +3321,7 @@ public class SemiTransactionalHiveMetastore
                 return;
             }
             if (partitionName.isPresent()) {
-                metastore.updatePartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::resetStatistics);
+                metastore.updatePartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), transaction, this::resetStatistics);
             }
             else {
                 metastore.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), transaction, this::resetStatistics);

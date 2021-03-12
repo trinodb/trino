@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.plugin.hive.acid.AcidTransaction;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -87,7 +88,7 @@ public interface ThriftMetastoreClient
     List<ColumnStatisticsObj> getTableColumnStatistics(String databaseName, String tableName, List<String> columnNames)
             throws TException;
 
-    void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+    void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
             throws TException;
 
     void deleteTableColumnStatistics(String databaseName, String tableName, String columnName)
@@ -96,7 +97,7 @@ public interface ThriftMetastoreClient
     Map<String, List<ColumnStatisticsObj>> getPartitionColumnStatistics(String databaseName, String tableName, List<String> partitionNames, List<String> columnNames)
             throws TException;
 
-    void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
             throws TException;
 
     void deletePartitionColumnStatistics(String databaseName, String tableName, String partitionName, String columnName)

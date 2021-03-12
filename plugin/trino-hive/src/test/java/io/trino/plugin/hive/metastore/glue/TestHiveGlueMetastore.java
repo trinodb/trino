@@ -975,7 +975,7 @@ public class TestHiveGlueMetastore
                     .setColumnStatistics(columnStatistics).build();
 
             createDummyPartitionedTable(tableName, columns);
-            metastore.updatePartitionStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> partitionStatistics);
+            metastore.updatePartitionStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName(), NO_ACID_TRANSACTION, ImmutableMap.of("ds=2016-01-01", actualStatistics -> partitionStatistics));
 
             PartitionStatistics tableStatistics = new PartitionStatistics(createEmptyStatistics(), Map.of());
             assertThat(metastore.getTableStatistics(HIVE_IDENTITY, tableName.getSchemaName(), tableName.getTableName()))
@@ -1133,7 +1133,7 @@ public class TestHiveGlueMetastore
         metastoreClient.addPartitions(identity, tableName.getSchemaName(), tableName.getTableName(), partitions);
         partitionNames.forEach(
                 partitionName -> metastoreClient.updatePartitionStatistics(
-                        identity, tableName.getSchemaName(), tableName.getTableName(), partitionName, currentStatistics -> EMPTY_TABLE_STATISTICS));
+                        identity, tableName.getSchemaName(), tableName.getTableName(), partitionName, NO_ACID_TRANSACTION, currentStatistics -> EMPTY_TABLE_STATISTICS));
     }
 
     private class CloseableSchamaTableName

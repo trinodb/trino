@@ -134,10 +134,10 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, AcidTransaction transaction, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         org.apache.hadoop.hive.metastore.api.Table metastoreTable = toMetastoreApiTable(table);
-        updates.forEach((partitionName, update) -> delegate.updatePartitionStatistics(identity, metastoreTable, partitionName, update));
+        updates.forEach((partitionName, update) -> delegate.updatePartitionStatistics(identity, metastoreTable, partitionName, transaction, update));
     }
 
     @Override

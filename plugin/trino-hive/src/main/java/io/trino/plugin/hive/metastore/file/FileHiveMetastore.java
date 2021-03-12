@@ -435,7 +435,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public synchronized void updatePartitionStatistics(HiveIdentity identity, Table table, AcidTransaction transaction, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         updates.forEach((partitionName, update) -> {
             PartitionStatistics originalStatistics = getPartitionStatistics(table, extractPartitionValues(partitionName));

@@ -75,7 +75,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, AcidTransaction transaction, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         throw new UnsupportedOperationException();
     }

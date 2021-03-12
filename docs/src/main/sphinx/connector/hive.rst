@@ -1123,5 +1123,6 @@ Hive 3 related limitations
       )
       AS <query>
 
-  Trino does not support gathering table statistics for Hive transactional tables.
-  You need to use Hive to gather table statistics with ``ANALYZE TABLE COMPUTE STATISTICS`` after table creation.
+* For transactional tables, Trino does not support gathering table statistics while processing
+  ``INSERT`` and ``CREATE TABLE AS`` statements, as well as ``UPDATE`` statements.  However,
+  Trino can gather statistics for transactional tables using the ``ANALYZE`` statement.
