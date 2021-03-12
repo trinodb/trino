@@ -93,9 +93,9 @@ public class HiveMetastoreClosure
         return delegate.getPartitionStatistics(identity, table, partitions);
     }
 
-    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
+    public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updateTableStatistics(identity, databaseName, tableName, update, transaction);
+        delegate.updateTableStatistics(identity, databaseName, tableName, transaction, update);
     }
 
     public void updatePartitionStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
