@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
@@ -46,33 +47,19 @@ public class TestJdbcConnectorTest
     }
 
     @Override
-    protected boolean supportsDelete()
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        return false;
-    }
+        switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
 
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
+            case SUPPORTS_ARRAY:
+                return false;
 
-    @Override
-    protected boolean supportsArrays()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnTable()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnColumn()
-    {
-        return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override

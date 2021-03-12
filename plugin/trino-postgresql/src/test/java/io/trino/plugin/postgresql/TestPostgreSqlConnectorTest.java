@@ -79,31 +79,6 @@ public class TestPostgreSqlConnectorTest
     }
 
     @Override
-    protected boolean supportsDelete()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsArrays()
-    {
-        // Arrays are supported conditionally. Check the defaults.
-        return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
-    }
-
-    @Override
-    protected boolean supportsCommentOnTable()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
@@ -112,6 +87,13 @@ public class TestPostgreSqlConnectorTest
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+                return false;
+
+            case SUPPORTS_ARRAY:
+                // Arrays are supported conditionally. Check the defaults.
+                return new PostgreSqlConfig().getArrayMapping() != PostgreSqlConfig.ArrayMapping.DISABLED;
 
             default:
                 return super.hasBehavior(connectorBehavior);

@@ -43,30 +43,6 @@ public abstract class BaseOracleConnectorTest
         extends BaseJdbcConnectorTest
 {
     @Override
-    protected boolean supportsDelete()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsArrays()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnTable()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
@@ -83,6 +59,12 @@ public abstract class BaseOracleConnectorTest
                 return true;
 
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
+                return false;
+
+            case SUPPORTS_COMMENT_ON_TABLE:
+                return false;
+
+            case SUPPORTS_ARRAY:
                 return false;
 
             default:
