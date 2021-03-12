@@ -198,6 +198,7 @@ public class AlluxioHiveMetastore
             HiveIdentity identity,
             Table table,
             String partitionName,
+            AcidTransaction transaction,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
         throw new TrinoException(NOT_SUPPORTED, "updatePartitionStatistics");

@@ -15,6 +15,7 @@ package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
 import io.trino.plugin.hive.acid.AcidOperation;
+import io.trino.plugin.hive.acid.AcidTransaction;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -175,10 +176,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+    public void setTableColumnStatistics(String databaseName, String tableName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
             throws TException
     {
-        runWithHandle(() -> delegate.setTableColumnStatistics(databaseName, tableName, statistics));
+        runWithHandle(() -> delegate.setTableColumnStatistics(databaseName, tableName, statistics, transaction));
     }
 
     @Override
@@ -196,10 +197,10 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    public void setPartitionColumnStatistics(String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
             throws TException
     {
-        runWithHandle(() -> delegate.setPartitionColumnStatistics(databaseName, tableName, partitionName, statistics));
+        runWithHandle(() -> delegate.setPartitionColumnStatistics(databaseName, tableName, partitionName, statistics, transaction));
     }
 
     @Override

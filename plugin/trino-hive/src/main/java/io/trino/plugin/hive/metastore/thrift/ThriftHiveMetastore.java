@@ -127,6 +127,7 @@ import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_LOCK_NOT_ACQUIRED;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
+import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
@@ -545,14 +546,16 @@ public class ThriftHiveMetastore
                     return Stream.of(createMetastoreColumnStatistics(entry.getKey(), type, entry.getValue(), rowCount));
                 })
                 .collect(toImmutableList());
+        // If the table is a transactional table, the column statistics will be empty for all
+        // operations other than ANALYZE table
         if (!metastoreColumnStatistics.isEmpty()) {
-            setTableColumnStatistics(identity, databaseName, tableName, metastoreColumnStatistics);
+            setTableColumnStatistics(identity, databaseName, tableName, metastoreColumnStatistics, transaction);
         }
         Set<String> removedColumnStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
         removedColumnStatistics.forEach(column -> deleteTableColumnStatistics(identity, databaseName, tableName, column));
     }
 
-    private void setTableColumnStatistics(HiveIdentity identity, String databaseName, String tableName, List<ColumnStatisticsObj> statistics)
+    private void setTableColumnStatistics(HiveIdentity identity, String databaseName, String tableName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
     {
         try {
             retry()
@@ -563,7 +566,7 @@ public class ThriftHiveMetastore
                                 identity,
                                 format("table %s.%s", databaseName, tableName),
                                 statistics,
-                                (client, stats) -> client.setTableColumnStatistics(databaseName, tableName, stats));
+                                (client, stats) -> client.setTableColumnStatistics(databaseName, tableName, stats, transaction));
                         return null;
                     }));
         }
@@ -603,7 +606,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
         List<Partition> partitions = getPartitionsByNames(identity, table.getDbName(), table.getTableName(), ImmutableList.of(partitionName));
         if (partitions.size() != 1) {
@@ -622,7 +625,7 @@ public class ThriftHiveMetastore
 
         Map<String, HiveType> columns = modifiedPartition.getSd().getCols().stream()
                 .collect(toImmutableMap(FieldSchema::getName, schema -> HiveType.valueOf(schema.getType())));
-        setPartitionColumnStatistics(identity, table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.getColumnStatistics(), basicStatistics.getRowCount());
+        setPartitionColumnStatistics(identity, table.getDbName(), table.getTableName(), partitionName, columns, updatedStatistics.getColumnStatistics(), basicStatistics.getRowCount(), transaction);
 
         Set<String> removedStatistics = difference(currentStatistics.getColumnStatistics().keySet(), updatedStatistics.getColumnStatistics().keySet());
         removedStatistics.forEach(column -> deletePartitionColumnStatistics(identity, table.getDbName(), table.getTableName(), partitionName, column));
@@ -635,18 +638,19 @@ public class ThriftHiveMetastore
             String partitionName,
             Map<String, HiveType> columns,
             Map<String, HiveColumnStatistics> columnStatistics,
-            OptionalLong rowCount)
+            OptionalLong rowCount,
+            AcidTransaction transaction)
     {
         List<ColumnStatisticsObj> metastoreColumnStatistics = columnStatistics.entrySet().stream()
                 .filter(entry -> columns.containsKey(entry.getKey()))
                 .map(entry -> createMetastoreColumnStatistics(entry.getKey(), columns.get(entry.getKey()), entry.getValue(), rowCount))
                 .collect(toImmutableList());
         if (!metastoreColumnStatistics.isEmpty()) {
-            setPartitionColumnStatistics(identity, databaseName, tableName, partitionName, metastoreColumnStatistics);
+            setPartitionColumnStatistics(identity, databaseName, tableName, partitionName, metastoreColumnStatistics, transaction);
         }
     }
 
-    private void setPartitionColumnStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics)
+    private void setPartitionColumnStatistics(HiveIdentity identity, String databaseName, String tableName, String partitionName, List<ColumnStatisticsObj> statistics, AcidTransaction transaction)
     {
         try {
             retry()
@@ -657,7 +661,7 @@ public class ThriftHiveMetastore
                                 identity,
                                 format("partition of table %s.%s", databaseName, tableName),
                                 statistics,
-                                (client, stats) -> client.setPartitionColumnStatistics(databaseName, tableName, partitionName, stats));
+                                (client, stats) -> client.setPartitionColumnStatistics(databaseName, tableName, partitionName, stats, transaction));
                         return null;
                     }));
         }
@@ -1337,7 +1341,9 @@ public class ThriftHiveMetastore
         }
         Map<String, HiveType> columnTypes = partitionWithStatistics.getPartition().getColumns().stream()
                 .collect(toImmutableMap(Column::getName, Column::getType));
-        setPartitionColumnStatistics(identity, databaseName, tableName, partitionName, columnTypes, columnStatistics, statistics.getBasicStatistics().getRowCount());
+        // Using NO_ACID_TRANSACTION as this code path is currently not used for transactional tables.
+        // TODO (https://github.com/trinodb/trino/issues/7190) support stats in INSERT, DELETE and UPDATE for transactional tables
+        setPartitionColumnStatistics(identity, databaseName, tableName, partitionName, columnTypes, columnStatistics, statistics.getBasicStatistics().getRowCount(), NO_ACID_TRANSACTION);
     }
 
     /*

@@ -397,11 +397,11 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(HiveIdentity identity, Table table, String partitionName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
         identity = updateIdentity(identity);
         try {
-            delegate.updatePartitionStatistics(identity, table, partitionName, update);
+            delegate.updatePartitionStatistics(identity, table, partitionName, transaction, update);
         }
         finally {
             HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);

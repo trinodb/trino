@@ -56,6 +56,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
+import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.cachingHiveMetastore;
@@ -406,7 +407,7 @@ public class TestCachingHiveMetastore
         Table table = hiveMetastoreClosure.getTable(IDENTITY, TEST_DATABASE, TEST_TABLE).get();
         assertEquals(mockClient.getAccessCount(), 1);
 
-        hiveMetastoreClosure.updatePartitionStatistics(IDENTITY, table.getDatabaseName(), table.getTableName(), TEST_PARTITION1, identity());
+        hiveMetastoreClosure.updatePartitionStatistics(IDENTITY, table.getDatabaseName(), table.getTableName(), TEST_PARTITION1, NO_ACID_TRANSACTION, identity());
         assertEquals(mockClient.getAccessCount(), 5);
     }
 

@@ -66,6 +66,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
@@ -873,7 +874,7 @@ public class TestHiveGlueMetastore
         metastoreClient.addPartitions(identity, tableName.getSchemaName(), tableName.getTableName(), partitions);
         partitionNames.forEach(
                 partitionName -> metastoreClient.updatePartitionStatistics(
-                        identity, tableName.getSchemaName(), tableName.getTableName(), partitionName, currentStatistics -> EMPTY_TABLE_STATISTICS));
+                        identity, tableName.getSchemaName(), tableName.getTableName(), partitionName, NO_ACID_TRANSACTION, currentStatistics -> EMPTY_TABLE_STATISTICS));
     }
 
     private class CloseableSchamaTableName

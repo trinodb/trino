@@ -24,6 +24,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.hive.acid.AcidOperation.ANALYZE;
 import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
 import static io.trino.plugin.hive.acid.AcidOperation.DELETE;
 import static io.trino.plugin.hive.acid.AcidOperation.INSERT;
@@ -80,7 +81,7 @@ public class AcidTransaction
     @JsonIgnore
     public boolean isAcidTransactionRunning()
     {
-        return operation == INSERT || operation == DELETE || operation == UPDATE;
+        return operation.isAcidTransaction();
     }
 
     @JsonIgnore
@@ -131,6 +132,12 @@ public class AcidTransaction
     public boolean isUpdate()
     {
         return operation == UPDATE;
+    }
+
+    @JsonIgnore
+    public boolean isAnalyze()
+    {
+        return operation == ANALYZE;
     }
 
     public boolean isAcidInsertOperation(WriterKind writerKind)
