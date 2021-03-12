@@ -379,7 +379,7 @@ public class SemiTransactionalHiveMetastore
     {
         AcidTransaction transaction = currentHiveTransaction.isPresent() ? currentHiveTransaction.get().getTransaction() : NO_ACID_TRANSACTION;
         setExclusive((delegate, hdfsEnvironment) ->
-                delegate.updateTableStatistics(identity, table.getDatabaseName(), table.getTableName(), statistics -> updatePartitionStatistics(statistics, tableStatistics), transaction));
+                delegate.updateTableStatistics(identity, table.getDatabaseName(), table.getTableName(), transaction, statistics -> updatePartitionStatistics(statistics, tableStatistics)));
     }
 
     // TODO: Allow updating statistics for 2 tables in the same transaction
@@ -3247,7 +3247,7 @@ public class SemiTransactionalHiveMetastore
                 metastore.updatePartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics);
             }
             else {
-                metastore.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), this::updateStatistics, transaction);
+                metastore.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), transaction, this::updateStatistics);
             }
             done = true;
         }
@@ -3261,7 +3261,7 @@ public class SemiTransactionalHiveMetastore
                 metastore.updatePartitionStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::resetStatistics);
             }
             else {
-                metastore.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), this::resetStatistics, transaction);
+                metastore.updateTableStatistics(identity, tableName.getSchemaName(), tableName.getTableName(), transaction, this::resetStatistics);
             }
         }
 

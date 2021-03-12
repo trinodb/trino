@@ -162,7 +162,7 @@ public class TestSemiTransactionalHiveMetastore
         }
 
         @Override
-        public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, Function<PartitionStatistics, PartitionStatistics> update, AcidTransaction transaction)
+        public void updateTableStatistics(HiveIdentity identity, String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
         {
             assertCountDownLatch();
         }
