@@ -61,6 +61,8 @@ public class TestStarburstOracleParallelConnectorSmokeTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_LIMIT_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN:
+                // Full pushdown is disabled for parallel connector for correctness - see StarburstOracleClient#is(TopN)LimitGuaranteed
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);

@@ -75,6 +75,7 @@ public class TestStarburstOracleConnectorTest
         switch (connectorBehavior) {
             case SUPPORTS_AGGREGATION_PUSHDOWN:
             case SUPPORTS_LIMIT_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN:
                 return true;
             default:
                 return super.hasBehavior(connectorBehavior);

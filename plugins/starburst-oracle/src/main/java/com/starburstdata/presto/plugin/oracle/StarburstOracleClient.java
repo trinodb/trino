@@ -55,6 +55,7 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -369,6 +370,35 @@ public class StarburstOracleClient
 
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
+    {
+        return StarburstOracleSessionProperties.getParallelismType(session) == OracleParallelismType.NO_PARALLELISM;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    {
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return format("%s %s %s", quoted(sortItem.getName()), ordering, nullsHandling);
+                    })
+                    .collect(joining(", "));
+
+            // NOTE: This syntax is supported since Oracle 12c (older releases are not supported by Oracle)
+            return format("%s ORDER BY %s FETCH FIRST %d ROWS ONLY", query, orderBy, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
     {
         return StarburstOracleSessionProperties.getParallelismType(session) == OracleParallelismType.NO_PARALLELISM;
     }
