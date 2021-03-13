@@ -99,7 +99,7 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("smallint", "32456", SMALLINT, "SMALLINT '32456'")
                 .addRoundTrip("tinyint", "125", TINYINT, "TINYINT '125'")
                 .addRoundTrip("double", "123.45", DOUBLE, "DOUBLE '123.45'")
-                // TODO: Real doesn't work with SqlDataTypeTest (see below)
+                // TODO: fails in SqlDataTypeTest#verifyPredicate
                 // .addRoundTrip("real", "123.45", REAL, "REAL '123.45'")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_basic_types"));
     }
@@ -107,6 +107,8 @@ public class TestMemSqlTypeMapping
     @Test
     public void testFloat()
     {
+        // TODO: convert to SqlDataTypeTest (fails in SqlDataTypeTest#verifyPredicate)
+
         // we are not testing Nan/-Infinity/+Infinity as those are not supported by MemSQL
         DataTypeTest.create()
                 .addRoundTrip(realDataType(), 3.14f)
@@ -121,22 +123,6 @@ public class TestMemSqlTypeMapping
                 // .addRoundTrip(floatType, 3.1415927f)
                 .addRoundTrip(memSqlFloatDataType(), null)
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_float"));
-
-        // TODO: Changing to SqlDataTypeTest with Real does not work: assertion in SqlDataTypeTest.verifyPredicate() fails
-
-        // SqlDataTypeTest.create()
-        //         .addRoundTrip("real", "3.14", REAL, "REAL '3.14'")
-        //         // TODO Overeagerly rounded by MemSQL to 3.14159
-        //         // .addRoundTrip("real", "3.1415927", REAL, "REAL '3.14159'")
-        //         .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
-        //         .execute(getQueryRunner(), trinoCreateAsSelect("trino_test_float"));
-
-        // SqlDataTypeTest.create()
-        //         .addRoundTrip("float", "3.14", REAL, "REAL '3.14'")
-        //         // TODO Overeagerly rounded by MemSQL to 3.14159
-        //         // .addRoundTrip("float", "3.1415927", REAL, "REAL '3.14159'")
-        //         .addRoundTrip("float", "NULL", REAL, "CAST(NULL AS real)")
-        //         .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_float"));
     }
 
     @Test
@@ -183,6 +169,7 @@ public class TestMemSqlTypeMapping
     private SqlDataTypeTest decimalTests()
     {
         return SqlDataTypeTest.create()
+                .addRoundTrip("decimal(3, 0)", "CAST(NULL AS decimal(3, 0))", createDecimalType(3, 0), "CAST(NULL AS decimal(3, 0))")
                 .addRoundTrip("decimal(3, 0)", "CAST('193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('193' AS decimal(3, 0))")
                 .addRoundTrip("decimal(3, 0)", "CAST('19' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('19' AS decimal(3, 0))")
                 .addRoundTrip("decimal(3, 0)", "CAST('-193' AS decimal(3, 0))", createDecimalType(3, 0), "CAST('-193' AS decimal(3, 0))")
@@ -197,6 +184,7 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("decimal(24, 4)", "CAST('12345678901234567890.31' AS decimal(24, 4))", createDecimalType(24, 4), "CAST('12345678901234567890.31' AS decimal(24, 4))")
                 .addRoundTrip("decimal(30, 5)", "CAST('3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('3141592653589793238462643.38327' AS decimal(30, 5))")
                 .addRoundTrip("decimal(30, 5)", "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))", createDecimalType(30, 5), "CAST('-3141592653589793238462643.38327' AS decimal(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST(NULL AS decimal(38, 0))", createDecimalType(38, 0), "CAST(NULL AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS decimal(38, 0))")
                 .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS decimal(38, 0))");
     }
@@ -391,7 +379,7 @@ public class TestMemSqlTypeMapping
                 .addRoundTrip("char(1)", "'a'", createCharType(1), "CAST('a' AS char(1))")
                 .addRoundTrip("char(8)", "'abc'", createCharType(8), "CAST('abc' AS char(8))")
                 .addRoundTrip("char(8)", "'12345678'", createCharType(8), "CAST('12345678' AS char(8))")
-                .addRoundTrip("char(255)", String.format("'%s'", "a".repeat(255)), createCharType(255), String.format("CAST('%s' AS char(255))", "a".repeat(255)));
+                .addRoundTrip("char(255)", format("'%s'", "a".repeat(255)), createCharType(255), format("CAST('%s' AS char(255))", "a".repeat(255)));
     }
 
     @Test
@@ -441,14 +429,14 @@ public class TestMemSqlTypeMapping
     {
         String sampleUnicodeText = "'\u653b\u6bbb\u6a5f\u52d5\u968a'";
         SqlDataTypeTest.create()
-                .addRoundTrip("tinytext " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(255), "CAST(" + sampleUnicodeText + "AS varchar(255))")
-                .addRoundTrip("text " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(65535), "CAST(" + sampleUnicodeText + "AS varchar(65535))")
-                .addRoundTrip("mediumtext " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(16777215), "CAST(" + sampleUnicodeText + "AS varchar(16777215))")
-                .addRoundTrip("longtext " + CHARACTER_SET_UTF8, sampleUnicodeText, createUnboundedVarcharType(), "CAST(" + sampleUnicodeText + "AS varchar)")
+                .addRoundTrip("tinytext " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(255), "CAST(" + sampleUnicodeText + " AS varchar(255))")
+                .addRoundTrip("text " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(65535), "CAST(" + sampleUnicodeText + " AS varchar(65535))")
+                .addRoundTrip("mediumtext " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(16777215), "CAST(" + sampleUnicodeText + " AS varchar(16777215))")
+                .addRoundTrip("longtext " + CHARACTER_SET_UTF8, sampleUnicodeText, createUnboundedVarcharType(), "CAST(" + sampleUnicodeText + " AS varchar)")
                 .addRoundTrip("varchar(" + sampleUnicodeText.length() + ") " + CHARACTER_SET_UTF8, sampleUnicodeText,
-                        createVarcharType(sampleUnicodeText.length()), "CAST(" + sampleUnicodeText + "AS varchar(" + sampleUnicodeText.length() + "))")
-                .addRoundTrip("varchar(32) " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(32), "CAST(" + sampleUnicodeText + "AS varchar(32))")
-                .addRoundTrip("varchar(20000) " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(20000), "CAST(" + sampleUnicodeText + "AS varchar(20000))")
+                        createVarcharType(sampleUnicodeText.length()), "CAST(" + sampleUnicodeText + " AS varchar(" + sampleUnicodeText.length() + "))")
+                .addRoundTrip("varchar(32) " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(32), "CAST(" + sampleUnicodeText + " AS varchar(32))")
+                .addRoundTrip("varchar(20000) " + CHARACTER_SET_UTF8, sampleUnicodeText, createVarcharType(20000), "CAST(" + sampleUnicodeText + " AS varchar(20000))")
                 .execute(getQueryRunner(), memSqlCreateAndInsert("tpch.memsql_test_parameterized_varchar_unicode"));
     }
 
