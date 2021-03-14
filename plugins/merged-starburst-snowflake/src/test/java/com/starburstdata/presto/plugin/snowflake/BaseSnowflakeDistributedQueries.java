@@ -27,7 +27,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class BaseSnowflakeDistributedQueries
         extends AbstractTestDistributedQueries
@@ -187,15 +186,5 @@ public abstract class BaseSnowflakeDistributedQueries
     public void testTableSampleBernoulli()
     {
         throw new SkipException("This test takes more than 10 minutes to finish.");
-    }
-
-    // TODO drop override after https://github.com/trinodb/trino/pull/7236
-    @Test
-    @Override
-    public void testLimitMax()
-    {
-        assertThatThrownBy(super::testLimitMax)
-                .isInstanceOf(Throwable.class);
-        throw new SkipException("Temporarily disabled until https://github.com/trinodb/trino/pull/7236");
     }
 }
