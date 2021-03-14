@@ -31,7 +31,6 @@ import java.util.Properties;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -74,24 +73,6 @@ public class TestStarburstOracleConnectorTest
         }
 
         super.testColumnName(columnName);
-    }
-
-    @Test
-    @Override
-    public void testCommentColumn()
-    {
-        // TODO remove test override after https://github.com/trinodb/trino/pull/7230
-        assertThatThrownBy(super::testCommentColumn)
-                .hasMessageContaining("to contain:\n <\"COMMENT 'new comment'\"> ");
-
-        String tableName = "test_comment_column_" + randomTableSuffix();
-
-        assertUpdate("CREATE TABLE " + tableName + "(a integer)");
-
-        // comment set
-        assertUpdate("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'");
-        // without remarksReporting Oracle does not return comments set
-        assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
     }
 
     @Override
