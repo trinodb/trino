@@ -130,6 +130,11 @@ public abstract class AbstractTestOracleTypeMapping
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
+    private DataSetup trinoCreateAndInsert(String tableNamePrefix)
+    {
+        return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner()), tableNamePrefix);
+    }
+
     /* Floating point types tests */
 
     @Test
@@ -146,7 +151,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("double", "+infinity()", DOUBLE, "CAST(+infinity() AS double)")
                 .addRoundTrip("double", "-infinity()", DOUBLE, "CAST(-infinity() AS double)")
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS double)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("floats"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("floats"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("floats"));
     }
 
     @Test
@@ -193,7 +199,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip(format("varchar(%d)", MAX_VARCHAR2_ON_WRITE), "'string max size'",
                         createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('string max size' AS VARCHAR(%d))", MAX_VARCHAR2_ON_WRITE))
                 .addRoundTrip("varchar(5)", "NULL", createVarcharType(5), "CAST(NULL AS VARCHAR(5))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("varchar"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("varchar"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("varchar"));
     }
 
     @Test
@@ -234,7 +241,8 @@ public abstract class AbstractTestOracleTypeMapping
                         createVarcharType(MAX_VARCHAR2_ON_WRITE), format("CAST('攻殻機動隊' AS varchar(%d))", MAX_VARCHAR2_ON_WRITE))
                 .addRoundTrip("varchar(1)", "'😂'", createVarcharType(1), "CAST('😂' AS varchar(1))")
                 .addRoundTrip("varchar(6)", "'😂'", createVarcharType(6), "CAST('😂' AS varchar(6))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("varchar_unicode"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("varchar_unicode"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("varchar_unicode"));
     }
 
     @Test
@@ -281,7 +289,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'😂'", createUnboundedVarcharType(), "CAST('😂' AS varchar)")
                 .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "'clob'", createUnboundedVarcharType(), "CAST('clob' AS varchar)")
                 .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE + 1), "NULL", createUnboundedVarcharType(), "CAST(NULL AS varchar)")
-                .execute(getQueryRunner(), trinoCreateAsSelect("unbounded"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("unbounded"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("unbounded"));
     }
 
     @Test
@@ -314,7 +323,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip(format("char(%d)", MAX_CHAR_ON_WRITE), "'string max size'",
                         createCharType(MAX_CHAR_ON_WRITE), format("CAST('string max size' AS CHAR(%d))", MAX_CHAR_ON_WRITE))
                 .addRoundTrip("char(5)", "NULL", createCharType(5), "CAST(NULL AS CHAR(5))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("char"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("char"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("char"));
     }
 
     @Test
@@ -378,26 +388,27 @@ public abstract class AbstractTestOracleTypeMapping
     public void testDecimalMapping()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("decimal(3, 0)", "193", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
-                .addRoundTrip("decimal(3, 0)", "19", createDecimalType(3, 0), "CAST(19 AS DECIMAL(3, 0))")
-                .addRoundTrip("decimal(3, 0)", "-193", createDecimalType(3, 0), "CAST(-193 AS DECIMAL(3, 0))")
-                .addRoundTrip("decimal(3, 1)", "10.0", createDecimalType(3, 1), "CAST(10.0 AS DECIMAL(3, 1))")
-                .addRoundTrip("decimal(3, 1)", "10.1", createDecimalType(3, 1), "CAST(10.1 AS DECIMAL(3, 1))")
-                .addRoundTrip("decimal(3, 1)", "-10.1", createDecimalType(3, 1), "CAST(-10.1 AS DECIMAL(3, 1))")
-                .addRoundTrip("decimal(4, 2)", "2", createDecimalType(4, 2), "CAST(2 AS DECIMAL(4, 2))")
-                .addRoundTrip("decimal(4, 2)", "2.3", createDecimalType(4, 2), "CAST(2.3 AS DECIMAL(4, 2))")
-                .addRoundTrip("decimal(24, 2)", "2", createDecimalType(24, 2), "CAST(2 AS DECIMAL(24, 2))")
-                .addRoundTrip("decimal(24, 2)", "2.3", createDecimalType(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
-                .addRoundTrip("decimal(24, 2)", "123456789.3", createDecimalType(24, 2), "CAST(123456789.3 AS DECIMAL(24, 2))")
-                .addRoundTrip("decimal(24, 4)", "12345678901234567890.31", createDecimalType(24, 4), "CAST(12345678901234567890.31 AS DECIMAL(24, 4))")
-                .addRoundTrip("decimal(30, 5)", "3141592653589793238462643.38327", createDecimalType(30, 5), "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))")
-                .addRoundTrip("decimal(30, 5)", "-3141592653589793238462643.38327", createDecimalType(30, 5), "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))")
-                .addRoundTrip("decimal(38, 0)", "'27182818284590452353602874713526624977'", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
-                .addRoundTrip("decimal(38, 0)", "'-27182818284590452353602874713526624977'", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
-                .addRoundTrip("decimal(38, 38)", ".10000200003000040000500006000070000888", createDecimalType(38, 38), "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))")
-                .addRoundTrip("decimal(38, 38)", "-.27182818284590452353602874713526624977", createDecimalType(38, 38), "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))")
-                .addRoundTrip("decimal(10, 3)", "NULL", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("decimals"));
+                .addRoundTrip("decimal(3, 0)", "CAST(193 AS DECIMAL(3, 0))", createDecimalType(3, 0), "CAST(193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(19 AS DECIMAL(3, 0)) ", createDecimalType(3, 0), "CAST(19 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 0)", "CAST(-193 AS DECIMAL(3, 0))", createDecimalType(3, 0), "CAST(-193 AS DECIMAL(3, 0))")
+                .addRoundTrip("decimal(3, 1)", "CAST(10.0 AS DECIMAL(3, 1))", createDecimalType(3, 1), "CAST(10.0 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST(10.1 AS DECIMAL(3, 1))", createDecimalType(3, 1), "CAST(10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(3, 1)", "CAST(-10.1 AS DECIMAL(3, 1))", createDecimalType(3, 1), "CAST(-10.1 AS DECIMAL(3, 1))")
+                .addRoundTrip("decimal(4, 2)", "CAST(2 AS DECIMAL(4, 2))", createDecimalType(4, 2), "CAST(2 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(4, 2)", "CAST(2.3 AS DECIMAL(4, 2))", createDecimalType(4, 2), "CAST(2.3 AS DECIMAL(4, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(2 AS DECIMAL(24, 2))", createDecimalType(24, 2), "CAST(2 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(2.3 AS DECIMAL(24, 2))", createDecimalType(24, 2), "CAST(2.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 2)", "CAST(123456789.3 AS DECIMAL(24, 2))", createDecimalType(24, 2), "CAST(123456789.3 AS DECIMAL(24, 2))")
+                .addRoundTrip("decimal(24, 4)", "CAST(12345678901234567890.31 AS DECIMAL(24, 4))", createDecimalType(24, 4), "CAST(12345678901234567890.31 AS DECIMAL(24, 4))")
+                .addRoundTrip("decimal(30, 5)", "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))", createDecimalType(30, 5), "CAST(3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(30, 5)", "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))", createDecimalType(30, 5), "CAST(-3141592653589793238462643.38327 AS DECIMAL(30, 5))")
+                .addRoundTrip("decimal(38, 0)", "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))", createDecimalType(38, 0), "CAST('27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 0)", "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))", createDecimalType(38, 0), "CAST('-27182818284590452353602874713526624977' AS DECIMAL(38, 0))")
+                .addRoundTrip("decimal(38, 38)", "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))", createDecimalType(38, 38), "CAST(.10000200003000040000500006000070000888 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(38, 38)", "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))", createDecimalType(38, 38), "CAST(-.27182818284590452353602874713526624977 AS DECIMAL(38, 38))")
+                .addRoundTrip("decimal(10, 3)", "CAST(NULL AS DECIMAL(10, 3))", createDecimalType(10, 3), "CAST(NULL AS DECIMAL(10, 3))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("decimals"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("decimals"));
     }
 
     @Test
@@ -408,7 +419,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("smallint", "0", createDecimalType(5, 0), "CAST(0 AS DECIMAL(5, 0))")
                 .addRoundTrip("integer", "0", createDecimalType(10, 0), "CAST(0 AS DECIMAL(10, 0))")
                 .addRoundTrip("bigint", "0", createDecimalType(19, 0), "CAST(0 AS DECIMAL(19, 0))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("integers"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("integers"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("integers"));
     }
 
     @Test
@@ -581,9 +593,10 @@ public abstract class AbstractTestOracleTypeMapping
     public void testBooleanType()
     {
         SqlDataTypeTest.create()
-                .addRoundTrip("boolean", "true", createDecimalType(1, 0), "CAST(true AS DECIMAL(1, 0))")
-                .addRoundTrip("boolean", "false", createDecimalType(1, 0), "CAST(false AS DECIMAL(1, 0))")
-                .execute(getQueryRunner(), trinoCreateAsSelect("boolean_types"));
+                .addRoundTrip("boolean", "CAST(true AS DECIMAL(1, 0))", createDecimalType(1, 0), "CAST(true AS DECIMAL(1, 0))")
+                .addRoundTrip("boolean", "CAST(false AS DECIMAL(1, 0))", createDecimalType(1, 0), "CAST(false AS DECIMAL(1, 0))")
+                .execute(getQueryRunner(), trinoCreateAsSelect("boolean_types"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("boolean_types"));
     }
 
     @Test
@@ -597,7 +610,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("varbinary", "X'4261672066756C6C206F6620F09F92B0'", VARBINARY, "to_utf8('Bag full of 💰')")
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
-                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"));
+                .execute(getQueryRunner(), trinoCreateAsSelect("test_varbinary"))
+                .execute(getQueryRunner(), trinoCreateAndInsert("test_varbinary"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("blob", "NULL", VARBINARY, "CAST(NULL AS varbinary)")
