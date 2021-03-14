@@ -19,7 +19,7 @@ import io.trino.testing.QueryRunner;
 
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 
-public class TestMemSqlConnectorSmokeTestLatest
+public class TestMemSqlLatestConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
     @Override
