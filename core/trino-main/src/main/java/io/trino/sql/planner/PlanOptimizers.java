@@ -45,6 +45,7 @@ import io.trino.sql.planner.iterative.rule.DesugarLike;
 import io.trino.sql.planner.iterative.rule.DesugarRowSubscript;
 import io.trino.sql.planner.iterative.rule.DesugarTryExpression;
 import io.trino.sql.planner.iterative.rule.DetermineJoinDistributionType;
+import io.trino.sql.planner.iterative.rule.DeterminePreferredWritePartitioning;
 import io.trino.sql.planner.iterative.rule.DetermineSemiJoinDistributionType;
 import io.trino.sql.planner.iterative.rule.EliminateCrossJoins;
 import io.trino.sql.planner.iterative.rule.EvaluateZeroSample;
@@ -71,7 +72,6 @@ import io.trino.sql.planner.iterative.rule.MergeLimits;
 import io.trino.sql.planner.iterative.rule.MergeUnion;
 import io.trino.sql.planner.iterative.rule.MultipleDistinctAggregationToMarkDistinct;
 import io.trino.sql.planner.iterative.rule.OptimizeDuplicateInsensitiveJoins;
-import io.trino.sql.planner.iterative.rule.PreferWritePartitioning;
 import io.trino.sql.planner.iterative.rule.PruneAggregationColumns;
 import io.trino.sql.planner.iterative.rule.PruneAggregationSourceColumns;
 import io.trino.sql.planner.iterative.rule.PruneApplyColumns;
@@ -705,7 +705,7 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new PreferWritePartitioning())),
+                        ImmutableSet.of(new DeterminePreferredWritePartitioning())),
                 // Because ReorderJoins runs only once,
                 // PredicatePushDown, columnPruningOptimizer and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
