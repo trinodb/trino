@@ -24,6 +24,7 @@ import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnInfo;
@@ -51,6 +52,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.trino.execution.TestQueues.createResourceGroupId;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
@@ -89,10 +91,11 @@ public class TestEventListenerBasic
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "test_table")))
+                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "tests_table")))
                         .withApplyProjection((session, handle, projections, assignments) -> {
                             throw new RuntimeException("Throw from apply projection");
                         })
+                        .withGetColumns(schemaTableName -> ImmutableList.of(new ColumnMetadata("test", INTEGER)))
                         .build();
                 return ImmutableList.of(connectorFactory);
             }
@@ -144,7 +147,7 @@ public class TestEventListenerBasic
     public void testPlanningFailure()
             throws Exception
     {
-        assertFailedQuery("SELECT * FROM mock.default.tests_table", "Throw from apply projection");
+        assertFailedQuery("SELECT test + 1 FROM mock.default.tests_table", "Throw from apply projection");
     }
 
     @Test

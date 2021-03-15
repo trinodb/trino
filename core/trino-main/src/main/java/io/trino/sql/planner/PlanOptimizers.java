@@ -358,7 +358,6 @@ public class PlanOptimizers
                 new PruneWindowColumns());
 
         Set<Rule<?>> projectionPushdownRules = ImmutableSet.of(
-                new PushProjectionIntoTableScan(metadata, typeAnalyzer),
                 new PushProjectionThroughUnion(),
                 new PushProjectionThroughExchange(),
                 // Dereference pushdown rules
@@ -383,12 +382,6 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new InlineProjections(),
                         new RemoveRedundantIdentityProjections()));
-
-        IterativeOptimizer projectionPushDown = new IterativeOptimizer(
-                ruleStats,
-                statsCalculator,
-                estimatedExchangesCostCalculator,
-                projectionPushdownRules);
 
         IterativeOptimizer simplifyOptimizer = new IterativeOptimizer(
                 ruleStats,
@@ -568,6 +561,7 @@ public class PlanOptimizers
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used
         // Perform redirection before agg, topN, limit, sample etc. push down into table scan as the destination connector may support a different set of push downs
+        // Perform redirection before push down of dereferences into table scan via PushProjectionIntoTableScan
         // Perform redirection after at least one PredicatePushDown and PushPredicateIntoTableScan to allow connector to use pushed down predicates in redirection decision
         // Perform redirection after at least table scan pruning rules because redirected table might have fewer columns
         // PushPredicateIntoTableScan must be run after redirection
@@ -579,7 +573,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new ApplyTableScanRedirection(metadata),
-                                new PushProjectionIntoTableScan(metadata, typeAnalyzer),
+                                new PruneTableScanColumns(metadata),
                                 new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))));
 
         IterativeOptimizer pushIntoTableScanOptimizer = new IterativeOptimizer(
@@ -589,6 +583,7 @@ public class PlanOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         .addAll(columnPruningRules)
                         .addAll(projectionPushdownRules)
+                        .add(new PushProjectionIntoTableScan(metadata, typeAnalyzer))
                         .add(new RemoveRedundantIdentityProjections())
                         .add(new PushLimitIntoTableScan(metadata))
                         .add(new PushPredicateIntoTableScan(metadata, typeOperators, typeAnalyzer))
@@ -601,6 +596,15 @@ public class PlanOptimizers
         builder.add(pushIntoTableScanOptimizer);
         builder.add(new UnaliasSymbolReferences(metadata));
         builder.add(pushIntoTableScanOptimizer); // TODO (https://github.com/trinodb/trino/issues/811) merge with the above after migrating UnaliasSymbolReferences to rules
+
+        IterativeOptimizer projectionPushDown = new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                ImmutableSet.<Rule<?>>builder()
+                        .addAll(projectionPushdownRules)
+                        .add(new PushProjectionIntoTableScan(metadata, typeAnalyzer))
+                        .build());
         builder.add(
                 new IterativeOptimizer(
                         ruleStats,
