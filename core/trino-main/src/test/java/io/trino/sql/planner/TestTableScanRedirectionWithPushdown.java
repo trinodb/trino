@@ -33,8 +33,11 @@ import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.RowType;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -48,12 +51,13 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Predicates.equalTo;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.connector.MockConnectorFactory.ApplyFilter;
 import static io.trino.connector.MockConnectorFactory.ApplyProjection;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
 import static io.trino.spi.predicate.Domain.singleValue;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
@@ -61,6 +65,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
+import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTableScanRedirectionWithPushdown
@@ -78,12 +83,16 @@ public class TestTableScanRedirectionWithPushdown
     private static final ColumnHandle SOURCE_COLUMN_HANDLE_B = new MockConnectorColumnHandle(SOURCE_COLUMN_NAME_B, INTEGER);
     private static final String SOURCE_COLUMN_NAME_C = "source_col_c";
     private static final ColumnHandle SOURCE_COLUMN_HANDLE_C = new MockConnectorColumnHandle(SOURCE_COLUMN_NAME_C, VARCHAR);
+    private static final String SOURCE_COLUMN_NAME_D = "source_col_d";
+    private static final Type ROW_TYPE = RowType.from(asList(field("a", BIGINT), field("b", BIGINT)));
+    private static final ColumnHandle SOURCE_COLUMN_HANDLE_D = new MockConnectorColumnHandle(SOURCE_COLUMN_NAME_D, ROW_TYPE);
 
     private static final SchemaTableName DESTINATION_TABLE = new SchemaTableName("target_schema", "target_table");
     private static final String DESTINATION_COLUMN_NAME_A = "destination_col_a";
     private static final ColumnHandle DESTINATION_COLUMN_HANDLE_A = new MockConnectorColumnHandle(DESTINATION_COLUMN_NAME_A, INTEGER);
     private static final String DESTINATION_COLUMN_NAME_B = "destination_col_b";
     private static final ColumnHandle DESTINATION_COLUMN_HANDLE_B = new MockConnectorColumnHandle(DESTINATION_COLUMN_NAME_B, INTEGER);
+    private static final String DESTINATION_COLUMN_NAME_C = "destination_col_c";
 
     private static final Map<ColumnHandle, String> REDIRECTION_MAPPING_A = ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A);
 
@@ -94,6 +103,10 @@ public class TestTableScanRedirectionWithPushdown
     private static final Map<ColumnHandle, String> TYPE_MISMATCHED_REDIRECTION_MAPPING_BC = ImmutableMap.of(
             SOURCE_COLUMN_HANDLE_B, DESTINATION_COLUMN_NAME_B,
             SOURCE_COLUMN_HANDLE_C, DESTINATION_COLUMN_NAME_A);
+
+    private static final Map<ColumnHandle, String> ROW_TYPE_REDIRECTION_MAPPING_AD = ImmutableMap.of(
+            SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_A,
+            SOURCE_COLUMN_HANDLE_D, DESTINATION_COLUMN_NAME_C);
 
     @Test
     public void testRedirectionAfterProjectionPushdown()
@@ -241,6 +254,35 @@ public class TestTableScanRedirectionWithPushdown
         }
     }
 
+    @Test
+    public void testRedirectionBeforeDeferencePushdown()
+    {
+        // make the mock connector return a table scan on destination table only if
+        // the connector can detect that source_col_a and source_col_d is projected
+        try (LocalQueryRunner queryRunner = createLocalQueryRunner(
+                mockApplyRedirectAfterProjectionPushdown(ROW_TYPE_REDIRECTION_MAPPING_AD, Optional.of(ImmutableSet.of(SOURCE_COLUMN_HANDLE_A, SOURCE_COLUMN_HANDLE_D))),
+                Optional.of(this::mockApplyProjection),
+                Optional.empty())) {
+            // Pushdown of dereference for source_col_d.a into table scan results in a new column handle
+            // Table scan redirection would not take place if dereference pushdown has already taken place before redirection
+            ColumnHandle destinationColumnHandleC0 = new MockConnectorColumnHandle(DESTINATION_COLUMN_NAME_C + "#0", BIGINT);
+            assertPlan(
+                    queryRunner,
+                    "SELECT source_col_a, source_col_d.a FROM test_table",
+                    output(
+                            ImmutableList.of("DEST_COL_A", "DEST_COL_C#0"),
+                            tableScan(
+                                    equalTo(new MockConnectorTableHandle(
+                                            DESTINATION_TABLE,
+                                            TupleDomain.all(),
+                                            Optional.of(ImmutableList.of(DESTINATION_COLUMN_HANDLE_A, destinationColumnHandleC0)))),
+                                    TupleDomain.all(),
+                                    ImmutableMap.of(
+                                            "DEST_COL_A", equalTo(DESTINATION_COLUMN_HANDLE_A),
+                                            "DEST_COL_C#0", equalTo(destinationColumnHandleC0)))));
+        }
+    }
+
     private LocalQueryRunner createLocalQueryRunner(
             ApplyTableScanRedirect applyTableScanRedirect,
             Optional<ApplyProjection> applyProjection,
@@ -254,12 +296,14 @@ public class TestTableScanRedirectionWithPushdown
                         return ImmutableList.of(
                                 new ColumnMetadata(SOURCE_COLUMN_NAME_A, INTEGER),
                                 new ColumnMetadata(SOURCE_COLUMN_NAME_B, INTEGER),
-                                new ColumnMetadata(SOURCE_COLUMN_NAME_C, VARCHAR));
+                                new ColumnMetadata(SOURCE_COLUMN_NAME_C, VARCHAR),
+                                new ColumnMetadata(SOURCE_COLUMN_NAME_D, ROW_TYPE));
                     }
                     else if (name.equals(DESTINATION_TABLE)) {
                         return ImmutableList.of(
                                 new ColumnMetadata(DESTINATION_COLUMN_NAME_A, INTEGER),
-                                new ColumnMetadata(DESTINATION_COLUMN_NAME_B, INTEGER));
+                                new ColumnMetadata(DESTINATION_COLUMN_NAME_B, INTEGER),
+                                new ColumnMetadata(DESTINATION_COLUMN_NAME_C, ROW_TYPE));
                     }
                     throw new IllegalArgumentException();
                 })
@@ -279,12 +323,37 @@ public class TestTableScanRedirectionWithPushdown
     {
         MockConnectorTableHandle handle = (MockConnectorTableHandle) tableHandle;
 
-        List<Variable> variables = projections.stream()
-                .map(Variable.class::cast)
-                .collect(toImmutableList());
-        List<ColumnHandle> newColumns = variables.stream()
-                .map(variable -> assignments.get(variable.getName()))
-                .collect(toImmutableList());
+        ImmutableList.Builder<ColumnHandle> newColumnsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<ConnectorExpression> outputExpressions = ImmutableList.builder();
+        ImmutableList.Builder<Assignment> outputAssignments = ImmutableList.builder();
+
+        for (ConnectorExpression projection : projections) {
+            String newVariableName;
+            ColumnHandle newColumnHandle;
+            if (projection instanceof Variable) {
+                newVariableName = ((Variable) projection).getName();
+                newColumnHandle = assignments.get(newVariableName);
+            }
+            else if (projection instanceof FieldDereference) {
+                FieldDereference dereference = (FieldDereference) projection;
+                if (!(dereference.getTarget() instanceof Variable)) {
+                    throw new UnsupportedOperationException();
+                }
+                String dereferenceTargetName = ((Variable) dereference.getTarget()).getName();
+                newVariableName = ((MockConnectorColumnHandle) assignments.get(dereferenceTargetName)).getName() + "#" + dereference.getField();
+                newColumnHandle = new MockConnectorColumnHandle(newVariableName, projection.getType());
+            }
+            else {
+                throw new UnsupportedOperationException();
+            }
+
+            Variable newVariable = new Variable(newVariableName, projection.getType());
+            newColumnsBuilder.add(newColumnHandle);
+            outputExpressions.add(newVariable);
+            outputAssignments.add(new Assignment(newVariableName, newColumnHandle, projection.getType()));
+        }
+
+        List<ColumnHandle> newColumns = newColumnsBuilder.build();
         if (handle.getColumns().isPresent() && newColumns.equals(handle.getColumns().get())) {
             return Optional.empty();
         }
@@ -292,13 +361,8 @@ public class TestTableScanRedirectionWithPushdown
         return Optional.of(
                 new ProjectionApplicationResult<>(
                         new MockConnectorTableHandle(handle.getTableName(), handle.getConstraint(), Optional.of(newColumns)),
-                        projections,
-                        variables.stream()
-                                .map(variable -> new Assignment(
-                                        variable.getName(),
-                                        assignments.get(variable.getName()),
-                                        ((MockConnectorColumnHandle) assignments.get(variable.getName())).getType()))
-                                .collect(toImmutableList())));
+                        outputExpressions.build(),
+                        outputAssignments.build()));
     }
 
     private ApplyFilter getMockApplyFilter(Set<ColumnHandle> pushdownColumns)

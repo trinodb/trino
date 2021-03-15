@@ -42,7 +42,7 @@ import static io.trino.util.MoreLists.filteredCopy;
 import static java.util.Objects.requireNonNull;
 
 /**
- * TODO: this is a special case of PushProjectionIntoTableScan and should be merged with that rule.
+ * This is a special case of PushProjectionIntoTableScan that performs only column pruning.
  */
 public class PruneTableScanColumns
         extends ProjectOffPushDownRule<TableScanNode>
