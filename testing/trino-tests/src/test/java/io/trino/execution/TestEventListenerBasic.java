@@ -95,7 +95,7 @@ public class TestEventListenerBasic
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "test_table")))
+                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "tests_table")))
                         .withGetColumns(schemaTableName -> ImmutableList.of(new ColumnMetadata("test_varchar", createUnboundedVarcharType())))
                         .withApplyProjection((session, handle, projections, assignments) -> {
                             if (((MockConnectorTableHandle) handle).getTableName().getTableName().equals("test_table_with_column_mask")) {
@@ -178,7 +178,7 @@ public class TestEventListenerBasic
     public void testPlanningFailure()
             throws Exception
     {
-        assertFailedQuery("SELECT * FROM mock.default.tests_table", "Throw from apply projection");
+        assertFailedQuery("SELECT lower(test_varchar) FROM mock.default.tests_table", "Throw from apply projection");
     }
 
     @Test
