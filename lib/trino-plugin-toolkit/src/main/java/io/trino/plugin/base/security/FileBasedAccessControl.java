@@ -26,7 +26,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.nio.file.Paths;
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -101,12 +101,12 @@ public class FileBasedAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    public FileBasedAccessControl(CatalogName catalogName, FileBasedAccessControlConfig config)
+    public FileBasedAccessControl(CatalogName catalogName, File configFile)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null").toString();
 
-        AccessControlRules rules = parseJson(Paths.get(config.getConfigFile()), AccessControlRules.class);
-        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules: %s", config.getConfigFile());
+        AccessControlRules rules = parseJson(configFile.toPath(), AccessControlRules.class);
+        checkArgument(!rules.hasRoleRules(), "File connector access control does not support role rules: %s", configFile);
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();
