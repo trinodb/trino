@@ -101,7 +101,7 @@ public class TestTableScanRedirectionWithPushdown
         // make the mock connector return a table scan on destination table only if
         // the connector can detect that source_col_a is projected
         try (LocalQueryRunner queryRunner = createLocalQueryRunner(
-                this::mockApplyRedirectAfterProjectionPushdown,
+                mockApplyRedirectAfterProjectionPushdown(redirectionMappingA, Optional.of(ImmutableSet.of(sourceColumnHandleA))),
                 Optional.of(this::mockApplyProjection),
                 Optional.empty())) {
             assertPlan(
@@ -290,31 +290,6 @@ public class TestTableScanRedirectionWithPushdown
                                 .collect(toImmutableList())));
     }
 
-    private Optional<TableScanRedirectApplicationResult> mockApplyRedirectAfterProjectionPushdown(
-            ConnectorSession session,
-            ConnectorTableHandle handle)
-    {
-        MockConnectorTableHandle mockConnectorTable = (MockConnectorTableHandle) handle;
-        Optional<List<ColumnHandle>> projectedColumns = mockConnectorTable.getColumns();
-        if (projectedColumns.isEmpty()) {
-            return Optional.empty();
-        }
-        List<String> projectedColumnNames = projectedColumns.get().stream()
-                .map(MockConnectorColumnHandle.class::cast)
-                .map(MockConnectorColumnHandle::getName)
-                .collect(toImmutableList());
-        if (!projectedColumnNames.equals(ImmutableList.of(sourceColumnNameA))) {
-            return Optional.empty();
-        }
-        return Optional.of(
-                new TableScanRedirectApplicationResult(
-                        new CatalogSchemaTableName(MOCK_CATALOG, destinationTable),
-                        redirectionMappingA,
-                        mockConnectorTable.getConstraint()
-                                .transform(MockConnectorColumnHandle.class::cast)
-                                .transform(MockConnectorColumnHandle::getName)));
-    }
-
     private ApplyFilter getMockApplyFilter(Set<ColumnHandle> pushdownColumns)
     {
         // returns a mock implementation of applyFilter which allows predicate pushdown only for pushdownColumns
@@ -336,14 +311,29 @@ public class TestTableScanRedirectionWithPushdown
         };
     }
 
+    private ApplyTableScanRedirect mockApplyRedirectAfterProjectionPushdown(
+            Map<ColumnHandle, String> redirectionMapping,
+            Optional<Set<ColumnHandle>> requiredProjections)
+    {
+        return getMockApplyRedirect(redirectionMapping, requiredProjections, false);
+    }
+
     private ApplyTableScanRedirect getMockApplyRedirectAfterPredicatePushdown(
             Map<ColumnHandle, String> redirectionMapping,
             Optional<Set<ColumnHandle>> requiredProjections)
     {
+        return getMockApplyRedirect(redirectionMapping, requiredProjections, true);
+    }
+
+    private ApplyTableScanRedirect getMockApplyRedirect(
+            Map<ColumnHandle, String> redirectionMapping,
+            Optional<Set<ColumnHandle>> requiredProjections,
+            boolean requirePredicatePushdown)
+    {
         return (session, handle) -> {
             MockConnectorTableHandle mockConnectorTable = (MockConnectorTableHandle) handle;
             // make sure we do redirection after predicate is pushed down
-            if (mockConnectorTable.getConstraint().isAll()) {
+            if (requirePredicatePushdown && mockConnectorTable.getConstraint().isAll()) {
                 return Optional.empty();
             }
             Optional<List<ColumnHandle>> projectedColumns = mockConnectorTable.getColumns();
