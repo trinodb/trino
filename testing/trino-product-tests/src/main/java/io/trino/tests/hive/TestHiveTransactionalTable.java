@@ -712,6 +712,9 @@ public class TestHiveTransactionalTable
 
             execute(deleter, format("DELETE FROM %s WHERE purchase like('c%%')", tableName));
             verifySelectForPrestoAndHive("SELECT customer, purchase FROM " + tableName, "true", row("Fred", "limes"));
+
+            execute(deleter, format("DELETE FROM %s WHERE customer = 'Fred' and purchase = 'cards'", tableName));
+            verifySelectForPrestoAndHive("SELECT customer FROM " + tableName, "purchase = 'cards'", row("Ann"), row("Loy"));
         });
     }
 
