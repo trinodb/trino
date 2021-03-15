@@ -391,6 +391,10 @@ Property Name                                      Description                  
 ``hive.parallel-partitioned-bucketed-writes``      Improve parallelism of partitioned and bucketed table        ``true``
                                                    writes. When disabled, the number of writing threads
                                                    is limited to number of buckets.
+
+``hive.parallel-partitioned-bucketed-inserts``     DEPRECATED. Improves parallelism of partitioned and bucketed ``true``
+                                                   table inserts. Please use 
+                                                   ``hive.parallel-partitioned-bucketed-writes`` instead.
 ================================================== ============================================================ ============
 
 Metastore configuration properties
