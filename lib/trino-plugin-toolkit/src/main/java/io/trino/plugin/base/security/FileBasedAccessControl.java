@@ -25,7 +25,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
 
-import java.nio.file.Paths;
+import java.io.File;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -89,11 +89,11 @@ public class FileBasedAccessControl
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    public FileBasedAccessControl(String catalogName, FileBasedAccessControlConfig config)
+    public FileBasedAccessControl(String catalogName, File configFile)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
 
-        AccessControlRules rules = parseJson(Paths.get(config.getConfigFile()), AccessControlRules.class);
+        AccessControlRules rules = parseJson(configFile.toPath(), AccessControlRules.class);
 
         this.schemaRules = rules.getSchemaRules();
         this.tableRules = rules.getTableRules();

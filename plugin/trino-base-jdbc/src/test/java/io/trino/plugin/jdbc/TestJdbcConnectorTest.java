@@ -41,7 +41,6 @@ public class TestJdbcConnectorTest
     {
         properties = ImmutableMap.<String, String>builder()
                 .putAll(TestingH2JdbcModule.createProperties())
-                .put("allow-drop-table", "true")
                 .build();
         return createH2QueryRunner(REQUIRED_TPCH_TABLES, properties);
     }

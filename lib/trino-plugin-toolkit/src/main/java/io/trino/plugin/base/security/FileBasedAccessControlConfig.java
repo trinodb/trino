@@ -20,23 +20,25 @@ import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.NotNull;
 
+import java.io.File;
+
 public class FileBasedAccessControlConfig
 {
     public static final String SECURITY_CONFIG_FILE = "security.config-file";
     public static final String SECURITY_REFRESH_PERIOD = "security.refresh-period";
 
-    private String configFile;
+    private File configFile;
     private Duration refreshPeriod;
 
     @NotNull
     @FileExists
-    public String getConfigFile()
+    public File getConfigFile()
     {
         return configFile;
     }
 
     @Config(SECURITY_CONFIG_FILE)
-    public FileBasedAccessControlConfig setConfigFile(String configFile)
+    public FileBasedAccessControlConfig setConfigFile(File configFile)
     {
         this.configFile = configFile;
         return this;

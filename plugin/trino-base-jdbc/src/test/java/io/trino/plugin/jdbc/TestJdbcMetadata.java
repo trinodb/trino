@@ -44,7 +44,6 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
-import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -68,7 +67,7 @@ public class TestJdbcMetadata
             throws Exception
     {
         database = new TestingDatabase();
-        metadata = new JdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()), false);
+        metadata = new JdbcMetadata(new GroupingSetsEnabledJdbcClient(database.getJdbcClient()));
         tableHandle = metadata.getTableHandle(SESSION, new SchemaTableName("example", "numbers"));
     }
 
@@ -228,15 +227,6 @@ public class TestJdbcMetadata
     @Test
     public void testDropTableTable()
     {
-        try {
-            metadata.dropTable(SESSION, tableHandle);
-            fail("expected exception");
-        }
-        catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), PERMISSION_DENIED.toErrorCode());
-        }
-
-        metadata = new JdbcMetadata(database.getJdbcClient(), true);
         metadata.dropTable(SESSION, tableHandle);
 
         try {

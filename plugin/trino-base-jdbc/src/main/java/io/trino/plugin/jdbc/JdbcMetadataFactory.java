@@ -24,18 +24,15 @@ import static java.util.Objects.requireNonNull;
 public class JdbcMetadataFactory
 {
     private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
 
     @Inject
-    public JdbcMetadataFactory(JdbcClient jdbcClient, JdbcMetadataConfig config)
+    public JdbcMetadataFactory(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
-        requireNonNull(config, "config is null");
-        this.allowDropTable = config.isAllowDropTable();
     }
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(new TransactionCachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS)), allowDropTable);
+        return new JdbcMetadata(new TransactionCachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS)));
     }
 }

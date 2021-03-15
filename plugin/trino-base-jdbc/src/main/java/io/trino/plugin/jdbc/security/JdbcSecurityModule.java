@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.raptor.legacy.security;
+package io.trino.plugin.jdbc.security;
 
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -19,25 +19,29 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.security.AllowAllAccessControlModule;
 import io.trino.plugin.base.security.FileBasedAccessControlModule;
 import io.trino.plugin.base.security.ReadOnlySecurityModule;
+import io.trino.plugin.jdbc.security.JdbcSecurityConfig.SecuritySystem;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.trino.plugin.jdbc.security.JdbcSecurityConfig.SecuritySystem.ALLOW_ALL;
+import static io.trino.plugin.jdbc.security.JdbcSecurityConfig.SecuritySystem.FILE;
+import static io.trino.plugin.jdbc.security.JdbcSecurityConfig.SecuritySystem.READ_ONLY;
 
-public class RaptorSecurityModule
+public class JdbcSecurityModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        bindSecurityModule("none", new AllowAllAccessControlModule());
-        bindSecurityModule("read-only", new ReadOnlySecurityModule());
-        bindSecurityModule("file", new FileBasedAccessControlModule());
+        bindSecurityModule(ALLOW_ALL, new AllowAllAccessControlModule());
+        bindSecurityModule(READ_ONLY, new ReadOnlySecurityModule());
+        bindSecurityModule(FILE, new FileBasedAccessControlModule());
     }
 
-    private void bindSecurityModule(String name, Module module)
+    private void bindSecurityModule(SecuritySystem type, Module module)
     {
         install(installModuleIf(
-                RaptorSecurityConfig.class,
-                security -> name.equalsIgnoreCase(security.getSecuritySystem()),
+                JdbcSecurityConfig.class,
+                security -> type == security.getSecuritySystem(),
                 module));
     }
 }

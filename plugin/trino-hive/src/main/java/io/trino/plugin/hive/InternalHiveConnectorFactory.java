@@ -94,7 +94,7 @@ public final class InternalHiveConnectorFactory
                     new HiveAzureModule(),
                     installModuleIf(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),
-                    new HiveSecurityModule(catalogName),
+                    new HiveSecurityModule(),
                     new HiveAuthenticationModule(),
                     new HiveProcedureModule(),
                     new MBeanServerModule(),

@@ -28,12 +28,14 @@ import org.testng.Assert.ThrowingRunnable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.Resources.getResource;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -433,12 +435,10 @@ public class TestFileBasedAccessControl
                 new QueryId("query_id"));
     }
 
-    private ConnectorAccessControl createAccessControl(String fileName)
+    private static ConnectorAccessControl createAccessControl(String fileName)
     {
-        String path = this.getClass().getClassLoader().getResource(fileName).getPath();
-        FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
-        config.setConfigFile(path);
-        return new FileBasedAccessControl("test_catalog", config);
+        File configFile = new File(getResource(fileName).getPath());
+        return new FileBasedAccessControl("test_catalog", configFile);
     }
 
     private static void assertDenied(ThrowingRunnable runnable)

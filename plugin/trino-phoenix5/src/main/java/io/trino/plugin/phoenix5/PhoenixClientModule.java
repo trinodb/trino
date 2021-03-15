@@ -90,7 +90,6 @@ public class PhoenixClientModule
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
 
         configBinder(binder).bindConfig(JdbcMetadataConfig.class);
-        configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAllowDropTable(true));
 
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);

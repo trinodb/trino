@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
+import io.trino.plugin.jdbc.security.JdbcSecurityModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.VersionEmbedder;
 import io.trino.spi.connector.Connector;
@@ -75,6 +76,7 @@ public class JdbcConnectorFactory
                 binder -> binder.bind(NodeManager.class).toInstance(context.getNodeManager()),
                 binder -> binder.bind(VersionEmbedder.class).toInstance(context.getVersionEmbedder()),
                 new JdbcModule(catalogName),
+                getSecurityModule(),
                 moduleProvider.getModule(catalogName));
 
         Injector injector = app
@@ -94,5 +96,10 @@ public class JdbcConnectorFactory
     public interface JdbcModuleProvider
     {
         Module getModule(String catalogName);
+    }
+
+    protected Module getSecurityModule()
+    {
+        return new JdbcSecurityModule();
     }
 }

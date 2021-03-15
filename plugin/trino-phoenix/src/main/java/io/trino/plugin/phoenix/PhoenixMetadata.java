@@ -16,7 +16,6 @@ package io.trino.plugin.phoenix;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcMetadata;
-import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -64,9 +63,9 @@ public class PhoenixMetadata
     private final PhoenixClient phoenixClient;
 
     @Inject
-    public PhoenixMetadata(PhoenixClient phoenixClient, JdbcMetadataConfig metadataConfig)
+    public PhoenixMetadata(PhoenixClient phoenixClient)
     {
-        super(phoenixClient, metadataConfig.isAllowDropTable());
+        super(phoenixClient);
         this.phoenixClient = requireNonNull(phoenixClient, "client is null");
     }
 

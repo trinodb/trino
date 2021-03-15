@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -75,7 +74,6 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
-import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -85,14 +83,12 @@ public class JdbcMetadata
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
 
     private final JdbcClient jdbcClient;
-    private final boolean allowDropTable;
 
     private final AtomicReference<Runnable> rollbackAction = new AtomicReference<>();
 
-    public JdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
+    public JdbcMetadata(JdbcClient jdbcClient)
     {
         this.jdbcClient = requireNonNull(jdbcClient, "client is null");
-        this.allowDropTable = allowDropTable;
     }
 
     @Override
@@ -563,9 +559,6 @@ public class JdbcMetadata
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        if (!allowDropTable) {
-            throw new TrinoException(PERMISSION_DENIED, "DROP TABLE is disabled in this catalog");
-        }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         verify(!handle.isSynthetic(), "Not a table reference: %s", handle);
         jdbcClient.dropTable(session, handle);
