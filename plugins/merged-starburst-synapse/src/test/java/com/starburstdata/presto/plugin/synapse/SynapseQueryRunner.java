@@ -46,7 +46,7 @@ public final class SynapseQueryRunner
     private static final int ERROR_USER_EXISTS = 15023;
     private static final int ERROR_OBJECT_EXISTS = 2714;
 
-    public static final String CATALOG = "synapse";
+    public static final String DEFAULT_CATALOG_NAME = "synapse";
     public static final String TEST_SCHEMA = "dbo";
 
     public static final String ALICE_USER = "alice";
@@ -83,7 +83,25 @@ public final class SynapseQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        Session session = createSession(USERNAME);
+        return createSynapseQueryRunner(
+                synapseServer,
+                DEFAULT_CATALOG_NAME,
+                unlockEnterpriseFeatures,
+                sessionModifier,
+                connectorProperties,
+                tables);
+    }
+
+    public static DistributedQueryRunner createSynapseQueryRunner(
+            SynapseServer synapseServer,
+            String catalogName,
+            boolean unlockEnterpriseFeatures,
+            Function<Session, Session> sessionModifier,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        Session session = createSession(USERNAME, catalogName);
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         try {
             Session modifiedSession = sessionModifier.apply(session);
@@ -124,7 +142,7 @@ public final class SynapseQueryRunner
                     ? new TestingSynapsePlugin()
                     : new StarburstSynapsePlugin());
 
-            queryRunner.createCatalog(CATALOG, "synapse", connectorProperties);
+            queryRunner.createCatalog(catalogName, "synapse", connectorProperties);
 
             // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5096) Resource cleaner for test objects in Synapse
             copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, modifiedSession, tables);
@@ -151,8 +169,13 @@ public final class SynapseQueryRunner
 
     public static Session createSession(String user)
     {
+        return createSession(user, DEFAULT_CATALOG_NAME);
+    }
+
+    public static Session createSession(String user, String catalog)
+    {
         return testSessionBuilder()
-                .setCatalog(CATALOG)
+                .setCatalog(catalog)
                 .setSchema(TEST_SCHEMA)
                 .setIdentity(Identity.ofUser(user))
                 .build();

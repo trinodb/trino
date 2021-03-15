@@ -13,7 +13,7 @@ import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTableScanRedirec
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
-import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.CATALOG;
+import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.DEFAULT_CATALOG_NAME;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 
@@ -28,7 +28,7 @@ public class TestSynapseTableScanRedirection
         return createSynapseQueryRunner(
                 synapseServer,
                 true,
-                getRedirectionProperties(CATALOG, TEST_SCHEMA),
+                getRedirectionProperties(DEFAULT_CATALOG_NAME, TEST_SCHEMA),
                 tables);
     }
 }
