@@ -206,7 +206,7 @@ public class FileBasedSystemAccessControl
                     .setRequiredConfigurationProperties(config)
                     .initialize();
             FileBasedAccessControlConfig fileBasedAccessControlConfig = injector.getInstance(FileBasedAccessControlConfig.class);
-            String configFileName = fileBasedAccessControlConfig.getConfigFile();
+            String configFileName = fileBasedAccessControlConfig.getConfigFile().getPath();
 
             if (config.containsKey(SECURITY_REFRESH_PERIOD)) {
                 Duration refreshPeriod;
