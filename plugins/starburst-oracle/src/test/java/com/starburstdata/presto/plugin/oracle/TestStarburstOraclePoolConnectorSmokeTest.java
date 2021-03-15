@@ -12,13 +12,19 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 
-public class TestOraclePooledIntegrationSmokeTest
-        extends BaseUnlicensedStarburstOracleIntegrationSmokeTest
+public class TestStarburstOraclePoolConnectorSmokeTest
+        extends BaseUnlicensedStarburstOracleConnectorSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createQueryRunner(ImmutableMap.of("oracle.connection-pool.enabled", "true"));
+        return OracleQueryRunner.builder()
+                .withConnectorProperties(ImmutableMap.<String, String>builder()
+                        .putAll(TestingStarburstOracleServer.connectionProperties())
+                        .put("oracle.connection-pool.enabled", "true")
+                        .build())
+                .withTables(REQUIRED_TPCH_TABLES)
+                .build();
     }
 }

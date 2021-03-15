@@ -10,21 +10,34 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import io.trino.Session;
+import io.trino.plugin.oracle.BaseOracleConnectorSmokeTest;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public abstract class BaseUnlicensedStarburstOracleIntegrationSmokeTest
-        extends BaseStarburstOracleIntegrationSmokeTest
+public abstract class BaseUnlicensedStarburstOracleConnectorSmokeTest
+        extends BaseOracleConnectorSmokeTest
 {
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_AGGREGATION_PUSHDOWN:
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
+    }
+
     /**
      * Test that aggregation pushdown is disabled by default without a license.
      * <p>
-     * {@link BaseStarburstOracleAggregationPushdownTest} covers the case when a license is available.
+     * {@link TestStarburstOracleConnectorTest} covers the case when a license is available.
      */
     @Test
     public void testAggregationPushdownDisabled()
@@ -43,7 +56,7 @@ public abstract class BaseUnlicensedStarburstOracleIntegrationSmokeTest
     /**
      * Test that if aggregation pushdown is explicitly enabled without a license, an exception is raised during aggregate pushdown.
      * <p>
-     * {@link BaseStarburstOracleAggregationPushdownTest} covers the case when a license is available.
+     * {@link TestStarburstOracleConnectorTest} covers the case when a license is available.
      */
     @Test
     public void testAggregationPushdownWithoutLicense()
