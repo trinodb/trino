@@ -27,7 +27,7 @@ import static io.trino.cost.AggregationStatsRule.getRowsCount;
 import static io.trino.sql.planner.plan.Patterns.tableWriterNode;
 import static java.lang.Double.isNaN;
 
-public class PreferWritePartitioning
+public class DeterminePreferredWritePartitioning
         implements Rule<TableWriterNode>
 {
     public static final Pattern<TableWriterNode> WRITER_NODE_WITH_PREFERRED_PARTITIONING = tableWriterNode()
