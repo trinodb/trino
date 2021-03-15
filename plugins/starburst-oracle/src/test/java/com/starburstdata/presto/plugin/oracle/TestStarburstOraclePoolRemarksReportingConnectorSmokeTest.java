@@ -31,6 +31,7 @@ public class TestStarburstOraclePoolRemarksReportingConnectorSmokeTest
                         .put("oracle.connection-pool.max-size", "10")
                         .put("oracle.remarks-reporting.enabled", "true")
                         .build())
+                .withTables(REQUIRED_TPCH_TABLES)
                 .build();
     }
 }
