@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>353-e-SNAPSHOT</version>
+        <version>354-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -46,17 +46,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-oracle</artifactId>
-            <!-- We need to downgrade Oracle JDBC driver due to Kerberos authentication errors -->
-            <exclusions>
-                <exclusion>
-                    <groupId>com.oracle.ojdbc</groupId>
-                    <artifactId>ojdbc8</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.oracle.ojdbc</groupId>
-                    <artifactId>ucp</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -95,13 +84,13 @@
         </dependency>
 
         <dependency>
-            <groupId>com.oracle.database.jdbc</groupId>
+            <groupId>com.oracle.ojdbc</groupId>
             <artifactId>ojdbc8</artifactId>
             <version>${dep.oracle.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.oracle.database.jdbc</groupId>
+            <groupId>com.oracle.ojdbc</groupId>
             <artifactId>ucp</artifactId>
             <version>${dep.oracle.version}</version>
         </dependency>
