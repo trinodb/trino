@@ -18,6 +18,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.testng.annotations.Test;
@@ -51,33 +52,20 @@ public class TestSapHanaConnectorTest
     }
 
     @Override
-    protected boolean supportsDelete()
+    @SuppressWarnings("DuplicateBranchesInSwitch") // options here are grouped per-feature
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        return false;
-    }
+        switch (connectorBehavior) {
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
 
-    @Override
-    protected boolean supportsViews()
-    {
-        return false;
-    }
+            case SUPPORTS_ARRAY:
+                return false;
 
-    @Override
-    protected boolean supportsArrays()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnTable()
-    {
-        return false;
-    }
-
-    @Override
-    protected boolean supportsCommentOnColumn()
-    {
-        return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override
