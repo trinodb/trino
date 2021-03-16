@@ -14,21 +14,46 @@
 package io.trino.client.auth.external;
 
 import java.net.URI;
+import java.time.Duration;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MockRedirectHandler
         implements RedirectHandler
 {
     private URI redirectedTo;
+    private AtomicInteger redirectionCount = new AtomicInteger(0);
+    private Duration redirectTime;
 
     @Override
     public void redirectTo(URI uri)
             throws RedirectException
     {
         redirectedTo = uri;
+        redirectionCount.incrementAndGet();
+        try {
+            if (redirectTime != null) {
+                Thread.sleep(redirectTime.toMillis());
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
     }
 
     public URI redirectedTo()
     {
         return redirectedTo;
+    }
+
+    public int getRedirectionCount()
+    {
+        return redirectionCount.get();
+    }
+
+    public MockRedirectHandler sleepOnRedirect(Duration redirectTime)
+    {
+        this.redirectTime = redirectTime;
+        return this;
     }
 }

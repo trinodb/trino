@@ -17,21 +17,21 @@ import com.google.common.collect.ImmutableList;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.ArrayDeque;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Queue;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingDeque;
 
 public final class MockTokenPoller
         implements TokenPoller
 {
-    private final Map<URI, Queue<TokenPollResult>> results = new HashMap<>();
+    private final Map<URI, BlockingDeque<TokenPollResult>> results = new ConcurrentHashMap<>();
 
     public MockTokenPoller withResult(URI tokenUri, TokenPollResult result)
     {
         results.compute(tokenUri, (uri, queue) -> {
             if (queue == null) {
-                return new ArrayDeque<>(ImmutableList.of(result));
+                return new LinkedBlockingDeque<>(ImmutableList.of(result));
             }
             queue.add(result);
             return queue;
@@ -42,7 +42,7 @@ public final class MockTokenPoller
     @Override
     public TokenPollResult pollForToken(URI tokenUri, Duration ignored)
     {
-        Queue<TokenPollResult> queue = results.get(tokenUri);
+        BlockingDeque<TokenPollResult> queue = results.get(tokenUri);
         if (queue == null) {
             throw new IllegalArgumentException("Unknown token URI: " + tokenUri);
         }
