@@ -79,6 +79,9 @@ public interface JdbcClient
     Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException;
 
+    Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+            throws SQLException;
+
     default void abortReadConnection(Connection connection)
             throws SQLException
     {
@@ -141,9 +144,6 @@ public interface JdbcClient
     void rollbackCreateTable(ConnectorSession session, JdbcOutputTableHandle handle);
 
     String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters);
-
-    Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
-            throws SQLException;
 
     PreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException;

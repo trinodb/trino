@@ -418,12 +418,10 @@ public class SqlServerClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection)
+    public Connection getConnection(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
-        // Abort connection before closing. Without this, the SQL Server driver
-        // attempts to drain the connection by reading all the results.
-        connection.abort(directExecutor());
+        return configureConnectionTransactionIsolation(super.getConnection(session, split));
     }
 
     @Override
@@ -434,10 +432,12 @@ public class SqlServerClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public void abortReadConnection(Connection connection)
             throws SQLException
     {
-        return configureConnectionTransactionIsolation(super.getConnection(session, split));
+        // Abort connection before closing. Without this, the SQL Server driver
+        // attempts to drain the connection by reading all the results.
+        connection.abort(directExecutor());
     }
 
     private Connection configureConnectionTransactionIsolation(Connection connection)

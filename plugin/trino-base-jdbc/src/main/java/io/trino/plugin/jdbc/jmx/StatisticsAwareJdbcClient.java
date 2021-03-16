@@ -149,6 +149,13 @@ public final class StatisticsAwareJdbcClient
     {
         return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split));
     }
+    
+    @Override
+    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+            throws SQLException
+    {
+        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnection(session, handle));
+    }
 
     @Override
     public void abortReadConnection(Connection connection)
@@ -264,13 +271,6 @@ public final class StatisticsAwareJdbcClient
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         return stats.getBuildInsertSql().wrap(() -> delegate().buildInsertSql(handle, columnWriters));
-    }
-
-    @Override
-    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
-            throws SQLException
-    {
-        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnection(session, handle));
     }
 
     @Override

@@ -183,6 +183,13 @@ public class CachingJdbcClient
     }
 
     @Override
+    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+            throws SQLException
+    {
+        return delegate.getConnection(session, handle);
+    }
+
+    @Override
     public void abortReadConnection(Connection connection)
             throws SQLException
     {
@@ -298,13 +305,6 @@ public class CachingJdbcClient
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         return delegate.buildInsertSql(handle, columnWriters);
-    }
-
-    @Override
-    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
-            throws SQLException
-    {
-        return delegate.getConnection(session, handle);
     }
 
     @Override
