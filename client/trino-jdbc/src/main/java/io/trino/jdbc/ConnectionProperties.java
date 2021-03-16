@@ -74,6 +74,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
     public static final ConnectionProperty<Boolean> EXTERNAL_AUTHENTICATION = new ExternalAuthentication();
     public static final ConnectionProperty<Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
+    public static final ConnectionProperty<KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
     public static final ConnectionProperty<Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
@@ -115,6 +116,7 @@ final class ConnectionProperties
             .add(SOURCE)
             .add(EXTERNAL_AUTHENTICATION)
             .add(EXTERNAL_AUTHENTICATION_TIMEOUT)
+            .add(EXTERNAL_AUTHENTICATION_TOKEN_CACHE)
             .build();
 
     private static final Map<String, ConnectionProperty<?>> KEY_LOOKUP = unmodifiableMap(ALL_PROPERTIES.stream()
@@ -469,6 +471,15 @@ final class ConnectionProperties
         public ExternalAuthenticationTimeout()
         {
             super("externalAuthenticationTimeout", NOT_REQUIRED, IF_EXTERNAL_AUTHENTICATION_ENABLED, Duration::valueOf);
+        }
+    }
+
+    private static class ExternalAuthenticationTokenCache
+            extends AbstractConnectionProperty<KnownTokenCache>
+    {
+        public ExternalAuthenticationTokenCache()
+        {
+            super("externalAuthenticationTokenCache", Optional.of(KnownTokenCache.NONE.name()), NOT_REQUIRED, ALLOWED, KnownTokenCache::valueOf);
         }
     }
 
