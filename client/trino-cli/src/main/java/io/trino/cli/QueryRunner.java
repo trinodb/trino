@@ -20,6 +20,7 @@ import io.trino.client.OkHttpUtil;
 import io.trino.client.StatementClient;
 import io.trino.client.auth.external.ExternalAuthenticator;
 import io.trino.client.auth.external.HttpTokenPoller;
+import io.trino.client.auth.external.KnownToken;
 import io.trino.client.auth.external.RedirectHandler;
 import io.trino.client.auth.external.TokenPoller;
 import okhttp3.OkHttpClient;
@@ -193,6 +194,7 @@ public class QueryRunner
         ExternalAuthenticator authenticator = new ExternalAuthenticator(
                 redirectHandler,
                 poller,
+                KnownToken.local(),
                 Duration.ofMinutes(10));
 
         builder.authenticator(authenticator);

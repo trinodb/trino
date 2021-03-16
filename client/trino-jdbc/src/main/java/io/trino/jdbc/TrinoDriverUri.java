@@ -59,6 +59,7 @@ import static io.trino.jdbc.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.jdbc.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION;
 import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
+import static io.trino.jdbc.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
 import static io.trino.jdbc.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.trino.jdbc.ConnectionProperties.HTTP_PROXY;
 import static io.trino.jdbc.ConnectionProperties.KERBEROS_CONFIG_PATH;
@@ -317,7 +318,9 @@ public final class TrinoDriverUri
                         .map(value -> Duration.ofMillis(value.toMillis()))
                         .orElse(Duration.ofMinutes(2));
 
-                ExternalAuthenticator authenticator = new ExternalAuthenticator(REDIRECT_HANDLER.get(), poller, timeout);
+                KnownTokenCache knownTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValue(properties).get();
+
+                ExternalAuthenticator authenticator = new ExternalAuthenticator(REDIRECT_HANDLER.get(), poller, knownTokenCache.create(), timeout);
 
                 builder.authenticator(authenticator);
                 builder.addInterceptor(authenticator);
