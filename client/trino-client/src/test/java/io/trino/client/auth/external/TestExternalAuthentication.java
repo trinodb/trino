@@ -125,22 +125,4 @@ public class TestExternalAuthentication
         assertThat(redirectHandler.redirectedTo()).isNull();
         assertThat(token).map(Token::token).hasValue(AUTH_TOKEN);
     }
-
-    private static class MockRedirectHandler
-            implements RedirectHandler
-    {
-        private URI redirectedTo;
-
-        @Override
-        public void redirectTo(URI uri)
-                throws RedirectException
-        {
-            redirectedTo = uri;
-        }
-
-        public URI redirectedTo()
-        {
-            return redirectedTo;
-        }
-    }
 }
