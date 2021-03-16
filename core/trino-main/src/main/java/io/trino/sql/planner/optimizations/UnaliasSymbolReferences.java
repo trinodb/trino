@@ -286,7 +286,7 @@ public class UnaliasSymbolReferences
             });
 
             return new PlanAndMappings(
-                    new TableScanNode(node.getId(), node.getTable(), newOutputs, newAssignments, node.getEnforcedConstraint(), node.isForDelete()),
+                    new TableScanNode(node.getId(), node.getTable(), newOutputs, newAssignments, node.getEnforcedConstraint(), node.isUpdateTarget()),
                     mapping);
         }
 

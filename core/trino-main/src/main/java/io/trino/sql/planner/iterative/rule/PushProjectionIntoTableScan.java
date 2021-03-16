@@ -162,7 +162,7 @@ public class PushProjectionIntoTableScan
                                 result.get().getHandle(),
                                 newScanOutputs,
                                 newScanAssignments,
-                                tableScan.isForDelete()),
+                                tableScan.isUpdateTarget()),
                         newProjectionAssignments.build()));
     }
 }

@@ -86,7 +86,7 @@ public class PushTopNIntoTableScan
                             result.getHandle(),
                             tableScan.getOutputSymbols(),
                             tableScan.getAssignments(),
-                            tableScan.isForDelete());
+                            tableScan.isUpdateTarget());
 
                     if (!result.isTopNGuaranteed()) {
                         node = topNNode.replaceChildren(ImmutableList.of(node));
