@@ -732,6 +732,23 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testDeletePartitionFailure()
+    {
+        withTemporaryTable("delete_failure", true, true, NONE, tableName -> {
+            onPresto().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
+                    " AS SELECT nationkey, regionkey FROM tpch.tiny.nation", tableName));
+
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "TRUE", row(25));
+
+            onPresto().executeQuery(format("DELETE FROM %s WHERE regionkey = 4 AND nationkey %% 10 = 3", tableName));
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "TRUE", row(24));
+
+            onPresto().executeQuery(format("DELETE FROM %s WHERE regionkey = 4", tableName));
+            verifySelectForPrestoAndHive("SELECT COUNT(*) FROM " + tableName, "TRUE", row(20));
+        });
+    }
+
     @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "inserterAndDeleterProvider", timeOut = TEST_TIMEOUT)
     public void testBucketedUnpartitionedDelete(HiveOrPresto inserter, HiveOrPresto deleter)
     {
@@ -1185,7 +1202,7 @@ public class TestHiveTransactionalTable
 
             log.info("About to update");
             onPresto().executeQuery(format("UPDATE %s SET col1 = col1 + 1 WHERE col3 = 3 AND col1 > 15", tableName));
-            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(13, "T1", 3), row(24, "T2", 3), row(18, "S1", 7));
+            verifySelectForPrestoAndHive("SELECT * FROM " + tableName, "TRUE", row(13, "T1", 3), row(24, "T2", 3), row(17, "S1", 7));
         });
     }
 

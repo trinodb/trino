@@ -50,6 +50,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
+import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
 
 /*
@@ -156,7 +157,7 @@ public class BeginTableWrite
             PlanNode child = node.getSource();
 
             WriterTarget originalTarget = getTarget(child);
-            WriterTarget newTarget = createWriterTarget(originalTarget);
+            WriterTarget newTarget = createWriterTarget(originalTarget, node);
 
             context.get().addMaterializedHandle(originalTarget, newTarget);
             child = child.accept(this, context);
@@ -190,7 +191,7 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }
 
-        private WriterTarget createWriterTarget(WriterTarget target)
+        private WriterTarget createWriterTarget(WriterTarget target, PlanNode node)
         {
             // TODO: begin these operations in pre-execution step, not here
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
@@ -204,12 +205,14 @@ public class BeginTableWrite
             }
             if (target instanceof DeleteTarget) {
                 DeleteTarget delete = (DeleteTarget) target;
-                return new DeleteTarget(metadata.beginDelete(session, delete.getHandle()), delete.getSchemaTableName());
+                TableHandle tableScanTableHandle = getTableScanTableHandle(node);
+                return new DeleteTarget(metadata.beginDelete(session, tableScanTableHandle), delete.getSchemaTableName());
             }
             if (target instanceof UpdateTarget) {
                 UpdateTarget update = (UpdateTarget) target;
+                TableHandle tableScanTableHandle = getTableScanTableHandle(node);
                 return new UpdateTarget(
-                        metadata.beginUpdate(session, update.getHandle(), ImmutableList.copyOf(update.getUpdatedColumnHandles())),
+                        metadata.beginUpdate(session, tableScanTableHandle, ImmutableList.copyOf(update.getUpdatedColumnHandles())),
                         update.getSchemaTableName(),
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
@@ -259,6 +262,26 @@ public class BeginTableWrite
             }
             throw new IllegalArgumentException("Invalid descendant for DeleteNode or UpdateNode: " + node.getClass().getName());
         }
+    }
+
+    private TableHandle getTableScanTableHandle(PlanNode node)
+    {
+        return getTableHandleOptional(node)
+                .orElseThrow(() -> new IllegalArgumentException(format("Didn't find TableScanNode for source %s", node)));
+    }
+
+    private Optional<TableHandle> getTableHandleOptional(PlanNode node)
+    {
+        if (node instanceof TableScanNode) {
+            TableScanNode scan = (TableScanNode) node;
+            if (scan.isForDelete()) {
+                return Optional.of(scan.getTable());
+            }
+        }
+
+        return node.getSources().stream()
+                .map(source -> getTableScanTableHandle(source))
+                .findFirst();
     }
 
     public static class Context
