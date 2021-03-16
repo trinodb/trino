@@ -121,12 +121,6 @@ public abstract class BaseSnowflakeConnectorTest
         assertEquals(actual, expectedParametrizedVarchar);
     }
 
-    @Override
-    public void testDropColumn()
-    {
-        throw new SkipException("Drop column not yet implemented");
-    }
-
     @Test
     public void testDescribeInput()
     {
