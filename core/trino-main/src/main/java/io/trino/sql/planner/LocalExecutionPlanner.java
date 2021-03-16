@@ -3203,11 +3203,11 @@ public class LocalExecutionPlanner
                         refreshTarget.getSourceTableHandles());
             }
             else if (target instanceof DeleteTarget) {
-                metadata.finishDelete(session, ((DeleteTarget) target).getHandle(), fragments);
+                metadata.finishDelete(session, ((DeleteTarget) target).getHandleOrElseThrow(), fragments);
                 return Optional.empty();
             }
             else if (target instanceof UpdateTarget) {
-                metadata.finishUpdate(session, ((UpdateTarget) target).getHandle(), fragments);
+                metadata.finishUpdate(session, ((UpdateTarget) target).getHandleOrElseThrow(), fragments);
                 return Optional.empty();
             }
             else {

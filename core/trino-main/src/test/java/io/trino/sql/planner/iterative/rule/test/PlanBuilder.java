@@ -580,11 +580,11 @@ public class PlanBuilder
     private DeleteTarget deleteTarget(SchemaTableName schemaTableName)
     {
         return new DeleteTarget(
-                new TableHandle(
+                Optional.of(new TableHandle(
                         new CatalogName("testConnector"),
                         new TestingTableHandle(),
                         TestingTransactionHandle.create(),
-                        Optional.of(TestingHandle.INSTANCE)),
+                        Optional.of(TestingHandle.INSTANCE))),
                 schemaTableName);
     }
 
