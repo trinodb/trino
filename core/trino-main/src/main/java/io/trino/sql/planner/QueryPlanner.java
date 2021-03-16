@@ -477,7 +477,14 @@ class QueryPlanner
                 symbolAllocator.newSymbol("partialrows", BIGINT),
                 symbolAllocator.newSymbol("fragment", VARBINARY));
 
-        return new DeleteNode(idAllocator.getNextId(), builder.getRoot(), new DeleteTarget(handle, metadata.getTableMetadata(session, handle).getTable()), rowId, outputs);
+        return new DeleteNode(
+                idAllocator.getNextId(),
+                builder.getRoot(),
+                new DeleteTarget(
+                        Optional.empty(),
+                        metadata.getTableMetadata(session, handle).getTable()),
+                rowId,
+                outputs);
     }
 
     public UpdateNode plan(Update node)
@@ -543,7 +550,11 @@ class QueryPlanner
         return new UpdateNode(
                 idAllocator.getNextId(),
                 builder.getRoot(),
-                new UpdateTarget(handle, metadata.getTableMetadata(session, handle).getTable(), updatedColumnNames, updatedColumnHandles),
+                new UpdateTarget(
+                        Optional.empty(),
+                        metadata.getTableMetadata(session, handle).getTable(),
+                        updatedColumnNames,
+                        updatedColumnHandles),
                 rowId,
                 updatedColumnValuesBuilder.build(),
                 outputs);
