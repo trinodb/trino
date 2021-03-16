@@ -409,7 +409,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnectionForRead(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
         Connection connection = connectionFactory.openConnection(session);
@@ -709,14 +709,14 @@ public abstract class BaseJdbcClient
         String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
 
-        try (Connection connection = getConnection(session, handle)) {
+        try (Connection connection = getConnectionForWrite(session, handle)) {
             execute(connection, insertSql);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
         }
 
-        try (Connection connection = getConnection(session, handle)) {
+        try (Connection connection = getConnectionForWrite(session, handle)) {
             execute(connection, cleanupSql);
         }
         catch (SQLException e) {
@@ -805,7 +805,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+    public Connection getConnectionForWrite(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
         return connectionFactory.openConnection(session);

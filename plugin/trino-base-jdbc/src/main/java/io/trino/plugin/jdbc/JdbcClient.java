@@ -76,10 +76,10 @@ public interface JdbcClient
 
     ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle);
 
-    Connection getConnection(ConnectorSession session, JdbcSplit split)
+    Connection getConnectionForRead(ConnectorSession session, JdbcSplit split)
             throws SQLException;
 
-    Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+    Connection getConnectionForWrite(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException;
 
     default void abortReadConnection(Connection connection)

@@ -418,17 +418,17 @@ public class SqlServerClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnectionForRead(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
-        return configureConnectionTransactionIsolation(super.getConnection(session, split));
+        return configureConnectionTransactionIsolation(super.getConnectionForRead(session, split));
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+    public Connection getConnectionForWrite(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return configureConnectionTransactionIsolation(super.getConnection(session, handle));
+        return configureConnectionTransactionIsolation(super.getConnectionForWrite(session, handle));
     }
 
     @Override

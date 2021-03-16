@@ -51,7 +51,7 @@ public class JdbcPageSink
     public JdbcPageSink(ConnectorSession session, JdbcOutputTableHandle handle, JdbcClient jdbcClient)
     {
         try {
-            connection = jdbcClient.getConnection(session, handle);
+            connection = jdbcClient.getConnectionForWrite(session, handle);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);

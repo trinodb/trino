@@ -144,17 +144,17 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnectionForRead(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
-        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnection(session, split));
+        return stats.getGetConnectionWithSplit().wrap(() -> delegate().getConnectionForRead(session, split));
     }
-    
+
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+    public Connection getConnectionForWrite(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnection(session, handle));
+        return stats.getGetConnectionWithHandle().wrap(() -> delegate().getConnectionForWrite(session, handle));
     }
 
     @Override

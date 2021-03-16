@@ -176,17 +176,17 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcSplit split)
+    public Connection getConnectionForRead(ConnectorSession session, JdbcSplit split)
             throws SQLException
     {
-        return delegate.getConnection(session, split);
+        return delegate.getConnectionForRead(session, split);
     }
 
     @Override
-    public Connection getConnection(ConnectorSession session, JdbcOutputTableHandle handle)
+    public Connection getConnectionForWrite(ConnectorSession session, JdbcOutputTableHandle handle)
             throws SQLException
     {
-        return delegate.getConnection(session, handle);
+        return delegate.getConnectionForWrite(session, handle);
     }
 
     @Override
