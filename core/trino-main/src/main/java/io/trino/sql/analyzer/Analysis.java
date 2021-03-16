@@ -232,9 +232,9 @@ public class Analysis
         this.target = Optional.empty();
     }
 
-    public boolean isDeleteTarget(Table table)
+    public boolean isUpdateTarget(Table table)
     {
-        return "DELETE".equals(updateType) &&
+        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType)) &&
                 target.orElseThrow(() -> new IllegalStateException("Update target not set"))
                         .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in update target")) == table; // intentional comparison by reference
     }

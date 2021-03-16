@@ -116,6 +116,6 @@ public class PruneTableScanColumns
                 newOutputs,
                 newAssignments,
                 enforcedConstraint,
-                node.isForDelete()));
+                node.isUpdateTarget()));
     }
 }
