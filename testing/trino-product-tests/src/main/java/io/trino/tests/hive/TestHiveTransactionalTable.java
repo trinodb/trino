@@ -1580,17 +1580,18 @@ public class TestHiveTransactionalTable
         }
     }
 
-    private void verifySelectForPrestoAndHive(String select, String whereClause, QueryAssert.Row... rows)
+    private static void verifySelectForPrestoAndHive(String select, String whereClause, QueryAssert.Row... rows)
     {
-        verifySelect(onPresto(), select, whereClause, rows);
-        verifySelect(onHive(), select, whereClause, rows);
+        verifySelect("onPresto", onPresto(), select, whereClause, rows);
+        verifySelect("onHive", onHive(), select, whereClause, rows);
     }
 
-    private void verifySelect(QueryExecutor executor, String select, String whereClause, QueryAssert.Row... rows)
+    private static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, QueryAssert.Row... rows)
     {
         String fullQuery = format("%s WHERE %s", select, whereClause);
 
         assertThat(executor.executeQuery(fullQuery))
+                .describedAs(name)
                 .containsOnly(rows);
     }
 }
