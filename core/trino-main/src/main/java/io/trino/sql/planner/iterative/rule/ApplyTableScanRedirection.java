@@ -54,7 +54,7 @@ public class ApplyTableScanRedirection
         implements Rule<TableScanNode>
 {
     private static final Pattern<TableScanNode> PATTERN = tableScan()
-            .matching(node -> !node.isForDelete());
+            .matching(node -> !node.isUpdateTarget());
 
     private final Metadata metadata;
     private final DomainTranslator domainTranslator;
@@ -134,7 +134,7 @@ public class ApplyTableScanRedirection
                             scanNode.getOutputSymbols(),
                             newAssignments,
                             TupleDomain.all(),
-                            scanNode.isForDelete()));
+                            scanNode.isUpdateTarget()));
         }
 
         ImmutableMap.Builder<Symbol, ColumnHandle> newAssignmentsBuilder = ImmutableMap.<Symbol, ColumnHandle>builder()
@@ -185,7 +185,7 @@ public class ApplyTableScanRedirection
                 newOutputSymbols,
                 newAssignmentsBuilder.build(),
                 TupleDomain.all(),
-                scanNode.isForDelete());
+                scanNode.isUpdateTarget());
 
         FilterNode filterNode = new FilterNode(
                 context.getIdAllocator().getNextId(),

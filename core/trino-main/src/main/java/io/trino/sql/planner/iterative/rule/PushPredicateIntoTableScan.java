@@ -260,7 +260,7 @@ public class PushPredicateIntoTableScan
                 node.getOutputSymbols(),
                 node.getAssignments(),
                 computeEnforced(newDomain, remainingFilter),
-                node.isForDelete());
+                node.isUpdateTarget());
 
         Expression resultingPredicate = createResultingPredicate(
                 metadata,

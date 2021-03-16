@@ -202,8 +202,8 @@ class RelationPlanner
             }
 
             List<Symbol> outputSymbols = outputSymbolsBuilder.build();
-            boolean isDeleteTarget = analysis.isDeleteTarget(node);
-            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build(), isDeleteTarget);
+            boolean updateTarget = analysis.isUpdateTarget(node);
+            PlanNode root = TableScanNode.newInstance(idAllocator.getNextId(), handle, outputSymbols, columns.build(), updateTarget);
 
             plan = new RelationPlan(root, scope, outputSymbols, outerContext);
         }
