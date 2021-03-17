@@ -116,7 +116,7 @@ public class CreateMaterializedViewTask
 
         ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
                 sql,
-                null,
+                Optional.empty(),
                 session.getCatalog(),
                 session.getSchema(),
                 columns,
