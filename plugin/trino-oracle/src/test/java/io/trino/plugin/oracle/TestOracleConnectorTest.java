@@ -82,7 +82,7 @@ public class TestOracleConnectorTest
     }
 
     @Override
-    protected SqlExecutor onOracle()
+    protected SqlExecutor onRemoteDatabase()
     {
         return oracleServer::execute;
     }

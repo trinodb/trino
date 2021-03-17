@@ -36,7 +36,7 @@ public class TestMySqlConnectorTest
     }
 
     @Override
-    protected SqlExecutor getMySqlExecutor()
+    protected SqlExecutor onRemoteDatabase()
     {
         return mysqlServer::execute;
     }

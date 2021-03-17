@@ -104,7 +104,7 @@ public abstract class BaseOracleConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                onOracle(),
+                onRemoteDatabase(),
                 "test_default_columns",
                 "(col_required decimal(20,0) NOT NULL," +
                         "col_nullable decimal(20,0)," +
@@ -356,7 +356,7 @@ public abstract class BaseOracleConnectorTest
     @Test
     public void testViews()
     {
-        try (TestView view = new TestView(onOracle(), getUser() + ".test_view", "AS SELECT 'O' as status FROM dual")) {
+        try (TestView view = new TestView(onRemoteDatabase(), getUser() + ".test_view", "AS SELECT 'O' as status FROM dual")) {
             assertQuery("SELECT status FROM " + view.getName(), "SELECT 'O'");
         }
     }
@@ -364,7 +364,7 @@ public abstract class BaseOracleConnectorTest
     @Test
     public void testSynonyms()
     {
-        try (TestSynonym synonym = new TestSynonym(onOracle(), getUser() + ".test_synonym", "FOR ORDERS")) {
+        try (TestSynonym synonym = new TestSynonym(onRemoteDatabase(), getUser() + ".test_synonym", "FOR ORDERS")) {
             assertQueryFails("SELECT orderkey FROM " + synonym.getName(), "line 1:22: Table 'oracle.*' does not exist");
         }
     }
@@ -433,7 +433,7 @@ public abstract class BaseOracleConnectorTest
         predicatePushdownTest("NVARCHAR2(7)", "'my_char'", "=", "CAST('my_char' AS VARCHAR(7))");
 
         try (TestTable table = new TestTable(
-                onOracle(),
+                onRemoteDatabase(),
                 getUser() + ".test_pdown_",
                 "(c_clob CLOB, c_nclob NCLOB)",
                 ImmutableList.of("'my_clob', 'my_nclob'"))) {
@@ -455,8 +455,8 @@ public abstract class BaseOracleConnectorTest
     private void predicatePushdownTest(String oracleType, String oracleLiteral, String operator, String filterLiteral)
     {
         String tableName = "test_pdown_" + oracleType.replaceAll("[^a-zA-Z0-9]", "");
-        try (TestTable table = new TestTable(onOracle(), getUser() + "." + tableName, format("(c %s)", oracleType))) {
-            onOracle().execute(format("INSERT INTO %s VALUES (%s)", table.getName(), oracleLiteral));
+        try (TestTable table = new TestTable(onRemoteDatabase(), getUser() + "." + tableName, format("(c %s)", oracleType))) {
+            onRemoteDatabase().execute(format("INSERT INTO %s VALUES (%s)", table.getName(), oracleLiteral));
 
             assertThat(query(format("SELECT * FROM %s WHERE c %s %s", table.getName(), operator, filterLiteral)))
                     .isFullyPushedDown();
@@ -468,5 +468,5 @@ public abstract class BaseOracleConnectorTest
         return TEST_USER;
     }
 
-    protected abstract SqlExecutor onOracle();
+    protected abstract SqlExecutor onRemoteDatabase();
 }

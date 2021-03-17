@@ -76,13 +76,11 @@ public abstract class BaseMySqlConnectorTest
         }
     }
 
-    protected abstract SqlExecutor getMySqlExecutor();
-
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                getMySqlExecutor(),
+                onRemoteDatabase(),
                 "tpch.table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
@@ -190,16 +188,16 @@ public abstract class BaseMySqlConnectorTest
     @Test
     public void testViews()
     {
-        getMySqlExecutor().execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
+        onRemoteDatabase().execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        getMySqlExecutor().execute("DROP VIEW IF EXISTS tpch.test_view");
+        onRemoteDatabase().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 
     @Override
     @Test
     public void testInsert()
     {
-        getMySqlExecutor().execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
         assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
         assertUpdate("DROP TABLE test_insert");
@@ -208,7 +206,7 @@ public abstract class BaseMySqlConnectorTest
     @Test
     public void testInsertInPresenceOfNotSupportedColumn()
     {
-        getMySqlExecutor().execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
         // Check that column y is not supported.
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_insert_not_supported_column_present'", "VALUES 'x', 'z'");
         assertUpdate("INSERT INTO test_insert_not_supported_column_present (x, z) VALUES (123, 'test')", 1);
@@ -238,7 +236,7 @@ public abstract class BaseMySqlConnectorTest
     @Test
     public void testMySqlTinyint()
     {
-        getMySqlExecutor().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
+        onRemoteDatabase().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
         MaterializedResult expected = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -247,7 +245,7 @@ public abstract class BaseMySqlConnectorTest
 
         assertEquals(actual, expected);
 
-        getMySqlExecutor().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
+        onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
         assertEquals(materializedRows.getRowCount(), 1);
         MaterializedRow row = getOnlyElement(materializedRows);
@@ -261,7 +259,7 @@ public abstract class BaseMySqlConnectorTest
     @Test
     public void testCharTrailingSpace()
     {
-        getMySqlExecutor().execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
+        onRemoteDatabase().execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
         assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
 
         assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
@@ -378,8 +376,8 @@ public abstract class BaseMySqlConnectorTest
 
         // decimals
         try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            getMySqlExecutor().execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
-            getMySqlExecutor().execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
+            onRemoteDatabase().execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
+            onRemoteDatabase().execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
 
             assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
@@ -404,27 +402,27 @@ public abstract class BaseMySqlConnectorTest
     public void testStddevAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(getMySqlExecutor(), schemaName + ".test_stddev_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), schemaName + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = new TestTable(getMySqlExecutor(), schemaName + ".test_stddev_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), schemaName + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "4", "5"))) {
             // Test non-whole number results
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -437,27 +435,27 @@ public abstract class BaseMySqlConnectorTest
     public void testVarianceAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(getMySqlExecutor(), schemaName + ".test_variance_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), schemaName + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = new TestTable(getMySqlExecutor(), schemaName + ".test_variance_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), schemaName + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "3", "4", "5"))) {
             // Test non-whole number results
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -492,7 +490,7 @@ public abstract class BaseMySqlConnectorTest
     {
         // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
 
-        getMySqlExecutor().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
         assertQuery(
                 "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
@@ -534,15 +532,15 @@ public abstract class BaseMySqlConnectorTest
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
                 .isFullyPushedDown();
 
-        getMySqlExecutor().execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
-        getMySqlExecutor().execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
+        onRemoteDatabase().execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
+        onRemoteDatabase().execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
 
         // varbinary equality
         assertThat(query("SELECT x, y FROM tpch.binary_test WHERE y = from_base64('AFCBhLrkidtNTZcA9Ru3hw==')"))
                 .matches("VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))")
                 .isFullyPushedDown();
 
-        getMySqlExecutor().execute("DROP TABLE tpch.binary_test");
+        onRemoteDatabase().execute("DROP TABLE tpch.binary_test");
 
         // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
         assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
@@ -558,14 +556,16 @@ public abstract class BaseMySqlConnectorTest
     private AutoCloseable withTable(String tableName, String tableDefinition)
             throws Exception
     {
-        getMySqlExecutor().execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
+        onRemoteDatabase().execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
         return () -> {
             try {
-                getMySqlExecutor().execute(format("DROP TABLE %s", tableName));
+                onRemoteDatabase().execute(format("DROP TABLE %s", tableName));
             }
             catch (RuntimeException e) {
                 throw new RuntimeException(e);
             }
         };
     }
+
+    protected abstract SqlExecutor onRemoteDatabase();
 }
