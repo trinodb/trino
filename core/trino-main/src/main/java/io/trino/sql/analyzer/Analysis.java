@@ -22,6 +22,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Streams;
+import io.trino.execution.Column;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
@@ -216,14 +217,14 @@ public class Analysis
     {
         return target.map(target -> {
             QualifiedObjectName name = target.getName();
-            return new Output(name.getCatalogName(), name.getSchemaName(), name.getObjectName());
+            return new Output(name.getCatalogName(), name.getSchemaName(), name.getObjectName(), target.getColumns());
         });
     }
 
-    public void setUpdateType(String updateType, QualifiedObjectName targetName, Optional<Table> targetTable)
+    public void setUpdateType(String updateType, QualifiedObjectName targetName, Optional<Table> targetTable, Optional<List<Column>> targetColumns)
     {
         this.updateType = updateType;
-        this.target = Optional.of(new UpdateTarget(targetName, targetTable));
+        this.target = Optional.of(new UpdateTarget(targetName, targetTable, targetColumns));
     }
 
     public void resetUpdateType()
@@ -1513,11 +1514,13 @@ public class Analysis
     {
         private final QualifiedObjectName name;
         private final Optional<Table> table;
+        private final Optional<List<Column>> columns;
 
-        public UpdateTarget(QualifiedObjectName name, Optional<Table> table)
+        public UpdateTarget(QualifiedObjectName name, Optional<Table> table, Optional<List<Column>> columns)
         {
             this.name = requireNonNull(name, "name is null");
             this.table = requireNonNull(table, "table is null");
+            this.columns = requireNonNull(columns, "columns is null").map(ImmutableList::copyOf);
         }
 
         public QualifiedObjectName getName()
@@ -1528,6 +1531,11 @@ public class Analysis
         public Optional<Table> getTable()
         {
             return table;
+        }
+
+        public Optional<List<Column>> getColumns()
+        {
+            return columns;
         }
     }
 }
