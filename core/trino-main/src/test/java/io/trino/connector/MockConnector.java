@@ -14,6 +14,8 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.slice.Slice;
+import io.trino.spi.Page;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.ColumnHandle;
@@ -24,8 +26,14 @@ import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
+import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorPageSink;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -36,6 +44,7 @@ import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinCondition;
@@ -52,20 +61,25 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.transaction.IsolationLevel;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 public class MockConnector
         implements Connector
@@ -136,6 +150,18 @@ public class MockConnector
     public ConnectorMetadata getMetadata(ConnectorTransactionHandle transaction)
     {
         return new MockConnectorMetadata();
+    }
+
+    @Override
+    public ConnectorPageSourceProvider getPageSourceProvider()
+    {
+        return new MockPageSourceProvider();
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return new MockPageSinkProvider();
     }
 
     @Override
@@ -305,9 +331,15 @@ public class MockConnector
         }
 
         @Override
-        public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
+        public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
         {
-            return new MockConnectorInsertTableHandle();
+            return new MockConnectorInsertTableHandle(((MockConnectorTableHandle) tableHandle).getTableName());
+        }
+
+        @Override
+        public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+        {
+            return Optional.empty();
         }
 
         @Override
@@ -320,13 +352,34 @@ public class MockConnector
         @Override
         public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
         {
-            return new MockConnectorOutputTableHandle();
+            return new MockConnectorOutputTableHandle(tableMetadata.getTable());
+        }
+
+        @Override
+        public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+        {
+            return Optional.empty();
         }
 
         @Override
         public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
         {
             return getNewTableLayout.apply(session, tableMetadata);
+        }
+
+        @Override
+        public ConnectorTableHandle beginUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+        {
+            return tableHandle;
+        }
+
+        @Override
+        public void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments) {}
+
+        @Override
+        public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> updatedColumns)
+        {
+            return new MockConnectorColumnHandle("update_row_id", BIGINT);
         }
 
         @Override
@@ -394,5 +447,57 @@ public class MockConnector
         {
             accessControl.revokeTablePrivileges(tableName, privileges, revokee, grantOption);
         }
+    }
+
+    private static class MockPageSinkProvider
+            implements ConnectorPageSinkProvider
+    {
+        @Override
+        public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle)
+        {
+            return new MockPageSink();
+        }
+
+        @Override
+        public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle)
+        {
+            return new MockPageSink();
+        }
+    }
+
+    private static class MockPageSink
+            implements ConnectorPageSink
+    {
+        @Override
+        public CompletableFuture<?> appendPage(Page page)
+        {
+            return NOT_BLOCKED;
+        }
+
+        @Override
+        public CompletableFuture<Collection<Slice>> finish()
+        {
+            return completedFuture(ImmutableList.of());
+        }
+
+        @Override
+        public void abort() {}
+    }
+
+    private static class MockPageSourceProvider
+            implements ConnectorPageSourceProvider
+    {
+        @Override
+        public ConnectorPageSource createPageSource(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<ColumnHandle> columns, DynamicFilter dynamicFilter)
+        {
+            return new MockPageSource();
+        }
+    }
+
+    private static class MockPageSource
+            extends EmptyPageSource
+    {
+        @Override
+        public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels) {}
     }
 }
