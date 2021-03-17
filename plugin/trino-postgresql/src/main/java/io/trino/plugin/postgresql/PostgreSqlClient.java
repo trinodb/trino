@@ -703,17 +703,15 @@ public class PostgreSqlClient
     {
         return Optional.of((query, sortItems, limit) -> {
             String orderBy = sortItems.stream()
-                    .map(this::getSortOrderSql)
+                    .map(sortItem -> {
+                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return format("%s %s %s", quoted(sortItem.getName()), ordering, nullsHandling);
+                    })
                     .collect(joining(", "));
 
             return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
         });
-    }
-
-    private String getSortOrderSql(SortItem sortItem)
-    {
-        String orderBy = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-        return format("%s %s %s", quoted(sortItem.getName()), orderBy, sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST");
     }
 
     @Override
