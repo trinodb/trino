@@ -29,6 +29,7 @@ import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.nullToEmpty;
@@ -375,14 +376,17 @@ public abstract class BaseMySqlConnectorTest
                 .isFullyPushedDown();
 
         // decimals
-        try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            onRemoteDatabase().execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
-            onRemoteDatabase().execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
-
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+        try (TestTable testTable = new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_aggregation_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
+                List.of(
+                        "100.000, 100000000.000000000",
+                        "123.321, 123456789.987654321"))) {
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // array_agg returns array, which is not supported
@@ -551,20 +555,6 @@ public abstract class BaseMySqlConnectorTest
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey HAVING sum(nationkey) = 77"))
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isFullyPushedDown();
-    }
-
-    private AutoCloseable withTable(String tableName, String tableDefinition)
-            throws Exception
-    {
-        onRemoteDatabase().execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
-        return () -> {
-            try {
-                onRemoteDatabase().execute(format("DROP TABLE %s", tableName));
-            }
-            catch (RuntimeException e) {
-                throw new RuntimeException(e);
-            }
-        };
     }
 
     protected abstract SqlExecutor onRemoteDatabase();
