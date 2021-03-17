@@ -31,8 +31,7 @@ public class JdbcMetadataConfig
     private boolean joinPushdownEnabled;
     private boolean aggregationPushdownEnabled = true;
 
-    // TODO: https://github.com/trinodb/trino/issues/7031
-    private boolean topNPushdownEnabled;
+    private boolean topNPushdownEnabled = true;
 
     // Pushed domains are transformed into SQL IN lists
     // (or sequence of range predicates) in JDBC connectors.

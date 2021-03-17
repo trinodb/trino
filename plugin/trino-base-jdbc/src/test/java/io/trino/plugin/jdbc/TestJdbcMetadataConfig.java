@@ -31,7 +31,7 @@ public class TestJdbcMetadataConfig
                 .setAllowDropTable(false)
                 .setJoinPushdownEnabled(false)
                 .setAggregationPushdownEnabled(true)
-                .setTopNPushdownEnabled(false)
+                .setTopNPushdownEnabled(true)
                 .setDomainCompactionThreshold(32));
     }
 
@@ -43,14 +43,14 @@ public class TestJdbcMetadataConfig
                 .put("experimental.join-pushdown.enabled", "true")
                 .put("aggregation-pushdown.enabled", "false")
                 .put("domain-compaction-threshold", "42")
-                .put("topn-pushdown.enabled", "true")
+                .put("topn-pushdown.enabled", "false")
                 .build();
 
         JdbcMetadataConfig expected = new JdbcMetadataConfig()
                 .setAllowDropTable(true)
                 .setJoinPushdownEnabled(true)
                 .setAggregationPushdownEnabled(false)
-                .setTopNPushdownEnabled(true)
+                .setTopNPushdownEnabled(false)
                 .setDomainCompactionThreshold(42);
 
         assertFullMapping(properties, expected);

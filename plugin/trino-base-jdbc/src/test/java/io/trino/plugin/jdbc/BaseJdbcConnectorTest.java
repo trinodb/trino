@@ -72,24 +72,10 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testTopNPushdownDisabled()
     {
-        // If topN pushdown gets enabled by default, this test should use a session with topN pushdown disabled
-        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
-                .ordered()
-                .isNotFullyPushedDown(TopNNode.class);
-    }
-
-    /**
-     * Verify !SUPPORTS_TOPN_PUSHDOWN declaration is true.
-     */
-    @Test
-    public void verifySupportsTopNPushdownDeclaration()
-    {
-        if (hasBehavior(SUPPORTS_TOPN_PUSHDOWN)) {
-            // Covered by testTopNPushdown
-            return;
-        }
-
-        assertThat(query(topNPushdownEnabled(getSession()), "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
+        Session topNPushdownDisabled = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "topn_pushdown_enabled", "false")
+                .build();
+        assertThat(query(topNPushdownDisabled, "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
                 .ordered()
                 .isNotFullyPushedDown(TopNNode.class);
     }
@@ -104,31 +90,30 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        Session session = topNPushdownEnabled(getSession());
-        assertThat(query(session, "SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
-        assertThat(query(session, "SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
+        assertThat(query("SELECT orderkey FROM orders ORDER BY orderkey DESC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
         // multiple sort columns with different orders
-        assertThat(query(session, "SELECT * FROM orders ORDER BY shippriority DESC, totalprice ASC LIMIT 10"))
+        assertThat(query("SELECT * FROM orders ORDER BY shippriority DESC, totalprice ASC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
         // TopN over aggregation column
-        assertThat(query(session, "SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
+        assertThat(query("SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
 
         // TopN over TopN
-        assertThat(query(session, "SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
                 .ordered()
                 .isFullyPushedDown();
 
-        assertThat(query(session,
+        assertThat(query("" +
                 "SELECT orderkey, totalprice " +
                 "FROM (SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) " +
                 "ORDER BY 2, 1 LIMIT 5) ORDER BY 1, 2 LIMIT 3"))
@@ -136,12 +121,12 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown();
 
         // TopN over limit
-        assertThat(query(session, "SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 20) ORDER BY totalprice ASC LIMIT 5"))
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 20) ORDER BY totalprice ASC LIMIT 5"))
                 .ordered()
                 .isFullyPushedDown();
 
         // TopN over limit with filter
-        assertThat(query(session,
+        assertThat(query("" +
                 "SELECT orderkey, totalprice " +
                 "FROM (SELECT orderkey, totalprice FROM orders WHERE orderpriority = '1-URGENT' LIMIT 20) " +
                 "ORDER BY totalprice ASC LIMIT 5"))
@@ -149,7 +134,7 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown();
 
         // TopN over aggregation with filter
-        assertThat(query(session,
+        assertThat(query("" +
                 "SELECT * " +
                 "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
                 "ORDER BY sum DESC LIMIT 10"))
@@ -168,7 +153,6 @@ public abstract class BaseJdbcConnectorTest
         // topN over varchar/char columns should only be pushed down if the remote systems's sort order matches Trino
         boolean expectTopNPushdown = hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY);
         PlanMatchPattern topNOverTableScan = node(TopNNode.class, anyTree(node(TableScanNode.class)));
-        Session session = topNPushdownEnabled(getSession());
 
         try (TestTable testTable = new TestTable(
                 getQueryRunner()::execute,
@@ -180,34 +164,34 @@ public abstract class BaseJdbcConnectorTest
                         "'a', 'a', 3",
                         "'b', 'b', 4"))) {
             assertConditionallyOrderedPushedDown(
-                    session,
+                    getSession(),
                     "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string ASC LIMIT 2",
                     expectTopNPushdown,
                     topNOverTableScan);
             assertConditionallyOrderedPushedDown(
-                    session,
+                    getSession(),
                     "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_string DESC LIMIT 2",
                     expectTopNPushdown,
                     topNOverTableScan);
             assertConditionallyOrderedPushedDown(
-                    session,
+                    getSession(),
                     "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char ASC LIMIT 2",
                     expectTopNPushdown,
                     topNOverTableScan);
             assertConditionallyOrderedPushedDown(
-                    session,
+                    getSession(),
                     "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_char DESC LIMIT 2",
                     expectTopNPushdown,
                     topNOverTableScan);
 
             // multiple sort columns with at-least one case-sensitive column
             assertConditionallyOrderedPushedDown(
-                    session,
+                    getSession(),
                     "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_char LIMIT 2",
                     expectTopNPushdown,
                     topNOverTableScan);
             assertConditionallyOrderedPushedDown(
-                    session,
+                    getSession(),
                     "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY a_bigint, a_string DESC LIMIT 2",
                     expectTopNPushdown,
                     topNOverTableScan);
@@ -405,10 +389,9 @@ public abstract class BaseJdbcConnectorTest
                     hasBehavior(SUPPORTS_LIMIT_PUSHDOWN),
                     joinOverTableScans);
 
-            Session topNPushdownEnabled = topNPushdownEnabled(session);
             // join over TopN
             assertConditionallyPushedDown(
-                    topNPushdownEnabled,
+                    session,
                     "SELECT * FROM (SELECT nationkey FROM nation ORDER BY regionkey LIMIT 5) n " +
                             "JOIN region r ON n.nationkey = r.regionkey",
                     hasBehavior(SUPPORTS_TOPN_PUSHDOWN),
@@ -505,15 +488,6 @@ public abstract class BaseJdbcConnectorTest
         verify(!new JdbcMetadataConfig().isJoinPushdownEnabled());
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_enabled", "true")
-                .build();
-    }
-
-    protected Session topNPushdownEnabled(Session session)
-    {
-        // If topN pushdown gets enabled by default, tests should use default session
-        verify(!new JdbcMetadataConfig().isTopNPushdownEnabled());
-        return Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "topn_pushdown_enabled", "true")
                 .build();
     }
 }
