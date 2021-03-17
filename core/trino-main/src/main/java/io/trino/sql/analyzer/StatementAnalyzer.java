@@ -279,7 +279,6 @@ import static java.util.Objects.requireNonNull;
 class StatementAnalyzer
 {
     private static final Set<String> WINDOW_VALUE_FUNCTIONS = ImmutableSet.of("lead", "lag", "first_value", "last_value", "nth_value");
-    private static final String STORAGE_TABLE = "storage_table";
 
     private final Analysis analysis;
     private final Metadata metadata;
@@ -1174,7 +1173,7 @@ class StatementAnalyzer
                 return Optional.empty();
             }
 
-            String storageTable = String.valueOf(optionalView.get().getProperties().getOrDefault(STORAGE_TABLE, ""));
+            String storageTable = optionalView.get().getStorageTable();
             if (storageTable == null || storageTable.isEmpty()) {
                 return Optional.empty();
             }
