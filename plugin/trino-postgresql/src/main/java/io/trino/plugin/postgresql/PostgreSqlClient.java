@@ -685,17 +685,17 @@ public class PostgreSqlClient
         Map<String, JdbcColumnHandle> columns = getColumns(session, handle).stream()
                 .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
 
-        // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
-        // TODO We could still push the sort down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
-        boolean caseSensitiveSortKey = sortOrder.stream()
-                .anyMatch(sortItem -> {
-                    verify(columns.containsKey(sortItem.getName()));
-                    Type sortItemType = columns.get(sortItem.getName()).getColumnType();
-                    // NOTE: VarcharType also includes PostgreSQL enums
-                    return sortItemType instanceof CharType || sortItemType instanceof VarcharType;
-                });
-
-        return !caseSensitiveSortKey;
+        for (SortItem sortItem : sortOrder) {
+            verify(columns.containsKey(sortItem.getName()));
+            Type sortItemType = columns.get(sortItem.getName()).getColumnType();
+            if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
+                // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
+                // NOTE: VarcharType also includes PostgreSQL enums
+                // TODO We could still push the sort down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
