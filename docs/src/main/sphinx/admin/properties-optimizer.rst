@@ -116,3 +116,19 @@ the maximum number of joins that can be reordered at once.
 
 Reduces number of rows produced by joins when optimizer detects that duplicated
 join output rows can be skipped.
+
+``optimizer.use-table-scan-node-partitioning``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``boolean``
+* **Default value:** ``true``
+
+Use connector provided table node partitioning when reading tables.
+For example, table node partitioning corresponds to Hive table buckets.
+When set to ``true`` each table partition is read by a separate worker.
+Partition reader assignments are distributed across workers for
+parallel processing. Use of table scan node partitioning can improve
+query performance by reducing query complexity. For example,
+cluster wide data reshuffling might not be needed when processing an aggregation query.
+However, query parallelism might be reduced when partition count is
+low compared to number of workers.
