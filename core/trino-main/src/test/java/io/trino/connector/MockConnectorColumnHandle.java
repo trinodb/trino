@@ -69,7 +69,8 @@ public class MockConnectorColumnHandle
             return false;
         }
         MockConnectorColumnHandle other = (MockConnectorColumnHandle) o;
-        return Objects.equals(name, other.name);
+        return Objects.equals(name, other.name) &&
+                Objects.equals(type, other.type);
     }
 
     @Override
