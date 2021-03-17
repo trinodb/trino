@@ -13,8 +13,12 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
+import io.trino.execution.Column;
 import org.testng.annotations.Test;
+
+import java.util.Optional;
 
 import static org.testng.Assert.assertEquals;
 
@@ -25,7 +29,7 @@ public class TestOutput
     @Test
     public void testRoundTrip()
     {
-        Output expected = new Output("connectorId", "schema", "table");
+        Output expected = new Output("connectorId", "schema", "table", Optional.of(ImmutableList.of(new Column("column", "type"))));
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
