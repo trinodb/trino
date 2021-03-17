@@ -293,9 +293,8 @@ public class TestPostgreSqlConnectorTest
                 .matches("VALUES (BIGINT '3', BIGINT '77')")
                 .isFullyPushedDown();
 
-        Session topNPushdownEnabled = topNPushdownEnabled(getSession());
         // predicate over TopN result
-        assertThat(query(topNPushdownEnabled,
+        assertThat(query("" +
                 "SELECT orderkey " +
                 "FROM (SELECT * FROM orders ORDER BY orderdate DESC, orderkey ASC LIMIT 10)" +
                 "WHERE orderdate = DATE '1998-08-01'"))
@@ -303,7 +302,7 @@ public class TestPostgreSqlConnectorTest
                 .ordered()
                 .isFullyPushedDown();
 
-        assertThat(query(topNPushdownEnabled,
+        assertThat(query("" +
                 "SELECT custkey " +
                 "FROM (SELECT SUM(totalprice) as sum, custkey, COUNT(*) as cnt FROM orders GROUP BY custkey order by sum desc limit 10) " +
                 "WHERE cnt > 30"))
@@ -504,9 +503,8 @@ public class TestPostgreSqlConnectorTest
                 "GROUP BY regionkey"))
                 .isFullyPushedDown();
 
-        Session topNPushdownEnabled = topNPushdownEnabled(getSession());
         // GROUP BY above TopN
-        assertThat(query(topNPushdownEnabled,
+        assertThat(query("" +
                 "SELECT clerk, sum(totalprice) " +
                 "FROM (SELECT clerk, totalprice FROM orders ORDER BY orderdate ASC, totalprice ASC LIMIT 10) " +
                 "GROUP BY clerk"))
@@ -548,7 +546,6 @@ public class TestPostgreSqlConnectorTest
     @Test
     public void testTopNWithEnum()
     {
-        Session session = topNPushdownEnabled(getSession());
         // Create an enum with non-lexicographically sorted entries
         String enumType = "test_enum_" + randomTableSuffix();
         postgreSqlServer.execute("CREATE TYPE " + enumType + " AS ENUM ('A', 'b', 'B', 'a')");
@@ -564,10 +561,10 @@ public class TestPostgreSqlConnectorTest
             // enum values sort order is defined as the order in which the values were listed when creating the type
             // If we pushdown topn on enums our results will not be ordered according to Trino unless the enum was
             // declared with values in the same order as Trino expects
-            assertThat(query(session, "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY an_enum ASC LIMIT 2"))
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY an_enum ASC LIMIT 2"))
                     .ordered()
                     .isNotFullyPushedDown(TopNNode.class);
-            assertThat(query(session, "SELECT a_bigint FROM " + testTable.getName() + " ORDER BY an_enum DESC LIMIT 2"))
+            assertThat(query("SELECT a_bigint FROM " + testTable.getName() + " ORDER BY an_enum DESC LIMIT 2"))
                     .ordered()
                     .isNotFullyPushedDown(TopNNode.class);
         }
@@ -766,11 +763,10 @@ public class TestPostgreSqlConnectorTest
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE nationkey < 5 GROUP BY regionkey LIMIT 3")).isFullyPushedDown();
         assertThat(query("SELECT regionkey, count(*) FROM nation WHERE name < 'EGYPT' GROUP BY regionkey LIMIT 3")).isNotFullyPushedDown(FilterNode.class);
 
-        Session topNPushdownEnabled = topNPushdownEnabled(getSession());
         // with TopN over numeric column
-        assertThat(query(topNPushdownEnabled, "SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
+        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
         // with TopN over varchar column
-        assertThat(query(topNPushdownEnabled, "SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
 
         // LIMIT with JOIN
         assertThat(query(joinPushdownEnabled(getSession()), "" +
