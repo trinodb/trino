@@ -76,6 +76,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.StageInfo.getAllStages;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textDistributedPlan;
@@ -367,6 +368,10 @@ public class QueryMonitor
                             queryInfo.getOutput().get().getCatalogName(),
                             queryInfo.getOutput().get().getSchema(),
                             queryInfo.getOutput().get().getTable(),
+                            queryInfo.getOutput().get().getColumns()
+                                    .map(column -> column.stream()
+                                            .map(Column::getName)
+                                            .collect(toImmutableList())),
                             tableFinishInfo.map(TableFinishInfo::getConnectorOutputMetadata),
                             tableFinishInfo.map(TableFinishInfo::isJsonLengthLimitExceeded)));
         }

@@ -47,6 +47,7 @@ import org.testng.annotations.Test;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -70,6 +71,10 @@ public class TestEventListenerBasic
         extends AbstractTestQueryFramework
 {
     private static final String IGNORE_EVENT_MARKER = " -- ignore_generated_event";
+    private static final Set<String> TABLES_TO_BE_FILTERED = ImmutableSet.of(
+            "test_table_with_column_mask",
+            "test_table_with_row_filter",
+            "table_for_output");
     private final EventsCollector generatedEvents = new EventsCollector(buildEventFilters());
     private EventsAwaitingQueries queries;
 
@@ -95,10 +100,19 @@ public class TestEventListenerBasic
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "tests_table")))
-                        .withGetColumns(schemaTableName -> ImmutableList.of(new ColumnMetadata("test_varchar", createUnboundedVarcharType())))
+                        .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "test_table")))
+                        .withGetTableHandle((session, schemaTableName) -> {
+                            if (!schemaTableName.getTableName().startsWith("create")) {
+                                return new MockConnectorTableHandle(schemaTableName);
+                            }
+                            return null;
+                        })
+                        .withGetColumns(name -> ImmutableList.of(new ColumnMetadata("test_column_bigint", BIGINT), new ColumnMetadata("test_column_varchar", createUnboundedVarcharType())))
+                        .withGetColumns(schemaTableName -> ImmutableList.of(
+                                new ColumnMetadata("test_varchar", createUnboundedVarcharType()),
+                                new ColumnMetadata("test_bigint", BIGINT)))
                         .withApplyProjection((session, handle, projections, assignments) -> {
-                            if (((MockConnectorTableHandle) handle).getTableName().getTableName().equals("test_table_with_column_mask")) {
+                            if (TABLES_TO_BE_FILTERED.contains(((MockConnectorTableHandle) handle).getTableName().getTableName())) {
                                 return Optional.empty();
                             }
                             throw new RuntimeException("Throw from apply projection");
@@ -122,7 +136,7 @@ public class TestEventListenerBasic
                             return null;
                         })
                         .withColumnMask((schemaTableName, columnName) -> {
-                            if (schemaTableName.getTableName().equals("test_table_with_column_mask")) {
+                            if (schemaTableName.getTableName().equals("test_table_with_column_mask") && columnName.equals("test_varchar")) {
                                 return new ViewExpression("user", Optional.of("tpch"), Optional.of("tiny"), "(SELECT cast(max(orderkey) as VARCHAR) FROM orders)");
                             }
                             return null;
@@ -342,6 +356,8 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .isEqualTo(ImmutableList.of("nationkey", "name", "regionkey", "comment"));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(1);
@@ -367,6 +383,8 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .isEqualTo(ImmutableList.of("nationkey", "name", "regionkey", "comment"));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(1);
@@ -448,11 +466,15 @@ public class TestEventListenerBasic
         assertThat(table.getAuthorization()).isEqualTo("user");
         assertThat(table.isDirectlyReferenced()).isTrue();
         assertThat(table.getFilters()).isEmpty();
-        assertThat(table.getColumns()).hasSize(1);
+        assertThat(table.getColumns()).hasSize(2);
 
         column = table.getColumns().get(0);
         assertThat(column.getColumn()).isEqualTo("test_varchar");
         assertThat(column.getMasks()).hasSize(1);
+
+        column = table.getColumns().get(1);
+        assertThat(column.getColumn()).isEqualTo("test_bigint");
+        assertThat(column.getMasks()).hasSize(0);
     }
 
     @Test
@@ -598,5 +620,65 @@ public class TestEventListenerBasic
         assertEquals(statistics.getCumulativeMemory(), queryStats.getCumulativeUserMemory());
         assertEquals(statistics.getStageGcStatistics(), queryStats.getStageGcStatistics());
         assertEquals(statistics.getCompletedSplits(), queryStats.getCompletedDrivers());
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelect()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS SELECT name, nationkey FROM nation", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .isEqualTo(ImmutableList.of("name", "nationkey"));
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelectWithAliasedColumn()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table(aliased_bigint, aliased_varchar) AS SELECT name, nationkey as keynation FROM nation", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .isEqualTo(ImmutableList.of("aliased_bigint", "aliased_varchar"));
+    }
+
+    @Test
+    public void testOutputColumnsForInsertingSingleColumn()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("INSERT INTO mock.default.table_for_output(test_bigint) SELECT nationkey FROM nation", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .isEqualTo(ImmutableList.of("test_bigint"));
+    }
+
+    @Test
+    public void testOutputColumnsForInsertingAliasedColumn()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("INSERT INTO mock.default.table_for_output(test_varchar, test_bigint) SELECT name as aliased_name, nationkey as aliased_varchar FROM nation", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .isEqualTo(ImmutableList.of("test_varchar", "test_bigint"));
+    }
+
+    @Test
+    public void testOutputColumnsForUpdatingAllColumns()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("UPDATE mock.default.table_for_output SET test_varchar = 'reset', test_bigint = 1", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .isEqualTo(ImmutableList.of("test_varchar", "test_bigint"));
+    }
+
+    @Test
+    public void testOutputColumnsForUpdatingSingleColumn()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("UPDATE mock.default.table_for_output SET test_varchar = 're-reset' WHERE test_bigint = 1", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .isEqualTo(ImmutableList.of("test_varchar"));
     }
 }

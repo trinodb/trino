@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
+import io.trino.execution.Column;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionKind;
 import io.trino.metadata.FunctionMetadata;
@@ -397,8 +398,6 @@ class StatementAnalyzer
             // analyze the query that creates the data
             Scope queryScope = analyze(insert.getQuery(), createScope(scope));
 
-            analysis.setUpdateType("INSERT", targetTable, Optional.empty());
-
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isEmpty()) {
@@ -460,6 +459,13 @@ class StatementAnalyzer
                     targetTableHandle.get(),
                     insertColumns.stream().map(columnHandles::get).collect(toImmutableList()),
                     newTableLayout));
+            analysis.setUpdateType(
+                    "INSERT",
+                    targetTable,
+                    Optional.empty(),
+                    Optional.of(insertColumns.stream()
+                            .map(insertColumn -> new Column(insertColumn, tableMetadata.getColumn(insertColumn).getType().toString()))
+                            .collect(toImmutableList())));
 
             List<Type> tableTypes = insertColumns.stream()
                     .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
@@ -502,7 +508,11 @@ class StatementAnalyzer
             Query query = parseView(optionalView.get().getOriginalSql(), name, refreshMaterializedView);
             Scope queryScope = process(query, scope);
 
-            analysis.setUpdateType("INSERT", targetTable, Optional.empty());
+            List<Column> columns = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(field -> new Column(field.getName().orElseThrow(), field.getType().toString()))
+                    .collect(toImmutableList());
+
+            analysis.setUpdateType("INSERT", targetTable, Optional.empty(), Optional.of(columns));
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -642,7 +652,7 @@ class StatementAnalyzer
             Scope tableScope = analyzer.analyzeForUpdate(table, scope, UpdateKind.DELETE);
             node.getWhere().ifPresent(where -> analyzeWhere(node, tableScope, where));
 
-            analysis.setUpdateType("DELETE", tableName, Optional.of(table));
+            analysis.setUpdateType("DELETE", tableName, Optional.of(table), Optional.empty());
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -651,7 +661,7 @@ class StatementAnalyzer
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
-            analysis.setUpdateType("ANALYZE", tableName, Optional.empty());
+            analysis.setUpdateType("ANALYZE", tableName, Optional.empty(), Optional.empty());
 
             // verify the target table exists and it's not a view
             if (metadata.getView(session, tableName).isPresent()) {
@@ -696,7 +706,6 @@ class StatementAnalyzer
         {
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
-            analysis.setUpdateType("CREATE TABLE", targetTable, Optional.empty());
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
             if (targetTableHandle.isPresent()) {
@@ -707,6 +716,7 @@ class StatementAnalyzer
                             Optional.empty(),
                             node.isWithData(),
                             true));
+                    analysis.setUpdateType("CREATE TABLE", targetTable, Optional.empty(), Optional.empty());
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
                 }
                 throw semanticException(TABLE_ALREADY_EXISTS, node, "Destination table '%s' already exists", targetTable);
@@ -740,6 +750,13 @@ class StatementAnalyzer
                         .map(field -> new ColumnMetadata(field.getName().get(), field.getType()))
                         .collect(toImmutableList()));
             }
+            analysis.setUpdateType(
+                    "CREATE TABLE",
+                    targetTable,
+                    Optional.empty(),
+                    Optional.of(columns.build().stream()
+                            .map(column -> new Column(column.getName(), column.getType().toString()))
+                            .collect(toImmutableList())));
 
             // create target table metadata
             CatalogName catalogName = metadata.getCatalogHandle(session, targetTable.getCatalogName())
@@ -790,16 +807,20 @@ class StatementAnalyzer
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
-            analysis.setUpdateType("CREATE VIEW", viewName, Optional.empty());
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, CorrelationSupport.ALLOWED);
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
-            accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
-
             validateColumns(node, queryScope.getRelationType());
+
+            List<Column> columns = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(field -> new Column(field.getName().orElseThrow(), field.getType().toString()))
+                    .collect(toImmutableList());
+            analysis.setUpdateType("CREATE VIEW", viewName, Optional.empty(), Optional.of(columns));
+
+            accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
 
             return createAndAssignScope(node, scope);
         }
@@ -975,7 +996,6 @@ class StatementAnalyzer
         protected Scope visitCreateMaterializedView(CreateMaterializedView node, Optional<Scope> scope)
         {
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
-            analysis.setUpdateType("CREATE MATERIALIZED VIEW", viewName, Optional.empty());
 
             if (node.isReplace() && node.isNotExists()) {
                 throw semanticException(NOT_SUPPORTED, node, "'CREATE OR REPLACE' and 'IF NOT EXISTS' clauses can not be used together");
@@ -986,13 +1006,19 @@ class StatementAnalyzer
 
             Scope queryScope = analyzer.analyze(node.getQuery(), scope);
 
+            validateColumns(node, queryScope.getRelationType());
+
             // Materialized view access control is implemented as a combination of access control check for creation of view and creation of storage table.
             // When the storage table name is generated by the connector, the table creation check is skipped since the table created by the connector
             // should be accessible to the user. When the user specifies the name of the storage table (future extension), create table acccess check
             // must be made on the storage table.
             accessControl.checkCanCreateView(session.toSecurityContext(), viewName);
 
-            validateColumns(node, queryScope.getRelationType());
+            List<Column> columns = queryScope.getRelationType().getVisibleFields().stream()
+                    .map(field -> new Column(field.getName().orElseThrow(), field.getType().toString()))
+                    .collect(toImmutableList());
+
+            analysis.setUpdateType("CREATE MATERIALIZED VIEW", viewName, Optional.empty(), Optional.of(columns));
 
             return createAndAssignScope(node, scope);
         }
@@ -1879,7 +1905,13 @@ class StatementAnalyzer
             List<ColumnMetadata> updatedColumns = allColumns.stream()
                     .filter(column -> assignmentTargets.contains(column.getName()))
                     .collect(toImmutableList());
-            analysis.setUpdateType("UPDATE", tableName, Optional.of(table));
+            analysis.setUpdateType(
+                    "UPDATE",
+                    tableName,
+                    Optional.of(table),
+                    Optional.of(updatedColumns.stream()
+                            .map(column -> new Column(column.getName(), column.getType().toString()))
+                            .collect(toImmutableList())));
             analysis.setUpdatedColumns(updatedColumns);
 
             // Analyzer checks for select permissions but UPDATE has a separate permission, so disable access checks
