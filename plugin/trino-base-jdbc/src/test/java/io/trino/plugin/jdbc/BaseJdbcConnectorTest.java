@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import io.trino.Session;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
@@ -128,7 +129,7 @@ public abstract class BaseJdbcConnectorTest
         // TopN over limit with filter
         assertThat(query("" +
                 "SELECT orderkey, totalprice " +
-                "FROM (SELECT orderkey, totalprice FROM orders WHERE orderpriority = '1-URGENT' LIMIT 20) " +
+                "FROM (SELECT orderkey, totalprice FROM orders WHERE orderdate = DATE '1995-09-16' LIMIT 20) " +
                 "ORDER BY totalprice ASC LIMIT 5"))
                 .ordered()
                 .isFullyPushedDown();
@@ -140,6 +141,39 @@ public abstract class BaseJdbcConnectorTest
                 "ORDER BY sum DESC LIMIT 10"))
                 .ordered()
                 .isFullyPushedDown();
+    }
+
+    @Test
+    public void testNullSensitiveTopNPushdown()
+    {
+        if (!hasBehavior(SUPPORTS_TOPN_PUSHDOWN)) {
+            // Covered by testTopNPushdown
+            return;
+        }
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_null_sensitive_topn_pushdown",
+                "(name varchar(10), a bigint)",
+                List.of(
+                        "'small', 42",
+                        "'big', 134134",
+                        "'negative', -15",
+                        "'null', NULL"))) {
+            verify(SortOrder.values().length == 4, "The test needs to be updated when new options are added");
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a ASC NULLS FIRST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a ASC NULLS LAST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a DESC NULLS FIRST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+            assertThat(query("SELECT name FROM " + testTable.getName() + " ORDER BY a DESC NULLS LAST LIMIT 5"))
+                    .ordered()
+                    .isFullyPushedDown();
+        }
     }
 
     @Test
