@@ -15,6 +15,8 @@ package io.trino.connector;
 
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
@@ -37,5 +39,17 @@ public class MockConnectorHandleResolver
     public Class<? extends ColumnHandle> getColumnHandleClass()
     {
         return MockConnectorColumnHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorOutputTableHandle> getOutputTableHandleClass()
+    {
+        return MockConnectorOutputTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
+    {
+        return MockConnectorInsertTableHandle.class;
     }
 }
