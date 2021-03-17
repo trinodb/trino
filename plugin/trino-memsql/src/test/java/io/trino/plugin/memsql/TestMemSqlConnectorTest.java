@@ -69,9 +69,6 @@ public class TestMemSqlConnectorTest
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
             case SUPPORTS_AGGREGATION_PUSHDOWN:
                 return false;
 
