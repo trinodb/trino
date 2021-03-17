@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -90,7 +91,7 @@ public class TestSqlServerConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                sqlServer::execute,
+                onRemoteDatabase(),
                 "table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
@@ -119,7 +120,7 @@ public class TestSqlServerConnectorTest
     @Test
     public void testInsertInPresenceOfNotSupportedColumn()
     {
-        sqlServer.execute("CREATE TABLE test_insert_not_supported_column_present(x bigint, y sql_variant, z varchar(10))");
+        onRemoteDatabase().execute("CREATE TABLE test_insert_not_supported_column_present(x bigint, y sql_variant, z varchar(10))");
         // Check that column y is not supported.
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_insert_not_supported_column_present'", "VALUES 'x', 'z'");
         assertUpdate("INSERT INTO test_insert_not_supported_column_present (x, z) VALUES (123, 'test')", 1);
@@ -130,10 +131,10 @@ public class TestSqlServerConnectorTest
     @Test
     public void testReadFromView()
     {
-        sqlServer.execute("CREATE VIEW test_view AS SELECT * FROM orders");
+        onRemoteDatabase().execute("CREATE VIEW test_view AS SELECT * FROM orders");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        sqlServer.execute("DROP VIEW IF EXISTS test_view");
+        onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
     }
 
     @Test
@@ -208,7 +209,7 @@ public class TestSqlServerConnectorTest
 
         // decimals
         try (TestTable testTable = new TestTable(
-                sqlServer::execute,
+                onRemoteDatabase(),
                 "test_aggregation_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10), bigint_column bigint)",
                 List.of(
@@ -268,33 +269,33 @@ public class TestSqlServerConnectorTest
     @Test
     public void testStddevAggregationPushdown()
     {
-        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
 
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             // Test non-whole number results
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
 
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -305,34 +306,34 @@ public class TestSqlServerConnectorTest
     @Test
     public void testVarianceAggregationPushdown()
     {
-        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
 
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = new TestTable(sqlServer::execute, getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             // Test non-whole number results
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
-            sqlServer.execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (1)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (2)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (3)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (4)");
+            onRemoteDatabase().execute("INSERT INTO " + testTable.getName() + " (t_double) VALUES (5)");
 
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -344,8 +345,8 @@ public class TestSqlServerConnectorTest
     public void testColumnComment()
             throws Exception
     {
-        try (TestTable testTable = new TestTable(sqlServer::execute, "test_column_comment", "(col1 bigint, col2 bigint, col3 bigint)")) {
-            sqlServer.execute("" +
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), "test_column_comment", "(col1 bigint, col2 bigint, col3 bigint)")) {
+            onRemoteDatabase().execute("" +
                     "EXEC sp_addextendedproperty " +
                     " 'MS_Description', 'test comment', " +
                     " 'Schema', 'dbo', " +
@@ -419,7 +420,7 @@ public class TestSqlServerConnectorTest
 
         // decimals
         try (TestTable testTable = new TestTable(
-                sqlServer::execute,
+                onRemoteDatabase(),
                 "test_decimal_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
                 List.of("123.321, 123456789.987654321"))) {
@@ -494,7 +495,7 @@ public class TestSqlServerConnectorTest
         //  and try to simplify them."
         //
         // List around 30_000 causes query to be really slow
-        sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + getLongInClause(0, 10_000));
+        onRemoteDatabase().execute("SELECT count(*) FROM dbo.orders WHERE " + getLongInClause(0, 10_000));
     }
 
     /**
@@ -510,7 +511,7 @@ public class TestSqlServerConnectorTest
         String longInClauses = range(0, 10)
                 .mapToObj(value -> getLongInClause(value * 1_000, 1_000))
                 .collect(joining(" OR "));
-        sqlServer.execute("SELECT count(*) FROM dbo.orders WHERE " + longInClauses);
+        onRemoteDatabase().execute("SELECT count(*) FROM dbo.orders WHERE " + longInClauses);
     }
 
     @Test
@@ -567,13 +568,13 @@ public class TestSqlServerConnectorTest
     @Test
     public void testShowCreateForPartitionedTablesWithDataCompression()
     {
-        sqlServer.execute("CREATE PARTITION FUNCTION pfSales (DATE)\n" +
+        onRemoteDatabase().execute("CREATE PARTITION FUNCTION pfSales (DATE)\n" +
                 "AS RANGE LEFT FOR VALUES \n" +
                 "('2013-01-01', '2014-01-01', '2015-01-01')");
-        sqlServer.execute("CREATE PARTITION SCHEME psSales\n" +
+        onRemoteDatabase().execute("CREATE PARTITION SCHEME psSales\n" +
                 "AS PARTITION pfSales \n" +
                 "ALL TO ([Primary])");
-        sqlServer.execute("CREATE TABLE partitionedSales (\n" +
+        onRemoteDatabase().execute("CREATE TABLE partitionedSales (\n" +
                 "   SalesDate DATE,\n" +
                 "   Quantity INT\n" +
                 ") ON psSales(SalesDate) WITH (DATA_COMPRESSION = PAGE)");
@@ -583,15 +584,15 @@ public class TestSqlServerConnectorTest
                         "   quantity integer\n" +
                         ")");
         assertUpdate("DROP TABLE partitionedSales");
-        sqlServer.execute("DROP PARTITION SCHEME psSales");
-        sqlServer.execute("DROP PARTITION FUNCTION pfSales");
+        onRemoteDatabase().execute("DROP PARTITION SCHEME psSales");
+        onRemoteDatabase().execute("DROP PARTITION FUNCTION pfSales");
     }
 
     @Test
     public void testShowCreateForIndexedAndCompressedTable()
     {
         // SHOW CREATE doesn't expose data compression for Indexed tables
-        sqlServer.execute("CREATE TABLE test_show_indexed_table (\n" +
+        onRemoteDatabase().execute("CREATE TABLE test_show_indexed_table (\n" +
                 "   key1 BIGINT NOT NULL,\n" +
                 "   key2 BIGINT NOT NULL,\n" +
                 "   key3 BIGINT NOT NULL,\n" +
@@ -617,7 +618,7 @@ public class TestSqlServerConnectorTest
     @Test
     public void testShowCreateForUniqueConstraintCompressedTable()
     {
-        sqlServer.execute("CREATE TABLE test_show_unique_constraint_table (\n" +
+        onRemoteDatabase().execute("CREATE TABLE test_show_unique_constraint_table (\n" +
                 "   key1 BIGINT NOT NULL,\n" +
                 "   key2 BIGINT NOT NULL,\n" +
                 "   key3 BIGINT NOT NULL,\n" +
@@ -648,5 +649,10 @@ public class TestSqlServerConnectorTest
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
+    }
+
+    private SqlExecutor onRemoteDatabase()
+    {
+        return sqlServer::execute;
     }
 }
