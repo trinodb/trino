@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
+import io.trino.sql.planner.plan.SimplePlanRewriter.RewriteContext;
 import io.trino.sql.planner.plan.StatisticsWriterNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -46,7 +47,6 @@ import io.trino.sql.planner.plan.UpdateNode;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -72,11 +72,11 @@ public class BeginTableWrite
     @Override
     public PlanNode optimize(PlanNode plan, Session session, TypeProvider types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator, WarningCollector warningCollector)
     {
-        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, new Context());
+        return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, Optional.empty());
     }
 
     private class Rewriter
-            extends SimplePlanRewriter<Context>
+            extends SimplePlanRewriter<Optional<WriterTarget>>
     {
         private final Session session;
 
@@ -86,15 +86,15 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Context> context)
+        public PlanNode visitTableWriter(TableWriterNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             // Part of the plan should be an Optional<StateChangeListener<QueryState>> and this
             // callback can create the table and abort the table creation if the query fails.
 
-            WriterTarget writerTarget = context.get().getWriterTarget();
+            WriterTarget writerTarget = getContextTarget(context);
             return new TableWriterNode(
                     node.getId(),
-                    node.getSource().accept(this, context),
+                    context.rewrite(node.getSource(), context.get()),
                     writerTarget,
                     node.getRowCountSymbol(),
                     node.getFragmentSymbol(),
@@ -108,9 +108,9 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitDelete(DeleteNode node, RewriteContext<Context> context)
+        public PlanNode visitDelete(DeleteNode node, RewriteContext<Optional<WriterTarget>> context)
         {
-            DeleteTarget deleteTarget = (DeleteTarget) context.get().getWriterTarget();
+            DeleteTarget deleteTarget = (DeleteTarget) getContextTarget(context);
             return new DeleteNode(
                     node.getId(),
                     rewriteModifyTableScan(node.getSource(), deleteTarget.getHandleOrElseThrow()),
@@ -120,9 +120,9 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Context> context)
+        public PlanNode visitUpdate(UpdateNode node, RewriteContext<Optional<WriterTarget>> context)
         {
-            UpdateTarget updateTarget = (UpdateTarget) context.get().getWriterTarget();
+            UpdateTarget updateTarget = (UpdateTarget) getContextTarget(context);
             return new UpdateNode(
                     node.getId(),
                     rewriteModifyTableScan(node.getSource(), updateTarget.getHandleOrElseThrow()),
@@ -133,10 +133,10 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Context> context)
+        public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             PlanNode child = node.getSource();
-            child = child.accept(this, context);
+            child = context.rewrite(child, context.get());
 
             StatisticsWriterNode.WriteStatisticsHandle analyzeHandle =
                     new StatisticsWriterNode.WriteStatisticsHandle(metadata.beginStatisticsCollection(session, ((StatisticsWriterNode.WriteStatisticsReference) node.getTarget()).getHandle()));
@@ -151,15 +151,14 @@ public class BeginTableWrite
         }
 
         @Override
-        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Context> context)
+        public PlanNode visitTableFinish(TableFinishNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             PlanNode child = node.getSource();
 
-            WriterTarget originalTarget = getTarget(child);
+            WriterTarget originalTarget = getWriterTarget(child);
             WriterTarget newTarget = createWriterTarget(originalTarget);
 
-            context.get().setWriterTarget(newTarget);
-            child = child.accept(this, context);
+            child = context.rewrite(child, Optional.of(newTarget));
 
             return new TableFinishNode(
                     node.getId(),
@@ -170,7 +169,7 @@ public class BeginTableWrite
                     node.getStatisticsAggregationDescriptor());
         }
 
-        public WriterTarget getTarget(PlanNode node)
+        public WriterTarget getWriterTarget(PlanNode node)
         {
             if (node instanceof TableWriterNode) {
                 return ((TableWriterNode) node).getTarget();
@@ -193,7 +192,7 @@ public class BeginTableWrite
             }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
-                        .map(this::getTarget)
+                        .map(this::getWriterTarget)
                         .collect(toSet());
                 return getOnlyElement(writerTargets);
             }
@@ -296,19 +295,8 @@ public class BeginTableWrite
         }
     }
 
-    public static class Context
+    private static WriterTarget getContextTarget(RewriteContext<Optional<WriterTarget>> context)
     {
-        private Optional<WriterTarget> writerTarget = Optional.empty();
-
-        public void setWriterTarget(WriterTarget writerTarget)
-        {
-            checkState(this.writerTarget.isEmpty(), "WriterTarget already set");
-            this.writerTarget = Optional.of(writerTarget);
-        }
-
-        public WriterTarget getWriterTarget()
-        {
-            return writerTarget.orElseThrow(() -> new IllegalStateException("WriterTarget not set"));
-        }
+        return context.get().orElseThrow(() -> new IllegalStateException("WriterTarget not present"));
     }
 }
