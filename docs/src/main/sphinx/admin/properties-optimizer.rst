@@ -132,3 +132,14 @@ query performance by reducing query complexity. For example,
 cluster wide data reshuffling might not be needed when processing an aggregation query.
 However, query parallelism might be reduced when partition count is
 low compared to number of workers.
+
+``optimizer.table-scan-node-partitioning-min-bucket-to-task-ratio``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* **Type:** ``double``
+* **Default value:** ``0.5``
+
+Specifies minimal bucket to task ratio that has to be matched or exceeded in order
+to use table scan node partitioning. When the table bucket count is small
+compared to the number of workers, then the table scan is distributed across
+all workers for improved parallelism.
