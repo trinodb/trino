@@ -1005,7 +1005,7 @@ public class IcebergMetadata
         String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");
         return Optional.of(new ConnectorMaterializedViewDefinition(
                 definition.getOriginalSql(),
-                storageTable,
+                Optional.of(storageTable),
                 definition.getCatalog(),
                 Optional.of(viewName.getSchemaName()),
                 definition.getColumns(),

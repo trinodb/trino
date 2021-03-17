@@ -17,6 +17,8 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.type.TypeId;
 
+import javax.annotation.Nullable;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,10 +37,27 @@ public class ConnectorMaterializedViewDefinition
     private final Optional<String> owner;
     private final Map<String, Object> properties;
 
+    public ConnectorMaterializedViewDefinition(
+            @JsonProperty("originalSql") String originalSql,
+            @JsonProperty("storageTable") Optional<String> storageTable,
+            @JsonProperty("catalog") Optional<String> catalog,
+            @JsonProperty("schema") Optional<String> schema,
+            @JsonProperty("columns") List<Column> columns,
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("owner") Optional<String> owner,
+            @JsonProperty("properties") Map<String, Object> properties)
+    {
+        this(originalSql, requireNonNull(storageTable, "storageTable is null").orElse(null), catalog, schema, columns, comment, owner, properties);
+    }
+
+    /*
+     * This constructor is for JSON deserialization only. Do not use.
+     */
+    @Deprecated
     @JsonCreator
     public ConnectorMaterializedViewDefinition(
             @JsonProperty("originalSql") String originalSql,
-            @JsonProperty("storageTable") String storageTable,
+            @JsonProperty("storageTable") @Nullable String storageTable,
             @JsonProperty("catalog") Optional<String> catalog,
             @JsonProperty("schema") Optional<String> schema,
             @JsonProperty("columns") List<Column> columns,
@@ -70,6 +89,7 @@ public class ConnectorMaterializedViewDefinition
     }
 
     @JsonProperty
+    @Nullable
     public String getStorageTable()
     {
         return storageTable;
