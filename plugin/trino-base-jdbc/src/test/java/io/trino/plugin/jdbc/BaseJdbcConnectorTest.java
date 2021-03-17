@@ -105,9 +105,11 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown();
 
         // TopN over aggregation column
-        assertThat(query("SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
-                .ordered()
-                .isFullyPushedDown();
+        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("SELECT sum(totalprice) AS total FROM orders GROUP BY custkey ORDER BY total DESC LIMIT 10"))
+                    .ordered()
+                    .isFullyPushedDown();
+        }
 
         // TopN over TopN
         assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders ORDER BY 1, 2 LIMIT 10) ORDER BY 2, 1 LIMIT 5"))
@@ -135,12 +137,14 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown();
 
         // TopN over aggregation with filter
-        assertThat(query("" +
-                "SELECT * " +
-                "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
-                "ORDER BY sum DESC LIMIT 10"))
-                .ordered()
-                .isFullyPushedDown();
+        if (hasBehavior(SUPPORTS_AGGREGATION_PUSHDOWN)) {
+            assertThat(query("" +
+                    "SELECT * " +
+                    "FROM (SELECT SUM(totalprice) as sum, custkey AS total FROM orders GROUP BY custkey HAVING COUNT(*) > 3) " +
+                    "ORDER BY sum DESC LIMIT 10"))
+                    .ordered()
+                    .isFullyPushedDown();
+        }
     }
 
     @Test
