@@ -27,6 +27,7 @@ import io.trino.testing.sql.TestTable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
@@ -206,45 +207,48 @@ public class TestSqlServerConnectorTest
                 .isFullyPushedDown();
 
         // decimals
-        try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10), bigint_column bigint)")) {
-            sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (100.000, 100000000.000000000, 'ala', 1)");
-            sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (123.321, 123456789.987654321, 'kot', 2)");
-
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
+        try (TestTable testTable = new TestTable(
+                sqlServer::execute,
+                "test_aggregation_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10), bigint_column bigint)",
+                List.of(
+                        "100.000, 100000000.000000000, 'ala', 1",
+                        "123.321, 123456789.987654321, 'kot', 2"))) {
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isFullyPushedDown();
 
             // WHERE on aggregation column
-            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124")).isFullyPushedDown();
             // WHERE on non-aggregation column
-            assertThat(query("SELECT min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110")).isFullyPushedDown();
+            assertThat(query("SELECT min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110")).isFullyPushedDown();
             // GROUP BY
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on both grouping and aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 AND long_decimal < 124" + " GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 AND long_decimal < 124" + " GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on grouping column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE short_decimal < 110 GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE long_decimal < 124 GROUP BY short_decimal")).isFullyPushedDown();
             // GROUP BY with WHERE on neither grouping nor aggregation column
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE bigint_column = 1 GROUP BY short_decimal"))
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE bigint_column = 1 GROUP BY short_decimal"))
                     .isFullyPushedDown();
-            assertThat(query("SELECT short_decimal, min(long_decimal) FROM test_aggregation_pushdown WHERE varchar_column = 'ala' GROUP BY short_decimal"))
+            assertThat(query("SELECT short_decimal, min(long_decimal) FROM " + testTable.getName() + " WHERE varchar_column = 'ala' GROUP BY short_decimal"))
                     // SQL Server is case insensitive by default
                     .isNotFullyPushedDown(FilterNode.class);
             // aggregation on varchar column
-            assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown")).isFullyPushedDown();
+            assertThat(query("SELECT min(varchar_column) FROM " + testTable.getName())).isFullyPushedDown();
             // aggregation on varchar column with GROUPING
-            assertThat(query("SELECT short_decimal, min(varchar_column) FROM test_aggregation_pushdown GROUP BY short_decimal")).isFullyPushedDown();
+            assertThat(query("SELECT short_decimal, min(varchar_column) FROM " + testTable.getName() + " GROUP BY short_decimal")).isFullyPushedDown();
             // aggregation on varchar column with WHERE
-            assertThat(query("SELECT min(varchar_column) FROM test_aggregation_pushdown WHERE varchar_column ='ala'"))
+            assertThat(query("SELECT min(varchar_column) FROM " + testTable.getName() + " WHERE varchar_column ='ala'"))
                     // SQL Server is case insensitive by default
                     .isNotFullyPushedDown(FilterNode.class);
 
             // not supported yet
-            assertThat(query("SELECT min(DISTINCT short_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
-            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM test_aggregation_pushdown GROUP BY short_decimal"))
+            assertThat(query("SELECT min(DISTINCT short_decimal) FROM " + testTable.getName())).isFullyPushedDown();
+            assertThat(query("SELECT DISTINCT short_decimal, min(long_decimal) FROM " + testTable.getName() + " GROUP BY short_decimal"))
                     .isFullyPushedDown();
         }
 
@@ -340,18 +344,17 @@ public class TestSqlServerConnectorTest
     public void testColumnComment()
             throws Exception
     {
-        try (AutoCloseable ignoreTable = withTable("test_column_comment",
-                "(col1 bigint, col2 bigint, col3 bigint)")) {
+        try (TestTable testTable = new TestTable(sqlServer::execute, "test_column_comment", "(col1 bigint, col2 bigint, col3 bigint)")) {
             sqlServer.execute("" +
                     "EXEC sp_addextendedproperty " +
                     " 'MS_Description', 'test comment', " +
                     " 'Schema', 'dbo', " +
-                    " 'Table', 'test_column_comment', " +
+                    " 'Table', '" + testTable.getName() + "', " +
                     " 'Column', 'col1'");
 
             // SQL Server JDBC driver doesn't support REMARKS for column comment https://github.com/Microsoft/mssql-jdbc/issues/646
             assertQuery(
-                    "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name = 'test_column_comment'",
+                    "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'dbo' AND table_name = '" + testTable.getName() + "'",
                     "VALUES ('col1', null), ('col2', null), ('col3', null)");
         }
     }
@@ -415,29 +418,30 @@ public class TestSqlServerConnectorTest
                 .isFullyPushedDown();
 
         // decimals
-        try (AutoCloseable ignoreTable = withTable("test_decimal_pushdown",
-                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            sqlServer.execute("INSERT INTO test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
-
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
+        try (TestTable testTable = new TestTable(
+                sqlServer::execute,
+                "test_decimal_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))",
+                List.of("123.321, 123456789.987654321"))) {
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456790"))
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal <= 123456790"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 123.321"))
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal <= 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal <= 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal = 123.321"))
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE short_decimal = 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
+            assertThat(query("SELECT * FROM " + testTable.getName() + " WHERE long_decimal = 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
         }
@@ -644,11 +648,5 @@ public class TestSqlServerConnectorTest
                 .mapToObj(Integer::toString)
                 .collect(joining(", "));
         return "orderkey IN (" + longValues + ")";
-    }
-
-    private AutoCloseable withTable(String tableName, String tableDefinition)
-    {
-        sqlServer.execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
-        return () -> sqlServer.execute("DROP TABLE " + tableName);
     }
 }
