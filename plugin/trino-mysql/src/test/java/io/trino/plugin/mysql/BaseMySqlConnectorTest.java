@@ -55,9 +55,6 @@ public abstract class BaseMySqlConnectorTest
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY:
                 return false;
 
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
 
