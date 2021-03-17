@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -21,7 +20,6 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -35,7 +33,6 @@ import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.plugin.sqlserver.DataCompression.NONE;
 import static io.trino.plugin.sqlserver.DataCompression.PAGE;
 import static io.trino.plugin.sqlserver.DataCompression.ROW;
-import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
@@ -44,20 +41,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestBaseSqlServerConnectorTest
+public abstract class BaseSqlServerConnectorTest
         extends BaseJdbcConnectorTest
 {
-    protected TestingSqlServer sqlServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        sqlServer = closeAfterClass(new TestingSqlServer());
-        sqlServer.start();
-        return createSqlServerQueryRunner(sqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
-    }
-
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -651,8 +637,5 @@ public class TestBaseSqlServerConnectorTest
         return "orderkey IN (" + longValues + ")";
     }
 
-    private SqlExecutor onRemoteDatabase()
-    {
-        return sqlServer::execute;
-    }
+    protected abstract SqlExecutor onRemoteDatabase();
 }
