@@ -135,7 +135,7 @@ public class TrinoDriver
         throw new SQLFeatureNotSupportedException();
     }
 
-    private OkHttpClient newHttpClient()
+    private static OkHttpClient newHttpClient()
     {
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .addInterceptor(userAgent(DRIVER_NAME + "/" + DRIVER_VERSION));
