@@ -95,4 +95,24 @@ public class TestSetOperations
                         "    VALUES 2, 3)"))
                 .matches("VALUES 1, 2, 3");
     }
+
+    @Test
+    public void testUnionAllVsDistinctInSubquery()
+    {
+        // ensure that the UNION ALL and UNION DISTINCT are treated as different operations and subexpressions are not deduped
+        assertThat(assertions.query(
+                "SELECT (" +
+                        "    SELECT array_agg(v ORDER BY v) FROM (" +
+                        "        VALUES 1, 2, 3" +
+                        "        UNION" +
+                        "        VALUES 3, 4" +
+                        "    ) t(v))," +
+                        "    (" +
+                        "    SELECT array_agg(v ORDER BY v) FROM (" +
+                        "        VALUES 1, 2, 3" +
+                        "        UNION ALL" +
+                        "        VALUES 3, 4" +
+                        "    ) t(v))"))
+                .matches("VALUES (ARRAY[1, 2, 3, 4], ARRAY[1, 2, 3, 3, 4])");
+    }
 }
