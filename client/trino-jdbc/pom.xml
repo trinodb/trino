@@ -248,6 +248,36 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>io/trino/jdbc/driver.properties</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>io/trino/jdbc/driver.properties</exclude>
+                </excludes>
+            </resource>
+        </resources>
+
+        <pluginManagement>
+            <plugins>
+                <!-- TODO: move this to Airbase -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <configuration>
+                        <propertiesEncoding>ISO-8859-1</propertiesEncoding>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
