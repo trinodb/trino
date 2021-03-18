@@ -33,6 +33,10 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static io.trino.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
+import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
 import static java.lang.Integer.parseInt;
 import static java.util.Objects.requireNonNull;
 
@@ -129,26 +133,26 @@ public class TrinoDatabaseMetaData
     public String getDriverName()
             throws SQLException
     {
-        return TrinoDriver.DRIVER_NAME;
+        return DRIVER_NAME;
     }
 
     @Override
     public String getDriverVersion()
             throws SQLException
     {
-        return TrinoDriver.DRIVER_VERSION;
+        return DRIVER_VERSION;
     }
 
     @Override
     public int getDriverMajorVersion()
     {
-        return TrinoDriver.DRIVER_VERSION_MAJOR;
+        return DRIVER_VERSION_MAJOR;
     }
 
     @Override
     public int getDriverMinorVersion()
     {
-        return TrinoDriver.DRIVER_VERSION_MINOR;
+        return DRIVER_VERSION_MINOR;
     }
 
     @Override

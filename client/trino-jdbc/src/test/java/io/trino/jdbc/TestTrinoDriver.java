@@ -349,15 +349,15 @@ public class TestTrinoDriver
             throws Exception
     {
         Driver driver = DriverManager.getDriver("jdbc:trino:");
-        assertEquals(driver.getMajorVersion(), 0);
-        assertEquals(driver.getMajorVersion(), 0);
+        assertThat(driver.getMajorVersion()).isGreaterThan(350);
+        assertThat(driver.getMinorVersion()).isEqualTo(0);
 
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            assertEquals(metaData.getDriverName(), TrinoDriver.DRIVER_NAME);
-            assertEquals(metaData.getDriverVersion(), "unknown");
-            assertEquals(metaData.getDriverMajorVersion(), 0);
-            assertEquals(metaData.getDriverMinorVersion(), 0);
+            assertEquals(metaData.getDriverName(), "Trino JDBC Driver");
+            assertThat(metaData.getDriverVersion()).startsWith(String.valueOf(driver.getMajorVersion()));
+            assertEquals(metaData.getDriverMajorVersion(), driver.getMajorVersion());
+            assertEquals(metaData.getDriverMinorVersion(), driver.getMinorVersion());
         }
     }
 
