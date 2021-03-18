@@ -39,6 +39,7 @@ import org.apache.parquet.format.Util;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
 
@@ -54,6 +55,7 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetTypeUtils.getParquetEncoding;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
@@ -67,10 +69,10 @@ public final class PredicateUtils
 {
     private PredicateUtils() {}
 
-    public static boolean isStatisticsOverflow(Type type, ParquetIntegerStatistics parquetIntegerStatistics)
+    public static boolean isStatisticsOverflow(Type type, ParquetLongStatistics statistics)
     {
-        long min = parquetIntegerStatistics.getMin();
-        long max = parquetIntegerStatistics.getMax();
+        long min = statistics.getMin();
+        long max = statistics.getMax();
 
         if (type == TINYINT) {
             return min < Byte.MIN_VALUE || max > Byte.MAX_VALUE;
@@ -78,16 +80,16 @@ public final class PredicateUtils
         if (type == SMALLINT) {
             return min < Short.MIN_VALUE || max > Short.MAX_VALUE;
         }
-        if (type == INTEGER) {
+        if (type == INTEGER || type == DATE) {
             return min < Integer.MIN_VALUE || max > Integer.MAX_VALUE;
         }
         if (type == BIGINT) {
             return false;
         }
-        if (type instanceof DecimalType && ((DecimalType) type).getScale() == 0) {
+        if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;
             if (!decimalType.isShort()) {
-                // Smallest long decimal type with 0 scale has broader range than representable in long, as used in ParquetIntegerStatistics
+                // Smallest long decimal type with 0 scale has broader range than representable in long, as used in ParquetLongStatistics
                 return false;
             }
             return BigDecimal.valueOf(min).compareTo(minimalValue(decimalType)) < 0 || BigDecimal.valueOf(max).compareTo(maximalValue(decimalType)) > 0;
@@ -125,8 +127,19 @@ public final class PredicateUtils
     public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain)
             throws ParquetCorruptionException
     {
+        return predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, Optional.empty());
+    }
+
+    public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, Optional<ColumnIndexStore> columnIndexStore)
+            throws ParquetCorruptionException
+    {
         Map<ColumnDescriptor, Statistics<?>> columnStatistics = getStatistics(block, descriptorsByPath);
         if (!parquetPredicate.matches(block.getRowCount(), columnStatistics, dataSource.getId())) {
+            return false;
+        }
+
+        // Page stats is finer grained but relatively more expensive, so we do the filtering after above block filtering.
+        if (columnIndexStore.isPresent() && !parquetPredicate.matches(block.getRowCount(), columnIndexStore.get(), dataSource.getId())) {
             return false;
         }
 
