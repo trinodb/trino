@@ -9,7 +9,6 @@
  */
 package com.starburstdata.trino.plugin.starburstremote;
 
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -24,7 +23,6 @@ import io.trino.testing.sql.TestTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +35,7 @@ import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteQuer
 import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteQueryRunner.starburstRemoteConnectionUrl;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -49,8 +48,9 @@ public class TestStarburstRemoteWithHiveConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        File tempDir = Files.createTempDir();
-        closeAfterClass(() -> deleteRecursively(Path.of(tempDir.getPath()), ALLOW_INSECURE));
+        Path tempDir = createTempDirectory("HiveCatalog");
+        closeAfterClass(() -> deleteRecursively(tempDir, ALLOW_INSECURE));
+
         remoteStarburst = closeAfterClass(createStarburstRemoteQueryRunnerWithHive(
                 tempDir,
                 Map.of(),

@@ -11,7 +11,6 @@ package com.starburstdata.trino.plugin.starburstremote;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -23,7 +22,6 @@ import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +37,7 @@ import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 public class TestStarburstRemoteStatisticsWithHive
         extends AbstractTestQueryFramework
@@ -52,8 +51,8 @@ public class TestStarburstRemoteStatisticsWithHive
             throws Exception
     {
         h2QueryRunner = closeAfterClass(new H2QueryRunner());
-        File tempDir = Files.createTempDir();
-        closeAfterClass(() -> deleteRecursively(Path.of(tempDir.getPath()), ALLOW_INSECURE));
+        Path tempDir = createTempDirectory("HiveCatalogForRemoteStatistics");
+        closeAfterClass(() -> deleteRecursively(tempDir, ALLOW_INSECURE));
         remoteStarburst = closeAfterClass(createStarburstRemoteQueryRunnerWithHive(
                 tempDir,
                 Map.of(),

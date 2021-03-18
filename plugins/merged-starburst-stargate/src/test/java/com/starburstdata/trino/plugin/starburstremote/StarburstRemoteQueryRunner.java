@@ -10,7 +10,6 @@
 package com.starburstdata.trino.plugin.starburstremote;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
 import com.starburstdata.presto.plugin.postgresql.StarburstPostgreSqlPlugin;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
@@ -24,8 +23,8 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.tpch.TpchTable;
 
-import java.io.File;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -37,6 +36,7 @@ import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static java.nio.file.Files.createTempDirectory;
 
 public final class StarburstRemoteQueryRunner
 {
@@ -92,7 +92,7 @@ public final class StarburstRemoteQueryRunner
 
     private static void addHiveToStarburstRemoteQueryRunner(
             DistributedQueryRunner queryRunner,
-            File tmpDir,
+            Path hiveCatalog,
             Iterable<TpchTable<?>> requiredTablesInHiveConnector)
             throws Exception
     {
@@ -100,7 +100,7 @@ public final class StarburstRemoteQueryRunner
             queryRunner.installPlugin(new HiveHadoop2Plugin());
             queryRunner.createCatalog("hive", "hive-hadoop2", ImmutableMap.of(
                     "hive.metastore", "file",
-                    "hive.metastore.catalog.dir", tmpDir.toURI().toString(),
+                    "hive.metastore.catalog.dir", hiveCatalog.toUri().toString(),
                     "hive.security", "allow-all"));
 
             queryRunner.execute("CREATE SCHEMA hive.tiny");
@@ -158,14 +158,14 @@ public final class StarburstRemoteQueryRunner
     }
 
     public static DistributedQueryRunner createStarburstRemoteQueryRunnerWithHive(
-            File tmpDir,
+            Path hiveCatalog,
             Map<String, String> extraProperties,
             Iterable<TpchTable<?>> requiredTablesInHiveConnector,
             Optional<SystemAccessControl> systemAccessControl)
             throws Exception
     {
         DistributedQueryRunner queryRunner = createStarburstRemoteQueryRunner(extraProperties, systemAccessControl);
-        addHiveToStarburstRemoteQueryRunner(queryRunner, tmpDir, requiredTablesInHiveConnector);
+        addHiveToStarburstRemoteQueryRunner(queryRunner, hiveCatalog, requiredTablesInHiveConnector);
         return queryRunner;
     }
 
@@ -251,7 +251,7 @@ public final class StarburstRemoteQueryRunner
                 Map.of("connection-url", postgreSqlServer.getJdbcUrl()),
                 TpchTable.getTables());
 
-        File tempDir = Files.createTempDir();
+        Path tempDir = createTempDirectory("HiveCatalog");
         addHiveToStarburstRemoteQueryRunner(
                 remoteStarburst,
                 tempDir,
