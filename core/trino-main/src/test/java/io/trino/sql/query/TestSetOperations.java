@@ -75,4 +75,24 @@ public class TestSetOperations
                         "    VALUES 2, 3)"))
                 .matches("VALUES 2");
     }
+
+    @Test
+    public void testUnionInSubquery()
+    {
+        assertThat(assertions.query(
+                "WITH t(id) AS (VALUES 1, 2, 3, 4) " +
+                        "SELECT * FROM t WHERE id IN (" +
+                        "    VALUES 1, 2" +
+                        "    UNION" +
+                        "    VALUES 2, 3)"))
+                .matches("VALUES 1, 2, 3");
+
+        assertThat(assertions.query(
+                "WITH t(id) AS (VALUES 1, 2, 3, 4) " +
+                        "SELECT * FROM t WHERE id IN (" +
+                        "    VALUES 1, 2" +
+                        "    UNION ALL" +
+                        "    VALUES 2, 3)"))
+                .matches("VALUES 1, 2, 3");
+    }
 }
