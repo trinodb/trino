@@ -95,6 +95,10 @@ public class Union
     @Override
     public boolean shallowEquals(Node other)
     {
-        return sameClass(this, other);
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return this.isDistinct() == ((Union) other).isDistinct();
     }
 }
