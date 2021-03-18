@@ -13,6 +13,7 @@
  */
 package io.trino.parquet;
 
+import io.airlift.slice.Slice;
 import io.trino.spi.type.DecimalType;
 import org.apache.parquet.column.Encoding;
 import org.apache.parquet.io.ColumnIO;
@@ -25,6 +26,8 @@ import org.apache.parquet.schema.DecimalMetadata;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -32,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal;
 import static org.apache.parquet.schema.OriginalType.DECIMAL;
 import static org.apache.parquet.schema.Type.Repetition.REPEATED;
 
@@ -240,5 +244,25 @@ public final class ParquetTypeUtils
         }
 
         return value;
+    }
+
+    public static Slice getLongDecimalValue(byte[] bytes)
+    {
+        BigInteger value = new BigInteger(bytes);
+        return unscaledDecimal(value);
+    }
+
+    public static long getShortDecimalValue(ByteBuffer buffer)
+    {
+        byte[] array = new byte[buffer.remaining()];
+        buffer.get(array);
+        return getShortDecimalValue(array);
+    }
+
+    public static Slice getLongDecimalValue(ByteBuffer buffer)
+    {
+        byte[] array = new byte[buffer.remaining()];
+        buffer.get(array);
+        return getLongDecimalValue(array);
     }
 }

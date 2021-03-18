@@ -99,6 +99,7 @@ public final class HiveSessionProperties
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
+    private static final String PARQUET_USE_COLUMN_INDEX = "parquet_use_column_index";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -410,6 +411,11 @@ public final class HiveSessionProperties
                         LEGACY_HIVE_VIEW_TRANSLATION,
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
+                        false),
+                booleanProperty(
+                        PARQUET_USE_COLUMN_INDEX,
+                        "Use Parquet column index",
+                        parquetReaderConfig.isUseColumnIndex(),
                         false));
     }
 
@@ -688,5 +694,10 @@ public final class HiveSessionProperties
     public static boolean isLegacyHiveViewTranslation(ConnectorSession session)
     {
         return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
+    }
+
+    public static boolean isParquetUseColumnIndex(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_USE_COLUMN_INDEX, Boolean.class);
     }
 }
