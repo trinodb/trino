@@ -70,7 +70,7 @@
 
 * Add support for Phoenix 5.1. This can be used by setting `connector.name=phoenix5` in catalog
   configuration properties. ({issue}`6865`)
-* Fix query failure when selecting from Phoenix table with `LIMIT` exceeding 2147483647. ({issue}`7169`)
+* Fix failure when query contains a `LIMIT` exceeding 2147483647. ({issue}`7169`)
 
 ## PostgreSQL connector
 
