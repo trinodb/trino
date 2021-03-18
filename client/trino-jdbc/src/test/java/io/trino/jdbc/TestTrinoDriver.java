@@ -703,13 +703,23 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = "Connection property 'user' is required")
+    @Test
     public void testUserIsRequired()
+    {
+        assertThatThrownBy(() -> DriverManager.getConnection(jdbcUrl()))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'user' is required");
+    }
+
+    @Test
+    public void testNullConnectProperties()
             throws Exception
     {
-        try (Connection ignored = DriverManager.getConnection(format("jdbc:trino://%s", server.getAddress()))) {
-            fail("expected exception");
-        }
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        assertThatThrownBy(() -> driver.connect(jdbcUrl(), null))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property 'user' is required");
     }
 
     @Test
@@ -975,6 +985,11 @@ public class TestTrinoDriver
             assertFalse(resultSet.next(), "Found multiple queries");
             return Optional.of(state);
         }
+    }
+
+    private String jdbcUrl()
+    {
+        return format("jdbc:trino://%s", server.getAddress());
     }
 
     private Connection createConnection()
