@@ -21,6 +21,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -349,6 +350,12 @@ public class SnowflakeClient
                 throw new TrinoException(NOT_SUPPORTED, "Snowflake columns cannot contain quotes: " + columnMetadata.getName());
             }
         });
+    }
+
+    @Override
+    protected boolean isSupportedJoinCondition(JdbcJoinCondition joinCondition)
+    {
+        return true;
     }
 
     @SuppressWarnings("UnnecessaryLambda")

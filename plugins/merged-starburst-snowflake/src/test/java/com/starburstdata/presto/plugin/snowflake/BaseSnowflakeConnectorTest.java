@@ -66,6 +66,8 @@ public abstract class BaseSnowflakeConnectorTest
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
+            case SUPPORTS_JOIN_PUSHDOWN:
+                return true;
             default:
                 return super.hasBehavior(connectorBehavior);
         }
