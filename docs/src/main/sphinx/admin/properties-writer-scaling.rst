@@ -53,5 +53,5 @@ nodes for parallel processing.
 The minimum number of written partitions that is required to use connector
 ``preferred write partitioning``. If the number of partitions cannot be
 estimated from the statistics, then preferred write partitioning is not used.
-If the threshold value is less than or equal to ``1`` then ``preferred write
-partitioning`` is always used.
+If the threshold value is ``1`` then ``preferred write partitioning`` is always
+used.
