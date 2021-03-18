@@ -292,14 +292,14 @@ public class TestTableScanRedirectionWithPushdown
 
     private Optional<TableScanRedirectApplicationResult> mockApplyRedirectAfterProjectionPushdown(
             ConnectorSession session,
-            ConnectorTableHandle handle)
+            ConnectorTableHandle handle,
+            List<ColumnHandle> columns)
     {
         MockConnectorTableHandle mockConnectorTable = (MockConnectorTableHandle) handle;
-        Optional<List<ColumnHandle>> projectedColumns = mockConnectorTable.getColumns();
-        if (projectedColumns.isEmpty()) {
+        if (columns.isEmpty()) {
             return Optional.empty();
         }
-        List<String> projectedColumnNames = projectedColumns.get().stream()
+        List<String> projectedColumnNames = columns.stream()
                 .map(MockConnectorColumnHandle.class::cast)
                 .map(MockConnectorColumnHandle::getName)
                 .collect(toImmutableList());
@@ -340,15 +340,14 @@ public class TestTableScanRedirectionWithPushdown
             Map<ColumnHandle, String> redirectionMapping,
             Optional<Set<ColumnHandle>> requiredProjections)
     {
-        return (session, handle) -> {
+        return (session, handle, columns) -> {
             MockConnectorTableHandle mockConnectorTable = (MockConnectorTableHandle) handle;
             // make sure we do redirection after predicate is pushed down
             if (mockConnectorTable.getConstraint().isAll()) {
                 return Optional.empty();
             }
-            Optional<List<ColumnHandle>> projectedColumns = mockConnectorTable.getColumns();
             if (requiredProjections.isPresent()
-                    && (projectedColumns.isEmpty() || !requiredProjections.get().equals(ImmutableSet.copyOf(projectedColumns.get())))) {
+                    && (columns.isEmpty() || !requiredProjections.get().equals(ImmutableSet.copyOf(columns)))) {
                 return Optional.empty();
             }
             return Optional.of(

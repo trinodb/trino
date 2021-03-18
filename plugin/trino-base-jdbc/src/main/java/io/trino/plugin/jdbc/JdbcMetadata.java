@@ -487,10 +487,10 @@ public class JdbcMetadata
     }
 
     @Override
-    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle table)
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle table, List<ColumnHandle> columns)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
-        return jdbcClient.getTableScanRedirection(session, tableHandle);
+        return jdbcClient.getTableScanRedirection(session, tableHandle, columns);
     }
 
     @Override

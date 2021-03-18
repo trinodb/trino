@@ -211,9 +211,9 @@ public class MockConnector
         }
 
         @Override
-        public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+        public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
         {
-            return applyTableScanRedirect.apply(session, tableHandle);
+            return applyTableScanRedirect.apply(session, tableHandle, columns);
         }
 
         @Override

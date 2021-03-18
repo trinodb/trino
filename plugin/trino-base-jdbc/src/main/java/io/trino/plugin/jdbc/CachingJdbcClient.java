@@ -425,9 +425,9 @@ public class CachingJdbcClient
     }
 
     @Override
-    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle, List<ColumnHandle> columns)
     {
-        return delegate.getTableScanRedirection(session, tableHandle);
+        return delegate.getTableScanRedirection(session, tableHandle, columns);
     }
 
     private Map<String, Object> getSessionProperties(ConnectorSession session)

@@ -850,7 +850,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle, List<ColumnHandle> columns)
     {
         throw new UnsupportedOperationException();
     }

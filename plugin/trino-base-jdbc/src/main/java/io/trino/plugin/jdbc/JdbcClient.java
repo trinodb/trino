@@ -165,7 +165,7 @@ public interface JdbcClient
 
     Map<String, Object> getTableProperties(ConnectorSession session, JdbcTableHandle tableHandle);
 
-    default Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
+    default Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle, List<ColumnHandle> columns)
     {
         return Optional.empty();
     }

@@ -347,8 +347,8 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle, List<ColumnHandle> columns)
     {
-        return stats.getGetTableScanRedirection().wrap(() -> delegate().getTableScanRedirection(session, tableHandle));
+        return stats.getGetTableScanRedirection().wrap(() -> delegate().getTableScanRedirection(session, tableHandle, columns));
     }
 }

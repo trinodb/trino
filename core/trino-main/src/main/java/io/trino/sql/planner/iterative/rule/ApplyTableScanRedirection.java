@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
@@ -74,7 +75,10 @@ public class ApplyTableScanRedirection
     @Override
     public Result apply(TableScanNode scanNode, Captures captures, Context context)
     {
-        Optional<TableScanRedirectApplicationResult> tableScanRedirectApplicationResult = metadata.applyTableScanRedirect(context.getSession(), scanNode.getTable());
+        Optional<TableScanRedirectApplicationResult> tableScanRedirectApplicationResult = metadata.applyTableScanRedirect(
+                context.getSession(),
+                scanNode.getTable(),
+                scanNode.getAssignments().values().stream().collect(toImmutableList()));
         if (tableScanRedirectApplicationResult.isEmpty()) {
             return Result.empty();
         }

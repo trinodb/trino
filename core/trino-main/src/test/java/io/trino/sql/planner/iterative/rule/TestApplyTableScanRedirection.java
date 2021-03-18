@@ -37,6 +37,7 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingTransactionHandle;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -254,7 +255,7 @@ public class TestApplyTableScanRedirection
 
     private ApplyTableScanRedirect getMockApplyRedirect(Map<ColumnHandle, String> redirectionMapping)
     {
-        return (ConnectorSession session, ConnectorTableHandle handle) -> Optional.of(
+        return (ConnectorSession session, ConnectorTableHandle handle, List<ColumnHandle> columns) -> Optional.of(
                 new TableScanRedirectApplicationResult(
                         new CatalogSchemaTableName(MOCK_CATALOG, DESTINATION_TABLE),
                         redirectionMapping,

@@ -1233,13 +1233,13 @@ public final class MetadataManager
     }
 
     @Override
-    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle)
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(Session session, TableHandle tableHandle, List<ColumnHandle> columns)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
         CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
         ConnectorSession connectorSession = session.toConnectorSession(catalogName);
-        return metadata.applyTableScanRedirect(connectorSession, tableHandle.getConnectorHandle());
+        return metadata.applyTableScanRedirect(connectorSession, tableHandle.getConnectorHandle(), columns);
     }
 
     @Override

@@ -517,7 +517,7 @@ public class TpchMetadata
     }
 
     @Override
-    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle table)
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle table, List<ColumnHandle> columns)
     {
         TpchTableHandle handle = (TpchTableHandle) table;
         if (destinationCatalog.isEmpty()) {

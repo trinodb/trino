@@ -1130,7 +1130,7 @@ public interface ConnectorMetadata
         return new MaterializedViewFreshness(false);
     }
 
-    default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    default Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
         return Optional.empty();
     }

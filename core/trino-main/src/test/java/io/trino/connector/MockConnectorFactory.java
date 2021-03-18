@@ -207,7 +207,7 @@ public class MockConnectorFactory
     @FunctionalInterface
     public interface ApplyTableScanRedirect
     {
-        Optional<TableScanRedirectApplicationResult> apply(ConnectorSession session, ConnectorTableHandle handle);
+        Optional<TableScanRedirectApplicationResult> apply(ConnectorSession session, ConnectorTableHandle handle, List<ColumnHandle> columns);
     }
 
     @FunctionalInterface
@@ -234,7 +234,7 @@ public class MockConnectorFactory
         private Grants<String> schemaGrants = new AllowAllGrants<>();
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
         private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
-        private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
+        private ApplyTableScanRedirect applyTableScanRedirect = (session, handle, columns) -> Optional.empty();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {

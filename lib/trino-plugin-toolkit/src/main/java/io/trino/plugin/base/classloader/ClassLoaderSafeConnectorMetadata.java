@@ -859,10 +859,10 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
-    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.applyTableScanRedirect(session, tableHandle);
+            return delegate.applyTableScanRedirect(session, tableHandle, columns);
         }
     }
 
