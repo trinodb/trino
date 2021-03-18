@@ -43,6 +43,7 @@ import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.security.RoleGrant;
+import io.trino.spi.security.ViewExpression;
 
 import java.util.List;
 import java.util.Map;
@@ -235,6 +236,8 @@ public class MockConnectorFactory
         private Grants<SchemaTableName> tableGrants = new AllowAllGrants<>();
         private ApplyFilter applyFilter = (session, handle, constraint) -> Optional.empty();
         private ApplyTableScanRedirect applyTableScanRedirect = (session, handle) -> Optional.empty();
+        private Function<SchemaTableName, ViewExpression> rowFilter = (tableName) -> null;
+        private BiFunction<SchemaTableName, String, ViewExpression> columnMask = (tableName, columnName) -> null;
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -348,6 +351,18 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withRowFilter(Function<SchemaTableName, ViewExpression> rowFilter)
+        {
+            this.rowFilter = rowFilter;
+            return this;
+        }
+
+        public Builder withColumnMask(BiFunction<SchemaTableName, String, ViewExpression> columnMask)
+        {
+            this.columnMask = columnMask;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             return new MockConnectorFactory(
@@ -366,7 +381,7 @@ public class MockConnectorFactory
                     getNewTableLayout,
                     eventListeners,
                     roleGrants,
-                    new MockConnectorAccessControl(schemaGrants, tableGrants));
+                    new MockConnectorAccessControl(schemaGrants, tableGrants, rowFilter, columnMask));
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()

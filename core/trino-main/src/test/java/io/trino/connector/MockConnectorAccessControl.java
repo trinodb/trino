@@ -19,9 +19,14 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
@@ -37,11 +42,19 @@ class MockConnectorAccessControl
 
     private final Grants<String> schemaGrants;
     private final Grants<SchemaTableName> tableGrants;
+    private final Function<SchemaTableName, ViewExpression> rowFilters;
+    private final BiFunction<SchemaTableName, String, ViewExpression> columnMasks;
 
-    MockConnectorAccessControl(Grants<String> schemaGrants, Grants<SchemaTableName> tableGrants)
+    MockConnectorAccessControl(
+            Grants<String> schemaGrants,
+            Grants<SchemaTableName> tableGrants,
+            Function<SchemaTableName, ViewExpression> rowFilters,
+            BiFunction<SchemaTableName, String, ViewExpression> columnMasks)
     {
         this.schemaGrants = requireNonNull(schemaGrants, "schemaGrants is null");
         this.tableGrants = requireNonNull(tableGrants, "tableGrants is null");
+        this.rowFilters = requireNonNull(rowFilters, "rowFilters is null");
+        this.columnMasks = requireNonNull(columnMasks, "columnMasks is null");
     }
 
     @Override
@@ -92,6 +105,18 @@ class MockConnectorAccessControl
         if (!schemaGrants.canGrant(user, tableName.getSchemaName(), privilege) && !tableGrants.canGrant(user, tableName, privilege)) {
             denyRevokeTablePrivilege(privilege.toString(), tableName.toString());
         }
+    }
+
+    @Override
+    public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
+    {
+        return Optional.ofNullable(rowFilters.apply(tableName));
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
+    {
+        return Optional.ofNullable(columnMasks.apply(tableName, columnName));
     }
 
     public void grantSchemaPrivileges(String schemaName, Set<Privilege> privileges, TrinoPrincipal grantee, boolean grantOption)

@@ -570,7 +570,18 @@ public class Analysis
             String authorization,
             Scope accessControlScope)
     {
-        tables.put(NodeRef.of(table), new TableEntry(handle, name, filters, columnMasks, authorization, accessControlScope));
+        tables.put(
+                NodeRef.of(table),
+                new TableEntry(
+                        handle,
+                        name,
+                        filters,
+                        columnMasks,
+                        authorization,
+                        accessControlScope,
+                        tablesForView.isEmpty() &&
+                                rowFilterScopes.isEmpty() &&
+                                columnMaskScopes.isEmpty()));
     }
 
     public ResolvedFunction getResolvedFunction(FunctionCall function)
@@ -941,7 +952,8 @@ public class Analysis
                             rowFilters.getOrDefault(table, ImmutableList.of()).stream()
                                     .map(Expression::toString)
                                     .collect(toImmutableList()),
-                            columns);
+                            columns,
+                            info.isDirectlyReferenced());
                 })
                 .collect(toImmutableList());
     }
@@ -1419,6 +1431,7 @@ public class Analysis
         private final Map<Field, List<ViewExpression>> columnMasks;
         private final String authorization;
         private final Scope accessControlScope; // synthetic scope for analysis of row filters and masks
+        private final boolean directlyReferenced;
 
         public TableEntry(
                 Optional<TableHandle> handle,
@@ -1426,7 +1439,8 @@ public class Analysis
                 List<ViewExpression> filters,
                 Map<Field, List<ViewExpression>> columnMasks,
                 String authorization,
-                Scope accessControlScope)
+                Scope accessControlScope,
+                boolean directlyReferenced)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.name = requireNonNull(name, "name is null");
@@ -1434,6 +1448,7 @@ public class Analysis
             this.columnMasks = requireNonNull(columnMasks, "columnMasks is null");
             this.authorization = requireNonNull(authorization, "authorization is null");
             this.accessControlScope = requireNonNull(accessControlScope, "accessControlScope is null");
+            this.directlyReferenced = directlyReferenced;
         }
 
         public Optional<TableHandle> getHandle()
@@ -1444,6 +1459,11 @@ public class Analysis
         public QualifiedObjectName getName()
         {
             return name;
+        }
+
+        public boolean isDirectlyReferenced()
+        {
+            return directlyReferenced;
         }
 
         public List<ViewExpression> getFilters()
