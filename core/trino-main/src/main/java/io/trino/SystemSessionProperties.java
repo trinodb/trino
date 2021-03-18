@@ -217,6 +217,11 @@ public final class SystemSessionProperties
                         PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS,
                         "Use preferred write partitioning when the number of written partitions exceeds the configured threshold",
                         featuresConfig.getPreferredWritePartitioningMinNumberOfPartitions(),
+                        value -> {
+                            if (value < 1) {
+                                throw new TrinoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 1: %s", PREFERRED_WRITE_PARTITIONING_MIN_NUMBER_OF_PARTITIONS, value));
+                            }
+                        },
                         false),
                 booleanProperty(
                         SCALE_WRITERS,
