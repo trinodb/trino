@@ -201,7 +201,7 @@ public class SqlParser
         public void exitNonReserved(SqlBaseParser.NonReservedContext context)
         {
             // we can't modify the tree during rule enter/exit event handling unless we're dealing with a terminal.
-            // Otherwise, ANTLR gets confused an fires spurious notifications.
+            // Otherwise, ANTLR gets confused and fires spurious notifications.
             if (!(context.getChild(0) instanceof TerminalNode)) {
                 int rule = ((ParserRuleContext) context.getChild(0)).getRuleIndex();
                 throw new AssertionError("nonReserved can only contain tokens. Found nested rule: " + ruleNames.get(rule));
