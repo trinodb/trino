@@ -16,6 +16,7 @@ package io.trino.plugin.memsql;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 
 import static io.trino.plugin.memsql.MemSqlQueryRunner.createMemSqlQueryRunner;
 
@@ -28,5 +29,17 @@ public class TestMemSqlLatestConnectorSmokeTest
     {
         TestingMemSqlServer memSqlServer = closeAfterClass(new TestingMemSqlServer(TestingMemSqlServer.LATEST_TESTED_TAG));
         return createMemSqlQueryRunner(memSqlServer, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 }
