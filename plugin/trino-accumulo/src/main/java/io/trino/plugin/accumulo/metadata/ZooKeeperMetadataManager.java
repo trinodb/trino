@@ -338,7 +338,6 @@ public class ZooKeeperMetadataManager
     }
 
     private AccumuloView toAccumuloView(byte[] data)
-            throws IOException
     {
         return parseJson(mapper, data, AccumuloView.class);
     }

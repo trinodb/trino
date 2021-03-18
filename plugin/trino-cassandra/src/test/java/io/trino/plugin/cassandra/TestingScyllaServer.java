@@ -52,13 +52,11 @@ public class TestingScyllaServer
     private final CassandraSession session;
 
     public TestingScyllaServer()
-            throws Exception
     {
         this("2.2.0");
     }
 
     public TestingScyllaServer(String version)
-            throws Exception
     {
         container = new GenericContainer<>("scylladb/scylla:" + version)
                 .withCommand("--smp", "1") // Limit SMP to run in a machine having many cores https://github.com/scylladb/scylla/issues/5638

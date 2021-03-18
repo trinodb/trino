@@ -43,7 +43,6 @@ public class InputReader
     private final LineReader reader;
 
     public InputReader(ClientOptions.EditingMode editingMode, Path historyFile, boolean disableAutoSuggestion, Completer... completers)
-            throws IOException
     {
         reader = LineReaderBuilder.builder()
                 .terminal(TerminalUtils.getTerminal())

@@ -16,7 +16,6 @@ package io.trino.tests.product.hive;
 import io.trino.tempto.assertions.QueryAssert.Row;
 import org.testng.annotations.Test;
 
-import java.sql.SQLException;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -77,7 +76,6 @@ public class TestHivePropertiesTable
     }
 
     private static List<String> getTablePropertiesOnHive(String tableName)
-            throws SQLException
     {
         return onHive().executeQuery("SHOW TBLPROPERTIES " + tableName).rows().stream()
                 .map(row -> (String) row.get(1))

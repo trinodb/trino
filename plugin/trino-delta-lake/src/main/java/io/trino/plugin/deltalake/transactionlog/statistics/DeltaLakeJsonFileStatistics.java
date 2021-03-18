@@ -15,7 +15,6 @@ package io.trino.plugin.deltalake.transactionlog.statistics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
@@ -61,7 +60,6 @@ public class DeltaLakeJsonFileStatistics
     private final Optional<Map<CanonicalColumnName, Object>> nullCount;
 
     public static DeltaLakeJsonFileStatistics create(String jsonStatistics)
-            throws JsonProcessingException
     {
         return parseJson(OBJECT_MAPPER, jsonStatistics, DeltaLakeJsonFileStatistics.class);
     }

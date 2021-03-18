@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake.transactionlog;
 
 import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.airlift.json.ObjectMapperProvider;
@@ -131,7 +130,6 @@ public final class TransactionLogParser
             .withResolverStyle(ResolverStyle.STRICT);
 
     public static DeltaLakeTransactionLogEntry parseJson(String json)
-            throws JsonProcessingException
     {
         // lines are json strings followed by 'x' in some Databricks versions of Delta
         if (json.endsWith("x")) {

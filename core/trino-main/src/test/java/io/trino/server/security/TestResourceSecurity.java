@@ -35,7 +35,6 @@ import io.trino.security.AccessControlManager;
 import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.protocol.PreparedStatementEncoder;
-import io.trino.server.security.oauth2.ChallengeFailedException;
 import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.security.oauth2.TokenPairSerializer;
 import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
@@ -912,7 +911,6 @@ public class TestResourceSecurity
 
                 @Override
                 public Response refreshTokens(String refreshToken)
-                        throws ChallengeFailedException
                 {
                     throw new UnsupportedOperationException("refresh tokens not supported");
                 }

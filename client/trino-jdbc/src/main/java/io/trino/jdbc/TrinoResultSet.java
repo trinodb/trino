@@ -63,7 +63,6 @@ public class TrinoResultSet
     }
 
     private TrinoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
-            throws SQLException
     {
         super(
                 Optional.of(requireNonNull(statement, "statement is null")),

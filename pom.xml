@@ -2014,6 +2014,7 @@
                                     -Xplugin:ErrorProne \
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \
+                                    -Xep:CheckedExceptionNotThrown:ERROR \
                                     -Xep:ClassCanBeStatic:ERROR \
                                     -Xep:CompareToZero:ERROR \
                                     -Xep:DefaultCharset:ERROR \

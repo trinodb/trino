@@ -39,7 +39,6 @@ public final class ArbitraryAggregationFunction
             @AggregationState("T") InOut state,
             @BlockPosition @SqlType("T") Block block,
             @BlockIndex int position)
-            throws Throwable
     {
         if (state.isNull()) {
             state.set(block, position);
@@ -50,7 +49,6 @@ public final class ArbitraryAggregationFunction
     public static void combine(
             @AggregationState("T") InOut state,
             @AggregationState("T") InOut otherState)
-            throws Throwable
     {
         if (state.isNull()) {
             state.set(otherState);

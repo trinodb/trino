@@ -264,7 +264,6 @@ public class TestBackgroundHiveSplitLoader
 
         @Override
         public RecordReader<Void, Void> getRecordReader(InputSplit inputSplit, JobConf jobConf, Reporter reporter)
-                throws IOException
         {
             throw new UnsupportedOperationException();
         }

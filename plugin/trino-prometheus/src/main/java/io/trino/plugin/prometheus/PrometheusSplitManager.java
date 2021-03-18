@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.airlift.http.client.HttpUriBuilder;
 import io.airlift.units.Duration;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
@@ -38,7 +37,6 @@ import javax.inject.Inject;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +46,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
-import static io.trino.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
@@ -93,24 +90,17 @@ public class PrometheusSplitManager
         }
         List<ConnectorSplit> splits = generateTimesForSplits(prometheusClock.now(), maxQueryRangeDuration, queryChunkSizeDuration, tableHandle)
                 .stream()
-                .map(time -> {
-                    try {
-                        return new PrometheusSplit(buildQuery(
-                                prometheusURI,
-                                time,
-                                table.getName(),
-                                queryChunkSizeDuration).toString());
-                    }
-                    catch (URISyntaxException e) {
-                        throw new TrinoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
-                    }
-                }).collect(Collectors.toList());
+                .map(time -> new PrometheusSplit(buildQuery(
+                        prometheusURI,
+                        time,
+                        table.getName(),
+                        queryChunkSizeDuration).toString()))
+                .collect(Collectors.toList());
         return new FixedSplitSource(splits);
     }
 
     // HttpUriBuilder handles URI encode
     private static URI buildQuery(URI baseURI, String time, String metricName, Duration queryChunkSizeDuration)
-            throws URISyntaxException
     {
         return HttpUriBuilder.uriBuilderFrom(baseURI)
                 .appendPath("api/v1/query")

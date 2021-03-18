@@ -1569,7 +1569,6 @@ public class TrinoDatabaseMetaData
 
     @Nullable
     private String escapeIfNecessary(@Nullable String namePattern)
-            throws SQLException
     {
         return escapeIfNecessary(assumeLiteralNamesInMetadataCallsForNonConformingClients, assumeLiteralUnderscoreInMetadataCallsForNonConformingClients, namePattern);
     }

@@ -39,6 +39,7 @@ public final class LazyConnectionFactory
     }
 
     @Override
+    @SuppressWarnings("CheckedExceptionNotThrown") // preserve the "throws" contract of the interface declaration
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {

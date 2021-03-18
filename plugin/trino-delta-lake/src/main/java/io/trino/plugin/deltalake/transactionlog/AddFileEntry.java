@@ -88,7 +88,7 @@ public class AddFileEntry
             try {
                 resultParsedStats = Optional.ofNullable(DeltaLakeJsonFileStatistics.create(stats.get()));
             }
-            catch (JsonProcessingException e) {
+            catch (RuntimeException e) {
                 LOG.debug(
                         e,
                         "File level stats could not be parsed and will be ignored. The JSON string was: %s",
