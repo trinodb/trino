@@ -148,7 +148,7 @@ public abstract class BaseConnectorSmokeTest
     public void testInsert()
     {
         if (!hasBehavior(SUPPORTS_INSERT)) {
-            assertQueryFails("INSERT INTO region (regionkey) VALUES (42)", "This connector does not support insert");
+            assertQueryFails("INSERT INTO region (regionkey) VALUES (42)", "This connector does not support inserts");
             return;
         }
 
