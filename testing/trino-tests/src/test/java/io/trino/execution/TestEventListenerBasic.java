@@ -18,13 +18,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.EventsCollector.EventFilters;
 import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
 import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
@@ -33,6 +36,7 @@ import io.trino.spi.eventlistener.QueryFailureInfo;
 import io.trino.spi.eventlistener.QueryStatistics;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
+import io.trino.spi.security.ViewExpression;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
@@ -51,6 +55,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.util.concurrent.MoreExecutors.shutdownAndAwaitTermination;
 import static io.trino.execution.TestQueues.createResourceGroupId;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
@@ -90,8 +96,36 @@ public class TestEventListenerBasic
             {
                 MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                         .withListTables((session, s) -> ImmutableList.of(new SchemaTableName("default", "test_table")))
+                        .withGetColumns(schemaTableName -> ImmutableList.of(new ColumnMetadata("test_varchar", createUnboundedVarcharType())))
                         .withApplyProjection((session, handle, projections, assignments) -> {
+                            if (((MockConnectorTableHandle) handle).getTableName().getTableName().equals("test_table_with_column_mask")) {
+                                return Optional.empty();
+                            }
                             throw new RuntimeException("Throw from apply projection");
+                        })
+                        .withGetViews((connectorSession, prefix) -> {
+                            ConnectorViewDefinition definition = new ConnectorViewDefinition(
+                                    "select nationkey as test_column from tpch.tiny.nation",
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId())),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    true);
+                            SchemaTableName viewName = new SchemaTableName("default", "test_view");
+                            return ImmutableMap.of(viewName, definition);
+                        })
+                        .withRowFilter(schemaTableName -> {
+                            if (schemaTableName.getTableName().equals("test_table_with_row_filter")) {
+                                return new ViewExpression("user", Optional.of("tpch"), Optional.of("tiny"), "EXISTS (SELECT 1 FROM nation WHERE name = test_varchar)");
+                            }
+                            return null;
+                        })
+                        .withColumnMask((schemaTableName, columnName) -> {
+                            if (schemaTableName.getTableName().equals("test_table_with_column_mask")) {
+                                return new ViewExpression("user", Optional.of("tpch"), Optional.of("tiny"), "(SELECT cast(max(orderkey) as VARCHAR) FROM orders)");
+                            }
+                            return null;
                         })
                         .build();
                 return ImmutableList.of(connectorFactory);
@@ -259,6 +293,116 @@ public class TestEventListenerBasic
         RoutineInfo routine = routines.get(0);
         assertEquals(routine.getRoutine(), "sum");
         assertEquals(routine.getAuthorization(), "user");
+    }
+
+    @Test
+    public void testReferencedTablesWithViews()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("SELECT test_column FROM mock.default.test_view", 2);
+
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(2);
+
+        TableInfo table = tables.get(0);
+        assertThat(table.getCatalog()).isEqualTo("tpch");
+        assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isFalse();
+        assertThat(table.getFilters()).isEmpty();
+        assertThat(table.getColumns()).hasSize(1);
+
+        ColumnInfo column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("nationkey");
+        assertThat(column.getMasks()).isEmpty();
+
+        table = tables.get(1);
+        assertThat(table.getCatalog()).isEqualTo("mock");
+        assertThat(table.getSchema()).isEqualTo("default");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isTrue();
+        assertThat(table.getFilters()).isEmpty();
+        assertThat(table.getColumns()).hasSize(1);
+
+        column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("test_column");
+        assertThat(column.getMasks()).isEmpty();
+    }
+
+    @Test
+    public void testReferencedTablesWithRowFilter()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("SELECT 1 FROM mock.default.test_table_with_row_filter", 2);
+
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(2);
+
+        TableInfo table = tables.get(0);
+        assertThat(table.getCatalog()).isEqualTo("tpch");
+        assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getTable()).isEqualTo("nation");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isFalse();
+        assertThat(table.getFilters()).isEmpty();
+        assertThat(table.getColumns()).hasSize(1);
+
+        ColumnInfo column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("name");
+        assertThat(column.getMasks()).isEmpty();
+
+        table = tables.get(1);
+        assertThat(table.getCatalog()).isEqualTo("mock");
+        assertThat(table.getSchema()).isEqualTo("default");
+        assertThat(table.getTable()).isEqualTo("test_table_with_row_filter");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isTrue();
+        assertThat(table.getFilters()).hasSize(1);
+        assertThat(table.getColumns()).hasSize(1);
+
+        column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("test_varchar");
+        assertThat(column.getMasks()).isEmpty();
+    }
+
+    @Test
+    public void testReferencedTablesWithColumnMask()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("SELECT * FROM mock.default.test_table_with_column_mask", 2);
+
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(2);
+
+        TableInfo table = tables.get(0);
+        assertThat(table.getCatalog()).isEqualTo("tpch");
+        assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isFalse();
+        assertThat(table.getFilters()).hasSize(0);
+        assertThat(table.getColumns()).hasSize(1);
+
+        ColumnInfo column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("orderkey");
+        assertThat(column.getMasks()).isEmpty();
+
+        table = tables.get(1);
+        assertThat(table.getCatalog()).isEqualTo("mock");
+        assertThat(table.getSchema()).isEqualTo("default");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isTrue();
+        assertThat(table.getFilters()).isEmpty();
+        assertThat(table.getColumns()).hasSize(1);
+
+        column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("test_varchar");
+        assertThat(column.getMasks()).hasSize(1);
     }
 
     @Test
