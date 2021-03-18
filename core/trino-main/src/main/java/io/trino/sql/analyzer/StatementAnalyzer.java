@@ -407,6 +407,10 @@ class StatementAnalyzer
             }
             accessControl.checkCanInsertIntoTable(session.toSecurityContext(), targetTable);
 
+            if (!accessControl.getRowFilters(session.toSecurityContext(), targetTable).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, insert, "Insert into table with a row filter is not supported");
+            }
+
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
 
             List<ColumnMetadata> columns = tableMetadata.getColumns().stream()

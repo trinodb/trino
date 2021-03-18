@@ -405,4 +405,16 @@ public class TestRowFilter
         assertThatThrownBy(() -> assertions.query("UPDATE orders SET totalprice = totalprice * 2 WHERE orderkey IN (10, 20, 30)"))
                 .hasMessage("line 1:1: Updating a table with a row filter is not supported");
     }
+
+    @Test
+    public void testInsert()
+    {
+        accessControl.reset();
+        accessControl.rowFilter(
+                new QualifiedObjectName(CATALOG, "tiny", "nation"),
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "nationkey < 10"));
+        assertThatThrownBy(() -> assertions.query("INSERT INTO nation VALUES (26, 'POLAND', 0, 'No comment')"))
+                .hasMessage("Insert into table with a row filter is not supported");
+    }
 }
