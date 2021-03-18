@@ -362,6 +362,21 @@ public class TestTrinoDriver
     }
 
     @Test
+    public void testNullUrl()
+            throws Exception
+    {
+        Driver driver = DriverManager.getDriver("jdbc:trino:");
+
+        assertThatThrownBy(() -> driver.connect(null, null))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("URL is null");
+
+        assertThatThrownBy(() -> driver.acceptsURL(null))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("URL is null");
+    }
+
+    @Test
     public void testExecuteWithQuery()
             throws Exception
     {
