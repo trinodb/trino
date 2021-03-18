@@ -115,4 +115,44 @@ public class TestSetOperations
                         "    ) t(v))"))
                 .matches("VALUES (ARRAY[1, 2, 3, 4], ARRAY[1, 2, 3, 3, 4])");
     }
+
+    @Test
+    public void testIntersectAllVsDistinctInSubquery()
+    {
+        // ensure that the INTERSECT ALL and INTERSECT DISTINCT are treated as different operations and subexpressions are not deduped
+        assertThat(assertions.query(
+                "SELECT (" +
+                        "    SELECT array_agg(v ORDER BY v) FROM (" +
+                        "        VALUES 1, 2, 3, 3" +
+                        "        INTERSECT" +
+                        "        VALUES 2, 2, 3, 3, 4" +
+                        "    ) t(v))," +
+                        "    (" +
+                        "    SELECT array_agg(v ORDER BY v) FROM (" +
+                        "        VALUES 1, 2, 3, 3" +
+                        "        INTERSECT ALL" +
+                        "        VALUES 2, 2, 3, 3, 4" +
+                        "    ) t(v))"))
+                .matches("VALUES (ARRAY[2, 3], ARRAY[2, 3, 3])");
+    }
+
+    @Test
+    public void testExceptAllVsDistinctInSubquery()
+    {
+        // ensure that the EXCEPT ALL and EXCEPT DISTINCT are treated as different operations and subexpressions are not deduped
+        assertThat(assertions.query(
+                "SELECT (" +
+                        "    SELECT array_agg(v ORDER BY v) FROM (" +
+                        "        VALUES 1, 1, 2, 2, 3, 3" +
+                        "        EXCEPT" +
+                        "        VALUES 2, 3, 3, 4" +
+                        "    ) t(v))," +
+                        "    (" +
+                        "    SELECT array_agg(v ORDER BY v) FROM (" +
+                        "        VALUES 1, 1, 2, 2, 3, 3" +
+                        "        EXCEPT ALL" +
+                        "        VALUES 2, 3, 3, 4" +
+                        "    ) t(v))"))
+                .matches("VALUES (ARRAY[1], ARRAY[1, 1, 2])");
+    }
 }
