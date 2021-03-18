@@ -41,6 +41,27 @@ password value to avoid the prompt.
 Use ``--help`` to see information about specifying the keystore, truststore, and
 other authentication details as required. If using Kerberos, see :doc:`/security/cli`.
 
+External authentication - SSO
+-----------------------------
+
+The  ``--external-authentication`` option is used for browser-based SSO
+authentication, as detailed in :doc:`/security/oauth2`. With this configuration,
+the CLI displays a URL that you have to open in a web browser for authentication.
+
+The expected behaviour is as follows:
+
+ - Start the CLI with the ``--external-authentication`` option
+ - CLI starts and connects to Trino
+ - When first query is submitted, a message to open a browser with a specified URL is displayed by the CLI
+ - Open the URL in a browser and follow through the authentication process
+ - The CLI automatically receives a token from the authentication process
+ - Successful login in the browser, allows the CLI to proceed with executing the query
+ - Further queries in the CLI session do not require login, while the authentication token remains valid.
+   Token expiry depends on the external authentication system configuration.
+ - Expired tokens force you to login again
+
+Note that external authentication requires :doc:`security/tls`.
+
 Pagination
 ----------
 
