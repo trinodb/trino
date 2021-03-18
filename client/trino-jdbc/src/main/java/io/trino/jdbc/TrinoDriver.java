@@ -18,50 +18,23 @@ import okhttp3.OkHttpClient;
 import java.io.Closeable;
 import java.sql.Connection;
 import java.sql.Driver;
-import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static io.trino.client.OkHttpUtil.setupChannelSocket;
 import static io.trino.client.OkHttpUtil.userAgent;
-import static java.lang.Integer.parseInt;
+import static io.trino.jdbc.DriverInfo.DRIVER_NAME;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
+import static io.trino.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
 
 public class TrinoDriver
         implements Driver, Closeable
 {
-    static final String DRIVER_NAME = "Trino JDBC Driver";
-    static final String DRIVER_VERSION;
-    static final int DRIVER_VERSION_MAJOR;
-    static final int DRIVER_VERSION_MINOR;
-
     private final OkHttpClient httpClient = newHttpClient();
-
-    static {
-        String implementationVersion = TrinoDriver.class.getPackage().getImplementationVersion();
-        DRIVER_VERSION = implementationVersion == null ? "unknown" : implementationVersion;
-        Matcher matcher = Pattern.compile("^(\\d+)(\\.(\\d+))?($|[.-])").matcher(DRIVER_VERSION);
-        if (!matcher.find()) {
-            DRIVER_VERSION_MAJOR = 0;
-            DRIVER_VERSION_MINOR = 0;
-        }
-        else {
-            DRIVER_VERSION_MAJOR = parseInt(matcher.group(1));
-            DRIVER_VERSION_MINOR = parseInt(firstNonNull(matcher.group(3), "0"));
-        }
-
-        try {
-            DriverManager.registerDriver(new TrinoDriver());
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     @Override
     public void close()
