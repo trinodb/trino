@@ -91,6 +91,9 @@ public class TrinoDriver
     public boolean acceptsURL(String url)
             throws SQLException
     {
+        if (url == null) {
+            throw new SQLException("URL is null");
+        }
         return TrinoDriverUri.acceptsURL(url);
     }
 
