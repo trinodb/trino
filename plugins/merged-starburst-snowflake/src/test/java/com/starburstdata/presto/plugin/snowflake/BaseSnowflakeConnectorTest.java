@@ -11,12 +11,12 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.TestingSession;
@@ -49,7 +49,9 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseSnowflakeConnectorTest
-        extends BaseConnectorTest
+        // Using BaseJdbcConnectorTest as a base class is not strictly accurate as we have to flavours of Snowflake connector: jdbc and distributed.
+        // Still most of the extra testcases defined in BaseJdbcConnectorTest are applicable to both.
+        extends BaseJdbcConnectorTest
 {
     protected final SnowflakeServer server = new SnowflakeServer();
     protected final SqlExecutor snowflakeExecutor = server::safeExecute;
@@ -62,6 +64,7 @@ public abstract class BaseSnowflakeConnectorTest
             case SUPPORTS_ARRAY:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
+            case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
