@@ -91,4 +91,14 @@ public class Intersect
     {
         return Objects.hash(relations, isDistinct());
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return this.isDistinct() == ((Intersect) other).isDistinct();
+    }
 }
