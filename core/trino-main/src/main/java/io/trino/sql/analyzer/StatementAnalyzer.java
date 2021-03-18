@@ -415,7 +415,7 @@ class StatementAnalyzer
 
             for (ColumnMetadata column : columns) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
-                    throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks");
+                    throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
                 }
             }
 

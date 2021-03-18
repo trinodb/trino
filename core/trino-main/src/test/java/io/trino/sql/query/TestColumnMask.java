@@ -524,7 +524,7 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "clerk"));
         assertThatThrownBy(() -> assertions.query("INSERT INTO orders SELECT * FROM orders"))
-                .hasMessage("Insert into table with column masks");
+                .hasMessage("Insert into table with column masks is not supported");
     }
 
     @Test
