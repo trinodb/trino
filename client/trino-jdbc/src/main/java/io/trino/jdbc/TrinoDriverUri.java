@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.trino.client.KerberosUtil.defaultCredentialCachePath;
 import static io.trino.client.OkHttpUtil.basicAuth;
@@ -136,7 +137,7 @@ public final class TrinoDriverUri
     public static TrinoDriverUri create(String url, Properties properties)
             throws SQLException
     {
-        return new TrinoDriverUri(url, properties);
+        return new TrinoDriverUri(url, firstNonNull(properties, new Properties()));
     }
 
     public static boolean acceptsURL(String url)
