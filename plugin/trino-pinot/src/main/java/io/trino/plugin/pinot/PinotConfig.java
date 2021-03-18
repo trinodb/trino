@@ -50,6 +50,7 @@ public class PinotConfig
     private int fetchRetryCount = 2;
     private int nonAggregateLimitForBrokerQueries = 25_000;
     private int maxRowsPerSplitForSegmentQueries = 50_000;
+    private boolean forbidDropTable;
 
     @NotNull
     public List<String> getControllerUrls()
@@ -255,6 +256,18 @@ public class PinotConfig
     public PinotConfig setMaxRowsPerSplitForSegmentQueries(int maxRowsPerSplitForSegmentQueries)
     {
         this.maxRowsPerSplitForSegmentQueries = maxRowsPerSplitForSegmentQueries;
+        return this;
+    }
+
+    public boolean getForbidDropTable()
+    {
+        return forbidDropTable;
+    }
+
+    @Config("pinot.forbid-drop-table")
+    public PinotConfig setForbidDropTable(boolean forbidDropTable)
+    {
+        this.forbidDropTable = forbidDropTable;
         return this;
     }
 }
