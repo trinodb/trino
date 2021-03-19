@@ -25,6 +25,7 @@ import io.trino.spi.type.FixedWidthType;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.Field;
+import io.trino.sql.analyzer.Field.OriginColumnDetail;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.AstVisitor;
@@ -45,6 +46,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.QueryUtil.aliased;
@@ -166,14 +169,15 @@ final class DescribeOutputRewrite
                 int columnIndex = ImmutableList.copyOf(analysis.getOutputDescriptor().getVisibleFields()).indexOf(field);
                 columnName = "_col" + columnIndex;
             }
-
-            Optional<QualifiedObjectName> originTable = field.getOriginTable();
+            List<QualifiedObjectName> originTableDetails = field.getOriginColumnDetails().stream()
+                    .map(OriginColumnDetail::getTableName)
+                    .collect(toImmutableList());
 
             return row(
                     new StringLiteral(columnName),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).orElse("")),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).orElse("")),
-                    new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).orElse("")),
+                    new StringLiteral(originTableDetails.size() == 1 ? getOnlyElement(originTableDetails).getCatalogName() : ""),
+                    new StringLiteral(originTableDetails.size() == 1 ? getOnlyElement(originTableDetails).getSchemaName() : ""),
+                    new StringLiteral(originTableDetails.size() == 1 ? getOnlyElement(originTableDetails).getObjectName() : ""),
                     new StringLiteral(getDisplayLabel(field.getType(), isOmitDateTimeTypePrecision(session))),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));

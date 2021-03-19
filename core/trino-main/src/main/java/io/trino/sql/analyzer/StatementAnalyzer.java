@@ -62,6 +62,7 @@ import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
+import io.trino.sql.analyzer.Field.OriginColumnDetail;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.trino.sql.parser.ParsingException;
 import io.trino.sql.parser.SqlParser;
@@ -191,6 +192,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getLast;
@@ -1253,8 +1255,7 @@ class StatementAnalyzer
                         Optional.of(column.getName()),
                         column.getType(),
                         column.isHidden(),
-                        Optional.of(name),
-                        Optional.of(column.getName()),
+                        ImmutableList.of(new OriginColumnDetail(name, column.getName())),
                         false);
                 fields.add(field);
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
@@ -1363,8 +1364,7 @@ class StatementAnalyzer
                                 Optional.of(aliases.next().getValue()),
                                 inputField.getType(),
                                 false,
-                                inputField.getOriginTable(),
-                                inputField.getOriginColumnName(),
+                                inputField.getOriginColumnDetails(),
                                 inputField.isAliased()));
                     }
                 }
@@ -1380,8 +1380,7 @@ class StatementAnalyzer
                                 inputField.getName(),
                                 inputField.getType(),
                                 false,
-                                inputField.getOriginTable(),
-                                inputField.getOriginColumnName(),
+                                inputField.getOriginColumnDetails(),
                                 inputField.isAliased()));
                     }
                 }
@@ -1423,8 +1422,7 @@ class StatementAnalyzer
                             Optional.of(column.getName()),
                             getViewColumnType(column, name, table),
                             false,
-                            Optional.of(name),
-                            Optional.of(column.getName()),
+                            ImmutableList.of(new OriginColumnDetail(name, column.getName())),
                             false))
                     .collect(toImmutableList());
 
@@ -1477,8 +1475,7 @@ class StatementAnalyzer
                             Optional.of(column.getName()),
                             getViewColumnType(column, name, table),
                             false,
-                            Optional.of(name),
-                            Optional.of(column.getName()),
+                            ImmutableList.of(new OriginColumnDetail(name, column.getName())),
                             false))
                     .collect(toImmutableList());
 
@@ -1737,8 +1734,7 @@ class StatementAnalyzer
                         oldField.getName(),
                         outputFieldTypes[i],
                         oldField.isHidden(),
-                        oldField.getOriginTable(),
-                        oldField.getOriginColumnName(),
+                        oldField.getOriginColumnDetails(),
                         oldField.isAliased());
             }
 
@@ -2006,12 +2002,11 @@ class StatementAnalyzer
 
         private void recordColumnAccess(Field field)
         {
-            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-                analysis.addTableColumnReferences(
-                        accessControl,
-                        session.getIdentity(),
-                        ImmutableMultimap.of(field.getOriginTable().get(), field.getOriginColumnName().get()));
-            }
+            analysis.addTableColumnReferences(
+                    accessControl,
+                    session.getIdentity(),
+                    field.getOriginColumnDetails().stream()
+                            .collect(toImmutableListMultimap(OriginColumnDetail::getTableName, OriginColumnDetail::getColumnName)));
         }
 
         private boolean isLateralRelation(Relation node)
@@ -2495,7 +2490,7 @@ class StatementAnalyzer
                             name = field.getName();
                         }
 
-                        outputFields.add(Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
+                        outputFields.add(Field.newUnqualified(name, field.getType(), field.getOriginColumnDetails(), false));
                     }
                 }
                 else if (item instanceof SingleColumn) {
@@ -2504,8 +2499,7 @@ class StatementAnalyzer
                     Expression expression = column.getExpression();
                     Optional<Identifier> field = column.getAlias();
 
-                    Optional<QualifiedObjectName> originTable = Optional.empty();
-                    Optional<String> originColumn = Optional.empty();
+                    ImmutableList.Builder<OriginColumnDetail> builder = ImmutableList.builder();
                     QualifiedName name = null;
 
                     if (expression instanceof Identifier) {
@@ -2518,8 +2512,7 @@ class StatementAnalyzer
                     if (name != null) {
                         List<Field> matchingFields = sourceScope.getRelationType().resolveFields(name);
                         if (!matchingFields.isEmpty()) {
-                            originTable = matchingFields.get(0).getOriginTable();
-                            originColumn = matchingFields.get(0).getOriginColumnName();
+                            builder.addAll(matchingFields.get(0).getOriginColumnDetails());
                         }
                     }
 
@@ -2529,7 +2522,7 @@ class StatementAnalyzer
                         }
                     }
 
-                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), builder.build(), column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
@@ -2673,8 +2666,7 @@ class StatementAnalyzer
                         alias,
                         field.getType(),
                         false,
-                        field.getOriginTable(),
-                        field.getOriginColumnName(),
+                        field.getOriginColumnDetails(),
                         !allColumns.getAliases().isEmpty() || field.isAliased()));
 
                 Type type = field.getType();

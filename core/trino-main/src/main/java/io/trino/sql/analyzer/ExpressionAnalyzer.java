@@ -503,9 +503,7 @@ public class ExpressionAnalyzer
                 }
             }
 
-            if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-                tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
-            }
+            field.getOriginColumnDetails().forEach(columnDetail -> tableColumnReferences.put(columnDetail.getTableName(), columnDetail.getColumnName()));
 
             fieldId.getRelationId()
                     .getSourceNode()
