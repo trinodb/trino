@@ -161,7 +161,9 @@ public class TestApplyTableScanRedirection
                     .execute(MOCK_SESSION, session -> {
                         assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
                                 .isInstanceOf(TrinoException.class)
-                                .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_c has type bigint, different from source column .*MockConnectorTableHandle.*source_col_a.* type: varchar");
+                                // TODO report source column name instead of ColumnHandle toString
+                                .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_c has type bigint, " +
+                                        "different from source column mock_catalog.test_schema.test_table.MockConnectorColumnHandle.*source_col_a.* type: varchar");
                     });
         }
     }

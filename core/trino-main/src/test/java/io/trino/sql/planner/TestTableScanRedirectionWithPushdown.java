@@ -234,7 +234,9 @@ public class TestTableScanRedirectionWithPushdown
                     .execute(MOCK_SESSION, session -> {
                         assertThatThrownBy(() -> queryRunner.createPlan(session, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'", WarningCollector.NOOP))
                                 .isInstanceOf(TrinoException.class)
-                                .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_a has type integer, different from source column .*MockConnectorTableHandle.*source_col_c.* type: varchar");
+                                // TODO report source column name instead of ColumnHandle toString
+                                .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_a has type integer, " +
+                                        "different from source column mock_catalog.test_schema.test_table.MockConnectorColumnHandle.*source_col_c.* type: varchar");
                     });
         }
     }
