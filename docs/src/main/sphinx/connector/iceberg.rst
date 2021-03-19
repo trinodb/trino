@@ -161,7 +161,7 @@ System tables and columns
 -------------------------
 
 The connector supports queries of the table partitions.  Given a table ``customer_accounts``,
-``SELECT * customer_acccounts$partitions`` shows the table partitions, including the minimum
+``SELECT * FROM customer_acccounts$partitions`` shows the table partitions, including the minimum
 and maximum values for the partition columns.
 
 Iceberg table properties
