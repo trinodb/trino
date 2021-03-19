@@ -2287,13 +2287,29 @@ public class HiveMetadata
         Map<ConnectorExpression, ProjectedColumnRepresentation> columnProjections = projectedExpressions.stream()
                 .collect(toImmutableMap(Function.identity(), HiveApplyProjectionUtil::createProjectedColumnRepresentation));
 
-        // No pushdown required if all references are simple variables
+        HiveTableHandle hiveTableHandle = (HiveTableHandle) handle;
+        // all references are simple variables
         if (columnProjections.values().stream().allMatch(ProjectedColumnRepresentation::isVariable)) {
-            return Optional.empty();
+            Set<ColumnHandle> projectedColumns = ImmutableSet.copyOf(assignments.values());
+            if (hiveTableHandle.getProjectedColumns().isPresent()
+                    && hiveTableHandle.getProjectedColumns().get().equals(projectedColumns)) {
+                return Optional.empty();
+            }
+            List<Assignment> assignmentsList = assignments.entrySet().stream()
+                    .map(assignment -> new Assignment(
+                            assignment.getKey(),
+                            assignment.getValue(),
+                            ((HiveColumnHandle) assignment.getValue()).getType()))
+                    .collect(toImmutableList());
+            return Optional.of(new ProjectionApplicationResult<>(
+                    hiveTableHandle.withProjectedColumns(projectedColumns),
+                    projections,
+                    assignmentsList));
         }
 
         Map<String, Assignment> newAssignments = new HashMap<>();
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
+        ImmutableSet.Builder<ColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
         for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
@@ -2321,6 +2337,7 @@ public class HiveMetadata
             newAssignments.put(projectedColumnName, newAssignment);
 
             newVariablesBuilder.put(expression, projectedColumnVariable);
+            projectedColumnsBuilder.add(projectedColumnHandle);
         }
 
         // Modify projections to refer to new variables
@@ -2330,7 +2347,10 @@ public class HiveMetadata
                 .collect(toImmutableList());
 
         List<Assignment> outputAssignments = newAssignments.values().stream().collect(toImmutableList());
-        return Optional.of(new ProjectionApplicationResult<>(handle, newProjections, outputAssignments));
+        return Optional.of(new ProjectionApplicationResult<>(
+                hiveTableHandle.withProjectedColumns(projectedColumnsBuilder.build()),
+                newProjections,
+                outputAssignments));
     }
 
     private HiveColumnHandle createProjectedColumnHandle(HiveColumnHandle column, List<Integer> indices)
@@ -2463,6 +2483,7 @@ public class HiveMetadata
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getAnalyzeColumnNames(),
                 Optional.empty(),
+                Optional.empty(), // Projected columns is used only during optimization phase of planning
                 hiveTable.getTransaction());
     }
 

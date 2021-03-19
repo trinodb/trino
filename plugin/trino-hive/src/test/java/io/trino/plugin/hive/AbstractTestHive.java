@@ -3222,11 +3222,26 @@ public abstract class AbstractTestHive
             List<ConnectorExpression> expectedProjections;
             Map<String, Type> expectedAssignments;
 
-            // Test no projection pushdown in case of all variable references
+            // Test projected columns pushdown to HiveTableHandle in case of all variable references
             inputAssignments = getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_0", "symbol_1"));
             inputProjections = ImmutableList.of(symbolVariableMapping.get("symbol_0"), symbolVariableMapping.get("symbol_1"));
+            expectedAssignments = ImmutableMap.of(
+                    "symbol_0", BIGINT,
+                    "symbol_1", BIGINT);
             projectionResult = metadata.applyProjection(session, tableHandle, inputProjections, inputAssignments);
+            assertProjectionResult(projectionResult, false, inputProjections, expectedAssignments);
+
+            // Empty result when projected column handles are same as those present in table handle
+            projectionResult = metadata.applyProjection(session, projectionResult.get().getHandle(), inputProjections, inputAssignments);
             assertProjectionResult(projectionResult, true, ImmutableList.of(), ImmutableMap.of());
+
+            // Extra columns handles in HiveTableHandle should get pruned
+            projectionResult = metadata.applyProjection(
+                    session,
+                    ((HiveTableHandle) tableHandle).withProjectedColumns(ImmutableSet.copyOf(columnHandles)),
+                    inputProjections,
+                    inputAssignments);
+            assertProjectionResult(projectionResult, false, inputProjections, expectedAssignments);
 
             // Test projection pushdown for dereferences
             inputAssignments = getColumnHandlesFor(columnHandlesWithSymbols, ImmutableList.of("symbol_2", "symbol_3"));
@@ -3303,6 +3318,9 @@ public abstract class AbstractTestHive
         }
 
         assertEquals(actualAssignments.size(), expectedAssignments.size());
+        assertEquals(
+                Optional.of(actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet())),
+                ((HiveTableHandle) result.getHandle()).getProjectedColumns());
     }
 
     private ConnectorSession sampleSize(int sampleSize)

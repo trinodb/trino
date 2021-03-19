@@ -155,6 +155,10 @@ public class TestPushProjectionIntoTableScan
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference),
                     constant, "projected_constant_" + connectorNames.get(constant));
+            Map<String, ColumnHandle> expectedColumns = newNames.entrySet().stream()
+                    .collect(toImmutableMap(
+                            Map.Entry::getValue,
+                            e -> column(e.getValue(), types.get(e.getKey()))));
 
             ruleTester.assertThat(optimizer)
                     .on(p -> {
@@ -178,12 +182,13 @@ public class TestPushProjectionIntoTableScan
                                             e -> e.getKey().getName(),
                                             e -> expression(symbolReference(e.getValue())))),
                             tableScan(
-                                    equalTo(createTableHandle(TEST_SCHEMA, "projected_" + TEST_TABLE).getConnectorHandle()),
+                                    equalTo(new MockConnectorTableHandle(
+                                            new SchemaTableName(TEST_SCHEMA, "projected_" + TEST_TABLE),
+                                            TupleDomain.all(),
+                                            Optional.of(ImmutableList.copyOf(expectedColumns.values())))),
                                     TupleDomain.all(),
-                                    newNames.entrySet().stream()
-                                            .collect(toImmutableMap(
-                                                    Map.Entry::getValue,
-                                                    e -> equalTo(column(e.getValue(), types.get(e.getKey()))))))));
+                                    expectedColumns.entrySet().stream()
+                                            .collect(toImmutableMap(Map.Entry::getKey, e -> equalTo(e.getValue()))))));
         }
     }
 
@@ -259,11 +264,11 @@ public class TestPushProjectionIntoTableScan
         SchemaTableName projectedTableName = new SchemaTableName(
                 inputSchemaTableName.getSchemaName(),
                 "projected_" + inputSchemaTableName.getTableName());
-        MockConnectorTableHandle newTableHandle = new MockConnectorTableHandle(projectedTableName);
 
         // Prepare new column handles
         ImmutableList.Builder<ConnectorExpression> outputExpressions = ImmutableList.builder();
         ImmutableList.Builder<Assignment> outputAssignments = ImmutableList.builder();
+        ImmutableList.Builder<ColumnHandle> projectedColumnsBuilder = ImmutableList.builder();
 
         for (ConnectorExpression projection : projections) {
             String variablePrefix;
@@ -285,9 +290,13 @@ public class TestPushProjectionIntoTableScan
             ColumnHandle newColumnHandle = new TpchColumnHandle(newVariableName, projection.getType());
             outputExpressions.add(newVariable);
             outputAssignments.add(new Assignment(newVariableName, newColumnHandle, projection.getType()));
+            projectedColumnsBuilder.add(newColumnHandle);
         }
 
-        return Optional.of(new ProjectionApplicationResult<>(newTableHandle, outputExpressions.build(), outputAssignments.build()));
+        return Optional.of(new ProjectionApplicationResult<>(
+                new MockConnectorTableHandle(projectedTableName, TupleDomain.all(), Optional.of(projectedColumnsBuilder.build())),
+                outputExpressions.build(),
+                outputAssignments.build()));
     }
 
     private static TableHandle createTableHandle(String schemaName, String tableName)
