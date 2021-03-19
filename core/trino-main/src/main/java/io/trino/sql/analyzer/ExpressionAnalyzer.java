@@ -2030,7 +2030,6 @@ public class ExpressionAnalyzer
         analysis.addColumnReferences(analyzer.getColumnReferences());
         analysis.addLambdaArgumentReferences(analyzer.getLambdaArgumentReferences());
         analysis.addTableColumnReferences(accessControl, session.getIdentity(), analyzer.getTableColumnReferences());
-        analysis.addReferencedFields(analyzer.getReferencedFields());
     }
 
     public static ExpressionAnalyzer create(
