@@ -848,6 +848,10 @@ public class TestPostgreSqlConnectorTest
         };
     }
 
+    /**
+     * @deprecated Use {@link TestTable} instead.
+     */
+    @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
             throws Exception
     {
