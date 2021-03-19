@@ -33,6 +33,10 @@ public final class AllSimpleTypesTableDefinitions
             .setDataSource(getTextFileDataSource())
             .build();
 
+    public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_OPENX = openXTableDefinitionBuilder()
+            .setDataSource(getOpenXDataSource())
+            .build();
+
     public static final HiveTableDefinition ALL_HIVE_SIMPLE_TYPES_PARQUET = parquetTableDefinitionBuilder()
             .setNoData()
             .build();
@@ -73,6 +77,32 @@ public final class AllSimpleTypesTableDefinitions
                         ") " +
                         (rowFormat.isPresent() ? "ROW FORMAT " + rowFormat.get() + " " : " ") +
                         "STORED AS " + fileFormat);
+    }
+
+    private static HiveTableDefinition.HiveTableDefinitionBuilder openXTableDefinitionBuilder()
+    {
+        return HiveTableDefinition.builder("openx_all_types")
+                .setCreateTableDDLTemplate("" +
+                        "CREATE %EXTERNAL% TABLE %NAME%(" +
+                        "   c_tinyint            TINYINT," +
+                        "   c_smallint           SMALLINT," +
+                        "   c_int                INT," +
+                        "   c_bigint             BIGINT," +
+                        "   c_float              FLOAT," +
+                        "   c_double             DOUBLE," +
+                        "   c_decimal            DECIMAL," +
+                        "   c_decimal_short      DECIMAL(10,5)," +
+                        "   c_decimal_full       DECIMAL(38,18)," +
+                        "   c_timestamp          TIMESTAMP," +
+                        "   c_date               DATE," +
+                        "   c_string             STRING," +
+                        "   c_varchar            VARCHAR(10)," +
+                        "   c_char               CHAR(10)," +
+                        "   c_boolean            BOOLEAN," +
+                        "   c_binary             BINARY" +
+                        ") " +
+                        "ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'" +
+                        "STORED AS TEXTFILE");
     }
 
     private static HiveTableDefinition.HiveTableDefinitionBuilder avroTableDefinitionBuilder()
@@ -123,6 +153,11 @@ public final class AllSimpleTypesTableDefinitions
     private static HiveDataSource getTextFileDataSource()
     {
         return createResourceDataSource(format(tableNameFormat, "textfile"), "io/trino/tests/hive/data/all_types/data.textfile");
+    }
+
+    private static HiveDataSource getOpenXDataSource()
+    {
+        return createResourceDataSource(format(tableNameFormat, "openx"), "io/trino/tests/hive/data/all_types/openx.json");
     }
 
     public static void populateDataToHiveTable(String tableName)

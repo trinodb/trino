@@ -27,6 +27,7 @@ import io.trino.tests.hive.HiveVersionProvider;
 import java.util.List;
 
 import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_OPENX;
 import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
 import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
 import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
@@ -66,6 +67,7 @@ public class PrestoTemptoPlugin
                 ALL_HIVE_SIMPLE_TYPES_TEXTFILE,
                 ALL_HIVE_SIMPLE_TYPES_RCFILE,
                 ALL_HIVE_SIMPLE_TYPES_AVRO,
+                ALL_HIVE_SIMPLE_TYPES_OPENX,
                 ALL_HIVE_SIMPLE_TYPES_ORC,
                 ALL_HIVE_SIMPLE_TYPES_PARQUET,
                 BUCKETED_NATION,
