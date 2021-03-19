@@ -20,6 +20,8 @@ import io.trino.spi.security.PasswordAuthenticator;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,14 +62,25 @@ public class PasswordAuthenticatorManager
     }
 
     public void loadPasswordAuthenticator()
-            throws Exception
     {
         if (!required.get()) {
             return;
         }
 
         File configFile = CONFIG_FILE.getAbsoluteFile();
-        Map<String, String> properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+        PasswordAuthenticator authenticator = loadAuthenticator(configFile.getAbsoluteFile());
+        this.authenticator.set(requireNonNull(authenticator, "authenticator is null"));
+    }
+
+    private PasswordAuthenticator loadAuthenticator(File configFile)
+    {
+        Map<String, String> properties;
+        try {
+            properties = new HashMap<>(loadPropertiesFrom(configFile.getPath()));
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
 
         String name = properties.remove(NAME_PROPERTY);
         checkState(!isNullOrEmpty(name), "Password authenticator configuration %s does not contain '%s'", configFile, NAME_PROPERTY);
@@ -77,10 +90,8 @@ public class PasswordAuthenticatorManager
         PasswordAuthenticatorFactory factory = factories.get(name);
         checkState(factory != null, "Password authenticator '%s' is not registered", name);
 
-        PasswordAuthenticator authenticator = factory.create(ImmutableMap.copyOf(properties));
-        this.authenticator.set(requireNonNull(authenticator, "authenticator is null"));
-
         log.info("-- Loaded password authenticator %s --", name);
+        return factory.create(ImmutableMap.copyOf(properties));
     }
 
     public PasswordAuthenticator getAuthenticator()
