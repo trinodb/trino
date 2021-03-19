@@ -146,6 +146,8 @@ public class HiveConfig
 
     private boolean legacyHiveViewTranslation;
 
+    private boolean runViewsAsInvoker;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -1041,4 +1043,18 @@ public class HiveConfig
     {
         return this.legacyHiveViewTranslation;
     }
+
+    @Config("hive.run-views-as-invoker")
+    @ConfigDescription("")
+    public HiveConfig setRunViewsAsInvoker(boolean runViewsAsInvoker)
+    {
+        this.runViewsAsInvoker = runViewsAsInvoker;
+        return this;
+    }
+
+    public boolean runViewsAsInvoker()
+    {
+        return runViewsAsInvoker;
+    }
+
 }

@@ -158,7 +158,7 @@ public final class ViewReaderUtil
         }
 
         @Override
-        public ConnectorViewDefinition decodeViewData(String viewSql, Table table, CatalogName catalogName)
+        public ConnectorViewDefinition decodeViewData(String viewSql, Table table, CatalogName catalogName, boolean runViewsAsInvoker)
         {
             try {
                 HiveToRelConverter hiveToRelConverter = HiveToRelConverter.create(metastoreClient);
@@ -177,7 +177,7 @@ public final class ViewReaderUtil
                         columns,
                         Optional.ofNullable(table.getParameters().get(TABLE_COMMENT)),
                         Optional.empty(),
-                        false);
+                        runViewsAsInvoker);
             }
             catch (RuntimeException e) {
                 throw new TrinoException(HIVE_VIEW_TRANSLATION_ERROR,
