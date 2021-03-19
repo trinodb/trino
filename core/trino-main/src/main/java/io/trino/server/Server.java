@@ -17,7 +17,10 @@ import com.google.common.base.Joiner;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
+import com.google.inject.Key;
 import com.google.inject.Module;
+import com.google.inject.TypeLiteral;
+import com.google.inject.util.Types;
 import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.discovery.client.Announcer;
@@ -56,6 +59,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -124,7 +128,8 @@ public class Server
             injector.getInstance(SessionPropertyDefaults.class).loadConfigurationManager();
             injector.getInstance(ResourceGroupManager.class).loadConfigurationManager();
             injector.getInstance(AccessControlManager.class).loadSystemAccessControl();
-            injector.getInstance(PasswordAuthenticatorManager.class).loadPasswordAuthenticator();
+            injector.getInstance(optionalKey(PasswordAuthenticatorManager.class))
+                    .ifPresent(PasswordAuthenticatorManager::loadPasswordAuthenticator);
             injector.getInstance(EventListenerManager.class).loadEventListeners();
             injector.getInstance(GroupProviderManager.class).loadConfiguredGroupProvider();
             injector.getInstance(CertificateAuthenticatorManager.class).loadCertificateAuthenticator();
@@ -150,6 +155,12 @@ public class Server
             log.error(e);
             System.exit(1);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Key<Optional<T>> optionalKey(Class<T> type)
+    {
+        return Key.get((TypeLiteral<Optional<T>>) TypeLiteral.get(Types.newParameterizedType(Optional.class, type)));
     }
 
     private static void addMessages(StringBuilder output, String type, List<Object> messages)
