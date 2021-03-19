@@ -50,7 +50,7 @@ public class RedshiftClient
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
-            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
 
         String sql = format(
