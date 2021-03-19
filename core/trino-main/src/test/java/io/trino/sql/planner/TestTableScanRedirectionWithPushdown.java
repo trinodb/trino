@@ -147,7 +147,10 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL"),
                             tableScan(
-                                    equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
+                                    equalTo(new MockConnectorTableHandle(
+                                            DESTINATION_TABLE,
+                                            TupleDomain.withColumnDomains(ImmutableMap.of(DESTINATION_COLUMN_HANDLE_A, singleValue(INTEGER, 1L))),
+                                            Optional.empty())),
                                     TupleDomain.withColumnDomains(ImmutableMap.of(equalTo(DESTINATION_COLUMN_HANDLE_A), singleValue(INTEGER, 1L))),
                                     ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A)))));
 
@@ -179,7 +182,10 @@ public class TestTableScanRedirectionWithPushdown
                             filter(
                                     "DEST_COL_A = 1",
                                     tableScan(
-                                            equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
+                                            equalTo(new MockConnectorTableHandle(
+                                                    DESTINATION_TABLE,
+                                                    TupleDomain.withColumnDomains(ImmutableMap.of(DESTINATION_COLUMN_HANDLE_B, singleValue(INTEGER, 2L))),
+                                                    Optional.empty())),
                                             TupleDomain.withColumnDomains(ImmutableMap.of(equalTo(DESTINATION_COLUMN_HANDLE_B), singleValue(INTEGER, 2L))),
                                             ImmutableMap.of(
                                                     "DEST_COL_A", equalTo(DESTINATION_COLUMN_HANDLE_A),
@@ -203,7 +209,10 @@ public class TestTableScanRedirectionWithPushdown
                     output(
                             ImmutableList.of("DEST_COL_B"),
                             tableScan(
-                                    equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
+                                    equalTo(new MockConnectorTableHandle(
+                                            DESTINATION_TABLE,
+                                            TupleDomain.withColumnDomains(ImmutableMap.of(DESTINATION_COLUMN_HANDLE_A, singleValue(INTEGER, 1L))),
+                                            Optional.of(ImmutableList.of(DESTINATION_COLUMN_HANDLE_B)))),
                                     // PushProjectionIntoTableScan does not preserve enforced constraint
                                     // (issue: https://github.com/trinodb/trino/issues/6029)
                                     TupleDomain.all(),
