@@ -37,6 +37,7 @@ import io.trino.spi.eventlistener.TableInfo;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.Type;
+import io.trino.sql.analyzer.Field.OriginColumnDetail;
 import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.ExistsPredicate;
 import io.trino.sql.tree.Expression;
@@ -190,6 +191,7 @@ public class Analysis
 
     // row id field for update/delete queries
     private final Map<NodeRef<Table>, FieldReference> rowIdField = new LinkedHashMap<>();
+    private final Map<NodeRef<Expression>, List<OriginColumnDetail>> originColumnDetails = new LinkedHashMap<>();
 
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
@@ -835,6 +837,11 @@ public class Analysis
         tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>()).computeIfAbsent(table, k -> new HashSet<>());
     }
 
+    public void addReferencedFields(Expression expression, Multimap<NodeRef<Node>, Field> references)
+    {
+        originColumnDetails.put(NodeRef.of(expression), references.values().stream().flatMap(x -> x.getOriginColumnDetails().stream()).collect(toImmutableList()));
+    }
+
     public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
@@ -874,6 +881,11 @@ public class Analysis
     public List<Expression> getRowFilters(Table node)
     {
         return rowFilters.getOrDefault(NodeRef.of(node), ImmutableList.of());
+    }
+
+    public List<OriginColumnDetail> getColumnOriginDetails(Expression expression)
+    {
+        return originColumnDetails.get(NodeRef.of(expression));
     }
 
     public boolean hasColumnMask(QualifiedObjectName table, String column, String identity)

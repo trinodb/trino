@@ -52,7 +52,7 @@ public class Field
     {
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
-        requireNonNull(originColumnDetails, "originTable is null");
+        requireNonNull(originColumnDetails, "originColumnDetails is null");
 
         return new Field(Optional.empty(), name, type, false, originColumnDetails, aliased);
     }
@@ -62,7 +62,7 @@ public class Field
         requireNonNull(relationAlias, "relationAlias is null");
         requireNonNull(name, "name is null");
         requireNonNull(type, "type is null");
-        requireNonNull(originColumnDetails, "originTable is null");
+        requireNonNull(originColumnDetails, "originColumnDetails is null");
 
         return new Field(Optional.of(relationAlias), name, type, hidden, originColumnDetails, aliased);
     }

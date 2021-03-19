@@ -1594,7 +1594,7 @@ class StatementAnalyzer
             GroupingSetAnalysis groupByAnalysis = analyzeGroupBy(node, sourceScope, outputExpressions);
             analyzeHaving(node, sourceScope);
 
-            Scope outputScope = computeAndAssignOutputScope(node, scope, sourceScope);
+            Scope outputScope = computeAndAssignOutputScope(node, scope);
 
             List<Expression> orderByExpressions = emptyList();
             Optional<Scope> orderByScope = Optional.empty();
@@ -2469,7 +2469,7 @@ class StatementAnalyzer
             return !aggregates.isEmpty();
         }
 
-        private Scope computeAndAssignOutputScope(QuerySpecification node, Optional<Scope> scope, Scope sourceScope)
+        private Scope computeAndAssignOutputScope(QuerySpecification node, Optional<Scope> scope)
         {
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
 
@@ -2509,12 +2509,7 @@ class StatementAnalyzer
                         name = DereferenceExpression.getQualifiedName((DereferenceExpression) expression);
                     }
 
-                    if (name != null) {
-                        List<Field> matchingFields = sourceScope.getRelationType().resolveFields(name);
-                        if (!matchingFields.isEmpty()) {
-                            builder.addAll(matchingFields.get(0).getOriginColumnDetails());
-                        }
-                    }
+                    builder.addAll(analysis.getColumnOriginDetails(expression));
 
                     if (field.isEmpty()) {
                         if (name != null) {

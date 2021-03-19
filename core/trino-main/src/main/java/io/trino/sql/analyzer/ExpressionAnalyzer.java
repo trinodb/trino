@@ -1971,6 +1971,7 @@ public class ExpressionAnalyzer
         analyzer.analyze(expression, scope);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
+        analysis.addReferencedFields(expression, analyzer.getReferencedFields());
 
         return new ExpressionAnalysis(
                 analyzer.getExpressionTypes(),
