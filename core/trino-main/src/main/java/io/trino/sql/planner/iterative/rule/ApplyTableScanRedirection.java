@@ -20,6 +20,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
+import io.trino.metadata.TableMetadata;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -86,14 +87,17 @@ public class ApplyTableScanRedirection
 
         Redirection redirection = getOnlyElement(redirections);
         CatalogSchemaTableName destinationTable = redirection.getDestinationTable();
+        TableMetadata tableMetadata = metadata.getTableMetadata(context.getSession(), scanNode.getTable());
+        CatalogSchemaTableName sourceTable = new CatalogSchemaTableName(tableMetadata.getCatalogName().getCatalogName(), tableMetadata.getTable());
+        if (destinationTable.equals(sourceTable)) {
+            return Result.empty();
+        }
+
         Optional<TableHandle> destinationTableHandle = metadata.getTableHandle(
                 context.getSession(),
                 convertFromSchemaTableName(destinationTable.getCatalogName()).apply(destinationTable.getSchemaTableName()));
         if (destinationTableHandle.isEmpty()) {
             throw new TrinoException(TABLE_NOT_FOUND, format("Destination table %s from table scan redirection not found", destinationTable));
-        }
-        if (destinationTableHandle.get().equals(scanNode.getTable())) {
-            return Result.empty();
         }
 
         Map<ColumnHandle, String> columnMapping = redirection.getDestinationColumns();
