@@ -330,8 +330,6 @@ public class TestWebUi
                         .put("web-ui.enabled", "false")
                         .build())
                 .build()) {
-            server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestWebUi::authenticate);
-
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             testDisabled(httpServerInfo.getHttpUri());
             testDisabled(httpServerInfo.getHttpsUri());
