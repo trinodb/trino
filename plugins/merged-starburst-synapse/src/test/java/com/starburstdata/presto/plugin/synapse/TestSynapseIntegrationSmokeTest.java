@@ -422,6 +422,10 @@ public class TestSynapseIntegrationSmokeTest
         return "orderkey IN (" + longValues + ")";
     }
 
+    /**
+     * @deprecated Use {@link TestTable} instead.
+     */
+    @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
     {
         synapseServer.execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
