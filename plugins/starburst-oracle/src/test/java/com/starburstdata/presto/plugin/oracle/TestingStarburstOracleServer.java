@@ -12,6 +12,7 @@ package com.starburstdata.presto.plugin.oracle;
 import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.testing.sql.TestTable;
 import org.testcontainers.containers.OracleContainer;
 
 import java.sql.Connection;
@@ -84,12 +85,20 @@ public final class TestingStarburstOracleServer
         }
     }
 
+    /**
+     * @deprecated Use {@link TestTable} instead.
+     */
+    @Deprecated
     public static AutoCloseable withTable(String tableName, String tableDefinition)
     {
         executeInOracle(format("CREATE TABLE %s %s", tableName, tableDefinition));
         return () -> executeInOracle(format("DROP TABLE %s", tableName));
     }
 
+    /**
+     * @deprecated Use {@link TestView} instead.
+     */
+    @Deprecated
     public static AutoCloseable withView(String tableName, String tableDefinition)
     {
         executeInOracle(format("CREATE VIEW %s AS %s", tableName, tableDefinition));
