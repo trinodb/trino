@@ -381,7 +381,7 @@ public class LocalQueryRunner
                 metadata,
                 new NoOpResourceGroupManager(),
                 accessControl,
-                new PasswordAuthenticatorManager(),
+                Optional.of(new PasswordAuthenticatorManager()),
                 new CertificateAuthenticatorManager(),
                 eventListenerManager,
                 new GroupProviderManager(),
