@@ -39,8 +39,9 @@ per-query basis using the ``writer_min_size`` session property.
 * **Type:** ``boolean``
 * **Default value:** ``true``
 
-Enable preferred write partitioning. When set to ``true`` each partition is
-written by a separate writer. As a result, for some connectors such as the
+Enable preferred write partitioning. When set to ``true`` and more than the
+minimum number of partitions, set in ``preferred-write-partitioning-min-number-of-partitions``,
+are written, each partition is written by a separate writer. As a result, for some connectors such as the
 Hive connector, only a single new file is written per partition, instead of
 multiple files. Partition writer assignments are distributed across worker
 nodes for parallel processing.
