@@ -121,7 +121,7 @@ public class ApplyTableScanRedirection
                                 destinationTable,
                                 destinationColumn,
                                 redirectedType,
-                                scanNode.getTable(),
+                                sourceTable,
                                 entry.getValue(),
                                 sourceType);
                     }
@@ -167,7 +167,7 @@ public class ApplyTableScanRedirection
                         destinationTable,
                         destinationColumn,
                         redirectedType,
-                        scanNode.getTable(),
+                        sourceTable,
                         sourceColumnHandle,
                         domainType);
             }
@@ -210,7 +210,7 @@ public class ApplyTableScanRedirection
             CatalogSchemaTableName destinationTable,
             String destinationColumn,
             Type destinationType,
-            TableHandle sourceTable,
+            CatalogSchemaTableName sourceTable,
             ColumnHandle sourceColumnHandle,
             Type sourceType)
     {
@@ -219,8 +219,8 @@ public class ApplyTableScanRedirection
                 destinationTable,
                 destinationColumn,
                 destinationType,
-                // TODO report source table and column name instead of ConnectorTableHandle, ConnectorColumnHandle toString
                 sourceTable,
+                // TODO report source column name instead of ColumnHandle toString
                 sourceColumnHandle,
                 sourceType));
     }
