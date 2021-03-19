@@ -480,6 +480,41 @@ public class TestHiveStorageFormats
         onHive().executeQuery("DROP TABLE " + tableName);
     }
 
+    @Test(groups = STORAGE_FORMATS)
+    public void testOrcStructsWithNonLowercaseFields()
+    {
+        String tableName = "orc_structs_with_non_lowercase";
+
+        ensureDummyExists();
+        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+
+        onHive().executeQuery(format(
+                "CREATE TABLE %s (" +
+                        "   c_bigint BIGINT," +
+                        "   c_struct struct<testCustId:string, requestDate:string>)" +
+                        "STORED AS ORC ",
+                tableName));
+
+        onHive().executeQuery(format(
+                "INSERT INTO %s"
+                // insert with SELECT because hive does not support array/map/struct functions in VALUES
+                + " SELECT"
+                + "   1,"
+                + "   named_struct('testCustId', '1234', 'requestDate', 'some day')"
+                // some hive versions don't allow INSERT from SELECT without FROM
+                + " FROM dummy",
+                tableName));
+
+        setProjectionPushdownEnabled(onTrino().getConnection(), true);
+        assertThat(onTrino().executeQuery("SELECT c_struct.testCustId FROM " + tableName)).containsOnly(row("1234"));
+        assertThat(onTrino().executeQuery("SELECT c_struct.testcustid FROM " + tableName)).containsOnly(row("1234"));
+        assertThat(onTrino().executeQuery("SELECT c_struct.requestDate FROM " + tableName)).containsOnly(row("some day"));
+        setProjectionPushdownEnabled(onTrino().getConnection(), false);
+        assertThat(onTrino().executeQuery("SELECT c_struct.testCustId FROM " + tableName)).containsOnly(row("1234"));
+        assertThat(onTrino().executeQuery("SELECT c_struct.testcustid FROM " + tableName)).containsOnly(row("1234"));
+        assertThat(onTrino().executeQuery("SELECT c_struct.requestDate FROM " + tableName)).containsOnly(row("some day"));
+    }
+
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
     public void testTimestampCreatedFromHive(StorageFormat storageFormat)
     {
@@ -755,6 +790,16 @@ public class TestHiveStorageFormats
     {
         try {
             setSessionProperty(onTrino().getConnection(), "hive.timestamp_precision", readPrecision.name());
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void setProjectionPushdownEnabled(Connection connection, boolean isEnabled)
+    {
+        try {
+            setSessionProperty(connection, "hive.projection_pushdown_enabled", Boolean.toString(isEnabled));
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
