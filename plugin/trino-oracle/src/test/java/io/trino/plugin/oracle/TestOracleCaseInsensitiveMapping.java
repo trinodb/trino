@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
@@ -162,6 +163,10 @@ public class TestOracleCaseInsensitiveMapping
         return () -> oracleServer.execute("DROP USER " + schemaName);
     }
 
+    /**
+     * @deprecated Use {@link TestTable} instead.
+     */
+    @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
     {
         oracleServer.execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
