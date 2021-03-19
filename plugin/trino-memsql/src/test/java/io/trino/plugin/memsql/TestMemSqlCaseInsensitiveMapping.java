@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -165,6 +166,10 @@ public class TestMemSqlCaseInsensitiveMapping
         return () -> execute(format("DROP SCHEMA `%s`", schemaName));
     }
 
+    /**
+     * @deprecated Use {@link TestTable} instead.
+     */
+    @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
     {
         execute(format("CREATE TABLE %s %s", tableName, tableDefinition));

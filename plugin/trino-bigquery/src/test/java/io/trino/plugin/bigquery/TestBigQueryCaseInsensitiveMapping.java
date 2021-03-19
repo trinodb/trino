@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.bigquery.BigQueryQueryRunner.BigQuerySqlExecutor;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.util.stream.Stream;
@@ -177,6 +178,10 @@ public class TestBigQueryCaseInsensitiveMapping
         return () -> bigQuerySqlExecutor.dropDataset(schemaName);
     }
 
+    /**
+     * @deprecated Use {@link TestTable} instead.
+     */
+    @Deprecated
     private AutoCloseable withTable(String tableName, String tableDefinition)
     {
         bigQuerySqlExecutor.execute(format("CREATE TABLE %s %s", tableName, tableDefinition));
