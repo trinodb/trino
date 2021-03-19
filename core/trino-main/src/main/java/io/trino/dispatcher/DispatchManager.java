@@ -137,7 +137,7 @@ public class DispatchManager
     public ListenableFuture<?> createQuery(QueryId queryId, Slug slug, SessionContext sessionContext, String query)
     {
         requireNonNull(queryId, "queryId is null");
-        requireNonNull(sessionContext, "sessionFactory is null");
+        requireNonNull(sessionContext, "sessionContext is null");
         requireNonNull(query, "query is null");
         checkArgument(!query.isEmpty(), "query must not be empty string");
         checkArgument(queryTracker.tryGetQuery(queryId).isEmpty(), "query %s already exists", queryId);
