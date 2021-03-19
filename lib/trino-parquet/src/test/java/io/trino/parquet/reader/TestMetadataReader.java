@@ -161,6 +161,126 @@ public class TestMetadataReader
     }
 
     @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsInt64WithoutMin(Optional<String> fileCreatedBy)
+    {
+        Statistics statistics = new Statistics();
+        statistics.setNull_count(13);
+        statistics.setMax(fromHex("3AA4000000000000"));
+        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, INT64, "Test column")))
+                .isInstanceOfSatisfying(LongStatistics.class, columnStatistics -> {
+                    assertFalse(columnStatistics.isEmpty());
+
+                    assertTrue(columnStatistics.isNumNullsSet());
+                    assertEquals(columnStatistics.getNumNulls(), 13);
+
+                    assertEquals(columnStatistics.getMin(), 0);
+                    assertEquals(columnStatistics.getMax(), 0); // file statistics indicate 42042
+                    assertEquals(columnStatistics.genericGetMin(), (Long) 0L);
+                    assertEquals(columnStatistics.genericGetMax(), (Long) 0L); // file statistics indicate 42042
+                });
+    }
+
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsInt64WithoutMax(Optional<String> fileCreatedBy)
+    {
+        Statistics statistics = new Statistics();
+        statistics.setNull_count(13);
+        statistics.setMin(fromHex("F6FFFFFFFFFFFFFF"));
+        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, INT64, "Test column")))
+                .isInstanceOfSatisfying(LongStatistics.class, columnStatistics -> {
+                    assertFalse(columnStatistics.isEmpty());
+
+                    assertTrue(columnStatistics.isNumNullsSet());
+                    assertEquals(columnStatistics.getNumNulls(), 13);
+
+                    assertEquals(columnStatistics.getMin(), 0); // file statistics indicate -10
+                    assertEquals(columnStatistics.getMax(), 0);
+                    assertEquals(columnStatistics.genericGetMin(), (Long) 0L); // file statistics indicate -10
+                    assertEquals(columnStatistics.genericGetMax(), (Long) 0L);
+                });
+    }
+
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsFloatWithoutMin(Optional<String> fileCreatedBy)
+    {
+        Statistics statistics = new Statistics();
+        statistics.setNull_count(13);
+        statistics.setMax(fromHex("12340000"));
+        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, FLOAT, "Test column")))
+                .isInstanceOfSatisfying(FloatStatistics.class, columnStatistics -> {
+                    assertFalse(columnStatistics.isEmpty());
+
+                    assertTrue(columnStatistics.isNumNullsSet());
+                    assertEquals(columnStatistics.getNumNulls(), 13);
+
+                    assertEquals(columnStatistics.getMin(), 0f);
+                    assertEquals(columnStatistics.getMax(), 0f);
+                    assertEquals(columnStatistics.genericGetMin(), 0f);
+                    assertEquals(columnStatistics.genericGetMax(), 0f);
+                });
+    }
+
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsFloatWithoutMax(Optional<String> fileCreatedBy)
+    {
+        Statistics statistics = new Statistics();
+        statistics.setNull_count(13);
+        statistics.setMin(fromHex("1234ABCD"));
+        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, FLOAT, "Test column")))
+                .isInstanceOfSatisfying(FloatStatistics.class, columnStatistics -> {
+                    assertFalse(columnStatistics.isEmpty());
+
+                    assertTrue(columnStatistics.isNumNullsSet());
+                    assertEquals(columnStatistics.getNumNulls(), 13);
+
+                    assertEquals(columnStatistics.getMin(), 0f);
+                    assertEquals(columnStatistics.getMax(), 0f);
+                    assertEquals(columnStatistics.genericGetMin(), 0f);
+                    assertEquals(columnStatistics.genericGetMax(), 0f);
+                });
+    }
+
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsDoubleWithoutMin(Optional<String> fileCreatedBy)
+    {
+        Statistics statistics = new Statistics();
+        statistics.setNull_count(13);
+        statistics.setMax(fromHex("3AA4000000000000"));
+        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, DOUBLE, "Test column")))
+                .isInstanceOfSatisfying(DoubleStatistics.class, columnStatistics -> {
+                    assertFalse(columnStatistics.isEmpty());
+
+                    assertTrue(columnStatistics.isNumNullsSet());
+                    assertEquals(columnStatistics.getNumNulls(), 13);
+
+                    assertEquals(columnStatistics.getMin(), 0d);
+                    assertEquals(columnStatistics.getMax(), 0d);
+                    assertEquals(columnStatistics.genericGetMin(), 0d);
+                    assertEquals(columnStatistics.genericGetMax(), 0d);
+                });
+    }
+
+    @Test(dataProvider = "allCreatedBy")
+    public void testReadStatsDoubleWithoutMax(Optional<String> fileCreatedBy)
+    {
+        Statistics statistics = new Statistics();
+        statistics.setNull_count(13);
+        statistics.setMin(fromHex("F6FFFFFFFFFFFFFF"));
+        assertThat(MetadataReader.readStats(fileCreatedBy, Optional.of(statistics), new PrimitiveType(OPTIONAL, DOUBLE, "Test column")))
+                .isInstanceOfSatisfying(DoubleStatistics.class, columnStatistics -> {
+                    assertFalse(columnStatistics.isEmpty());
+
+                    assertTrue(columnStatistics.isNumNullsSet());
+                    assertEquals(columnStatistics.getNumNulls(), 13);
+
+                    assertEquals(columnStatistics.getMin(), 0d);
+                    assertEquals(columnStatistics.getMax(), 0d);
+                    assertEquals(columnStatistics.genericGetMin(), 0d);
+                    assertEquals(columnStatistics.genericGetMax(), 0d);
+                });
+    }
+
+    @Test(dataProvider = "allCreatedBy")
     public void testReadStatsBinary(Optional<String> fileCreatedBy)
     {
         PrimitiveType varbinary = new PrimitiveType(OPTIONAL, BINARY, "Test column");
