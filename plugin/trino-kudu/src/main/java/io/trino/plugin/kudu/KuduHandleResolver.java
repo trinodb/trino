@@ -16,6 +16,7 @@ package io.trino.plugin.kudu;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -53,6 +54,12 @@ public class KuduHandleResolver
     public Class<? extends ConnectorInsertTableHandle> getInsertTableHandleClass()
     {
         return KuduInsertTableHandle.class;
+    }
+
+    @Override
+    public Class<? extends ConnectorMergeTableHandle> getMergeTableHandleClass()
+    {
+        return KuduMergeTableHandle.class;
     }
 
     @Override

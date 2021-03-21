@@ -22,6 +22,8 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -31,6 +33,7 @@ import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
@@ -174,5 +177,246 @@ public abstract class AbstractKuduIntegrationSmokeTest
     {
         assertTrue(Pattern.compile(key + "\\s*=\\s*" + regexValue + ",?\\s+").matcher(tableProperties).find(),
                 "Not found: " + key + " = " + regexValue + " in " + tableProperties);
+    }
+
+    @Test
+    public void testMergeSimpleSelect()
+    {
+        String targetTable = "simple_select_target";
+        String sourceTable = "simple_select_source";
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchases INT, address VARCHAR)" +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 2" +
+                    ")", targetTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchases INT, address VARCHAR)" +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 2" +
+                    ")", sourceTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable), 4);
+
+            assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                    "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                    "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                    "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)",
+                    4);
+
+            assertQuery("SELECT * FROM " + targetTable, "SELECT * FROM (VALUES('Aaron', 11, 'Arches'), ('Ed', 7, 'Etherville'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Darbyshire'))");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + targetTable);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTable);
+        }
+    }
+
+    @Test
+    public void testMergeMultipleOperations()
+    {
+        String targetTable = "merge_multiple";
+        try {
+            int targetCustomerCount = 10;
+            String originalInsertFirstHalf = IntStream.range(0, targetCustomerCount / 2)
+                    .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
+                    .collect(Collectors.joining(", "));
+            String originalInsertSecondHalf = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                    .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 2000, 92000, intValue, intValue))
+                    .collect(Collectors.joining(", "));
+
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchases INT, zipcode INT, spouse VARCHAR, address VARCHAR) " +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 2" +
+                    ")", targetTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchases, zipcode, spouse, address) VALUES %s, %s", targetTable, originalInsertFirstHalf, originalInsertSecondHalf), targetCustomerCount);
+
+            String firstMergeSource = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                    .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
+                    .collect(Collectors.joining(", "));
+
+            assertUpdate(format("MERGE INTO %s t USING (SELECT * FROM (VALUES %s)) AS s(customer, purchases, zipcode, spouse, address)", targetTable, firstMergeSource) +
+                    "    ON t.customer = s.customer" +
+                    "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases, zipcode = s.zipcode, spouse = s.spouse, address = s.address",
+                    targetCustomerCount / 2);
+
+            assertQuery(
+                    "SELECT customer, purchases, zipcode, spouse, address FROM " + targetTable,
+                    format("SELECT * FROM (VALUES %s, %s) AS v(customer, purchases, zipcode, spouse, address)", originalInsertFirstHalf, firstMergeSource));
+
+            String nextInsert = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                    .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                    .collect(Collectors.joining(", "));
+            assertUpdate(format("INSERT INTO %s (customer, purchases, zipcode, spouse, address) VALUES %s", targetTable, nextInsert), targetCustomerCount / 2);
+
+            String secondMergeSource = IntStream.range(0, targetCustomerCount * 3 / 2)
+                    .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                    .collect(Collectors.joining(", "));
+
+            assertUpdate(format("MERGE INTO %s t USING (SELECT * FROM (VALUES %s)) AS s(customer, purchases, zipcode, spouse, address)", targetTable, secondMergeSource) +
+                    "    ON t.customer = s.customer" +
+                    "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
+                    "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
+                    "    WHEN MATCHED THEN UPDATE SET zipcode = s.zipcode, spouse = s.spouse, address = s.address" +
+                    "    WHEN NOT MATCHED THEN INSERT (customer, purchases, zipcode, spouse, address) VALUES(s.customer, s.purchases, s.zipcode, s.spouse, s.address)",
+                    targetCustomerCount * 3 / 2);
+
+            String updatedBeginning = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                    .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 60000, intValue, intValue))
+                    .collect(Collectors.joining(", "));
+            String updatedMiddle = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                    .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                    .collect(Collectors.joining(", "));
+            String updatedEnd = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                    .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                    .collect(Collectors.joining(", "));
+
+            assertQuery(
+                    "SELECT customer, purchases, zipcode, spouse, address FROM " + targetTable,
+                    format("SELECT * FROM (VALUES %s, %s, %s) AS v(customer, purchases, zipcode, spouse, address)", updatedBeginning, updatedMiddle, updatedEnd));
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + targetTable);
+        }
+    }
+
+    @Test
+    public void testMergeInsertAll()
+    {
+        String targetTable = "merge_update_all";
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchases INT, address VARCHAR)" +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 3" +
+                    ")", targetTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable), 2);
+
+            assertUpdate(format("MERGE INTO %s t USING ", targetTable) +
+                    "(SELECT * FROM (VALUES ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire'))) AS s(customer, purchases, address)" +
+                    "ON (t.customer = s.customer)" +
+                    "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)",
+                    2);
+
+            assertQuery(
+                    "SELECT * FROM " + targetTable,
+                    "SELECT * FROM (VALUES('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire'))");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + targetTable);
+        }
+    }
+
+    @Test
+    public void testMergeAllColumnsUpdated()
+    {
+        String targetTable = "merge_all_columns_updated_target";
+        String sourceTable = "merge_all_columns_updated_source";
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchases INT, address VARCHAR) " +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 2" +
+                    ")", targetTable));
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Devon'), ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge')", targetTable), 4);
+
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchases INT, address VARCHAR) " +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 2" +
+                    ")", sourceTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Darbyshire'), ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Ed', 7, 'Etherville')", sourceTable), 4);
+
+            assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                            "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_updated'), purchases = s.purchases + t.purchases, address = s.address",
+                    4);
+
+            assertQuery(
+                    "SELECT * FROM " + targetTable,
+                    "SELECT * FROM (VALUES ('Dave_updated', 22, 'Darbyshire'), ('Aaron_updated', 11, 'Arches'), ('Bill', 7, 'Buena'), ('Carol_updated', 12, 'Centreville'))");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + targetTable);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTable);
+        }
+    }
+
+    @Test
+    public void testMergeAllMatchesDeleted()
+    {
+        String targetTable = "merge_all_matches_deleted_target";
+        String sourceTable = "merge_all_matches_deleted_source";
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchases INT, address VARCHAR) " +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 2" +
+                    ")", targetTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable), 4);
+
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchases INT, address VARCHAR) " +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 2" +
+                    ")", sourceTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville')", sourceTable), 4);
+
+            assertUpdate(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                            "    WHEN MATCHED THEN DELETE",
+                    4);
+
+            assertQuery("SELECT * FROM " + targetTable, "SELECT * FROM (VALUES ('Bill', 7, 'Buena'))");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + targetTable);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTable);
+        }
+    }
+
+    @Test
+    public void testMergeLimes()
+    {
+        String targetTable = "merge_with_various_formats";
+        String sourceTable = "merge_simple_source";
+        try {
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchase VARCHAR) " +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 5" +
+                    ")", targetTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable), 3);
+            assertQuery("SELECT * FROM " + targetTable, "SELECT * FROM (VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles'))");
+
+            assertUpdate(format("CREATE TABLE %s (customer VARCHAR WITH (primary_key=true), purchase VARCHAR) " +
+                    "WITH (" +
+                    " partition_by_hash_columns = ARRAY['customer'], " +
+                    " partition_by_hash_buckets = 5" +
+                    ")", sourceTable));
+
+            assertUpdate(format("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')", sourceTable), 3);
+
+            String sql = format("MERGE INTO %s t USING %s s ON (t.purchase = s.purchase)", targetTable, sourceTable) +
+                    "    WHEN MATCHED AND s.purchase = 'limes' THEN DELETE" +
+                    "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_', s.customer)" +
+                    "    WHEN NOT MATCHED THEN INSERT (customer, purchase) VALUES(s.customer, s.purchase)";
+
+            assertUpdate(sql, 3);
+
+            assertQuery("SELECT * FROM " + targetTable, "SELECT * FROM (VALUES ('Dave', 'dates'), row('Carol_Craig', 'candles'), row('Joe', 'jellybeans'))");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS " + targetTable);
+            assertUpdate("DROP TABLE IF EXISTS " + sourceTable);
+        }
     }
 }
