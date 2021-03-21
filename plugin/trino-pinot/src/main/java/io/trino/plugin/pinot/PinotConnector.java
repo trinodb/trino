@@ -18,6 +18,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
+import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -37,6 +38,7 @@ public class PinotConnector
     private final PinotMetadata metadata;
     private final PinotSplitManager splitManager;
     private final PinotPageSourceProvider pageSourceProvider;
+    private final PinotPageSinkProvider pageSinkProvider;
     private final PinotNodePartitioningProvider partitioningProvider;
     private final PinotSessionProperties sessionProperties;
 
@@ -46,6 +48,7 @@ public class PinotConnector
             PinotMetadata metadata,
             PinotSplitManager splitManager,
             PinotPageSourceProvider pageSourceProvider,
+            PinotPageSinkProvider pageSinkProvider,
             PinotNodePartitioningProvider partitioningProvider,
             PinotSessionProperties pinotSessionProperties)
     {
@@ -53,6 +56,7 @@ public class PinotConnector
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.partitioningProvider = requireNonNull(partitioningProvider, "partitioningProvider is null");
         this.sessionProperties = requireNonNull(pinotSessionProperties, "sessionProperties is null");
     }
@@ -79,6 +83,12 @@ public class PinotConnector
     public ConnectorPageSourceProvider getPageSourceProvider()
     {
         return pageSourceProvider;
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
     }
 
     @Override
