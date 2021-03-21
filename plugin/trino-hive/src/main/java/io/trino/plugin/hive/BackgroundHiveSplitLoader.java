@@ -90,6 +90,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.collect.Maps.fromProperties;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
@@ -472,6 +473,8 @@ public class BackgroundHiveSplitLoader
 
             JobConf jobConf = toJobConf(configuration);
             FileInputFormat.setInputPaths(jobConf, path);
+            // Pass SerDes and Table parameters into input format configuration
+            fromProperties(schema).forEach(jobConf::set);
             InputSplit[] splits = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> inputFormat.getSplits(jobConf, 0));
 
             return addSplitsToSource(splits, splitFactory);
