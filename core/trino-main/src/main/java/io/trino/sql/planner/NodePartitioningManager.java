@@ -42,8 +42,11 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -90,6 +93,28 @@ public class NodePartitioningManager
                     blockTypeOperators);
         }
 
+        if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle handle) {
+            return handle.getPartitionFunction(
+                    (scheme, types) -> getPartitionFunction(session, scheme, types, bucketToPartition),
+                    partitionChannelTypes,
+                    bucketToPartition);
+        }
+
+        return getPartitionFunction(session, partitioningScheme, partitionChannelTypes, bucketToPartition);
+    }
+
+    public PartitionFunction getPartitionFunction(Session session, PartitioningScheme partitioningScheme, List<Type> partitionChannelTypes, int[] bucketToPartition)
+    {
+        PartitioningHandle partitioningHandle = partitioningScheme.getPartitioning().getHandle();
+
+        if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle handle) {
+            return handle.getPartitionFunction(
+                    partitionChannelTypes,
+                    partitioningScheme.getHashColumn().isPresent(),
+                    bucketToPartition,
+                    blockTypeOperators);
+        }
+
         BucketFunction bucketFunction = getBucketFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition.length);
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
@@ -111,16 +136,33 @@ public class NodePartitioningManager
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
     {
+        return getNodePartitioningMap(session, partitioningHandle, new HashMap<>(), new AtomicReference<>());
+    }
+
+    /**
+     * This method is recursive for MergePartitioningHandle. It caches the node mappings
+     * to ensure that both the insert and update layouts use the same mapping.
+     */
+    private NodePartitionMap getNodePartitioningMap(
+            Session session,
+            PartitioningHandle partitioningHandle,
+            Map<Integer, List<InternalNode>> bucketToNodeCache,
+            AtomicReference<List<InternalNode>> systemPartitioningCache)
+    {
         requireNonNull(session, "session is null");
         requireNonNull(partitioningHandle, "partitioningHandle is null");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
-            return systemNodePartitionMap(session, partitioningHandle);
+            return systemNodePartitionMap(session, partitioningHandle, systemPartitioningCache);
+        }
+
+        if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle mergeHandle) {
+            return mergeHandle.getNodePartitioningMap(handle -> getNodePartitioningMap(session, handle, bucketToNodeCache, systemPartitioningCache));
         }
 
         Optional<ConnectorBucketNodeMap> optionalMap = getConnectorBucketNodeMap(session, partitioningHandle);
         if (optionalMap.isEmpty()) {
-            return systemNodePartitionMap(session, FIXED_HASH_DISTRIBUTION);
+            return systemNodePartitionMap(session, FIXED_HASH_DISTRIBUTION, systemPartitioningCache);
         }
         ConnectorBucketNodeMap connectorBucketNodeMap = optionalMap.get();
 
@@ -133,9 +175,9 @@ public class NodePartitioningManager
         }
         else {
             CatalogHandle catalogHandle = requiredCatalogHandle(partitioningHandle);
-            bucketToNode = createArbitraryBucketToNode(
-                    nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes(),
-                    connectorBucketNodeMap.getBucketCount());
+            bucketToNode = bucketToNodeCache.computeIfAbsent(
+                    connectorBucketNodeMap.getBucketCount(),
+                    bucketCount -> createArbitraryBucketToNode(getAllNodes(session, catalogHandle), bucketCount));
         }
 
         int[] bucketToPartition = new int[connectorBucketNodeMap.getBucketCount()];
@@ -159,7 +201,7 @@ public class NodePartitioningManager
         return new NodePartitionMap(partitionToNode, bucketToPartition, getSplitToBucket(session, partitioningHandle));
     }
 
-    private NodePartitionMap systemNodePartitionMap(Session session, PartitioningHandle partitioningHandle)
+    private NodePartitionMap systemNodePartitionMap(Session session, PartitioningHandle partitioningHandle, AtomicReference<List<InternalNode>> nodesCache)
     {
         SystemPartitioning partitioning = ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitioning();
 
@@ -168,7 +210,14 @@ public class NodePartitioningManager
         List<InternalNode> nodes = switch (partitioning) {
             case COORDINATOR_ONLY -> ImmutableList.of(nodeSelector.selectCurrentNode());
             case SINGLE -> nodeSelector.selectRandomNodes(1);
-            case FIXED -> nodeSelector.selectRandomNodes(getHashPartitionCount(session));
+            case FIXED -> {
+                List<InternalNode> value = nodesCache.get();
+                if (value == null) {
+                    value = nodeSelector.selectRandomNodes(getHashPartitionCount(session));
+                    nodesCache.set(value);
+                }
+                yield value;
+            }
             default -> throw new IllegalArgumentException("Unsupported plan distribution " + partitioning);
         };
         checkCondition(!nodes.isEmpty(), NO_NODES_AVAILABLE, "No worker nodes available");

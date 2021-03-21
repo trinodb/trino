@@ -29,6 +29,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WI
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MERGE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
@@ -258,6 +259,38 @@ public abstract class BaseConnectorSmokeTest
             assertUpdate("UPDATE " + table.getName() + " SET b = b + 1.2 WHERE a % 2 = 0", 3);
             assertThat(query("SELECT a, b FROM " + table.getName()))
                     .matches(expectedValues("(0, 1.2), (1, 2.5), (2, 6.2), (3, 7.5), (4, 11.2)"));
+        }
+    }
+
+    @Test
+    public void testMerge()
+    {
+        if (!hasBehavior(SUPPORTS_MERGE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("MERGE INTO nation n USING nation s ON (n.nationkey = s.nationkey) " +
+                            "WHEN MATCHED AND n.regionkey < 1 THEN UPDATE SET nationkey = 5",
+                    "This connector does not support merges");
+            return;
+        }
+
+        if (!hasBehavior(SUPPORTS_INSERT)) {
+            throw new AssertionError("Cannot test MERGE without INSERT");
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_merge_", getCreateTableDefaultDefinition())) {
+            assertUpdate("INSERT INTO " + table.getName() + " (a, b) SELECT regionkey, regionkey * 2.5 FROM region", "SELECT count(*) FROM region");
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches(expectedValues("(0, 0.0), (1, 2.5), (2, 5.0), (3, 7.5), (4, 10.0)"));
+
+            assertUpdate("MERGE INTO " + table.getName() + " t " +
+                    "USING (VALUES (0, 1.3), (2, 2.9), (3, 0.0), (4, -5.0), (5, 5.7)) AS s (a, b) " +
+                    "ON (t.a = s.a) " +
+                    "WHEN MATCHED AND s.b > 0 THEN UPDATE SET b = t.b + s.b " +
+                    "WHEN MATCHED AND s.b = 0 THEN DELETE " +
+                    "WHEN NOT MATCHED THEN INSERT VALUES (s.a, s.b)",
+                    4);
+            assertThat(query("SELECT a, b FROM " + table.getName()))
+                    .matches(expectedValues("(0, 1.3), (1, 2.5), (2, 7.9), (4, 10.0), (5, 5.7)"));
         }
     }
 
