@@ -14,6 +14,8 @@
 package io.trino.plugin.kudu;
 
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -52,6 +54,16 @@ public class KuduPageSinkProvider
         requireNonNull(insertTableHandle, "insertTableHandle is null");
         checkArgument(insertTableHandle instanceof KuduInsertTableHandle, "insertTableHandle is not an instance of KuduInsertTableHandle");
         KuduInsertTableHandle handle = (KuduInsertTableHandle) insertTableHandle;
+
+        return new KuduPageSink(session, clientSession, handle);
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        requireNonNull(mergeHandle, "mergeHandle is null");
+        checkArgument(mergeHandle instanceof KuduMergeTableHandle, "mergeHandle is not an instance of KuduMergeTableHandle");
+        KuduMergeTableHandle handle = (KuduMergeTableHandle) mergeHandle;
 
         return new KuduPageSink(session, clientSession, handle);
     }

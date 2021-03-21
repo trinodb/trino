@@ -24,6 +24,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunnerTpch;
@@ -66,6 +67,7 @@ public class TestKuduConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
+            case SUPPORTS_MERGE:
                 return true;
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
@@ -83,6 +85,18 @@ public class TestKuduConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    protected String createTableForWrites(String createTable)
+    {
+        // assume primary key column is the first column and there are multiple columns
+        Matcher matcher = Pattern.compile("CREATE TABLE .* \\((\\w+) .*").matcher(createTable);
+        assertThat(matcher.matches()).as(createTable).isTrue();
+        String column = matcher.group(1);
+
+        return createTable.replaceFirst(",", " WITH (primary_key=true),") +
+                format("WITH (partition_by_hash_columns = ARRAY['%s'], partition_by_hash_buckets = 2)", column);
     }
 
     @Test
