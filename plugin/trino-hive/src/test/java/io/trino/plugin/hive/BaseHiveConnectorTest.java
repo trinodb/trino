@@ -224,6 +224,10 @@ public abstract class BaseHiveConnectorTest
             case SUPPORTS_UPDATE:
                 return true;
 
+            case SUPPORTS_MERGE:
+                // FIXME: Fails because only allowed with transactional tables
+                return false;
+
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
 
@@ -233,6 +237,12 @@ public abstract class BaseHiveConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    protected String createTableForWrites(String createTable)
+    {
+        return createTable + " WITH (transactional = true)";
     }
 
     @Override

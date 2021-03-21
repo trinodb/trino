@@ -19,6 +19,7 @@ import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveMetastoreClosure;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import org.apache.hadoop.fs.Path;
@@ -105,7 +106,7 @@ public class TestSemiTransactionalHiveMetastore
             else {
                 semiTransactionalHiveMetastore = getSemiTransactionalHiveMetastoreWithUpdateExecutor(newFixedThreadPool(updateThreads));
             }
-            IntStream.range(0, tablesToUpdate).forEach(i -> semiTransactionalHiveMetastore.finishInsertIntoExistingTable(SESSION,
+            IntStream.range(0, tablesToUpdate).forEach(i -> semiTransactionalHiveMetastore.finishChangingExistingTable(AcidOperation.INSERT, SESSION,
                     "database",
                     "table_" + i,
                     new Path("location"),

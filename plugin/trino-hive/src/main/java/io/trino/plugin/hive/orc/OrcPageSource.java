@@ -302,6 +302,16 @@ public class OrcPageSource
         {
             return new PositionAdaptation();
         }
+
+        static ColumnAdaptation mergedRowColumns()
+        {
+            return new MergedRowAdaptation();
+        }
+
+        static ColumnAdaptation mergedRowColumnsWithOriginalFiles(long startingRowId, int bucketId)
+        {
+            return new MergedRowAdaptationWithOriginalFiles(startingRowId, bucketId);
+        }
     }
 
     private static class NullColumn
@@ -463,8 +473,67 @@ public class OrcPageSource
             for (int channel = 0; channel < sourcePage.getChannelCount(); channel++) {
                 originalFilesBlockBuilder.add(sourcePage.getBlock(channel));
             }
-            Page page = new Page(originalFilesBlockBuilder.build().toArray(new Block[]{}));
+            Page page = new Page(originalFilesBlockBuilder.build().toArray(new Block[] {}));
             return updateProcessor.createUpdateRowBlock(page, nonUpdatedSourceChannels, maskDeletedRowsFunction);
+        }
+    }
+
+    /*
+     * The rowId contains the ACID columns - - originalTransaction, rowId, bucket
+     */
+    private static final class MergedRowAdaptation
+            implements ColumnAdaptation
+    {
+        @Override
+        public Block block(Page page, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            requireNonNull(page, "page is null");
+            int acidBlocks = 3;
+
+            Block[] blocks = new Block[acidBlocks];
+            blocks[ORIGINAL_TRANSACTION_CHANNEL] = page.getBlock(ORIGINAL_TRANSACTION_CHANNEL);
+            blocks[ROW_ID_CHANNEL] = page.getBlock(ROW_ID_CHANNEL);
+            blocks[BUCKET_CHANNEL] = page.getBlock(BUCKET_CHANNEL);
+
+            Block block = maskDeletedRowsFunction.apply(fromFieldBlocks(
+                    page.getPositionCount(),
+                    Optional.empty(),
+                    blocks));
+            return block;
+        }
+    }
+
+    /**
+     * The rowId contains the ACID columns - - originalTransaction, rowId, bucket,
+     * derived from the original file.  The transactionId is always zero,
+     * and the rowIds count up from the startingRowId.
+     */
+    private static final class MergedRowAdaptationWithOriginalFiles
+            implements ColumnAdaptation
+    {
+        private final long startingRowId;
+        private final Block bucketBlock;
+
+        public MergedRowAdaptationWithOriginalFiles(long startingRowId, int bucketId)
+        {
+            this.startingRowId = startingRowId;
+            this.bucketBlock = nativeValueToBlock(INTEGER, Long.valueOf(computeBucketValue(bucketId, 0)));
+        }
+
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            int positionCount = sourcePage.getPositionCount();
+            Block[] blocks = new Block[] {
+                    new RunLengthEncodedBlock(ORIGINAL_FILE_TRANSACTION_ID_BLOCK, positionCount),
+                    new RunLengthEncodedBlock(bucketBlock, positionCount),
+                    createRowNumberBlock(startingRowId, filePosition, positionCount)
+            };
+            Block block = maskDeletedRowsFunction.apply(fromFieldBlocks(
+                    positionCount,
+                    Optional.empty(),
+                    blocks));
+            return block;
         }
     }
 

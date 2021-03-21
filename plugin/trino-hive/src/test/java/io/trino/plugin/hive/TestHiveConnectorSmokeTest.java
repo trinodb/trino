@@ -51,6 +51,10 @@ public class TestHiveConnectorSmokeTest
             case SUPPORTS_UPDATE:
                 return true;
 
+            case SUPPORTS_MERGE:
+                // FIXME: Fails with UnsupportedOperationException in HiveMetastore.openTransaction.
+                return false;
+
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
 

@@ -436,6 +436,12 @@ public class HiveTableHandle
     }
 
     @JsonIgnore
+    public boolean isAcidMerge()
+    {
+        return transaction.isMerge();
+    }
+
+    @JsonIgnore
     public Optional<HiveUpdateProcessor> getUpdateProcessor()
     {
         return transaction.getUpdateProcessor();
