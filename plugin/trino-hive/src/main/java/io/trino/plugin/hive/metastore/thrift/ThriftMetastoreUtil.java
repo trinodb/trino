@@ -107,6 +107,7 @@ import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerC
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.MERGE;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
@@ -745,6 +746,8 @@ public final class ThriftMetastoreUtil
                 return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, grantOption, grantor, grantee.orElse(grantor)));
             case "DELETE":
                 return ImmutableSet.of(new HivePrivilegeInfo(DELETE, grantOption, grantor, grantee.orElse(grantor)));
+            case "MERGE":
+                return ImmutableSet.of(new HivePrivilegeInfo(MERGE, grantOption, grantor, grantee.orElse(grantor)));
             case "OWNERSHIP":
                 return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, grantOption, grantor, grantee.orElse(grantor)));
             default:
