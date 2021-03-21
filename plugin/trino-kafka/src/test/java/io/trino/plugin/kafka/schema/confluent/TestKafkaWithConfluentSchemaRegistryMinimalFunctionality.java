@@ -24,7 +24,6 @@ import io.confluent.kafka.serializers.subject.TopicRecordNameStrategy;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
-import io.trino.testng.services.Flaky;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.avro.Schema;
@@ -84,7 +83,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testBasicTopic()
             throws Exception
     {
@@ -104,7 +102,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithKeySubject()
             throws Exception
     {
@@ -124,7 +121,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithRecordNameStrategy()
             throws Exception
     {
@@ -145,7 +141,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testTopicWithTopicRecordNameStrategy()
             throws Exception
     {
@@ -166,7 +161,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering Avro schema: .*")
     public void testUnsupportedInsert()
             throws Exception
     {
@@ -192,7 +186,6 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
     }
 
     @Test
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/6412", match = "Error registering JSON schema: .*")
     public void testUnsupportedFormat()
             throws Exception
     {
