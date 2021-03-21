@@ -44,6 +44,7 @@ public abstract class BaseKuduConnectorSmokeTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_DELETE:
+            case SUPPORTS_MERGE:
                 return true;
             case SUPPORTS_RENAME_SCHEMA:
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
