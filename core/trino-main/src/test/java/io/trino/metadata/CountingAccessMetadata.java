@@ -39,6 +39,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
@@ -467,6 +468,36 @@ public class CountingAccessMetadata
     public void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments)
     {
         delegate.finishUpdate(session, tableHandle, fragments);
+    }
+
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle)
+    {
+        return delegate.getRowChangeParadigm(session, tableHandle);
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle)
+    {
+        return delegate.getMergeRowIdColumnHandle(session, tableHandle);
+    }
+
+    @Override
+    public Optional<PartitioningHandle> getUpdateLayout(Session session, TableHandle tableHandle)
+    {
+        return delegate.getUpdateLayout(session, tableHandle);
+    }
+
+    @Override
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle)
+    {
+        return delegate.beginMerge(session, tableHandle);
+    }
+
+    @Override
+    public void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        delegate.finishMerge(session, tableHandle, fragments, computedStatistics);
     }
 
     @Override

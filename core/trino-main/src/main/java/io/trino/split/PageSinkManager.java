@@ -17,8 +17,11 @@ import io.trino.Session;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.TableExecuteHandle;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -60,6 +63,15 @@ public class PageSinkManager
         // assumes connectorId and catalog are the same
         ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getCatalogHandle());
         return providerFor(tableHandle.getCatalogHandle()).createPageSink(tableHandle.getTransactionHandle(), connectorSession, tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public ConnectorMergeSink createMergeSink(Session session, MergeHandle mergeHandle)
+    {
+        // assumes connectorId and catalog are the same
+        TableHandle tableHandle = mergeHandle.getTableHandle();
+        ConnectorSession connectorSession = session.toConnectorSession(tableHandle.getCatalogHandle());
+        return providerFor(tableHandle.getCatalogHandle()).createMergeSink(tableHandle.getTransaction(), connectorSession, mergeHandle.getConnectorMergeHandle());
     }
 
     private ConnectorPageSinkProvider providerFor(CatalogHandle catalogHandle)

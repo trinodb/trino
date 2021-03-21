@@ -70,6 +70,11 @@ public final class Patterns
         return typeOf(TableExecuteNode.class);
     }
 
+    public static Pattern<MergeWriterNode> merge()
+    {
+        return typeOf(MergeWriterNode.class);
+    }
+
     public static Pattern<ExchangeNode> exchange()
     {
         return typeOf(ExchangeNode.class);

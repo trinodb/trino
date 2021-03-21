@@ -39,7 +39,9 @@ import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
 import java.util.stream.IntStream;
@@ -83,6 +85,13 @@ public class NodePartitioningManager
                     blockTypeOperators);
         }
 
+        if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle) {
+            return ((MergePartitioningHandle) partitioningHandle.getConnectorHandle()).getPartitionFunction(
+                    (handle, types, count) -> getBucketFunction(session, handle, types, count),
+                    partitionChannelTypes,
+                    bucketToPartition);
+        }
+
         BucketFunction bucketFunction = getBucketFunction(session, partitioningHandle, partitionChannelTypes, bucketToPartition.length);
         return new BucketPartitionFunction(bucketFunction, bucketToPartition);
     }
@@ -104,11 +113,22 @@ public class NodePartitioningManager
 
     public NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle)
     {
+        return getNodePartitioningMap(session, partitioningHandle, new HashMap<>());
+    }
+
+    private NodePartitionMap getNodePartitioningMap(Session session, PartitioningHandle partitioningHandle, Map<Integer, List<InternalNode>> bucketToNodeCache)
+    {
         requireNonNull(session, "session is null");
         requireNonNull(partitioningHandle, "partitioningHandle is null");
 
         if (partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle) {
             return ((SystemPartitioningHandle) partitioningHandle.getConnectorHandle()).getNodePartitionMap(session, nodeScheduler);
+        }
+
+        if (partitioningHandle.getConnectorHandle() instanceof MergePartitioningHandle) {
+            Map<Integer, List<InternalNode>> cache = new HashMap<>();
+            return ((MergePartitioningHandle) partitioningHandle.getConnectorHandle())
+                    .getNodePartitioningMap(handle -> getNodePartitioningMap(session, handle, cache));
         }
 
         ConnectorBucketNodeMap connectorBucketNodeMap = getConnectorBucketNodeMap(session, partitioningHandle);
@@ -122,9 +142,9 @@ public class NodePartitioningManager
         else {
             CatalogHandle catalogHandle = partitioningHandle.getCatalogHandle()
                     .orElseThrow(() -> new IllegalArgumentException("No catalog handle for partitioning handle: " + partitioningHandle));
-            bucketToNode = createArbitraryBucketToNode(
-                    nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes(),
-                    connectorBucketNodeMap.getBucketCount());
+            bucketToNode = bucketToNodeCache.computeIfAbsent(
+                    connectorBucketNodeMap.getBucketCount(),
+                    bucketCount -> createArbitraryBucketToNode(getAllNodes(session, catalogHandle), bucketCount));
         }
 
         int[] bucketToPartition = new int[connectorBucketNodeMap.getBucketCount()];
@@ -160,13 +180,18 @@ public class NodePartitioningManager
             return new DynamicBucketNodeMap(getSplitToBucket(session, partitioningHandle), connectorBucketNodeMap.getBucketCount());
         }
 
-        Optional<CatalogHandle> catalogName = partitioningHandle.getCatalogHandle();
-        checkArgument(catalogName.isPresent(), "No catalog handle for partitioning handle: %s", partitioningHandle);
+        CatalogHandle catalogHandle = partitioningHandle.getCatalogHandle()
+                .orElseThrow(() -> new IllegalArgumentException("No catalog handle for partitioning handle: " + partitioningHandle));
         return new FixedBucketNodeMap(
                 getSplitToBucket(session, partitioningHandle),
                 createArbitraryBucketToNode(
-                        new ArrayList<>(nodeScheduler.createNodeSelector(session, catalogName).allNodes()),
+                        getAllNodes(session, catalogHandle),
                         connectorBucketNodeMap.getBucketCount()));
+    }
+
+    private List<InternalNode> getAllNodes(Session session, CatalogHandle catalogHandle)
+    {
+        return nodeScheduler.createNodeSelector(session, Optional.of(catalogHandle)).allNodes();
     }
 
     private static List<InternalNode> getFixedMapping(ConnectorBucketNodeMap connectorBucketNodeMap)

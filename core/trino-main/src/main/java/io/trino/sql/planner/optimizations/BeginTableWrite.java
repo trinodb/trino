@@ -18,6 +18,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.cost.TableStatsProvider;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
@@ -31,6 +32,7 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
@@ -46,6 +48,7 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
@@ -176,6 +179,19 @@ public class BeginTableWrite
         }
 
         @Override
+        public PlanNode visitMergeWriter(MergeWriterNode mergeNode, RewriteContext<Optional<WriterTarget>> context)
+        {
+            MergeTarget mergeTarget = (MergeTarget) getContextTarget(context);
+            return new MergeWriterNode(
+                    mergeNode.getId(),
+                    rewriteModifyTableScan(mergeNode.getSource(), mergeTarget.getHandle()),
+                    mergeTarget,
+                    mergeNode.getProjectedSymbols(),
+                    mergeNode.getPartitioningScheme(),
+                    mergeNode.getOutputSymbols());
+        }
+
+        @Override
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             PlanNode child = node.getSource();
@@ -241,6 +257,11 @@ public class BeginTableWrite
                         target.getSchemaTableName(),
                         target.isReportingWrittenBytesSupported());
             }
+
+            if (node instanceof MergeWriterNode) {
+                return ((MergeWriterNode) node).getTarget();
+            }
+
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
                         .map(this::getWriterTarget)
@@ -275,6 +296,15 @@ public class BeginTableWrite
                         update.getSchemaTableName(),
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
+            }
+            if (target instanceof MergeTarget) {
+                MergeTarget merge = (MergeTarget) target;
+                MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
+                return new MergeTarget(
+                        mergeHandle.getTableHandle(),
+                        Optional.of(mergeHandle),
+                        merge.getSchemaTableName(),
+                        merge.getMergeParadigmAndTypes());
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;

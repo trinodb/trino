@@ -227,7 +227,7 @@ public final class SystemPartitioningHandle
             }
         }
 
-        private static class RoundRobinBucketFunction
+        public static class RoundRobinBucketFunction
                 implements BucketFunction
         {
             private final int bucketCount;

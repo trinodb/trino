@@ -54,6 +54,8 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -492,6 +494,18 @@ public final class PropertyDerivations
         }
 
         @Override
+        public ActualProperties visitMergeWriter(MergeWriterNode node, List<ActualProperties> inputProperties)
+        {
+            return visitPartitionedWriter(inputProperties);
+        }
+
+        @Override
+        public ActualProperties visitMergeProcessor(MergeProcessorNode node, List<ActualProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+        }
+
+        @Override
         public ActualProperties visitJoin(JoinNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties probeProperties = inputProperties.get(0);
@@ -775,6 +789,11 @@ public final class PropertyDerivations
 
         @Override
         public ActualProperties visitTableWriter(TableWriterNode node, List<ActualProperties> inputProperties)
+        {
+            return visitPartitionedWriter(inputProperties);
+        }
+
+        private ActualProperties visitPartitionedWriter(List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 

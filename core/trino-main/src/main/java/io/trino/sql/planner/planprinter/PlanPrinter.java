@@ -73,6 +73,8 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -1455,6 +1457,27 @@ public class PlanPrinter
             addNode(node,
                     "SimpleTableExecute",
                     ImmutableMap.of("table", node.getExecuteHandle().toString()));
+            return null;
+        }
+
+        @Override
+        public Void visitMergeWriter(MergeWriterNode node, Void context)
+        {
+            addNode(node,
+                    "MergeWriter",
+                    ImmutableMap.of("table", node.getTarget().toString()));
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitMergeProcessor(MergeProcessorNode node, Void context)
+        {
+            NodeRepresentation nodeOutput = addNode(node, "MergeProcessor");
+            nodeOutput.appendDetails("target: %s", node.getTarget());
+            nodeOutput.appendDetails("merge row column: %s", node.getMergeRowSymbol());
+            nodeOutput.appendDetails("row id column: %s", node.getRowIdSymbol());
+            nodeOutput.appendDetails("redistribution columns: %s", node.getRedistributionColumnSymbols());
+            nodeOutput.appendDetails("data columns: %s", node.getDataColumnSymbols());
 
             return processChildren(node, context);
         }

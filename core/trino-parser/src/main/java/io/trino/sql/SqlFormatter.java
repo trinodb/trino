@@ -813,7 +813,7 @@ public final class SqlFormatter
         protected Void visitMerge(Merge node, Integer indent)
         {
             builder.append("MERGE INTO ")
-                    .append(node.getTable().getName());
+                    .append(node.getTargetTable().getName());
 
             node.getTargetAlias().ifPresent(value -> builder
                     .append(' ')
@@ -822,11 +822,11 @@ public final class SqlFormatter
 
             append(indent + 1, "USING ");
 
-            processRelation(node.getRelation(), indent + 2);
+            processRelation(node.getSource(), indent + 2);
 
             builder.append("\n");
             append(indent + 1, "ON ");
-            builder.append(formatExpression(node.getExpression()));
+            builder.append(formatExpression(node.getPredicate()));
 
             for (MergeCase mergeCase : node.getMergeCases()) {
                 builder.append("\n");

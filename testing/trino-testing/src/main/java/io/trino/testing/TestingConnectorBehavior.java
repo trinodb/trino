@@ -82,6 +82,8 @@ public enum TestingConnectorBehavior
 
     SUPPORTS_UPDATE(false),
 
+    SUPPORTS_MERGE(false),
+
     SUPPORTS_TRUNCATE(false),
 
     SUPPORTS_ARRAY,
