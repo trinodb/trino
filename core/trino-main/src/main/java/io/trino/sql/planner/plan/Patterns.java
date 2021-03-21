@@ -63,6 +63,11 @@ public final class Patterns
         return typeOf(UpdateNode.class);
     }
 
+    public static Pattern<MergeNode> merge()
+    {
+        return typeOf(MergeNode.class);
+    }
+
     public static Pattern<ExchangeNode> exchange()
     {
         return typeOf(ExchangeNode.class);

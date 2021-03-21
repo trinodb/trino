@@ -38,6 +38,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DeleteAndInsertNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.ExceptNode;
@@ -51,6 +52,7 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -724,6 +726,28 @@ public class PruneUnreferencedOutputs
         {
             PlanNode source = context.rewrite(node.getSource(), ImmutableSet.copyOf(node.getColumnValueAndRowIdSymbols()));
             return new UpdateNode(node.getId(), source, node.getTarget(), node.getRowId(), node.getColumnValueAndRowIdSymbols(), node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitMerge(MergeNode node, RewriteContext<Set<Symbol>> context)
+        {
+            ImmutableSet.Builder<Symbol> expectedInputs = ImmutableSet.builder();
+            if (node.getPartitioningScheme().isPresent()) {
+                PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+                partitioningScheme.getPartitioning().getColumns().forEach(expectedInputs::add);
+                partitioningScheme.getHashColumn().ifPresent(expectedInputs::add);
+            }
+            expectedInputs.addAll(node.getProjectedSymbols());
+            PlanNode source = context.rewrite(node.getSource(), expectedInputs.build());
+            return new MergeNode(node.getId(), source, node.getTarget(), node.getTableScanId(), node.getProjectedSymbols(), node.getPartitioningScheme(), node.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitDeleteAndInsert(DeleteAndInsertNode node, RewriteContext<Set<Symbol>> context)
+        {
+            ImmutableSet.Builder<Symbol> expectedInputsBuilder = ImmutableSet.builder();
+            PlanNode source = context.rewrite(node.getSource(), expectedInputsBuilder.build());
+            return new DeleteAndInsertNode(node.getId(), source, node.getTarget(), node.getOutputSymbols());
         }
 
         @Override

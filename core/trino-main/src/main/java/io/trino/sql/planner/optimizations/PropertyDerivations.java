@@ -44,6 +44,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DeleteAndInsertNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
@@ -56,6 +57,7 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -425,6 +427,18 @@ public final class PropertyDerivations
         }
 
         @Override
+        public ActualProperties visitMerge(MergeNode node, List<ActualProperties> inputProperties)
+        {
+            return visitPartitionedWriter(inputProperties);
+        }
+
+        @Override
+        public ActualProperties visitDeleteAndInsert(DeleteAndInsertNode node, List<ActualProperties> inputProperties)
+        {
+            return Iterables.getOnlyElement(inputProperties).translate(symbol -> Optional.empty());
+        }
+
+        @Override
         public ActualProperties visitJoin(JoinNode node, List<ActualProperties> inputProperties)
         {
             ActualProperties probeProperties = inputProperties.get(0);
@@ -685,6 +699,11 @@ public final class PropertyDerivations
 
         @Override
         public ActualProperties visitTableWriter(TableWriterNode node, List<ActualProperties> inputProperties)
+        {
+            return visitPartitionedWriter(inputProperties);
+        }
+
+        private ActualProperties visitPartitionedWriter(List<ActualProperties> inputProperties)
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 

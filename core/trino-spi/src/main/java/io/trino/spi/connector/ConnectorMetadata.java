@@ -173,6 +173,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Return the column handles for the columns that must be present to in order
+     * to perform the partitioning and/or bucketing required.  By default, the table
+     * has no such columns.
+     * @return Return the write redistribution columns for the table
+     */
+    default List<ColumnHandle> getWriteRedistributionColumns(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return List.of();
+    }
+
+    /**
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid
@@ -554,6 +565,45 @@ public interface ConnectorMetadata
     default void finishUpdate(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support updates");
+    }
+
+    /**
+     * Return the row change paradigm supported by the connector on the table.
+     */
+    default RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support merges");
+    }
+
+    /**
+     * Get the column handle that will generate row IDs for the merge operation.
+     * These IDs will be passed to the {@link ConnectorMergeSink#storeMergedRows}
+     * method of the {@link ConnectorMergeSink} that created them.
+     */
+    default ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle, MergeDetails mergeDetails)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support merges");
+    }
+
+    /**
+     * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
+     * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
+     */
+    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, MergeDetails mergeDetails)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support merges");
+    }
+
+    /**
+     * Finish a merge query
+     * @param session The session
+     * @param tableHandle A ConnectorMergeTableHandle for the table that is the target of the merge
+     * @param fragments All fragments returned by {@link UpdatablePageSource#finish()}
+     * @param computedStatistics Statistics for the table, meaningful only to the connector that produced them.
+     */
+    default void finishMerge(ConnectorSession session, ConnectorMergeTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginMerge() is implemented without finishMerge()");
     }
 
     /**

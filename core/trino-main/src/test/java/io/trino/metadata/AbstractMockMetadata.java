@@ -44,7 +44,9 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MergeDetails;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
@@ -423,6 +425,30 @@ public abstract class AbstractMockMetadata
 
     @Override
     public void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle, MergeDetails mergeDetails)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle, MergeDetails mergeDetails)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }

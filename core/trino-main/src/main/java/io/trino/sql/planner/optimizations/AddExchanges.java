@@ -52,6 +52,7 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -531,8 +532,26 @@ public class AddExchanges
             PlanWithProperties source = node.getSource().accept(this, preferredProperties);
 
             Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            PlanWithProperties partitionedSource = getWriterPlanWithProperties(partitioningScheme, source, true);
+
+            return rebaseAndDeriveProperties(node, partitionedSource);
+        }
+
+        @Override
+        public PlanWithProperties visitMerge(MergeNode node, PreferredProperties preferredProperties)
+        {
+            PlanWithProperties source = node.getSource().accept(this, preferredProperties);
+
+            Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            PlanWithProperties partitionedSource = getWriterPlanWithProperties(partitioningScheme, source, false);
+
+            return rebaseAndDeriveProperties(node, partitionedSource);
+        }
+
+        private PlanWithProperties getWriterPlanWithProperties(Optional<PartitioningScheme> partitioningScheme, PlanWithProperties source, boolean allowScaleWriters)
+        {
             if (partitioningScheme.isEmpty()) {
-                if (scaleWriters) {
+                if (scaleWriters && allowScaleWriters) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), source.getNode().getOutputSymbols()));
                 }
                 else if (redistributeWrites) {
@@ -549,7 +568,7 @@ public class AddExchanges
                                 partitioningScheme.get()),
                         source.getProperties());
             }
-            return rebaseAndDeriveProperties(node, source);
+            return source;
         }
 
         private Optional<PlanWithProperties> planTableScan(TableScanNode node, Expression predicate)

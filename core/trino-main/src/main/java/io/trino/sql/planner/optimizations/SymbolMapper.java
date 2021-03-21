@@ -22,9 +22,11 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
+import io.trino.sql.planner.plan.DeleteAndInsertNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RowNumberNode;
@@ -304,6 +306,42 @@ public class SymbolMapper
                 node.getPreferredPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
                 node.getStatisticsAggregation().map(this::map),
                 node.getStatisticsAggregationDescriptor().map(descriptor -> descriptor.map(this::map)));
+    }
+
+    public MergeNode map(MergeNode node, PlanNode source)
+    {
+        return map(node, source, node.getId());
+    }
+
+    public MergeNode map(MergeNode node, PlanNode source, PlanNodeId newId)
+    {
+        // Intentionally does not use mapAndDistinct on columns as that would remove columns
+        List<Symbol> newOutputs = map(node.getOutputSymbols());
+
+        return new MergeNode(
+                node.getId(),
+                source,
+                node.getTarget(),
+                node.getTableScanId(),
+                map(node.getProjectedSymbols()),
+                node.getPartitioningScheme().map(partitioningScheme -> map(partitioningScheme, source.getOutputSymbols())),
+                newOutputs);
+    }
+
+    public DeleteAndInsertNode map(DeleteAndInsertNode node, PlanNode source)
+    {
+        return map(node, source, node.getId());
+    }
+
+    public DeleteAndInsertNode map(DeleteAndInsertNode node, PlanNode source, PlanNodeId newId)
+    {
+        List<Symbol> newOutputs = map(node.getOutputSymbols());
+
+        return new DeleteAndInsertNode(
+                node.getId(),
+                source,
+                node.getTarget(),
+                newOutputs);
     }
 
     public PartitioningScheme map(PartitioningScheme scheme, List<Symbol> sourceLayout)

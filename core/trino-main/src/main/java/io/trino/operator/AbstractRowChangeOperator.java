@@ -49,7 +49,7 @@ public abstract class AbstractRowChangeOperator
     protected State state = State.RUNNING;
     protected long rowCount;
     private boolean closed;
-    private ListenableFuture<Collection<Slice>> finishFuture;
+    protected ListenableFuture<Collection<Slice>> finishFuture;
     private Supplier<Optional<UpdatablePageSource>> pageSource = Optional::empty;
 
     public AbstractRowChangeOperator(OperatorContext operatorContext)
@@ -149,7 +149,7 @@ public abstract class AbstractRowChangeOperator
     protected UpdatablePageSource pageSource()
     {
         Optional<UpdatablePageSource> source = pageSource.get();
-        checkState(source.isPresent(), "UpdatablePageSource not set");
+        checkState(source.isPresent(), "pageSource not set");
         return source.get();
     }
 }

@@ -16,16 +16,20 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.planner.plan.DeleteAndInsertNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
@@ -39,6 +43,7 @@ import io.trino.sql.planner.plan.TableWriterNode.CreateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.InsertReference;
 import io.trino.sql.planner.plan.TableWriterNode.InsertTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TableWriterNode.WriterTarget;
 import io.trino.sql.planner.plan.UnionNode;
@@ -47,6 +52,7 @@ import io.trino.sql.planner.plan.UpdateNode;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ChildReplacer.replaceChildren;
@@ -133,6 +139,60 @@ public class BeginTableWrite
         }
 
         @Override
+        public PlanNode visitMerge(MergeNode mergeNode, RewriteContext<Optional<WriterTarget>> context)
+        {
+            MergeTarget mergeTarget = (MergeTarget) getContextTarget(context);
+            PlanNodeId tableScanId = mergeNode.getTableScanId().orElseThrow(() -> new IllegalArgumentException("tableScanId not present"));
+            return new MergeNode(
+                    mergeNode.getId(),
+                    rewriteTableScanWithId(mergeNode.getSource(), tableScanId, mergeTarget.getHandle(), context),
+                    mergeTarget,
+                    mergeNode.getTableScanId(),
+                    mergeNode.getProjectedSymbols(),
+                    mergeNode.getPartitioningScheme(),
+                    mergeNode.getOutputSymbols());
+        }
+
+        @Override
+        public PlanNode visitDeleteAndInsert(DeleteAndInsertNode node, RewriteContext<Optional<WriterTarget>> context)
+        {
+            MergeTarget mergeTarget = (MergeTarget) getContextTarget(context);
+            return new DeleteAndInsertNode(
+                    node.getId(),
+                    node.getSource(),
+                    mergeTarget,
+                    node.getOutputSymbols());
+        }
+
+        private PlanNode rewriteTableScanWithId(PlanNode node, PlanNodeId tableScanNodeId, TableHandle tableHandle, RewriteContext<Optional<WriterTarget>> context)
+        {
+            if (node.getId().equals(tableScanNodeId)) {
+                TableScanNode scan = (TableScanNode) node;
+                return new TableScanNode(
+                        scan.getId(),
+                        tableHandle,
+                        scan.getOutputSymbols(),
+                        scan.getAssignments(),
+                        scan.getEnforcedConstraint(),
+                        scan.isUpdateTarget(),
+                        scan.getUseConnectorNodePartitioning());
+            }
+            if (node instanceof DeleteAndInsertNode) {
+                DeleteAndInsertNode deleter = (DeleteAndInsertNode) node;
+                MergeTarget mergeTarget = (MergeTarget) getContextTarget(context);
+                return new DeleteAndInsertNode(
+                        deleter.getId(),
+                        rewriteTableScanWithId(deleter.getSource(), tableScanNodeId, mergeTarget.getHandle(), context),
+                        mergeTarget,
+                        node.getOutputSymbols());
+            }
+
+            return node.replaceChildren(node.getSources().stream()
+                    .map(child -> rewriteTableScanWithId(child, tableScanNodeId, tableHandle, context))
+                    .collect(toImmutableList()));
+        }
+
+        @Override
         public PlanNode visitStatisticsWriterNode(StatisticsWriterNode node, RewriteContext<Optional<WriterTarget>> context)
         {
             PlanNode child = node.getSource();
@@ -190,6 +250,9 @@ public class BeginTableWrite
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
             }
+            if (node instanceof MergeNode) {
+                return ((MergeNode) node).getTarget();
+            }
             if (node instanceof ExchangeNode || node instanceof UnionNode) {
                 Set<WriterTarget> writerTargets = node.getSources().stream()
                         .map(this::getWriterTarget)
@@ -224,6 +287,16 @@ public class BeginTableWrite
                         update.getSchemaTableName(),
                         update.getUpdatedColumns(),
                         update.getUpdatedColumnHandles());
+            }
+            if (target instanceof MergeTarget) {
+                MergeTarget merge = (MergeTarget) target;
+                MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle(), merge.getMergeDetails());
+                return new MergeTarget(
+                        mergeHandle.getTableHandle(),
+                        Optional.of(mergeHandle),
+                        merge.getSchemaTableName(),
+                        merge.getMergeDetails(),
+                        merge.getRowChangeProcessor());
             }
             if (target instanceof TableWriterNode.RefreshMaterializedViewReference) {
                 TableWriterNode.RefreshMaterializedViewReference refreshMV = (TableWriterNode.RefreshMaterializedViewReference) target;

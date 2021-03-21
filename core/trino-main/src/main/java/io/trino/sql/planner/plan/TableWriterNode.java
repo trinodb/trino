@@ -22,12 +22,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import io.trino.metadata.InsertTableHandle;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.NewTableLayout;
 import io.trino.metadata.OutputTableHandle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
+import io.trino.operator.RowChangeProcessor;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.MergeDetails;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
@@ -199,6 +202,7 @@ public class TableWriterNode
             @JsonSubTypes.Type(value = InsertTarget.class, name = "InsertTarget"),
             @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget"),
             @JsonSubTypes.Type(value = UpdateTarget.class, name = "UpdateTarget"),
+            @JsonSubTypes.Type(value = MergeTarget.class, name = "MergeTarget"),
             @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget")})
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
@@ -526,6 +530,67 @@ public class TableWriterNode
         public String toString()
         {
             return handle.map(Object::toString).orElse("[]");
+        }
+    }
+
+    public static class MergeTarget
+            extends WriterTarget
+    {
+        private final TableHandle handle;
+        private final Optional<MergeHandle> mergeHandle;
+        private final SchemaTableName schemaTableName;
+        private final MergeDetails mergeDetails;
+        private final RowChangeProcessor rowChangeProcessor;
+
+        @JsonCreator
+        public MergeTarget(
+                @JsonProperty("handle") TableHandle handle,
+                @JsonProperty("mergeHandle") Optional<MergeHandle> mergeHandle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("mergeDetails") MergeDetails mergeDetails,
+                @JsonProperty("rowChangeProcessor") RowChangeProcessor rowChangeProcessor)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.mergeHandle = requireNonNull(mergeHandle, "mergeHandle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.mergeDetails = requireNonNull(mergeDetails, "mergeDetails is null");
+            this.rowChangeProcessor = requireNonNull(rowChangeProcessor, "rowChangeProcessor is null");
+        }
+
+        @JsonProperty
+        public TableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @JsonProperty
+        public Optional<MergeHandle> getMergeHandle()
+        {
+            return mergeHandle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @JsonProperty
+        public MergeDetails getMergeDetails()
+        {
+            return mergeDetails;
+        }
+
+        @JsonProperty
+        public RowChangeProcessor getRowChangeProcessor()
+        {
+            return rowChangeProcessor;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
         }
     }
 }

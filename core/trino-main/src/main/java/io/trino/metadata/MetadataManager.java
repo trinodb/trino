@@ -57,6 +57,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
@@ -80,7 +81,9 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.MergeDetails;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
@@ -487,6 +490,15 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
         Optional<ConnectorPartitioningHandle> commonHandle = metadata.getCommonPartitioningHandle(session.toConnectorSession(catalogName), left.getConnectorHandle(), right.getConnectorHandle());
         return commonHandle.map(handle -> new PartitioningHandle(Optional.of(catalogName), left.getTransactionHandle(), handle));
+    }
+
+    @Override
+    public List<ColumnHandle> getWriteRedistributionColumns(Session session, TableHandle table)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        CatalogMetadata catalogMetadata = getCatalogMetadata(session, catalogName);
+        ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+        return metadata.getWriteRedistributionColumns(session.toConnectorSession(catalogName), table.getConnectorHandle());
     }
 
     @Override
@@ -937,6 +949,14 @@ public final class MetadataManager
     }
 
     @Override
+    public ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle, MergeDetails mergeDetails)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.getMergeRowIdColumnHandle(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), mergeDetails);
+    }
+
+    @Override
     public boolean supportsMetadataDelete(Session session, TableHandle tableHandle)
     {
         CatalogName catalogName = tableHandle.getCatalogName();
@@ -1015,6 +1035,31 @@ public final class MetadataManager
         CatalogName catalogName = tableHandle.getCatalogName();
         ConnectorMetadata metadata = getMetadata(session, catalogName);
         metadata.finishUpdate(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), fragments);
+    }
+
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        return metadata.getRowChangeParadigm(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle());
+    }
+
+    @Override
+    public MergeHandle beginMerge(Session session, TableHandle tableHandle, MergeDetails mergeDetails)
+    {
+        CatalogName catalogName = tableHandle.getCatalogName();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogName);
+        ConnectorMergeTableHandle newHandle = metadata.beginMerge(session.toConnectorSession(catalogName), tableHandle.getConnectorHandle(), mergeDetails);
+        return new MergeHandle(tableHandle.withConnectorHandle(newHandle.getTableHandle()), newHandle);
+    }
+
+    @Override
+    public void finishMerge(Session session, MergeHandle mergeHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        CatalogName catalogName = mergeHandle.getTableHandle().getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+        metadata.finishMerge(session.toConnectorSession(catalogName), mergeHandle.getConnectorMergeHandle(), fragments, computedStatistics);
     }
 
     @Override

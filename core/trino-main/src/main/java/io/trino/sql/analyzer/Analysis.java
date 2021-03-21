@@ -33,6 +33,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.MergeDetails;
 import io.trino.spi.eventlistener.ColumnInfo;
 import io.trino.spi.eventlistener.RoutineInfo;
 import io.trino.spi.eventlistener.TableInfo;
@@ -186,6 +187,7 @@ public class Analysis
     private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
+    private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     // for describe input and describe output
     private final boolean isDescribe;
@@ -235,7 +237,7 @@ public class Analysis
 
     public boolean isUpdateTarget(Table table)
     {
-        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType)) &&
+        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType) || "MERGE".equals(updateType)) &&
                 target.orElseThrow(() -> new IllegalStateException("Update target not set"))
                         .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in update target")) == table; // intentional comparison by reference
     }
@@ -710,6 +712,16 @@ public class Analysis
     public void setUpdatedColumns(List<ColumnMetadata> updatedColumns)
     {
         this.updatedColumns = Optional.of(updatedColumns);
+    }
+
+    public Optional<MergeAnalysis> getMergeAnalysis()
+    {
+        return mergeAnalysis;
+    }
+
+    public void setMergeAnalysis(MergeAnalysis mergeAnalysis)
+    {
+        this.mergeAnalysis = Optional.of(mergeAnalysis);
     }
 
     public Optional<List<ColumnMetadata>> getUpdatedColumns()
@@ -1305,6 +1317,73 @@ public class Analysis
         public boolean isFrameInherited()
         {
             return frameInherited;
+        }
+    }
+
+    // All string column names have been translated from the user's spelling of
+    // column names to the column names from the table column metadata, so identification
+    // of columns by string column name is consistent.
+    public static class MergeAnalysis
+    {
+        private final Table targetTable;
+        private final MergeDetails mergeDetails;
+        private final Map<String, Type> allColumnTypes;
+        private final Map<String, Type> allUpdatedColumnTypes;
+        private final List<String> writeRedistributionColumnNames;
+        private final Optional<NewTableLayout> newTableLayout;
+        private final Optional<QuerySpecification> finalQuery;
+
+        public MergeAnalysis(
+                Table targetTable,
+                MergeDetails mergeDetails,
+                Map<String, Type> allColumnTypes,
+                Map<String, Type> allUpdatedColumnTypes,
+                List<String> writeRedistributionColumnNames,
+                Optional<NewTableLayout> newTableLayout,
+                Optional<QuerySpecification> finalQuery)
+        {
+            this.targetTable = requireNonNull(targetTable, "targetTable is null");
+            this.mergeDetails = requireNonNull(mergeDetails, "mergeDetails is null");
+            this.allColumnTypes = requireNonNull(allColumnTypes, "allColumnTypes is null");
+            this.allUpdatedColumnTypes = requireNonNull(allUpdatedColumnTypes, "allUpdatedColumnTypes is null");
+            this.writeRedistributionColumnNames = requireNonNull(writeRedistributionColumnNames, "writeRedistributionColumnNames is null");
+            this.newTableLayout = requireNonNull(newTableLayout, "newTableLayout is null");
+            this.finalQuery = requireNonNull(finalQuery, "finalQuery is null");
+        }
+
+        public Table getTargetTable()
+        {
+            return targetTable;
+        }
+
+        public MergeDetails getMergeDetails()
+        {
+            return mergeDetails;
+        }
+
+        public Map<String, Type> getAllColumnTypes()
+        {
+            return allColumnTypes;
+        }
+
+        public Map<String, Type> getAllUpdatedColumnTypes()
+        {
+            return allUpdatedColumnTypes;
+        }
+
+        public List<String> getWriteRedistributionColumnNames()
+        {
+            return writeRedistributionColumnNames;
+        }
+
+        public Optional<NewTableLayout> getNewTableLayout()
+        {
+            return newTableLayout;
+        }
+
+        public Optional<QuerySpecification> getFinalQuery()
+        {
+            return finalQuery;
         }
     }
 

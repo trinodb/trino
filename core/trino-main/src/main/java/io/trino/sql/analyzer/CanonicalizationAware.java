@@ -99,4 +99,9 @@ public class CanonicalizationAware<T extends Node>
 
         return identifier.getValue().toUpperCase(ENGLISH);
     }
+
+    public static String canonicalize(String name)
+    {
+        return name.toUpperCase(ENGLISH);
+    }
 }

@@ -40,6 +40,7 @@ import io.trino.sql.tree.Explain;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GrantRoles;
 import io.trino.sql.tree.Insert;
+import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.Prepare;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
@@ -95,6 +96,8 @@ public final class StatementUtils
         builder.put(Delete.class, QueryType.DELETE);
 
         builder.put(Update.class, QueryType.UPDATE);
+
+        builder.put(Merge.class, QueryType.MERGE);
 
         builder.put(ShowCatalogs.class, QueryType.DESCRIBE);
         builder.put(ShowCreate.class, QueryType.DESCRIBE);

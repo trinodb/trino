@@ -39,11 +39,13 @@ import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.buffer.OutputBuffer;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.index.IndexManager;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.AggregationOperator.AggregationOperatorFactory;
 import io.trino.operator.AssignUniqueIdOperator;
+import io.trino.operator.DeleteAndInsertOperator;
 import io.trino.operator.DeleteOperator.DeleteOperatorFactory;
 import io.trino.operator.DevNullOperator.DevNullOperatorFactory;
 import io.trino.operator.DriverFactory;
@@ -87,6 +89,7 @@ import io.trino.operator.SourceOperatorFactory;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialIndexBuilderOperatorFactory;
 import io.trino.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.trino.operator.SpatialJoinOperator.SpatialJoinOperatorFactory;
+import io.trino.operator.SqlMergeOperator.SqlMergeOperatorFactory;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.operator.StatisticsWriterOperator.StatisticsWriterOperatorFactory;
 import io.trino.operator.StreamingAggregationOperator;
@@ -153,6 +156,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.DeleteAndInsertNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -166,6 +170,7 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -184,6 +189,7 @@ import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.TopNRankingNode;
@@ -2481,7 +2487,6 @@ public class LocalExecutionPlanner
         @Override
         public PhysicalOperation visitTableWriter(TableWriterNode node, LocalExecutionPlanContext context)
         {
-            // Set table writer count
             context.setDriverInstanceCount(getTaskWriterCount(session));
 
             // serialize writes by forcing data through a single writer
@@ -2672,6 +2677,38 @@ public class LocalExecutionPlanner
             }
             checkArgument(symbolCounter == columnValueAndRowIdSymbols.size(), "symbolCounter %s should be columnValueAndRowIdChannels.size() %s", symbolCounter);
             return Arrays.asList(columnValueAndRowIdChannels);
+        }
+
+        @Override
+        public PhysicalOperation visitMerge(MergeNode node, LocalExecutionPlanContext context)
+        {
+            context.setDriverInstanceCount(getTaskWriterCount(session));
+
+            PhysicalOperation source = node.getSource().accept(this, context);
+            OperatorFactory operatorFactory = new SqlMergeOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session);
+
+            Map<Symbol, Integer> layout = ImmutableMap.<Symbol, Integer>builder()
+                    .put(node.getOutputSymbols().get(0), 0)
+                    .put(node.getOutputSymbols().get(1), 1)
+                    .build();
+
+            return new PhysicalOperation(operatorFactory, layout, context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitDeleteAndInsert(DeleteAndInsertNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+            OperatorFactory operatorFactory = DeleteAndInsertOperator.createOperatorFactory(context.getNextOperatorId(), node.getId(), node.getTarget().getRowChangeProcessor());
+
+            ImmutableMap.Builder<Symbol, Integer> layoutBuilder = ImmutableMap.builder();
+            int index = 0;
+            for (Symbol symbol : node.getOutputSymbols()) {
+                layoutBuilder.put(symbol, index);
+                index++;
+            }
+
+            return new PhysicalOperation(operatorFactory, layoutBuilder.build(), context, source);
         }
 
         @Override
@@ -3215,6 +3252,12 @@ public class LocalExecutionPlanner
             }
             else if (target instanceof UpdateTarget) {
                 metadata.finishUpdate(session, ((UpdateTarget) target).getHandleOrElseThrow(), fragments);
+                return Optional.empty();
+            }
+            else if (target instanceof MergeTarget) {
+                MergeTarget mergeTarget = (MergeTarget) target;
+                MergeHandle mergeHandle = mergeTarget.getMergeHandle().orElseThrow(() -> new IllegalArgumentException("mergeHandle isn't present"));
+                metadata.finishMerge(session, mergeHandle, fragments, statistics);
                 return Optional.empty();
             }
             else {

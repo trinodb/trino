@@ -20,6 +20,7 @@ import com.google.inject.multibindings.ProvidesIntoSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorIndexHandle;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -70,6 +71,12 @@ public class HandleJsonModule
     public static com.fasterxml.jackson.databind.Module insertTableHandleModule(HandleResolver resolver)
     {
         return new AbstractTypedJacksonModule<>(ConnectorInsertTableHandle.class, resolver::getId, resolver::getInsertTableHandleClass) {};
+    }
+
+    @ProvidesIntoSet
+    public static com.fasterxml.jackson.databind.Module mergeTableHandleModule(HandleResolver resolver)
+    {
+        return new AbstractTypedJacksonModule<>(ConnectorMergeTableHandle.class, resolver::getId, resolver::getMergeTableHandleClass) {};
     }
 
     @ProvidesIntoSet

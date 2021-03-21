@@ -47,6 +47,9 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
+import io.trino.spi.connector.MergeCaseDetails;
+import io.trino.spi.connector.MergeCaseKind;
+import io.trino.spi.connector.MergeDetails;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GroupProvider;
@@ -62,6 +65,7 @@ import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
+import io.trino.sql.analyzer.Analysis.MergeAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
@@ -79,7 +83,9 @@ import io.trino.sql.tree.AllColumns;
 import io.trino.sql.tree.AllRows;
 import io.trino.sql.tree.Analyze;
 import io.trino.sql.tree.AstVisitor;
+import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Call;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CreateMaterializedView;
@@ -113,17 +119,25 @@ import io.trino.sql.tree.GroupingSets;
 import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.Intersect;
+import io.trino.sql.tree.IsNotNullPredicate;
+import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.Join;
 import io.trino.sql.tree.JoinCriteria;
 import io.trino.sql.tree.JoinOn;
 import io.trino.sql.tree.JoinUsing;
 import io.trino.sql.tree.Lateral;
 import io.trino.sql.tree.Limit;
+import io.trino.sql.tree.LogicalBinaryExpression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.Merge;
+import io.trino.sql.tree.MergeCase;
+import io.trino.sql.tree.MergeDelete;
+import io.trino.sql.tree.MergeInsert;
+import io.trino.sql.tree.MergeUpdate;
 import io.trino.sql.tree.NaturalJoin;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NodeRef;
+import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.Parameter;
@@ -144,6 +158,7 @@ import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.Rollup;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SampledRelation;
+import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetOperation;
@@ -166,6 +181,7 @@ import io.trino.sql.tree.Update;
 import io.trino.sql.tree.UpdateAssignment;
 import io.trino.sql.tree.Use;
 import io.trino.sql.tree.Values;
+import io.trino.sql.tree.WhenClause;
 import io.trino.sql.tree.Window;
 import io.trino.sql.tree.WindowDefinition;
 import io.trino.sql.tree.WindowFrame;
@@ -184,12 +200,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -241,10 +255,12 @@ import static io.trino.spi.StandardErrorCode.TOO_MANY_GROUPING_SETS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_RECURSIVE;
 import static io.trino.spi.StandardErrorCode.VIEW_IS_STALE;
+import static io.trino.spi.connector.MergeDetails.DEFAULT_CASE_OPERATION_NUMBER;
 import static io.trino.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.trino.sql.NodeUtils.mapFromProperties;
@@ -264,6 +280,7 @@ import static io.trino.sql.analyzer.Scope.BasisType.TABLE;
 import static io.trino.sql.analyzer.ScopeReferenceExtractor.getReferencesToScope;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.Join.Type.FULL;
@@ -278,6 +295,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 
 class StatementAnalyzer
 {
@@ -325,16 +343,25 @@ class StatementAnalyzer
                 .process(node, Optional.empty());
     }
 
-    public Scope analyzeForUpdate(Table table, Optional<Scope> outerQueryScope, UpdateKind updateKind)
+    public Scope analyzeForUpdate(Relation relation, Optional<Scope> outerQueryScope, UpdateKind updateKind)
     {
         return new Visitor(outerQueryScope, warningCollector, Optional.of(updateKind))
-                .process(table, Optional.empty());
+                .process(relation, Optional.empty());
     }
 
     private enum UpdateKind
     {
         DELETE,
-        UPDATE;
+        UPDATE,
+        MERGE,
+        /**/;
+    }
+
+    private static void checkArgument(boolean test, String message, Object... args)
+    {
+        if (!test) {
+            throw new IllegalArgumentException(format(message, args));
+        }
     }
 
     /**
@@ -1292,7 +1319,22 @@ class StatementAnalyzer
                 analysis.setColumn(field, columnHandle);
             }
 
+            boolean addRowIdColumn = false;
             if (updateKind.isPresent()) {
+                UpdateKind kind = updateKind.get();
+                if (kind == UpdateKind.MERGE) {
+                    checkArgument(analysis.getMergeAnalysis().isPresent(), "analysis.getMergeAnalysis() isn't present");
+                    boolean isMergeTarget = table.shallowEquals(analysis.getMergeAnalysis().get().getTargetTable());
+                    if (isMergeTarget) {
+                        addRowIdColumn = true;
+                    }
+                }
+                else {
+                    addRowIdColumn = true;
+                }
+            }
+
+            if (addRowIdColumn) {
                 // Add the row id field
                 ColumnHandle rowIdColumnHandle;
                 switch (updateKind.get()) {
@@ -1308,6 +1350,11 @@ class StatementAnalyzer
                                 .map(Map.Entry::getValue)
                                 .collect(toImmutableList());
                         rowIdColumnHandle = metadata.getUpdateRowIdColumnHandle(session, tableHandle.get(), updatedColumns);
+                        break;
+                    case MERGE:
+                        Optional<MergeAnalysis> mergeAnalysis = analysis.getMergeAnalysis();
+                        checkArgument(mergeAnalysis.isPresent(), "mergeAnalysis isn't present");
+                        rowIdColumnHandle = metadata.getMergeRowIdColumnHandle(session, tableHandle.get(), mergeAnalysis.get().getMergeDetails());
                         break;
                     default:
                         throw new UnsupportedOperationException("Unknown UpdateKind " + updateKind.get());
@@ -1325,7 +1372,7 @@ class StatementAnalyzer
 
             Scope tableScope = createAndAssignScope(table, scope, outputFields);
 
-            if (updateKind.isPresent()) {
+            if (addRowIdColumn) {
                 FieldReference reference = new FieldReference(outputFields.size() - 1);
                 analyzeExpression(reference, tableScope);
                 analysis.setRowIdField(table, reference);
@@ -1823,6 +1870,7 @@ class StatementAnalyzer
             if (node.getType() == Join.Type.CROSS || node.getType() == Join.Type.IMPLICIT) {
                 return output;
             }
+            checkArgument(criteria instanceof JoinOn, "criteria isn't an instance of JoinOn, but instead %s", criteria);
             if (criteria instanceof JoinOn) {
                 Expression expression = ((JoinOn) criteria).getExpression();
                 verifyNoAggregateWindowOrGroupingFunctions(metadata, expression, "JOIN clause");
@@ -1835,7 +1883,7 @@ class StatementAnalyzer
                     if (!clauseType.equals(UNKNOWN)) {
                         throw semanticException(TYPE_MISMATCH, expression, "JOIN ON clause must evaluate to a boolean: actual type %s", clauseType);
                     }
-                    // coerce null to boolean
+                    // coerce expression to boolean
                     analysis.addCoercion(expression, BOOLEAN, false);
                 }
 
@@ -1865,7 +1913,7 @@ class StatementAnalyzer
 
             List<ColumnMetadata> allColumns = tableMetadata.getColumns();
             Map<String, ColumnMetadata> columns = allColumns.stream()
-                    .collect(toImmutableMap(ColumnMetadata::getName, Function.identity()));
+                    .collect(toImmutableMap(ColumnMetadata::getName, identity()));
 
             for (UpdateAssignment assignment : update.getAssignments()) {
                 String columnName = assignment.getName().getValue();
@@ -1958,7 +2006,325 @@ class StatementAnalyzer
         @Override
         protected Scope visitMerge(Merge merge, Optional<Scope> scope)
         {
-            throw new TrinoException(NOT_SUPPORTED, "This connector does not support merge");
+            Table table = merge.getTable();
+            QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            if (metadata.getView(session, tableName).isPresent()) {
+                throw semanticException(NOT_SUPPORTED, merge, "Merging through views is not supported");
+            }
+
+            TableHandle handle = metadata.getTableHandle(session, tableName)
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
+
+            // Strip out the "hidden" columns
+            TableMetadata tableMetadata = metadata.getTableMetadata(session, handle);
+            List<ColumnMetadata> allColumns = tableMetadata.getColumns().stream()
+                    .filter(column -> !column.isHidden())
+                    .collect(toImmutableList());
+
+            // All identifiers for columns in the target table are mapped to the table column names,
+            // through this canonicalization map
+            Map<String, String> canonicalNameToTableColumnName = allColumns.stream()
+                    .map(ColumnMetadata::getName)
+                    .collect(toImmutableMap(column -> canonicalize(column), identity()));
+
+            // Create MergeDetails
+            ImmutableList.Builder<MergeCaseDetails> caseDetailsBuilder = ImmutableList.builder();
+            ImmutableMap.Builder<Integer, List<String>> mergeCaseColumnsListsBuilder = ImmutableMap.builder();
+            ImmutableSet.Builder<String> allColumnNamesBuilder = ImmutableSet.builder();
+            int caseCounter = 0;
+            for (MergeCase operation : merge.getMergeCases()) {
+                List<String> mergeColumnNames = translateToTableColumnNames(operation.getSetColumns(), canonicalNameToTableColumnName);
+                allColumnNamesBuilder.addAll(mergeColumnNames);
+                mergeCaseColumnsListsBuilder.put(caseCounter, mergeColumnNames);
+                if (operation instanceof MergeInsert) {
+                    caseDetailsBuilder.add(new MergeCaseDetails(
+                            caseCounter,
+                            MergeCaseKind.INSERT,
+                            ImmutableSet.copyOf(mergeColumnNames)));
+                }
+                else if (operation instanceof MergeUpdate) {
+                    caseDetailsBuilder.add(new MergeCaseDetails(caseCounter, MergeCaseKind.UPDATE, ImmutableSet.copyOf(mergeColumnNames)));
+                }
+                else if (operation instanceof MergeDelete) {
+                    caseDetailsBuilder.add(new MergeCaseDetails(caseCounter, MergeCaseKind.DELETE, ImmutableSet.of()));
+                }
+                else {
+                    throw new IllegalArgumentException(format("Unknown MergeOperation %s of class %s", operation, operation.getClass().getName()));
+                }
+                caseCounter++;
+            }
+            List<MergeCaseDetails> mergeCases = caseDetailsBuilder.build();
+            Map<Integer, List<String>> mergeCaseColumnsLists = mergeCaseColumnsListsBuilder.build();
+            Set<String> allColumnsUpdated = allColumnNamesBuilder.build();
+            MergeDetails mergeDetails = new MergeDetails(mergeCases);
+
+            // Build the required mappings between table column name and column type
+            List<String> allColumnNames = allColumns.stream().map(ColumnMetadata::getName).collect(toImmutableList());
+
+            List<NameAndType> columnTypes = allColumns.stream()
+                    .map(metadata -> new NameAndType(metadata.getName(), metadata.getType()))
+                    .collect(toImmutableList());
+            Map<String, Type> allUpdatedColumnTypes = createColumnTypeMap(columnTypes, allColumnsUpdated);
+            Map<String, Type> allColumnTypes = createColumnTypeMap(columnTypes, allColumnNames);
+
+            // Create the RowType that holds all column values
+            ImmutableList.Builder<RowType.Field> fieldsBuilder = ImmutableList.builder();
+            allColumnTypes.forEach((columnName, type) -> fieldsBuilder.add(new RowType.Field(Optional.of(columnName), type)));
+            // Add the case number and the operation number
+            fieldsBuilder.add(new RowType.Field(Optional.empty(), INTEGER));
+            fieldsBuilder.add(new RowType.Field(Optional.empty(), INTEGER));
+            List<RowType.Field> updatedColumnFields = fieldsBuilder.build();
+            RowType rowType = RowType.from(updatedColumnFields);
+
+            // Perform legality and access control checks
+            for (MergeCaseDetails mergeCase : mergeDetails.getCases()) {
+                switch (mergeCase.getCaseKind()) {
+                    case INSERT:
+                        accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);
+                        break;
+                    case DELETE:
+                        accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
+                        break;
+                    case UPDATE:
+                        accessControl.checkCanUpdateTableColumns(session.toSecurityContext(), tableName, mergeCase.getUpdatedColumns());
+                        break;
+                    default:
+                        throw new IllegalStateException("Unknown MergeCaseKind " + mergeCase.getCaseKind());
+                }
+            }
+
+            List<ColumnMetadata> updatedColumns = allColumns.stream()
+                    .filter(column -> allColumnsUpdated.contains(column.getName()))
+                    .collect(toImmutableList());
+
+            if (!accessControl.getRowFilters(session.toSecurityContext(), tableName).isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, merge, "Merge table with row filter");
+            }
+
+            for (ColumnMetadata tableColumn : allColumns) {
+                if (!accessControl.getColumnMasks(session.toSecurityContext(), tableName, tableColumn.getName(), tableColumn.getType()).isEmpty()) {
+                    throw semanticException(NOT_SUPPORTED, merge, "Merge table with column mask");
+                }
+            }
+
+            Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, handle);
+            List<ColumnHandle> redistributionColumns = metadata.getWriteRedistributionColumns(session, handle);
+            List<String> writeRedistributionColumnNames = columnHandles.entrySet().stream()
+                    .filter(entry -> redistributionColumns.contains(entry.getValue()))
+                    .map(entry -> entry.getKey())
+                    .collect(toImmutableList());
+
+            analysis.setUpdateType("MERGE", tableName, Optional.of(table), Optional.empty());
+            analysis.setUpdatedColumns(updatedColumns);
+            Optional<NewTableLayout> newTableLayout = metadata.getInsertLayout(session, handle);
+            // Save MergeAnalysis before the query is generated, because visitTable() needs the data.
+            analysis.setMergeAnalysis(new MergeAnalysis(table, mergeDetails, allColumnTypes, allUpdatedColumnTypes, writeRedistributionColumnNames, newTableLayout, Optional.empty()));
+
+            // The identifier for the "matched" boolean.
+            // TODO: Can this collide with user names?  How do I make sure it doesn't?
+            Identifier matchedIdentifier = new Identifier("$row_matched");
+
+            // TODO: Can this collide with user names?  How do I make sure it doesn't?
+            Identifier targetAlias = merge.getTargetAlias().orElse(new Identifier("$target_alias"));
+
+            // Build the rows of the SearchedCaseExpression
+            ImmutableList.Builder<WhenClause> rowsBuilder = ImmutableList.builder();
+            for (int caseNumber = 0; caseNumber < mergeCases.size(); caseNumber++) {
+                MergeCase mergeCase = merge.getMergeCases().get(caseNumber);
+                MergeCaseKind mergeKind = getMergeCaseKind(mergeCase);
+                List<Expression> caseExpressions = mergeCase.getSetExpressions();
+                ImmutableList.Builder<Expression> rowExpressions = ImmutableList.builder();
+
+                // Add the updated columns, filling in nulls where this MERGE case didn't assign a value to the column
+                for (Map.Entry<String, Type> entry : allColumnTypes.entrySet()) {
+                    String column = entry.getKey();
+                    int index = mergeCaseColumnsLists.get(caseNumber).indexOf(column);
+                    if (index >= 0) {
+                        rowExpressions.add(caseExpressions.get(index));
+                    }
+                    else {
+                        rowExpressions.add(new DereferenceExpression(targetAlias, new Identifier(column)));
+                    }
+                }
+
+                // Build the match condition for the MERGE case
+                boolean matched = mergeKind != MergeCaseKind.INSERT;
+                Expression caseMatchedExpression = matched ? new IsNotNullPredicate(matchedIdentifier) : new IsNullPredicate(matchedIdentifier);
+                Expression casePredicate = mergeCase.getExpression().isPresent() ?
+                        new LogicalBinaryExpression(LogicalBinaryExpression.Operator.AND, caseMatchedExpression, mergeCase.getExpression().get()) :
+                        caseMatchedExpression;
+
+                // Add the caseNumber and the operation number
+                rowExpressions.add(new LongLiteral(String.valueOf(caseNumber)));
+                rowExpressions.add(new LongLiteral(String.valueOf(mergeKind.getOperationNumber())));
+
+                rowsBuilder.add(new WhenClause(casePredicate, new Row(rowExpressions.build())));
+            }
+
+            List<WhenClause> rows = rowsBuilder.build();
+            ImmutableList.Builder<Expression> caseDefaultRow = ImmutableList.builder();
+
+            // The default value if no WHEN clause matched - - Connectors must ignore default value rows.
+            allColumnTypes.values().forEach(type -> caseDefaultRow.add(new Cast(new NullLiteral(), toSqlType(type))));
+            caseDefaultRow.add(new LongLiteral(String.valueOf(DEFAULT_CASE_OPERATION_NUMBER)));
+            caseDefaultRow.add(new LongLiteral(String.valueOf(-1)));
+
+            SearchedCaseExpression searchedCaseExpression = new SearchedCaseExpression(rows, Optional.of(new Row(caseDefaultRow.build())));
+            analysis.addCoercion(searchedCaseExpression, rowType, true);
+
+            // Analyzer checks for select permissions but MERGE has a separate permission, so disable access checks
+            StatementAnalyzer analyzer = new StatementAnalyzer(
+                    analysis,
+                    metadata,
+                    sqlParser,
+                    groupProvider,
+                    new AllowAllAccessControl(),
+                    session,
+                    warningCollector,
+                    CorrelationSupport.ALLOWED);
+
+            // Analyze the table to get the rowId column
+            new Visitor(outerQueryScope, warningCollector, Optional.of(UpdateKind.MERGE))
+                    .process(table, Optional.empty());
+
+            // Create the list of SelectItems containing all columns from the table, and the "matched" flag
+            Select select = new Select(
+                    false,
+                    ImmutableList.of(
+                            new AllColumns(),
+                            new SingleColumn(new BooleanLiteral("TRUE"), Optional.of(matchedIdentifier))));
+
+            QuerySpecification query = new QuerySpecification(select, Optional.of(merge.getTable()), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+
+            AliasedRelation aliasedRelation = new AliasedRelation(query, targetAlias, null);
+
+            Join join = new Join(merge.getLocation(), Join.Type.RIGHT, aliasedRelation, merge.getRelation(), Optional.of(new JoinOn(merge.getExpression())));
+
+            // Build the outer select - - the merge case RowBlock; the rowId RowBlock, and the partition key columns from the target table if they exist
+            ImmutableList.Builder<SelectItem> itemsBuilder = ImmutableList.builder();
+            itemsBuilder.add(new SingleColumn(searchedCaseExpression), new SingleColumn(new FieldReference(allColumnNames.size())));
+
+            writeRedistributionColumnNames.forEach(column -> itemsBuilder.add(new SingleColumn(new DereferenceExpression(targetAlias, new Identifier(column)))));
+            Select outerSelect = new Select(false, itemsBuilder.build());
+            QuerySpecification finalQuery = new QuerySpecification(outerSelect, Optional.of(join), Optional.empty(), Optional.empty(), Optional.empty(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty());
+
+            analyzer.analyzeForUpdate(finalQuery, scope, UpdateKind.MERGE);
+
+            // In WHEN xxx AND condition phrases, cast the condition to BOOLEAN if it isn't already
+
+            for (MergeCase operation : merge.getMergeCases()) {
+                if (operation.getExpression().isPresent()) {
+                    Expression predicate = operation.getExpression().get();
+                    Type predicateType = analysis.getType(predicate);
+                    if (!predicateType.equals(BOOLEAN)) {
+                        if (!predicateType.equals(UNKNOWN)) {
+                            throw semanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
+                        }
+                        // Coerce the predicate to boolean
+                        analysis.addCoercion(predicate, BOOLEAN, false);
+                    }
+                }
+            }
+
+            // Add any necessary casts of column expressions to column type, and throw an exception
+            // if the expression type cannot be cast to the column type
+            for (int caseIndex = 0; caseIndex < merge.getMergeCases().size(); caseIndex++) {
+                MergeCase mergeCase = merge.getMergeCases().get(caseIndex);
+                if (mergeCase instanceof MergeDelete) {
+                    continue;
+                }
+                ImmutableList.Builder<Type> setColumnTypesBuilder = ImmutableList.builder();
+                ImmutableList.Builder<Type> setExpressionTypesBuilder = ImmutableList.builder();
+                List<String> columnList = mergeCaseColumnsLists.get(caseIndex);
+                allColumnTypes.forEach((name, type) -> {
+                    int index = columnList.indexOf(name);
+                    if (index >= 0) {
+                        setColumnTypesBuilder.add(type);
+                        Expression expression = requireNonNull(mergeCase.getSetExpressions().get(index), "merge set expression is null");
+                        Type expressionType = analysis.getType(expression);
+                        setExpressionTypesBuilder.add(expressionType);
+                    }
+                });
+                List<Type> setColumnTypes = setColumnTypesBuilder.build();
+                List<Type> setExpressionTypes = setExpressionTypesBuilder.build();
+                if (!typesMatchForInsert(setColumnTypes, setExpressionTypes)) {
+                    throw semanticException(TYPE_MISMATCH,
+                            mergeCase,
+                            "MERGE table column types don't match for MERGE case %s, SET expressions: Table: [%s], Expressions: [%s]",
+                            caseIndex,
+                            Joiner.on(", ").join(setColumnTypes),
+                            Joiner.on(", ").join(setExpressionTypes));
+                }
+                for (int index = 0; index < setColumnTypes.size(); index++) {
+                    Expression expression = mergeCase.getSetExpressions().get(index);
+                    Type targetType = setColumnTypes.get(index);
+                    Type expressionType = setExpressionTypes.get(index);
+                    if (!targetType.equals(expressionType)) {
+                        analysis.addCoercion(expression, targetType, typeCoercion.isTypeOnlyCoercion(expressionType, targetType));
+                    }
+                }
+            }
+
+            // The final version of MergeAnalysis, with the finalQuery
+            MergeAnalysis mergeAnalysis = new MergeAnalysis(table, mergeDetails, allColumnTypes, allUpdatedColumnTypes, writeRedistributionColumnNames, newTableLayout, Optional.of(finalQuery));
+            analysis.setMergeAnalysis(mergeAnalysis);
+            return createAndAssignScope(merge, scope, Field.newUnqualified("rows", BIGINT));
+        }
+
+        private List<String> translateToTableColumnNames(Collection<Identifier> identifiers, Map<String, String> canonicalNameToTableColumnName)
+        {
+            return identifiers.stream()
+                    .map(identifier -> translateToTableColumnName(identifier, canonicalNameToTableColumnName))
+                    .collect(toImmutableList());
+        }
+
+        private String translateToTableColumnName(Identifier identifier, Map<String, String> canonicalNameToTableColumnName)
+        {
+            return requireNonNull(canonicalNameToTableColumnName.get(canonicalize(identifier.getValue())), "tableColumnName for identifier is null");
+        }
+
+        private MergeCaseKind getMergeCaseKind(MergeCase mergeCase)
+        {
+            requireNonNull(mergeCase, "mergeCase is null");
+            if (mergeCase instanceof MergeInsert) {
+                return MergeCaseKind.INSERT;
+            }
+            if (mergeCase instanceof MergeUpdate) {
+                return MergeCaseKind.UPDATE;
+            }
+            if (mergeCase instanceof MergeDelete) {
+                return MergeCaseKind.DELETE;
+            }
+            throw new IllegalArgumentException("Unrecognized MergeCase " + mergeCase.getClass());
+        }
+
+        private class NameAndType
+        {
+            private final String name;
+            private final Type type;
+
+            public NameAndType(String name, Type type)
+            {
+                this.name = name;
+                this.type = type;
+            }
+
+            public String getName()
+            {
+                return name;
+            }
+
+            public Type getType()
+            {
+                return type;
+            }
+        }
+
+        private Map<String, Type> createColumnTypeMap(List<NameAndType> allColumnTypes, Collection<String> selectedColumns)
+        {
+            return allColumnTypes.stream()
+                    .filter(nameAndType -> selectedColumns.contains(nameAndType.getName()))
+                    .collect(toImmutableMap(NameAndType::getName, NameAndType::getType));
         }
 
         private Scope analyzeJoinUsing(Join node, List<Identifier> columns, Optional<Scope> scope, Scope left, Scope right)
@@ -2784,6 +3150,14 @@ class StatementAnalyzer
             analysis.recordSubqueries(node, expressionAnalysis);
 
             Type predicateType = expressionAnalysis.getType(predicate);
+            if (!predicateType.equals(BOOLEAN)) {
+                if (!predicateType.equals(UNKNOWN)) {
+                    throw semanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);
+                }
+                // coerce null to boolean
+                analysis.addCoercion(predicate, BOOLEAN, false);
+            }
+
             if (!predicateType.equals(BOOLEAN)) {
                 if (!predicateType.equals(UNKNOWN)) {
                     throw semanticException(TYPE_MISMATCH, predicate, "WHERE clause must evaluate to a boolean: actual type %s", predicateType);

@@ -53,6 +53,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.DeleteAndInsertNode;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.DistinctLimitNode;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -69,6 +70,7 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -1126,6 +1128,22 @@ public class PlanPrinter
                 nodeOutput.appendDetailsLine("%s := %s", columnName, node.getColumnValueAndRowIdSymbols().get(index).getName());
                 index++;
             }
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitMerge(MergeNode node, Void context)
+        {
+            addNode(node, "Merge", format("[%s]", node.getTarget()));
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitDeleteAndInsert(DeleteAndInsertNode node, Void context)
+        {
+            addNode(node, "DeleteAndInsert");
+
             return processChildren(node, context);
         }
 

@@ -44,6 +44,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -73,6 +74,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
 import static io.trino.SystemSessionProperties.isDistributedSortEnabled;
@@ -535,14 +537,29 @@ public class AddLocalExchanges
         @Override
         public PlanWithProperties visitTableWriter(TableWriterNode node, StreamPreferredProperties parentPreferences)
         {
+            return visitPartitionedWriter(node, node.getPartitioningScheme(), parentPreferences);
+        }
+
+        //
+        // Merge
+        //
+
+        @Override
+        public PlanWithProperties visitMerge(MergeNode node, StreamPreferredProperties parentPreferences)
+        {
+            return visitPartitionedWriter(node, node.getPartitioningScheme(), parentPreferences);
+        }
+
+        private PlanWithProperties visitPartitionedWriter(PlanNode node, Optional<PartitioningScheme> optionalPartitioning, StreamPreferredProperties parentPreferences)
+        {
             if (getTaskWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
-            if (node.getPartitioningScheme().isEmpty()) {
+            if (optionalPartitioning.isEmpty()) {
                 return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
             }
 
-            PartitioningScheme partitioningScheme = node.getPartitioningScheme().get();
+            PartitioningScheme partitioningScheme = optionalPartitioning.get();
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
                 // arbitrary hash function on predefined set of partition columns
                 StreamPreferredProperties preference = partitionedOn(partitioningScheme.getPartitioning().getColumns());
@@ -554,13 +571,13 @@ public class AddLocalExchanges
             verify(
                     partitioningScheme.getPartitioning().getArguments().stream().noneMatch(Partitioning.ArgumentBinding::isConstant),
                     "Table writer partitioning has constant arguments");
-            PlanWithProperties source = node.getSource().accept(this, parentPreferences);
+            PlanWithProperties source = getOnlyElement(node.getSources()).accept(this, parentPreferences);
             PlanWithProperties exchange = deriveProperties(
                     partitionedExchange(
                             idAllocator.getNextId(),
                             LOCAL,
                             source.getNode(),
-                            node.getPartitioningScheme().get()),
+                            partitioningScheme),
                     source.getProperties());
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));

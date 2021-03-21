@@ -31,9 +31,11 @@ import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.AggregationNode;
+import io.trino.sql.planner.plan.DeleteAndInsertNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.MergeNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
@@ -321,6 +323,24 @@ public class PlanFragmenter
             if (node.getPartitioningScheme().isPresent()) {
                 context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
             }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMerge(MergeNode node, RewriteContext<FragmentProperties> context)
+        {
+            if (node.getPartitioningScheme().isPresent()) {
+                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+            }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitDeleteAndInsert(DeleteAndInsertNode node, RewriteContext<FragmentProperties> context)
+        {
+//            if (node.getPartitioningScheme().isPresent()) {
+//                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+//            }
             return context.defaultRewrite(node, context.get());
         }
 
