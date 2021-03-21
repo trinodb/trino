@@ -44,7 +44,6 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.PartitionAndStatementId.CODEC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static io.trino.spi.block.ColumnarRow.toColumnarRow;
-import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -65,7 +64,6 @@ public class HiveUpdatablePageSource
     private final String partitionName;
     private final ConnectorPageSource hivePageSource;
     private final AcidOperation updateKind;
-    private final Block hiveRowTypeNullsBlock;
     private final long writeId;
     private final Optional<List<Integer>> dependencyChannels;
 
@@ -95,11 +93,10 @@ public class HiveUpdatablePageSource
             long initialRowId,
             long maxNumberOfRowsPerSplit)
     {
-        super(hiveTableHandle.getTransaction(), statementId, bucketNumber, bucketPath, originalFile, orcFileWriterFactory, configuration, session, hiveRowType, updateKind);
+        super(hiveTableHandle.getTransaction(), statementId, bucketNumber, Optional.empty(), bucketPath, originalFile, orcFileWriterFactory, configuration, session, typeManager, hiveRowType, updateKind);
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.hivePageSource = requireNonNull(hivePageSource, "hivePageSource is null");
         this.updateKind = requireNonNull(updateKind, "updateKind is null");
-        this.hiveRowTypeNullsBlock = nativeValueToBlock(hiveRowType.getType(typeManager), null);
         checkArgument(hiveTableHandle.isInAcidTransaction(), "Not in a transaction; hiveTableHandle: %s", hiveTableHandle);
         this.writeId = hiveTableHandle.getWriteId();
         this.initialRowId = initialRowId;
@@ -147,8 +144,7 @@ public class HiveUpdatablePageSource
             maxWriteId = Math.max(maxWriteId, originalTransactionChannel.getLong(index, 0));
         }
 
-        lazyInitializeDeleteFileWriter();
-        deleteFileWriter.orElseThrow(() -> new IllegalArgumentException("deleteFileWriter not present")).appendRows(deletePage);
+        getOrCreateDeleteFileWriter().appendRows(deletePage);
         rowCount += positionCount;
     }
 
@@ -178,11 +174,12 @@ public class HiveUpdatablePageSource
         };
 
         Page insertPage = new Page(blockArray);
-        lazyInitializeInsertFileWriter();
+        getOrCreateInsertFileWriter();
         insertFileWriter.orElseThrow(() -> new IllegalArgumentException("insertFileWriter not present")).appendRows(insertPage);
     }
 
-    Block createRowIdBlock(int positionCount)
+    @Override
+    protected Block createRowIdBlock(int positionCount)
     {
         long[] rowIds = new long[positionCount];
         for (int index = 0; index < positionCount; index++) {
@@ -214,8 +211,7 @@ public class HiveUpdatablePageSource
                 OrcFileWriter insertWriter = (OrcFileWriter) insertFileWriter.get();
                 insertWriter.setMaxWriteId(maxWriteId);
                 insertWriter.commit();
-                checkArgument(deltaDirectory.isPresent(), "deltaDirectory not present");
-                deltaDirectoryString = Optional.of(deltaDirectory.get().toString());
+                deltaDirectoryString = Optional.of(deltaDirectory.toString());
                 break;
 
             default:
@@ -225,7 +221,7 @@ public class HiveUpdatablePageSource
                 partitionName,
                 statementId,
                 rowCount,
-                deleteDeltaDirectory.toString(),
+                Optional.of(deleteDeltaDirectory.toString()),
                 deltaDirectoryString)));
         return completedFuture(ImmutableList.of(fragment));
     }

@@ -99,6 +99,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcTinyStripeThresho
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
+import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.mergedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumnsWithOriginalFiles;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
@@ -438,6 +439,16 @@ public class OrcPageSourceFactory
                 }
                 else {
                     columnAdaptations.add(updatedRowColumns(updateProcessor, dependencyColumns));
+                }
+            }
+            else if (transaction.isMerge()) {
+                if (originalFile) {
+                    int bucket = bucketNumber.orElse(0);
+                    long startingRowId = originalFileRowId.orElse(0L);
+                    columnAdaptations.add(OrcPageSource.ColumnAdaptation.mergedRowColumnsWithOriginalFiles(startingRowId, bucket));
+                }
+                else {
+                    columnAdaptations.add(mergedRowColumns());
                 }
             }
 

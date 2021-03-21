@@ -27,6 +27,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
 import static io.trino.plugin.hive.acid.AcidOperation.DELETE;
 import static io.trino.plugin.hive.acid.AcidOperation.INSERT;
+import static io.trino.plugin.hive.acid.AcidOperation.MERGE;
 import static io.trino.plugin.hive.acid.AcidOperation.NONE;
 import static io.trino.plugin.hive.acid.AcidOperation.UPDATE;
 import static java.util.Objects.requireNonNull;
@@ -50,10 +51,10 @@ public class AcidTransaction
         this.operation = requireNonNull(operation, "operation is null");
         this.transactionId = transactionId;
         this.writeId = writeId;
-        this.updateProcessor = updateProcessor;
+        this.updateProcessor = requireNonNull(updateProcessor, "updateProcessor is null");
     }
 
-    @JsonProperty("operation")
+    @JsonProperty
     public AcidOperation getOperation()
     {
         return operation;
@@ -80,7 +81,7 @@ public class AcidTransaction
     @JsonIgnore
     public boolean isAcidTransactionRunning()
     {
-        return operation == INSERT || operation == DELETE || operation == UPDATE;
+        return operation == INSERT || operation == CREATE_TABLE || operation == DELETE || operation == UPDATE || operation == MERGE;
     }
 
     @JsonIgnore
@@ -131,6 +132,12 @@ public class AcidTransaction
     public boolean isUpdate()
     {
         return operation == UPDATE;
+    }
+
+    @JsonIgnore
+    public boolean isMerge()
+    {
+        return operation == MERGE;
     }
 
     public boolean isAcidInsertOperation(WriterKind writerKind)

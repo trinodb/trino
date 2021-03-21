@@ -36,6 +36,7 @@ import java.util.stream.IntStream;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
+import static io.trino.plugin.hive.acid.AcidOperation.INSERT;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.util.concurrent.Executors.newFixedThreadPool;
@@ -105,7 +106,7 @@ public class TestSemiTransactionalHiveMetastore
             else {
                 semiTransactionalHiveMetastore = getSemiTransactionalHiveMetastoreWithUpdateExecutor(newFixedThreadPool(updateThreads));
             }
-            IntStream.range(0, tablesToUpdate).forEach(i -> semiTransactionalHiveMetastore.finishInsertIntoExistingTable(SESSION,
+            IntStream.range(0, tablesToUpdate).forEach(i -> semiTransactionalHiveMetastore.finishChangingExistingTable(INSERT, SESSION,
                     "database",
                     "table_" + i,
                     new Path("location"),

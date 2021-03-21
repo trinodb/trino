@@ -19,7 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
-import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
@@ -80,7 +80,7 @@ public class TestHiveTransactionalTable
 {
     private static final Logger log = Logger.get(TestHiveTransactionalTable.class);
 
-    private static final int TEST_TIMEOUT = 15 * 60 * 1000;
+    public static final int TEST_TIMEOUT = 15 * 60 * 1000;
 
     // Hive original file path end looks like /000000_0
     // New Trino original file path end looks like /000000_132574635756428963553891918669625313402
@@ -2172,7 +2172,7 @@ public class TestHiveTransactionalTable
         return rows.build().stream();
     }
 
-    private static String tableName(String testName, boolean isPartitioned, BucketingType bucketingType)
+    public static String tableName(String testName, boolean isPartitioned, BucketingType bucketingType)
     {
         return format("test_%s_%b_%s_%s", testName, isPartitioned, bucketingType.name(), randomTableSuffix());
     }
@@ -2210,13 +2210,13 @@ public class TestHiveTransactionalTable
         }
     }
 
-    private static void verifySelectForTrinoAndHive(String select, String whereClause, QueryAssert.Row... rows)
+    public static void verifySelectForTrinoAndHive(String select, String whereClause, Row... rows)
     {
         verifySelect("onTrino", onTrino(), select, whereClause, rows);
         verifySelect("onHive", onHive(), select, whereClause, rows);
     }
 
-    private static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, QueryAssert.Row... rows)
+    public static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, Row... rows)
     {
         String fullQuery = format("%s WHERE %s", select, whereClause);
 

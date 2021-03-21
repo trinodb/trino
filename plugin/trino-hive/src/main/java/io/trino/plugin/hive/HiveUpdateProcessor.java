@@ -164,9 +164,9 @@ public class HiveUpdateProcessor
     }
 
     /**
-     * Return the column UPDATE column handle, which depends on the 3 ACID columns as well as the non-updated columns.
+     * Return the column rowId for UPDATE or MERGED column handle, which depends on the 3 ACID columns as well as the non-updated columns.
      */
-    public static HiveColumnHandle getUpdateRowIdColumnHandle(List<HiveColumnHandle> nonUpdatedColumnHandles)
+    public static HiveColumnHandle getRowIdColumnHandleForNonUpdatedColumns(List<HiveColumnHandle> nonUpdatedColumnHandles)
     {
         List<Field> allAcidFields = new ArrayList<>(ACID_READ_FIELDS);
         if (!nonUpdatedColumnHandles.isEmpty()) {
