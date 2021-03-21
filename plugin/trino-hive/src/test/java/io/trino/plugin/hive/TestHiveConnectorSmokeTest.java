@@ -51,6 +51,9 @@ public class TestHiveConnectorSmokeTest
             case SUPPORTS_UPDATE:
                 return true;
 
+            case SUPPORTS_MERGE:
+                return true;
+
             case SUPPORTS_MULTI_STATEMENT_WRITES:
                 return true;
 
@@ -71,6 +74,13 @@ public class TestHiveConnectorSmokeTest
     {
         assertThatThrownBy(super::testUpdate)
                 .hasMessage("Hive update is only supported for ACID transactional tables");
+    }
+
+    @Override
+    public void testMerge()
+    {
+        assertThatThrownBy(super::testMerge)
+                .hasMessage("Hive merge is only supported for transactional tables");
     }
 
     @Test

@@ -27,6 +27,8 @@ import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeSink;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
@@ -44,6 +46,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
@@ -129,7 +132,16 @@ public class HivePageSinkProvider
         return createPageSink(handle, false, session, ImmutableMap.of());
     }
 
-    private ConnectorPageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, Map<String, String> additionalTableParameters)
+    @Override
+    public ConnectorMergeSink createMergeSink(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorMergeTableHandle mergeHandle)
+    {
+        HiveMergeTableHandle hiveMergeHandle = (HiveMergeTableHandle) mergeHandle;
+        HiveInsertTableHandle insertHandle = hiveMergeHandle.getInsertHandle();
+        checkArgument(insertHandle.getTransaction().isMerge(), "handle isn't an ACID MERGE");
+        return createPageSink(insertHandle, false, session, ImmutableMap.of());
+    }
+
+    private HivePageSink createPageSink(HiveWritableTableHandle handle, boolean isCreateTable, ConnectorSession session, Map<String, String> additionalTableParameters)
     {
         OptionalInt bucketCount = OptionalInt.empty();
         List<SortingColumn> sortedBy = ImmutableList.of();
@@ -170,6 +182,7 @@ public class HivePageSinkProvider
                 hiveWriterStats);
 
         return new HivePageSink(
+                handle,
                 writerFactory,
                 handle.getInputColumns(),
                 handle.isTransactional(),
