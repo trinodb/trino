@@ -91,6 +91,7 @@ public final class TestingKafka
                 .withEnv("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
                 .withEnv("SCHEMA_REGISTRY_HOST_NAME", "0.0.0.0")
                 .withEnv("SCHEMA_REGISTRY_LISTENERS", "http://0.0.0.0:" + SCHEMA_REGISTRY_PORT)
+                .withEnv("SCHEMA_REGISTRY_HEAP_OPTS", "-Xmx1G")
                 .withExposedPorts(SCHEMA_REGISTRY_PORT)
                 .dependsOn(kafka);
         closer.register(kafka::stop);
