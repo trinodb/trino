@@ -560,10 +560,14 @@ class AstBuilder
     @Override
     public Node visitMerge(SqlBaseParser.MergeContext context)
     {
+        Table table = new Table(getLocation(context), getQualifiedName(context.qualifiedName()));
+        Relation targetRelation = table;
+        if (context.identifier() != null) {
+            targetRelation = new AliasedRelation(table, (Identifier) visit(context.identifier()), null);
+        }
         return new Merge(
                 getLocation(context),
-                new Table(getLocation(context), getQualifiedName(context.qualifiedName())),
-                visitIfPresent(context.identifier(), Identifier.class),
+                targetRelation,
                 (Relation) visit(context.relation()),
                 (Expression) visit(context.expression()),
                 visit(context.mergeCase(), MergeCase.class));

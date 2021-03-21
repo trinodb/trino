@@ -54,6 +54,7 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -624,7 +625,24 @@ public class AddExchanges
         private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningScheme, PlanNode source, PreferredProperties preferredProperties, TableWriterNode.WriterTarget writerTarget)
         {
             PlanWithProperties newSource = source.accept(this, preferredProperties);
+            PlanWithProperties partitionedSource = getWriterPlanWithProperties(partitioningScheme, newSource, writerTarget);
 
+            return rebaseAndDeriveProperties(node, partitionedSource);
+        }
+
+        @Override
+        public PlanWithProperties visitMergeWriter(MergeWriterNode node, PreferredProperties preferredProperties)
+        {
+            PlanWithProperties source = node.getSource().accept(this, preferredProperties);
+
+            Optional<PartitioningScheme> partitioningScheme = node.getPartitioningScheme();
+            PlanWithProperties partitionedSource = getWriterPlanWithProperties(partitioningScheme, source, node.getTarget());
+
+            return rebaseAndDeriveProperties(node, partitionedSource);
+        }
+
+        private PlanWithProperties getWriterPlanWithProperties(Optional<PartitioningScheme> partitioningScheme, PlanWithProperties newSource, TableWriterNode.WriterTarget writerTarget)
+        {
             if (partitioningScheme.isEmpty()) {
                 if (scaleWriters && writerTarget.supportsReportingWrittenBytes(plannerContext.getMetadata(), session)) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
@@ -633,7 +651,6 @@ public class AddExchanges
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(FIXED_ARBITRARY_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols()));
                 }
             }
-
             if (partitioningScheme.isPresent() && !newSource.getProperties().isCompatibleTablePartitioningWith(partitioningScheme.get().getPartitioning(), false, plannerContext.getMetadata(), session)) {
                 newSource = withDerivedProperties(
                         partitionedExchange(
@@ -643,7 +660,7 @@ public class AddExchanges
                                 partitioningScheme.get()),
                         newSource.getProperties());
             }
-            return rebaseAndDeriveProperties(node, newSource);
+            return newSource;
         }
 
         @Override
