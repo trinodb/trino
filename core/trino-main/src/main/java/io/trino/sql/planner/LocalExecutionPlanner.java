@@ -44,6 +44,7 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.index.IndexManager;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionId;
+import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableExecuteHandle;
@@ -67,6 +68,8 @@ import io.trino.operator.LimitOperator.LimitOperatorFactory;
 import io.trino.operator.LocalPlannerAware;
 import io.trino.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.trino.operator.MergeOperator.MergeOperatorFactory;
+import io.trino.operator.MergeProcessorOperator;
+import io.trino.operator.MergeWriterOperator.MergeWriterOperatorFactory;
 import io.trino.operator.OperatorFactories;
 import io.trino.operator.OperatorFactory;
 import io.trino.operator.OrderByOperator.OrderByOperatorFactory;
@@ -197,6 +200,8 @@ import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
@@ -221,6 +226,7 @@ import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
 import io.trino.sql.planner.plan.TableWriterNode.DeleteTarget;
+import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
 import io.trino.sql.planner.plan.TableWriterNode.UpdateTarget;
 import io.trino.sql.planner.plan.TopNNode;
@@ -3415,6 +3421,44 @@ public class LocalExecutionPlanner
         }
 
         @Override
+        public PhysicalOperation visitMergeWriter(MergeWriterNode node, LocalExecutionPlanContext context)
+        {
+            context.setDriverInstanceCount(getTaskWriterCount(session));
+
+            PhysicalOperation source = node.getSource().accept(this, context);
+            OperatorFactory operatorFactory = new MergeWriterOperatorFactory(context.getNextOperatorId(), node.getId(), pageSinkManager, node.getTarget(), session);
+            return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
+        }
+
+        @Override
+        public PhysicalOperation visitMergeProcessor(MergeProcessorNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+
+            Map<Symbol, Integer> nodeLayout = makeLayout(node);
+            Map<Symbol, Integer> sourceLayout = makeLayout(node.getSource());
+            int rowIdChannel = sourceLayout.get(node.getRowIdSymbol());
+            int mergeRowChannel = sourceLayout.get(node.getMergeRowSymbol());
+
+            List<Integer> redistributionColumns = node.getRedistributionColumnSymbols().stream()
+                    .map(nodeLayout::get)
+                    .collect(toImmutableList());
+            List<Integer> dataColumnChannels = node.getDataColumnSymbols().stream()
+                    .map(nodeLayout::get)
+                    .collect(toImmutableList());
+
+            OperatorFactory operatorFactory = MergeProcessorOperator.createOperatorFactory(
+                    context.getNextOperatorId(),
+                    node.getId(),
+                    node.getTarget().getMergeParadigmAndTypes(),
+                    rowIdChannel,
+                    mergeRowChannel,
+                    redistributionColumns,
+                    dataColumnChannels);
+            return new PhysicalOperation(operatorFactory, nodeLayout, context, source);
+        }
+
+        @Override
         public PhysicalOperation visitTableDelete(TableDeleteNode node, LocalExecutionPlanContext context)
         {
             OperatorFactory operatorFactory = new TableDeleteOperatorFactory(context.getNextOperatorId(), node.getId(), metadata, session, node.getTarget());
@@ -4050,6 +4094,11 @@ public class LocalExecutionPlanner
             else if (target instanceof TableExecuteTarget) {
                 TableExecuteHandle tableExecuteHandle = ((TableExecuteTarget) target).getExecuteHandle();
                 metadata.finishTableExecute(session, tableExecuteHandle, fragments, tableExecuteContext.getSplitsInfo());
+                return Optional.empty();
+            }
+            else if (target instanceof MergeTarget mergeTarget) {
+                MergeHandle mergeHandle = mergeTarget.getMergeHandle().orElseThrow(() -> new IllegalArgumentException("mergeHandle not present"));
+                metadata.finishMerge(session, mergeHandle, fragments, statistics);
                 return Optional.empty();
             }
             else {

@@ -43,6 +43,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -601,14 +602,20 @@ public class AddLocalExchanges
 
         private PlanWithProperties visitTableWriter(PlanNode node, Optional<PartitioningScheme> partitioningSchemeOptional, PlanNode source, StreamPreferredProperties parentPreferences)
         {
+            return visitPartitionedWriter(node, partitioningSchemeOptional, source, parentPreferences);
+        }
+
+        private PlanWithProperties visitPartitionedWriter(PlanNode node, Optional<PartitioningScheme> optionalPartitioning, PlanNode source, StreamPreferredProperties parentPreferences)
+        {
             if (getTaskWriterCount(session) == 1) {
                 return planAndEnforceChildren(node, singleStream(), defaultParallelism(session));
             }
-            if (partitioningSchemeOptional.isEmpty()) {
+
+            if (optionalPartitioning.isEmpty()) {
                 return planAndEnforceChildren(node, fixedParallelism(), fixedParallelism());
             }
 
-            PartitioningScheme partitioningScheme = partitioningSchemeOptional.get();
+            PartitioningScheme partitioningScheme = optionalPartitioning.get();
 
             if (partitioningScheme.getPartitioning().getHandle().equals(FIXED_HASH_DISTRIBUTION)) {
                 // arbitrary hash function on predefined set of partition columns
@@ -631,6 +638,16 @@ public class AddLocalExchanges
                     newSource.getProperties());
 
             return rebaseAndDeriveProperties(node, ImmutableList.of(exchange));
+        }
+
+        //
+        // Merge
+        //
+
+        @Override
+        public PlanWithProperties visitMergeWriter(MergeWriterNode node, StreamPreferredProperties parentPreferences)
+        {
+            return visitPartitionedWriter(node, node.getPartitioningScheme(), node.getSource(), parentPreferences);
         }
 
         //
