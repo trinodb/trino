@@ -78,6 +78,11 @@ public final class TableHandle
         return catalogName + ":" + connectorHandle;
     }
 
+    public TableHandle withConnectorHandle(ConnectorTableHandle connectorHandle)
+    {
+        return new TableHandle(catalogName, connectorHandle, transaction, layout);
+    }
+
     @Override
     public boolean equals(Object o)
     {

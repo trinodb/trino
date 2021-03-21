@@ -71,6 +71,8 @@ import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OffsetNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
@@ -1344,6 +1346,22 @@ public class PlanPrinter
                 nodeOutput.appendDetailsLine("%s := %s", columnName, node.getColumnValueAndRowIdSymbols().get(index).getName());
                 index++;
             }
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitMergeWriter(MergeWriterNode node, Void context)
+        {
+            addNode(node, "MergeWriter", format("[%s]", node.getTarget()));
+
+            return processChildren(node, context);
+        }
+
+        @Override
+        public Void visitMergeProcessor(MergeProcessorNode node, Void context)
+        {
+            addNode(node, "MergeProcessor");
+
             return processChildren(node, context);
         }
 

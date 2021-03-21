@@ -42,6 +42,12 @@ import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * NOTE WELL: SQL MERGE requires that all rows that have the same rowId and
+ * redistribution columns be sent to the same node.  JOIN spilling isn't yet
+ * supported, but if/when it is, SQL MERGE will need to change if this guarantee
+ * is no longer valid.
+ */
 @Immutable
 public class JoinNode
         extends PlanNode

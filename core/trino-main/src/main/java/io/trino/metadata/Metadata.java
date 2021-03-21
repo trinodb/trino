@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
@@ -41,6 +42,7 @@ import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SortItem;
@@ -114,6 +116,16 @@ public interface Metadata
      * Return a partitioning handle which the connector can transparently convert both {@code left} and {@code right} into.
      */
     Optional<PartitioningHandle> getCommonPartitioning(Session session, PartitioningHandle left, PartitioningHandle right);
+
+    /**
+     * Return the column handles for the columns that must be present in order
+     * to perform the partitioning and/or bucketing required. By default, the table
+     * has no such columns.
+     */
+    default List<ColumnHandle> getWriteRedistributionColumns(Session session, TableHandle table)
+    {
+        return ImmutableList.of();
+    }
 
     Optional<Object> getInfo(Session session, TableHandle handle);
 
@@ -361,6 +373,29 @@ public interface Metadata
      * Finish update query
      */
     void finishUpdate(Session session, TableHandle tableHandle, Collection<Slice> fragments);
+
+    /**
+     * Return the row update paradigm supported by the connector on the table or throw
+     * an exception if row change is not supported.
+     */
+    RowChangeParadigm getRowChangeParadigm(Session session, TableHandle tableHandle);
+
+    /**
+     * Get the column handle that will generate row IDs for the merge operation.
+     * These IDs will be passed to the {@code storeMergedRows()} method of the
+     * {@link io.trino.spi.connector.ConnectorMergeSink} that created them.
+     */
+    ColumnHandle getMergeRowIdColumnHandle(Session session, TableHandle tableHandle);
+
+    /**
+     * Begin merge query
+     */
+    MergeHandle beginMerge(Session session, TableHandle tableHandle);
+
+    /**
+     * Finish merge query
+     */
+    void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics);
 
     /**
      * Returns a connector id for the specified catalog name.

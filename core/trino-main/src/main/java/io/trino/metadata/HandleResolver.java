@@ -19,6 +19,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorHandleResolver;
 import io.trino.spi.connector.ConnectorIndexHandle;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSplit;
@@ -103,6 +104,11 @@ public final class HandleResolver
         return getId(insertHandle, MaterializedHandleResolver::getInsertTableHandleClass);
     }
 
+    public String getId(ConnectorMergeTableHandle mergeHandle)
+    {
+        return getId(mergeHandle, MaterializedHandleResolver::getMergeTableHandleClass);
+    }
+
     public String getId(ConnectorPartitioningHandle partitioningHandle)
     {
         return getId(partitioningHandle, MaterializedHandleResolver::getPartitioningHandleClass);
@@ -148,6 +154,11 @@ public final class HandleResolver
         return resolverFor(id).getInsertTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
     }
 
+    public Class<? extends ConnectorMergeTableHandle> getMergeTableHandleClass(String id)
+    {
+        return resolverFor(id).getMergeTableHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
+    }
+
     public Class<? extends ConnectorPartitioningHandle> getPartitioningHandleClass(String id)
     {
         return resolverFor(id).getPartitioningHandleClass().orElseThrow(() -> new IllegalArgumentException("No resolver for " + id));
@@ -188,6 +199,7 @@ public final class HandleResolver
         private final Optional<Class<? extends ConnectorIndexHandle>> indexHandle;
         private final Optional<Class<? extends ConnectorOutputTableHandle>> outputTableHandle;
         private final Optional<Class<? extends ConnectorInsertTableHandle>> insertTableHandle;
+        private final Optional<Class<? extends ConnectorMergeTableHandle>> mergeTableHandle;
         private final Optional<Class<? extends ConnectorPartitioningHandle>> partitioningHandle;
         private final Optional<Class<? extends ConnectorTransactionHandle>> transactionHandle;
 
@@ -200,6 +212,7 @@ public final class HandleResolver
             indexHandle = getHandleClass(resolver::getIndexHandleClass);
             outputTableHandle = getHandleClass(resolver::getOutputTableHandleClass);
             insertTableHandle = getHandleClass(resolver::getInsertTableHandleClass);
+            mergeTableHandle = getHandleClass(resolver::getMergeTableHandleClass);
             partitioningHandle = getHandleClass(resolver::getPartitioningHandleClass);
             transactionHandle = getHandleClass(resolver::getTransactionHandleClass);
         }
@@ -247,6 +260,11 @@ public final class HandleResolver
         public Optional<Class<? extends ConnectorInsertTableHandle>> getInsertTableHandleClass()
         {
             return insertTableHandle;
+        }
+
+        public Optional<Class<? extends ConnectorMergeTableHandle>> getMergeTableHandleClass()
+        {
+            return mergeTableHandle;
         }
 
         public Optional<Class<? extends ConnectorPartitioningHandle>> getPartitioningHandleClass()

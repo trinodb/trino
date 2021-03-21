@@ -51,6 +51,8 @@ import static java.util.Objects.requireNonNull;
         @JsonSubTypes.Type(value = TableWriterNode.class, name = "tablewriter"),
         @JsonSubTypes.Type(value = DeleteNode.class, name = "delete"),
         @JsonSubTypes.Type(value = UpdateNode.class, name = "update"),
+        @JsonSubTypes.Type(value = MergeWriterNode.class, name = "mergeWriter"),
+        @JsonSubTypes.Type(value = MergeProcessorNode.class, name = "mergeProcessor"),
         @JsonSubTypes.Type(value = TableDeleteNode.class, name = "tableDelete"),
         @JsonSubTypes.Type(value = TableFinishNode.class, name = "tablecommit"),
         @JsonSubTypes.Type(value = UnnestNode.class, name = "unnest"),

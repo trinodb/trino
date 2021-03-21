@@ -52,6 +52,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DeleteNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.LimitNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -78,6 +79,7 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IfExpression;
 import io.trino.sql.tree.Insert;
 import io.trino.sql.tree.LambdaArgumentDeclaration;
+import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
@@ -273,6 +275,9 @@ public class LogicalPlanner
         }
         if (statement instanceof Update) {
             return createUpdatePlan(analysis, (Update) statement);
+        }
+        if (statement instanceof Merge) {
+            return createMergePlan(analysis, (Merge) statement);
         }
         if (statement instanceof Query) {
             return createRelationPlan(analysis, (Query) statement);
@@ -685,6 +690,46 @@ public class LogicalPlanner
                 Optional.empty());
 
         return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
+    }
+
+    private RelationPlan createMergePlan(Analysis analysis, Merge node)
+    {
+        MergeWriterNode mergeNode = new QueryPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), metadata, Optional.empty(), session, ImmutableMap.of())
+                .plan(node);
+
+        TableFinishNode commitNode = new TableFinishNode(
+                idAllocator.getNextId(),
+                mergeNode,
+                mergeNode.getTarget(),
+                symbolAllocator.newSymbol("rows", BIGINT),
+                Optional.empty(),
+                Optional.empty());
+
+        return new RelationPlan(commitNode, analysis.getScope(node), commitNode.getOutputSymbols(), Optional.empty());
+    }
+
+    public static Optional<PartitioningScheme> createPartitioningScheme(Optional<NewTableLayout> writeTableLayout, List<Symbol> symbols, List<Integer> partitionFunctionArgumentIndexes)
+    {
+        if (writeTableLayout.isPresent()) {
+            List<Symbol> partitionFunctionArguments = partitionFunctionArgumentIndexes.stream()
+                    .map(index -> symbols.get(index))
+                    .collect(toImmutableList());
+            List<Symbol> outputLayout = new ArrayList<>(symbols);
+
+            Optional<PartitioningHandle> partitioningHandle = writeTableLayout.get().getPartitioning();
+            if (partitioningHandle.isPresent()) {
+                return Optional.of(new PartitioningScheme(
+                        Partitioning.create(partitioningHandle.get(), partitionFunctionArguments),
+                        outputLayout));
+            }
+            else {
+                // empty connector partitioning handle means evenly partitioning on partitioning columns
+                return Optional.of(new PartitioningScheme(
+                        Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),
+                        outputLayout));
+            }
+        }
+        return Optional.empty();
     }
 
     private PlanNode createOutputPlan(RelationPlan plan, Analysis analysis)

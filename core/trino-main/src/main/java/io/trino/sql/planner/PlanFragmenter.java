@@ -34,6 +34,8 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.ExplainAnalyzeNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.MergeProcessorNode;
+import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -330,6 +332,21 @@ public class PlanFragmenter
             if (node.getPartitioningScheme().isPresent()) {
                 context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
             }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMergeWriter(MergeWriterNode node, RewriteContext<FragmentProperties> context)
+        {
+            if (node.getPartitioningScheme().isPresent()) {
+                context.get().setDistribution(node.getPartitioningScheme().get().getPartitioning().getHandle(), metadata, session);
+            }
+            return context.defaultRewrite(node, context.get());
+        }
+
+        @Override
+        public PlanNode visitMergeProcessor(MergeProcessorNode node, RewriteContext<FragmentProperties> context)
+        {
             return context.defaultRewrite(node, context.get());
         }
 

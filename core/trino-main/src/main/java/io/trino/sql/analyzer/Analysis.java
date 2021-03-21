@@ -32,6 +32,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
@@ -201,6 +202,7 @@ public class Analysis
     private Optional<QualifiedObjectName> delegatedRefreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
     private Optional<List<ColumnMetadata>> updatedColumns = Optional.empty();
+    private Optional<MergeAnalysis> mergeAnalysis = Optional.empty();
 
     // for describe input and describe output
     private final boolean isDescribe;
@@ -252,7 +254,7 @@ public class Analysis
 
     public boolean isUpdateTarget(Table table)
     {
-        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType)) &&
+        return ("DELETE".equals(updateType) || "UPDATE".equals(updateType) || "MERGE".equals(updateType)) &&
                 target.orElseThrow(() -> new IllegalStateException("Update target not set"))
                         .getTable().orElseThrow(() -> new IllegalStateException("Table reference not set in update target")) == table; // intentional comparison by reference
     }
@@ -728,6 +730,16 @@ public class Analysis
     public void setUpdatedColumns(List<ColumnMetadata> updatedColumns)
     {
         this.updatedColumns = Optional.of(updatedColumns);
+    }
+
+    public Optional<MergeAnalysis> getMergeAnalysis()
+    {
+        return mergeAnalysis;
+    }
+
+    public void setMergeAnalysis(MergeAnalysis mergeAnalysis)
+    {
+        this.mergeAnalysis = Optional.of(mergeAnalysis);
     }
 
     public Optional<List<ColumnMetadata>> getUpdatedColumns()
@@ -1499,6 +1511,94 @@ public class Analysis
         public boolean isFrameInherited()
         {
             return frameInherited;
+        }
+    }
+
+    public static class MergeAnalysis
+    {
+        private final Table targetTable;
+        private final List<ColumnSchema> dataColumnSchemas;
+        private final List<ColumnHandle> dataColumnHandles;
+        private final List<ColumnHandle> redistributionColumnHandles;
+        private final List<List<ColumnHandle>> mergeCaseColumnHandles;
+        private final Map<ColumnHandle, Integer> columnHandleFieldNumbers;
+        private final List<Integer> partitionFunctionArgumentIndexes;
+        private final Optional<NewTableLayout> newTableLayout;
+        private final Scope targetTableScope;
+        private final Scope joinScope;
+
+        public MergeAnalysis(
+                Table targetTable,
+                List<ColumnSchema> dataColumnSchemas,
+                List<ColumnHandle> dataColumnHandles,
+                List<ColumnHandle> redistributionColumnHandles,
+                List<List<ColumnHandle>> mergeCaseColumnHandles,
+                Map<ColumnHandle, Integer> columnHandleFieldNumbers,
+                List<Integer> partitionFunctionArgumentIndexes,
+                Optional<NewTableLayout> newTableLayout,
+                Scope targetTableScope,
+                Scope joinScope)
+        {
+            this.targetTable = requireNonNull(targetTable, "targetTable is null");
+            this.dataColumnSchemas = requireNonNull(dataColumnSchemas, "dataColumnSchemas is null");
+            this.dataColumnHandles = requireNonNull(dataColumnHandles, "dataColumnHandles is null");
+            this.redistributionColumnHandles = requireNonNull(redistributionColumnHandles, "redistributionColumnHandles is null");
+            this.mergeCaseColumnHandles = requireNonNull(mergeCaseColumnHandles, "mergeCaseColumnHandles is null");
+            this.columnHandleFieldNumbers = requireNonNull(columnHandleFieldNumbers, "columnHandleFieldNumbers is null");
+            this.newTableLayout = requireNonNull(newTableLayout, "newTableLayout is null");
+            this.partitionFunctionArgumentIndexes = (requireNonNull(partitionFunctionArgumentIndexes, "partitionFunctionArgumentIndexes is null"));
+            this.targetTableScope = requireNonNull(targetTableScope, "targetTableScope is null");
+            this.joinScope = requireNonNull(joinScope, "joinScope is null");
+        }
+
+        public Table getTargetTable()
+        {
+            return targetTable;
+        }
+
+        public List<ColumnSchema> getDataColumnSchemas()
+        {
+            return dataColumnSchemas;
+        }
+
+        public List<ColumnHandle> getDataColumnHandles()
+        {
+            return dataColumnHandles;
+        }
+
+        public List<ColumnHandle> getRedistributionColumnHandles()
+        {
+            return redistributionColumnHandles;
+        }
+
+        public List<List<ColumnHandle>> getMergeCaseColumnHandles()
+        {
+            return mergeCaseColumnHandles;
+        }
+
+        public Map<ColumnHandle, Integer> getColumnHandleFieldNumbers()
+        {
+            return columnHandleFieldNumbers;
+        }
+
+        public List<Integer> getPartitionFunctionArgumentIndexes()
+        {
+            return partitionFunctionArgumentIndexes;
+        }
+
+        public Optional<NewTableLayout> getNewTableLayout()
+        {
+            return newTableLayout;
+        }
+
+        public Scope getJoinScope()
+        {
+            return joinScope;
+        }
+
+        public Scope getTargetTableScope()
+        {
+            return targetTableScope;
         }
     }
 
