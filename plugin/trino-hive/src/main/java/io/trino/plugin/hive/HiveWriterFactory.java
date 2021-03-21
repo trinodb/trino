@@ -40,6 +40,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
@@ -86,7 +87,9 @@ import static io.trino.plugin.hive.HiveSessionProperties.getInsertExistingPartit
 import static io.trino.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
+import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXISTING_DIRECTORY;
+import static io.trino.plugin.hive.acid.AcidOperation.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.CompressionConfigUtil.configureCompression;
@@ -118,6 +121,7 @@ public class HiveWriterFactory
     private final String schemaName;
     private final String tableName;
     private final AcidTransaction transaction;
+    private final List<HiveColumnHandle> inputColumns;
 
     private final List<DataColumn> dataColumns;
 
@@ -155,6 +159,7 @@ public class HiveWriterFactory
     private final Map<String, String> sessionProperties;
 
     private final HiveWriterStats hiveWriterStats;
+    private final Optional<HiveType> rowType;
 
     public HiveWriterFactory(
             Set<HiveFileWriterFactory> fileWriterFactories,
@@ -188,6 +193,7 @@ public class HiveWriterFactory
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
         this.transaction = requireNonNull(transaction, "transaction is null");
+        this.inputColumns = requireNonNull(inputColumns, "inputColumns is null");
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
         this.additionalTableParameters = ImmutableMap.copyOf(requireNonNull(additionalTableParameters, "additionalTableParameters is null"));
@@ -209,7 +215,6 @@ public class HiveWriterFactory
         this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
 
         // divide input columns into partition and data columns
-        requireNonNull(inputColumns, "inputColumns is null");
         ImmutableList.Builder<String> partitionColumnNames = ImmutableList.builder();
         ImmutableList.Builder<Type> partitionColumnTypes = ImmutableList.builder();
         ImmutableList.Builder<DataColumn> dataColumns = ImmutableList.builder();
@@ -222,6 +227,15 @@ public class HiveWriterFactory
             else {
                 dataColumns.add(new DataColumn(column.getName(), hiveType));
             }
+        }
+        if (transaction.isMerge()) {
+            this.rowType = Optional.of(toHiveType(RowType.from(inputColumns.stream()
+                    .filter(column -> !column.isPartitionKey())
+                    .map(column -> new RowType.Field(Optional.of(column.getName()), column.getType()))
+                    .collect(toImmutableList()))));
+        }
+        else {
+            this.rowType = Optional.empty();
         }
         this.partitionColumnNames = partitionColumnNames.build();
         this.partitionColumnTypes = partitionColumnTypes.build();
@@ -443,10 +457,11 @@ public class HiveWriterFactory
 
         Path path;
         String fileNameWithExtension;
-        if (transaction.isAcidTransactionRunning()) {
+        if (transaction.isAcidTransactionRunning() && transaction.getOperation() != CREATE_TABLE) {
             String subdir = computeAcidSubdir(transaction);
             Path subdirPath = new Path(writeInfo.getWritePath(), subdir);
-            path = createHiveBucketPath(subdirPath, bucketToUse, table.getParameters());
+            String nameFormat = table != null && isInsertOnlyTable(table.getParameters()) ? "%05d_0" : "bucket_%05d";
+            path = new Path(subdirPath, format(nameFormat, bucketToUse));
             fileNameWithExtension = path.getName();
         }
         else {
@@ -458,24 +473,34 @@ public class HiveWriterFactory
         boolean useAcidSchema = isCreateTransactionalTable || (table != null && isFullAcidTable(table.getParameters()));
 
         FileWriter hiveFileWriter = null;
-        for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
-            Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
-                    path,
-                    dataColumns.stream()
-                            .map(DataColumn::getName)
-                            .collect(toList()),
-                    outputStorageFormat,
-                    schema,
-                    conf,
-                    session,
-                    bucketNumber,
-                    transaction,
-                    useAcidSchema,
-                    WriterKind.INSERT);
+        if (transaction.isMerge()) {
+            OrcFileWriterFactory orcFileWriterFactory = (OrcFileWriterFactory) fileWriterFactories.stream()
+                    .filter(factory -> factory instanceof OrcFileWriterFactory)
+                    .findFirst()
+                    .get();
+            checkArgument(rowType.isPresent(), "rowTypes not present");
+            hiveFileWriter = new MergeFileWriter(transaction, 0, bucketNumber, path, partitionName, orcFileWriterFactory, inputColumns, conf, session, typeManager, rowType.get());
+        }
+        if (hiveFileWriter == null) {
+            for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
+                Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
+                        path,
+                        dataColumns.stream()
+                                .map(DataColumn::getName)
+                                .collect(toList()),
+                        outputStorageFormat,
+                        schema,
+                        conf,
+                        session,
+                        bucketNumber,
+                        transaction,
+                        useAcidSchema,
+                        WriterKind.INSERT);
 
-            if (fileWriter.isPresent()) {
-                hiveFileWriter = fileWriter.get();
-                break;
+                if (fileWriter.isPresent()) {
+                    hiveFileWriter = fileWriter.get();
+                    break;
+                }
             }
         }
 
@@ -590,12 +615,6 @@ public class HiveWriterFactory
                 hiveWriterStats);
     }
 
-    private static Path createHiveBucketPath(Path subdirPath, int bucketToUse, Map<String, String> tableParameters)
-    {
-        String nameFormat = isInsertOnlyTable(tableParameters) ? "%05d_0" : "bucket_%05d";
-        return new Path(subdirPath, format(nameFormat, bucketToUse));
-    }
-
     private void validateSchema(Optional<String> partitionName, Properties schema)
     {
         // existing tables may have columns in a different order
@@ -647,9 +666,12 @@ public class HiveWriterFactory
         long writeId = transaction.getWriteId();
         switch (transaction.getOperation()) {
             case INSERT:
+            case CREATE_TABLE:
                 return deltaSubdir(writeId, writeId, 0);
             case DELETE:
                 return deleteDeltaSubdir(writeId, writeId, 0);
+            case MERGE:
+                return deltaSubdir(writeId, writeId, 0);
             default:
                 throw new UnsupportedOperationException("transaction operation is " + transaction.getOperation());
         }

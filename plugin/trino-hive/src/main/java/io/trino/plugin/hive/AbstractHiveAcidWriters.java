@@ -15,12 +15,18 @@ package io.trino.plugin.hive;
 
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.orc.OrcFileWriter;
 import io.trino.plugin.hive.orc.OrcFileWriterFactory;
+import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -31,11 +37,15 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.orc.OrcWriter.OrcOperation.DELETE;
 import static io.trino.orc.OrcWriter.OrcOperation.INSERT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
+import static io.trino.plugin.hive.HiveUpdatablePageSource.BUCKET_CHANNEL;
+import static io.trino.plugin.hive.HiveUpdatablePageSource.ORIGINAL_TRANSACTION_CHANNEL;
+import static io.trino.plugin.hive.HiveUpdatablePageSource.ROW_ID_CHANNEL;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
 import static io.trino.plugin.hive.acid.AcidSchema.createAcidSchema;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
+import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -57,17 +67,21 @@ public abstract class AbstractHiveAcidWriters
     protected final AcidTransaction transaction;
     protected final OptionalInt bucketNumber;
     protected final int statementId;
+    protected final Block bucketValueBlock;
+
     private final OrcFileWriterFactory orcFileWriterFactory;
     private final Configuration configuration;
     protected final ConnectorSession session;
     protected final HiveType hiveRowType;
     private final Properties hiveAcidSchema;
+    protected final Block hiveRowTypeNullsBlock;
+    protected Path deltaDirectory;
     protected final Path deleteDeltaDirectory;
     private final String bucketFilename;
-    protected Optional<Path> deltaDirectory;
 
     protected Optional<FileWriter> deleteFileWriter = Optional.empty();
     protected Optional<FileWriter> insertFileWriter = Optional.empty();
+    private int insertRowCounter;
 
     public AbstractHiveAcidWriters(
             AcidTransaction transaction,
@@ -78,18 +92,21 @@ public abstract class AbstractHiveAcidWriters
             OrcFileWriterFactory orcFileWriterFactory,
             Configuration configuration,
             ConnectorSession session,
+            TypeManager typeManager,
             HiveType hiveRowType,
             AcidOperation updateKind)
     {
         this.transaction = requireNonNull(transaction, "transaction is null");
         this.statementId = statementId;
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
+        this.bucketValueBlock = nativeValueToBlock(INTEGER, Long.valueOf(OrcFileWriter.computeBucketValue(bucketNumber.orElse(0), statementId)));
         this.orcFileWriterFactory = requireNonNull(orcFileWriterFactory, "orcFileWriterFactory is null");
         this.configuration = requireNonNull(configuration, "configuration is null");
         this.session = requireNonNull(session, "session is null");
         checkArgument(transaction.isTransactional(), "Not in a transaction: %s", transaction);
         this.hiveRowType = requireNonNull(hiveRowType, "hiveRowType is null");
         this.hiveAcidSchema = createAcidSchema(hiveRowType);
+        this.hiveRowTypeNullsBlock = nativeValueToBlock(hiveRowType.getType(typeManager), null);
         requireNonNull(bucketPath, "bucketPath is null");
         Matcher matcher;
         if (originalFile) {
@@ -109,13 +126,33 @@ public abstract class AbstractHiveAcidWriters
             }
         }
         long writeId = transaction.getWriteId();
+        this.deltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deltaSubdir(writeId, writeId, statementId)));
         this.deleteDeltaDirectory = new Path(format("%s/%s", matcher.group("rootDir"), deleteDeltaSubdir(writeId, writeId, statementId)));
-        if (updateKind == AcidOperation.UPDATE) {
-            this.deltaDirectory = Optional.of(new Path(format("%s/%s", matcher.group("rootDir"), deltaSubdir(writeId, writeId, statementId))));
+    }
+
+    protected Page buildDeletePage(Block rowIds, long writeId)
+    {
+        int positionCount = rowIds.getPositionCount();
+        List<Block> blocks = rowIds.getChildren();
+        Block[] blockArray = {
+                new RunLengthEncodedBlock(DELETE_OPERATION_BLOCK, positionCount),
+                blocks.get(ORIGINAL_TRANSACTION_CHANNEL),
+                blocks.get(BUCKET_CHANNEL),
+                blocks.get(ROW_ID_CHANNEL),
+                RunLengthEncodedBlock.create(BIGINT, writeId, positionCount),
+                new RunLengthEncodedBlock(hiveRowTypeNullsBlock, positionCount),
+        };
+        return new Page(blockArray);
+    }
+
+    protected Block createRowIdBlock(int positionCount)
+    {
+        long[] rowIds = new long[positionCount];
+        for (int index = 0; index < positionCount; index++) {
+            rowIds[index] = insertRowCounter;
+            insertRowCounter++;
         }
-        else {
-            this.deltaDirectory = Optional.empty();
-        }
+        return new LongArrayBlock(positionCount, Optional.empty(), rowIds);
     }
 
     protected void lazyInitializeDeleteFileWriter()
@@ -142,9 +179,8 @@ public abstract class AbstractHiveAcidWriters
         if (insertFileWriter.isEmpty()) {
             Properties schemaCopy = new Properties();
             schemaCopy.putAll(hiveAcidSchema);
-            Path deltaDir = deltaDirectory.orElseThrow(() -> new IllegalArgumentException("deltaDirectory not present"));
             insertFileWriter = orcFileWriterFactory.createFileWriter(
-                    new Path(format("%s/%s", deltaDir, bucketFilename)),
+                    new Path(format("%s/%s", deltaDirectory, bucketFilename)),
                     ACID_COLUMN_NAMES,
                     fromHiveStorageFormat(ORC),
                     schemaCopy,

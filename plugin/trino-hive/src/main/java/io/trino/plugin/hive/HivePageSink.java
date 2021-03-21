@@ -29,6 +29,8 @@ import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.IntArrayBlockBuilder;
+import io.trino.spi.block.RowBlock;
+import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
@@ -46,6 +48,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -57,7 +60,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class HivePageSink
-        implements ConnectorPageSink
+        implements ConnectorPageSink, ConnectorMergeSink
 {
     private static final Logger log = Logger.get(HivePageSink.class);
 
@@ -83,11 +86,13 @@ public class HivePageSink
 
     private final ConnectorSession session;
 
+    private final boolean isMergeSink;
     private long writtenBytes;
     private long systemMemoryUsage;
     private long validationCpuNanos;
 
     public HivePageSink(
+            HiveWritableTableHandle tableHandle,
             HiveWriterFactory writerFactory,
             List<HiveColumnHandle> inputColumns,
             Optional<HiveBucketProperty> bucketProperty,
@@ -109,6 +114,7 @@ public class HivePageSink
         this.writeVerificationExecutor = requireNonNull(writeVerificationExecutor, "writeVerificationExecutor is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
 
+        this.isMergeSink = tableHandle.getTransaction().isMerge();
         requireNonNull(bucketProperty, "bucketProperty is null");
         this.pagePartitioner = new HiveWriterPagePartitioner(
                 inputColumns,
@@ -178,8 +184,26 @@ public class HivePageSink
     {
         // Must be wrapped in doAs entirely
         // Implicit FileSystem initializations are possible in HiveRecordWriter#commit -> RecordWriter#close
-        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(session.getUser(), this::doFinish);
+        ListenableFuture<Collection<Slice>> result = hdfsEnvironment.doAs(
+                session.getUser(),
+                isMergeSink ? this::doMergeSinkFinish : this::doFinish);
         return MoreFutures.toCompletableFuture(result);
+    }
+
+    private ListenableFuture<Collection<Slice>> doMergeSinkFinish()
+    {
+        ImmutableList.Builder<Slice> resultSlices = ImmutableList.builder();
+        for (HiveWriter writer : writers) {
+            writer.commit();
+            MergeFileWriter mergeFileWriter = (MergeFileWriter) writer.getFileWriter();
+            PartitionUpdateAndMergeResults results = mergeFileWriter.getPartitionUpdateAndMergeResults(writer.getPartitionUpdate());
+            resultSlices.add(wrappedBuffer(PartitionUpdateAndMergeResults.CODEC.toJsonBytes(results)));
+        }
+        List<Slice> result = resultSlices.build();
+        writtenBytes = writers.stream()
+                .mapToLong(HiveWriter::getWrittenBytes)
+                .sum();
+        return Futures.immediateFuture(result);
     }
 
     private ListenableFuture<Collection<Slice>> doFinish()
@@ -307,7 +331,7 @@ public class HivePageSink
             Page pageForWriter = dataPage;
             if (positions.length != dataPage.getPositionCount()) {
                 verify(positions.length == counts[index]);
-                pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
+                pageForWriter = makePageForWriter(pageForWriter, positions);
             }
 
             HiveWriter writer = writers.get(index);
@@ -322,11 +346,36 @@ public class HivePageSink
         }
     }
 
+    private Page makePageForWriter(Page page, int[] positions)
+    {
+        if (!isMergeSink) {
+            return page.getPositions(positions, 0, positions.length);
+        }
+        int positionCount = positions.length;
+        Block[] blocks = new Block[page.getChannelCount()];
+        for (int channel = 0; channel < page.getChannelCount(); channel++) {
+            Block block = page.getBlock(channel);
+            if (block instanceof RowBlock) {
+                RowBlock rowBlock = (RowBlock) block;
+                List<Block> children = rowBlock.getChildren();
+                blocks[channel] = RowBlock.fromFieldBlocks(
+                        positionCount,
+                        Optional.empty(),
+                        children.stream()
+                                .map(child -> child.getPositions(positions, 0, positionCount))
+                                .toArray(length -> new Block[length]));
+            }
+            else {
+                blocks[channel] = block.getPositions(positions, 0, positionCount);
+            }
+        }
+        return new Page(positionCount, blocks);
+    }
+
     private int[] getWriterIndexes(Page page)
     {
-        Page partitionColumns = extractColumns(page, partitionColumnsInputIndex);
         Block bucketBlock = buildBucketBlock(page);
-        int[] writerIndexes = pagePartitioner.partitionPage(partitionColumns, bucketBlock);
+        int[] writerIndexes = pagePartitioner.partitionPage(extractColumns(page, partitionColumnsInputIndex), bucketBlock);
         if (pagePartitioner.getMaxIndex() >= maxOpenWriters) {
             throw new TrinoException(HIVE_TOO_MANY_OPEN_PARTITIONS, format("Exceeded limit of %s open writers for partitions/buckets", maxOpenWriters));
         }
@@ -347,7 +396,7 @@ public class HivePageSink
             if (bucketBlock != null) {
                 bucketNumber = OptionalInt.of(bucketBlock.getInt(position, 0));
             }
-            HiveWriter writer = writerFactory.createWriter(partitionColumns, position, bucketNumber);
+            HiveWriter writer = writerFactory.createWriter(extractColumns(page, partitionColumnsInputIndex), position, bucketNumber);
             writers.set(writerIndex, writer);
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
@@ -358,6 +407,9 @@ public class HivePageSink
 
     private Page getDataPage(Page page)
     {
+        if (isMergeSink) {
+            return page;
+        }
         Block[] blocks = new Block[dataColumnInputIndex.length];
         for (int i = 0; i < dataColumnInputIndex.length; i++) {
             int dataColumn = dataColumnInputIndex[i];
@@ -389,6 +441,13 @@ public class HivePageSink
             blocks[i] = page.getBlock(dataColumn);
         }
         return new Page(page.getPositionCount(), blocks);
+    }
+
+    @Override
+    public void storeMergedRows(Page page)
+    {
+        checkArgument(isMergeSink, "isMergeSink is false");
+        appendPage(page);
     }
 
     private static class HiveWriterPagePartitioner

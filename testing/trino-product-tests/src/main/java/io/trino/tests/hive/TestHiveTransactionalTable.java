@@ -19,7 +19,7 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient;
-import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.tempto.hadoop.hdfs.HdfsClient;
 import io.trino.tempto.query.QueryExecutor;
 import io.trino.tempto.query.QueryResult;
@@ -1290,6 +1290,420 @@ public class TestHiveTransactionalTable
         });
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeSimpleSelect()
+    {
+        withTemporaryTable("merge_simple_target", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable("merge_simple_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable));
+
+                log.info("About to merge, target table %s, source table %s", targetTable, sourceTable);
+                query(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                        "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeSimpleSelectPartitioned()
+    {
+        withTemporaryTable("merge_simple_target", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true, partitioned_by = ARRAY['address'])", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable("merge_simple_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Ed', 7, 'Etherville'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire')", sourceTable));
+
+                String sql = format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                        "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+
+                log.info("About to merge, target table %s, source table %s", targetTable, sourceTable);
+                query(sql);
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Ed", 7, "Etherville"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"));
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT, dataProvider = "partitionedAndBucketedProvider")
+    public void testMergeUpdateWithVariousLayouts(boolean partitioned, String bucketing)
+    {
+        log.info("In testMergeUpdateWithVariousLayouts, partitioned %s, bucketing %s", partitioned, bucketing);
+        BucketingType bucketingType = bucketing.isEmpty() ? NONE : BUCKETED_V2;
+        withTemporaryTable("merge_with_various_formats", true, true, bucketingType, targetTable -> {
+            StringBuilder builder = new StringBuilder();
+            builder.append("CREATE TABLE ")
+                    .append(targetTable)
+                    .append("(customer STRING");
+            builder.append(partitioned ? ") PARTITIONED BY (" : ", ")
+                    .append("purchase STRING) ");
+            if (!bucketing.isEmpty()) {
+                builder.append(bucketing);
+            }
+            builder.append(" STORED AS ORC TBLPROPERTIES ('transactional' = 'true')");
+            onHive().executeQuery(builder.toString());
+
+            log.info("About to insert");
+            query(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable));
+            verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave", "dates"), row("Lou", "limes"), row("Carol", "candles"));
+
+            withTemporaryTable("merge_simple_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')", sourceTable));
+
+                String sql = format("MERGE INTO %s t USING %s s ON (t.purchase = s.purchase)", targetTable, sourceTable) +
+                        "    WHEN MATCHED AND s.purchase = 'limes' THEN DELETE" +
+                        "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_', s.customer)" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchase) VALUES(s.customer, s.purchase)";
+
+                log.info("About to merge, target table %s, source table %s", targetTable, sourceTable);
+                query(sql);
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave", "dates"), row("Carol_Craig", "candles"), row("Joe", "jellybeans"));
+            });
+        });
+    }
+
+    /**
+     * This test demonstrates a failure of Hive to verify the result of a MERGE operation,
+     * specifically, Hive fails to recognize the delete_delta file written by the MERGE.  I
+     * captured the HDFS delta and delete_delta files and verified that they are correct.
+     * I used Wireshark to capture the traffic between Trino and the Hive metastore during
+     * the MERGE, and it was all as expected.  I tried to vary the test to understand the
+     * issue, but almost any change I made to the test caused Hive to correctly verify the
+     * MERGE.
+     * TODO: Determine what is causing the Hive verification failure
+     */
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testMergeUnBucketedUnPartitionedFailure()
+    {
+        log.info("In testMergeUnbucketedUnpartitioned");
+        withTemporaryTable("merge_with_various_formats", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("About to insert");
+            query(format("INSERT INTO %s (customer, purchase) VALUES ('Dave', 'dates'), ('Lou', 'limes'), ('Carol', 'candles')", targetTable));
+            verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave", "dates"), row("Lou", "limes"), row("Carol", "candles"));
+
+            withTemporaryTable("merge_simple_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchase) VALUES ('Craig', 'candles'), ('Len', 'limes'), ('Joe', 'jellybeans')", sourceTable));
+
+                String sql = format("MERGE INTO %s t USING %s s ON (t.purchase = s.purchase)", targetTable, sourceTable) +
+                        "    WHEN MATCHED AND s.purchase = 'limes' THEN DELETE" +
+                        "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_', s.customer)" +
+                        "    WHEN NOT MATCHED THEN INSERT (customer, purchase) VALUES(s.customer, s.purchase)";
+
+                log.info("About to merge, target table %s, source table %s", targetTable, sourceTable);
+                query(sql);
+
+                log.info("Verifying MERGE on Presto");
+                assertThat(query("SELECT * FROM " + targetTable))
+                        .containsOnly(row("Dave", "dates"), row("Carol_Craig", "candles"), row("Joe", "jellybeans"));
+
+                log.info("Verifying MERGE on Hive fails - - and it shouldn't");
+                assertThat(onHive().executeQuery("SELECT * FROM " + targetTable))
+                        .containsOnly(row("Dave", "dates"), row("Lou", "limes"), row("Carol", "candles"), row("Carol_Craig", "candles"), row("Joe", "jellybeans"));
+
+                log.info("Finished");
+            });
+        });
+    }
+
+    @DataProvider
+    public Object[][] partitionedAndBucketedProvider()
+    {
+        return new Object[][] {
+                {false, "CLUSTERED BY (customer) INTO 3 BUCKETS"},
+                {false, "CLUSTERED BY (purchase) INTO 4 BUCKETS"},
+                {true, ""},
+                {true, "CLUSTERED BY (customer) INTO 3 BUCKETS"},
+        };
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeMultipleOperationsUnbucketedUnpartitioned()
+    {
+        withTemporaryTable("merge_multiple", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, zipcode INT, spouse VARCHAR, address VARCHAR) WITH (transactional = true)", targetTable));
+            testMergeMultipleOperationsInternal(targetTable, 32);
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeMultipleOperationsUnbucketedPartitioned()
+    {
+        withTemporaryTable("merge_multiple", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (purchases INT, zipcode INT, spouse VARCHAR, address VARCHAR, customer VARCHAR) WITH (transactional = true, partitioned_by = ARRAY['address', 'customer'])", targetTable));
+            testMergeMultipleOperationsInternal(targetTable, 32);
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeMultipleOperationsBucketedUnpartitioned()
+    {
+        withTemporaryTable("merge_multiple", true, true, NONE, targetTable -> {
+            onHive().executeQuery(format("CREATE TABLE %s (customer STRING, purchases INT, zipcode INT, spouse STRING, address STRING)" +
+                    "   CLUSTERED BY(customer, zipcode, address) INTO 4 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')", targetTable));
+            testMergeMultipleOperationsInternal(targetTable, 32);
+        });
+    }
+
+    private void testMergeMultipleOperationsInternal(String targetTable, int targetCustomerCount)
+    {
+        log.info("Inserting a bunch into target");
+        String originalInsertFirstHalf = IntStream.range(1, targetCustomerCount / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 1000, 91000, intValue, intValue))
+                .collect(Collectors.joining(", "));
+        String originalInsertSecondHalf = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 2000, 92000, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        log.info("About to run first insert");
+        query(format("INSERT INTO %s (customer, purchases, zipcode, spouse, address) VALUES %s, %s", targetTable, originalInsertFirstHalf, originalInsertSecondHalf));
+
+        String firstMergeSource = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 83000, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        log.info("About to run first merge");
+
+        query(format("MERGE INTO %s t USING (SELECT * FROM (VALUES %s)) AS s(customer, purchases, zipcode, spouse, address)", targetTable, firstMergeSource) +
+                "    ON t.customer = s.customer" +
+                "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases, zipcode = s.zipcode, spouse = s.spouse, address = s.address");
+
+        QueryResult expectedResult = query(format("SELECT * FROM (VALUES %s, %s) AS v(customer, purchases, zipcode, spouse, address)", originalInsertFirstHalf, firstMergeSource));
+        verifyOnTrinoAndHiveFromQueryResults("SELECT customer, purchases, zipcode, spouse, address FROM " + targetTable, expectedResult);
+
+        String nextInsert = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                .collect(Collectors.joining(", "));
+        log.info("About to run second insert");
+        query(format("INSERT INTO %s (customer, purchases, zipcode, spouse, address) VALUES %s", targetTable, nextInsert));
+
+        String secondMergeSource = IntStream.range(1, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        query(format("MERGE INTO %s t USING (SELECT * FROM (VALUES %s)) AS s(customer, purchases, zipcode, spouse, address)", targetTable, secondMergeSource) +
+                "    ON t.customer = s.customer" +
+                "    WHEN MATCHED AND t.zipcode = 91000 THEN DELETE" +
+                "    WHEN MATCHED AND s.zipcode = 85000 THEN UPDATE SET zipcode = 60000" +
+                "    WHEN MATCHED THEN UPDATE SET zipcode = s.zipcode, spouse = s.spouse, address = s.address" +
+                "    WHEN NOT MATCHED THEN INSERT (customer, purchases, zipcode, spouse, address) VALUES(s.customer, s.purchases, s.zipcode, s.spouse, s.address)");
+
+        String updatedBeginning = IntStream.range(targetCustomerCount / 2, targetCustomerCount)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jill_%s', '%s Eop Ct')", intValue, 3000, 60000, intValue, intValue))
+                .collect(Collectors.joining(", "));
+        String updatedMiddle = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('joe_%s', %s, %s, 'jen_%s', '%s Poe Ct')", intValue, 5000, 85000, intValue, intValue))
+                .collect(Collectors.joining(", "));
+        String updatedEnd = IntStream.range(targetCustomerCount, targetCustomerCount * 3 / 2)
+                .mapToObj(intValue -> format("('jack_%s', %s, %s, 'jan_%s', '%s Poe Ct')", intValue, 4000, 74000, intValue, intValue))
+                .collect(Collectors.joining(", "));
+
+        expectedResult = query(format("SELECT * FROM (VALUES %s, %s, %s) AS v(customer, purchases, zipcode, spouse, address)", updatedBeginning, updatedMiddle, updatedEnd));
+        verifyOnTrinoAndHiveFromQueryResults("SELECT customer, purchases, zipcode, spouse, address FROM " + targetTable, expectedResult);
+    }
+
+    private void verifyOnTrinoAndHiveFromQueryResults(String sql, QueryResult expectedResult)
+    {
+        QueryResult trinoResult = query(sql);
+        assertThat(trinoResult).contains(getRowsFromQueryResult(expectedResult));
+        QueryResult hiveResult = onHive().executeQuery(sql);
+        assertThat(hiveResult).contains(getRowsFromQueryResult(expectedResult));
+    }
+
+    private List<Row> getRowsFromQueryResult(QueryResult result)
+    {
+        return result.rows().stream().map(values -> new Row(values)).collect(toImmutableList());
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeSimpleQuery()
+    {
+        withTemporaryTable("merge_simple_target", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            log.info("About to merge, target table %s", targetTable);
+            query(format("MERGE INTO %s t USING ", targetTable) +
+                    "(SELECT * FROM (VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville'))) AS s(customer, purchases, address)" +
+                    "    " +
+                    "ON (t.customer = s.customer)" +
+                    "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                    "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                    "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
+
+            log.info("Verifying MERGE");
+            verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeAllInserts()
+    {
+        withTemporaryTable("merge_all_inserts", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 11, 'Antioch'), ('Bill', 7, 'Buena')", targetTable));
+
+            log.info("About to merge, target table %s", targetTable);
+            query(format("MERGE INTO %s t USING ", targetTable) +
+                    "(SELECT * FROM (VALUES ('Carol', 9, 'Centreville'), ('Dave', 22, 'Darbyshire'))) AS s(customer, purchases, address)" +
+                    "    " +
+                    "ON (t.customer = s.customer)" +
+                    "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)");
+
+            log.info("Verifying MERGE");
+            verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Antioch"), row("Bill", 7, "Buena"), row("Carol", 9, "Centreville"), row("Dave", 22, "Darbyshire"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeSimpleQueryPartitioned()
+    {
+        withTemporaryTable("merge_simple_target", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true, partitioned_by = ARRAY['address'])", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            String query = format("MERGE INTO %s t USING ", targetTable) +
+                    "(SELECT * FROM (VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville'))) AS s(customer, purchases, address)" +
+                    "    " +
+                    "ON (t.customer = s.customer)" +
+                    "    WHEN MATCHED AND s.address = 'Centreville' THEN DELETE" +
+                    "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases, address = s.address" +
+                    "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES(s.customer, s.purchases, s.address)";
+            log.info("About to merge, target table %s", targetTable);
+            query(query);
+
+            log.info("Verifying MERGE");
+            verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Aaron", 11, "Arches"), row("Bill", 7, "Buena"), row("Dave", 22, "Darbyshire"), row("Ed", 7, "Etherville"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeAllColumnsUpdated()
+    {
+        withTemporaryTable("merge_all_columns_updated_target", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Devon'), ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge')", targetTable));
+
+            withTemporaryTable("merge_all_columns_updated_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Dave', 11, 'Darbyshire'), ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Ed', 7, 'Etherville')", sourceTable));
+
+                log.info("About to merge, target table %s, source table %s", targetTable, sourceTable);
+                query(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN MATCHED THEN UPDATE SET customer = CONCAT(t.customer, '_updated'), purchases = s.purchases + t.purchases, address = s.address");
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Dave_updated", 22, "Darbyshire"), row("Aaron_updated", 11, "Arches"), row("Bill", 7, "Buena"), row("Carol_updated", 12, "Centreville"));
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000)
+    public void testMergeAllMatchesDeleted()
+    {
+        withTemporaryTable("merge_all_matches_deleted_target", true, true, NONE, targetTable -> {
+            query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Buena'), ('Carol', 3, 'Cambridge'), ('Dave', 11, 'Devon')", targetTable));
+
+            withTemporaryTable("merge_all_matches_deleted_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Arches'), ('Carol', 9, 'Centreville'), ('Dave', 11, 'Darbyshire'), ('Ed', 7, 'Etherville')", sourceTable));
+
+                log.info("About to merge, target table %s, source table %s", targetTable, sourceTable);
+                query(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN MATCHED THEN DELETE");
+
+                log.info("Verifying MERGE");
+                verifySelectForPrestoAndHive("SELECT * FROM " + targetTable, "TRUE", row("Bill", 7, "Buena"));
+            });
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = 60 * 60 * 1000, dataProvider = "partitionedBucketedFailure")
+    public void testMergeMultipleRowsMatchFails(String createTableSql)
+    {
+        withTemporaryTable("merge_all_matches_deleted_target", true, true, NONE, targetTable -> {
+            onHive().executeQuery(format(createTableSql, targetTable));
+
+            log.info("Inserting into target");
+            query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 5, 'Antioch'), ('Bill', 7, 'Antioch')", targetTable));
+
+            withTemporaryTable("merge_all_matches_deleted_source", true, true, NONE, sourceTable -> {
+                query(format("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (transactional = true)", sourceTable));
+
+                log.info("Inserting into source");
+                query(format("INSERT INTO %s (customer, purchases, address) VALUES ('Aaron', 6, 'Adelphi'), ('Aaron', 8, 'Ashland')", sourceTable));
+
+                log.info("About to run failing merge, target table %s, source table %s", targetTable, sourceTable);
+                assertThat(() -> query(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN MATCHED THEN UPDATE SET address = s.address"))
+                        .failsWithMessage("One MERGE target table row matched more than one source row");
+
+                log.info("Merge succeeds if the WHEN clause condition limits to one source row");
+                query(format("MERGE INTO %s t USING %s s ON (t.customer = s.customer)", targetTable, sourceTable) +
+                        "    WHEN MATCHED AND s.address = 'Adelphi' THEN UPDATE SET address = s.address");
+                log.info("Final SELECT");
+                verifySelectForPrestoAndHive("SELECT customer, purchases, address FROM " + targetTable, "TRUE", row("Aaron", 5, "Adelphi"), row("Bill", 7, "Antioch"));
+            });
+        });
+    }
+
+    @DataProvider
+    public Object[][] partitionedBucketedFailure()
+    {
+        return new Object[][] {
+                {"CREATE TABLE %s (customer STRING, purchases INT, address STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')"},
+                {"CREATE TABLE %s (customer STRING, purchases INT, address STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')"},
+                {"CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) STORED AS ORC TBLPROPERTIES ('transactional'='true')"},
+                {"CREATE TABLE %s (customer STRING, purchases INT) PARTITIONED BY (address STRING) CLUSTERED BY (customer) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')"},
+                {"CREATE TABLE %s (purchases INT, address STRING) PARTITIONED BY (customer STRING) CLUSTERED BY (address) INTO 3 BUCKETS STORED AS ORC TBLPROPERTIES ('transactional'='true')"}
+        };
+    }
+
     @DataProvider
     public Object[][] insertersProvider()
     {
@@ -1607,13 +2021,13 @@ public class TestHiveTransactionalTable
         }
     }
 
-    private static void verifySelectForPrestoAndHive(String select, String whereClause, QueryAssert.Row... rows)
+    private static void verifySelectForPrestoAndHive(String select, String whereClause, Row... rows)
     {
         verifySelect("onPresto", onTrino(), select, whereClause, rows);
         verifySelect("onHive", onHive(), select, whereClause, rows);
     }
 
-    private static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, QueryAssert.Row... rows)
+    private static void verifySelect(String name, QueryExecutor executor, String select, String whereClause, Row... rows)
     {
         String fullQuery = format("%s WHERE %s", select, whereClause);
 

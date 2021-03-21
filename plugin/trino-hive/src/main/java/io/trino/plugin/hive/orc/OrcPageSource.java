@@ -233,6 +233,11 @@ public class OrcPageSource
         {
             return new UpdatedRowAdaptation(updateProcessor, dependencyColumns);
         }
+
+        static ColumnAdaptation mergedRowColumns()
+        {
+            return new MergedRowAdaptation();
+        }
     }
 
     private static class NullColumn
@@ -356,6 +361,33 @@ public class OrcPageSource
         public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
         {
             return updateProcessor.createUpdateRowBlock(sourcePage, nonUpdatedSourceChannels, maskDeletedRowsFunction);
+        }
+    }
+
+    /**
+     * This ColumnAdaptation creates a RowBlock column containing the three
+     * ACID columms - - originalTransaction, rowId, bucket - - and
+     * then all the partition columns
+     */
+    private static final class MergedRowAdaptation
+            implements ColumnAdaptation
+    {
+        @Override
+        public Block block(Page page, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition)
+        {
+            requireNonNull(page, "page is null");
+            int acidBlocks = 3;
+
+            Block[] blocks = new Block[acidBlocks];
+            blocks[ORIGINAL_TRANSACTION_CHANNEL] = page.getBlock(ORIGINAL_TRANSACTION_CHANNEL);
+            blocks[ROW_ID_CHANNEL] = page.getBlock(ROW_ID_CHANNEL);
+            blocks[BUCKET_CHANNEL] = page.getBlock(BUCKET_CHANNEL);
+
+            Block block = maskDeletedRowsFunction.apply(fromFieldBlocks(
+                    page.getPositionCount(),
+                    Optional.empty(),
+                    blocks));
+            return block;
         }
     }
 

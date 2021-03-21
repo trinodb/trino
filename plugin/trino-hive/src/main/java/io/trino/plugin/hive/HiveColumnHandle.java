@@ -15,24 +15,31 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.Sets;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.MergeCaseDetails;
+import io.trino.spi.connector.MergeCaseKind;
+import io.trino.spi.connector.MergeDetails;
 import io.trino.spi.type.Type;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.HiveUpdateProcessor.getUpdateRowIdColumnHandle;
+import static io.trino.plugin.hive.HiveUpdateProcessor.getRowIdColumnHandleForNonUpdatedColumns;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_ROW_ID_ROW_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -265,7 +272,34 @@ public class HiveColumnHandle
         List<HiveColumnHandle> nonUpdatedColumnHandles = columnHandles.stream()
                 .filter(column -> !column.isPartitionKey() && !column.isHidden() && !updatedColumns.contains(column))
                 .collect(toImmutableList());
-        return getUpdateRowIdColumnHandle(nonUpdatedColumnHandles);
+        return getRowIdColumnHandleForNonUpdatedColumns(nonUpdatedColumnHandles);
+    }
+
+    public static HiveColumnHandle mergeRowIdColumnHandle()
+    {
+        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, UPDATE_ROW_ID_COLUMN_INDEX, toHiveType(ACID_ROW_ID_ROW_TYPE), ACID_ROW_ID_ROW_TYPE, SYNTHESIZED, Optional.empty());
+    }
+
+    /**
+     * Return union of all columns not updated in some merge case
+     * @param allColumns All table data columns, in table column order
+     * @param mergeDetails A MergeDetails instance
+     * @return the list of all columns updated in _some_ merge case but not
+     * updated in other(s), in table column order.
+     */
+    public static List<HiveColumnHandle> computeNonUpdatedColumns(List<HiveColumnHandle> allColumns, MergeDetails mergeDetails)
+    {
+        Set<String> allColumnsNotUpdated = new HashSet<>();
+        Set<String> allColumnNames = allColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
+        for (MergeCaseDetails mergeCase : mergeDetails.getCases()) {
+            if (mergeCase.getCaseKind() != MergeCaseKind.DELETE) {
+                allColumnsNotUpdated.addAll(Sets.difference(allColumnNames, mergeCase.getUpdatedColumns()));
+            }
+        }
+
+        return allColumns.stream()
+                .filter(column -> allColumnsNotUpdated.contains(column.getName()))
+                .collect(toImmutableList());
     }
 
     public static HiveColumnHandle pathColumnHandle()

@@ -32,7 +32,7 @@ public class PartitionAndStatementId
     private final String partitionName;
     private final int statementId;
     private final long rowCount;
-    private final String deleteDeltaDirectory;
+    private final Optional<String> deleteDeltaDirectory;
     private final Optional<String> deltaDirectory;
 
     @JsonCreator
@@ -40,7 +40,7 @@ public class PartitionAndStatementId
             @JsonProperty("partitionName") String partitionName,
             @JsonProperty("statementId") int statementId,
             @JsonProperty("rowCount") long rowCount,
-            @JsonProperty("deleteDeltaDirectory") String deleteDeltaDirectory,
+            @JsonProperty("deleteDeltaDirectory") Optional<String> deleteDeltaDirectory,
             @JsonProperty("deltaDirectory") Optional<String> deltaDirectory)
     {
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
@@ -69,7 +69,7 @@ public class PartitionAndStatementId
     }
 
     @JsonProperty
-    public String getDeleteDeltaDirectory()
+    public Optional<String> getDeleteDeltaDirectory()
     {
         return deleteDeltaDirectory;
     }
@@ -83,9 +83,10 @@ public class PartitionAndStatementId
     @JsonIgnore
     public List<String> getAllDirectories()
     {
-        return deltaDirectory
-                .map(directory -> ImmutableList.of(deleteDeltaDirectory, directory))
-                .orElseGet(() -> ImmutableList.of(deleteDeltaDirectory));
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        deltaDirectory.ifPresent(builder::add);
+        deleteDeltaDirectory.ifPresent(builder::add);
+        return builder.build();
     }
 
     @Override

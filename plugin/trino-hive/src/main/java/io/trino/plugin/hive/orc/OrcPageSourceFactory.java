@@ -96,6 +96,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isOrcBloomFiltersEnable
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
+import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.mergedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.util.HiveUtil.isDeserializerClass;
@@ -411,6 +412,9 @@ public class OrcPageSourceFactory
                         .filter(HiveColumnHandle::isBaseColumn)
                         .collect(toImmutableList());
                 columnAdaptations.add(updatedRowColumns(updateProcessor, dependencyColumns));
+            }
+            else if (transaction.isMerge()) {
+                columnAdaptations.add(mergedRowColumns());
             }
 
             return new OrcPageSource(
