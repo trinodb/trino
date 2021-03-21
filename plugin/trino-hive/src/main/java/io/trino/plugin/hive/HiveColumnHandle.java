@@ -36,7 +36,7 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.hive.HiveType.toHiveType;
-import static io.trino.plugin.hive.HiveUpdateProcessor.getUpdateRowIdColumnHandle;
+import static io.trino.plugin.hive.HiveUpdateProcessor.getRowIdColumnHandleForNonUpdatedColumns;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_ROW_ID_ROW_TYPE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -271,7 +271,12 @@ public class HiveColumnHandle
         List<HiveColumnHandle> nonUpdatedColumnHandles = columnHandles.stream()
                 .filter(column -> !column.isPartitionKey() && !column.isHidden() && !updatedColumns.contains(column))
                 .collect(toImmutableList());
-        return getUpdateRowIdColumnHandle(nonUpdatedColumnHandles);
+        return getRowIdColumnHandleForNonUpdatedColumns(nonUpdatedColumnHandles);
+    }
+
+    public static HiveColumnHandle mergeRowIdColumnHandle()
+    {
+        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, UPDATE_ROW_ID_COLUMN_INDEX, toHiveType(ACID_ROW_ID_ROW_TYPE), ACID_ROW_ID_ROW_TYPE, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
