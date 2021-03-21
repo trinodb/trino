@@ -170,7 +170,7 @@ public final class KuduTableProperties
         @SuppressWarnings("unchecked")
         List<String> hashColumns = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS);
         @SuppressWarnings("unchecked")
-        List<String> hashColumns2 = (List<String>) tableProperties.get(PARTITION_BY_HASH_COLUMNS_2);
+        List<String> hashColumns2 = (List<String>) tableProperties.getOrDefault(PARTITION_BY_HASH_COLUMNS_2, ImmutableList.of());
 
         PartitionDesign design = new PartitionDesign();
         if (!hashColumns.isEmpty()) {
