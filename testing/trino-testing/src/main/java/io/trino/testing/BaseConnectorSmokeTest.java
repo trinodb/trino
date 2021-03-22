@@ -14,11 +14,14 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
@@ -42,11 +45,72 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseConnectorSmokeTest
         extends AbstractTestQueryFramework
 {
+    private static final Logger LOG = Logger.get(BaseConnectorSmokeTest.class);
+
     protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(NATION, REGION);
 
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return connectorBehavior.hasBehaviorByDefault(this::hasBehavior);
+    }
+
+    /**
+     * Get a {@code SqlExecutor} that allows table and schema creation.
+     *
+     * <p>If an empty optional is returned, tests will attempt to use {@link
+     * #getQueryRunner()} instead, if the connector allows table/schema
+     * creation.
+     *
+     * <p>To override behavior for individual types of statements, see
+     * {@link #createTableAs(String, String)},
+     * {@link #createTableAs(String, String)}, and {@link #dropTable(String)}.
+     */
+    protected Optional<SqlExecutor> getSqlExecutor()
+    {
+        return Optional.empty();
+    }
+
+    private SqlExecutor allowing(TestingConnectorBehavior requiredBehavior)
+    {
+        return getSqlExecutor()
+                .orElseGet(() -> {
+                    if (hasBehavior(requiredBehavior)) {
+                        return getQueryRunner()::execute;
+                    }
+                    throw new Error(format("Cannot run test on a connector without %s. Either override "
+                            + "withCreation() or the test in a connector-specific way.", requiredBehavior));
+                });
+    }
+
+    protected void createTable(String tableName, String definition)
+    {
+        try {
+            allowing(SUPPORTS_CREATE_TABLE).execute(format("CREATE TABLE %s %s", tableName, definition));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(format("Unable to create table '%s'", tableName), e);
+        }
+    }
+
+    protected void createTableAs(String tableName, String query)
+    {
+        try {
+            allowing(SUPPORTS_CREATE_TABLE_WITH_DATA).execute(format("CREATE TABLE %s AS %s", tableName, query));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(format("Unable to create table '%s' with CTAS", tableName), e);
+        }
+    }
+
+    protected void dropTable(String tableName)
+    {
+        try {
+            allowing(SUPPORTS_CREATE_TABLE).execute("DROP TABLE " + tableName);
+        }
+        catch (Exception e) {
+            // Don't fail tests if only cleanup fails
+            LOG.warn("Unable to drop table %s: %s", tableName, e);
+        }
     }
 
     /**
@@ -126,7 +190,7 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double)");
         assertThat(query("SELECT a, b FROM " + tableName))
                 .returnsEmptyResult();
-        assertUpdate("DROP TABLE " + tableName);
+        dropTable(tableName);
     }
 
     @Test
@@ -141,7 +205,7 @@ public abstract class BaseConnectorSmokeTest
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b", 1);
         assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
                 .matches("VALUES (BIGINT '42', -385e-1)");
-        assertUpdate("DROP TABLE " + tableName);
+        dropTable(tableName);
     }
 
     @Test
@@ -152,16 +216,12 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            throw new AssertionError("Cannot test INSERT without CREATE TABLE, the test needs to be implemented in a connector-specific way");
-        }
-
         String tableName = "test_create_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double)");
+        createTable(tableName, "(a bigint, b double)");
         assertUpdate("INSERT INTO " + tableName + " (a, b) VALUES (42, -38.5)", 1);
         assertThat(query("SELECT CAST(a AS bigint), b FROM " + tableName))
                 .matches("VALUES (BIGINT '42', -385e-1)");
-        assertUpdate("DROP TABLE " + tableName);
+        dropTable(tableName);
     }
 
     @Test
@@ -178,7 +238,7 @@ public abstract class BaseConnectorSmokeTest
         }
 
         String tableName = "test_delete_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM region", 5);
+        createTableAs(tableName, "SELECT * FROM region");
 
         // delete half the table, then delete the rest
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey = 2", 1);
@@ -186,7 +246,7 @@ public abstract class BaseConnectorSmokeTest
                 .skippingTypesCheck()
                 .matches("VALUES 1, 3, 4, 5");
 
-        assertUpdate("DROP TABLE " + tableName);
+        dropTable(tableName);
     }
 
     @Test
@@ -215,12 +275,8 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            throw new AssertionError("Cannot test ALTER TABLE RENAME without CREATE TABLE, the test needs to be implemented in a connector-specific way");
-        }
-
         String oldTable = "test_rename_old_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+        createTable(oldTable, "(a bigint, b double)");
 
         String newTable = "test_rename_new_" + randomTableSuffix();
         assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
@@ -236,7 +292,7 @@ public abstract class BaseConnectorSmokeTest
                     .matches("VALUES (BIGINT '42', -385e-1)");
         }
 
-        assertUpdate("DROP TABLE " + newTable);
+        dropTable(newTable);
         assertThat(query("SHOW TABLES LIKE '" + newTable + "'"))
                 .returnsEmptyResult();
     }
@@ -252,19 +308,16 @@ public abstract class BaseConnectorSmokeTest
             return;
         }
 
-        if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE SCHEMA, the test needs to be implemented in a connector-specific way");
-        }
-
-        if (!hasBehavior(SUPPORTS_CREATE_TABLE)) {
-            throw new AssertionError("Cannot test ALTER TABLE RENAME across schemas without CREATE TABLE, the test needs to be implemented in a connector-specific way");
-        }
-
         String oldTable = "test_rename_old_" + randomTableSuffix();
-        assertUpdate("CREATE TABLE " + oldTable + " (a bigint, b double)");
+        createTable(oldTable, "(a bigint, b double)");
 
         String schemaName = "test_schema_" + randomTableSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
+        try {
+            allowing(SUPPORTS_CREATE_SCHEMA).execute("CREATE SCHEMA " + schemaName);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(format("Failed to create schema '%s'", schemaName), e);
+        }
 
         String newTable = schemaName + ".test_rename_new_" + randomTableSuffix();
         assertUpdate("ALTER TABLE " + oldTable + " RENAME TO " + newTable);
@@ -280,11 +333,16 @@ public abstract class BaseConnectorSmokeTest
                     .matches("VALUES (BIGINT '42', -385e-1)");
         }
 
-        assertUpdate("DROP TABLE " + newTable);
+        dropTable("DROP TABLE " + newTable);
         assertThat(query("SHOW TABLES LIKE '" + newTable + "'"))
                 .returnsEmptyResult();
 
-        assertUpdate("DROP SCHEMA " + schemaName);
+        try {
+            allowing(SUPPORTS_CREATE_SCHEMA).execute("DROP SCHEMA " + schemaName);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(format("Failed to drop schema '%s'", schemaName), e);
+        }
     }
 
     @Test
