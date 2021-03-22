@@ -21,7 +21,6 @@ import io.trino.spi.connector.ConnectorPartitionHandle;
 
 import javax.annotation.Nullable;
 
-import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -68,11 +67,5 @@ public class SampledSplitSource
     public boolean isFinished()
     {
         return splitSource.isFinished();
-    }
-
-    @Override
-    public Optional<Integer> getMinScheduleSplitBatchSize()
-    {
-        return splitSource.getMinScheduleSplitBatchSize();
     }
 }
