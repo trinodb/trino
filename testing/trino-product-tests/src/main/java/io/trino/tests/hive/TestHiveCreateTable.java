@@ -31,7 +31,7 @@ import static io.trino.tests.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_ISSUE;
 import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE_MATCH;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.util.Objects.requireNonNull;
 
 public class TestHiveCreateTable
@@ -42,12 +42,12 @@ public class TestHiveCreateTable
     public void testCreateTable()
             throws SQLException
     {
-        onPresto().executeQuery("CREATE TABLE test_create_table(a bigint, b varchar, c smallint) WITH (format='ORC')");
-        onPresto().executeQuery("INSERT INTO test_create_table(a, b, c) VALUES " +
+        onTrino().executeQuery("CREATE TABLE test_create_table(a bigint, b varchar, c smallint) WITH (format='ORC')");
+        onTrino().executeQuery("INSERT INTO test_create_table(a, b, c) VALUES " +
                 "(NULL, NULL, NULL), " +
                 "(-42, 'abc', SMALLINT '-127'), " +
                 "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz', SMALLINT '32767')");
-        assertThat(onPresto().executeQuery("SELECT * FROM test_create_table"))
+        assertThat(onTrino().executeQuery("SELECT * FROM test_create_table"))
                 .containsOnly(
                         row(null, null, null),
                         row(-42, "abc", -127),
@@ -55,7 +55,7 @@ public class TestHiveCreateTable
         Assertions.assertThat(getTableProperty("test_create_table", "transactional"))
                 // Hive 3 removes "transactional" table property when it has value "false"
                 .isIn(Optional.empty(), Optional.of("false"));
-        onPresto().executeQuery("DROP TABLE test_create_table");
+        onTrino().executeQuery("DROP TABLE test_create_table");
     }
 
     @Test(groups = STORAGE_FORMATS)
@@ -63,14 +63,14 @@ public class TestHiveCreateTable
     public void testCreateTableAsSelect()
             throws SQLException
     {
-        onPresto().executeQuery("" +
+        onTrino().executeQuery("" +
                 "CREATE TABLE test_create_table_as_select WITH (format='ORC') AS " +
                 "SELECT * FROM (VALUES " +
                 "  (NULL, NULL, NULL), " +
                 "  (-42, 'abc', SMALLINT '-127'), " +
                 "  (9223372036854775807, 'abcdefghijklmnopqrstuvwxyz', SMALLINT '32767')" +
                 ") t(a, b, c)");
-        assertThat(onPresto().executeQuery("SELECT * FROM test_create_table_as_select"))
+        assertThat(onTrino().executeQuery("SELECT * FROM test_create_table_as_select"))
                 .containsOnly(
                         row(null, null, null),
                         row(-42, "abc", -127),
@@ -78,7 +78,7 @@ public class TestHiveCreateTable
         Assertions.assertThat(getTableProperty("test_create_table_as_select", "transactional"))
                 // Hive 3 removes "transactional" table property when it has value "false"
                 .isIn(Optional.empty(), Optional.of("false"));
-        onPresto().executeQuery("DROP TABLE test_create_table_as_select");
+        onTrino().executeQuery("DROP TABLE test_create_table_as_select");
     }
 
     @Test(groups = {HDP3_ONLY, PROFILE_SPECIFIC_TESTS})

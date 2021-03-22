@@ -23,8 +23,8 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.HIVE_SPARK_BUCKETING;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tests.utils.QueryExecutors.onSpark;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestSparkCompatibility
@@ -73,7 +73,7 @@ public class TestSparkCompatibility
         QueryResult sparkSelect = onSpark().executeQuery(format("%s FROM %s", startOfSelect, baseTableName));
         assertThat(sparkSelect).containsOnly(row1, row2, row3, row4);
 
-        QueryResult trinoSelect = onPresto().executeQuery(format("%s FROM %s", startOfSelect, format("%s.default.%s", TRINO_CATALOG, baseTableName)));
+        QueryResult trinoSelect = onTrino().executeQuery(format("%s FROM %s", startOfSelect, format("%s.default.%s", TRINO_CATALOG, baseTableName)));
         assertThat(trinoSelect).containsOnly(row1, row2, row3, row4);
 
         String trinoTableDefinition =
@@ -88,10 +88,10 @@ public class TestSparkCompatibility
                         "WITH (\n" +
                         "   format = 'ORC'\n" +
                         ")";
-        assertThat(onPresto().executeQuery(format("SHOW CREATE TABLE %s.default.%s", TRINO_CATALOG, baseTableName)))
+        assertThat(onTrino().executeQuery(format("SHOW CREATE TABLE %s.default.%s", TRINO_CATALOG, baseTableName)))
                 .containsOnly(row(format(trinoTableDefinition, TRINO_CATALOG, baseTableName)));
 
-        assertThat(() -> onPresto().executeQuery(format("%s, \"$bucket\" FROM %s", startOfSelect, format("%s.default.%s", TRINO_CATALOG, baseTableName))))
+        assertThat(() -> onTrino().executeQuery(format("%s, \"$bucket\" FROM %s", startOfSelect, format("%s.default.%s", TRINO_CATALOG, baseTableName))))
                 .failsWithMessage("Column '$bucket' cannot be resolved");
 
         onSpark().executeQuery("DROP TABLE " + baseTableName);

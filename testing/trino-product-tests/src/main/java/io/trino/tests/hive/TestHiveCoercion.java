@@ -58,7 +58,7 @@ import static io.trino.tests.TestGroups.HIVE_COERCION;
 import static io.trino.tests.TestGroups.JDBC;
 import static io.trino.tests.hive.TestHiveCoercion.ColumnContext.columnContext;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.ARRAY;
 import static java.sql.JDBCType.BIGINT;
@@ -850,7 +850,7 @@ public class TestHiveCoercion
             case HIVE:
                 return onHive();
             case PRESTO:
-                return onPresto();
+                return onTrino();
         }
         throw new IllegalStateException("Unknown enum value " + engine);
     }

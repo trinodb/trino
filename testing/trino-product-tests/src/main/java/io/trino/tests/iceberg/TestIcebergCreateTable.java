@@ -24,7 +24,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.ICEBERG;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 
 public class TestIcebergCreateTable
         extends ProductTest
@@ -33,13 +33,13 @@ public class TestIcebergCreateTable
     public void setUp()
     {
         // Use IF NOT EXISTS because the schema can be left behind after previous test, as the tests are @Flaky
-        onPresto().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.iceberg");
+        onTrino().executeQuery("CREATE SCHEMA IF NOT EXISTS iceberg.iceberg");
     }
 
     @AfterTestWithContext
     public void cleanUp()
     {
-        onPresto().executeQuery("DROP SCHEMA iceberg.iceberg");
+        onTrino().executeQuery("DROP SCHEMA iceberg.iceberg");
     }
 
     @Test(groups = {ICEBERG, STORAGE_FORMATS})
@@ -47,20 +47,20 @@ public class TestIcebergCreateTable
     public void testCreateTable()
     {
         String tableName = "iceberg.iceberg.test_create_table_" + randomTableSuffix();
-        onPresto().executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
+        onTrino().executeQuery("CREATE TABLE " + tableName + "(a bigint, b varchar)");
         try {
-            onPresto().executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
+            onTrino().executeQuery("INSERT INTO " + tableName + "(a, b) VALUES " +
                     "(NULL, NULL), " +
                     "(-42, 'abc'), " +
                     "(9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')");
-            assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
                     .containsOnly(
                             row(null, null),
                             row(-42, "abc"),
                             row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
         }
         finally {
-            onPresto().executeQuery("DROP TABLE " + tableName);
+            onTrino().executeQuery("DROP TABLE " + tableName);
         }
     }
 
@@ -69,7 +69,7 @@ public class TestIcebergCreateTable
     public void testCreateTableAsSelect()
     {
         String tableName = "iceberg.iceberg.test_create_table_as_select_" + randomTableSuffix();
-        onPresto().executeQuery("" +
+        onTrino().executeQuery("" +
                 "CREATE TABLE " + tableName + " AS " +
                 "SELECT * FROM (VALUES " +
                 "  (NULL, NULL), " +
@@ -77,14 +77,14 @@ public class TestIcebergCreateTable
                 "  (9223372036854775807, 'abcdefghijklmnopqrstuvwxyz')" +
                 ") t(a, b)");
         try {
-            assertThat(onPresto().executeQuery("SELECT * FROM " + tableName))
+            assertThat(onTrino().executeQuery("SELECT * FROM " + tableName))
                     .containsOnly(
                             row(null, null),
                             row(-42, "abc"),
                             row(9223372036854775807L, "abcdefghijklmnopqrstuvwxyz"));
         }
         finally {
-            onPresto().executeQuery("DROP TABLE " + tableName);
+            onTrino().executeQuery("DROP TABLE " + tableName);
         }
     }
 }

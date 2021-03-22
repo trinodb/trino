@@ -21,7 +21,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 
 public class TestHiveMaterializedView
         extends HiveProductTest
@@ -69,10 +69,10 @@ public class TestHiveMaterializedView
             return;
         }
 
-        assertThat(onPresto().executeQuery("SHOW TABLES"))
+        assertThat(onTrino().executeQuery("SHOW TABLES"))
                 .contains(row("test_materialized_view_table"), row("test_materialized_view_view"));
 
-        assertThat(onPresto().executeQuery("SHOW COLUMNS FROM test_materialized_view_view"))
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM test_materialized_view_view"))
                 .containsOnly(
                         row("c", "bigint", "", ""),
                         row("x", "varchar", "partition key", ""));
@@ -85,10 +85,10 @@ public class TestHiveMaterializedView
             return;
         }
 
-        assertThat(onPresto().executeQuery("SELECT x, c FROM test_materialized_view_view"))
+        assertThat(onTrino().executeQuery("SELECT x, c FROM test_materialized_view_view"))
                 .containsOnly(row("a", 2), row("b", 1));
 
-        assertThat(onPresto().executeQuery("SELECT x, c FROM test_materialized_view_view WHERE x = 'a'"))
+        assertThat(onTrino().executeQuery("SELECT x, c FROM test_materialized_view_view WHERE x = 'a'"))
                 .containsOnly(row("a", 2));
     }
 
@@ -99,7 +99,7 @@ public class TestHiveMaterializedView
             return;
         }
 
-        assertThat(() -> onPresto().executeQuery("INSERT INTO test_materialized_view_view(x, c) VALUES ('x', 42)"))
+        assertThat(() -> onTrino().executeQuery("INSERT INTO test_materialized_view_view(x, c) VALUES ('x', 42)"))
                 .failsWithMessage("Cannot write to Hive materialized view");
     }
 }

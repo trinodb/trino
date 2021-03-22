@@ -17,7 +17,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 
 public class TestHiveDeltaLakeTable
         extends HiveProductTest
@@ -31,7 +31,7 @@ public class TestHiveDeltaLakeTable
                 "CREATE TABLE test_delta_lake_table (ignored int) " +
                 "TBLPROPERTIES ('spark.sql.sources.provider'='DELTA')");
 
-        assertThat(() -> onPresto().executeQuery("SELECT * FROM test_delta_lake_table")).failsWithMessage("Cannot query Delta Lake table");
+        assertThat(() -> onTrino().executeQuery("SELECT * FROM test_delta_lake_table")).failsWithMessage("Cannot query Delta Lake table");
 
         onHive().executeQuery("DROP TABLE test_delta_lake_table");
     }

@@ -33,7 +33,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.AVRO;
 import static io.trino.tests.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.nio.file.Files.newInputStream;
 
@@ -98,7 +98,7 @@ public class TestAvroSchemaUrl
         onHive().executeQuery("INSERT INTO test_avro_schema_url_hive VALUES ('some text', 123042)");
 
         assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_hive")).containsExactly(row("some text", 123042));
-        assertThat(onPresto().executeQuery("SELECT * FROM test_avro_schema_url_hive")).containsExactly(row("some text", 123042));
+        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_hive")).containsExactly(row("some text", 123042));
 
         onHive().executeQuery("DROP TABLE test_avro_schema_url_hive");
     }
@@ -120,12 +120,12 @@ public class TestAvroSchemaUrl
                         "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat' ",
                 schemaLocationOnHdfs));
 
-        assertThat(onPresto().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
                 .containsExactly(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "integer", "", ""));
 
-        assertThat(() -> onPresto().executeQuery("ALTER TABLE test_avro_schema_url_in_serde_properties ADD COLUMN new_dummy_col varchar"))
+        assertThat(() -> onTrino().executeQuery("ALTER TABLE test_avro_schema_url_in_serde_properties ADD COLUMN new_dummy_col varchar"))
                 .failsWithMessage("ALTER TABLE not supported when Avro schema url is set");
 
         onHive().executeQuery("INSERT INTO test_avro_schema_url_in_serde_properties VALUES ('some text', 2147483635)");
@@ -134,12 +134,12 @@ public class TestAvroSchemaUrl
         // We need to change the schema to test that current schema is used by Presto, not a snapshot saved during CREATE TABLE.
         saveResourceOnHdfs("avro/change_column_type_schema.avsc", schemaLocationOnHdfs);
 
-        assertThat(onPresto().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
+        assertThat(onTrino().executeQuery("SHOW COLUMNS FROM test_avro_schema_url_in_serde_properties"))
                 .containsExactly(
                         row("string_col", "varchar", "", ""),
                         row("int_col", "bigint", "", ""));
 
-        assertThat(onPresto().executeQuery("SELECT * FROM test_avro_schema_url_in_serde_properties"))
+        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_in_serde_properties"))
                 .containsExactly(row("some text", 2147483635L));
 
         onHive().executeQuery("DROP TABLE test_avro_schema_url_in_serde_properties");
@@ -148,30 +148,30 @@ public class TestAvroSchemaUrl
     @Test(dataProvider = "avroSchemaLocations", groups = {AVRO, STORAGE_FORMATS})
     public void testPrestoCreatedTable(String schemaLocation)
     {
-        onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");
-        onPresto().executeQuery(format("CREATE TABLE test_avro_schema_url_presto (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')", schemaLocation));
-        onPresto().executeQuery("INSERT INTO test_avro_schema_url_presto VALUES ('some text', 123042)");
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_presto");
+        onTrino().executeQuery(format("CREATE TABLE test_avro_schema_url_presto (dummy_col VARCHAR) WITH (format='AVRO', avro_schema_url='%s')", schemaLocation));
+        onTrino().executeQuery("INSERT INTO test_avro_schema_url_presto VALUES ('some text', 123042)");
 
         assertThat(onHive().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactly(row("some text", 123042));
-        assertThat(onPresto().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactly(row("some text", 123042));
+        assertThat(onTrino().executeQuery("SELECT * FROM test_avro_schema_url_presto")).containsExactly(row("some text", 123042));
 
-        onPresto().executeQuery("DROP TABLE test_avro_schema_url_presto");
+        onTrino().executeQuery("DROP TABLE test_avro_schema_url_presto");
     }
 
     @Test(groups = {AVRO, STORAGE_FORMATS})
     public void testTableWithLongColumnType()
     {
-        onPresto().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_long_column");
-        onPresto().executeQuery(
+        onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_long_column");
+        onTrino().executeQuery(
                 "CREATE TABLE test_avro_schema_url_long_column (dummy_col VARCHAR)" +
                         " WITH (format='AVRO', avro_schema_url='/user/hive/warehouse/TestAvroSchemaUrl/schemas/column_with_long_type_definition_schema.avsc')");
         onHive().executeQuery(
                 "LOAD DATA INPATH '/user/hive/warehouse/TestAvroSchemaUrl/data/column_with_long_type_definition_data.avro' " +
                         "INTO TABLE test_avro_schema_url_long_column");
 
-        assertThat(onPresto().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_avro_schema_url_long_column'"))
+        assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_avro_schema_url_long_column'"))
                 .containsOnly(row("string_col"), row("long_record"));
-        assertThat(onPresto().executeQuery("" +
+        assertThat(onTrino().executeQuery("" +
                 "SELECT " +
                 "  string_col, " +
                 "  long_record.record_field, " +
@@ -184,7 +184,7 @@ public class TestAvroSchemaUrl
                         "val422",
                         "... \",\"val498\",\"val499\"]"));
 
-        onPresto().executeQuery("DROP TABLE test_avro_schema_url_long_column");
+        onTrino().executeQuery("DROP TABLE test_avro_schema_url_long_column");
     }
 
     @Test(groups = {AVRO, STORAGE_FORMATS})
@@ -211,9 +211,9 @@ public class TestAvroSchemaUrl
                 "LOAD DATA INPATH '/user/hive/warehouse/TestAvroSchemaUrl/data/column_with_long_type_definition_data.avro' " +
                         "INTO TABLE test_avro_schema_url_partitioned_long_column PARTITION(pkey='partition key value')");
 
-        assertThat(onPresto().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_avro_schema_url_partitioned_long_column'"))
+        assertThat(onTrino().executeQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_avro_schema_url_partitioned_long_column'"))
                 .containsOnly(row("pkey"), row("string_col"), row("long_record"));
-        assertThat(onPresto().executeQuery("" +
+        assertThat(onTrino().executeQuery("" +
                 "SELECT " +
                 "  pkey, " +
                 "  string_col, " +
