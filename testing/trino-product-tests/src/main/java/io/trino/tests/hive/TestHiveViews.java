@@ -25,7 +25,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Requires({
@@ -43,9 +43,9 @@ public class TestHiveViews
         onHive().executeQuery("CREATE VIEW test_list_failing_views.correct_view AS SELECT * FROM nation limit 5");
 
         // Create a view for which the translation is guaranteed to fail
-        onPresto().executeQuery("CREATE TABLE test_list_failing_views.table_dropped (col0 BIGINT)");
+        onTrino().executeQuery("CREATE TABLE test_list_failing_views.table_dropped (col0 BIGINT)");
         onHive().executeQuery("CREATE VIEW test_list_failing_views.failing_view AS SELECT * FROM test_list_failing_views.table_dropped");
-        onPresto().executeQuery("DROP TABLE test_list_failing_views.table_dropped");
+        onTrino().executeQuery("DROP TABLE test_list_failing_views.table_dropped");
 
         // The expected behavior is different across hive versions. For hive 3, the call "getTableNamesByType" is
         // used in ThriftHiveMetastore#getAllViews. For older versions, the fallback to doGetTablesWithParameter

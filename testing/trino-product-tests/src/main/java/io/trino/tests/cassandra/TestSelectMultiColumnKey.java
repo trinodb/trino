@@ -28,7 +28,7 @@ import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.cassandra.MultiColumnKeyTableDefinition.CASSANDRA_MULTI_COLUMN_KEY;
 import static io.trino.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.trino.tests.cassandra.TestConstants.KEY_SPACE;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestSelectMultiColumnKey
@@ -49,7 +49,7 @@ public class TestSelectMultiColumnKey
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("Test value 1"));
@@ -63,7 +63,7 @@ public class TestSelectMultiColumnKey
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("Test value 1"));
@@ -77,7 +77,7 @@ public class TestSelectMultiColumnKey
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("Test value 1"));
@@ -91,7 +91,7 @@ public class TestSelectMultiColumnKey
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).hasNoRows();
@@ -105,7 +105,7 @@ public class TestSelectMultiColumnKey
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("Test value 2"));
@@ -120,7 +120,7 @@ public class TestSelectMultiColumnKey
                 CONNECTOR_NAME,
                 KEY_SPACE,
                 CASSANDRA_MULTI_COLUMN_KEY.getName());
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("Test value 2"));

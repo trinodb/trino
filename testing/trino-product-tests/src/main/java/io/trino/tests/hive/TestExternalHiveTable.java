@@ -34,7 +34,7 @@ import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_BIGINT_REGIONKEY;
 import static io.trino.tests.hive.HiveTableDefinitions.NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 
 public class TestExternalHiveTable
@@ -98,7 +98,7 @@ public class TestExternalHiveTable
         TableInstance<?> nation = mutableTablesState().get(NATION.getName());
         onHive().executeQuery("DROP TABLE IF EXISTS " + EXTERNAL_TABLE_NAME);
         onHive().executeQuery("CREATE EXTERNAL TABLE " + EXTERNAL_TABLE_NAME + " LIKE " + nation.getNameInDatabase());
-        assertThat(() -> onPresto().executeQuery(
+        assertThat(() -> onTrino().executeQuery(
                 "INSERT INTO hive.default." + EXTERNAL_TABLE_NAME + " SELECT * FROM hive.default." + nation.getNameInDatabase()))
                 .failsWithMessage("Cannot write to non-managed Hive table");
     }
@@ -109,7 +109,7 @@ public class TestExternalHiveTable
         TableInstance<?> nation = mutableTablesState().get(NATION.getName());
         onHive().executeQuery("DROP TABLE IF EXISTS " + EXTERNAL_TABLE_NAME);
         onHive().executeQuery("CREATE EXTERNAL TABLE " + EXTERNAL_TABLE_NAME + " LIKE " + nation.getNameInDatabase());
-        assertThat(() -> onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME))
+        assertThat(() -> onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME))
                 .failsWithMessage("Cannot delete from non-managed Hive table");
     }
 
@@ -122,18 +122,18 @@ public class TestExternalHiveTable
         insertNationPartition(nation, 1);
         insertNationPartition(nation, 2);
         insertNationPartition(nation, 3);
-        assertThat(onPresto().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))
+        assertThat(onTrino().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))
                 .hasRowsCount(3 * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT);
 
-        assertThat(() -> onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_name IS NOT NULL"))
+        assertThat(() -> onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_name IS NOT NULL"))
                 .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
 
-        onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_regionkey = 1");
-        assertThat(onPresto().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))
+        onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME + " WHERE p_regionkey = 1");
+        assertThat(onTrino().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME))
                 .hasRowsCount(2 * NATION_PARTITIONED_BY_REGIONKEY_NUMBER_OF_LINES_PER_SPLIT);
 
-        onPresto().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME);
-        assertThat(onPresto().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME)).hasRowsCount(0);
+        onTrino().executeQuery("DELETE FROM hive.default." + EXTERNAL_TABLE_NAME);
+        assertThat(onTrino().executeQuery("SELECT * FROM " + EXTERNAL_TABLE_NAME)).hasRowsCount(0);
     }
 
     @Test(groups = {HIVE_WITH_EXTERNAL_WRITES, PROFILE_SPECIFIC_TESTS})

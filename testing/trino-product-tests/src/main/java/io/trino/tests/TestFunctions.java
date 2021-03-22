@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.FUNCTIONS;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static org.testng.Assert.assertEquals;
 
 public class TestFunctions
@@ -28,21 +28,21 @@ public class TestFunctions
     @Test(groups = FUNCTIONS)
     public void testSubstring()
     {
-        assertThat(onPresto().executeQuery("SELECT SUBSTRING('ala ma kota' from 2 for 4)")).contains(row("la m"));
-        assertThat(onPresto().executeQuery("SELECT SUBSTR('ala ma kota', 2, 4)")).contains(row("la m"));
+        assertThat(onTrino().executeQuery("SELECT SUBSTRING('ala ma kota' from 2 for 4)")).contains(row("la m"));
+        assertThat(onTrino().executeQuery("SELECT SUBSTR('ala ma kota', 2, 4)")).contains(row("la m"));
     }
 
     @Test(groups = FUNCTIONS)
     public void testPosition()
     {
-        assertThat(onPresto().executeQuery("SELECT POSITION('ma' IN 'ala ma kota')")).contains(row(5));
+        assertThat(onTrino().executeQuery("SELECT POSITION('ma' IN 'ala ma kota')")).contains(row(5));
     }
 
     @Test(groups = FUNCTIONS)
     public void testVersion()
     {
         assertEquals(
-                onPresto().executeQuery("SELECT version()").row(0).get(0),
-                onPresto().executeQuery("SELECT node_version FROM system.runtime.nodes WHERE coordinator = TRUE").row(0).get(0));
+                onTrino().executeQuery("SELECT version()").row(0).get(0),
+                onTrino().executeQuery("SELECT node_version FROM system.runtime.nodes WHERE coordinator = TRUE").row(0).get(0));
     }
 }

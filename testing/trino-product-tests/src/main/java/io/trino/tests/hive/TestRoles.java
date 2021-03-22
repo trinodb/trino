@@ -37,7 +37,7 @@ import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.TestGroups.ROLES;
 import static io.trino.tests.utils.QueryExecutors.connectToPresto;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,7 +56,7 @@ public class TestRoles
     @BeforeTestWithContext
     public void setUp()
     {
-        onPresto().executeQuery("SET ROLE admin");
+        onTrino().executeQuery("SET ROLE admin");
         onHive().executeQuery("SET ROLE admin");
         cleanup();
     }
@@ -88,7 +88,7 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateRole()
     {
-        onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));
+        onTrino().executeQuery(format("CREATE ROLE %s", ROLE1));
         assertThat(listRoles()).contains(ROLE1);
     }
 
@@ -97,16 +97,16 @@ public class TestRoles
     {
         onHive().executeQuery(format("CREATE ROLE %s", ROLE1));
         assertThat(listRoles()).contains(ROLE1);
-        onPresto().executeQuery(format("DROP ROLE %s", ROLE1));
+        onTrino().executeQuery(format("DROP ROLE %s", ROLE1));
         assertThat(listRoles()).doesNotContain(ROLE1);
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testListRoles()
     {
-        onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));
+        onTrino().executeQuery(format("CREATE ROLE %s", ROLE1));
         QueryResult expected = onHive().executeQuery("SHOW ROLES");
-        QueryResult actual = onPresto().executeQuery("SELECT * FROM hive.information_schema.roles");
+        QueryResult actual = onTrino().executeQuery("SELECT * FROM hive.information_schema.roles");
         assertThat(actual.rows()).containsOnly(expected.rows().toArray(new List[] {}));
     }
 
@@ -117,40 +117,40 @@ public class TestRoles
             throw new SkipException(""); // TODO (https://github.com/trinodb/trino/issues/1218) this currently fails on HDP 3
         }
 
-        onPresto().executeQuery("SHOW GRANTS"); // must not fail
-        onPresto().executeQuery("SELECT * FROM information_schema.table_privileges"); // must not fail
+        onTrino().executeQuery("SHOW GRANTS"); // must not fail
+        onTrino().executeQuery("SELECT * FROM information_schema.table_privileges"); // must not fail
 
-        onPresto().executeQuery("CREATE TABLE test_list_grants(c int)");
+        onTrino().executeQuery("CREATE TABLE test_list_grants(c int)");
 
-        QueryAssert.assertThat(onPresto().executeQuery("SHOW GRANTS"))
+        QueryAssert.assertThat(onTrino().executeQuery("SHOW GRANTS"))
                 .contains(
                         row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
                         row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
                         row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
                         row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
 
-        QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM information_schema.table_privileges"))
+        QueryAssert.assertThat(onTrino().executeQuery("SELECT * FROM information_schema.table_privileges"))
                 .contains(
                         row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "SELECT", "YES", null),
                         row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "INSERT", "YES", null),
                         row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "UPDATE", "YES", null),
                         row(userName, "USER", userName, "USER", "hive", "default", "test_list_grants", "DELETE", "YES", null));
 
-        onPresto().executeQuery("DROP TABLE test_list_grants");
+        onTrino().executeQuery("DROP TABLE test_list_grants");
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testCreateDuplicateRole()
     {
-        onPresto().executeQuery(format("CREATE ROLE %s", ROLE1));
-        QueryAssert.assertThat(() -> onPresto().executeQuery(format("CREATE ROLE %s", ROLE1)))
+        onTrino().executeQuery(format("CREATE ROLE %s", ROLE1));
+        QueryAssert.assertThat(() -> onTrino().executeQuery(format("CREATE ROLE %s", ROLE1)))
                 .failsWithMessage(format("Role '%s' already exists", ROLE1));
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropNonExistentRole()
     {
-        QueryAssert.assertThat(() -> onPresto().executeQuery(format("DROP ROLE %s", ROLE3)))
+        QueryAssert.assertThat(() -> onTrino().executeQuery(format("DROP ROLE %s", ROLE3)))
                 .failsWithMessage(format("Role '%s' does not exist", ROLE3));
     }
 
@@ -179,15 +179,15 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testAdminRoleIsGrantedToHdfs()
     {
-        QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
+        QueryAssert.assertThat(onTrino().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .contains(row(userName, "USER", "admin", anyOf("YES", "NO")));
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleToUser()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -197,10 +197,10 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleToRole()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -211,10 +211,10 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleWithAdminOption()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -225,16 +225,16 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRoleMultipleTimes()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1");
-        onPresto().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
-        onPresto().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1");
+        onTrino().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        onTrino().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -245,14 +245,14 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeRoleFromUser()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
                         row("alice", "USER", "role1", "NO"));
 
-        onPresto().executeQuery("REVOKE role1 FROM USER alice");
+        onTrino().executeQuery("REVOKE role1 FROM USER alice");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"));
@@ -261,17 +261,17 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeRoleFromRole()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
                         row("alice", "USER", "role1", "NO"),
                         row("role1", "ROLE", "role2", "NO"));
 
-        onPresto().executeQuery("REVOKE role2 FROM ROLE role1");
+        onTrino().executeQuery("REVOKE role2 FROM ROLE role1");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -290,7 +290,7 @@ public class TestRoles
                             row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "UPDATE", "YES", null),
                             row("alice", "USER", "alice", "USER", "hive", "default", "test_table", "INSERT", "YES", null)));
 
-            onPresto().executeQuery("REVOKE SELECT ON hive.default.test_table FROM USER alice");
+            onTrino().executeQuery("REVOKE SELECT ON hive.default.test_table FROM USER alice");
 
             // now there should be no SELECT privileges shown even though alice has OWNERSHIP
             QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.default.test_table"))
@@ -307,14 +307,14 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropGrantedRole()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
                         row("alice", "USER", "role1", "NO"));
 
-        onPresto().executeQuery("DROP ROLE role1");
+        onTrino().executeQuery("DROP ROLE role1");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"));
@@ -323,17 +323,17 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeTransitiveRoleFromUser()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
                         row("alice", "USER", "role1", "NO"),
                         row("role1", "ROLE", "role2", "NO"));
 
-        onPresto().executeQuery("REVOKE role1 FROM USER alice");
+        onTrino().executeQuery("REVOKE role1 FROM USER alice");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"));
@@ -342,12 +342,12 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeTransitiveRoleFromRole()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("CREATE ROLE role3");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1");
-        onPresto().executeQuery("GRANT role3 TO ROLE role2");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("CREATE ROLE role3");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1");
+        onTrino().executeQuery("GRANT role3 TO ROLE role2");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -355,7 +355,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "NO"),
                         row("role2", "ROLE", "role3", "NO"));
 
-        onPresto().executeQuery("REVOKE role2 FROM ROLE role1");
+        onTrino().executeQuery("REVOKE role2 FROM ROLE role1");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -365,12 +365,12 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testDropTransitiveRole()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("CREATE ROLE role3");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1");
-        onPresto().executeQuery("GRANT role3 TO ROLE role2");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("CREATE ROLE role3");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1");
+        onTrino().executeQuery("GRANT role3 TO ROLE role2");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -378,7 +378,7 @@ public class TestRoles
                         row("role1", "ROLE", "role2", "NO"),
                         row("role2", "ROLE", "role3", "NO"));
 
-        onPresto().executeQuery("DROP ROLE role2");
+        onTrino().executeQuery("DROP ROLE role2");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
@@ -388,18 +388,18 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeAdminOption()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
                         row("alice", "USER", "role1", "YES"),
                         row("role1", "ROLE", "role2", "YES"));
 
-        onPresto().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
-        onPresto().executeQuery("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
+        onTrino().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
+        onTrino().executeQuery("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
 
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
@@ -411,20 +411,20 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testRevokeMultipleTimes()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1 WITH ADMIN OPTION");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
                         row("alice", "USER", "public", "NO"),
                         row("alice", "USER", "role1", "YES"),
                         row("role1", "ROLE", "role2", "YES"));
 
-        onPresto().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
-        onPresto().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
-        onPresto().executeQuery("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
-        onPresto().executeQuery("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
+        onTrino().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
+        onTrino().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
+        onTrino().executeQuery("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
+        onTrino().executeQuery("REVOKE ADMIN OPTION FOR role2 FROM ROLE role1");
 
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
@@ -432,10 +432,10 @@ public class TestRoles
                         row("alice", "USER", "role1", "NO"),
                         row("role1", "ROLE", "role2", "NO"));
 
-        onPresto().executeQuery("REVOKE role1 FROM USER alice");
-        onPresto().executeQuery("REVOKE role1 FROM USER alice");
-        onPresto().executeQuery("REVOKE role2 FROM ROLE role1");
-        onPresto().executeQuery("REVOKE role2 FROM ROLE role1");
+        onTrino().executeQuery("REVOKE role1 FROM USER alice");
+        onTrino().executeQuery("REVOKE role1 FROM USER alice");
+        onTrino().executeQuery("REVOKE role2 FROM ROLE role1");
+        onTrino().executeQuery("REVOKE role2 FROM ROLE role1");
 
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
                 .containsOnly(
@@ -445,8 +445,8 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testGrantRevokeRoleAccessControl()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
 
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
                 .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
@@ -457,14 +457,14 @@ public class TestRoles
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
                 .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
 
-        onPresto().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
+        onTrino().executeQuery("GRANT role1 TO USER alice WITH ADMIN OPTION");
 
         onPrestoAlice().executeQuery("GRANT role1 TO USER bob");
         onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION");
         onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob");
         onPrestoAlice().executeQuery("REVOKE role1 FROM USER bob");
 
-        onPresto().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
+        onTrino().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER alice");
 
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("GRANT role1 TO USER bob"))
                 .failsWithMessage("Cannot grant roles [role1] to [USER bob]");
@@ -475,8 +475,8 @@ public class TestRoles
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("REVOKE ADMIN OPTION FOR role1 FROM USER bob"))
                 .failsWithMessage("Cannot revoke roles [role1] from [USER bob]");
 
-        onPresto().executeQuery("GRANT role2 TO USER alice");
-        onPresto().executeQuery("GRANT role1 TO ROLE role2 WITH ADMIN OPTION");
+        onTrino().executeQuery("GRANT role2 TO USER alice");
+        onTrino().executeQuery("GRANT role1 TO ROLE role2 WITH ADMIN OPTION");
 
         onPrestoAlice().executeQuery("GRANT role1 TO USER bob");
         onPrestoAlice().executeQuery("GRANT role1 TO USER bob WITH ADMIN OPTION");
@@ -498,12 +498,12 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetRole()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("CREATE ROLE role3");
-        onPresto().executeQuery("GRANT role1 TO USER alice");
-        onPresto().executeQuery("GRANT role2 TO ROLE role1");
-        onPresto().executeQuery("GRANT role3 TO ROLE role2");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("CREATE ROLE role3");
+        onTrino().executeQuery("GRANT role1 TO USER alice");
+        onTrino().executeQuery("GRANT role2 TO ROLE role1");
+        onTrino().executeQuery("GRANT role3 TO ROLE role2");
 
         onPrestoAlice().executeQuery("SET ROLE ALL");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
@@ -543,12 +543,12 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetAdminRole()
     {
-        onPresto().executeQuery("SET ROLE NONE");
-        QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+        onTrino().executeQuery("SET ROLE NONE");
+        QueryAssert.assertThat(onTrino().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
                 .containsOnly(
                         row("public"));
-        onPresto().executeQuery("SET ROLE admin");
-        QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
+        onTrino().executeQuery("SET ROLE admin");
+        QueryAssert.assertThat(onTrino().executeQuery("SELECT * FROM hive.information_schema.enabled_roles"))
                 .containsOnly(
                         row("public"),
                         row("admin"));
@@ -557,19 +557,19 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowRoles()
     {
-        QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLES"))
+        QueryAssert.assertThat(onTrino().executeQuery("SHOW ROLES"))
                 .containsOnly(
                         row("public"),
                         row("admin"));
-        onPresto().executeQuery("CREATE ROLE role1");
-        QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLES"))
+        onTrino().executeQuery("CREATE ROLE role1");
+        QueryAssert.assertThat(onTrino().executeQuery("SHOW ROLES"))
                 .containsOnly(
                         row("public"),
                         row("admin"),
                         row("role1"));
         QueryAssert.assertThat(() -> onPrestoAlice().executeQuery("SHOW ROLES"))
                 .failsWithMessage("Cannot show roles from catalog hive");
-        onPresto().executeQuery("GRANT admin TO alice");
+        onTrino().executeQuery("GRANT admin TO alice");
         onPrestoAlice().executeQuery("SET ROLE admin");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW ROLES"))
                 .containsOnly(
@@ -584,10 +584,10 @@ public class TestRoles
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW CURRENT ROLES"))
                 .containsOnly(
                         row("public"));
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO alice");
-        onPresto().executeQuery("GRANT role2 TO alice");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO alice");
+        onTrino().executeQuery("GRANT role2 TO alice");
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW CURRENT ROLES"))
                 .containsOnly(
                         row("public"),
@@ -603,18 +603,18 @@ public class TestRoles
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testShowRoleGrants()
     {
-        QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLE GRANTS"))
+        QueryAssert.assertThat(onTrino().executeQuery("SHOW ROLE GRANTS"))
                 .containsOnly(
                         row("public"),
                         row("admin"));
         QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW ROLE GRANTS"))
                 .containsOnly(
                         row("public"));
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
-        onPresto().executeQuery("GRANT role1 TO alice");
-        onPresto().executeQuery("GRANT role2 TO role1");
-        QueryAssert.assertThat(onPresto().executeQuery("SHOW ROLE GRANTS"))
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("GRANT role1 TO alice");
+        onTrino().executeQuery("GRANT role2 TO role1");
+        QueryAssert.assertThat(onTrino().executeQuery("SHOW ROLE GRANTS"))
                 .containsOnly(
                         row("public"),
                         row("admin"));
@@ -628,7 +628,7 @@ public class TestRoles
     public void testSetRoleCreateDropSchema()
     {
         assertAdminExecute("CREATE SCHEMA hive.test_admin_schema");
-        onPresto().executeQuery("DROP SCHEMA hive.test_admin_schema");
+        onTrino().executeQuery("DROP SCHEMA hive.test_admin_schema");
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
@@ -668,7 +668,7 @@ public class TestRoles
         try {
             onPrestoBob().executeQuery("CREATE TABLE hive.default.test_table_bob (foo BIGINT)");
             onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table_alice (foo BIGINT)");
-            onPresto().executeQuery("GRANT admin TO alice");
+            onTrino().executeQuery("GRANT admin TO alice");
             onPrestoAlice().executeQuery("SET ROLE ADMIN");
 
             QueryAssert.assertThat(onPrestoAlice().executeQuery("SHOW GRANTS ON hive.default.test_table_alice"))
@@ -700,7 +700,7 @@ public class TestRoles
         finally {
             onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_alice");
             onPrestoBob().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_bob");
-            onPresto().executeQuery("REVOKE admin FROM alice");
+            onTrino().executeQuery("REVOKE admin FROM alice");
         }
     }
 
@@ -709,8 +709,8 @@ public class TestRoles
     {
         try {
             onPrestoBob().executeQuery("CREATE TABLE hive.default.test_table_bob (foo BIGINT)");
-            onPresto().executeQuery("CREATE SCHEMA hive.test");
-            onPresto().executeQuery("GRANT admin TO alice");
+            onTrino().executeQuery("CREATE SCHEMA hive.test");
+            onTrino().executeQuery("GRANT admin TO alice");
             onPrestoAlice().executeQuery("SET ROLE ADMIN");
             onPrestoAlice().executeQuery("CREATE TABLE hive.test.test_table_bob (foo BIGINT) with (external_location='/tmp')");
 
@@ -741,19 +741,19 @@ public class TestRoles
         finally {
             onPrestoBob().executeQuery("DROP TABLE IF EXISTS hive.default.test_table_bob");
             onPrestoAlice().executeQuery("DROP TABLE IF EXISTS hive.test.test_table_bob");
-            onPresto().executeQuery("DROP SCHEMA IF EXISTS hive.test");
-            onPresto().executeQuery("REVOKE admin FROM alice");
+            onTrino().executeQuery("DROP SCHEMA IF EXISTS hive.test");
+            onTrino().executeQuery("REVOKE admin FROM alice");
         }
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
     public void testSetRoleTablePermissions()
     {
-        onPresto().executeQuery("CREATE ROLE role1");
-        onPresto().executeQuery("CREATE ROLE role2");
+        onTrino().executeQuery("CREATE ROLE role1");
+        onTrino().executeQuery("CREATE ROLE role2");
 
-        onPresto().executeQuery("GRANT role1 TO USER bob");
-        onPresto().executeQuery("GRANT role2 TO USER bob");
+        onTrino().executeQuery("GRANT role1 TO USER bob");
+        onTrino().executeQuery("GRANT role2 TO USER bob");
 
         onPrestoAlice().executeQuery("CREATE TABLE hive.default.test_table (foo BIGINT)");
         onPrestoAlice().executeQuery("GRANT SELECT ON hive.default.test_table TO ROLE role1");
@@ -809,16 +809,16 @@ public class TestRoles
 
     private static void assertAdminExecute(String query)
     {
-        onPresto().executeQuery("SET ROLE NONE");
-        QueryAssert.assertThat(() -> onPresto().executeQuery(query))
+        onTrino().executeQuery("SET ROLE NONE");
+        QueryAssert.assertThat(() -> onTrino().executeQuery(query))
                 .failsWithMessage("Access Denied");
 
-        onPresto().executeQuery("SET ROLE ALL");
-        QueryAssert.assertThat(() -> onPresto().executeQuery(query))
+        onTrino().executeQuery("SET ROLE ALL");
+        QueryAssert.assertThat(() -> onTrino().executeQuery(query))
                 .failsWithMessage("Access Denied");
 
-        onPresto().executeQuery("SET ROLE admin");
-        onPresto().executeQuery(query);
+        onTrino().executeQuery("SET ROLE admin");
+        onTrino().executeQuery(query);
     }
 
     private static QueryExecutor onPrestoAlice()

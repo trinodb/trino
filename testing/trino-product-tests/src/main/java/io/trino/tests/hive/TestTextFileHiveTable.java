@@ -28,7 +28,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -62,7 +62,7 @@ public class TestTextFileHiveTable
     public void testCreateTextFileSkipHeaderFooter()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_header");
-        onPresto().executeQuery(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE test_create_textfile_skip_header" +
                         " (name varchar) " +
                         "WITH ( " +
@@ -75,7 +75,7 @@ public class TestTextFileHiveTable
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_header");
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_footer");
-        onPresto().executeQuery(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE test_create_textfile_skip_footer" +
                         " (name varchar) " +
                         "WITH ( " +
@@ -88,7 +88,7 @@ public class TestTextFileHiveTable
         onHive().executeQuery("DROP TABLE test_create_textfile_skip_footer");
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_create_textfile_skip_header_footer");
-        onPresto().executeQuery(format(
+        onTrino().executeQuery(format(
                 "CREATE TABLE test_create_textfile_skip_header_footer" +
                         " (name varchar) " +
                         "WITH ( " +
@@ -111,7 +111,7 @@ public class TestTextFileHiveTable
                 " (col1 int) " +
                 "STORED AS TEXTFILE " +
                 "TBLPROPERTIES ('skip.header.line.count'='1')");
-        assertThatThrownBy(() -> onPresto().executeQuery("INSERT INTO test_textfile_skip_header VALUES (1)"))
+        assertThatThrownBy(() -> onTrino().executeQuery("INSERT INTO test_textfile_skip_header VALUES (1)"))
                 .hasMessageMatching(".* Inserting into Hive table with skip.header.line.count property not supported");
         onHive().executeQuery("DROP TABLE test_textfile_skip_header");
 
@@ -121,7 +121,7 @@ public class TestTextFileHiveTable
                 " (col1 int) " +
                 "STORED AS TEXTFILE " +
                 "TBLPROPERTIES ('skip.footer.line.count'='1')");
-        assertThatThrownBy(() -> onPresto().executeQuery("INSERT INTO test_textfile_skip_footer VALUES (1)"))
+        assertThatThrownBy(() -> onTrino().executeQuery("INSERT INTO test_textfile_skip_footer VALUES (1)"))
                 .hasMessageMatching(".* Inserting into Hive table with skip.footer.line.count property not supported");
         onHive().executeQuery("DROP TABLE test_textfile_skip_footer");
 
@@ -131,7 +131,7 @@ public class TestTextFileHiveTable
                 " (col1 int) " +
                 "STORED AS TEXTFILE " +
                 "TBLPROPERTIES ('skip.header.line.count'='1', 'skip.footer.line.count'='1')");
-        assertThatThrownBy(() -> onPresto().executeQuery("INSERT INTO test_textfile_skip_header_footer VALUES (1)"))
+        assertThatThrownBy(() -> onTrino().executeQuery("INSERT INTO test_textfile_skip_header_footer VALUES (1)"))
                 .hasMessageMatching(".* Inserting into Hive table with skip.header.line.count property not supported");
         onHive().executeQuery("DROP TABLE test_textfile_skip_header_footer");
     }

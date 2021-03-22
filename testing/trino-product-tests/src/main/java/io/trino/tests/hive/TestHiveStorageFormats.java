@@ -59,7 +59,7 @@ import static io.trino.tests.hive.HiveProductTest.ERROR_COMMITTING_WRITE_TO_HIVE
 import static io.trino.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.trino.tests.utils.JdbcDriverUtils.setSessionProperty;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Comparator.comparingInt;
@@ -447,7 +447,7 @@ public class TestHiveStorageFormats
     @Test(groups = STORAGE_FORMATS)
     public void testOrcTableCreatedInTrino()
     {
-        onPresto().executeQuery("CREATE TABLE orc_table_created_in_trino WITH (format='ORC') AS SELECT 42 a");
+        onTrino().executeQuery("CREATE TABLE orc_table_created_in_trino WITH (format='ORC') AS SELECT 42 a");
         assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_trino"))
                 .containsOnly(row(42));
         // Hive 3.1 validates (`org.apache.orc.impl.ReaderImpl#ensureOrcFooter`) ORC footer only when loading it from the cache, so when querying *second* time.
@@ -455,7 +455,7 @@ public class TestHiveStorageFormats
                 .containsOnly(row(42));
         assertThat(onHive().executeQuery("SELECT * FROM orc_table_created_in_trino WHERE a < 43"))
                 .containsOnly(row(42));
-        onPresto().executeQuery("DROP TABLE orc_table_created_in_trino");
+        onTrino().executeQuery("DROP TABLE orc_table_created_in_trino");
     }
 
     @Test(groups = STORAGE_FORMATS)
@@ -493,7 +493,7 @@ public class TestHiveStorageFormats
         }
 
         assertSimpleTimestamps(tableName, TIMESTAMPS_FROM_HIVE);
-        onPresto().executeQuery("DROP TABLE " + tableName);
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
@@ -506,18 +506,18 @@ public class TestHiveStorageFormats
         // works when the value range has a min = max)
         for (TimestampAndPrecision entry : TIMESTAMPS_FROM_TRINO) {
             setTimestampPrecision(entry.getPrecision());
-            onPresto().executeQuery(format("INSERT INTO %s VALUES (%s, TIMESTAMP '%s')", tableName, entry.getId(), entry.getWriteValue()));
+            onTrino().executeQuery(format("INSERT INTO %s VALUES (%s, TIMESTAMP '%s')", tableName, entry.getId(), entry.getWriteValue()));
         }
 
         assertSimpleTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
-        onPresto().executeQuery("DROP TABLE " + tableName);
+        onTrino().executeQuery("DROP TABLE " + tableName);
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
     public void testStructTimestampsFromHive(StorageFormat format)
     {
         String tableName = createStructTimestampTable("hive_struct_timestamp", format);
-        setAdminRole(onPresto().getConnection());
+        setAdminRole(onTrino().getConnection());
         ensureDummyExists();
 
         // Insert one at a time because inserting with UNION ALL sometimes makes
@@ -540,21 +540,21 @@ public class TestHiveStorageFormats
         }
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_HIVE);
-        onPresto().executeQuery(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     @Test(dataProvider = "storageFormatsWithNanosecondPrecision")
     public void testStructTimestampsFromTrino(StorageFormat format)
     {
         String tableName = createStructTimestampTable("trino_struct_timestamp", format);
-        setAdminRole(onPresto().getConnection());
+        setAdminRole(onTrino().getConnection());
 
         // Insert data grouped by write-precision so it rounds as expected
         TIMESTAMPS_FROM_TRINO.stream()
                 .collect(Collectors.groupingBy(TimestampAndPrecision::getPrecision))
                 .forEach((precision, data) -> {
                     setTimestampPrecision(precision);
-                    onPresto().executeQuery(format(
+                    onTrino().executeQuery(format(
                             "INSERT INTO %s VALUES (%s)",
                             tableName,
                             data.stream().map(entry -> format(
@@ -569,7 +569,7 @@ public class TestHiveStorageFormats
                 });
 
         assertStructTimestamps(tableName, TIMESTAMPS_FROM_TRINO);
-        onPresto().executeQuery(format("DROP TABLE %s", tableName));
+        onTrino().executeQuery(format("DROP TABLE %s", tableName));
     }
 
     private String createSimpleTimestampTable(String tableNamePrefix, StorageFormat format)
@@ -587,7 +587,7 @@ public class TestHiveStorageFormats
             for (HiveTimestampPrecision precision : HiveTimestampPrecision.values()) {
                 setTimestampPrecision(precision);
                 // Assert also with `CAST AS varchar` on the server side to avoid any JDBC-related issues
-                softly.check(() -> assertThat(onPresto().executeQuery(
+                softly.check(() -> assertThat(onTrino().executeQuery(
                         format("SELECT id, typeof(ts), CAST(ts AS varchar), ts FROM %s WHERE id = %s", tableName, entry.getId())))
                         .as("timestamp(%d)", precision.getPrecision())
                         .containsOnly(row(
@@ -623,7 +623,7 @@ public class TestHiveStorageFormats
 
             // Check that the correct types are read
             String type = format("timestamp(%d)", precision.getPrecision());
-            softly.check(() -> assertThat(onPresto()
+            softly.check(() -> assertThat(onTrino()
                     .executeQuery(format(
                             "SELECT"
                                     + "   typeof(arr),"
@@ -641,7 +641,7 @@ public class TestHiveStorageFormats
                             format("array(map(%1$s, row(col array(%1$s))))", type))));
 
             // Check the values as varchar
-            softly.check(() -> assertThat(onPresto()
+            softly.check(() -> assertThat(onTrino()
                     .executeQuery(format(
                             "SELECT"
                                     + "   id,"
@@ -663,7 +663,7 @@ public class TestHiveStorageFormats
                             .collect(toList())));
 
             // Check the values directly
-            softly.check(() -> assertThat(onPresto()
+            softly.check(() -> assertThat(onTrino()
                     .executeQuery(format(
                             "SELECT"
                                     + "   id,"
@@ -690,12 +690,12 @@ public class TestHiveStorageFormats
     private String createTestTable(String tableNamePrefix, StorageFormat format, String sql)
     {
         // only admin user is allowed to change session properties
-        setAdminRole(onPresto().getConnection());
-        setSessionProperties(onPresto().getConnection(), format);
+        setAdminRole(onTrino().getConnection());
+        setSessionProperties(onTrino().getConnection(), format);
 
         String formatName = format.getName().toLowerCase(Locale.ENGLISH);
         String tableName = format("%s_%s_%s", tableNamePrefix, formatName, randomTableSuffix());
-        onPresto().executeQuery(
+        onTrino().executeQuery(
                 format("CREATE TABLE %s %s WITH (%s)", tableName, sql, format.getStoragePropertiesAsSql()));
         return tableName;
     }
@@ -754,7 +754,7 @@ public class TestHiveStorageFormats
     private static void setTimestampPrecision(HiveTimestampPrecision readPrecision)
     {
         try {
-            setSessionProperty(onPresto().getConnection(), "hive.timestamp_precision", readPrecision.name());
+            setSessionProperty(onTrino().getConnection(), "hive.timestamp_precision", readPrecision.name());
         }
         catch (SQLException e) {
             throw new RuntimeException(e);

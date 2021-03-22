@@ -40,7 +40,7 @@ import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.BIG_QUERY;
 import static io.trino.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static io.trino.tests.utils.TableDefinitionUtils.mutableTableInstanceOf;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -311,14 +311,14 @@ public class TestHiveBucketedTables
                 hiveTableProperties(bucketingType));
 
         if (insertWithTrino) {
-            onPresto().executeQuery("INSERT INTO test_bucketing_version(a) VALUES (?)", param(VARCHAR, value));
+            onTrino().executeQuery("INSERT INTO test_bucketing_version(a) VALUES (?)", param(VARCHAR, value));
         }
         else {
             onHive().executeQuery("SET hive.enforce.bucketing = true");
             onHive().executeQuery("INSERT INTO test_bucketing_version(a) VALUES ('" + value + "')");
         }
 
-        assertThat(onPresto().executeQuery("SELECT a, regexp_extract(\"$path\", '^.*/([^_/]+_[^_/]+)(_[^/]+)?$', 1) FROM test_bucketing_version"))
+        assertThat(onTrino().executeQuery("SELECT a, regexp_extract(\"$path\", '^.*/([^_/]+_[^_/]+)(_[^/]+)?$', 1) FROM test_bucketing_version"))
                 .containsOnly(row(value, anyOf(expectedFileNameOptions.toArray())));
     }
 

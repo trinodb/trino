@@ -27,7 +27,7 @@ import static io.trino.tempto.fulfillment.table.hive.tpch.TpchTableDefinitions.O
 import static io.trino.tests.TestGroups.HIVE_COMPRESSION;
 import static io.trino.tests.TestGroups.SKIP_ON_CDH;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCompression
@@ -69,12 +69,12 @@ public class TestCompression
             onHive().executeQuery("SET mapreduce.output.fileoutputformat.compress.codec=" + compressionCodec);
             onHive().executeQuery("CREATE TABLE test_read_compressed " + tableStorageDefinition + " AS SELECT * FROM orders");
 
-            assertThat(onPresto().executeQuery("SELECT count(*) FROM test_read_compressed"))
+            assertThat(onTrino().executeQuery("SELECT count(*) FROM test_read_compressed"))
                     .containsExactly(row(1500000));
-            assertThat(onPresto().executeQuery("SELECT sum(o_orderkey) FROM test_read_compressed"))
+            assertThat(onTrino().executeQuery("SELECT sum(o_orderkey) FROM test_read_compressed"))
                     .containsExactly(row(4499987250000L));
 
-            assertThat((String) onPresto().executeQuery("SELECT regexp_replace(\"$path\", '.*/') FROM test_read_compressed LIMIT 1").row(0).get(0))
+            assertThat((String) onTrino().executeQuery("SELECT regexp_replace(\"$path\", '.*/') FROM test_read_compressed LIMIT 1").row(0).get(0))
                     .matches(expectedFileNamePattern);
         }
         finally {
