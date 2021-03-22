@@ -288,6 +288,10 @@ public final class Environment
 
     private static boolean containerIsHealthy(DockerContainer container)
     {
+        if (container.isTemporary()) {
+            return true;
+        }
+
         if (!container.isRunning()) {
             log.warn("Container %s is not running", container.getLogicalName());
             return false;

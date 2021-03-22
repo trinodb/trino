@@ -20,13 +20,17 @@ import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ProjectNode;
-import io.trino.testing.AbstractTestIntegrationSmokeTest;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Optional;
+
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -38,10 +42,103 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-abstract class BaseMySqlIntegrationSmokeTest
-        extends AbstractTestIntegrationSmokeTest
+abstract class BaseMySqlConnectorTest
+        extends BaseConnectorTest
 {
-    protected TestingMySqlServer mysqlServer;
+    @Override
+    protected boolean supportsDelete()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsViews()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsArrays()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnTable()
+    {
+        return false;
+    }
+
+    @Override
+    protected boolean supportsCommentOnColumn()
+    {
+        return false;
+    }
+
+    protected abstract SqlExecutor getMySqlExecutor();
+
+    @Override
+    protected TestTable createTableWithDefaultColumns()
+    {
+        return new TestTable(
+                getMySqlExecutor(),
+                "tpch.table",
+                "(col_required BIGINT NOT NULL," +
+                        "col_nullable BIGINT," +
+                        "col_default BIGINT DEFAULT 43," +
+                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
+                        "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
+    public void testShowColumns()
+    {
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
+
+        MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "")
+                .row("custkey", "bigint", "", "")
+                .row("orderstatus", "varchar(255)", "", "")
+                .row("totalprice", "double", "", "")
+                .row("orderdate", "date", "", "")
+                .row("orderpriority", "varchar(255)", "", "")
+                .row("clerk", "varchar(255)", "", "")
+                .row("shippriority", "integer", "", "")
+                .row("comment", "varchar(255)", "", "")
+                .build();
+
+        assertEquals(actual, expectedParametrizedVarchar);
+    }
+
+    @Override
+    protected boolean isColumnNameRejected(Exception exception, String columnName, boolean delimited)
+    {
+        return nullToEmpty(exception.getMessage()).matches(".*(Incorrect column name).*");
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(dataMappingTestSetup.asUnsupported());
+        }
+
+        if (typeName.equals("real")
+                || typeName.equals("timestamp")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+
+        if (typeName.equals("boolean")) {
+            // MySql does not have built-in support for boolean type. MySQL provides BOOLEAN as the synonym of TINYINT(1)
+            // Querying the column with a boolean predicate subsequently fails with "Cannot apply operator: tinyint = boolean"
+            return Optional.empty();
+        }
+
+        return Optional.of(dataMappingTestSetup);
+    }
 
     @Test
     @Override
@@ -92,15 +189,16 @@ abstract class BaseMySqlIntegrationSmokeTest
     @Test
     public void testViews()
     {
-        execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
+        getMySqlExecutor().execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        execute("DROP VIEW IF EXISTS tpch.test_view");
+        getMySqlExecutor().execute("DROP VIEW IF EXISTS tpch.test_view");
     }
 
+    @Override
     @Test
     public void testInsert()
     {
-        execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
+        getMySqlExecutor().execute("CREATE TABLE tpch.test_insert (x bigint, y varchar(100))");
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
         assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
         assertUpdate("DROP TABLE test_insert");
@@ -109,7 +207,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     @Test
     public void testInsertInPresenceOfNotSupportedColumn()
     {
-        execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
+        getMySqlExecutor().execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
         // Check that column y is not supported.
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_insert_not_supported_column_present'", "VALUES 'x', 'z'");
         assertUpdate("INSERT INTO test_insert_not_supported_column_present (x, z) VALUES (123, 'test')", 1);
@@ -122,7 +220,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     {
         Session session = testSessionBuilder()
                 .setCatalog("mysql")
-                .setSchema(mysqlServer.getDatabaseName())
+                .setSchema(getSession().getSchema().get())
                 .build();
 
         assertFalse(getQueryRunner().tableExists(session, "test_table"));
@@ -139,7 +237,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     @Test
     public void testMySqlTinyint()
     {
-        execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
+        getMySqlExecutor().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
 
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
         MaterializedResult expected = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -148,7 +246,7 @@ abstract class BaseMySqlIntegrationSmokeTest
 
         assertEquals(actual, expected);
 
-        execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
+        getMySqlExecutor().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
         assertEquals(materializedRows.getRowCount(), 1);
         MaterializedRow row = getOnlyElement(materializedRows);
@@ -162,7 +260,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     @Test
     public void testCharTrailingSpace()
     {
-        execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
+        getMySqlExecutor().execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
         assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
 
         assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
@@ -273,14 +371,14 @@ abstract class BaseMySqlIntegrationSmokeTest
         // GROUP BY above WHERE and LIMIT
         assertThat(query("" +
                 "SELECT regionkey, sum(nationkey) " +
-                "FROM (SELECT * FROM nation WHERE regionkey < 3 LIMIT 11) " +
+                "FROM (SELECT * FROM nation WHERE regionkey < 2 LIMIT 11) " +
                 "GROUP BY regionkey"))
                 .isFullyPushedDown();
 
         // decimals
         try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
-            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
+            getMySqlExecutor().execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
+            getMySqlExecutor().execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
 
             assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
             assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isFullyPushedDown();
@@ -305,27 +403,27 @@ abstract class BaseMySqlIntegrationSmokeTest
     public void testStddevAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_stddev_pushdown",
+        try (TestTable testTable = new TestTable(getMySqlExecutor(), schemaName + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_stddev_pushdown",
+        try (TestTable testTable = new TestTable(getMySqlExecutor(), schemaName + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "4", "5"))) {
             // Test non-whole number results
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -338,27 +436,27 @@ abstract class BaseMySqlIntegrationSmokeTest
     public void testVarianceAggregationPushdown()
     {
         String schemaName = getSession().getSchema().orElseThrow();
-        try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_variance_pushdown",
+        try (TestTable testTable = new TestTable(getMySqlExecutor(), schemaName + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
+            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (3)");
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
 
-            mysqlServer.execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            getMySqlExecutor().execute("INSERT INTO " + testTable.getName() + " VALUES (5)");
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = new TestTable(mysqlServer::execute, schemaName + ".test_variance_pushdown",
+        try (TestTable testTable = new TestTable(getMySqlExecutor(), schemaName + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)", ImmutableList.of("1", "2", "3", "4", "5"))) {
             // Test non-whole number results
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -393,7 +491,7 @@ abstract class BaseMySqlIntegrationSmokeTest
     {
         // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
 
-        execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
+        getMySqlExecutor().execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
 
         assertQuery(
                 "SELECT column_name, comment FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_column_comment'",
@@ -435,15 +533,15 @@ abstract class BaseMySqlIntegrationSmokeTest
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
                 .isFullyPushedDown();
 
-        execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
-        execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
+        getMySqlExecutor().execute("CREATE TABLE tpch.binary_test (x int, y varbinary(100))");
+        getMySqlExecutor().execute("INSERT INTO tpch.binary_test VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))");
 
         // varbinary equality
         assertThat(query("SELECT x, y FROM tpch.binary_test WHERE y = from_base64('AFCBhLrkidtNTZcA9Ru3hw==')"))
                 .matches("VALUES (3, from_base64('AFCBhLrkidtNTZcA9Ru3hw=='))")
                 .isFullyPushedDown();
 
-        execute("DROP TABLE tpch.binary_test");
+        getMySqlExecutor().execute("DROP TABLE tpch.binary_test");
 
         // predicate over aggregation key (likely to be optimized before being pushed down into the connector)
         assertThat(query("SELECT * FROM (SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey) WHERE regionkey = 3"))
@@ -459,19 +557,14 @@ abstract class BaseMySqlIntegrationSmokeTest
     private AutoCloseable withTable(String tableName, String tableDefinition)
             throws Exception
     {
-        execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
+        getMySqlExecutor().execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
         return () -> {
             try {
-                execute(format("DROP TABLE %s", tableName));
+                getMySqlExecutor().execute(format("DROP TABLE %s", tableName));
             }
             catch (RuntimeException e) {
                 throw new RuntimeException(e);
             }
         };
-    }
-
-    private void execute(String sql)
-    {
-        mysqlServer.execute(sql, mysqlServer.getUsername(), mysqlServer.getPassword());
     }
 }

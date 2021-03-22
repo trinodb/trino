@@ -135,7 +135,6 @@ public class FeaturesConfig
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
-    private JoinPushdownMode joinPushdownMode = JoinPushdownMode.DISABLED;
 
     public enum JoinReorderingStrategy
     {
@@ -166,21 +165,6 @@ public class FeaturesConfig
         NONE,
         ABORT,
         RETRY,
-        /**/;
-    }
-
-    public enum JoinPushdownMode
-    {
-        /**
-         * Do not try to push joins to connector.
-         */
-        DISABLED,
-        /**
-         * Try to push all joins except cross-joins to connector.
-         */
-        EAGER,
-        // TODO Add cost based logic to join pushdown
-        // AUTOMATIC,
         /**/;
     }
 
@@ -1031,18 +1015,6 @@ public class FeaturesConfig
     public FeaturesConfig setPlanWithTableNodePartitioning(boolean planWithTableNodePartitioning)
     {
         this.planWithTableNodePartitioning = planWithTableNodePartitioning;
-        return this;
-    }
-
-    public JoinPushdownMode getJoinPushdownMode()
-    {
-        return joinPushdownMode;
-    }
-
-    @Config("optimizer.join-pushdown")
-    public FeaturesConfig setJoinPushdownMode(JoinPushdownMode joinPushdownMode)
-    {
-        this.joinPushdownMode = joinPushdownMode;
         return this;
     }
 }

@@ -18,6 +18,7 @@ import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.spi.security.Identity;
 import io.trino.testing.QueryRunner;
+import io.trino.tpch.TpchTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -38,7 +39,7 @@ public class TestRaptorFileBasedSecurity
         String path = new File(Resources.getResource(getClass(), "security.json").toURI()).getPath();
         queryRunner = createRaptorQueryRunner(
                 ImmutableMap.of(),
-                true,
+                TpchTable.getTables(),
                 false,
                 ImmutableMap.of("security.config-file", path, "raptor.security", "file"));
     }

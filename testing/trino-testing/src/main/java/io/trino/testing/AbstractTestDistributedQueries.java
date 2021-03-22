@@ -66,11 +66,28 @@ import static org.testng.Assert.assertTrue;
 /**
  * Generic test for connectors exercising connector's read and write capabilities.
  *
- * @see AbstractTestIntegrationSmokeTest
+ * @see BaseConnectorTest
+ * @deprecated Extend {@link BaseConnectorTest} instead.
  */
+@Deprecated
 public abstract class AbstractTestDistributedQueries
         extends AbstractTestQueries
 {
+    protected boolean supportsCreateSchema()
+    {
+        return true;
+    }
+
+    protected boolean supportsCreateTable()
+    {
+        return true;
+    }
+
+    protected boolean supportsInsert()
+    {
+        return true;
+    }
+
     protected boolean supportsDelete()
     {
         return true;
@@ -159,6 +176,11 @@ public abstract class AbstractTestDistributedQueries
     public void testCreateTable()
     {
         String tableName = "test_create_" + randomTableSuffix();
+        if (!supportsCreateTable()) {
+            assertQueryFails("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)", "This connector does not support creating tables");
+            return;
+        }
+
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));
         assertTableColumnNames(tableName, "a", "b", "c");
@@ -204,6 +226,10 @@ public abstract class AbstractTestDistributedQueries
     public void testCreateTableAsSelect()
     {
         String tableName = "test_ctas" + randomTableSuffix();
+        if (!supportsCreateTable()) {
+            assertQueryFails("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "This connector does not support creating tables with data");
+            return;
+        }
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " AS SELECT name, regionkey FROM nation", "SELECT count(*) FROM nation");
         assertTableColumnNames(tableName, "name", "regionkey");
         assertUpdate("DROP TABLE " + tableName);
@@ -294,6 +320,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameTable()
     {
+        skipTestUnless(supportsCreateTable());
+
         String tableName = "test_rename_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x", 1);
 
@@ -324,14 +352,12 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCommentTable()
     {
-        String tableName = "test_comment_" + randomTableSuffix();
         if (!supportsCommentOnTable()) {
-            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
-            assertQueryFails("COMMENT ON TABLE " + tableName + " IS 'new comment'", "This connector does not support setting table comments");
-            assertUpdate("DROP TABLE " + tableName);
+            assertQueryFails("COMMENT ON TABLE nation IS 'new comment'", "This connector does not support setting table comments");
             return;
         }
 
+        String tableName = "test_comment_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
         // comment set
@@ -375,14 +401,12 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testCommentColumn()
     {
-        String tableName = "test_comment_column_" + randomTableSuffix();
         if (!supportsCommentOnColumn()) {
-            assertUpdate("CREATE TABLE " + tableName + "(a integer)");
-            assertQueryFails("COMMENT ON COLUMN " + tableName + ".a IS 'new comment'", "This connector does not support setting column comments");
-            assertUpdate("DROP TABLE " + tableName);
+            assertQueryFails("COMMENT ON COLUMN nation.nationkey IS 'new comment'", "This connector does not support setting column comments");
             return;
         }
 
+        String tableName = "test_comment_column_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + "(a integer)");
 
         // comment set
@@ -425,6 +449,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testRenameColumn()
     {
+        skipTestUnless(supportsCreateTable());
+
         String tableName = "test_rename_column_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 'some value' x", 1);
 
@@ -456,6 +482,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDropColumn()
     {
+        skipTestUnless(supportsCreateTable());
+
         String tableName = "test_drop_column_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 123 x, 456 y, 111 a", 1);
 
@@ -478,6 +506,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testAddColumn()
     {
+        skipTestUnless(supportsCreateTable());
+
         String tableName = "test_add_column_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT CAST('first' AS varchar) x", 1);
 
@@ -514,6 +544,11 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsert()
     {
+        if (!supportsInsert()) {
+            assertQueryFails("INSERT INTO nation(nationkey) VALUES (42)", "This connector does not support inserts");
+            return;
+        }
+
         String query = "SELECT phone, custkey, acctbal FROM customer";
 
         String tableName = "test_insert_" + randomTableSuffix();
@@ -554,6 +589,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsertUnicode()
     {
+        skipTestUnless(supportsInsert());
+
         String tableName = "test_insert_unicode_" + randomTableSuffix();
 
         assertUpdate("CREATE TABLE " + tableName + "(test varchar)");
@@ -584,6 +621,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsertArray()
     {
+        skipTestUnless(supportsInsert());
+
         String tableName = "test_insert_array_" + randomTableSuffix();
         if (!supportsArrays()) {
             assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (a array(bigint))"))
@@ -604,18 +643,15 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testDelete()
     {
-        // delete half the table, then delete the rest
-        String tableName = "test_delete_" + randomTableSuffix();
-
         if (!supportsDelete()) {
-            assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders WITH NO DATA", 0);
-            assertQueryFails("DELETE FROM " + tableName, "This connector does not support deletes");
-            assertUpdate("DROP TABLE " + tableName);
+            assertQueryFails("DELETE FROM nation", "This connector does not support deletes");
             return;
         }
 
+        String tableName = "test_delete_" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", "SELECT count(*) FROM orders");
 
+        // delete half the table, then delete the rest
         assertUpdate("DELETE FROM " + tableName + " WHERE orderkey % 2 = 0", "SELECT count(*) FROM orders WHERE orderkey % 2 = 0");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM orders WHERE orderkey % 2 <> 0");
 
@@ -855,10 +891,7 @@ public abstract class AbstractTestDistributedQueries
                 .row(viewName, "VIEW")
                 .row("nation", "BASE TABLE")
                 .row("orders", "BASE TABLE")
-                .row("part", "BASE TABLE")
-                .row("partsupp", "BASE TABLE")
                 .row("region", "BASE TABLE")
-                .row("supplier", "BASE TABLE")
                 .build();
 
         assertContains(actual, expected);
@@ -956,6 +989,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testQueryLoggingCount()
     {
+        skipTestUnless(supportsCreateTable());
+
         QueryManager queryManager = getDistributedQueryRunner().getCoordinator().getQueryManager();
         executeExclusively(() -> {
             assertEventually(
@@ -1011,9 +1046,12 @@ public abstract class AbstractTestDistributedQueries
         assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
     }
 
+    // TODO move to to engine-only
     @Test
     public void testSymbolAliasing()
     {
+        skipTestUnless(supportsCreateTable());
+
         String tableName = "test_symbol_aliasing" + randomTableSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 foo_1, 2 foo_2_4", 1);
         assertQuery("SELECT foo_1, foo_2_4 FROM " + tableName, "SELECT 1, 2");
@@ -1024,6 +1062,9 @@ public abstract class AbstractTestDistributedQueries
     @Flaky(issue = "https://github.com/trinodb/trino/issues/5172", match = "AssertionError: expected \\[.*\\] but found \\[.*\\]")
     public void testWrittenStats()
     {
+        skipTestUnless(supportsCreateTable());
+        skipTestUnless(supportsInsert());
+
         String tableName = "test_written_stats_" + randomTableSuffix();
         String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
         ResultWithQueryId<MaterializedResult> resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
@@ -1048,6 +1089,10 @@ public abstract class AbstractTestDistributedQueries
     public void testCreateSchema()
     {
         String schemaName = "test_schema_create_" + randomTableSuffix();
+        if (!supportsCreateSchema()) {
+            assertQueryFails("CREATE SCHEMA " + schemaName, "This connector does not support creating schemas");
+            return;
+        }
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).doesNotContain(schemaName);
         assertUpdate("CREATE SCHEMA " + schemaName);
         assertThat(computeActual("SHOW SCHEMAS").getOnlyColumnAsSet()).contains(schemaName);
@@ -1059,6 +1104,8 @@ public abstract class AbstractTestDistributedQueries
     @Test
     public void testInsertForDefaultColumn()
     {
+        skipTestUnless(supportsInsert());
+
         try (TestTable testTable = createTableWithDefaultColumns()) {
             assertUpdate(format("INSERT INTO %s (col_required, col_required2) VALUES (1, 10)", testTable.getName()), 1);
             assertUpdate(format("INSERT INTO %s VALUES (2, 3, 4, 5, 6)", testTable.getName()), 1);
@@ -1069,11 +1116,16 @@ public abstract class AbstractTestDistributedQueries
         }
     }
 
-    protected abstract TestTable createTableWithDefaultColumns();
+    protected TestTable createTableWithDefaultColumns()
+    {
+        throw new UnsupportedOperationException();
+    }
 
     @Test(dataProvider = "testColumnNameDataProvider")
     public void testColumnName(String columnName)
     {
+        skipTestUnless(supportsCreateTable());
+
         if (!requiresDelimiting(columnName)) {
             testColumnName(columnName, false);
         }
@@ -1173,6 +1225,13 @@ public abstract class AbstractTestDistributedQueries
     @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
+        testDataMapping(dataMappingTestSetup);
+    }
+
+    private void testDataMapping(DataMappingTestSetup dataMappingTestSetup)
+    {
+        skipTestUnless(supportsCreateTable());
+
         String trinoTypeName = dataMappingTestSetup.getTrinoTypeName();
         String sampleValueLiteral = dataMappingTestSetup.getSampleValueLiteral();
         String highValueLiteral = dataMappingTestSetup.getHighValueLiteral();
@@ -1203,23 +1262,23 @@ public abstract class AbstractTestDistributedQueries
 
         // without pushdown, i.e. test read data mapping
         assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NULL", "VALUES 'null value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value IS NOT NULL", "VALUES 'sample value', 'high value'");
         assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + sampleValueLiteral, "VALUES 'sample value'");
         assertQuery("SELECT row_id FROM " + tableName + " WHERE rand() = 42 OR value = " + highValueLiteral, "VALUES 'high value'");
 
         assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL", "VALUES 'null value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NOT NULL", "VALUES 'sample value', 'high value'");
         assertQuery("SELECT row_id FROM " + tableName + " WHERE value = " + sampleValueLiteral, "VALUES 'sample value'");
         assertQuery("SELECT row_id FROM " + tableName + " WHERE value != " + sampleValueLiteral, "VALUES 'high value'");
         assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + sampleValueLiteral, "VALUES 'sample value'");
         assertQuery("SELECT row_id FROM " + tableName + " WHERE value > " + sampleValueLiteral, "VALUES 'high value'");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES ('sample value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value <= " + highValueLiteral, "VALUES 'sample value', 'high value'");
 
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES ('null value'), ('sample value')");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES ('null value'), ('high value')");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES ('null value'), ('sample value')");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES ('null value'), ('high value')");
-        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES ('null value'), ('sample value'), ('high value')");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value = " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value != " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + sampleValueLiteral, "VALUES 'null value', 'sample value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value > " + sampleValueLiteral, "VALUES 'null value', 'high value'");
+        assertQuery("SELECT row_id FROM " + tableName + " WHERE value IS NULL OR value <= " + highValueLiteral, "VALUES 'null value', 'sample value', 'high value'");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1229,10 +1288,8 @@ public abstract class AbstractTestDistributedQueries
     {
         return testDataMappingSmokeTestData().stream()
                 .map(this::filterDataMappingSmokeTestData)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(dataMappingTestSetup -> new Object[] {dataMappingTestSetup})
-                .toArray(Object[][]::new);
+                .flatMap(Optional::stream)
+                .collect(toDataProvider());
     }
 
     private List<DataMappingTestSetup> testDataMappingSmokeTestData()
@@ -1261,6 +1318,38 @@ public abstract class AbstractTestDistributedQueries
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         return Optional.of(dataMappingTestSetup);
+    }
+
+    @Test(dataProvider = "testCaseSensitiveDataMappingProvider")
+    public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
+    {
+        testDataMapping(dataMappingTestSetup);
+    }
+
+    @DataProvider
+    public final Object[][] testCaseSensitiveDataMappingProvider()
+    {
+        return testCaseSensitiveDataMappingData().stream()
+                .map(this::filterCaseSensitiveDataMappingTestData)
+                .flatMap(Optional::stream)
+                .collect(toDataProvider());
+    }
+
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    private List<DataMappingTestSetup> testCaseSensitiveDataMappingData()
+    {
+        return ImmutableList.<DataMappingTestSetup>builder()
+                .add(new DataMappingTestSetup("char(1)", "'A'", "'a'"))
+                .add(new DataMappingTestSetup("varchar(1)", "'A'", "'a'"))
+                .add(new DataMappingTestSetup("char(1)", "'A'", "'b'"))
+                .add(new DataMappingTestSetup("varchar(1)", "'A'", "'b'"))
+                .add(new DataMappingTestSetup("char(1)", "'B'", "'a'"))
+                .add(new DataMappingTestSetup("varchar(1)", "'B'", "'a'"))
+                .build();
     }
 
     protected static final class DataMappingTestSetup

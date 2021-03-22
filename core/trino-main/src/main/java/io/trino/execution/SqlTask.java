@@ -52,7 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -97,7 +97,7 @@ public class SqlTask
             QueryContext queryContext,
             SqlTaskExecutionFactory sqlTaskExecutionFactory,
             ExecutorService taskNotificationExecutor,
-            Function<SqlTask, ?> onDone,
+            Consumer<SqlTask> onDone,
             DataSize maxBufferSize,
             DataSize maxBroadcastBufferSize,
             CounterStat failedTasks)
@@ -140,7 +140,7 @@ public class SqlTask
     }
 
     // this is a separate method to ensure that the `this` reference is not leaked during construction
-    private void initialize(Function<SqlTask, ?> onDone, CounterStat failedTasks)
+    private void initialize(Consumer<SqlTask> onDone, CounterStat failedTasks)
     {
         requireNonNull(onDone, "onDone is null");
         requireNonNull(failedTasks, "failedTasks is null");
@@ -182,7 +182,7 @@ public class SqlTask
             }
 
             try {
-                onDone.apply(SqlTask.this);
+                onDone.accept(this);
             }
             catch (Exception e) {
                 log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);

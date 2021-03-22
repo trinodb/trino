@@ -44,7 +44,6 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.io.ByteStreams.nullOutputStream;
-import static java.util.function.Function.identity;
 
 @Command(
         name = "presto-benchmark-driver",
@@ -102,8 +101,7 @@ public class PrestoBenchmarkDriver
         else {
             queries = driverOptions.queries.stream()
                     .map(Pattern::compile)
-                    .map(pattern -> allQueries.stream().filter(query -> pattern.matcher(query.getName()).matches()))
-                    .flatMap(identity())
+                    .flatMap(pattern -> allQueries.stream().filter(query -> pattern.matcher(query.getName()).matches()))
                     .collect(Collectors.toSet());
         }
 

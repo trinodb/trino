@@ -40,6 +40,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
 import io.trino.spi.connector.JoinCondition;
+import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
@@ -535,7 +536,8 @@ public abstract class AbstractMockMetadata
             TableHandle right,
             List<JoinCondition> joinConditions,
             Map<String, ColumnHandle> leftAssignments,
-            Map<String, ColumnHandle> rightAssignments)
+            Map<String, ColumnHandle> rightAssignments,
+            JoinStatistics statistics)
     {
         return Optional.empty();
     }

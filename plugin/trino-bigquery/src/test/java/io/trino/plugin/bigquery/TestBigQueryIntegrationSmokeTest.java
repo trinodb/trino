@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Test
 public class TestBigQueryIntegrationSmokeTest
+        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private BigQuerySqlExecutor bigQuerySqlExecutor;

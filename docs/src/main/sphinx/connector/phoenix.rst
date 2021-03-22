@@ -9,7 +9,8 @@ The Phoenix connector allows querying data stored in
 Compatibility
 -------------
 
-The Phoenix connector is compatible with all Phoenix versions starting from 4.14.1.
+The Phoenix connector is compatible with all Phoenix 4.x versions starting from 4.14.1.
+The Phoenix-5 connector is compatible with all Phoenix 5.x versions starting from 5.1.0.
 
 Configuration
 -------------
@@ -27,6 +28,12 @@ nodes used for discovery of the HBase cluster:
 
 The optional paths to Hadoop resource files, such as ``hbase-site.xml`` are used
 to load custom Phoenix client connection properties.
+
+For HBase 2.x and Phoenix 5.x (5.1.0 or later) use:
+
+.. code-block:: text
+
+    connector.name=phoenix-5
 
 Configuration properties
 ------------------------

@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LazyBlock;
 import org.testng.annotations.Test;
 
@@ -43,6 +44,23 @@ public class TestPageUtils
 
         page.getBlock(2).getLoadedBlock();
         assertEquals(sizeInBytes.get(), first.getSizeInBytes() * 3);
+    }
+
+    @Test
+    public void testNestedBlocks()
+    {
+        Block elements = lazyWrapper(createIntsBlock(1, 2, 3));
+        DictionaryBlock dictBlock = new DictionaryBlock(elements, new int[] {0});
+        Page page = new Page(1, dictBlock);
+
+        AtomicLong sizeInBytes = new AtomicLong();
+        recordMaterializedBytes(page, sizeInBytes::getAndAdd);
+
+        assertEquals(sizeInBytes.get(), dictBlock.getSizeInBytes());
+
+        // dictionary block caches size in bytes
+        dictBlock.getLoadedBlock();
+        assertEquals(sizeInBytes.get(), dictBlock.getSizeInBytes() + elements.getSizeInBytes());
     }
 
     private static LazyBlock lazyWrapper(Block block)

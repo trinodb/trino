@@ -348,16 +348,16 @@ public class PhoenixClient
                 return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
 
             case Types.CHAR:
-                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case VARCHAR:
             case NVARCHAR:
             case LONGVARCHAR:
             case LONGNVARCHAR:
                 if (typeHandle.getColumnSize().isEmpty()) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
+                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType(), true));
                 }
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize()));
+                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), true));
 
             case Types.VARBINARY:
                 return Optional.of(varbinaryColumnMapping());

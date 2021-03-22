@@ -11,26 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc;
+package io.trino.plugin.hive.metastore.glue;
 
-import io.trino.testing.AbstractTestQueries;
-import io.trino.testing.QueryRunner;
-import io.trino.tpch.TpchTable;
+import javax.inject.Qualifier;
 
-import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-public class TestJdbcDistributedQueries
-        extends AbstractTestQueries
-{
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        return createH2QueryRunner(TpchTable.getTables());
-    }
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-    @Override
-    public void testLargeIn(int valuesCount)
-    {
-    }
-}
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForGlueColumnStatisticsRead {}

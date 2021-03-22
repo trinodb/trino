@@ -30,7 +30,7 @@ public class TestRaptorDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(ImmutableMap.of(), true, false);
+        return createRaptorQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES, false, ImmutableMap.of());
     }
 
     @Override
@@ -71,6 +71,17 @@ public class TestRaptorDistributedQueries
             return Optional.empty();
         }
 
+        return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
+    {
+        String typeName = dataMappingTestSetup.getTrinoTypeName();
+        if (typeName.equals("char(1)")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
         return Optional.of(dataMappingTestSetup);
     }
 }

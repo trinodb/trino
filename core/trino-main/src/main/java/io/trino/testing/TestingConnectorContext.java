@@ -37,7 +37,7 @@ import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 public final class TestingConnectorContext
         implements ConnectorContext
 {
-    private final NodeManager nodeManager = new ConnectorAwareNodeManager(new InMemoryNodeManager(), "testenv", new CatalogName("test"));
+    private final NodeManager nodeManager;
     private final VersionEmbedder versionEmbedder = new EmbedVersion("testversion");
     private final TypeManager typeManager;
     private final PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
@@ -49,6 +49,10 @@ public final class TestingConnectorContext
         TypeOperators typeOperators = new TypeOperators();
         pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators));
         typeManager = new InternalTypeManager(metadata, typeOperators);
+        CatalogName catalogName = new CatalogName("test");
+        InMemoryNodeManager inMemoryNodeManager = new InMemoryNodeManager();
+        inMemoryNodeManager.addCurrentNodeConnector(catalogName);
+        nodeManager = new ConnectorAwareNodeManager(inMemoryNodeManager, "testenv", catalogName, true);
     }
 
     @Override

@@ -1,6 +1,6 @@
-================================
-File based system access control
-================================
+==========================
+File system access control
+==========================
 
 This access control plugin allows you to specify authorization rules in a JSON file.
 

@@ -91,6 +91,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestIcebergSmoke
+        // TODO extend BaseConnectorTest
         extends AbstractTestIntegrationSmokeTest
 {
     private static final Pattern WITH_CLAUSE_EXTRACTER = Pattern.compile(".*(WITH\\s*\\([^)]*\\))\\s*$", Pattern.DOTALL);
@@ -1393,7 +1394,7 @@ public abstract class AbstractTestIcebergSmoke
 
             assertTrue(result.isEmpty() == (expectedUnenforcedPredicate == null && expectedEnforcedPredicate == null));
 
-            if (!result.isEmpty()) {
+            if (result.isPresent()) {
                 IcebergTableHandle newTable = (IcebergTableHandle) result.get().getHandle().getConnectorHandle();
 
                 assertEquals(newTable.getEnforcedPredicate(),

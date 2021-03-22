@@ -102,7 +102,7 @@ public final class PolymorphicScalarFunctionBuilder
             argumentDefinitions = nCopies(signature.getArgumentTypes().size(), new FunctionArgumentDefinition(false));
         }
         ChoiceBuilder choiceBuilder = new ChoiceBuilder(clazz, signature);
-        choiceSpecification.apply(choiceBuilder);
+        choiceBuilder = choiceSpecification.apply(choiceBuilder);
         choices.add(choiceBuilder.build());
         return this;
     }
@@ -278,7 +278,7 @@ public final class PolymorphicScalarFunctionBuilder
                 argumentConventions = nCopies(signature.getArgumentTypes().size(), NEVER_NULL);
             }
             MethodsGroupBuilder methodsGroupBuilder = new MethodsGroupBuilder(clazz, signature, argumentConventions);
-            methodsGroupSpecification.apply(methodsGroupBuilder);
+            methodsGroupBuilder = methodsGroupSpecification.apply(methodsGroupBuilder);
             methodsGroups.add(methodsGroupBuilder.build());
             return this;
         }

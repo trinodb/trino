@@ -75,7 +75,6 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACL_TYPE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_CREDENTIALS_PROVIDER;
-import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_DIRECTORY_OBJECT_CONTENT_TYPE;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_EXTERNAL_ID;
@@ -108,6 +107,7 @@ import static org.testng.Assert.assertTrue;
 public class TestTrinoS3FileSystem
 {
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
+    private static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory; charset=UTF-8";
 
     @Test
     public void testEmbeddedCredentials()
