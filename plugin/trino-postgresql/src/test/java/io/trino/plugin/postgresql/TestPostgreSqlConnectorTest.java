@@ -106,7 +106,7 @@ public class TestPostgreSqlConnectorTest
     {
         return new TestTable(
                 new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties()),
-                "tpch.table",
+                "table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
                         "col_default BIGINT DEFAULT 43," +
@@ -128,7 +128,7 @@ public class TestPostgreSqlConnectorTest
     public void testInsertInPresenceOfNotSupportedColumn()
             throws Exception
     {
-        execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
+        execute("CREATE TABLE test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
         // Check that column y is not supported.
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_insert_not_supported_column_present'", "VALUES 'x', 'z'");
         assertUpdate("INSERT INTO test_insert_not_supported_column_present (x, z) VALUES (123, 'test')", 1);
@@ -140,20 +140,20 @@ public class TestPostgreSqlConnectorTest
     public void testViews()
             throws Exception
     {
-        execute("CREATE OR REPLACE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
+        execute("CREATE OR REPLACE VIEW test_view AS SELECT * FROM orders");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
-        execute("DROP VIEW IF EXISTS tpch.test_view");
+        execute("DROP VIEW IF EXISTS test_view");
     }
 
     @Test
     public void testMaterializedView()
             throws Exception
     {
-        execute("CREATE MATERIALIZED VIEW tpch.test_mv as SELECT * FROM tpch.orders");
+        execute("CREATE MATERIALIZED VIEW test_mv as SELECT * FROM orders");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_mv"));
         assertQuery("SELECT orderkey FROM test_mv", "SELECT orderkey FROM orders");
-        execute("DROP MATERIALIZED VIEW tpch.test_mv");
+        execute("DROP MATERIALIZED VIEW test_mv");
     }
 
     @Test
@@ -161,10 +161,10 @@ public class TestPostgreSqlConnectorTest
             throws Exception
     {
         execute("CREATE SERVER devnull FOREIGN DATA WRAPPER file_fdw");
-        execute("CREATE FOREIGN TABLE tpch.test_ft (x bigint) SERVER devnull OPTIONS (filename '/dev/null')");
+        execute("CREATE FOREIGN TABLE test_ft (x bigint) SERVER devnull OPTIONS (filename '/dev/null')");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_ft"));
         computeActual("SELECT * FROM test_ft");
-        execute("DROP FOREIGN TABLE tpch.test_ft");
+        execute("DROP FOREIGN TABLE test_ft");
         execute("DROP SERVER devnull");
     }
 
@@ -188,9 +188,9 @@ public class TestPostgreSqlConnectorTest
         String unsupportedDataType = "interval";
         String supportedDataType = "varchar(5)";
 
-        try (AutoCloseable ignore1 = withTable("tpch.no_supported_columns", format("(c %s)", unsupportedDataType));
-                AutoCloseable ignore2 = withTable("tpch.supported_columns", format("(good %s)", supportedDataType));
-                AutoCloseable ignore3 = withTable("tpch.no_columns", "()")) {
+        try (AutoCloseable ignore1 = withTable("no_supported_columns", format("(c %s)", unsupportedDataType));
+                AutoCloseable ignore2 = withTable("supported_columns", format("(good %s)", supportedDataType));
+                AutoCloseable ignore3 = withTable("no_columns", "()")) {
             assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains("orders", "no_supported_columns", "supported_columns", "no_columns");
 
             assertQueryFails("SELECT c FROM no_supported_columns", "Table 'tpch.no_supported_columns' not found");
@@ -328,29 +328,29 @@ public class TestPostgreSqlConnectorTest
     public void testDecimalPredicatePushdown()
             throws Exception
     {
-        try (AutoCloseable ignore = withTable("tpch.test_decimal_pushdown",
+        try (AutoCloseable ignore = withTable("test_decimal_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            execute("INSERT INTO tpch.test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
+            execute("INSERT INTO test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
 
-            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 124"))
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 124"))
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456790"))
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456790"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 123.321"))
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal = 123.321"))
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal = 123.321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
                     .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
                     .isFullyPushedDown();
         }
@@ -360,19 +360,19 @@ public class TestPostgreSqlConnectorTest
     public void testCharPredicatePushdown()
             throws Exception
     {
-        try (AutoCloseable ignore = withTable("tpch.test_char_pushdown",
+        try (AutoCloseable ignore = withTable("test_char_pushdown",
                 "(char_1 char(1), char_5 char(5), char_10 char(10))")) {
-            execute("INSERT INTO tpch.test_char_pushdown VALUES" +
+            execute("INSERT INTO test_char_pushdown VALUES" +
                     "('0', '0'    , '0'         )," +
                     "('1', '12345', '1234567890')");
 
-            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_1 = '0' AND char_5 = '0'"))
+            assertThat(query("SELECT * FROM test_char_pushdown WHERE char_1 = '0' AND char_5 = '0'"))
                     .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_5 = CHAR'12345' AND char_10 = '1234567890'"))
+            assertThat(query("SELECT * FROM test_char_pushdown WHERE char_5 = CHAR'12345' AND char_10 = '1234567890'"))
                     .matches("VALUES (CHAR'1', CHAR'12345', CHAR'1234567890')")
                     .isFullyPushedDown();
-            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_10 = CHAR'0'"))
+            assertThat(query("SELECT * FROM test_char_pushdown WHERE char_10 = CHAR'0'"))
                     .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')")
                     .isFullyPushedDown();
         }
@@ -382,7 +382,7 @@ public class TestPostgreSqlConnectorTest
     public void testCharTrailingSpace()
             throws Exception
     {
-        execute("CREATE TABLE tpch.char_trailing_space (x char(10))");
+        execute("CREATE TABLE char_trailing_space (x char(10))");
         assertUpdate("INSERT INTO char_trailing_space VALUES ('test')", 1);
 
         assertQuery("SELECT * FROM char_trailing_space WHERE x = char 'test'", "VALUES 'test'");
@@ -550,7 +550,7 @@ public class TestPostgreSqlConnectorTest
         postgreSqlServer.execute("CREATE TYPE " + enumType + " AS ENUM ('A', 'b', 'B', 'a')");
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_case_sensitive_topn_pushdown_with_enums",
+                "test_case_sensitive_topn_pushdown_with_enums",
                 "(an_enum " + enumType + ", a_bigint bigint)",
                 List.of(
                         "'A', 1",
@@ -652,7 +652,7 @@ public class TestPostgreSqlConnectorTest
         // empty table
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_covariance_pushdown",
+                "test_covariance_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
             assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double1, t_double2), covar_samp(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
@@ -661,7 +661,7 @@ public class TestPostgreSqlConnectorTest
         // test some values for which the aggregate functions return whole numbers
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_covariance_pushdown",
+                "test_covariance_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
@@ -671,7 +671,7 @@ public class TestPostgreSqlConnectorTest
         // non-whole number results
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_covariance_pushdown",
+                "test_covariance_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
@@ -685,7 +685,7 @@ public class TestPostgreSqlConnectorTest
         // empty table
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_corr_pushdown",
+                "test_corr_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
             assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
         }
@@ -693,7 +693,7 @@ public class TestPostgreSqlConnectorTest
         // test some values for which the aggregate functions return whole numbers
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_corr_pushdown",
+                "test_corr_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
@@ -702,7 +702,7 @@ public class TestPostgreSqlConnectorTest
         // non-whole number results
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_corr_pushdown",
+                "test_corr_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT corr(t_double1, t_double2), corr(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
@@ -715,7 +715,7 @@ public class TestPostgreSqlConnectorTest
         // empty table
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_regr_pushdown",
+                "test_regr_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
             assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT regr_slope(t_double1, t_double2), regr_slope(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
@@ -724,7 +724,7 @@ public class TestPostgreSqlConnectorTest
         // test some values for which the aggregate functions return whole numbers
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_regr_pushdown",
+                "test_regr_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
             assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
@@ -734,7 +734,7 @@ public class TestPostgreSqlConnectorTest
         // non-whole number results
         try (TestTable testTable = new TestTable(
                 postgreSqlServer::execute,
-                "tpch.test_regr_pushdown",
+                "test_regr_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
             assertThat(query("SELECT regr_intercept(t_double1, t_double2), regr_intercept(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
@@ -783,7 +783,7 @@ public class TestPostgreSqlConnectorTest
     public void testNativeLargeIn()
             throws SQLException
     {
-        execute("SELECT count(*) FROM tpch.orders WHERE " + getLongInClause(0, 500_000));
+        execute("SELECT count(*) FROM orders WHERE " + getLongInClause(0, 500_000));
     }
 
     /**
@@ -796,7 +796,7 @@ public class TestPostgreSqlConnectorTest
         String longInClauses = range(0, 20)
                 .mapToObj(value -> getLongInClause(value * 10_000, 10_000))
                 .collect(joining(" OR "));
-        execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
+        execute("SELECT count(*) FROM orders WHERE " + longInClauses);
     }
 
     /**
@@ -806,7 +806,7 @@ public class TestPostgreSqlConnectorTest
     public void testTimestampColumnAndTimestampWithTimeZoneConstant()
             throws Exception
     {
-        String tableName = "tpch.test_timestamptz_unwrap_cast" + randomTableSuffix();
+        String tableName = "test_timestamptz_unwrap_cast" + randomTableSuffix();
         try (AutoCloseable ignored = withTable(tableName, "(id integer, ts_col timestamp(6))")) {
             execute("INSERT INTO " + tableName + " (id, ts_col) VALUES " +
                     "(1, timestamp '2020-01-01 01:01:01.000')," +
