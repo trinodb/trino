@@ -387,13 +387,13 @@ public class TestSynapseTableStatistics
             SoftAssertions softly = new SoftAssertions();
 
             softly.assertThat(stats.getDistinctValuesCount().getValue())
-                    .isCloseTo(distinctValues, withinPercentage(60.0));
+                    .isCloseTo(distinctValues, withinPercentage(80.0));
 
             softly.assertThat(stats.getNullsFraction().getValue())
-                    .isCloseTo(nullsFraction, withinPercentage(60.0));
+                    .isCloseTo(nullsFraction, withinPercentage(80.0));
 
             softly.assertThat(stats.getDataSize().getValue())
-                    .isCloseTo(dataSize, withinPercentage(60.0));
+                    .isCloseTo(dataSize, withinPercentage(80.0));
 
             softly.assertThat(stats.getRange()).isEmpty();
             softly.assertAll();
