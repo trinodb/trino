@@ -707,51 +707,41 @@ public abstract class AbstractTestOracleTypeMapping
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean insertWithTrino, ZoneId sessionZone)
+    public void testTimestamp(ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-        DataTypeTest tests = DataTypeTest.create()
-                .addRoundTrip(timestampDataType(), beforeEpoch)
-                .addRoundTrip(timestampDataType(), afterEpoch)
-                .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
-                .addRoundTrip(timestampDataType(), timeDoubledInVilnius)
-                .addRoundTrip(timestampDataType(), epoch) // epoch also is a gap in JVM zone
-                .addRoundTrip(timestampDataType(), timeGapInJvmZone1)
-                .addRoundTrip(timestampDataType(), timeGapInJvmZone2)
-                .addRoundTrip(timestampDataType(), timeGapInVilnius)
-                .addRoundTrip(timestampDataType(), timeGapInKathmandu);
+        SqlDataTypeTest tests = SqlDataTypeTest.create()
+                // before epoch
+                .addRoundTrip("timestamp", "TIMESTAMP '1958-01-01 13:18:03.123'", TIMESTAMP_MILLIS, "TIMESTAMP '1958-01-01 13:18:03.123'")
+                // after epoch
+                .addRoundTrip("timestamp", "TIMESTAMP '2019-03-18 10:01:17.987'", TIMESTAMP_MILLIS, "TIMESTAMP '2019-03-18 10:01:17.987'")
+                // epoch, epoch also is a gap in JVM zone
+                .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 00:00:00.000'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeDoubledInJvmZone), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeDoubledInJvmZone))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeDoubledInVilnius), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeDoubledInVilnius))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInJvmZone1), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInJvmZone1))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInJvmZone2), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInJvmZone2))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInVilnius), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInVilnius))
+                .addRoundTrip("timestamp", timestampDataType(3).toLiteral(timeGapInKathmandu), TIMESTAMP_MILLIS, timestampDataType(3).toLiteral(timeGapInKathmandu));
 
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
                 .build();
-
-        if (insertWithTrino) {
-            tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
-        }
-        else {
-            tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
-        }
+        tests.execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"));
+        tests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_timestamp"));
+        tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
     }
 
     @DataProvider
     public Object[][] testTimestampDataProvider()
     {
         return new Object[][] {
-                {true, UTC},
-                {false, UTC},
-
-                {true, jvmZone},
-                {false, jvmZone},
-
+                {UTC},
+                {jvmZone},
                 // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-                {true, vilnius},
-                {false, vilnius},
-
-                {true, kathmandu},
-                {false, kathmandu},
-
-                {true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {vilnius},
+                {kathmandu},
+                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
         };
     }
 
