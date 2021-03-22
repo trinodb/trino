@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -41,16 +41,16 @@ public class TestCreateDropSchema
     {
         onHive().executeQuery("DROP DATABASE IF EXISTS test_drop_schema CASCADE");
 
-        onPresto().executeQuery("CREATE SCHEMA test_drop_schema");
+        onTrino().executeQuery("CREATE SCHEMA test_drop_schema");
         assertTrue(hdfsClient.exist(warehouseDirectory + "/test_drop_schema.db"));
 
-        onPresto().executeQuery("CREATE TABLE test_drop_schema.test_drop (col1 int)");
+        onTrino().executeQuery("CREATE TABLE test_drop_schema.test_drop (col1 int)");
         assertThat(() -> query("DROP SCHEMA test_drop_schema"))
                 .failsWithMessage("Schema not empty: test_drop_schema");
 
-        onPresto().executeQuery("DROP TABLE test_drop_schema.test_drop");
+        onTrino().executeQuery("DROP TABLE test_drop_schema.test_drop");
 
-        onPresto().executeQuery("DROP SCHEMA test_drop_schema");
+        onTrino().executeQuery("DROP SCHEMA test_drop_schema");
         assertFalse(hdfsClient.exist(warehouseDirectory + "/test_drop_schema.db"));
     }
 }

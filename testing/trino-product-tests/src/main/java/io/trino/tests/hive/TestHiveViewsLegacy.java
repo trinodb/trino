@@ -27,7 +27,7 @@ import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tempto.query.QueryExecutor.query;
 import static io.trino.tests.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.utils.QueryExecutors.onHive;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Requires({
@@ -64,8 +64,8 @@ public class TestHiveViewsLegacy
         onHive().executeQuery("CREATE SCHEMA test_schema;");
         onHive().executeQuery("CREATE VIEW test_schema.hive_test_view AS SELECT * FROM nation");
         onHive().executeQuery("CREATE TABLE test_schema.hive_table(a string)");
-        onPresto().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
-        onPresto().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM nation");
+        onTrino().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
+        onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM nation");
 
         boolean hiveWithTableNamesByType = getHiveVersionMajor() >= 3 ||
                 (getHiveVersionMajor() == 2 && getHiveVersionMinor() >= 3);

@@ -37,8 +37,8 @@ import static io.trino.tests.sqlserver.SqlServerDataTypesTableDefinition.SQLSERV
 import static io.trino.tests.sqlserver.SqlServerTpchTableDefinitions.NATION;
 import static io.trino.tests.sqlserver.TestConstants.CONNECTOR_NAME;
 import static io.trino.tests.sqlserver.TestConstants.KEY_SPACE;
-import static io.trino.tests.utils.QueryExecutors.onPresto;
 import static io.trino.tests.utils.QueryExecutors.onSqlServer;
+import static io.trino.tests.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
 import static java.sql.JDBCType.BIGINT;
 import static java.sql.JDBCType.CHAR;
@@ -76,7 +76,7 @@ public class TestSelect
     public void dropTestTables()
     {
         try {
-            onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", CREATE_TABLE_AS_SELECT));
+            onTrino().executeQuery(format("DROP TABLE IF EXISTS %s", CREATE_TABLE_AS_SELECT));
         }
         catch (Exception e) {
             log.warn(e, "failed to drop table");
@@ -86,7 +86,7 @@ public class TestSelect
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testSelectNation()
     {
-        QueryResult queryResult = onPresto().executeQuery("SELECT n_nationkey, n_name, n_regionkey, n_comment FROM " + NATION_TABLE_NAME);
+        QueryResult queryResult = onTrino().executeQuery("SELECT n_nationkey, n_name, n_regionkey, n_comment FROM " + NATION_TABLE_NAME);
         assertThat(queryResult).matches(PRESTO_NATION_RESULT);
     }
 
@@ -99,7 +99,7 @@ public class TestSelect
                         "WHERE n1.n_nationkey=3",
                 NATION_TABLE_NAME,
                 NATION_TABLE_NAME);
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(
@@ -118,7 +118,7 @@ public class TestSelect
                         "tpch.tiny.region t ON c.n_regionkey = t.regionkey " +
                         "WHERE c.n_nationkey=3",
                 NATION_TABLE_NAME);
-        QueryResult queryResult = onPresto()
+        QueryResult queryResult = onTrino()
                 .executeQuery(sql);
 
         assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
@@ -127,7 +127,7 @@ public class TestSelect
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testAllDatatypes()
     {
-        QueryResult queryResult = onPresto().executeQuery("SELECT * FROM " + ALL_TYPES_TABLE_NAME);
+        QueryResult queryResult = onTrino().executeQuery("SELECT * FROM " + ALL_TYPES_TABLE_NAME);
         assertThat(queryResult)
                 .hasColumns(
                         BIGINT,
@@ -196,7 +196,7 @@ public class TestSelect
     @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
-        onPresto().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", CREATE_TABLE_AS_SELECT, NATION_TABLE_NAME));
+        onTrino().executeQuery(format("CREATE TABLE %s AS SELECT * FROM %s", CREATE_TABLE_AS_SELECT, NATION_TABLE_NAME));
 
         QueryResult queryResult = onSqlServer()
                 .executeQuery(format("SELECT n_nationkey, n_name, n_regionkey, n_comment FROM %s.%s.%s", "master", KEY_SPACE, CTAS_TABLE_NAME));
