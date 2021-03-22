@@ -201,42 +201,36 @@ public class TestPlanMatchingFramework
                         tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))));
     }
 
-    /*
-     * There are so many ways for matches to fail that this is not likely to be generally useful.
-     * Pending better diagnostics, please leave this here, and restrict its use to simple queries
-     * that have few ways to not match a pattern, and functionality that is well-tested with
-     * positive tests.
-     */
-    private void assertFails(Runnable runnable)
-    {
-        assertThatThrownBy(runnable::run)
-                .isInstanceOf(AssertionError.class);
-    }
-
     @Test
     public void testStrictOutputExtraSymbols()
     {
-        assertFails(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+        assertThatThrownBy(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
                 strictOutput(ImmutableList.of("ORDERKEY"),
                         tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey",
-                                "EXTENDEDPRICE", "extendedprice")))));
+                                "EXTENDEDPRICE", "extendedprice")))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("Plan does not match");
     }
 
     @Test
     public void testStrictTableScanExtraSymbols()
     {
-        assertFails(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
+        assertThatThrownBy(() -> assertMinimallyOptimizedPlan("SELECT orderkey, extendedprice FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXTENDEDPRICE"),
-                        strictTableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))));
+                        strictTableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey")))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("Plan does not match");
     }
 
     @Test
     public void testStrictProjectExtraSymbols()
     {
-        assertFails(() -> assertMinimallyOptimizedPlan("SELECT discount, orderkey, 1 + orderkey FROM lineitem",
+        assertThatThrownBy(() -> assertMinimallyOptimizedPlan("SELECT discount, orderkey, 1 + orderkey FROM lineitem",
                 output(ImmutableList.of("ORDERKEY", "EXPRESSION"),
                         strictProject(ImmutableMap.of("EXPRESSION", expression("1 + ORDERKEY"), "ORDERKEY", expression("ORDERKEY")),
-                                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))));
+                                tableScan("lineitem", ImmutableMap.of("ORDERKEY", "orderkey"))))))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageStartingWith("Plan does not match");
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = ".*already bound to expression.*")
