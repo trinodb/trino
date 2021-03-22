@@ -101,15 +101,18 @@ public class TestKuduIntegrationDecimalColumns
     private void doTestCreateTableWithDecimalColumn(TestDecimal decimal)
     {
         String tableName = decimal.getTableName();
-        String dropTable = "DROP TABLE IF EXISTS " + tableName;
-        String createTable = "" +
-                "CREATE TABLE " + tableName + " (\n" +
-                "  id INT WITH (primary_key=true),\n" +
-                "  dec DECIMAL(" + decimal.precision + "," + decimal.scale + ")\n" +
+        String dropTable = format("DROP TABLE IF EXISTS %s", tableName);
+        String createTable = format(
+                "CREATE TABLE %s (\n" +
+                "   id INT WITH (primary_key=true),\n" +
+                "   dec DECIMAL(%s, %s)\n" +
                 ") WITH (\n" +
-                " partition_by_hash_columns = ARRAY['id'],\n" +
-                " partition_by_hash_buckets = 2\n" +
-                ")";
+                "   partition_by_hash_columns = ARRAY['id'],\n" +
+                "   partition_by_hash_buckets = 2\n" +
+                ")",
+                tableName,
+                decimal.precision,
+                decimal.scale);
 
         assertUpdate(dropTable);
         assertUpdate(createTable);
@@ -118,9 +121,9 @@ public class TestKuduIntegrationDecimalColumns
         int maxScale = decimal.precision - 10;
         int valuePrecision = decimal.precision - maxScale + Math.min(maxScale, decimal.scale);
         String insertValue = fullPrecisionValue.substring(0, valuePrecision + 1);
-        assertUpdate("INSERT INTO " + tableName + " VALUES(1, DECIMAL '" + insertValue + "')", 1);
+        assertUpdate(format("INSERT INTO %s VALUES(1, DECIMAL '%s')", tableName, insertValue), 1);
 
-        MaterializedResult result = computeActual("SELECT id, CAST((dec - (DECIMAL '" + insertValue + "')) as DOUBLE) FROM " + tableName);
+        MaterializedResult result = computeActual(format("SELECT id, CAST((dec - (DECIMAL '%s')) as DOUBLE) FROM %s", insertValue, tableName));
         assertEquals(result.getRowCount(), 1);
         Object obj = result.getMaterializedRows().get(0).getField(1);
         assertTrue(obj instanceof Double);
