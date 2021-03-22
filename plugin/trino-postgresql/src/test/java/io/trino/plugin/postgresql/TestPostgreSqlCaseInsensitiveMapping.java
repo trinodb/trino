@@ -43,11 +43,7 @@ public class TestPostgreSqlCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        postgreSqlServer = new TestingPostgreSqlServer();
-        closeAfterClass(() -> {
-            postgreSqlServer.close();
-            postgreSqlServer = null;
-        });
+        postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         return PostgreSqlQueryRunner.createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),
