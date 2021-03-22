@@ -41,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -272,17 +273,23 @@ public class ConfluentSchemaRegistryTableDescriptionSupplier
     private static boolean isValidSubject(String subject)
     {
         requireNonNull(subject, "subject is null");
-        return subject.endsWith(VALUE_SUFFIX) || subject.endsWith(KEY_SUFFIX);
+        return (subject.endsWith(VALUE_SUFFIX) && subject.length() > VALUE_SUFFIX.length())
+                || (subject.endsWith(KEY_SUFFIX) && subject.length() > KEY_SUFFIX.length());
     }
 
     private static String extractTopicFromSubject(String subject)
     {
         requireNonNull(subject, "subject is null");
+        String topic;
         if (subject.endsWith(VALUE_SUFFIX)) {
-            return subject.substring(0, subject.length() - VALUE_SUFFIX.length());
+            topic = subject.substring(0, subject.length() - VALUE_SUFFIX.length());
         }
-        checkState(subject.endsWith(KEY_SUFFIX), "Unexpected subject name %s", subject);
-        return subject.substring(0, subject.length() - KEY_SUFFIX.length());
+        else {
+            checkState(subject.endsWith(KEY_SUFFIX), "Unexpected subject name %s", subject);
+            topic = subject.substring(0, subject.length() - KEY_SUFFIX.length());
+        }
+        checkArgument(!topic.isEmpty(), "Unexpected subject name %s", subject);
+        return topic;
     }
 
     private static Optional<String> getKeySubjectFromTopic(String topic, Collection<String> subjectsForTopic)
