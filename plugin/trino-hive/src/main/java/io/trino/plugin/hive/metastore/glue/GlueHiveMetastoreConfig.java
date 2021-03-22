@@ -29,7 +29,6 @@ public class GlueHiveMetastoreConfig
     private Optional<String> glueRegion = Optional.empty();
     private Optional<String> glueEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
-    private boolean sessionIdentifier;
     private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
@@ -79,16 +78,6 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setPinGlueClientToCurrentRegion(boolean pinGlueClientToCurrentRegion)
     {
         this.pinGlueClientToCurrentRegion = pinGlueClientToCurrentRegion;
-        return this;
-    }
-
-    public boolean isSessionIdentifier() { return sessionIdentifier; }
-
-    @Config("hive.metastore.glue.enable-session-identifier")
-    @ConfigDescription("Should session user for the connection enabled")
-    public GlueHiveMetastoreConfig setSessionIdentifier(boolean sessionIdentifier)
-    {
-        this.sessionIdentifier = sessionIdentifier;
         return this;
     }
 

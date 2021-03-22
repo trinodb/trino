@@ -42,8 +42,7 @@ public class TestGlueHiveMetastoreConfig
                 .setCatalogId(null)
                 .setPartitionSegments(5)
                 .setGetPartitionThreads(20)
-                .setAssumeCanonicalPartitionKeys(false)
-                .setSessionIdentifier(false));
+                .setAssumeCanonicalPartitionKeys(false));
     }
 
     @Test
@@ -83,8 +82,7 @@ public class TestGlueHiveMetastoreConfig
                 .setCatalogId("0123456789")
                 .setPartitionSegments(10)
                 .setGetPartitionThreads(42)
-                .setAssumeCanonicalPartitionKeys(true)
-                .setSessionIdentifier(true);
+                .setAssumeCanonicalPartitionKeys(true);
 
         assertFullMapping(properties, expected);
     }

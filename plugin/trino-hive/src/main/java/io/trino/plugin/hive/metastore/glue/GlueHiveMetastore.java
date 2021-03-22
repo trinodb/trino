@@ -106,6 +106,7 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -224,16 +225,14 @@ public class GlueHiveMetastore
 
     private static AWSCredentialsProvider getAwsCredentialsProvider(GlueHiveMetastoreConfig config)
     {
-        String sessionIdentifier = "trino-session";
-        if(config.isSessionIdentifier()) {
+           String sessionIdentifier;
             try {
                 UserGroupInformation ugi = UserGroupInformation.getCurrentUser();
                 sessionIdentifier = ugi.getUserName();
-            } catch (IOException ex) {
-                // Do nothing as we expect sessionIdentifier to retain its original value.
-                sessionIdentifier = "trino-session";
+            } catch (IOException e) {
+                throw new RuntimeException(format("Error getting current username %s"), e);
             }
-        }
+
         if (config.getAwsAccessKey().isPresent() && config.getAwsSecretKey().isPresent()) {
             return new AWSStaticCredentialsProvider(
                     new BasicAWSCredentials(config.getAwsAccessKey().get(), config.getAwsSecretKey().get()));

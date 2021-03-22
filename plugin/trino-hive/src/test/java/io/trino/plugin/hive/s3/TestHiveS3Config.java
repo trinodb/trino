@@ -69,7 +69,7 @@ public class TestHiveS3Config
                 .setRequesterPaysEnabled(false)
                 .setS3StreamingUploadEnabled(false)
                 .setS3StreamingPartSize(DataSize.of(16, Unit.MEGABYTE))
-                .setS3SessionIdentifier(false));
+                .setS3SessionIdentifier(null));
     }
 
     @Test
@@ -111,7 +111,7 @@ public class TestHiveS3Config
                 .put("hive.s3.requester-pays.enabled", "true")
                 .put("hive.s3.streaming.enabled", "true")
                 .put("hive.s3.streaming.part-size", "15MB")
-                .put("hive.s3.session-identifier.enabled","true")
+                .put("hive.s3.session-identifier","trino-user")
                 .build();
 
         HiveS3Config expected = new HiveS3Config()
@@ -147,7 +147,7 @@ public class TestHiveS3Config
                 .setRequesterPaysEnabled(true)
                 .setS3StreamingUploadEnabled(true)
                 .setS3StreamingPartSize(DataSize.of(15, Unit.MEGABYTE))
-                .setS3SessionIdentifier(true);
+                .setS3SessionIdentifier("trino-user");
 
         assertFullMapping(properties, expected);
     }
