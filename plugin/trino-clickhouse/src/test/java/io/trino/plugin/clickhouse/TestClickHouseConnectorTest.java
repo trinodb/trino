@@ -298,6 +298,15 @@ public class TestClickHouseConnectorTest
     }
 
     @Override
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        return new TestTable(
+                clickhouseServer::execute,
+                "tpch.test_unsupported_column_present",
+                "(one bigint, two Array(UInt8), three String) ENGINE=Log");
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         switch (dataMappingTestSetup.getTrinoTypeName()) {

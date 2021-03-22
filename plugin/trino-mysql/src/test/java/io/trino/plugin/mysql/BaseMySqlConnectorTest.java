@@ -88,6 +88,15 @@ public abstract class BaseMySqlConnectorTest
     }
 
     @Override
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        return new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_unsupported_column_present",
+                "(one bigint, two decimal(50,0), three varchar(10))");
+    }
+
+    @Override
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
@@ -199,17 +208,6 @@ public abstract class BaseMySqlConnectorTest
         assertUpdate("INSERT INTO test_insert VALUES (123, 'test')", 1);
         assertQuery("SELECT * FROM test_insert", "SELECT 123 x, 'test' y");
         assertUpdate("DROP TABLE test_insert");
-    }
-
-    @Test
-    public void testInsertInPresenceOfNotSupportedColumn()
-    {
-        onRemoteDatabase().execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
-        // Check that column y is not supported.
-        assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_insert_not_supported_column_present'", "VALUES 'x', 'z'");
-        assertUpdate("INSERT INTO test_insert_not_supported_column_present (x, z) VALUES (123, 'test')", 1);
-        assertQuery("SELECT x, z FROM test_insert_not_supported_column_present", "SELECT 123, 'test'");
-        assertUpdate("DROP TABLE test_insert_not_supported_column_present");
     }
 
     @Test

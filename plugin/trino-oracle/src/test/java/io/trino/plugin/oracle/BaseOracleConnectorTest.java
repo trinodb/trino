@@ -119,6 +119,15 @@ public abstract class BaseOracleConnectorTest
                         "col_required2 decimal(20,0) NOT NULL)");
     }
 
+    @Override
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        return new TestTable(
+                onRemoteDatabase(),
+                "test_unsupported_col",
+                "(one NUMBER(19), two NUMBER, three VARCHAR2(10 CHAR))");
+    }
+
     @Test
     @Override
     public void testCreateTableAsSelect()
