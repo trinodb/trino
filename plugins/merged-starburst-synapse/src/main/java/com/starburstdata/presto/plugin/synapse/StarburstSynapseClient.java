@@ -14,17 +14,22 @@ import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
+
+import java.util.List;
+import java.util.Optional;
 
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
@@ -49,7 +54,7 @@ public class StarburstSynapseClient
     protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
-            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming tables across schemas");
         }
         String sql = format(
                 "RENAME OBJECT %s TO %s",
@@ -95,5 +100,19 @@ public class StarburstSynapseClient
         }
 
         return super.toWriteMapping(session, type);
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    {
+        // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/PRESTO-5683)
+        return false;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/PRESTO-5683)
+        return Optional.empty();
     }
 }
