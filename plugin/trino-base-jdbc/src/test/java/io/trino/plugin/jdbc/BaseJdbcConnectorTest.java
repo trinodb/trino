@@ -125,8 +125,8 @@ public abstract class BaseJdbcConnectorTest
                 .ordered()
                 .isFullyPushedDown();
 
-        // TopN over limit
-        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 20) ORDER BY totalprice ASC LIMIT 5"))
+        // TopN over limit - use high limit for deterministic result
+        assertThat(query("SELECT orderkey, totalprice FROM (SELECT orderkey, totalprice FROM orders LIMIT 15000) ORDER BY totalprice ASC LIMIT 5"))
                 .ordered()
                 .isFullyPushedDown();
 
