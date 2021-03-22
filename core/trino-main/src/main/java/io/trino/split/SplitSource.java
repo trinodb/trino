@@ -21,7 +21,6 @@ import io.trino.spi.connector.ConnectorPartitionHandle;
 
 import java.io.Closeable;
 import java.util.List;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -63,6 +62,4 @@ public interface SplitSource
             return lastBatch;
         }
     }
-
-    Optional<Integer> getMinScheduleSplitBatchSize();
 }
