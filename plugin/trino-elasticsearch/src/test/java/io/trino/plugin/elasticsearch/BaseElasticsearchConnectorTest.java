@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
+import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
@@ -36,6 +37,7 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
@@ -47,6 +49,7 @@ import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -457,6 +460,457 @@ public abstract class BaseElasticsearchConnectorTest
         assertQuery(
                 "SELECT a.b.y[1], c.f[1].g[2], c.f[2].g[1], j[2], k[1] FROM test_arrays",
                 "VALUES ('hello', 20, 30, 60, NULL)");
+    }
+
+    @Test
+    public void testAsRawJson()
+            throws IOException
+    {
+        String indexName = "raw_json_" + randomTableSuffix();
+
+        @Language("JSON")
+        String mapping = "" +
+                "{" +
+                "  \"_meta\": {" +
+                "    \"presto\": {" +
+                "      \"es_object\": {" +
+                "        \"array_of_string_arrays\": {" +
+                "          \"asRawJson\": true" +
+                "        }," +
+                "        \"arrayOfIntArrays\": {" +
+                "          \"asRawJson\": true" +
+                "        }" +
+                "      }," +
+                "      \"es_array_object\": {" +
+                "        \"isArray\": true," +
+                "        \"array_of_string_arrays\": {" +
+                "          \"asRawJson\": true" +
+                "        }," +
+                "        \"arrayOfIntArrays\": {" +
+                "          \"asRawJson\": true" +
+                "        }" +
+                "      }," +
+                "      \"es_raw_object\": {" +
+                "        \"asRawJson\": true," +
+                "        \"array_of_string_arrays\": {" +
+                "          \"isArray\": true" +
+                "        }," +
+                "        \"arrayOfIntArrays\": {" +
+                "          \"isArray\": true" +
+                "        }" +
+                "      }," +
+                "      \"array_of_string_arrays\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"array_of_long_arrays\": {" +
+                "        \"asRawJson\": true" +
+                "      }" +
+                "    }" +
+                "  }," +
+                "  \"properties\": {" +
+                "    \"es_object\": {" +
+                "      \"type\": \"object\"," +
+                "      \"properties\": {" +
+                "        \"array_of_string_arrays\": {" +
+                "          \"type\": \"keyword\"" +
+                "        }," +
+                "        \"arrayOfIntArrays\": {" +
+                "          \"type\": \"integer\"" +
+                "        }" +
+                "      }" +
+                "    }," +
+                "    \"es_array_object\": {" +
+                "      \"type\": \"object\"," +
+                "      \"properties\": {" +
+                "        \"array_of_string_arrays\": {" +
+                "          \"type\": \"keyword\"" +
+                "        }," +
+                "        \"arrayOfIntArrays\": {" +
+                "          \"type\": \"integer\"" +
+                "        }" +
+                "      }" +
+                "    }," +
+                "    \"es_raw_object\": {" +
+                "      \"type\": \"object\"," +
+                "      \"properties\": {" +
+                "        \"array_of_string_arrays\": {" +
+                "          \"type\": \"keyword\"" +
+                "        }," +
+                "        \"arrayOfIntArrays\": {" +
+                "          \"type\": \"integer\"" +
+                "        }" +
+                "      }" +
+                "    }," +
+                "    \"array_of_string_arrays\": {" +
+                "      \"type\": \"text\"" +
+                "    }," +
+                "    \"array_of_long_arrays\": {" +
+                "      \"type\": \"long\"" +
+                "    }," +
+                "    \"order_field\": {" +
+                "      \"type\": \"integer\"" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("es_object", ImmutableMap.<String, Object>builder()
+                        .put("array_of_string_arrays", ImmutableList.<List>builder()
+                                .add(ImmutableList.<String>builder()
+                                        .add("abc")
+                                        .add("def")
+                                        .build())
+                                .build())
+                        .put("arrayOfIntArrays", ImmutableList.<Object>builder()
+                                .add(123)
+                                .add(ImmutableList.<Integer>builder()
+                                        .add(234)
+                                        .add(345)
+                                        .build())
+                                .build())
+                        .build())
+                .put("es_array_object", ImmutableMap.<String, Object>builder()
+                        .put("array_of_string_arrays", ImmutableList.<List>builder()
+                                .add(ImmutableList.<String>builder()
+                                        .add("abc")
+                                        .add("def")
+                                        .build())
+                                .build())
+                        .put("arrayOfIntArrays", ImmutableList.<Object>builder()
+                                .add(123)
+                                .add(ImmutableList.<Integer>builder()
+                                        .add(234)
+                                        .add(345)
+                                        .build())
+                                .build())
+                        .build())
+                .put("es_raw_object", ImmutableMap.<String, Object>builder()
+                        .put("array_of_string_arrays", ImmutableList.<List>builder()
+                                .add(ImmutableList.<String>builder()
+                                        .add("abc")
+                                        .add("def")
+                                        .build())
+                                .build())
+                        .put("arrayOfIntArrays", ImmutableList.<Object>builder()
+                                .add(123)
+                                .add(ImmutableList.<Integer>builder()
+                                        .add(234)
+                                        .add(345)
+                                        .build())
+                                .build())
+                        .build())
+                .put("array_of_string_arrays", ImmutableList.<List>builder()
+                        .add(ImmutableList.<String>builder()
+                                .add("abc")
+                                .add("def")
+                                .build())
+                        .build())
+                .put("array_of_long_arrays", ImmutableList.<Object>builder()
+                        .add(123L)
+                        .add(ImmutableList.<Long>builder()
+                                .add(234L)
+                                .add(345L)
+                                .build())
+                        .build())
+                .put("order_field", 1)
+                .build());
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("es_object", ImmutableMap.<String, Object>builder()
+                        .put("array_of_string_arrays", "Join the Trino Slack: https://trino.io/slack.html")
+                        .put("arrayOfIntArrays", 867)
+                        .build())
+                .put("es_array_object", ImmutableMap.<String, Object>builder()
+                        .put("array_of_string_arrays", "If you like Presto, you'll love Trino: https://trino.io/slack.html")
+                        .put("arrayOfIntArrays", 321)
+                        .build())
+                .put("es_raw_object", ImmutableMap.<String, Object>builder()
+                        .put("array_of_string_arrays", "The founders and core contributors of Presto, and are now working on Trino: https://trino.io/blog/2020/12/27/announcing-trino.html")
+                        .put("arrayOfIntArrays", 654)
+                        .build())
+                .put("array_of_string_arrays", "Check out the bi-weekly Trino Community Broadcast https://trino.io/broadcast/")
+                .put("array_of_long_arrays", 5309L)
+                .put("order_field", 2)
+                .build());
+
+        MaterializedResult rows = computeActual("" +
+                "SELECT " +
+                "json_extract(array_of_string_arrays, '$[0][0]'), " +
+                "json_extract(array_of_string_arrays, '$[0][1]'), " +
+                "array_of_string_arrays, " +
+                "json_extract(array_of_long_arrays, '$[0]'), " +
+                "try(json_extract(array_of_long_arrays, '$[1][0]')), " +
+                "try(json_extract(array_of_long_arrays, '$[1][1]')), " +
+                "array_of_long_arrays " +
+                "FROM " + indexName + " " +
+                "ORDER BY order_field");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
+                .row(null, null, "\"Check out the bi-weekly Trino Community Broadcast https://trino.io/broadcast/\"", null, null, null, "5309")
+                .build();
+
+        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+
+        MaterializedResult nestedRows = computeActual("" +
+                "SELECT " +
+                "json_extract(es_object.array_of_string_arrays, '$[0][0]'), " +
+                "json_extract(es_object.array_of_string_arrays, '$[0][1]'), " +
+                "es_object.array_of_string_arrays, " +
+                "json_extract(es_object.arrayOfIntArrays, '$[0]'), " +
+                "try(json_extract(es_object.arrayOfIntArrays, '$[1][0]')), " +
+                "try(json_extract(es_object.arrayOfIntArrays, '$[1][1]')), " +
+                "es_object.arrayOfIntArrays " +
+                "FROM " + indexName + " " +
+                "ORDER BY order_field");
+
+        MaterializedResult nestedExpected = resultBuilder(getSession(), nestedRows.getTypes())
+                .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
+                .row(null, null, "\"Join the Trino Slack: https://trino.io/slack.html\"", null, null, null, "867")
+                .build();
+
+        assertEquals(nestedRows.getMaterializedRows(), nestedExpected.getMaterializedRows());
+
+        MaterializedResult arrayRows = computeActual("" +
+                "SELECT " +
+                "json_extract(es_array_object[1].array_of_string_arrays, '$[0][0]'), " +
+                "json_extract(es_array_object[1].array_of_string_arrays, '$[0][1]'), " +
+                "es_array_object[1].array_of_string_arrays, " +
+                "json_extract(es_array_object[1].arrayOfIntArrays, '$[0]'), " +
+                "try(json_extract(es_array_object[1].arrayOfIntArrays, '$[1][0]')), " +
+                "try(json_extract(es_array_object[1].arrayOfIntArrays, '$[1][1]')), " +
+                "es_array_object[1].arrayOfIntArrays " +
+                "FROM " + indexName + " " +
+                "ORDER BY order_field");
+
+        MaterializedResult arrayExpected = resultBuilder(getSession(), arrayRows.getTypes())
+                .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
+                .row(null, null, "\"If you like Presto, you'll love Trino: https://trino.io/slack.html\"", null, null, null, "321")
+                .build();
+
+        assertEquals(arrayRows.getMaterializedRows(), arrayExpected.getMaterializedRows());
+
+        MaterializedResult rawRows = computeActual("" +
+                "SELECT " +
+                "json_extract(es_raw_object, '$.array_of_string_arrays[0][0]'), " +
+                "json_extract(es_raw_object, '$.array_of_string_arrays[0][1]'), " +
+                "json_extract(es_raw_object, '$.array_of_string_arrays'), " +
+                "json_extract(es_raw_object, '$.arrayOfIntArrays[0]'), " +
+                "try(json_extract(es_raw_object, '$.arrayOfIntArrays[1][0]')), " +
+                "try(json_extract(es_raw_object, '$.arrayOfIntArrays[1][1]')), " +
+                "json_extract(es_raw_object, '$.arrayOfIntArrays') " +
+                "FROM " + indexName + " " +
+                "ORDER BY order_field");
+
+        MaterializedResult rawRowsExpected = resultBuilder(getSession(), rawRows.getTypes())
+                .row("\"abc\"", "\"def\"", "[[\"abc\",\"def\"]]", "123", "234", "345", "[123,[234,345]]")
+                .row(null, null, "\"The founders and core contributors of Presto, and are now working on Trino: https://trino.io/blog/2020/12/27/announcing-trino.html\"", null, null, null, "654")
+                .build();
+
+        assertEquals(rawRows.getMaterializedRows(), rawRowsExpected.getMaterializedRows());
+    }
+
+    @Test
+    public void testAsRawJsonForAllPrimitiveTypes()
+            throws IOException
+    {
+        String indexName = "raw_json_primitive_" + randomTableSuffix();
+
+        @Language("JSON")
+        String mapping = "" +
+                "{" +
+                "  \"_meta\": {" +
+                "    \"presto\": {" +
+                "      \"es_binary\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_boolean\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_long\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_integer\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_short\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_byte\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_double\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_float\": {" +
+                "        \"asRawJson\": true" +
+                "      }" +
+                "    }" +
+                "  }," +
+                "  \"properties\": {" +
+                "    \"es_binary\": {" +
+                "      \"type\": \"binary\"" +
+                "    }," +
+                "    \"es_boolean\": {" +
+                "      \"type\": \"boolean\"" +
+                "    }," +
+                "    \"es_long\": {" +
+                "      \"type\": \"long\"" +
+                "    }," +
+                "    \"es_integer\": {" +
+                "      \"type\": \"integer\"" +
+                "    }," +
+                "    \"es_short\": {" +
+                "      \"type\": \"short\"" +
+                "    }," +
+                "    \"es_byte\": {" +
+                "      \"type\": \"byte\"" +
+                "    }," +
+                "    \"es_double\": {" +
+                "      \"type\": \"double\"" +
+                "    }," +
+                "    \"es_float\": {" +
+                "      \"type\": \"float\"" +
+                "    }," +
+                "    \"order_field\": {" +
+                "      \"type\": \"integer\"" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("es_binary", "test".getBytes(UTF_8))
+                .put("es_boolean", true)
+                .put("es_long", (long) 123)
+                .put("es_integer", 123)
+                .put("es_short", (short) 123)
+                .put("es_byte", (byte) 123)
+                .put("es_double", (double) 123)
+                .put("es_float", (float) 123)
+                .put("order_field", 1)
+                .build());
+
+        MaterializedResult rows = computeActual("" +
+                "SELECT " +
+                "es_binary, " +
+                "es_boolean, " +
+                "es_long, " +
+                "es_integer, " +
+                "es_short, " +
+                "es_byte, " +
+                "es_double, " +
+                "es_float " +
+                "FROM " + indexName + " " +
+                "ORDER BY order_field");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row("\"dGVzdA==\"", "true", "123", "123", "123", "123", "123.0", "123.0")
+                .build();
+        rows.getTypes().forEach(VarcharType.class::isInstance);
+
+        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+
+        deleteIndex(indexName);
+    }
+
+    @Test
+    public void testAsRawJsonCases()
+            throws IOException
+    {
+        String indexName = "raw_json_cases_" + randomTableSuffix();
+
+        @Language("JSON")
+        String mapping = "" +
+                "{" +
+                "  \"_meta\": {" +
+                "    \"presto\": {" +
+                "      \"es_binary\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_boolean\": {" +
+                "        \"asRawJson\": true" +
+                "      }," +
+                "      \"es_timestamp\": {" +
+                "        \"asRawJson\": true" +
+                "      }" +
+                "    }" +
+                "  }," +
+                "  \"properties\": {" +
+                "    \"es_binary\": {" +
+                "      \"type\": \"binary\"" +
+                "    }," +
+                "    \"es_boolean\": {" +
+                "      \"type\": \"boolean\"" +
+                "    }," +
+                "    \"es_timestamp\": {" +
+                "      \"type\": \"date\"" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("es_binary", "test".getBytes(UTF_8))
+                .put("es_boolean", true)
+                .put("es_timestamp", 123)
+                .build());
+
+        MaterializedResult rows = computeActual("" +
+                "SELECT " +
+                "es_binary, " +
+                "es_boolean, " +
+                "es_timestamp " +
+                "FROM " + indexName);
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row("\"dGVzdA==\"", "true", "123")
+                .build();
+
+        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+        rows.getTypes().forEach(VarcharType.class::isInstance);
+
+        deleteIndex(indexName);
+    }
+
+    @Test
+    public void testAsRawJsonAndIsArraySameFieldException()
+            throws IOException
+    {
+        String indexName = "raw_json_array_exception" + randomTableSuffix();
+
+        @Language("JSON")
+        String mapping = "" +
+                "{" +
+                "  \"_meta\": {" +
+                "    \"presto\": {" +
+                "      \"array_raw_field\": {" +
+                "        \"asRawJson\": true," +
+                "        \"isArray\": true" +
+                "      }" +
+                "    }" +
+                "  }," +
+                "  \"properties\": {" +
+                "    \"array_raw_field\": {" +
+                "      \"type\": \"text\"" +
+                "    }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mapping);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("array_raw_field", "test")
+                .build());
+
+        assertThatThrownBy(() -> computeActual("SELECT array_raw_field FROM " + indexName))
+                .hasMessage("A column, (array_raw_field) cannot be declared as a Trino array and also be rendered as json.");
+
+        deleteIndex(indexName);
     }
 
     @Test
@@ -1234,5 +1688,12 @@ public abstract class BaseElasticsearchConnectorTest
     {
         client.getLowLevelClient()
                 .performRequest("GET", format("/%s/_refresh", index));
+    }
+
+    private void deleteIndex(String indexName)
+            throws IOException
+    {
+        client.getLowLevelClient()
+                .performRequest("DELETE", "/" + indexName);
     }
 }
