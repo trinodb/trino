@@ -82,6 +82,13 @@ public class TestPhoenixConnectorTest
     }
 
     @Override
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        // Apparently all Phoenix types are supported in the Phoenix connector.
+        throw new SkipException("Cannot find an unsupported data type");
+    }
+
+    @Override
     public void testRenameTable()
     {
         assertThatThrownBy(super::testRenameTable)

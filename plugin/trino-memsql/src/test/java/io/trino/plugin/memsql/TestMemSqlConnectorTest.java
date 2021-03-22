@@ -21,6 +21,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -108,6 +109,15 @@ public class TestMemSqlConnectorTest
     }
 
     @Override
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        return new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_unsupported_column_present",
+                "(one bigint, two decimal(50,0), three varchar(10))");
+    }
+
+    @Override
     protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
@@ -175,17 +185,6 @@ public class TestMemSqlConnectorTest
         execute("CREATE VIEW tpch.test_view AS SELECT * FROM tpch.orders");
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
         execute("DROP VIEW IF EXISTS tpch.test_view");
-    }
-
-    @Test
-    public void testInsertInPresenceOfNotSupportedColumn()
-    {
-        execute("CREATE TABLE tpch.test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
-        // Check that column y is not supported.
-        assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_insert_not_supported_column_present'", "VALUES 'x', 'z'");
-        assertUpdate("INSERT INTO test_insert_not_supported_column_present (x, z) VALUES (123, 'test')", 1);
-        assertQuery("SELECT x, z FROM test_insert_not_supported_column_present", "SELECT 123, 'test'");
-        assertUpdate("DROP TABLE test_insert_not_supported_column_present");
     }
 
     @Test
@@ -380,5 +379,10 @@ public class TestMemSqlConnectorTest
     private void execute(String sql)
     {
         memSqlServer.execute(sql);
+    }
+
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return memSqlServer::execute;
     }
 }

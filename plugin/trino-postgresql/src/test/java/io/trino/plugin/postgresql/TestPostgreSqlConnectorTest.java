@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.JdbcSqlExecutor;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
@@ -114,6 +115,15 @@ public class TestPostgreSqlConnectorTest
                         "col_required2 BIGINT NOT NULL)");
     }
 
+    @Override
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        return new TestTable(
+                onRemoteDatabase(),
+                "test_unsupported_column_present",
+                "(one bigint, two decimal(50,0), three varchar(10))");
+    }
+
     @Test
     public void testDropTable()
     {
@@ -122,18 +132,6 @@ public class TestPostgreSqlConnectorTest
 
         assertUpdate("DROP TABLE test_drop");
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop"));
-    }
-
-    @Test
-    public void testInsertInPresenceOfNotSupportedColumn()
-            throws Exception
-    {
-        execute("CREATE TABLE test_insert_not_supported_column_present(x bigint, y decimal(50,0), z varchar(10))");
-        // Check that column y is not supported.
-        assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = 'test_insert_not_supported_column_present'", "VALUES 'x', 'z'");
-        assertUpdate("INSERT INTO test_insert_not_supported_column_present (x, z) VALUES (123, 'test')", 1);
-        assertQuery("SELECT x, z FROM test_insert_not_supported_column_present", "SELECT 123, 'test'");
-        assertUpdate("DROP TABLE test_insert_not_supported_column_present");
     }
 
     @Test
@@ -855,6 +853,18 @@ public class TestPostgreSqlConnectorTest
         return () -> {
             try {
                 execute(format("DROP TABLE %s", tableName));
+            }
+            catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        };
+    }
+
+    protected SqlExecutor onRemoteDatabase()
+    {
+        return sql -> {
+            try {
+                execute(sql);
             }
             catch (SQLException e) {
                 throw new RuntimeException(e);
