@@ -14,10 +14,8 @@
 package io.trino.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.jdbc.UnsupportedTypeHandling;
-import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
@@ -39,9 +37,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.ToIntFunction;
 
@@ -49,7 +45,6 @@ import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
-import static io.trino.plugin.oracle.OracleDataTypes.dateDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static io.trino.plugin.oracle.OracleDataTypes.trinoTimestampWithTimeZoneDataType;
 import static io.trino.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
@@ -60,6 +55,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -659,36 +655,8 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("test_blob"));
     }
 
-    /* Datetime tests */
-
     @Test
-    public void testDateMapping()
-    {
-        DateTests(zone -> trinoCreateAsSelect("nl_date_" + zone));
-    }
-
-    @Test
-    public void testDateReadMapping()
-    {
-        DateTests(zone -> oracleCreateAndInsert("nl_read_date_" + zone));
-    }
-
-    private void DateTests(Function<String, DataSetup> dataSetup)
-    {
-        Map<String, TimeZoneKey> zonesBySqlName = ImmutableMap.of(
-                "UTC", UTC_KEY,
-                "JVM", getTimeZoneKey(ZoneId.systemDefault().getId()),
-                "other", getTimeZoneKey(ZoneId.of("Europe/Vilnius").getId()));
-
-        for (Map.Entry<String, TimeZoneKey> zone : zonesBySqlName.entrySet()) {
-            runTimestampTestInZone(
-                    dataSetup.apply(zone.getKey()),
-                    zone.getValue().getId(),
-                    DateTests());
-        }
-    }
-
-    private DataTypeTest DateTests()
+    public void testDate()
     {
         // Note: these test cases are duplicates of those for PostgreSQL and MySQL.
 
@@ -715,22 +683,27 @@ public abstract class AbstractTestOracleTypeMapping
                 dateOfLocalTimeChangeBackwardAtMidnightInSomeZone
                         .atStartOfDay().minusMinutes(1)).size() == 2);
 
-        return DataTypeTest.create()
+        SqlDataTypeTest dateTests = SqlDataTypeTest.create()
                 // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
+                .addRoundTrip("DATE", "DATE '1952-04-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1952-04-03 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1970-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-01-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1970-02-03'", TIMESTAMP_MILLIS, "TIMESTAMP '1970-02-03 00:00:00.000'")
                 // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1))
+                .addRoundTrip("DATE", "DATE '2017-07-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-07-01 00:00:00.000'")
                 // winter on northern hemisphere
                 // (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1))
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeForwardAtMidnightInJvmZone)
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeForwardAtMidnightInSomeZone)
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
+                .addRoundTrip("DATE", "DATE '2017-01-01'", TIMESTAMP_MILLIS, "TIMESTAMP '2017-01-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1983-04-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-04-01 00:00:00.000'")
+                .addRoundTrip("DATE", "DATE '1983-10-01'", TIMESTAMP_MILLIS, "TIMESTAMP '1983-10-01 00:00:00.000'");
+
+        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), ZoneId.systemDefault().getId(), ZoneId.of("Europe/Vilnius").getId())) {
+            Session session = Session.builder(getSession())
+                    .setTimeZoneKey(getTimeZoneKey(timeZoneId))
+                    .build();
+            dateTests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_date"));
+            dateTests.execute(getQueryRunner(), session, trinoCreateAsSelect("test_date"));
+            dateTests.execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
+        }
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
@@ -890,20 +863,6 @@ public abstract class AbstractTestOracleTypeMapping
         for (DataTypeTest test : tests) {
             test.execute(getQueryRunner(), dataSetup);
         }
-    }
-
-    /**
-     * Run a {@link DataTypeTest} in the given time zone, using non-legacy timestamps.
-     * <p>
-     * If the given time zone is {@code null}, use the default session time zone.
-     */
-    private void runTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
-    {
-        Session.SessionBuilder session = Session.builder(getSession());
-        if (zone != null) {
-            session.setTimeZoneKey(getTimeZoneKey(zone));
-        }
-        test.execute(getQueryRunner(), session.build(), dataSetup);
     }
 
     protected abstract SqlExecutor getOracleSqlExecutor();
