@@ -151,11 +151,7 @@ public class TestPostgreSqlTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        postgreSqlServer = new TestingPostgreSqlServer();
-        closeAfterClass(() -> {
-            postgreSqlServer.close();
-            postgreSqlServer = null;
-        });
+        postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         return createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),

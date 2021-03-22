@@ -62,11 +62,7 @@ public class TestPostgreSqlConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        postgreSqlServer = new TestingPostgreSqlServer();
-        closeAfterClass(() -> {
-            postgreSqlServer.close();
-            postgreSqlServer = null;
-        });
+        postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
         return createPostgreSqlQueryRunner(postgreSqlServer, Map.of(), Map.of(), REQUIRED_TPCH_TABLES);
     }
 
