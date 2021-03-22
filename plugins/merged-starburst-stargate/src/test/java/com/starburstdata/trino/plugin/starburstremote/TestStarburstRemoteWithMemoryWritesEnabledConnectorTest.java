@@ -69,6 +69,9 @@ public class TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
                 // memory connector does not support deletes
                 return false;
 
+            case SUPPORTS_JOIN_PUSHDOWN:
+                return true;
+
             case SUPPORTS_ARRAY:
                 // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/PRESTO-4798)
                 return false;

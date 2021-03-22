@@ -83,6 +83,9 @@ public class TestStarburstRemoteWithHiveConnectorTest
                 // not yet supported in Remote connector
                 return false;
 
+            case SUPPORTS_JOIN_PUSHDOWN:
+                return true;
+
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_RENAME_TABLE:
                 // Writes are not enabled
@@ -302,5 +305,22 @@ public class TestStarburstRemoteWithHiveConnectorTest
         assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
                 .isFullyPushedDown();
+    }
+
+    /**
+     * This test normally requires table creation, so we disable it here.
+     * We will trust that
+     * {@link TestStarburstRemoteWithMemoryWritesEnabledConnectorTest} tests
+     * join pushdown sufficiently until we can run this test without creating
+     * tables using the Remote Starburst instance.
+     */
+    @Override
+    public void testJoinPushdown()
+    {
+        // Make sure that the test still fails how we expect it to, on table creation instead
+        // of on join pushdown.
+        assertThatThrownBy(super::testJoinPushdown)
+                .hasMessageMatching("This connector does not support creating tables.*");
+        throw new SkipException("test requires table creation");
     }
 }
