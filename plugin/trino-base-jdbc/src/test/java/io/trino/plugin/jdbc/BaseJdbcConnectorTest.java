@@ -26,6 +26,7 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
+import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -68,6 +69,28 @@ public abstract class BaseJdbcConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Test
+    public void testInsertInPresenceOfNotSupportedColumn()
+    {
+        try (TestTable testTable = createTableWithUnsupportedColumn()) {
+            String unqualifiedTableName = testTable.getName().replaceAll("^\\w+\\.", "");
+            // Check that column 'two' is not supported.
+            assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
+            assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
+            assertQuery("SELECT one, three FROM " + testTable.getName(), "SELECT 123, 'test'");
+        }
+    }
+
+    /**
+     * Creates a table with columns {@code one, two, three} where the middle one is of an unsupported (unmapped) type.
+     * The first column should be numeric, and third should be varchar.
+     */
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        // TODO throw new UnsupportedOperationException();
+        throw new SkipException("Not implemented");
     }
 
     // TODO move common tests from connector-specific classes here

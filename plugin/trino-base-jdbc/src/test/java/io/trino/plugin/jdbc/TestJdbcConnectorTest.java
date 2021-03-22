@@ -79,13 +79,22 @@ public class TestJdbcConnectorTest
     protected TestTable createTableWithDefaultColumns()
     {
         return new TestTable(
-                getSqlExecutor(),
+                onRemoteDatabase(),
                 "tpch.table",
                 "(col_required BIGINT NOT NULL," +
                         "col_nullable BIGINT," +
                         "col_default BIGINT DEFAULT 43," +
                         "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
                         "col_required2 BIGINT NOT NULL)");
+    }
+
+    @Override
+    protected TestTable createTableWithUnsupportedColumn()
+    {
+        return new TestTable(
+                onRemoteDatabase(),
+                "tpch.test_unsupported_column_present",
+                "(one bigint, two geometry, three varchar(10))");
     }
 
     @Override
@@ -118,7 +127,7 @@ public class TestJdbcConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    private JdbcSqlExecutor getSqlExecutor()
+    private JdbcSqlExecutor onRemoteDatabase()
     {
         return new JdbcSqlExecutor(properties.get("connection-url"), new Properties());
     }
