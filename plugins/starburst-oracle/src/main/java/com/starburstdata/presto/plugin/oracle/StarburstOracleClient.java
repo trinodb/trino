@@ -54,7 +54,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
-import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
@@ -91,7 +90,6 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
@@ -261,16 +259,6 @@ public class StarburstOracleClient
             throw e;
         }
         return connection;
-    }
-
-    @Override
-    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
-    {
-        if (!schemaName.equals(newTable.getSchemaName().toUpperCase(ENGLISH))) {
-            throw new TrinoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
-        }
-
-        super.renameTable(session, catalogName, schemaName, tableName, newTable);
     }
 
     @Override

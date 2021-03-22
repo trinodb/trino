@@ -77,6 +77,12 @@ public class TestStarburstOracleConnectorTest
             case SUPPORTS_LIMIT_PUSHDOWN:
             case SUPPORTS_TOPN_PUSHDOWN:
                 return true;
+
+            case SUPPORTS_CREATE_SCHEMA:
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                // TODO drop after merging on top of https://github.com/trinodb/trino/pull/7361
+                return false;
+
             default:
                 return super.hasBehavior(connectorBehavior);
         }
@@ -136,7 +142,7 @@ public class TestStarburstOracleConnectorTest
     }
 
     @Override
-    protected SqlExecutor onOracle()
+    protected SqlExecutor onRemoteDatabase()
     {
         Properties properties = new Properties();
         properties.setProperty("user", OracleTestUsers.USER);
@@ -165,7 +171,7 @@ public class TestStarburstOracleConnectorTest
         // OracleClient.getColumns is using wildcard at the end of table name.
         // Here we test that columns do not leak between tables.
         // See OracleClient#getColumns for more details.
-        try (TestTable ignored = new TestTable(onOracle(), "ordersx", "AS SELECT 'a' some_additional_column FROM dual")) {
+        try (TestTable ignored = new TestTable(onRemoteDatabase(), "ordersx", "AS SELECT 'a' some_additional_column FROM dual")) {
             assertQuery(
                     format("SELECT column_name FROM information_schema.columns WHERE table_name = 'orders' AND table_schema = '%s'", getUser()),
                     "VALUES 'orderkey', 'custkey', 'orderstatus', 'totalprice', 'orderdate', 'orderpriority', 'clerk', 'shippriority', 'comment'");
@@ -176,7 +182,7 @@ public class TestStarburstOracleConnectorTest
     public void testAdditionalPredicatePushdownForChars()
     {
         try (TestTable table = new TestTable(
-                onOracle(),
+                onRemoteDatabase(),
                 getUser() + ".test_predicate_pushdown_char",
                 "(c_long_char CHAR(2000), c_long_varchar VARCHAR2(4000))",
                 ImmutableList.of("'my_long_char', 'my_long_varchar'"))) {
@@ -208,7 +214,7 @@ public class TestStarburstOracleConnectorTest
                 .build();
 
         try (TestTable table = new TestTable(
-                onOracle(),
+                onRemoteDatabase(),
                 getUser() + ".test_predicate_pushdown_timestamp",
                 "(t_timestamp TIMESTAMP, t_timestamp3_with_tz TIMESTAMP(3) WITH TIME ZONE, t_timestamp_with_tz TIMESTAMP WITH TIME ZONE, dummy_col VARCHAR(12))",
                 ImmutableList.of(Joiner.on(", ").join(values)))) {
@@ -308,7 +314,7 @@ public class TestStarburstOracleConnectorTest
         assertThat(query(withoutMarkDistinct, "SELECT count(DISTINCT regionkey), sum(nationkey) FROM nation"))
                 .isNotFullyPushedDown(AggregationNode.class, ExchangeNode.class, ExchangeNode.class);
 
-        try (TestTable testTable = new TestTable(onOracle(), getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10), varchar_column varchar(10))")) {
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (100.000, 100000000.000000000, 'ala')");
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (123.321, 123456789.987654321, 'kot')");
@@ -347,7 +353,7 @@ public class TestStarburstOracleConnectorTest
     @Test
     public void testStddevAggregationPushdown()
     {
-        try (TestTable testTable = new TestTable(onOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -367,7 +373,7 @@ public class TestStarburstOracleConnectorTest
             assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = new TestTable(onOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             // Test non-whole number results
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
@@ -384,7 +390,7 @@ public class TestStarburstOracleConnectorTest
     @Test
     public void testVarianceAggregationPushdown()
     {
-        try (TestTable testTable = new TestTable(onOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isFullyPushedDown();
@@ -404,7 +410,7 @@ public class TestStarburstOracleConnectorTest
             assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
-        try (TestTable testTable = new TestTable(onOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
             // Test non-whole number results
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
@@ -424,14 +430,14 @@ public class TestStarburstOracleConnectorTest
     {
         String schema = getSession().getSchema().orElseThrow();
         // empty table
-        try (TestTable testTable = new TestTable(onOracle(), schema + ".test_covariance_pushdown", "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
+        try (TestTable testTable = new TestTable(onRemoteDatabase(), schema + ".test_covariance_pushdown", "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)")) {
             assertThat(query("SELECT covar_pop(t_double1, t_double2), covar_pop(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
             assertThat(query("SELECT covar_samp(t_double1, t_double2), covar_samp(t_real1, t_real2) FROM " + testTable.getName())).isFullyPushedDown();
         }
 
         // test some values for which the aggregate functions return whole numbers
         try (TestTable testTable = new TestTable(
-                onOracle(),
+                onRemoteDatabase(),
                 schema + ".test_covariance_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
                 ImmutableList.of("2, 2, 2, 2", "4, 4, 4, 4"))) {
@@ -441,7 +447,7 @@ public class TestStarburstOracleConnectorTest
 
         // non-whole number results
         try (TestTable testTable = new TestTable(
-                onOracle(),
+                onRemoteDatabase(),
                 schema + ".test_covariance_pushdown",
                 "(t_double1 DOUBLE PRECISION, t_double2 DOUBLE PRECISION, t_real1 REAL, t_real2 REAL)",
                 ImmutableList.of("1, 2, 1, 2", "100000000.123456, 4, 100000000.123456, 4", "123456789.987654, 8, 123456789.987654, 8"))) {
