@@ -42,6 +42,8 @@ public class TestingPostgreSqlServer
                 .withUsername(USER)
                 .withPassword(PASSWORD);
         dockerContainer.start();
+
+        execute("CREATE SCHEMA tpch");
     }
 
     public void execute(String sql)
