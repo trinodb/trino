@@ -172,7 +172,7 @@ public class TestPostgreSqlTypeMapping
         checkIsGap(kathmandu, timeGapInKathmandu);
 
         JdbcSqlExecutor executor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl(), postgreSqlServer.getProperties());
-        executor.execute("CREATE EXTENSION hstore");
+        executor.execute("CREATE EXTENSION hstore WITH SCHEMA public");
     }
 
     @Test
