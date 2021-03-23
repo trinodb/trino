@@ -131,7 +131,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.joda.time.DateTimeZone.UTC;
 
-public class OrcStorageManager
+public class RaptorStorageManager
         implements StorageManager
 {
     private static final JsonCodec<ShardDelta> SHARD_DELTA_CODEC = jsonCodec(ShardDelta.class);
@@ -157,7 +157,7 @@ public class OrcStorageManager
     private final ExecutorService commitExecutor;
 
     @Inject
-    public OrcStorageManager(
+    public RaptorStorageManager(
             NodeManager nodeManager,
             StorageService storageService,
             Optional<BackupStore> backupStore,
@@ -184,7 +184,7 @@ public class OrcStorageManager
                 config.getMinAvailableSpace());
     }
 
-    public OrcStorageManager(
+    public RaptorStorageManager(
             String nodeId,
             StorageService storageService,
             Optional<BackupStore> backupStore,
@@ -319,7 +319,7 @@ public class OrcStorageManager
         if (checkSpace && storageService.getAvailableBytes() < minAvailableSpace.toBytes()) {
             throw new TrinoException(RAPTOR_LOCAL_DISK_FULL, "Local disk is full on node " + nodeId);
         }
-        return new OrcStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
+        return new RaptorStoragePageSink(transactionId, columnIds, columnTypes, bucketNumber);
     }
 
     private ShardRewriter createShardRewriter(long transactionId, OptionalInt bucketNumber, UUID shardUuid)
@@ -594,7 +594,7 @@ public class OrcStorageManager
         return uniqueIndex(columns, column -> Long.valueOf(column.getColumnName()));
     }
 
-    private class OrcStoragePageSink
+    private class RaptorStoragePageSink
             implements StoragePageSink
     {
         private final long transactionId;
@@ -610,7 +610,7 @@ public class OrcStorageManager
         private OrcFileWriter writer;
         private UUID shardUuid;
 
-        public OrcStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes, OptionalInt bucketNumber)
+        public RaptorStoragePageSink(long transactionId, List<Long> columnIds, List<Type> columnTypes, OptionalInt bucketNumber)
         {
             this.transactionId = transactionId;
             this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));

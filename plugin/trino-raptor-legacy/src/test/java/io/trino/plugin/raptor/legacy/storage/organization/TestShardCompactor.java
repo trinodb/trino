@@ -21,7 +21,7 @@ import io.trino.operator.PagesIndex;
 import io.trino.orc.OrcReaderOptions;
 import io.trino.plugin.raptor.legacy.metadata.ColumnInfo;
 import io.trino.plugin.raptor.legacy.metadata.ShardInfo;
-import io.trino.plugin.raptor.legacy.storage.OrcStorageManager;
+import io.trino.plugin.raptor.legacy.storage.RaptorStorageManager;
 import io.trino.plugin.raptor.legacy.storage.StorageManager;
 import io.trino.plugin.raptor.legacy.storage.StoragePageSink;
 import io.trino.spi.Page;
@@ -54,7 +54,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
-import static io.trino.plugin.raptor.legacy.storage.TestOrcStorageManager.createOrcStorageManager;
+import static io.trino.plugin.raptor.legacy.storage.TestRaptorStorageManager.createRaptorStorageManager;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
@@ -80,7 +80,7 @@ public class TestShardCompactor
             .withStreamBufferSize(DataSize.of(1, MEGABYTE))
             .withTinyStripeThreshold(DataSize.of(1, MEGABYTE));
 
-    private OrcStorageManager storageManager;
+    private RaptorStorageManager storageManager;
     private ShardCompactor compactor;
     private File temporary;
     private Handle dummyHandle;
@@ -91,7 +91,7 @@ public class TestShardCompactor
         temporary = createTempDir();
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
-        storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
+        storageManager = createRaptorStorageManager(dbi, temporary, MAX_SHARD_ROWS);
         compactor = new ShardCompactor(storageManager, READER_OPTIONS, new TypeOperators());
     }
 
