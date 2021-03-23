@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.FunctionListBuilder;
 import io.trino.metadata.SqlFunction;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.testng.annotations.DataProvider;
@@ -61,39 +60,6 @@ public abstract class AbstractTestQueries
             .scalars(CreateHll.class)
             .functions(APPLY_FUNCTION, INVOKE_FUNCTION, STATEFUL_SLEEPING_SUM)
             .getFunctions();
-
-    public static final List<PropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
-            PropertyMetadata.stringProperty(
-                    "test_string",
-                    "test string property",
-                    "test default",
-                    false),
-            PropertyMetadata.longProperty(
-                    "test_long",
-                    "test long property",
-                    42L,
-                    false));
-    public static final List<PropertyMetadata<?>> TEST_CATALOG_PROPERTIES = ImmutableList.of(
-            PropertyMetadata.stringProperty(
-                    "connector_string",
-                    "connector string property",
-                    "connector default",
-                    false),
-            PropertyMetadata.longProperty(
-                    "connector_long",
-                    "connector long property",
-                    33L,
-                    false),
-            PropertyMetadata.booleanProperty(
-                    "connector_boolean",
-                    "connector boolean property",
-                    true,
-                    false),
-            PropertyMetadata.doubleProperty(
-                    "connector_double",
-                    "connector double property",
-                    99.0,
-                    false));
 
     @Test
     public void testAggregationOverUnknown()

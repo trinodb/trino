@@ -14,7 +14,6 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
@@ -46,7 +45,6 @@ import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.getTrinoExceptionCause;
-import static io.trino.testing.TestingSession.TESTING_CATALOG;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
@@ -122,54 +120,6 @@ public abstract class AbstractTestDistributedQueries
     {
         assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
                 .isGreaterThanOrEqualTo(3);
-    }
-
-    @Test
-    public void testSetSession()
-    {
-        MaterializedResult result = computeActual("SET SESSION test_string = 'bar'");
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("test_string", "bar"));
-
-        result = computeActual(format("SET SESSION %s.connector_long = 999", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "999"));
-
-        result = computeActual(format("SET SESSION %s.connector_string = 'baz'", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "baz"));
-
-        result = computeActual(format("SET SESSION %s.connector_string = 'ban' || 'ana'", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "banana"));
-
-        result = computeActual(format("SET SESSION %s.connector_long = 444", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "444"));
-
-        result = computeActual(format("SET SESSION %s.connector_long = 111 + 111", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "222"));
-
-        result = computeActual(format("SET SESSION %s.connector_boolean = 111 < 3", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_boolean", "false"));
-
-        result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
-    }
-
-    @Test
-    public void testResetSession()
-    {
-        MaterializedResult result = computeActual(getSession(), "RESET SESSION test_string");
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("test_string"));
-
-        result = computeActual(getSession(), format("RESET SESSION %s.connector_string", TESTING_CATALOG));
-        assertTrue((Boolean) getOnlyElement(result).getField(0));
-        assertEquals(result.getResetSessionProperties(), ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
 
     @Test
