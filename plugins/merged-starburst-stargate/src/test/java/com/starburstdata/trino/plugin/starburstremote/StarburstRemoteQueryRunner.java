@@ -280,6 +280,7 @@ public final class StarburstRemoteQueryRunner
 
         Logger log = Logger.get(StarburstRemoteQueryRunner.class);
         log.info("======== SERVER STARTED ========");
+        log.info("\n====\nRemote Starburst: %s\n====", remoteStarburst.getCoordinator().getBaseUrl());
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());
     }
 }
