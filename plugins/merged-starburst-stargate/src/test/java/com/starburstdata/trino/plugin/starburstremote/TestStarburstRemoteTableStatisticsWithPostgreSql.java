@@ -180,12 +180,12 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         String tableName = "test_stats_table_with_nulls";
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         executeInRemoteStarburst("" +
-                        "CREATE TABLE " + tableName + " AS " +
-                        "SELECT " +
-                        "    orderkey, " +
-                        "    if(orderkey % 3 = 0, NULL, custkey) custkey, " +
-                        "    if(orderkey % 5 = 0, NULL, orderpriority) orderpriority " +
-                        "FROM tpch.tiny.orders");
+                "CREATE TABLE " + tableName + " AS " +
+                "SELECT " +
+                "    orderkey, " +
+                "    if(orderkey % 3 = 0, NULL, custkey) custkey, " +
+                "    if(orderkey % 5 = 0, NULL, orderpriority) orderpriority " +
+                "FROM tpch.tiny.orders");
         assertQuery("SELECT COUNT(*) FROM " + tableName, "VALUES 15000");
         try {
             gatherStats(tableName);
