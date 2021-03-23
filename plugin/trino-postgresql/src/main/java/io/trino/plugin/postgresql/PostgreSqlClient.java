@@ -341,8 +341,10 @@ public class PostgreSqlClient
                 arrayColumnDimensions = getArrayColumnDimensions(connection, tableHandle);
             }
             try (ResultSet resultSet = getColumns(tableHandle, connection.getMetaData())) {
+                int allColumns = 0;
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
+                    allColumns++;
                     String columnName = resultSet.getString("COLUMN_NAME");
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
@@ -375,8 +377,10 @@ public class PostgreSqlClient
                     }
                 }
                 if (columns.isEmpty()) {
-                    // In rare cases a table might have no columns.
-                    throw new TableNotFoundException(schemaTableName);
+                    // A table may have no supported columns. In rare cases a table might have no columns at all.
+                    throw new TableNotFoundException(
+                            tableHandle.getSchemaTableName(),
+                            format("Table '%s' has no supported columns (all %s columns are not supported)", tableHandle.getSchemaTableName(), allColumns));
                 }
                 return ImmutableList.copyOf(columns);
             }
