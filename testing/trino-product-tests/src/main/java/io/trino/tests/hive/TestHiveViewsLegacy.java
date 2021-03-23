@@ -107,6 +107,18 @@ public class TestHiveViewsLegacy
     public void testArrayIndexingInView()
     {
         assertThatThrownBy(super::testArrayIndexingInView)
+                // Hive uses 0-based array indices so Trino returns incorrect results for such view
+                .hasMessageContaining("Could not find rows:\n" +
+                        "[hive]\n" +
+                        "\n" +
+                        "actual rows:\n" +
+                        "[presto]");
+    }
+
+    @Override
+    public void testArrayConstructionInView()
+    {
+        assertThatThrownBy(super::testArrayConstructionInView)
                 .hasMessageContaining("Function 'array' not registered");
     }
 
