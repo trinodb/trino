@@ -83,9 +83,9 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
-import static io.trino.plugin.raptor.legacy.storage.OrcStorageManager.xxhash64;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.createReader;
 import static io.trino.plugin.raptor.legacy.storage.OrcTestingUtil.octets;
+import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.xxhash64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -110,7 +110,7 @@ import static org.testng.FileAssert.assertDirectory;
 import static org.testng.FileAssert.assertFile;
 
 @Test(singleThreaded = true)
-public class TestOrcStorageManager
+public class TestRaptorStorageManager
 {
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
     private static final DateTime EPOCH = new DateTime(0, UTC_CHRONOLOGY);
@@ -175,7 +175,7 @@ public class TestOrcStorageManager
     public void testWriter()
             throws Exception
     {
-        OrcStorageManager manager = createOrcStorageManager();
+        RaptorStorageManager manager = createRaptorStorageManager();
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
@@ -249,7 +249,7 @@ public class TestOrcStorageManager
     public void testReader()
             throws Exception
     {
-        OrcStorageManager manager = createOrcStorageManager();
+        RaptorStorageManager manager = createRaptorStorageManager();
 
         List<Long> columnIds = ImmutableList.of(2L, 4L, 6L, 7L, 8L, 9L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10), VARBINARY, DATE, BOOLEAN, DOUBLE);
@@ -323,7 +323,7 @@ public class TestOrcStorageManager
     public void testRewriter()
             throws Exception
     {
-        OrcStorageManager manager = createOrcStorageManager();
+        RaptorStorageManager manager = createRaptorStorageManager();
 
         long transactionId = TRANSACTION_ID;
         List<Long> columnIds = ImmutableList.of(3L, 7L);
@@ -373,7 +373,7 @@ public class TestOrcStorageManager
         assertEquals(staging.list(), new String[] {});
 
         // create a shard in staging
-        OrcStorageManager manager = createOrcStorageManager();
+        RaptorStorageManager manager = createRaptorStorageManager();
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
@@ -510,7 +510,7 @@ public class TestOrcStorageManager
     @Test
     public void testMaxShardRows()
     {
-        OrcStorageManager manager = createOrcStorageManager(2, DataSize.of(2, MEGABYTE));
+        RaptorStorageManager manager = createRaptorStorageManager(2, DataSize.of(2, MEGABYTE));
 
         List<Long> columnIds = ImmutableList.of(3L, 7L);
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(10));
@@ -536,14 +536,14 @@ public class TestOrcStorageManager
                 .build();
 
         // Set maxFileSize to 1 byte, so adding any page makes the StoragePageSink full
-        OrcStorageManager manager = createOrcStorageManager(20, DataSize.ofBytes(1));
+        RaptorStorageManager manager = createRaptorStorageManager(20, DataSize.ofBytes(1));
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(pages);
         assertTrue(sink.isFull());
     }
 
     private static ConnectorPageSource getPageSource(
-            OrcStorageManager manager,
+            RaptorStorageManager manager,
             List<Long> columnIds,
             List<Type> columnTypes,
             UUID uuid,
@@ -558,22 +558,22 @@ public class TestOrcStorageManager
         return manager.createStoragePageSink(transactionId, OptionalInt.empty(), columnIds, columnTypes, false);
     }
 
-    private OrcStorageManager createOrcStorageManager()
+    private RaptorStorageManager createRaptorStorageManager()
     {
-        return createOrcStorageManager(MAX_SHARD_ROWS, MAX_FILE_SIZE);
+        return createRaptorStorageManager(MAX_SHARD_ROWS, MAX_FILE_SIZE);
     }
 
-    private OrcStorageManager createOrcStorageManager(int maxShardRows, DataSize maxFileSize)
+    private RaptorStorageManager createRaptorStorageManager(int maxShardRows, DataSize maxFileSize)
     {
-        return createOrcStorageManager(storageService, backupStore, recoveryManager, shardRecorder, maxShardRows, maxFileSize);
+        return createRaptorStorageManager(storageService, backupStore, recoveryManager, shardRecorder, maxShardRows, maxFileSize);
     }
 
-    public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary)
+    public static RaptorStorageManager createRaptorStorageManager(IDBI dbi, File temporary)
     {
-        return createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
+        return createRaptorStorageManager(dbi, temporary, MAX_SHARD_ROWS);
     }
 
-    public static OrcStorageManager createOrcStorageManager(IDBI dbi, File temporary, int maxShardRows)
+    public static RaptorStorageManager createRaptorStorageManager(IDBI dbi, File temporary, int maxShardRows)
     {
         File directory = new File(temporary, "data");
         StorageService storageService = new FileStorageService(directory);
@@ -592,7 +592,7 @@ public class TestOrcStorageManager
                 shardManager,
                 MISSING_SHARD_DISCOVERY,
                 10);
-        return createOrcStorageManager(
+        return createRaptorStorageManager(
                 storageService,
                 backupStore,
                 recoveryManager,
@@ -601,7 +601,7 @@ public class TestOrcStorageManager
                 MAX_FILE_SIZE);
     }
 
-    public static OrcStorageManager createOrcStorageManager(
+    public static RaptorStorageManager createRaptorStorageManager(
             StorageService storageService,
             Optional<BackupStore> backupStore,
             ShardRecoveryManager recoveryManager,
@@ -609,7 +609,7 @@ public class TestOrcStorageManager
             int maxShardRows,
             DataSize maxFileSize)
     {
-        return new OrcStorageManager(
+        return new RaptorStorageManager(
                 CURRENT_NODE,
                 storageService,
                 backupStore,
@@ -669,7 +669,7 @@ public class TestOrcStorageManager
         }
         List<Long> columnIds = list.build();
 
-        OrcStorageManager manager = createOrcStorageManager();
+        RaptorStorageManager manager = createRaptorStorageManager();
         StoragePageSink sink = createStoragePageSink(manager, columnIds, columnTypes);
         sink.appendPages(rowPagesBuilder(columnTypes).rows(rows).build());
         List<ShardInfo> shards = getFutureValue(sink.commit());

@@ -39,7 +39,7 @@ import java.util.Optional;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
-import static io.trino.plugin.raptor.legacy.storage.OrcStorageManager.toOrcFileType;
+import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.toOrcFileType;
 import static java.lang.Double.isInfinite;
 import static java.lang.Double.isNaN;
 import static org.joda.time.DateTimeZone.UTC;
