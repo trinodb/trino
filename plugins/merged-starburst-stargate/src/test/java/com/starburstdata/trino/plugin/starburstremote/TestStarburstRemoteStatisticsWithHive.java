@@ -339,7 +339,7 @@ public class TestStarburstRemoteStatisticsWithHive
     }
 
     @Test
-    public void testNumericCornerCasesFromPresto()
+    public void testNumericCornerCases()
     {
         try (TestTable table = fromColumns(
                 getQueryRunner()::execute,

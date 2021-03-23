@@ -339,7 +339,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
     }
 
     @Test
-    public void testNumericCornerCasesFromPresto()
+    public void testNumericCornerCases()
     {
         try (TestTable table = fromColumns(
                 // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4832) we cannot use getQueryRunner()::execute due to current Starburst Remote connector write limitations
