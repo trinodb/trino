@@ -118,6 +118,16 @@ public class HdfsEnvironment
             this.tableName = Optional.empty();
         }
 
+        public HdfsContext(ConnectorSession session)
+        {
+            requireNonNull(session, "session is null");
+            this.identity = requireNonNull(session.getIdentity(), "session.getIdentity() is null");
+            this.source = requireNonNull(session.getSource(), "session.getSource()");
+            this.queryId = Optional.of(session.getQueryId());
+            this.schemaName = Optional.empty();
+            this.tableName = Optional.empty();
+        }
+
         public HdfsContext(ConnectorSession session, String schemaName)
         {
             requireNonNull(session, "session is null");
