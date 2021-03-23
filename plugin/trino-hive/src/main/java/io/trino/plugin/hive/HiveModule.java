@@ -52,6 +52,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.json.JsonBinder.jsonBinder;
@@ -88,6 +89,8 @@ public class HiveModule
         newSetBinder(binder, EventClient.class).addBinding().to(HiveEventClient.class).in(Scopes.SINGLETON);
         binder.bind(HivePartitionManager.class).in(Scopes.SINGLETON);
         binder.bind(LocationService.class).to(HiveLocationService.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, HiveRedirectionsProvider.class)
+                .setDefault().to(NoneHiveRedirectionsProvider.class).in(Scopes.SINGLETON);
         binder.bind(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(TransactionalMetadataFactory.class).to(HiveMetadataFactory.class).in(Scopes.SINGLETON);
         binder.bind(HiveTransactionManager.class).in(Scopes.SINGLETON);

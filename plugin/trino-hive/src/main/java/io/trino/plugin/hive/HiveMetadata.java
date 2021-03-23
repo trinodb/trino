@@ -80,6 +80,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
@@ -320,6 +321,7 @@ public class HiveMetadata
     private final boolean hideDeltaLakeTables;
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
+    private final HiveRedirectionsProvider hiveRedirectionsProvider;
     private final AccessControlMetadata accessControlMetadata;
 
     public HiveMetadata(
@@ -336,6 +338,7 @@ public class HiveMetadata
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             String trinoVersion,
             HiveStatisticsProvider hiveStatisticsProvider,
+            HiveRedirectionsProvider hiveRedirectionsProvider,
             AccessControlMetadata accessControlMetadata)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
@@ -351,6 +354,7 @@ public class HiveMetadata
         this.hideDeltaLakeTables = hideDeltaLakeTables;
         this.prestoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
         this.hiveStatisticsProvider = requireNonNull(hiveStatisticsProvider, "hiveStatisticsProvider is null");
+        this.hiveRedirectionsProvider = requireNonNull(hiveRedirectionsProvider, "hiveRedirectionsProvider is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
     }
 
@@ -2384,6 +2388,12 @@ public class HiveMetadata
                 Optional.of(columnProjectionInfo),
                 column.getColumnType(),
                 column.getComment());
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> applyTableScanRedirect(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return hiveRedirectionsProvider.getTableScanRedirection(session, (HiveTableHandle) tableHandle);
     }
 
     @Override
