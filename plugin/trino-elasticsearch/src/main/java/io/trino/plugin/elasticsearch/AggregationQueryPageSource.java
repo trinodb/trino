@@ -24,12 +24,12 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregation;
 import org.elasticsearch.search.aggregations.metrics.NumericMetricsAggregation;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,41 +43,41 @@ import static java.util.Objects.requireNonNull;
 public class AggregationQueryPageSource
         implements ConnectorPageSource
 {
-    private final long readTimeNanos;
-    private final SearchResponse searchResponse;
+    private long readTimeNanos;
     private final List<Decoder> decoders;
     private final BlockBuilder[] columnBuilders;
     private final List<ElasticsearchColumnHandle> columns;
+    private final ElasticsearchClient client;
+    private final ElasticsearchTableHandle table;
+    private final ElasticsearchSplit split;
+    private final int pageSize;
+    // the after parameter that composite aggregation used to fetch by page
+    private Optional<Map<String, Object>> after;
     private boolean fetched;
+    private static final SearchHit noUsed = new SearchHit(0);
 
     public AggregationQueryPageSource(
             ElasticsearchClient client,
             ElasticsearchTableHandle table,
             ElasticsearchSplit split,
-            List<ElasticsearchColumnHandle> columns)
+            List<ElasticsearchColumnHandle> columns,
+            int pageSize)
     {
         requireNonNull(client, "client is null");
         requireNonNull(table, "table is null");
         requireNonNull(split, "split is null");
         requireNonNull(columns, "columns is null");
+        this.client = client;
+        this.table = table;
+        this.split = split;
+        this.pageSize = pageSize <= 0 ? 1000 : pageSize;
         this.columns = columns;
+        this.after = Optional.empty();
         columnBuilders = columns.stream()
                 .map(ElasticsearchColumnHandle::getType)
                 .map(type -> type.createBlockBuilder(null, 1))
                 .toArray(BlockBuilder[]::new);
         decoders = createDecoders(columns);
-
-        long start = System.nanoTime();
-        this.searchResponse = client.beginSearch(
-                split.getIndex(),
-                split.getShard(),
-                buildSearchQuery(table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
-                Optional.ofNullable(buildAggregationQuery(table.getAggTerms(), table.getAggregates())),
-                Optional.empty(),
-                Collections.emptyList(),
-                Optional.empty(),
-                table.getLimit());
-        readTimeNanos = System.nanoTime() - start;
     }
 
     @Override
@@ -95,15 +95,27 @@ public class AggregationQueryPageSource
     @Override
     public boolean isFinished()
     {
-        return fetched;
+        return fetched && after.isEmpty();
     }
 
     @Override
     public Page getNextPage()
     {
+        long start = System.nanoTime();
+        SearchResponse searchResponse = client.beginSearch(
+                split.getIndex(),
+                split.getShard(),
+                buildSearchQuery(table.getConstraint().transform(ElasticsearchColumnHandle.class::cast), table.getQuery()),
+                Optional.ofNullable(
+                        buildAggregationQuery(table.getTermAggregations(), table.getMetricAggregations(), Optional.of(pageSize), after)),
+                Optional.empty(),
+                Collections.emptyList(),
+                Optional.empty(),
+                table.getLimit());
+        readTimeNanos += System.nanoTime() - start;
         fetched = true;
-        final SearchHit noUsed = new SearchHit(0);
-        List<Map<String, Object>> flatResult = flattern(searchResponse.getAggregations());
+        List<Map<String, Object>> flatResult = getResult(searchResponse);
+        after = extractAfter(searchResponse);
         for (Map<String, Object> result : flatResult) {
             for (int i = 0; i < columns.size(); i++) {
                 String key = columns.get(i).getName();
@@ -118,39 +130,55 @@ public class AggregationQueryPageSource
         return new Page(blocks);
     }
 
-    private List<Map<String, Object>> flattern(Aggregations aggregations)
+    // TODO consider support 6.1/6.2
+    //  6.1/6.2: no after_key, just use last bucket as the next retrieve parameter
+    //  >= 6.3: the result contains after_key, use after_key as the next retrieve
+    private Optional<Map<String, Object>> extractAfter(SearchResponse searchResponse)
     {
+        Aggregations aggregations = searchResponse.getAggregations();
+        if (aggregations == null) {
+            return Optional.empty();
+        }
+        for (Aggregation agg : aggregations) {
+            if (agg instanceof CompositeAggregation) {
+                CompositeAggregation compositeAggregation = (CompositeAggregation) agg;
+                return Optional.ofNullable(compositeAggregation.afterKey());
+            }
+        }
+        return Optional.empty();
+    }
+
+    private List<Map<String, Object>> getResult(SearchResponse searchResponse)
+    {
+        Aggregations aggregations = searchResponse.getAggregations();
         if (aggregations == null) {
             return Collections.emptyList();
         }
         Map<String, Object> singleValueMap = new LinkedHashMap<>();
-        List<Map<String, Object>> result = new ArrayList<>();
+        ImmutableList.Builder<Map<String, Object>> result = ImmutableList.builder();
         boolean hasBucketsAggregation = false;
+        boolean hasMetricAggregation = false;
         for (Aggregation agg : aggregations) {
-            if (agg instanceof MultiBucketsAggregation) {
-                if (hasBucketsAggregation) {
-                    throw new UnsupportedOperationException("Impossible merge different bucket aggregation, this must not be appear.");
-                }
+            if (agg instanceof CompositeAggregation) {
                 hasBucketsAggregation = true;
-                MultiBucketsAggregation bucketsAggregation = (MultiBucketsAggregation) agg;
-                // each key of the bucket is the value of current aggregation level
-                for (MultiBucketsAggregation.Bucket bucket : bucketsAggregation.getBuckets()) {
-                    List<Map<String, Object>> subResults = flattern(bucket.getAggregations());
-                    if (!subResults.isEmpty()) {
-                        // add the current bucket key and value into each sub result
-                        for (Map<String, Object> sr : subResults) {
-                            sr.put(bucketsAggregation.getName(), bucket.getKey());
+                if (hasMetricAggregation) {
+                    throw new UnsupportedOperationException("Impossible merge different bucket and metric aggregation, this must not be appear.");
+                }
+                CompositeAggregation compositeAggregation = (CompositeAggregation) agg;
+                for (CompositeAggregation.Bucket bucket : compositeAggregation.getBuckets()) {
+                    Map<String, Object> line = new HashMap<>();
+                    line.putAll(bucket.getKey());
+                    for (Aggregation metricAgg : bucket.getAggregations()) {
+                        if (metricAgg instanceof NumericMetricsAggregation.SingleValue) {
+                            NumericMetricsAggregation.SingleValue sv = (NumericMetricsAggregation.SingleValue) metricAgg;
+                            line.put(metricAgg.getName(), sv.value());
                         }
-                        result.addAll(subResults);
                     }
-                    else {
-                        Map<String, Object> singleKeyMap = new LinkedHashMap<>();
-                        singleKeyMap.put(bucketsAggregation.getName(), bucket.getKey());
-                        result.add(singleKeyMap);
-                    }
+                    result.add(line);
                 }
             }
             else if (agg instanceof NumericMetricsAggregation.SingleValue) {
+                hasMetricAggregation = true;
                 if (hasBucketsAggregation) {
                     throw new UnsupportedOperationException("Impossible merge different bucket and metric aggregation, this must not be appear.");
                 }
@@ -159,7 +187,7 @@ public class AggregationQueryPageSource
             }
         }
         if (hasBucketsAggregation) {
-            return result;
+            return result.build();
         }
         else {
             return ImmutableList.of(singleValueMap);

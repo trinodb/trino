@@ -56,7 +56,6 @@ import io.trino.spi.type.TypeSignature;
 
 import javax.inject.Inject;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,9 +131,13 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
         ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        if (isPassthroughQuery(handle)) {
+            // aggregation pushdown currently not supported passthrough query
+            return Optional.empty();
+        }
         // Global aggregation is represented by [[]]
         verify(!groupingSets.isEmpty(), "No grouping sets provided");
-        if (handle.getAggTerms() != null && !handle.getAggTerms().isEmpty()) {
+        if (handle.getTermAggregations() != null && !handle.getTermAggregations().isEmpty()) {
             // applyAggregation may be called multiple times target on the same ElasticsearchTableHandle
             // for example
             // SELECT sum(DISTINCT regionkey) FROM nation
@@ -168,11 +171,11 @@ public class ElasticsearchMetadata
             metricAggregations.add(metricAggregation.get());
         }
         for (ColumnHandle columnHandle : groupingSets.get(0)) {
-            TermAggregation termAggregation = TermAggregation.fromColumnHandle(columnHandle);
-            if (termAggregation == null) {
+            Optional<TermAggregation> termAggregation = TermAggregation.fromColumnHandle(columnHandle);
+            if (termAggregation.isEmpty()) {
                 return Optional.empty();
             }
-            termAggregations.add(termAggregation);
+            termAggregations.add(termAggregation.get());
         }
         List<MetricAggregation> aggregationList = metricAggregations.build();
         List<TermAggregation> termAggregationList = termAggregations.build();
@@ -528,8 +531,8 @@ public class ElasticsearchMetadata
                 handle.getConstraint(),
                 handle.getQuery(),
                 OptionalLong.of(limit),
-                Collections.emptyList(),
-                Collections.emptyList());
+                ImmutableList.of(),
+                ImmutableList.of());
 
         return Optional.of(new LimitApplicationResult<>(handle, false, false));
     }
@@ -572,8 +575,8 @@ public class ElasticsearchMetadata
                 newDomain,
                 handle.getQuery(),
                 handle.getLimit(),
-                Collections.emptyList(),
-                Collections.emptyList());
+                ImmutableList.of(),
+                ImmutableList.of());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, TupleDomain.withColumnDomains(unsupported), false));
     }

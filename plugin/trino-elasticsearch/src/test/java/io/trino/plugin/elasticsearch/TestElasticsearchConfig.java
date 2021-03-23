@@ -36,11 +36,12 @@ public class TestElasticsearchConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(ElasticsearchConfig.class)
-                .setAggregationPushdownEnabled(false)
+                .setAggregationPushdownEnabled(true)
                 .setHost(null)
                 .setPort(9200)
                 .setDefaultSchema("default")
                 .setScrollSize(1000)
+                .setPageSize(1000)
                 .setScrollTimeout(new Duration(1, MINUTES))
                 .setRequestTimeout(new Duration(10, SECONDS))
                 .setConnectTimeout(new Duration(1, SECONDS))
@@ -68,11 +69,12 @@ public class TestElasticsearchConfig
         Path truststoreFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("aggregation-pushdown.enabled", "true")
+                .put("aggregation-pushdown.enabled", "false")
                 .put("elasticsearch.host", "example.com")
                 .put("elasticsearch.port", "9999")
                 .put("elasticsearch.default-schema-name", "test")
                 .put("elasticsearch.scroll-size", "4000")
+                .put("elasticsearch.page-size", "2000")
                 .put("elasticsearch.scroll-timeout", "20s")
                 .put("elasticsearch.request-timeout", "1s")
                 .put("elasticsearch.connect-timeout", "10s")
@@ -93,11 +95,12 @@ public class TestElasticsearchConfig
                 .build();
 
         ElasticsearchConfig expected = new ElasticsearchConfig()
-                .setAggregationPushdownEnabled(true)
+                .setAggregationPushdownEnabled(false)
                 .setHost("example.com")
                 .setPort(9999)
                 .setDefaultSchema("test")
                 .setScrollSize(4000)
+                .setPageSize(2000)
                 .setScrollTimeout(new Duration(20, SECONDS))
                 .setRequestTimeout(new Duration(1, SECONDS))
                 .setConnectTimeout(new Duration(10, SECONDS))

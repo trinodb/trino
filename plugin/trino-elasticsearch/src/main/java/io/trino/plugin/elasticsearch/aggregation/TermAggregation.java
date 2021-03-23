@@ -19,6 +19,8 @@ import io.trino.plugin.elasticsearch.ElasticsearchColumnHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.Type;
 
+import java.util.Optional;
+
 public class TermAggregation
 {
     private final String term;
@@ -45,14 +47,14 @@ public class TermAggregation
         return type;
     }
 
-    public static TermAggregation fromColumnHandle(ColumnHandle columnHandle)
+    public static Optional<TermAggregation> fromColumnHandle(ColumnHandle columnHandle)
     {
         ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) columnHandle;
         if (column.isSupportsPredicates()) {
-            return new TermAggregation(column.getName(), column.getType());
+            return Optional.of(new TermAggregation(column.getName(), column.getType()));
         }
         else {
-            return null;
+            return Optional.empty();
         }
     }
 }

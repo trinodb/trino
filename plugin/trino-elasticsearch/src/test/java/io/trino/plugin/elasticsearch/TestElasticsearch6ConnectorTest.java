@@ -28,7 +28,7 @@ public class TestElasticsearch6ConnectorTest
 {
     public TestElasticsearch6ConnectorTest()
     {
-        super("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0");
+        super("docker.elastic.co/elasticsearch/elasticsearch:6.3.2");
     }
 
     @Test

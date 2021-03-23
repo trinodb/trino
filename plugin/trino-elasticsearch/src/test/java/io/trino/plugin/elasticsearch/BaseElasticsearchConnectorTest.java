@@ -21,6 +21,7 @@ import com.google.common.net.HostAndPort;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.BaseConnectorTest;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -1154,5 +1155,35 @@ public abstract class BaseElasticsearchConnectorTest
     {
         client.getLowLevelClient()
                 .performRequest("GET", format("/%s/_refresh", index));
+    }
+
+    @Test
+    public void testAggregationPushdown()
+    {
+        // SELECT DISTINCT
+        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isFullyPushedDown();
+
+        // count()
+        assertThat(query("SELECT count(*) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count(1) FROM nation")).isFullyPushedDown();
+        assertThat(query("SELECT count() FROM nation")).isFullyPushedDown();
+
+        // GROUP BY
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on bigint column
+        // GROUP BY and WHERE on aggregation key
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isFullyPushedDown();
+
+        // GROUP BY and WHERE on varchar column
+        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
+
+        // The groups of custKey is more than 50(page size), so the case must trigger AggregationQueryPageSource#getNextPage multiple times
+        assertThat(query("SELECT custkey, sum(totalprice) FROM orders GROUP BY custkey")).isFullyPushedDown();
     }
 }

@@ -19,7 +19,9 @@ import io.trino.plugin.elasticsearch.aggregation.TermAggregation;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.VarcharType;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.elasticsearch.search.aggregations.metrics.avg.AvgAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.max.MaxAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.min.MinAggregationBuilder;
@@ -55,20 +57,21 @@ public class TestElasticsearchQueryBuilder
     @Test
     public void testBuildAggregationQuery()
     {
-        TermAggregation termAggregation1 = TermAggregation.fromColumnHandle(columns.get(0));
-        TermAggregation termAggregation2 = TermAggregation.fromColumnHandle(columns.get(1));
+        TermAggregation termAggregation1 = TermAggregation.fromColumnHandle(columns.get(0)).get();
+        TermAggregation termAggregation2 = TermAggregation.fromColumnHandle(columns.get(1)).get();
         List<AggregationBuilder> aggBuilder =
                 ElasticsearchQueryBuilder.buildAggregationQuery(
                         ImmutableList.of(termAggregation1, termAggregation2),
                         ImmutableList.of(
                                 metricAggregation1, metricAggregation2, metricAggregation3, metricAggregation4, metricAggregation5, metricAggregation6));
         assertThat(aggBuilder).hasSize(1);
-        assertThat(aggBuilder.get(0)).isExactlyInstanceOf(TermsAggregationBuilder.class).hasFieldOrPropertyWithValue("field", "hostname");
-        List<AggregationBuilder> sub1 = aggBuilder.get(0).getSubAggregations();
-        assertThat(sub1).hasSize(1);
-        assertThat(sub1.get(0)).isExactlyInstanceOf(TermsAggregationBuilder.class).hasFieldOrPropertyWithValue("field", "total");
-        List<AggregationBuilder> subaggs = sub1.get(0).getSubAggregations();
+        assertThat(aggBuilder.get(0)).isExactlyInstanceOf(CompositeAggregationBuilder.class);
+        List<AggregationBuilder> subaggs = aggBuilder.get(0).getSubAggregations();
         assertAllAgg(subaggs);
+        CompositeAggregationBuilder compositeAggregationBuilder = (CompositeAggregationBuilder) aggBuilder.get(0);
+        List<CompositeValuesSourceBuilder<?>> sources = compositeAggregationBuilder.sources();
+        assertThat(sources.get(0)).isExactlyInstanceOf(TermsValuesSourceBuilder.class).hasFieldOrPropertyWithValue("field", "hostname");
+        assertThat(sources.get(1)).isExactlyInstanceOf(TermsValuesSourceBuilder.class).hasFieldOrPropertyWithValue("field", "total");
     }
 
     @Test
@@ -83,11 +86,14 @@ public class TestElasticsearchQueryBuilder
     @Test
     public void testBuildAggregationQueryWithEmptyAggregation()
     {
-        TermAggregation termAggregation1 = TermAggregation.fromColumnHandle(columns.get(0));
+        TermAggregation termAggregation1 = TermAggregation.fromColumnHandle(columns.get(0)).get();
         List<AggregationBuilder> aggBuilder =
                 ElasticsearchQueryBuilder.buildAggregationQuery(ImmutableList.of(termAggregation1), Collections.emptyList());
         assertThat(aggBuilder).hasSize(1);
-        assertThat(aggBuilder.get(0)).isExactlyInstanceOf(TermsAggregationBuilder.class).hasFieldOrPropertyWithValue("field", "hostname");
+        assertThat(aggBuilder.get(0)).isExactlyInstanceOf(CompositeAggregationBuilder.class);
+        CompositeAggregationBuilder compositeAggregationBuilder = (CompositeAggregationBuilder) aggBuilder.get(0);
+        List<CompositeValuesSourceBuilder<?>> sources = compositeAggregationBuilder.sources();
+        assertThat(sources.get(0)).isExactlyInstanceOf(TermsValuesSourceBuilder.class).hasFieldOrPropertyWithValue("field", "hostname");
         List<AggregationBuilder> sub1 = aggBuilder.get(0).getSubAggregations();
         assertThat(sub1).hasSize(0);
     }

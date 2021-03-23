@@ -16,7 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.log4j.version>2.13.3</dep.log4j.version>
-        <dep.elasticsearch.version>6.0.0</dep.elasticsearch.version>
+        <dep.elasticsearch.version>6.2.2</dep.elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -199,10 +199,6 @@
                 </exclusion>
                 <exclusion>
                     <groupId>org.apache.lucene</groupId>
-                    <artifactId>lucene-join</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.lucene</groupId>
                     <artifactId>lucene-memory</artifactId>
                 </exclusion>
                 <exclusion>
@@ -252,6 +248,12 @@
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-high-level-client</artifactId>
             <version>${dep.elasticsearch.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.elasticsearch</groupId>
+                    <artifactId>jna</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

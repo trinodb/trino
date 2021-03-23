@@ -101,6 +101,7 @@ public final class ElasticsearchQueryRunner
                 // This doesn't work well within a docker environment that maps ES's port to a random public port
                 .put("elasticsearch.ignore-publish-address", "true")
                 .put("elasticsearch.default-schema-name", TPCH_SCHEMA)
+                .put("elasticsearch.page-size", "50")
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")

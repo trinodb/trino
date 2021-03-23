@@ -43,9 +43,10 @@ public final class ElasticsearchTableHandle
     private final TupleDomain<ColumnHandle> constraint;
     private final Optional<String> query;
     private final OptionalLong limit;
-    // 保存聚合的需求
-    private final List<TermAggregation> aggTerms; // term agg字段列表，目前其实只支持一个字段
-    private final List<MetricAggregation> aggregates; // 聚合需求
+    // for group by fields
+    private final List<TermAggregation> termAggregations;
+    // for aggregation methods and fields
+    private final List<MetricAggregation> metricAggregations;
 
     public ElasticsearchTableHandle(Type type, String schema, String index, Optional<String> query)
     {
@@ -56,8 +57,8 @@ public final class ElasticsearchTableHandle
 
         constraint = TupleDomain.all();
         limit = OptionalLong.empty();
-        aggTerms = Collections.emptyList();
-        aggregates = Collections.emptyList();
+        termAggregations = Collections.emptyList();
+        metricAggregations = Collections.emptyList();
     }
 
     @JsonCreator
@@ -68,8 +69,8 @@ public final class ElasticsearchTableHandle
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("query") Optional<String> query,
             @JsonProperty("limit") OptionalLong limit,
-            @JsonProperty("aggTerms") List<TermAggregation> aggTerms,
-            @JsonProperty("aggregates") List<MetricAggregation> aggregates)
+            @JsonProperty("aggTerms") List<TermAggregation> termAggregations,
+            @JsonProperty("aggregates") List<MetricAggregation> metricAggregations)
     {
         this.type = requireNonNull(type, "type is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -77,8 +78,8 @@ public final class ElasticsearchTableHandle
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.query = requireNonNull(query, "query is null");
         this.limit = requireNonNull(limit, "limit is null");
-        this.aggTerms = requireNonNull(aggTerms, "aggTerms is null");
-        this.aggregates = requireNonNull(aggregates, "aggregates is null");
+        this.termAggregations = requireNonNull(termAggregations, "aggTerms is null");
+        this.metricAggregations = requireNonNull(metricAggregations, "aggregates is null");
     }
 
     @JsonProperty
@@ -118,15 +119,15 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonProperty
-    public List<TermAggregation> getAggTerms()
+    public List<TermAggregation> getTermAggregations()
     {
-        return aggTerms;
+        return termAggregations;
     }
 
     @JsonProperty
-    public List<MetricAggregation> getAggregates()
+    public List<MetricAggregation> getMetricAggregations()
     {
-        return aggregates;
+        return metricAggregations;
     }
 
     @Override

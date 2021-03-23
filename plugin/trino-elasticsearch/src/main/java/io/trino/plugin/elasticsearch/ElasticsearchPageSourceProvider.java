@@ -36,11 +36,14 @@ public class ElasticsearchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final ElasticsearchClient client;
+    private final int pageSize;
 
     @Inject
-    public ElasticsearchPageSourceProvider(ElasticsearchClient client)
+    public ElasticsearchPageSourceProvider(ElasticsearchClient client, ElasticsearchConfig config)
     {
         this.client = requireNonNull(client, "client is null");
+        requireNonNull(config, "config is null");
+        this.pageSize = config.getPageSize();
     }
 
     @Override
@@ -69,7 +72,8 @@ public class ElasticsearchPageSourceProvider
                     elasticsearchSplit,
                     columns.stream()
                             .map(ElasticsearchColumnHandle.class::cast)
-                            .collect(toImmutableList()));
+                            .collect(toImmutableList()),
+                    pageSize); //TODO: set individual setting for page size
         }
 
         if (columns.isEmpty()) {

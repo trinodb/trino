@@ -30,7 +30,9 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.CompositeValuesSourceBuilder;
+import org.elasticsearch.search.aggregations.bucket.composite.TermsValuesSourceBuilder;
 import org.elasticsearch.search.aggregations.metrics.avg.AvgAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.max.MaxAggregationBuilder;
 import org.elasticsearch.search.aggregations.metrics.min.MinAggregationBuilder;
@@ -39,6 +41,7 @@ import org.elasticsearch.search.aggregations.metrics.valuecount.ValueCountAggreg
 
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -91,31 +94,38 @@ public final class ElasticsearchQueryBuilder
             List<TermAggregation> termAggregations,
             List<MetricAggregation> aggregates)
     {
+        return buildAggregationQuery(termAggregations, aggregates, Optional.empty(), Optional.empty());
+    }
+
+    public static List<AggregationBuilder> buildAggregationQuery(
+            List<TermAggregation> termAggregations,
+            List<MetricAggregation> aggregates,
+            Optional<Integer> pageSize,
+            Optional<Map<String, Object>> after)
+    {
         ImmutableList.Builder<AggregationBuilder> aggregationsBuilder = ImmutableList.builder();
-        AggregationBuilder bucketAggregationBuilder = null;
-        TermsAggregationBuilder inner = null;
+        CompositeAggregationBuilder compositeAggregationBuilder = null;
         if (termAggregations != null && !termAggregations.isEmpty()) {
+            List<CompositeValuesSourceBuilder<?>> compositeValuesSourceBuilderList = new ArrayList<>();
             for (TermAggregation termAggregation : termAggregations) {
-                TermsAggregationBuilder tab = new TermsAggregationBuilder(termAggregation.getTerm(), null)
-                        .field(termAggregation.getTerm())
-                        .size(10000); // TODO: make the bucket count configurable
-                if (inner != null) {
-                    inner.subAggregation(tab);
-                    inner = tab;
-                }
-                else {
-                    inner = tab;
-                    bucketAggregationBuilder = inner;
-                }
+                compositeValuesSourceBuilderList.add(new TermsValuesSourceBuilder(termAggregation.getTerm()).field(termAggregation.getTerm()));
             }
-            aggregationsBuilder.add(bucketAggregationBuilder);
+            compositeAggregationBuilder = new CompositeAggregationBuilder("composite", compositeValuesSourceBuilderList);
+            // pagination
+            if (pageSize.isPresent()) {
+                compositeAggregationBuilder.size(pageSize.get());
+            }
+            if (after.isPresent()) {
+                compositeAggregationBuilder.aggregateAfter(after.get());
+            }
+            aggregationsBuilder.add(compositeAggregationBuilder);
         }
         if (aggregates != null && !aggregates.isEmpty()) {
             for (MetricAggregation aggregation : aggregates) {
                 AggregationBuilder subAggregation = buildMetricAggregation(aggregation);
                 if (subAggregation != null) {
-                    if (inner != null) {
-                        inner.subAggregation(subAggregation);
+                    if (compositeAggregationBuilder != null) {
+                        compositeAggregationBuilder.subAggregation(subAggregation);
                     }
                     else {
                         aggregationsBuilder.add(subAggregation);
