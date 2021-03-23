@@ -35,7 +35,6 @@ import static io.trino.plugin.phoenix5.PhoenixQueryRunner.createPhoenixQueryRunn
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestPhoenixConnectorTest
         extends BaseJdbcConnectorTest
@@ -205,12 +204,9 @@ public class TestPhoenixConnectorTest
         assertUpdate("CREATE SCHEMA new_schema");
         assertUpdate("CREATE TABLE new_schema.test (x bigint)");
 
-        try {
-            getQueryRunner().execute("DROP SCHEMA new_schema");
-            fail("Should not be able to drop non-empty schema");
-        }
-        catch (RuntimeException e) {
-        }
+        assertThatThrownBy(() -> getQueryRunner().execute("DROP SCHEMA new_schema"))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("ERROR 723 (43M06): Cannot mutate schema as schema has existing tables schemaName=NEW_SCHEMA");
 
         assertUpdate("DROP TABLE new_schema.test");
         assertUpdate("DROP SCHEMA new_schema");
