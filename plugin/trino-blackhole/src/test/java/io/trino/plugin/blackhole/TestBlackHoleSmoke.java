@@ -44,7 +44,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 @Test(singleThreaded = true)
 public class TestBlackHoleSmoke
@@ -112,23 +111,12 @@ public class TestBlackHoleSmoke
     @Test
     public void notAllPropertiesSetForDataGeneration()
     {
-        Session session = testSessionBuilder()
-                .setCatalog("blackhole")
-                .setSchema("default")
-                .build();
-
-        try {
-            assertThatQueryReturnsValue(
-                    format("CREATE TABLE nation WITH ( %s = 3, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
-                            ROWS_PER_PAGE_PROPERTY,
-                            SPLIT_COUNT_PROPERTY),
-                    25L,
-                    session);
-            fail("Expected exception to be thrown here!");
-        }
-        catch (RuntimeException ex) {
-            // expected exception
-        }
+        assertThatThrownBy(() -> queryRunner.execute(
+                format("CREATE TABLE nation WITH ( %s = 3, %s = 1 ) as SELECT * FROM tpch.tiny.nation",
+                        ROWS_PER_PAGE_PROPERTY,
+                        SPLIT_COUNT_PROPERTY)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("All properties [split_count, pages_per_split, rows_per_page] must be set if any are set");
     }
 
     @Test
