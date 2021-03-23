@@ -45,7 +45,7 @@ import io.trino.plugin.raptor.legacy.metadata.ShardDelta;
 import io.trino.plugin.raptor.legacy.metadata.ShardInfo;
 import io.trino.plugin.raptor.legacy.metadata.ShardRecorder;
 import io.trino.plugin.raptor.legacy.storage.OrcFileRewriter.OrcFileInfo;
-import io.trino.plugin.raptor.legacy.storage.OrcPageSource.ColumnAdaptation;
+import io.trino.plugin.raptor.legacy.storage.RaptorPageSource.ColumnAdaptation;
 import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
@@ -280,14 +280,14 @@ public class OrcStorageManager
                     UTC,
                     systemMemoryUsage,
                     INITIAL_BATCH_SIZE,
-                    OrcPageSource::handleException);
+                    RaptorPageSource::handleException);
 
             Optional<ShardRewriter> shardRewriter = Optional.empty();
             if (transactionId.isPresent()) {
                 shardRewriter = Optional.of(createShardRewriter(transactionId.getAsLong(), bucketNumber, shardUuid));
             }
 
-            return new OrcPageSource(shardRewriter, recordReader, columnAdaptations, dataSource, systemMemoryUsage);
+            return new RaptorPageSource(shardRewriter, recordReader, columnAdaptations, dataSource, systemMemoryUsage);
         }
         catch (IOException | RuntimeException e) {
             closeQuietly(dataSource);
