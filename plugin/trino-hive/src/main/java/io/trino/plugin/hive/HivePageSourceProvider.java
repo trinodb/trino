@@ -190,7 +190,7 @@ public class HivePageSourceProvider
         if (pageSource.isPresent()) {
             ConnectorPageSource source = pageSource.get();
             if (hiveTable.isAcidDelete() || hiveTable.isAcidUpdate()) {
-                checkArgument(orcFileWriterFactory.isPresent(), "orcFileWriterFactory not supplied but required for DELETEs");
+                checkArgument(orcFileWriterFactory.isPresent(), "orcFileWriterFactory not supplied but required for DELETE and UPDATE");
                 HivePageSource hivePageSource = (HivePageSource) source;
                 OrcPageSource orcPageSource = (OrcPageSource) hivePageSource.getDelegate();
                 ColumnMetadata<OrcType> columnMetadata = orcPageSource.getColumnTypes();
