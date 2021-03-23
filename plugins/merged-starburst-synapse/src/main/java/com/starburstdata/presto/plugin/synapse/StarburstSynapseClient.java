@@ -13,8 +13,10 @@ import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcTableHandle;
+import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -22,19 +24,24 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
+import java.sql.Connection;
+import java.sql.Types;
 import java.util.List;
 import java.util.Optional;
 
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.type.TimeType.TIME;
 import static java.lang.String.format;
 
 public class StarburstSynapseClient
@@ -64,6 +71,20 @@ public class StarburstSynapseClient
     }
 
     // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5074) Add support for DATETIME2 mapping to Synapse Connector
+
+    @Override
+    public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        switch (typeHandle.getJdbcType()) {
+            case Types.TIME:
+                // SQL Server time read mapping added in https://github.com/trinodb/trino/pull/7122 does not work for Synapse
+                // TODO (https://starburstdata.atlassian.net/browse/PRESTO-5703) Support TIME(p) in Synapse
+                // TODO (https://starburstdata.atlassian.net/browse/PRESTO-5693) add type mapping tests for Synapse
+                return Optional.of(timeColumnMapping(TIME));
+        }
+
+        return super.toColumnMapping(session, connection, typeHandle);
+    }
 
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
@@ -97,6 +118,12 @@ public class StarburstSynapseClient
 
         if (type instanceof VarbinaryType) {
             return WriteMapping.sliceMapping("varbinary(" + MAX_VARBINARY_LENGTH + ")", varbinaryWriteFunction());
+        }
+
+        if (type instanceof TimeType) {
+            // SQL Server time write mapping added in https://github.com/trinodb/trino/pull/7122 does not work for Synapse
+            // TODO (https://starburstdata.atlassian.net/browse/PRESTO-5703) Support TIME(p) in Synapse
+            throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
 
         return super.toWriteMapping(session, type);
