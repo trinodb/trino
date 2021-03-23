@@ -62,15 +62,14 @@ public abstract class AbstractTestHiveViews
     @Test(groups = HIVE_VIEWS)
     public void testArrayIndexingInView()
     {
-        onHive().executeQuery("DROP VIEW IF EXISTS hive_zero_index_view");
-        onHive().executeQuery("DROP TABLE IF EXISTS hive_table_dummy");
+        onHive().executeQuery("DROP TABLE IF EXISTS test_hive_view_array_index_table");
+        onHive().executeQuery("CREATE TABLE test_hive_view_array_index_table(a int)");
+        onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table VALUES (1)");
 
-        onHive().executeQuery("CREATE TABLE hive_table_dummy(a int)");
-        onHive().executeQuery("CREATE VIEW hive_zero_index_view AS SELECT array('presto','hive')[1] AS sql_dialect FROM hive_table_dummy");
-        onHive().executeQuery("INSERT INTO TABLE hive_table_dummy VALUES (1)");
-
+        onHive().executeQuery("DROP VIEW IF EXISTS test_hive_view_array_index_view");
+        onHive().executeQuery("CREATE VIEW test_hive_view_array_index_view AS SELECT array('presto','hive')[1] AS sql_dialect FROM test_hive_view_array_index_table");
         assertViewQuery(
-                "SELECT * FROM hive_zero_index_view",
+                "SELECT * FROM test_hive_view_array_index_view",
                 queryAssert -> queryAssert.containsOnly(row("hive")));
     }
 
