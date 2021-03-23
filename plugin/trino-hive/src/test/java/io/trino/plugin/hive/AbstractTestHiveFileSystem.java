@@ -210,6 +210,7 @@ public abstract class AbstractTestHiveFileSystem
                 locationService,
                 partitionUpdateCodec,
                 new NodeVersion("test_version"),
+                new NoneHiveRedirectionsProvider(),
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(

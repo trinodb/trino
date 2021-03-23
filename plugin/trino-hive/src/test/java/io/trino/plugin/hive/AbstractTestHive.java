@@ -63,6 +63,7 @@ import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.Assignment;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
@@ -96,6 +97,7 @@ import io.trino.spi.connector.RecordPageSource;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.FieldDereference;
@@ -807,6 +809,15 @@ public abstract class AbstractTestHive
                 newFixedThreadPool(2),
                 heartbeatService,
                 TEST_SERVER_VERSION,
+                (session, tableHandle) -> {
+                    if (!tableHandle.getTableName().contains("apply_redirection_tester")) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(new TableScanRedirectApplicationResult(
+                            new CatalogSchemaTableName("hive", databaseName, "mock_redirection_target"),
+                            ImmutableMap.of(),
+                            TupleDomain.all()));
+                },
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
@@ -3321,6 +3332,29 @@ public abstract class AbstractTestHive
         assertEquals(
                 Optional.of(actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet())),
                 ((HiveTableHandle) result.getHandle()).getProjectedColumns());
+    }
+
+    @Test
+    public void testApplyRedirection()
+            throws Exception
+    {
+        SchemaTableName sourceTableName = temporaryTable("apply_redirection_tester");
+        doCreateEmptyTable(sourceTableName, ORC, CREATE_TABLE_COLUMNS);
+        SchemaTableName tableName = temporaryTable("apply_no_redirection_tester");
+        doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            assertThat(metadata.applyTableScanRedirect(session, getTableHandle(metadata, tableName))).isEmpty();
+            Optional<TableScanRedirectApplicationResult> result = metadata.applyTableScanRedirect(session, getTableHandle(metadata, sourceTableName));
+            assertThat(result).isPresent();
+            assertThat(getOnlyElement(result.get().getRedirections()).getDestinationTable())
+                    .isEqualTo(new CatalogSchemaTableName("hive", database, "mock_redirection_target"));
+        }
+        finally {
+            dropTable(sourceTableName);
+            dropTable(tableName);
+        }
     }
 
     private ConnectorSession sampleSize(int sampleSize)
