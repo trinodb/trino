@@ -66,10 +66,18 @@ public abstract class AbstractTestHiveViews
         onHive().executeQuery("CREATE TABLE test_hive_view_array_index_table(an_index int, an_array array<string>)");
         onHive().executeQuery("INSERT INTO TABLE test_hive_view_array_index_table SELECT 1, array('presto','hive') FROM nation WHERE n_nationkey = 1");
 
+        // literal array index
         onHive().executeQuery("DROP VIEW IF EXISTS test_hive_view_array_index_view");
         onHive().executeQuery("CREATE VIEW test_hive_view_array_index_view AS SELECT an_array[1] AS sql_dialect FROM test_hive_view_array_index_table");
         assertViewQuery(
                 "SELECT * FROM test_hive_view_array_index_view",
+                queryAssert -> queryAssert.containsOnly(row("hive")));
+
+        // expression array index
+        onHive().executeQuery("DROP VIEW IF EXISTS test_hive_view_expression_array_index_view");
+        onHive().executeQuery("CREATE VIEW test_hive_view_expression_array_index_view AS SELECT an_array[an_index] AS sql_dialect FROM test_hive_view_array_index_table");
+        assertViewQuery(
+                "SELECT * FROM test_hive_view_expression_array_index_view",
                 queryAssert -> queryAssert.containsOnly(row("hive")));
     }
 
@@ -81,7 +89,7 @@ public abstract class AbstractTestHiveViews
 
         assertThat(onHive().executeQuery("SELECT a[0], a[1] FROM test_array_construction_view WHERE n_nationkey = 8"))
                 .containsOnly(row(8, 2));
-        assertThat(onPresto().executeQuery("SELECT a[1], a[2] FROM test_array_construction_view WHERE n_nationkey = 8"))
+        assertThat(onTrino().executeQuery("SELECT a[1], a[2] FROM test_array_construction_view WHERE n_nationkey = 8"))
                 .containsOnly(row(8, 2));
     }
 
