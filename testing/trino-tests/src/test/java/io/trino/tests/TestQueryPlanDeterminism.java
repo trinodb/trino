@@ -15,7 +15,6 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.type.Type;
 import io.trino.testing.AbstractTestQueries;
@@ -33,7 +32,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.trino.testing.TestingSession.TESTING_CATALOG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestQueryPlanDeterminism
@@ -62,7 +60,6 @@ public class TestQueryPlanDeterminism
                 .build();
 
         LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(defaultSession)
-                .withDefaultSessionProperties(ImmutableMap.of(TESTING_CATALOG, TEST_CATALOG_PROPERTIES))
                 .build();
 
         // add the tpch catalog
@@ -73,9 +70,6 @@ public class TestQueryPlanDeterminism
                 ImmutableMap.of());
 
         localQueryRunner.getMetadata().addFunctions(CUSTOM_FUNCTIONS);
-
-        SessionPropertyManager sessionPropertyManager = localQueryRunner.getMetadata().getSessionPropertyManager();
-        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
 
         return localQueryRunner;
     }

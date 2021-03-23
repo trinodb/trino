@@ -29,8 +29,9 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static io.trino.testing.TestingSession.TESTING_CATALOG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.tests.AbstractTestEngineOnlyQueries.TESTING_CATALOG;
+import static io.trino.tests.TestDistributedEngineOnlyQueries.addTestingCatalog;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,6 +60,7 @@ public class TestProcedureCall
         tester = coordinator.getProcedureTester();
 
         // register procedures in the bogus testing catalog
+        addTestingCatalog(getDistributedQueryRunner());
         ProcedureRegistry procedureRegistry = coordinator.getMetadata().getProcedureRegistry();
         TestingProcedures procedures = new TestingProcedures(coordinator.getProcedureTester());
         procedureRegistry.addProcedures(

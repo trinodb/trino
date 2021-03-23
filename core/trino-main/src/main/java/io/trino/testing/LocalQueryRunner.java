@@ -211,8 +211,6 @@ import static io.trino.sql.ParsingUtil.createParsingOptions;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
-import static io.trino.testing.TestingSession.TESTING_CATALOG;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.version.EmbedVersion.testingVersionEmbedder;
 import static java.util.Objects.requireNonNull;
@@ -246,6 +244,7 @@ public class LocalQueryRunner
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
+    private final CatalogManager catalogManager;
     private final TransactionManager transactionManager;
     private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
     private final SpillerFactory spillerFactory;
@@ -308,7 +307,7 @@ public class LocalQueryRunner
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
         this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
         this.pageSinkManager = new PageSinkManager();
-        CatalogManager catalogManager = new CatalogManager();
+        this.catalogManager = new CatalogManager();
         this.transactionManager = InMemoryTransactionManager.create(
                 new TransactionManagerConfig().setIdleTimeout(new Duration(1, TimeUnit.DAYS)),
                 yieldExecutor,
@@ -391,10 +390,6 @@ public class LocalQueryRunner
         connectorManager.addConnectorFactory(globalSystemConnectorFactory, globalSystemConnectorFactory.getClass()::getClassLoader);
         connectorManager.createCatalog(GlobalSystemConnector.NAME, GlobalSystemConnector.NAME, ImmutableMap.of());
 
-        // add bogus connector for testing session properties
-        catalogManager.registerCatalog(createBogusTestingCatalog(TESTING_CATALOG));
-        metadata.getSessionPropertyManager().addConnectorSessionProperties(new CatalogName(TESTING_CATALOG), defaultSessionProperties.getOrDefault(TESTING_CATALOG, ImmutableList.of()));
-
         // rewrite session to use managed SessionPropertyMetadata
         this.defaultSession = new Session(
                 defaultSession.getQueryId(),
@@ -466,6 +461,11 @@ public class LocalQueryRunner
     public int getNodeCount()
     {
         return 1;
+    }
+
+    public CatalogManager getCatalogManager()
+    {
+        return catalogManager;
     }
 
     @Override

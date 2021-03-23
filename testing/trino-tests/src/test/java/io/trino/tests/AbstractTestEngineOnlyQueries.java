@@ -25,6 +25,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
@@ -74,7 +75,6 @@ import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.trino.testing.TestingSession.TESTING_CATALOG;
 import static io.trino.tests.QueryTemplate.parameter;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -95,6 +95,42 @@ public abstract class AbstractTestEngineOnlyQueries
     private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss[.SSS] VV");
 
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
+
+    public static final String TESTING_CATALOG = "testing_catalog";
+
+    protected static final List<PropertyMetadata<?>> TEST_SYSTEM_PROPERTIES = ImmutableList.of(
+            PropertyMetadata.stringProperty(
+                    "test_string",
+                    "test string property",
+                    "test default",
+                    false),
+            PropertyMetadata.longProperty(
+                    "test_long",
+                    "test long property",
+                    42L,
+                    false));
+
+    protected static final List<PropertyMetadata<?>> TEST_CATALOG_PROPERTIES = ImmutableList.of(
+            PropertyMetadata.stringProperty(
+                    "connector_string",
+                    "connector string property",
+                    "connector default",
+                    false),
+            PropertyMetadata.longProperty(
+                    "connector_long",
+                    "connector long property",
+                    33L,
+                    false),
+            PropertyMetadata.booleanProperty(
+                    "connector_boolean",
+                    "connector boolean property",
+                    true,
+                    false),
+            PropertyMetadata.doubleProperty(
+                    "connector_double",
+                    "connector double property",
+                    99.0,
+                    false));
 
     @Test
     public void testDateLiterals()
@@ -5014,6 +5050,54 @@ public abstract class AbstractTestEngineOnlyQueries
                 new MaterializedRow(1, TESTING_CATALOG + ".connector_string", "bar string", "connector default", "varchar", "connector string property"));
         assertEquals(properties.get(TESTING_CATALOG + ".connector_long"),
                 new MaterializedRow(1, TESTING_CATALOG + ".connector_long", "11", "33", "bigint", "connector long property"));
+    }
+
+    @Test
+    public void testSetSession()
+    {
+        MaterializedResult result = computeActual("SET SESSION test_string = 'bar'");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of("test_string", "bar"));
+
+        result = computeActual(format("SET SESSION %s.connector_long = 999", TESTING_CATALOG));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "999"));
+
+        result = computeActual(format("SET SESSION %s.connector_string = 'baz'", TESTING_CATALOG));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "baz"));
+
+        result = computeActual(format("SET SESSION %s.connector_string = 'ban' || 'ana'", TESTING_CATALOG));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_string", "banana"));
+
+        result = computeActual(format("SET SESSION %s.connector_long = 444", TESTING_CATALOG));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "444"));
+
+        result = computeActual(format("SET SESSION %s.connector_long = 111 + 111", TESTING_CATALOG));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_long", "222"));
+
+        result = computeActual(format("SET SESSION %s.connector_boolean = 111 < 3", TESTING_CATALOG));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_boolean", "false"));
+
+        result = computeActual(format("SET SESSION %s.connector_double = 11.1", TESTING_CATALOG));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
+    }
+
+    @Test
+    public void testResetSession()
+    {
+        MaterializedResult result = computeActual(getSession(), "RESET SESSION test_string");
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getResetSessionProperties(), ImmutableSet.of("test_string"));
+
+        result = computeActual(getSession(), format("RESET SESSION %s.connector_string", TESTING_CATALOG));
+        assertTrue((Boolean) getOnlyElement(result).getField(0));
+        assertEquals(result.getResetSessionProperties(), ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
 
     @Test

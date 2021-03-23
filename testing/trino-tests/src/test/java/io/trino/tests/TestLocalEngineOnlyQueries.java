@@ -13,7 +13,13 @@
  */
 package io.trino.tests;
 
+import io.trino.connector.CatalogName;
+import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
+import org.testng.SkipException;
+
+import static io.airlift.testing.Closeables.closeAllSuppress;
+import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 
 public class TestLocalEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
@@ -21,6 +27,28 @@ public class TestLocalEngineOnlyQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return TestLocalQueries.createLocalQueryRunner();
+        LocalQueryRunner queryRunner = TestLocalQueries.createLocalQueryRunner();
+        try {
+            // for testing session properties
+            queryRunner.getMetadata().getSessionPropertyManager().addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
+            queryRunner.getCatalogManager().registerCatalog(createBogusTestingCatalog(TESTING_CATALOG));
+            queryRunner.getMetadata().getSessionPropertyManager().addConnectorSessionProperties(new CatalogName(TESTING_CATALOG), TEST_CATALOG_PROPERTIES);
+        }
+        catch (RuntimeException e) {
+            throw closeAllSuppress(e, queryRunner);
+        }
+        return queryRunner;
+    }
+
+    @Override
+    public void testSetSession()
+    {
+        throw new SkipException("SET SESSION is not supported by LocalQueryRunner");
+    }
+
+    @Override
+    public void testResetSession()
+    {
+        throw new SkipException("RESET SESSION is not supported by LocalQueryRunner");
     }
 }
