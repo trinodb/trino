@@ -54,17 +54,14 @@
       "dataType": "LONG"
     }
   ],
-  "timeFieldSpec": {
-    "incomingGranularitySpec": {
-      "name": "updatedAt",
-      "dataType": "LONG",
-      "timeType": "SECONDS"
-    },
-    "outgoingGranularitySpec": {
+  "dateTimeFieldSpecs": [
+    {
       "name": "updatedAtHours",
       "dataType": "INT",
-      "timeFormat" : "EPOCH",
-      "timeType": "HOURS"
+      "defaultNullValue" : 0,
+      "format": "1:HOURS:EPOCH",
+      "transformFunction": "toEpochHours(updatedAt)",
+      "granularity" : "1:HOURS"
     }
-  }
+  ]
 }

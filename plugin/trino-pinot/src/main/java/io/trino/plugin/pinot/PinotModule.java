@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
@@ -35,12 +36,15 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeManager;
 import org.apache.pinot.common.utils.DataSchema;
+import org.apache.pinot.spi.config.table.TableConfig;
+import org.apache.pinot.spi.data.Schema;
+import org.apache.pinot.spi.utils.JsonUtils;
 
 import javax.inject.Inject;
 import javax.management.MBeanServer;
 
 import java.io.IOException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -80,11 +84,12 @@ public class PinotModule
         binder.bind(PinotPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(PinotClient.class).in(Scopes.SINGLETON);
         binder.bind(PinotQueryClient.class).in(Scopes.SINGLETON);
-        binder.bind(Executor.class).annotatedWith(ForPinot.class)
+        binder.bind(ExecutorService.class).annotatedWith(ForPinot.class)
                 .toInstance(newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-" + catalogName)));
 
         binder.bind(PinotSessionProperties.class).in(Scopes.SINGLETON);
         binder.bind(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        binder.bind(PinotPageSinkProvider.class).in(Scopes.SINGLETON);
         httpClientBinder(binder).bindHttpClient("pinot", ForPinot.class)
                 .withConfigDefaults(cfg -> {
                     cfg.setIdleTimeout(new Duration(300, SECONDS));
@@ -99,12 +104,18 @@ public class PinotModule
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(DataSchema.class).to(DataSchemaDeserializer.class);
+        jsonBinder(binder).addDeserializerBinding(Schema.class).to(SchemaDeserializer.class);
+        jsonBinder(binder).addDeserializerBinding(TableConfig.class).to(TableConfigDeserializer.class);
+        jsonBinder(binder).addSerializerBinding(Schema.class).to(ToStringSerializer.class);
+        jsonBinder(binder).addSerializerBinding(TableConfig.class).to(ToStringSerializer.class);
+
         PinotClient.addJsonBinders(jsonCodecBinder(binder));
         binder.bind(MBeanServer.class).toInstance(new RebindSafeMBeanServer(getPlatformMBeanServer()));
         binder.bind(TypeManager.class).toInstance(typeManager);
         binder.bind(NodeManager.class).toInstance(nodeManager);
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
+        binder.bind(PinotTableProperties.class).in(Scopes.SINGLETON);
     }
 
     @SuppressWarnings("serial")
@@ -148,6 +159,39 @@ public class PinotModule
                 columnNames[i] = columnNamesJson.get(i).asText();
             }
             return new DataSchema(columnNames, columnTypes);
+        }
+    }
+
+    @SuppressWarnings("serial")
+    public static final class SchemaDeserializer
+            extends FromStringDeserializer<Schema>
+    {
+        public SchemaDeserializer()
+        {
+            super(Schema.class);
+        }
+
+        @Override
+        protected Schema _deserialize(String value, DeserializationContext ctxt)
+                throws IOException
+        {
+            return Schema.fromString(value);
+        }
+    }
+
+    public static final class TableConfigDeserializer
+            extends FromStringDeserializer<TableConfig>
+    {
+        public TableConfigDeserializer()
+        {
+            super(TableConfig.class);
+        }
+
+        @Override
+        public TableConfig _deserialize(String value, DeserializationContext ctxt)
+                throws IOException
+        {
+            return JsonUtils.stringToObject(value, TableConfig.class);
         }
     }
 }

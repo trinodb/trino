@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.pinot.PinotColumnHandle;
 import io.trino.plugin.pinot.PinotMetadata;
+import io.trino.plugin.pinot.client.PinotClient;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
@@ -50,14 +51,15 @@ public final class DynamicTableBuilder
     {
     }
 
-    public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, SchemaTableName schemaTableName)
+    public static DynamicTable buildFromPql(PinotMetadata pinotMetadata, PinotClient pinotClient, SchemaTableName schemaTableName)
     {
         requireNonNull(pinotMetadata, "pinotMetadata is null");
         requireNonNull(schemaTableName, "schemaTableName is null");
         String query = schemaTableName.getTableName();
         BrokerRequest request = REQUEST_COMPILER.compileToBrokerRequest(query);
-        String pinotTableName = stripSuffix(request.getQuerySource().getTableName());
-        Optional<String> suffix = getSuffix(request.getQuerySource().getTableName());
+        String tableName = request.getQuerySource().getTableName();
+        String pinotTableName = pinotClient.getPinotTableNameFromTrinoTableName(stripSuffix(tableName));
+        Optional<String> suffix = getSuffix(tableName);
 
         Map<String, ColumnHandle> columnHandles = pinotMetadata.getPinotColumnHandles(pinotTableName);
         List<String> selectionColumns = ImmutableList.of();
