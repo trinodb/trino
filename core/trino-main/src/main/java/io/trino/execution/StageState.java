@@ -116,6 +116,6 @@ public enum StageState
                 // completing successfully when it should fail..
                 return true;
         }
-        return true;
+        throw new IllegalStateException("Unhandled state: " + this);
     }
 }
