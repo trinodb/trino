@@ -77,12 +77,13 @@ public class TestingPostgreSqlServer
         Properties properties = new Properties();
         properties.setProperty("user", USER);
         properties.setProperty("password", PASSWORD);
+        properties.setProperty("currentSchema", "tpch,public");
         return properties;
     }
 
     public String getJdbcUrl()
     {
-        return format("jdbc:postgresql://%s:%s/%s?currentSchema=tpch", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
+        return format("jdbc:postgresql://%s:%s/%s", dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(POSTGRESQL_PORT), DATABASE);
     }
 
     @Override
