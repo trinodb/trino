@@ -46,7 +46,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class OrcPageSource
+public class RaptorPageSource
         implements UpdatablePageSource
 {
     private final Optional<ShardRewriter> shardRewriter;
@@ -61,7 +61,7 @@ public class OrcPageSource
 
     private boolean closed;
 
-    public OrcPageSource(
+    public RaptorPageSource(
             Optional<ShardRewriter> shardRewriter,
             OrcRecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
