@@ -63,7 +63,7 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_BACKUP_CORRUPTION;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_ERROR;
 import static io.trino.plugin.raptor.legacy.RaptorErrorCode.RAPTOR_RECOVERY_ERROR;
-import static io.trino.plugin.raptor.legacy.storage.OrcStorageManager.xxhash64;
+import static io.trino.plugin.raptor.legacy.storage.RaptorStorageManager.xxhash64;
 import static java.nio.file.StandardCopyOption.ATOMIC_MOVE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
