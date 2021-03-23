@@ -64,7 +64,6 @@ public abstract class BaseSnowflakeConnectorTest
             case SUPPORTS_ARRAY:
             case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
-            case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;

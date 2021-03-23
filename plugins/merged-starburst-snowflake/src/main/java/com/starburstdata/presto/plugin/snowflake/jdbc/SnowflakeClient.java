@@ -27,6 +27,7 @@ import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongWriteFunction;
+import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.SliceWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -53,6 +54,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.Estimate;
@@ -119,6 +121,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.Types.BINARY;
 import static java.sql.Types.LONGVARBINARY;
@@ -126,6 +129,7 @@ import static java.sql.Types.VARBINARY;
 import static java.sql.Types.VARCHAR;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class SnowflakeClient
         extends BaseJdbcClient
@@ -207,6 +211,12 @@ public class SnowflakeClient
     }
 
     @Override
+    public PreparedQuery applyQueryTransformations(JdbcTableHandle tableHandle, PreparedQuery query)
+    {
+        return super.applyQueryTransformations(tableHandle, query);
+    }
+
+    @Override
     public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
     {
         return tableScanRedirection.getTableScanRedirection(session, handle, this);
@@ -221,18 +231,42 @@ public class SnowflakeClient
     @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
-        return Optional.of(SnowflakeClient::applyLimit);
-    }
-
-    public static String applyLimit(String sql, Long limit)
-    {
-        return sql + " LIMIT " + limit;
+        return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
     }
 
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return true;
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    {
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        return format("%s %s %s", quoted(sortItem.getName()), ordering, nullsHandling);
+                    })
+                    .collect(joining(", "));
+
+            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        // The data returned conforms to TopN requirements, but can be returned out of order
+        return !distributedConnector;
     }
 
     @Override

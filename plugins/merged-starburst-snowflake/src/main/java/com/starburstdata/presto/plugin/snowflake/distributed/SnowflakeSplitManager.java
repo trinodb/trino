@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
-import io.trino.plugin.jdbc.JdbcClient;
+import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.spi.connector.Connector;
@@ -34,7 +34,7 @@ class SnowflakeSplitManager
         implements ConnectorSplitManager
 {
     private final Provider<Connector> connector;
-    private final JdbcClient client;
+    private final SnowflakeClient client;
     private final ListeningExecutorService executorService;
     private final TypeManager typeManager;
     private final SnowflakeConnectionManager connectionManager;
@@ -44,7 +44,7 @@ class SnowflakeSplitManager
     @Inject
     public SnowflakeSplitManager(
             Provider<Connector> connector,
-            JdbcClient client,
+            SnowflakeClient client,
             ListeningExecutorService executorService,
             TypeManager typeManager,
             SnowflakeConnectionManager connectionManager,

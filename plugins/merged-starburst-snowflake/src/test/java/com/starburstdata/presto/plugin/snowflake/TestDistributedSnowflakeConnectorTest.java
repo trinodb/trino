@@ -16,6 +16,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.ResultWithQueryId;
+import io.trino.testing.TestingConnectorBehavior;
 import org.testng.annotations.Test;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
@@ -38,6 +39,18 @@ public class TestDistributedSnowflakeConnectorTest
                 .withAdditionalProperties(impersonationDisabled())
                 .withConnectionPooling()
                 .build();
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        switch (connectorBehavior) {
+            case SUPPORTS_TOPN_PUSHDOWN:
+                // TOPN is retained due to parallelism
+                return false;
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Test

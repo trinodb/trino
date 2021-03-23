@@ -35,7 +35,6 @@ import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
@@ -67,7 +66,6 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -122,7 +120,7 @@ public class SnowflakeSplitSource
 
     private final ListeningExecutorService executorService;
     private final TypeManager typeManager;
-    private final JdbcClient client;
+    private final SnowflakeClient client;
     private final ConnectorSession session;
     private final JdbcTableHandle jdbcTableHandle;
     private final List<JdbcColumnHandle> columns;
@@ -140,7 +138,7 @@ public class SnowflakeSplitSource
     SnowflakeSplitSource(
             ListeningExecutorService executorService,
             TypeManager typeManager,
-            JdbcClient client,
+            SnowflakeClient client,
             ConnectorSession session,
             JdbcTableHandle tableHandle,
             List<JdbcColumnHandle> columns,
@@ -232,7 +230,7 @@ public class SnowflakeSplitSource
                             ImmutableMap.of(),
                             jdbcTableHandle.getConstraint(),
                             Optional.empty());
-                    preparedQuery = preparedQuery.transformQuery(tryApplyLimit(jdbcTableHandle.getLimit()));
+                    preparedQuery = client.applyQueryTransformations(jdbcTableHandle, preparedQuery);
                     preparedQuery = preparedQuery.transformQuery(sql -> copyIntoStage(sql, stageName));
                     try (PreparedStatement statement = queryBuilder.prepareStatement(session, connection, preparedQuery)) {
                         // TODO close ResultSet
@@ -402,15 +400,6 @@ public class SnowflakeSplitSource
                 stageName,
                 sql,
                 snowflakeConfig.getExportFileMaxSize().toBytes());
-    }
-
-    private static Function<String, String> tryApplyLimit(OptionalLong limit)
-    {
-        if (limit.isEmpty()) {
-            return Function.identity();
-        }
-
-        return sql -> SnowflakeClient.applyLimit(sql, limit.getAsLong());
     }
 
     private void execute(SnowflakeConnectionV1 connection, String sql)
