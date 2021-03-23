@@ -39,6 +39,7 @@ import java.util.OptionalInt;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.PartitionAndStatementId.CODEC;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -140,9 +141,7 @@ public class HiveUpdatablePageSource
     public void updateRows(Page page, List<Integer> columnValueAndRowIdChannels)
     {
         int positionCount = page.getPositionCount();
-        if (positionCount == 0) {
-            return;
-        }
+        verify(positionCount > 0, "Unexpected empty page"); // should be filtered out by engine
 
         HiveUpdateProcessor updateProcessor = transaction.getUpdateProcessor().orElseThrow(() -> new IllegalArgumentException("updateProcessor not present"));
         RowBlock acidRowBlock = updateProcessor.getAcidRowBlock(page, columnValueAndRowIdChannels);
