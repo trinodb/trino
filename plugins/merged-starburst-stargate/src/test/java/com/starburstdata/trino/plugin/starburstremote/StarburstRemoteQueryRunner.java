@@ -238,22 +238,22 @@ public final class StarburstRemoteQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner starburstEnterprise = createStarburstRemoteQueryRunner(Map.of(), Optional.empty());
+        DistributedQueryRunner remoteStarburst = createStarburstRemoteQueryRunner(Map.of(), Optional.empty());
 
         addMemoryToStarburstRemoteQueryRunner(
-                starburstEnterprise,
+                remoteStarburst,
                 TpchTable.getTables());
 
         TestingPostgreSqlServer postgreSqlServer = new TestingPostgreSqlServer();
         addPostgreSqlToStarburstRemoteQueryRunner(
-                starburstEnterprise,
+                remoteStarburst,
                 postgreSqlServer,
                 Map.of("connection-url", postgreSqlServer.getJdbcUrl()),
                 TpchTable.getTables());
 
         File tempDir = Files.createTempDir();
         addHiveToStarburstRemoteQueryRunner(
-                starburstEnterprise,
+                remoteStarburst,
                 tempDir,
                 TpchTable.getTables());
 
@@ -261,21 +261,21 @@ public final class StarburstRemoteQueryRunner
                 true,
                 Map.of("http-server.http.port", "8080"),
                 Map.of(
-                        "connection-url", starburstRemoteConnectionUrl(starburstEnterprise, "memory"),
+                        "connection-url", starburstRemoteConnectionUrl(remoteStarburst, "memory"),
                         "allow-drop-table", "true"));
         queryRunner.createCatalog(
                 "p2p_remote_postgresql",
                 "starburst-remote",
                 Map.of(
                         "connection-user", "p2p",
-                        "connection-url", starburstRemoteConnectionUrl(starburstEnterprise, "postgresql"),
+                        "connection-url", starburstRemoteConnectionUrl(remoteStarburst, "postgresql"),
                         "allow-drop-table", "true"));
         queryRunner.createCatalog(
                 "p2p_remote_hive",
                 "starburst-remote",
                 Map.of(
                         "connection-user", "p2p",
-                        "connection-url", starburstRemoteConnectionUrl(starburstEnterprise, "hive"),
+                        "connection-url", starburstRemoteConnectionUrl(remoteStarburst, "hive"),
                         "allow-drop-table", "true"));
 
         Logger log = Logger.get(StarburstRemoteQueryRunner.class);
