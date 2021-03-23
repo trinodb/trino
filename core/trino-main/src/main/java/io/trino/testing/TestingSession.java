@@ -39,7 +39,6 @@ import static java.util.Locale.ENGLISH;
 
 public final class TestingSession
 {
-    public static final String TESTING_CATALOG = "testing_catalog";
     private static final QueryIdGenerator queryIdGenerator = new QueryIdGenerator();
 
     /*

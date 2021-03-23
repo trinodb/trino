@@ -28,11 +28,9 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
-import io.trino.metadata.Catalog;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.SqlFunction;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.testing.TestingTrinoServer;
@@ -66,10 +64,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.units.Duration.nanosSince;
-import static io.trino.testing.AbstractTestQueries.TEST_CATALOG_PROPERTIES;
-import static io.trino.testing.AbstractTestQueries.TEST_SYSTEM_PROPERTIES;
-import static io.trino.testing.TestingSession.TESTING_CATALOG;
-import static io.trino.testing.TestingSession.createBogusTestingCatalog;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -194,11 +188,6 @@ public class DistributedQueryRunner
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
-
-        for (TestingTrinoServer server : servers) {
-            // add bogus catalog for testing procedures and session properties
-            addTestingCatalog(server);
-        }
     }
 
     private static TestingTrinoServer createTestingTrinoServer(
@@ -268,7 +257,6 @@ public class DistributedQueryRunner
             serverBuilder.add(server);
             // add functions
             server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
-            addTestingCatalog(server);
         }
         servers = serverBuilder.build();
         waitForAllNodesGloballyVisible();
@@ -283,17 +271,6 @@ public class DistributedQueryRunner
             MILLISECONDS.sleep(10);
         }
         log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
-    }
-
-    private void addTestingCatalog(TestingTrinoServer server)
-    {
-        // add bogus catalog for testing procedures and session properties
-        Catalog bogusTestingCatalog = createBogusTestingCatalog(TESTING_CATALOG);
-        server.getCatalogManager().registerCatalog(bogusTestingCatalog);
-
-        SessionPropertyManager sessionPropertyManager = server.getMetadata().getSessionPropertyManager();
-        sessionPropertyManager.addSystemSessionProperties(TEST_SYSTEM_PROPERTIES);
-        sessionPropertyManager.addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), TEST_CATALOG_PROPERTIES);
     }
 
     private boolean allNodesGloballyVisible()
