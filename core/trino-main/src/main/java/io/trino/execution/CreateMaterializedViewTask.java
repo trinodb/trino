@@ -126,6 +126,9 @@ public class CreateMaterializedViewTask
 
         metadata.createMaterializedView(session, name, definition, statement.isReplace(), statement.isNotExists());
 
+        stateMachine.setOutput(analysis.getTarget());
+        stateMachine.setReferencedTables(analysis.getReferencedTables());
+
         return immediateFuture(null);
     }
 }

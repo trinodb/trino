@@ -112,6 +112,9 @@ public class CreateViewTask
 
         metadata.createView(session, name, definition, statement.isReplace());
 
+        stateMachine.setOutput(analysis.getTarget());
+        stateMachine.setReferencedTables(analysis.getReferencedTables());
+
         return immediateFuture(null);
     }
 }
