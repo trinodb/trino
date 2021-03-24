@@ -18,7 +18,7 @@ import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSessionProperties;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcRecordSetProvider;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModule;
+import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
@@ -82,6 +82,6 @@ public class OracleClientModule
                 .to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(licenseManager.hasFeature(ORACLE_EXTENSIONS)));
-        install(new TableScanRedirectionModule());
+        install(new JdbcTableScanRedirectionModule());
     }
 }
