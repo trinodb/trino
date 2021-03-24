@@ -26,7 +26,7 @@ import static org.testng.Assert.assertTrue;
 
 public class TestHiveWriteUtils
 {
-    private static final HdfsContext CONTEXT = new HdfsContext(SESSION, "test_schema");
+    private static final HdfsContext CONTEXT = new HdfsContext(SESSION);
 
     @Test
     public void testIsS3FileSystem()

@@ -424,7 +424,7 @@ public class IcebergMetadata
     {
         Optional<String> location = getSchemaLocation(properties).map(uri -> {
             try {
-                hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(uri));
+                hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(uri));
             }
             catch (IOException | IllegalArgumentException e) {
                 throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + uri, e);
@@ -500,7 +500,7 @@ public class IcebergMetadata
         Database database = metastore.getDatabase(schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
-        HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
+        HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
         String targetPath = getTableLocation(tableMetadata.getProperties());
         if (targetPath == null) {
@@ -574,7 +574,7 @@ public class IcebergMetadata
 
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
-            HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            HdfsContext context = new HdfsContext(session);
 
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withInputFile(new HdfsInputFile(new Path(task.getPath()), hdfsEnvironment, context))
@@ -938,7 +938,7 @@ public class IcebergMetadata
 
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
-            HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            HdfsContext context = new HdfsContext(session);
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
                     .withInputFile(new HdfsInputFile(new Path(task.getPath()), hdfsEnvironment, context))
                     .withFormat(table.getFileFormat())

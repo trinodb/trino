@@ -414,7 +414,7 @@ public class TestS3SecurityMapping
                             .build())
                     .setPropertyMetadata(HIVE_SESSION_PROPERTIES.getSessionProperties())
                     .build();
-            return new HdfsContext(connectorSession, "schema");
+            return new HdfsContext(connectorSession);
         }
     }
 

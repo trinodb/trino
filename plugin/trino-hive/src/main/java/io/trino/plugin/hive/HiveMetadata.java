@@ -804,7 +804,7 @@ public class HiveMetadata
     {
         Optional<String> location = HiveSchemaProperties.getLocation(properties).map(locationUri -> {
             try {
-                hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(locationUri));
+                hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(locationUri));
             }
             catch (IOException e) {
                 throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + locationUri, e);
@@ -861,7 +861,7 @@ public class HiveMetadata
         validateTimestampColumns(tableMetadata.getColumns(), getTimestampPrecision(session));
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
-        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session, schemaName, tableName));
+        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session));
 
         hiveStorageFormat.validateColumns(columnHandles);
 
@@ -882,7 +882,7 @@ public class HiveMetadata
 
             external = true;
             targetPath = getExternalLocationAsPath(externalLocation);
-            checkExternalPath(new HdfsContext(session, schemaName, tableName), targetPath);
+            checkExternalPath(new HdfsContext(session), targetPath);
         }
         else {
             external = false;
@@ -1325,7 +1325,7 @@ public class HiveMetadata
         String schemaName = schemaTableName.getSchemaName();
         String tableName = schemaTableName.getTableName();
 
-        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session, schemaName, tableName));
+        Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session));
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat partitionStorageFormat = isRespectTableFormat(session) ? tableStorageFormat : getHiveStorageFormat(session);
 
@@ -1474,7 +1474,6 @@ public class HiveMetadata
 
             List<String> fileNamesForMissingBuckets = computeFileNamesForMissingBuckets(
                     session,
-                    table,
                     storageFormat,
                     partitionUpdate.getTargetPath(),
                     bucketCount,
@@ -1495,7 +1494,6 @@ public class HiveMetadata
 
     private List<String> computeFileNamesForMissingBuckets(
             ConnectorSession session,
-            Table table,
             HiveStorageFormat storageFormat,
             Path targetPath,
             int bucketCount,
@@ -1506,7 +1504,7 @@ public class HiveMetadata
             // fast path for common case
             return ImmutableList.of();
         }
-        HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session);
         JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, targetPath));
         configureCompression(conf, getCompressionCodec(session));
         String fileExtension = HiveWriterFactory.getFileExtension(conf, fromHiveStorageFormat(storageFormat));
@@ -1531,7 +1529,7 @@ public class HiveMetadata
 
     private void createEmptyFiles(ConnectorSession session, Path path, Table table, Optional<Partition> partition, List<String> fileNames)
     {
-        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session, table.getDatabaseName(), table.getTableName()), path));
+        JobConf conf = toJobConf(hdfsEnvironment.getConfiguration(new HdfsContext(session), path));
         configureCompression(conf, getCompressionCodec(session));
 
         Properties schema;
@@ -1642,7 +1640,7 @@ public class HiveMetadata
                 .map(PartitionAndStatementId.CODEC::fromJson)
                 .collect(toList());
 
-        HdfsContext context = new HdfsContext(session, table.getDatabaseName());
+        HdfsContext context = new HdfsContext(session);
         for (PartitionAndStatementId ps : partitionAndStatementIds) {
             createOrcAcidVersionFile(context, new Path(ps.getDeleteDeltaDirectory()));
         }
@@ -1812,7 +1810,7 @@ public class HiveMetadata
         }
 
         if (isFullAcidTable(table.getParameters())) {
-            HdfsContext context = new HdfsContext(session, table.getDatabaseName());
+            HdfsContext context = new HdfsContext(session);
             for (PartitionUpdate update : partitionUpdates) {
                 long writeId = handle.getTransaction().getWriteId();
                 Path deltaDirectory = new Path(format("%s/%s/%s", table.getStorage().getLocation(), update.getName(), deltaSubdir(writeId, writeId, 0)));
@@ -2119,7 +2117,7 @@ public class HiveMetadata
                 .map(PartitionAndStatementId.CODEC::fromJson)
                 .collect(toList());
 
-        HdfsContext context = new HdfsContext(session, table.getDatabaseName());
+        HdfsContext context = new HdfsContext(session);
         for (PartitionAndStatementId ps : partitionAndStatementIds) {
             createOrcAcidVersionFile(context, new Path(ps.getDeleteDeltaDirectory()));
         }

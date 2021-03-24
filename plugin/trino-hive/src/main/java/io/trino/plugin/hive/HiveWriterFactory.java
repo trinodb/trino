@@ -260,7 +260,7 @@ public class HiveWriterFactory
                 .collect(toImmutableMap(PropertyMetadata::getName,
                         entry -> session.getProperty(entry.getName(), entry.getJavaType()).toString()));
 
-        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session, schemaName, tableName), writePath);
+        Configuration conf = hdfsEnvironment.getConfiguration(new HdfsContext(session), writePath);
         configureCompression(conf, getCompressionCodec(session));
         this.conf = toJobConf(conf);
 
@@ -331,7 +331,7 @@ public class HiveWriterFactory
                     if (!writeInfo.getWriteMode().isWritePathSameAsTargetPath()) {
                         // When target path is different from write path,
                         // verify that the target directory for the partition does not already exist
-                        if (HiveWriteUtils.pathExists(new HdfsContext(session, schemaName, tableName), hdfsEnvironment, writeInfo.getTargetPath())) {
+                        if (HiveWriteUtils.pathExists(new HdfsContext(session), hdfsEnvironment, writeInfo.getTargetPath())) {
                             throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format(
                                     "Target directory for new partition '%s' of table '%s.%s' already exists: %s",
                                     partitionName,
@@ -529,7 +529,7 @@ public class HiveWriterFactory
             if (sortedWritingTempStagingPathEnabled) {
                 String tempPrefix = sortedWritingTempStagingPath.replace(
                         "${USER}",
-                        new HdfsContext(session, schemaName, tableName).getIdentity().getUser());
+                        new HdfsContext(session).getIdentity().getUser());
                 tempFilePath = new Path(tempPrefix, ".tmp-sort." + path.getParent().getName() + "." + path.getName());
             }
             else {
