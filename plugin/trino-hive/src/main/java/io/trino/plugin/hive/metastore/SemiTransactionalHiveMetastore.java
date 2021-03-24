@@ -1347,7 +1347,7 @@ public class SemiTransactionalHiveMetastore
                         committer.prepareDropTable(action.getIdentity(), schemaTableName);
                         break;
                     case ALTER:
-                        committer.prepareAlterTable(action.getHdfsContext(), action.getIdentity(), action.getData());
+                        committer.prepareAlterTable(action.getHdfsContext(), action.getIdentity(), action.getQueryId(), action.getData());
                         break;
                     case ADD:
                         committer.prepareAddTable(action.getHdfsContext(), action.getData());
@@ -1378,7 +1378,7 @@ public class SemiTransactionalHiveMetastore
                             committer.prepareDropPartition(action.getIdentity(), schemaTableName, partitionValues, false);
                             break;
                         case ALTER:
-                            committer.prepareAlterPartition(action.getHdfsContext(), action.getIdentity(), action.getData());
+                            committer.prepareAlterPartition(action.getHdfsContext(), action.getIdentity(), action.getQueryId(), action.getData());
                             break;
                         case ADD:
                             committer.prepareAddPartition(action.getHdfsContext(), action.getIdentity(), action.getData());
@@ -1496,7 +1496,7 @@ public class SemiTransactionalHiveMetastore
                     () -> delegate.dropTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), true)));
         }
 
-        private void prepareAlterTable(HdfsContext hdfsContext, HiveIdentity identity, TableAndMore tableAndMore)
+        private void prepareAlterTable(HdfsContext hdfsContext, HiveIdentity identity, String queryId, TableAndMore tableAndMore)
         {
             deleteOnly = false;
 
@@ -1515,7 +1515,6 @@ public class SemiTransactionalHiveMetastore
             // Otherwise,
             // * Remember we will need to delete the location of the old partition at the end if transaction successfully commits
             if (targetLocation.equals(oldTableLocation)) {
-                String queryId = hdfsContext.getQueryId().orElseThrow(() -> new IllegalArgumentException("query ID not present"));
                 Path oldTableStagingPath = new Path(oldTablePath.getParent(), "_temp_" + oldTablePath.getName() + "_" + queryId);
                 renameDirectory(
                         hdfsContext,
@@ -1755,7 +1754,7 @@ public class SemiTransactionalHiveMetastore
                     () -> delegate.dropPartition(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionValues, deleteData)));
         }
 
-        private void prepareAlterPartition(HdfsContext hdfsContext, HiveIdentity identity, PartitionAndMore partitionAndMore)
+        private void prepareAlterPartition(HdfsContext hdfsContext, HiveIdentity identity, String queryId, PartitionAndMore partitionAndMore)
         {
             deleteOnly = false;
 
@@ -1780,7 +1779,6 @@ public class SemiTransactionalHiveMetastore
             // Otherwise,
             // * Remember we will need to delete the location of the old partition at the end if transaction successfully commits
             if (targetLocation.equals(oldPartitionLocation)) {
-                String queryId = hdfsContext.getQueryId().orElseThrow(() -> new IllegalArgumentException("query ID not present"));
                 Path oldPartitionStagingPath = new Path(oldPartitionPath.getParent(), "_temp_" + oldPartitionPath.getName() + "_" + queryId);
                 renameDirectory(
                         hdfsContext,
