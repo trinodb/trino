@@ -13,7 +13,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModule;
+import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
@@ -61,7 +61,7 @@ public class StarburstRemoteModule
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(STARBURST_REMOTE_MAX_DOMAIN_COMPACTION_THRESHOLD);
 
         install(new StarburstRemoteAuthenticationModule());
-        install(new TableScanRedirectionModule());
+        install(new JdbcTableScanRedirectionModule());
     }
 
     private static class SslModule
