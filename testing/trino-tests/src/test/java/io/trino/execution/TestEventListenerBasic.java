@@ -332,6 +332,56 @@ public class TestEventListenerBasic
     }
 
     @Test
+    public void testReferencedTablesInCreateView()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE VIEW mock.default.test_view AS SELECT * FROM nation", 2);
+
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(1);
+
+        TableInfo table = tables.get(0);
+        assertThat(table.getCatalog()).isEqualTo("tpch");
+        assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getTable()).isEqualTo("nation");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isTrue();
+        assertThat(table.getFilters()).isEmpty();
+        assertThat(table.getColumns()).hasSize(4);
+    }
+
+    @Test
+    public void testReferencedTablesInCreateMaterializedView()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE MATERIALIZED VIEW mock.default.test_view AS SELECT * FROM nation", 2);
+
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(1);
+
+        TableInfo table = tables.get(0);
+        assertThat(table.getCatalog()).isEqualTo("tpch");
+        assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getTable()).isEqualTo("nation");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isTrue();
+        assertThat(table.getFilters()).isEmpty();
+        assertThat(table.getColumns()).hasSize(4);
+    }
+
+    @Test
     public void testReferencedTablesWithRowFilter()
             throws Exception
     {
