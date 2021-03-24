@@ -15,8 +15,8 @@ package io.trino.plugin.phoenix;
 
 import com.google.inject.Inject;
 import io.airlift.bootstrap.LifeCycleManager;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.JdbcTransactionHandle;
-import io.trino.plugin.jdbc.SessionPropertiesProvider;
 import io.trino.plugin.jdbc.TablePropertiesProvider;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
