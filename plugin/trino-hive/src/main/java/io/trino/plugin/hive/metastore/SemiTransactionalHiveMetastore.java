@@ -442,7 +442,7 @@ public class SemiTransactionalHiveMetastore
         TableAndMore tableAndMore = new TableAndMore(table, identity, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
         if (oldTableAction == null) {
             HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-            tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, hdfsContext, identity));
+            tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, hdfsContext, identity, session.getQueryId()));
             return;
         }
         switch (oldTableAction.getType()) {
@@ -451,7 +451,7 @@ public class SemiTransactionalHiveMetastore
                     throw new TrinoException(TRANSACTION_CONFLICT, "Operation on the same table with different user in the same transaction is not supported");
                 }
                 HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
-                tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, hdfsContext, identity));
+                tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, hdfsContext, identity, session.getQueryId()));
                 return;
 
             case ADD:
@@ -477,7 +477,7 @@ public class SemiTransactionalHiveMetastore
         if (oldTableAction == null || oldTableAction.getType() == ActionType.ALTER) {
             HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
             HiveIdentity identity = new HiveIdentity(session);
-            tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, hdfsContext, identity));
+            tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, hdfsContext, identity, session.getQueryId()));
             return;
         }
         switch (oldTableAction.getType()) {
@@ -571,7 +571,8 @@ public class SemiTransactionalHiveMetastore
                                     merge(currentStatistics, statisticsUpdate),
                                     statisticsUpdate),
                             hdfsContext,
-                            identity));
+                            identity,
+                            session.getQueryId()));
             return;
         }
 
@@ -653,7 +654,8 @@ public class SemiTransactionalHiveMetastore
                                     Optional.of(currentLocation),
                                     partitionAndStatementIds),
                             hdfsContext,
-                            identity));
+                            identity,
+                            session.getQueryId()));
             return;
         }
 
@@ -702,7 +704,8 @@ public class SemiTransactionalHiveMetastore
                                     Optional.of(currentLocation),
                                     partitionAndStatementIds),
                             hdfsContext,
-                            identity));
+                            identity,
+                            session.getQueryId()));
             return;
         }
 
@@ -895,7 +898,7 @@ public class SemiTransactionalHiveMetastore
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
                     partition.getValues(),
-                    new Action<>(ActionType.ADD, new PartitionAndMore(identity, partition, currentLocation, Optional.empty(), statistics, statistics), hdfsContext, identity));
+                    new Action<>(ActionType.ADD, new PartitionAndMore(identity, partition, currentLocation, Optional.empty(), statistics, statistics), hdfsContext, identity, session.getQueryId()));
             return;
         }
         switch (oldPartitionAction.getType()) {
@@ -906,7 +909,7 @@ public class SemiTransactionalHiveMetastore
                 }
                 partitionActionsOfTable.put(
                         partition.getValues(),
-                        new Action<>(ActionType.ALTER, new PartitionAndMore(identity, partition, currentLocation, Optional.empty(), statistics, statistics), hdfsContext, identity));
+                        new Action<>(ActionType.ALTER, new PartitionAndMore(identity, partition, currentLocation, Optional.empty(), statistics, statistics), hdfsContext, identity, session.getQueryId()));
                 return;
             case ADD:
             case ALTER:
@@ -927,10 +930,10 @@ public class SemiTransactionalHiveMetastore
             HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
             HiveIdentity identity = new HiveIdentity(session);
             if (deleteData) {
-                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, identity));
+                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, identity, session.getQueryId()));
             }
             else {
-                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP_PRESERVE_DATA, null, hdfsContext, identity));
+                partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP_PRESERVE_DATA, null, hdfsContext, identity, session.getQueryId()));
             }
             return;
         }
@@ -985,7 +988,8 @@ public class SemiTransactionalHiveMetastore
                                     merge(currentStatistics, statisticsUpdate),
                                     statisticsUpdate),
                             context,
-                            identity));
+                            identity,
+                            session.getQueryId()));
             return;
         }
 
@@ -2598,8 +2602,9 @@ public class SemiTransactionalHiveMetastore
         private final T data;
         private final HdfsContext hdfsContext;
         private final HiveIdentity identity;
+        private final String queryId;
 
-        public Action(ActionType type, T data, HdfsContext hdfsContext, HiveIdentity identity)
+        public Action(ActionType type, T data, HdfsContext hdfsContext, HiveIdentity identity, String queryId)
         {
             this.type = requireNonNull(type, "type is null");
             if (type == ActionType.DROP || type == ActionType.DROP_PRESERVE_DATA) {
@@ -2611,6 +2616,7 @@ public class SemiTransactionalHiveMetastore
             this.data = data;
             this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
             this.identity = requireNonNull(identity, "identity is null");
+            this.queryId = requireNonNull(queryId, "queryId is null");
         }
 
         public ActionType getType()
@@ -2629,6 +2635,11 @@ public class SemiTransactionalHiveMetastore
             return hdfsContext;
         }
 
+        public String getQueryId()
+        {
+            return queryId;
+        }
+
         public HiveIdentity getIdentity()
         {
             return identity;
@@ -2639,6 +2650,7 @@ public class SemiTransactionalHiveMetastore
         {
             return toStringHelper(this)
                     .add("type", type)
+                    .add("queryId", queryId)
                     .add("data", data)
                     .toString();
         }
