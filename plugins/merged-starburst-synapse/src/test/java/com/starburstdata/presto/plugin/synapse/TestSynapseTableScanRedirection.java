@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
-import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTableScanRedirectionTest;
+import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 

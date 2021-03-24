@@ -21,8 +21,8 @@ import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
+import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.snowflake.SnowflakeConfig;
 import com.starburstdata.presto.plugin.snowflake.SnowflakeImpersonationType;
@@ -116,7 +116,7 @@ public class SnowflakeJdbcClientModule
                 SnowflakeConfig.class,
                 config -> config.getImpersonationType() == SnowflakeImpersonationType.ROLE_OKTA_LDAP_PASSTHROUGH,
                 oauthImpersonationModule(true)));
-        install(new TableScanRedirectionModule());
+        install(new JdbcTableScanRedirectionModule());
     }
 
     @Provides
