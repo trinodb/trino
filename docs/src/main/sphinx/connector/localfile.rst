@@ -2,8 +2,8 @@
 Local file connector
 ====================
 
-The local file connector allows querying data stored on the local
-file system of each worker.
+The local file connector allows querying the HTTP request log files stored on
+the local file system of each worker.
 
 Configuration
 -------------
