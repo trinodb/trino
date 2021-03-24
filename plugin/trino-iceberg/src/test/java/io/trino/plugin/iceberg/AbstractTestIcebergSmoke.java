@@ -112,7 +112,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testShowCreateSchema()
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
@@ -126,7 +126,7 @@ public abstract class AbstractTestIcebergSmoke
     @Override
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -147,7 +147,7 @@ public abstract class AbstractTestIcebergSmoke
     @Override
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
@@ -169,7 +169,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testDecimal()
     {
         testDecimalWithPrecisionAndScale(1, 0);
@@ -210,7 +210,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testTime()
     {
         testSelectOrPartitionedByTime(false);
@@ -218,7 +218,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPartitionedByTime()
     {
         testSelectOrPartitionedByTime(true);
@@ -243,7 +243,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPartitionByTimestamp()
     {
         testSelectOrPartitionedByTimestamp(true);
@@ -251,7 +251,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testSelectByTimestamp()
     {
         testSelectOrPartitionedByTimestamp(false);
@@ -281,7 +281,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreatePartitionedTable()
     {
         @Language("SQL") String createTable = "" +
@@ -349,7 +349,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreatePartitionedTableWithNestedTypes()
     {
         @Language("SQL") String createTable = "" +
@@ -369,7 +369,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPartitionedTableWithNullValues()
     {
         @Language("SQL") String createTable = "" +
@@ -424,7 +424,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreatePartitionedTableAs()
     {
         @Language("SQL") String createTable = "" +
@@ -463,7 +463,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testColumnComments()
     {
         // TODO add support for setting comments on existing column and replace the test with io.trino.testing.AbstractTestDistributedQueries#testCommentColumn
@@ -477,7 +477,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testTableComments()
     {
         String createTableTemplate = "" +
@@ -519,7 +519,7 @@ public abstract class AbstractTestIcebergSmoke
     // add it and $snapshot_timestamp_ms
     @Test(enabled = false)
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testQueryBySnapshotId()
     {
         assertUpdate("CREATE TABLE test_query_by_snapshot (col0 INTEGER, col1 BIGINT)");
@@ -535,7 +535,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testRollbackSnapshot()
     {
         assertUpdate("CREATE TABLE test_rollback (col0 INTEGER, col1 BIGINT)");
@@ -564,7 +564,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testInsertIntoNotNullColumn()
     {
         assertUpdate("CREATE TABLE test_not_null_table (c1 INTEGER, c2 INTEGER NOT NULL)");
@@ -582,7 +582,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testSchemaEvolution()
     {
         assertUpdate("CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER)");
@@ -609,7 +609,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testLargeInFailureOnPartitionedColumns()
     {
         QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_large_in_failure");
@@ -633,7 +633,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreateTableLike()
     {
         FileFormat otherFormat = format == PARQUET ? ORC : PARQUET;
@@ -690,7 +690,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPredicating()
     {
         assertUpdate("CREATE TABLE test_predicating_on_real (col REAL)");
@@ -701,7 +701,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testHourTransform()
     {
         assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
@@ -747,7 +747,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testDayTransformDate()
     {
         assertUpdate("CREATE TABLE test_day_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
@@ -784,7 +784,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testDayTransformTimestamp()
     {
         assertUpdate("CREATE TABLE test_day_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['day(d)'])");
@@ -831,7 +831,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMonthTransformDate()
     {
         assertUpdate("CREATE TABLE test_month_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
@@ -872,7 +872,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMonthTransformTimestamp()
     {
         assertUpdate("CREATE TABLE test_month_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['month(d)'])");
@@ -917,7 +917,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testYearTransformDate()
     {
         assertUpdate("CREATE TABLE test_year_transform_date (d DATE, b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
@@ -953,7 +953,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testYearTransformTimestamp()
     {
         assertUpdate("CREATE TABLE test_year_transform_timestamp (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['year(d)'])");
@@ -996,7 +996,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testTruncateTransform()
     {
         String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_transform$partitions\"";
@@ -1029,7 +1029,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testBucketTransform()
     {
         String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
@@ -1056,7 +1056,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMetadataDeleteSimple()
     {
         assertUpdate("CREATE TABLE test_metadata_delete_simple (col1 BIGINT, col2 BIGINT) WITH (partitioning = ARRAY['col1'])");
@@ -1074,7 +1074,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMetadataDelete()
     {
         @Language("SQL") String createTable = "" +
@@ -1112,7 +1112,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testInSet()
     {
         testInSet(31);
@@ -1137,7 +1137,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testBasicTableStatistics()
     {
         String tableName = format("iceberg.tpch.test_basic_%s_table_statistics", format.name().toLowerCase(ENGLISH));
@@ -1171,7 +1171,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testMultipleColumnTableStatistics()
     {
         String tableName = format("iceberg.tpch.test_multiple_%s_table_statistics", format.name().toLowerCase(ENGLISH));
@@ -1226,7 +1226,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPartitionedTableStatistics()
     {
         assertUpdate("CREATE TABLE iceberg.tpch.test_partitioned_table_statistics (col1 REAL, col2 BIGINT) WITH (partitioning = ARRAY['col2'])");
@@ -1303,7 +1303,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testStatisticsConstraints()
     {
         String tableName = "iceberg.tpch.test_simple_partitioned_table_statistics";
@@ -1336,7 +1336,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testPredicatePushdown()
     {
         QualifiedObjectName tableName = new QualifiedObjectName("iceberg", "tpch", "test_predicate");
@@ -1506,7 +1506,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testCreateNestedPartitionedTable()
     {
         @Language("SQL") String createTable = "" +
@@ -1578,7 +1578,7 @@ public abstract class AbstractTestIcebergSmoke
 
     @Test
     // This particular method may or may not be @Flaky. It is annotated since the problem is generic.
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: io.trino.plugin.iceberg.HdfsInputFile")
+    @Flaky(issue = "https://github.com/trinodb/trino/issues/5201", match = "Failed to read footer of file: HdfsInputFile")
     public void testSerializableReadIsolation()
     {
         assertUpdate("CREATE TABLE test_read_isolation (x int)");
