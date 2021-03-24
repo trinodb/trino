@@ -1827,7 +1827,7 @@ public abstract class AbstractTestHive
                     .filter(path -> path.getName().startsWith("000005_0_"))
                     .collect(onlyElement());
 
-            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(newSession());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, bucket2);
             fileSystem.delete(bucket2, false);
             fileSystem.rename(bucket5, bucket2);
@@ -2200,7 +2200,7 @@ public abstract class AbstractTestHive
                         .orElseThrow(AssertionError::new);
 
                 // verify directory is empty
-                HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+                HdfsContext context = new HdfsContext(session);
                 Path location = new Path(table.getStorage().getLocation());
                 assertTrue(listDirectory(context, location).isEmpty());
 
@@ -2299,7 +2299,7 @@ public abstract class AbstractTestHive
 
                 // verify we have data files
                 stagingPathRoot = getStagingPathRoot(outputHandle);
-                HdfsContext context = new HdfsContext(session, temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+                HdfsContext context = new HdfsContext(session);
                 assertFalse(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
                 // rollback the table
@@ -2307,7 +2307,7 @@ public abstract class AbstractTestHive
             }
 
             // verify all files have been deleted
-            HdfsContext context = new HdfsContext(newSession(), temporaryCreateRollbackTable.getSchemaName(), temporaryCreateRollbackTable.getTableName());
+            HdfsContext context = new HdfsContext(newSession());
             assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
             // verify table is not in the metastore
@@ -2469,7 +2469,7 @@ public abstract class AbstractTestHive
                 sink.appendPage(builder.build().toPage());
             }
 
-            HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            HdfsContext context = new HdfsContext(session);
             // verify we have enough temporary files per bucket to require multiple passes
             Path stagingPathRoot;
             if (isTemporaryStagingDirectoryEnabled(session)) {
@@ -3463,7 +3463,7 @@ public abstract class AbstractTestHive
             Collection<Slice> fragments = getFutureValue(sink.finish());
 
             // verify all new files start with the unique prefix
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             for (String filePath : listAllDataFiles(context, getStagingPathRoot(outputHandle))) {
                 assertThat(new Path(filePath).getName()).startsWith(session.getQueryId());
             }
@@ -3649,7 +3649,7 @@ public abstract class AbstractTestHive
 
             // verify all temp files start with the unique prefix
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
@@ -3661,7 +3661,7 @@ public abstract class AbstractTestHive
         }
 
         // verify temp directory is empty
-        HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+        HdfsContext context = new HdfsContext(newSession());
         assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
         // verify the data is unchanged
@@ -3772,7 +3772,7 @@ public abstract class AbstractTestHive
 
             // verify all temp files start with the unique prefix
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
@@ -3784,7 +3784,7 @@ public abstract class AbstractTestHive
         }
 
         // verify temp directory is empty
-        HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+        HdfsContext context = new HdfsContext(newSession());
         assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
 
         // verify the data is unchanged
@@ -3842,7 +3842,7 @@ public abstract class AbstractTestHive
     protected Set<String> listAllDataFiles(Transaction transaction, String schemaName, String tableName)
             throws IOException
     {
-        HdfsContext hdfsContext = new HdfsContext(newSession(), schemaName, tableName);
+        HdfsContext hdfsContext = new HdfsContext(newSession());
         HiveIdentity identity = new HiveIdentity(newSession());
         Set<String> existingFiles = new HashSet<>();
         for (String location : listAllDataPaths(identity, transaction.getMetastore(), schemaName, tableName)) {
@@ -3965,7 +3965,7 @@ public abstract class AbstractTestHive
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 
             // verify all temp files start with the unique prefix
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
@@ -3991,7 +3991,7 @@ public abstract class AbstractTestHive
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
             // verify temp directory is empty
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
         }
     }
@@ -4082,7 +4082,7 @@ public abstract class AbstractTestHive
             metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
 
             // verify all temp files start with the unique prefix
-            HdfsContext context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
             assertTrue(!tempFiles.isEmpty());
             for (String filePath : tempFiles) {
@@ -4116,7 +4116,7 @@ public abstract class AbstractTestHive
             assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
 
             // verify temp directory is empty
-            HdfsContext hdfsContext = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext hdfsContext = new HdfsContext(session);
             assertTrue(listAllDataFiles(hdfsContext, stagingPathRoot).isEmpty());
 
             // verify statistics have been rolled back
@@ -4239,7 +4239,7 @@ public abstract class AbstractTestHive
 
         // check that temporary files are removed
         if (!writePath.equals(targetPath)) {
-            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(newSession());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, writePath);
             assertFalse(fileSystem.exists(writePath));
         }
@@ -4928,7 +4928,7 @@ public abstract class AbstractTestHive
             transaction.commit();
         }
 
-        HdfsContext context = new HdfsContext(newSession(), schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        HdfsContext context = new HdfsContext(newSession());
         List<String> targetDirectoryList = listDirectory(context, targetPath);
         assertEquals(targetDirectoryList, ImmutableList.of());
     }
@@ -5349,7 +5349,7 @@ public abstract class AbstractTestHive
 
         // check that temporary files are removed
         if (writePath != null && !writePath.equals(targetPath)) {
-            HdfsContext context = new HdfsContext(newSession(), tableName.getSchemaName(), tableName.getTableName());
+            HdfsContext context = new HdfsContext(newSession());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, writePath);
             assertFalse(fileSystem.exists(writePath));
         }
@@ -5537,7 +5537,7 @@ public abstract class AbstractTestHive
                 throw new TestingRollbackException();
             }
             path = new Path(targetPath + "/pk1=b/pk2=add2");
-            context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            context = new HdfsContext(session);
             createDirectory(context, hdfsEnvironment, path);
         }
 
@@ -5568,7 +5568,7 @@ public abstract class AbstractTestHive
             }
             assertNotNull(path);
 
-            context = new HdfsContext(session, tableName.getSchemaName(), tableName.getTableName());
+            context = new HdfsContext(session);
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
             fileSystem.createNewFile(path);
         }

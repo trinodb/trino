@@ -1675,7 +1675,7 @@ public abstract class AbstractTestIcebergSmoke
         dataFile.put("file_size_in_bytes", alteredValue);
 
         // Replace the file through HDFS client. This is required for correct checksums.
-        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession(), "iceberg");
+        HdfsEnvironment.HdfsContext context = new HdfsContext(getSession().toConnectorSession());
         Path manifestFilePath = new Path(manifestFile);
         FileSystem fs = HDFS_ENVIRONMENT.getFileSystem(context, manifestFilePath);
 

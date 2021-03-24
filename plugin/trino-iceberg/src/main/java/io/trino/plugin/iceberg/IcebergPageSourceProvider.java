@@ -163,7 +163,7 @@ public class IcebergPageSourceProvider
                 .filter(column -> !partitionKeys.containsKey(column.getId()))
                 .collect(toImmutableList());
 
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session);
         ConnectorPageSource dataPageSource = createDataPageSource(
                 session,
                 hdfsContext,

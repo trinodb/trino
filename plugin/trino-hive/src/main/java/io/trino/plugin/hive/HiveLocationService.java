@@ -55,7 +55,7 @@ public class HiveLocationService
     @Override
     public LocationHandle forNewTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, String schemaName, String tableName, Optional<Path> externalLocation)
     {
-        HdfsContext context = new HdfsContext(session, schemaName, tableName);
+        HdfsContext context = new HdfsContext(session);
         Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
         // verify the target directory for the table
@@ -76,7 +76,7 @@ public class HiveLocationService
     @Override
     public LocationHandle forExistingTable(SemiTransactionalHiveMetastore metastore, ConnectorSession session, Table table)
     {
-        HdfsContext context = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        HdfsContext context = new HdfsContext(session);
         Path targetPath = new Path(table.getStorage().getLocation());
 
         if (shouldUseTemporaryDirectory(session, context, targetPath, Optional.empty()) && !isTransactionalTable(table.getParameters())) {

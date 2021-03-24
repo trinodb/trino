@@ -114,7 +114,7 @@ public class RegisterPartitionProcedure
         }
 
         HiveIdentity identity = new HiveIdentity(session);
-        HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
+        HdfsContext hdfsContext = new HdfsContext(session);
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
 
         Table table = metastore.getTable(identity, schemaName, tableName)
