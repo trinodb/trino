@@ -25,12 +25,12 @@ public class QueryOutputMetadata
     private final String catalogName;
     private final String schema;
     private final String table;
-    private final Optional<List<String>> columns;
+    private final Optional<List<OutputColumnMetadata>> columns;
 
     private final Optional<String> connectorOutputMetadata;
     private final Optional<Boolean> jsonLengthLimitExceeded;
 
-    public QueryOutputMetadata(String catalogName, String schema, String table, Optional<List<String>> columns, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
+    public QueryOutputMetadata(String catalogName, String schema, String table, Optional<List<OutputColumnMetadata>> columns, Optional<String> connectorOutputMetadata, Optional<Boolean> jsonLengthLimitExceeded)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -59,7 +59,7 @@ public class QueryOutputMetadata
     }
 
     @JsonProperty
-    public Optional<List<String>> getColumns()
+    public Optional<List<OutputColumnMetadata>> getColumns()
     {
         return columns;
     }
