@@ -55,14 +55,14 @@ public class TestStarburstRemotePlugin
                 .isInstanceOf(ApplicationConfigurationException.class)
                 // We need only one validation error, but we currently have more than one.
                 .hasMessageContaining("Invalid configuration property connection-url: must match the following regular expression:")
-                .hasMessageContaining("Invalid configuration property with prefix '': Invalid Starburst JDBC URL");
+                .hasMessageContaining("Invalid configuration property with prefix '': Invalid Starburst JDBC URL, sample format: jdbc:trino://localhost:8080/catalog_name");
 
         // connection-url is bogus
         assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "test", "connection-user", "presto")))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 // We need only one validation error, but we currently have more than one.
                 .hasMessageContaining("Invalid configuration property connection-url: must match the following regular expression:")
-                .hasMessageContaining("Invalid configuration property with prefix '': Invalid Starburst JDBC URL");
+                .hasMessageContaining("Invalid configuration property with prefix '': Invalid Starburst JDBC URL, sample format: jdbc:trino://localhost:8080/catalog_name");
 
         // catalog not set
         assertThatThrownBy(() -> createTestingPlugin(Map.of("connection-url", "jdbc:trino://localhost:8080/", "connection-user", "presto")))
