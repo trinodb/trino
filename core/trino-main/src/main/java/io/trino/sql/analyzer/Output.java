@@ -16,7 +16,6 @@ package io.trino.sql.analyzer;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
-import io.trino.execution.Column;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -32,14 +31,14 @@ public final class Output
     private final String catalogName;
     private final String schema;
     private final String table;
-    private final Optional<List<Column>> columns;
+    private final Optional<List<OutputColumn>> columns;
 
     @JsonCreator
     public Output(
             @JsonProperty("catalogName") String catalogName,
             @JsonProperty("schema") String schema,
             @JsonProperty("table") String table,
-            @JsonProperty("columns") Optional<List<Column>> columns)
+            @JsonProperty("columns") Optional<List<OutputColumn>> columns)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -66,7 +65,7 @@ public final class Output
     }
 
     @JsonProperty
-    public Optional<List<Column>> getColumns()
+    public Optional<List<OutputColumn>> getColumns()
     {
         return columns;
     }
