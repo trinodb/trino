@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
-import static com.starburstdata.presto.plugin.jdbc.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
+import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;

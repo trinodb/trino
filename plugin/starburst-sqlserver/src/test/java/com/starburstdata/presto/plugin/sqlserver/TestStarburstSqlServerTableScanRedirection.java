@@ -9,7 +9,7 @@
  */
 package com.starburstdata.presto.plugin.sqlserver;
 
-import com.starburstdata.presto.plugin.jdbc.redirection.AbstractTableScanRedirectionTest;
+import com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
