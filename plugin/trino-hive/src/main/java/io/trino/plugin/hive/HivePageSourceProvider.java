@@ -157,7 +157,7 @@ public class HivePageSourceProvider
         Path path = new Path(hiveSplit.getPath());
         boolean originalFile = ORIGINAL_FILE_PATH_MATCHER.matcher(path.toString()).matches();
 
-        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session, hiveSplit.getDatabase(), hiveSplit.getTable()), path);
+        Configuration configuration = hdfsEnvironment.getConfiguration(new HdfsContext(session), path);
 
         TupleDomain<HiveColumnHandle> simplifiedDynamicFilter = dynamicFilter
                 .getCurrentPredicate()

@@ -124,8 +124,7 @@ public class TestRubixCaching
         context = new HdfsContext(
                 TestingConnectorSession.builder()
                         .setPropertyMetadata(hiveSessionProperties)
-                        .build(),
-                "test");
+                        .build());
 
         nonCachingFileSystem = getNonCachingFileSystem();
     }

@@ -98,7 +98,7 @@ final class IcebergUtil
 
     public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
-        HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
         TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
         return new BaseTable(operations, quotedTableName(table));

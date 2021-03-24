@@ -114,7 +114,7 @@ public class SyncPartitionMetadataProcedure
     private void doSyncPartitionMetadata(ConnectorSession session, ConnectorAccessControl accessControl, String schemaName, String tableName, String mode, boolean caseSensitive)
     {
         SyncMode syncMode = toSyncMode(mode);
-        HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
+        HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
         SemiTransactionalHiveMetastore metastore = ((HiveMetadata) hiveMetadataFactory.create()).getMetastore();
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);

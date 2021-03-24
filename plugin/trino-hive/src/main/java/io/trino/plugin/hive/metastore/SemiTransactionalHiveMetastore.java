@@ -441,7 +441,7 @@ public class SemiTransactionalHiveMetastore
         HiveIdentity identity = new HiveIdentity(session);
         TableAndMore tableAndMore = new TableAndMore(table, identity, Optional.of(principalPrivileges), currentPath, Optional.empty(), ignoreExisting, statistics, statistics);
         if (oldTableAction == null) {
-            HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+            HdfsContext hdfsContext = new HdfsContext(session);
             tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ADD, tableAndMore, hdfsContext, identity, session.getQueryId()));
             return;
         }
@@ -450,7 +450,7 @@ public class SemiTransactionalHiveMetastore
                 if (!oldTableAction.getHdfsContext().getIdentity().getUser().equals(session.getUser())) {
                     throw new TrinoException(TRANSACTION_CONFLICT, "Operation on the same table with different user in the same transaction is not supported");
                 }
-                HdfsContext hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+                HdfsContext hdfsContext = new HdfsContext(session);
                 tableActions.put(table.getSchemaTableName(), new Action<>(ActionType.ALTER, tableAndMore, hdfsContext, identity, session.getQueryId()));
                 return;
 
@@ -475,7 +475,7 @@ public class SemiTransactionalHiveMetastore
         SchemaTableName schemaTableName = new SchemaTableName(databaseName, tableName);
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null || oldTableAction.getType() == ActionType.ALTER) {
-            HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
+            HdfsContext hdfsContext = new HdfsContext(session);
             HiveIdentity identity = new HiveIdentity(session);
             tableActions.put(schemaTableName, new Action<>(ActionType.DROP, null, hdfsContext, identity, session.getQueryId()));
             return;
@@ -556,7 +556,7 @@ public class SemiTransactionalHiveMetastore
                 table = Table.builder(table).setWriteId(OptionalLong.of(currentHiveTransaction.get().getTransaction().getWriteId())).build();
             }
             PartitionStatistics currentStatistics = getTableStatistics(identity, databaseName, tableName);
-            HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
+            HdfsContext hdfsContext = new HdfsContext(session);
             tableActions.put(
                     schemaTableName,
                     new Action<>(
@@ -613,7 +613,7 @@ public class SemiTransactionalHiveMetastore
         }
 
         Path path = new Path(table.get().getStorage().getLocation());
-        HdfsContext context = new HdfsContext(session, databaseName, tableName);
+        HdfsContext context = new HdfsContext(session);
         setExclusive((delegate, hdfsEnvironment) -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(hdfsEnvironment, context, path, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
@@ -641,7 +641,7 @@ public class SemiTransactionalHiveMetastore
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null) {
             Table table = getExistingTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
+            HdfsContext hdfsContext = new HdfsContext(session);
             PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
             tableActions.put(
                     schemaTableName,
@@ -691,7 +691,7 @@ public class SemiTransactionalHiveMetastore
         Action<TableAndMore> oldTableAction = tableActions.get(schemaTableName);
         if (oldTableAction == null) {
             Table table = getExistingTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
+            HdfsContext hdfsContext = new HdfsContext(session);
             PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner());
             tableActions.put(
                     schemaTableName,
@@ -893,7 +893,7 @@ public class SemiTransactionalHiveMetastore
         checkArgument(getPrestoQueryId(partition).isPresent());
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partition.getValues());
-        HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
+        HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
         if (oldPartitionAction == null) {
             partitionActionsOfTable.put(
@@ -927,7 +927,7 @@ public class SemiTransactionalHiveMetastore
         Map<List<String>, Action<PartitionAndMore>> partitionActionsOfTable = partitionActions.computeIfAbsent(new SchemaTableName(databaseName, tableName), k -> new HashMap<>());
         Action<PartitionAndMore> oldPartitionAction = partitionActionsOfTable.get(partitionValues);
         if (oldPartitionAction == null) {
-            HdfsContext hdfsContext = new HdfsContext(session, databaseName, tableName);
+            HdfsContext hdfsContext = new HdfsContext(session);
             HiveIdentity identity = new HiveIdentity(session);
             if (deleteData) {
                 partitionActionsOfTable.put(partitionValues, new Action<>(ActionType.DROP, null, hdfsContext, identity, session.getQueryId()));
@@ -975,7 +975,7 @@ public class SemiTransactionalHiveMetastore
             if (currentStatistics == null) {
                 throw new TrinoException(HIVE_METASTORE_ERROR, "currentStatistics is null");
             }
-            HdfsContext context = new HdfsContext(session, databaseName, tableName);
+            HdfsContext context = new HdfsContext(session);
             partitionActionsOfTable.put(
                     partitionValues,
                     new Action<>(
@@ -1142,7 +1142,7 @@ public class SemiTransactionalHiveMetastore
                 throw new TrinoException(NOT_SUPPORTED, "Cannot insert into a table with a partition that has been modified in the same transaction when Trinoto is configured to skip temporary directories.");
             }
         }
-        HdfsContext hdfsContext = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
         declaredIntentionsToWrite.add(new DeclaredIntentionToWrite(writeMode, hdfsContext, identity, session.getQueryId(), stagingPathRoot, schemaTableName));
     }

@@ -221,7 +221,7 @@ public class BackgroundHiveSplitLoader
         this.optimizeSymlinkListing = optimizeSymlinkListing;
         this.executor = executor;
         this.partitions = new ConcurrentLazyQueue<>(partitions);
-        this.hdfsContext = new HdfsContext(session, table.getDatabaseName(), table.getTableName());
+        this.hdfsContext = new HdfsContext(session);
         this.validWriteIds = requireNonNull(validWriteIds, "validWriteIds is null");
     }
 
