@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -44,6 +45,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 
 public final class HiveSessionProperties
+        implements SessionPropertiesProvider
 {
     private static final String BUCKET_EXECUTION_ENABLED = "bucket_execution_enabled";
     private static final String VALIDATE_BUCKETING = "validate_bucketing";
@@ -405,6 +407,7 @@ public final class HiveSessionProperties
                         false));
     }
 
+    @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
