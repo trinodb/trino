@@ -31,7 +31,9 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.eventlistener.ColumnDetail;
 import io.trino.spi.eventlistener.ColumnInfo;
+import io.trino.spi.eventlistener.OutputColumnMetadata;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.QueryFailureInfo;
@@ -406,7 +408,11 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("nationkey", "name", "regionkey", "comment");
+                .containsExactly(
+                        new OutputColumnMetadata("nationkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
+                        new OutputColumnMetadata("name", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("regionkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
+                        new OutputColumnMetadata("comment", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(1);
@@ -433,7 +439,11 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("test_view");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("nationkey", "name", "regionkey", "comment");
+                .containsExactly(
+                        new OutputColumnMetadata("nationkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
+                        new OutputColumnMetadata("name", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("regionkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
+                        new OutputColumnMetadata("comment", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(1);
@@ -490,9 +500,17 @@ public class TestEventListenerBasic
     public void testReferencedTablesWithColumnMask()
             throws Exception
     {
-        runQueryAndWaitForEvents("SELECT * FROM mock.default.test_table_with_column_mask", 2);
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_table_with_referring_mask AS SELECT * FROM mock.default.test_table_with_column_mask", 2);
 
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_table_with_referring_mask");
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("mock", "default", "test_table_with_column_mask", "test_varchar"))),
+                        new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("mock", "default", "test_table_with_column_mask", "test_bigint"))));
 
         List<TableInfo> tables = event.getMetadata().getTables();
         assertThat(tables).hasSize(2);
@@ -503,7 +521,7 @@ public class TestEventListenerBasic
         assertThat(table.getTable()).isEqualTo("orders");
         assertThat(table.getAuthorization()).isEqualTo("user");
         assertThat(table.isDirectlyReferenced()).isFalse();
-        assertThat(table.getFilters()).hasSize(0);
+        assertThat(table.getFilters()).isEmpty();
         assertThat(table.getColumns()).hasSize(1);
 
         ColumnInfo column = table.getColumns().get(0);
@@ -674,33 +692,254 @@ public class TestEventListenerBasic
     }
 
     @Test
-    public void testOutputColumnsForCreateTableAsSelect()
+    public void testOutputColumnsForSelect()
             throws Exception
     {
-        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS SELECT name, nationkey FROM nation", 2);
+        assertColumnLineage(
+                "SELECT name as test_varchar, nationkey as test_bigint FROM nation",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsForSelectWithConstantExpression()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT 'Trino' as test_varchar, nationkey as test_bigint FROM nation",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of()),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelectAll()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS SELECT * FROM nation", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("name", "nationkey");
+                .containsExactly(
+                        new OutputColumnMetadata("nationkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
+                        new OutputColumnMetadata("name", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("regionkey", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "regionkey"))),
+                        new OutputColumnMetadata("comment", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelectAllFromView()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS SELECT * FROM mock.default.test_view", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_column", ImmutableSet.of(new ColumnDetail("mock", "default", "test_view", "test_column"))));
+    }
+
+    @Test
+    public void testOutputColumnsForCreateTableAsSelectAllFromMaterializedView()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS SELECT * FROM mock.default.test_materialized_view", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(
+                        new OutputColumnMetadata("test_column", ImmutableSet.of(new ColumnDetail("mock", "default", "test_materialized_view", "test_column"))));
     }
 
     @Test
     public void testOutputColumnsForCreateTableAsSelectWithAliasedColumn()
             throws Exception
     {
-        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table(aliased_bigint, aliased_varchar) AS SELECT name, nationkey as keynation FROM nation", 2);
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table(aliased_bigint, aliased_varchar) AS SELECT nationkey as keynation, concat(name, comment) FROM nation", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("aliased_bigint", "aliased_varchar");
+                .containsExactly(
+                        new OutputColumnMetadata("aliased_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))),
+                        new OutputColumnMetadata("aliased_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"), new ColumnDetail("tpch", "tiny", "nation", "comment"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithClause()
+            throws Exception
+    {
+        assertColumnLineage(
+                "WITH w AS (SELECT * FROM nation) SELECT name as test_varchar, nationkey as test_bigint FROM w",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithWhere()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT name as test_varchar, nationkey as test_bigint FROM nation WHERE regionkey IS NULL",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithIfExpression()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT if (regionkey > 100, name, comment) as test_varchar, nationkey as test_bigint FROM nation",
+                new OutputColumnMetadata(
+                        "test_varchar",
+                        ImmutableSet.of(
+                                new ColumnDetail("tpch", "tiny", "nation", "regionkey"),
+                                new ColumnDetail("tpch", "tiny", "nation", "name"),
+                                new ColumnDetail("tpch", "tiny", "nation", "comment"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithCaseExpression()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT CASE WHEN regionkey = 100 THEN name WHEN regionkey = 1000 then comment ELSE CAST(regionkey AS VARCHAR) END as test_varchar, nationkey as test_bigint FROM nation",
+                new OutputColumnMetadata(
+                        "test_varchar",
+                        ImmutableSet.of(
+                                new ColumnDetail("tpch", "tiny", "nation", "regionkey"),
+                                new ColumnDetail("tpch", "tiny", "nation", "name"),
+                                new ColumnDetail("tpch", "tiny", "nation", "comment"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithLimit()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT name as test_varchar, nationkey as test_bigint FROM nation LIMIT 100",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithOrderBy()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT name as test_varchar, nationkey as test_bigint FROM nation ORDER BY comment",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithAggregation()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT max(orderstatus) as test_varchar, sum(totalprice) as test_bigint FROM orders GROUP BY custkey",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderstatus"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithAggregationWithFilter()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT max(orderstatus) FILTER(WHERE orderdate > DATE '2000-01-01') as test_varchar, sum(totalprice) as test_bigint FROM orders GROUP BY custkey",
+                new OutputColumnMetadata(
+                        "test_varchar",
+                        ImmutableSet.of(
+                                new ColumnDetail("tpch", "tiny", "orders", "orderstatus"),
+                                new ColumnDetail("tpch", "tiny", "orders", "orderdate"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithAggregationAndHaving()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT min(orderstatus) as test_varchar, sum(totalprice) as test_bigint FROM orders GROUP BY custkey HAVING min(orderdate) > DATE '2000-01-01'",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderstatus"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithCountAll()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT orderstatus as test_varchar, count(*) as test_bigint FROM orders GROUP BY orderstatus",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderstatus"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of()));
+    }
+
+    @Test
+    public void testOutputColumnsWithWindowFunction()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT orderstatus as test_varchar, avg(totalprice) OVER (PARTITION BY custkey ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS test_bigint FROM orders",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderstatus"))),
+                new OutputColumnMetadata(
+                        "test_bigint",
+                        ImmutableSet.of(
+                                new ColumnDetail("tpch", "tiny", "orders", "totalprice"),
+                                new ColumnDetail("tpch", "tiny", "orders", "custkey"),
+                                new ColumnDetail("tpch", "tiny", "orders", "orderdate"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithPartialWindowClause()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT orderstatus as test_varchar, sum(totalprice) OVER (w ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS test_bigint FROM orders WINDOW w AS (PARTITION BY custkey)",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderstatus"))),
+                new OutputColumnMetadata(
+                        "test_bigint",
+                        ImmutableSet.of(
+                                new ColumnDetail("tpch", "tiny", "orders", "totalprice"),
+                                new ColumnDetail("tpch", "tiny", "orders", "orderdate"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithWindowClause()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT orderstatus as test_varchar, sum(totalprice) OVER w AS test_bigint FROM orders WINDOW w AS (PARTITION BY custkey ORDER BY orderdate ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderstatus"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "totalprice"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithUnCorrelatedQueries()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT orderstatus as test_varchar, (SELECT nationkey FROM nation LIMIT 1) as test_bigint FROM orders",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "orders", "orderstatus"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
+    }
+
+    @Test
+    public void testOutputColumnsWithCorrelatedQueries()
+            throws Exception
+    {
+        assertColumnLineage(
+                "SELECT name as test_varchar, (SELECT sum(acctbal) FROM supplier WHERE supplier.nationkey=nation.nationkey) as test_bigint FROM nation",
+                new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "supplier", "acctbal"))));
     }
 
     @Test
     public void testOutputColumnsForInsertingSingleColumn()
             throws Exception
     {
-        runQueryAndWaitForEvents("INSERT INTO mock.default.table_for_output(test_bigint) SELECT nationkey FROM nation", 2);
+        runQueryAndWaitForEvents("INSERT INTO mock.default.table_for_output(test_bigint) SELECT nationkey + 1 as test_bigint FROM nation", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("test_bigint");
+                .containsExactly(new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
     }
 
     @Test
@@ -710,7 +949,9 @@ public class TestEventListenerBasic
         runQueryAndWaitForEvents("INSERT INTO mock.default.table_for_output(test_varchar, test_bigint) SELECT name as aliased_name, nationkey as aliased_varchar FROM nation", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("test_varchar", "test_bigint");
+                .containsExactly(
+                        new OutputColumnMetadata("test_varchar", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "name"))),
+                        new OutputColumnMetadata("test_bigint", ImmutableSet.of(new ColumnDetail("tpch", "tiny", "nation", "nationkey"))));
     }
 
     @Test
@@ -720,7 +961,7 @@ public class TestEventListenerBasic
         runQueryAndWaitForEvents("UPDATE mock.default.table_for_output SET test_varchar = 'reset', test_bigint = 1", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("test_varchar", "test_bigint");
+                .containsExactly(new OutputColumnMetadata("test_varchar", ImmutableSet.of()), new OutputColumnMetadata("test_bigint", ImmutableSet.of()));
     }
 
     @Test
@@ -730,7 +971,7 @@ public class TestEventListenerBasic
         runQueryAndWaitForEvents("UPDATE mock.default.table_for_output SET test_varchar = 're-reset' WHERE test_bigint = 1", 2);
         QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("test_varchar");
+                .containsExactly(new OutputColumnMetadata("test_varchar", ImmutableSet.of()));
     }
 
     @Test
@@ -742,7 +983,8 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_simple_table");
-        assertThat(event.getIoMetadata().getOutput().get().getColumns().get()).containsExactly("test_column");
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(new OutputColumnMetadata("test_column", ImmutableSet.of()));
     }
 
     @Test
@@ -755,6 +997,32 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
         assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_simple_table");
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
-                .containsExactly("test_column", "test_varchar", "test_bigint");
+                .containsExactly(
+                        new OutputColumnMetadata("test_column", ImmutableSet.of()),
+                        new OutputColumnMetadata("test_varchar", ImmutableSet.of()),
+                        new OutputColumnMetadata("test_bigint", ImmutableSet.of()));
+    }
+
+    private void assertColumnLineage(String baseQuery, OutputColumnMetadata... outputColumnMetadata)
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_new_table AS " + baseQuery, 2);
+        assertColumnMetadata(outputColumnMetadata);
+
+        runQueryAndWaitForEvents("CREATE VIEW mock.default.create_new_view AS " + baseQuery, 2);
+        assertColumnMetadata(outputColumnMetadata);
+
+        runQueryAndWaitForEvents("CREATE VIEW mock.default.create_new_materialized_view AS " + baseQuery, 2);
+        assertColumnMetadata(outputColumnMetadata);
+
+        runQueryAndWaitForEvents("INSERT INTO mock.default.table_for_output(test_varchar, test_bigint) " + baseQuery, 2);
+        assertColumnMetadata(outputColumnMetadata);
+    }
+
+    private void assertColumnMetadata(OutputColumnMetadata... outputColumnMetadata)
+    {
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly(outputColumnMetadata);
     }
 }

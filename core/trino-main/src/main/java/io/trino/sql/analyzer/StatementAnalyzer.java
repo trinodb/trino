@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Column;
@@ -64,6 +65,7 @@ import io.trino.sql.SqlPath;
 import io.trino.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.trino.sql.analyzer.Analysis.ResolvedWindow;
 import io.trino.sql.analyzer.Analysis.SelectExpression;
+import io.trino.sql.analyzer.Analysis.SourceColumn;
 import io.trino.sql.analyzer.Analysis.UnnestAnalysis;
 import io.trino.sql.analyzer.Scope.AsteriskedIdentifierChainBasis;
 import io.trino.sql.parser.ParsingException;
@@ -478,12 +480,20 @@ class StatementAnalyzer
                         Joiner.on(", ").join(queryTypes));
             }
 
+            Stream<Column> columnStream = Streams.zip(
+                    insertColumns.stream(),
+                    tableTypes.stream()
+                            .map(Type::toString),
+                    Column::new);
+
             analysis.setUpdateType(
                     "INSERT",
                     targetTable,
                     Optional.empty(),
-                    Optional.of(insertColumns.stream()
-                            .map(insertColumn -> new Column(insertColumn, tableSchema.getColumn(insertColumn).getType().toString()))
+                    Optional.of(Streams.zip(
+                            columnStream,
+                            queryScope.getRelationType().getVisibleFields().stream(),
+                            (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
                             .collect(toImmutableList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
@@ -547,12 +557,20 @@ class StatementAnalyzer
                         "Query: [" + Joiner.on(", ").join(queryTypes) + "]");
             }
 
+            Stream<Column> columns = Streams.zip(
+                    insertColumns.stream(),
+                    tableTypes.stream()
+                            .map(Type::toString),
+                    Column::new);
+
             analysis.setUpdateType(
                     "REFRESH MATERIALIZED VIEW",
                     targetTable,
                     Optional.empty(),
-                    Optional.of(insertColumns.stream()
-                            .map(insertColumn -> new Column(insertColumn, tableMetadata.getColumn(insertColumn).getType().toString()))
+                    Optional.of(Streams.zip(
+                            columns,
+                            queryScope.getRelationType().getVisibleFields().stream(),
+                            (column, field) -> new OutputColumn(column, analysis.getSourceColumns(field)))
                             .collect(toImmutableList())));
 
             return createAndAssignScope(refreshMaterializedView, scope, Field.newUnqualified("rows", BIGINT));
@@ -732,6 +750,7 @@ class StatementAnalyzer
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
 
             // analyze target table columns and column aliases
+            ImmutableList.Builder<OutputColumn> outputColumns = ImmutableList.builder();
             if (node.getColumnAliases().isPresent()) {
                 validateColumnAliases(node.getColumnAliases().get(), queryScope.getRelationType().getVisibleFieldCount());
 
@@ -740,7 +759,9 @@ class StatementAnalyzer
                     if (field.getType().equals(UNKNOWN)) {
                         throw semanticException(COLUMN_TYPE_UNKNOWN, node, "Column type is unknown at position %s", queryScope.getRelationType().indexOf(field) + 1);
                     }
-                    columns.add(new ColumnMetadata(node.getColumnAliases().get().get(aliasPosition).getValue(), field.getType()));
+                    String columnName = node.getColumnAliases().get().get(aliasPosition).getValue();
+                    columns.add(new ColumnMetadata(columnName, field.getType()));
+                    outputColumns.add(new OutputColumn(new Column(columnName, field.getType().toString()), analysis.getSourceColumns(field)));
                     aliasPosition++;
                 }
             }
@@ -749,6 +770,9 @@ class StatementAnalyzer
                 columns.addAll(queryScope.getRelationType().getVisibleFields().stream()
                         .map(field -> new ColumnMetadata(field.getName().get(), field.getType()))
                         .collect(toImmutableList()));
+                queryScope.getRelationType().getVisibleFields().stream()
+                        .map(this::createOutputColumn)
+                        .forEach(outputColumns::add);
             }
 
             // create target table metadata
@@ -797,9 +821,7 @@ class StatementAnalyzer
                     "CREATE TABLE",
                     targetTable,
                     Optional.empty(),
-                    Optional.of(columns.build().stream()
-                            .map(column -> new Column(column.getName(), column.getType().toString()))
-                            .collect(toImmutableList())));
+                    Optional.of(outputColumns.build()));
 
             return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
         }
@@ -823,7 +845,7 @@ class StatementAnalyzer
                     viewName,
                     Optional.empty(),
                     Optional.of(queryScope.getRelationType().getVisibleFields().stream()
-                            .map(field -> new Column(field.getName().orElseThrow(), field.getType().toString()))
+                            .map(this::createOutputColumn)
                             .collect(toImmutableList())));
 
             return createAndAssignScope(node, scope);
@@ -1022,9 +1044,10 @@ class StatementAnalyzer
                     "CREATE MATERIALIZED VIEW",
                     viewName,
                     Optional.empty(),
-                    Optional.of(queryScope.getRelationType().getVisibleFields().stream()
-                            .map(field -> new Column(field.getName().orElseThrow(), field.getType().toString()))
-                            .collect(toImmutableList())));
+                    Optional.of(
+                            queryScope.getRelationType().getVisibleFields().stream()
+                                    .map(this::createOutputColumn)
+                                    .collect(toImmutableList())));
 
             return createAndAssignScope(node, scope);
         }
@@ -1290,6 +1313,7 @@ class StatementAnalyzer
                 ColumnHandle columnHandle = columnHandles.get(column.getName());
                 checkArgument(columnHandle != null, "Unknown field %s", field);
                 analysis.setColumn(field, columnHandle);
+                analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, column.getName())));
             }
 
             if (updateKind.isPresent()) {
@@ -1504,6 +1528,7 @@ class StatementAnalyzer
 
             analyzeFiltersAndMasks(table, name, Optional.empty(), outputFields, session.getIdentity().getUser());
 
+            outputFields.forEach(field -> analysis.addSourceColumns(field, ImmutableSet.of(new SourceColumn(name, field.getName().orElseThrow()))));
             return createAndAssignScope(table, scope, outputFields);
         }
 
@@ -1949,7 +1974,7 @@ class StatementAnalyzer
                     tableName,
                     Optional.of(table),
                     Optional.of(updatedColumns.stream()
-                            .map(column -> new Column(column.getName(), column.getType().toString()))
+                            .map(column -> new OutputColumn(new Column(column.getName(), column.getType().toString()), ImmutableSet.of()))
                             .collect(toImmutableList())));
 
             return createAndAssignScope(update, scope, Field.newUnqualified("rows", BIGINT));
@@ -2520,7 +2545,9 @@ class StatementAnalyzer
                             name = field.getName();
                         }
 
-                        outputFields.add(Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginColumnName(), false));
+                        Field newField = Field.newUnqualified(name, field.getType(), field.getOriginTable(), field.getOriginColumnName(), false);
+                        analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
+                        outputFields.add(newField);
                     }
                 }
                 else if (item instanceof SingleColumn) {
@@ -2554,7 +2581,14 @@ class StatementAnalyzer
                         }
                     }
 
-                    outputFields.add(Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent())); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    Field newField = Field.newUnqualified(field.map(Identifier::getValue), analysis.getType(expression), originTable, originColumn, column.getAlias().isPresent()); // TODO don't use analysis as a side-channel. Use outputExpressions to look up the type
+                    if (originTable.isPresent()) {
+                        analysis.addSourceColumns(newField, ImmutableSet.of(new SourceColumn(originTable.get(), originColumn.get())));
+                    }
+                    else {
+                        analysis.addSourceColumns(newField, analysis.getExpressionSourceColumns(expression));
+                    }
+                    outputFields.add(newField);
                 }
                 else {
                     throw new IllegalArgumentException("Unsupported SelectItem type: " + item.getClass().getName());
@@ -2693,14 +2727,16 @@ class StatementAnalyzer
                     alias = Optional.of((allColumns.getAliases().get(i)).getValue());
                 }
 
-                itemOutputFieldBuilder.add(new Field(
+                Field newField = new Field(
                         field.getRelationAlias(),
                         alias,
                         field.getType(),
                         false,
                         field.getOriginTable(),
                         field.getOriginColumnName(),
-                        !allColumns.getAliases().isEmpty() || field.isAliased()));
+                        !allColumns.getAliases().isEmpty() || field.isAliased());
+                itemOutputFieldBuilder.add(newField);
+                analysis.addSourceColumns(newField, analysis.getSourceColumns(field));
 
                 Type type = field.getType();
                 if (node.getSelect().isDistinct() && !type.isComparable()) {
@@ -3650,6 +3686,11 @@ class StatementAnalyzer
             }
 
             return scopeBuilder;
+        }
+
+        private OutputColumn createOutputColumn(Field field)
+        {
+            return new OutputColumn(new Column(field.getName().orElseThrow(), field.getType().toString()), analysis.getSourceColumns(field));
         }
     }
 

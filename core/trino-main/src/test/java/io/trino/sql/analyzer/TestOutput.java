@@ -14,8 +14,11 @@
 package io.trino.sql.analyzer;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.trino.execution.Column;
+import io.trino.metadata.QualifiedObjectName;
+import io.trino.sql.analyzer.Analysis.SourceColumn;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
@@ -29,7 +32,16 @@ public class TestOutput
     @Test
     public void testRoundTrip()
     {
-        Output expected = new Output("connectorId", "schema", "table", Optional.of(ImmutableList.of(new Column("column", "type"))));
+        Output expected = new Output(
+                "connectorId",
+                "schema",
+                "table",
+                Optional.of(
+                        ImmutableList.of(
+                                new OutputColumn(
+                                        new Column("column", "type"),
+                                        ImmutableSet.of(
+                                                new SourceColumn(QualifiedObjectName.valueOf("catalog.schema.table"), "column"))))));
 
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
