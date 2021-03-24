@@ -307,6 +307,7 @@ public class SnowflakeSplitSource
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 NO_ACID_TRANSACTION);
 
         return getHiveSplitManager().getSplits(
