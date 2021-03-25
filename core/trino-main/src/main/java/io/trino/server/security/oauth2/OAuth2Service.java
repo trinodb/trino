@@ -128,10 +128,17 @@ public class OAuth2Service
         // fetch access token
         AccessToken accessToken = client.getAccessToken(code, callbackUri);
 
+        String tok;
+        if (scopes.contains(OPENID_SCOPE)) {
+            tok = accessToken.getIdToken().get();
+        } else {
+            tok = accessToken.getAccessToken();
+        }
+
         // validate access token is trusted by this server
         Claims parsedToken = Jwts.parser()
                 .setSigningKeyResolver(signingKeyResolver)
-                .parseClaimsJws(accessToken.getAccessToken())
+                .parseClaimsJws(tok)
                 .getBody();
 
         validateNonce(authId, accessToken, nonce);
@@ -141,7 +148,7 @@ public class OAuth2Service
                 .map(instant -> Ordering.natural().min(instant, parsedToken.getExpiration().toInstant()))
                 .orElse(parsedToken.getExpiration().toInstant());
 
-        return new OAuthResult(authId, accessToken.getAccessToken(), validUntil);
+        return new OAuthResult(authId, tok, validUntil);
     }
 
     public Optional<UUID> getAuthId(String state)
