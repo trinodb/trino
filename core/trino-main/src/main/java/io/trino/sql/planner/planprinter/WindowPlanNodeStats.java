@@ -32,10 +32,20 @@ public class WindowPlanNodeStats
             DataSize planNodeInputDataSize,
             long planNodeOutputPositions,
             DataSize planNodeOutputDataSize,
+            DataSize planNodeSpilledDataSize,
             Map<String, OperatorInputStats> operatorInputStats,
             WindowOperatorStats windowOperatorStats)
     {
-        super(planNodeId, planNodeScheduledTime, planNodeCpuTime, planNodeInputPositions, planNodeInputDataSize, planNodeOutputPositions, planNodeOutputDataSize, operatorInputStats);
+        super(
+                planNodeId,
+                planNodeScheduledTime,
+                planNodeCpuTime,
+                planNodeInputPositions,
+                planNodeInputDataSize,
+                planNodeOutputPositions,
+                planNodeOutputDataSize,
+                planNodeSpilledDataSize,
+                operatorInputStats);
         this.windowOperatorStats = windowOperatorStats;
     }
 
@@ -58,6 +68,7 @@ public class WindowPlanNodeStats
                 merged.getPlanNodeInputDataSize(),
                 merged.getPlanNodeOutputPositions(),
                 merged.getPlanNodeOutputDataSize(),
+                merged.getPlanNodeSpilledDataSize(),
                 merged.operatorInputStats,
                 windowOperatorStats);
     }
