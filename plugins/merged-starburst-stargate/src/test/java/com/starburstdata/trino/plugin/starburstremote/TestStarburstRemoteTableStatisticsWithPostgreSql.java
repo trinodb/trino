@@ -448,10 +448,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
         properties.setProperty("currentSchema", "tiny");
         properties.setProperty("user", postgreSqlServer.getUser());
         properties.setProperty("password", postgreSqlServer.getPassword());
-        Jdbi.create(postgreSqlServer.getJdbcUrl()
-                        // TODO remove `.replaceAll` call after https://github.com/trinodb/trino/pull/7399
-                        .replaceAll("currentSchema=\\w+", ""),
-                properties)
+        Jdbi.create(postgreSqlServer.getJdbcUrl(), properties)
                 .useHandle(callback);
     }
 }
