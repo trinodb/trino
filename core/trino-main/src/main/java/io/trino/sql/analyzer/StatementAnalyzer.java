@@ -502,7 +502,7 @@ class StatementAnalyzer
             Query query = parseView(optionalView.get().getOriginalSql(), name, refreshMaterializedView);
             Scope queryScope = process(query, scope);
 
-            analysis.setUpdateType("INSERT", targetTable, Optional.empty());
+            analysis.setUpdateType("REFRESH MATERIALIZED VIEW", targetTable, Optional.empty());
 
             // verify the insert destination columns match the query
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
