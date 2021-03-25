@@ -134,7 +134,7 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
     }
 
@@ -147,7 +147,7 @@ public class TestCreateTableTask
                 ImmutableList.of(),
                 Optional.empty());
 
-        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {})))
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Table already exists");
 
@@ -164,7 +164,7 @@ public class TestCreateTableTask
                 new ColumnDefinition(identifier("c"), toSqlType(VARBINARY), false, emptyList(), Optional.empty()));
         CreateTable statement = new CreateTable(QualifiedName.of("test_table"), inputColumns, true, ImmutableList.of(), Optional.empty());
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList()));
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
         List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
         assertEquals(columns.size(), 3);
@@ -197,7 +197,7 @@ public class TestCreateTableTask
                 Optional.empty());
 
         assertTrinoExceptionThrownBy(() ->
-                getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList())))
+                getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {})))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("Catalog 'catalog' does not support non-null column for column name 'b'");
     }
@@ -207,7 +207,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = getCreatleLikeStatement(false);
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, List.of()));
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, List.of(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -220,7 +220,7 @@ public class TestCreateTableTask
     {
         CreateTable statement = getCreatleLikeStatement(true);
 
-        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, List.of()));
+        getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, List.of(), output -> {}));
         assertEquals(metadata.getCreateTableCallCount(), 1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
@@ -237,7 +237,7 @@ public class TestCreateTableTask
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SELECT_COLUMN));
 
-        assertThatThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, accessControl, testSession, List.of())))
+        assertThatThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, accessControl, testSession, List.of(), output -> {})))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot reference columns of table");
     }
@@ -250,7 +250,7 @@ public class TestCreateTableTask
         TestingAccessControlManager accessControl = new TestingAccessControlManager(transactionManager, new EventListenerManager(new EventListenerConfig()));
         accessControl.deny(privilege("parent_table", SHOW_CREATE_TABLE));
 
-        assertThatThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, accessControl, testSession, List.of())))
+        assertThatThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, accessControl, testSession, List.of(), output -> {})))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("Cannot reference properties of table");
     }
