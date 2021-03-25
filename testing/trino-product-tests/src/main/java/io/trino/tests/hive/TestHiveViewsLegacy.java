@@ -123,14 +123,6 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    @Test
-    public void testLateralViewExplode()
-    {
-        assertThatThrownBy(super::testLateralViewExplode)
-                .hasMessageContaining("Failed parsing stored view 'hive.default.hive_lateral_view': line 1:78: mismatched input 'VIEW'");
-    }
-
-    @Override
     public void testNestedHiveViews()
     {
         assertThatThrownBy(super::testNestedHiveViews)
