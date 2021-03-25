@@ -100,7 +100,23 @@ Property Name               Default Value    Description
 
 =========================== ================ ==============================================================================================================
 
-Currently the connector only supports ``Log`` and ``MergeTree`` table engines in create table.
+Currently the connector only supports ``Log`` and ``MergeTree`` table engines
+in create table statement. ``ReplicatedMergeTree`` engine is not yet supported.
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`limit-pushdown`
+
+:ref:`Aggregate pushdown <aggregation-pushdown>` for the following functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
 
 Limitations
 -----------
