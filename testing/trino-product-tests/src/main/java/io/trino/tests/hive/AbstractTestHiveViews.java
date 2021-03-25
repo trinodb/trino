@@ -221,9 +221,9 @@ public abstract class AbstractTestHiveViews
     @Test(groups = HIVE_VIEWS)
     public void testHiveViewInInformationSchema()
     {
-        onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE;");
+        onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");
 
-        onHive().executeQuery("CREATE SCHEMA test_schema;");
+        onHive().executeQuery("CREATE SCHEMA test_schema");
         onHive().executeQuery("CREATE VIEW test_schema.hive_test_view AS SELECT * FROM nation");
         onHive().executeQuery("CREATE TABLE test_schema.hive_table(a string)");
         onTrino().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
