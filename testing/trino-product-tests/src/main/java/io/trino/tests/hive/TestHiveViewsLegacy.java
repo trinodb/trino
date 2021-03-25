@@ -59,9 +59,9 @@ public class TestHiveViewsLegacy
     @Test(groups = HIVE_VIEWS)
     public void testHiveViewInInformationSchema()
     {
-        onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE;");
+        onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");
 
-        onHive().executeQuery("CREATE SCHEMA test_schema;");
+        onHive().executeQuery("CREATE SCHEMA test_schema");
         onHive().executeQuery("CREATE VIEW test_schema.hive_test_view AS SELECT * FROM nation");
         onHive().executeQuery("CREATE TABLE test_schema.hive_table(a string)");
         onTrino().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
@@ -130,18 +130,18 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    protected QueryExecutor connectToPresto(String catalog)
-    {
-        QueryExecutor executor = super.connectToPresto(catalog);
-        executor.executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
-        return executor;
-    }
-
-    @Override
     @Test
     public void testCurrentUser()
     {
         assertThatThrownBy(super::testCurrentUser)
                 .hasMessageContaining("Failed parsing stored view 'hive.default.current_user_hive_view': line 1:20: mismatched input '('");
+    }
+
+    @Override
+    protected QueryExecutor connectToPresto(String catalog)
+    {
+        QueryExecutor executor = super.connectToPresto(catalog);
+        executor.executeQuery("SET SESSION hive.legacy_hive_view_translation = true");
+        return executor;
     }
 }
