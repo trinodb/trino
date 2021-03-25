@@ -129,7 +129,11 @@ public class TextRenderer
                 nodeStats.getPlanNodeScheduledTime().convertToMostSuccinctTimeUnit(),
                 formatDouble(scheduledTimeFraction)));
 
-        output.append(format(", Output: %s (%s)\n", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
+        output.append(format(", Output: %s (%s)", formatPositions(nodeStats.getPlanNodeOutputPositions()), nodeStats.getPlanNodeOutputDataSize().toString()));
+        if (nodeStats.getPlanNodeSpilledDataSize().toBytes() > 0) {
+            output.append(format(", Spilled: %s", nodeStats.getPlanNodeSpilledDataSize()));
+        }
+        output.append("\n");
 
         printDistributions(output, nodeStats);
         printCollisions(output, nodeStats);

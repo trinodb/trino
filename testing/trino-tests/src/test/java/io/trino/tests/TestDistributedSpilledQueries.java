@@ -19,11 +19,13 @@ import io.trino.SystemSessionProperties;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueries;
 import io.trino.testing.DistributedQueryRunner;
+import org.testng.annotations.Test;
 
 import java.nio.file.Paths;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDistributedSpilledQueries
         extends AbstractTestQueries
@@ -68,5 +70,12 @@ public class TestDistributedSpilledQueries
             queryRunner.close();
             throw e;
         }
+    }
+
+    @Test
+    public void testExplainAnalyzeReportSpilledDataSize()
+    {
+        assertThat((String) computeActual("EXPLAIN ANALYZE SELECT sum(custkey) OVER (PARTITION BY orderkey) FROM orders").getOnlyValue())
+                .containsPattern(", Spilled: [1-9][0-9]*\\wB");
     }
 }
