@@ -311,6 +311,10 @@ public class MockConnector
         }
 
         @Override
+        public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+        {}
+
+        @Override
         public void createView(ConnectorSession session, SchemaTableName viewName, ConnectorViewDefinition definition, boolean replace)
         {}
 

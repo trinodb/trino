@@ -31,6 +31,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
+import io.trino.sql.analyzer.Output;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.Expression;
@@ -47,8 +48,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
@@ -96,11 +99,11 @@ public class CreateTableTask
             List<Expression> parameters,
             WarningCollector warningCollector)
     {
-        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters);
+        return internalExecute(statement, metadata, accessControl, stateMachine.getSession(), parameters, output -> stateMachine.setOutput(Optional.of(output)));
     }
 
     @VisibleForTesting
-    ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters, Consumer<Output> outputConsumer)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
@@ -240,6 +243,13 @@ public class CreateTableTask
                 throw e;
             }
         }
+        outputConsumer.accept(new Output(
+                tableName.getCatalogName(),
+                tableName.getSchemaName(),
+                tableName.getObjectName(),
+                Optional.of(tableMetadata.getColumns().stream()
+                        .map(column -> new Column(column.getName(), column.getType().toString()))
+                        .collect(toImmutableList()))));
         return immediateFuture(null);
     }
 

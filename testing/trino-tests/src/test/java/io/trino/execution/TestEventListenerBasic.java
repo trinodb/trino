@@ -675,4 +675,29 @@ public class TestEventListenerBasic
         assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
                 .containsExactly("test_varchar");
     }
+
+    @Test
+    public void testCreateTable()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_simple_table (test_column BIGINT)", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_simple_table");
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get()).containsExactly("test_column");
+    }
+
+    @Test
+    public void testCreateTableLike()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("CREATE TABLE mock.default.create_simple_table (test_column BIGINT, LIKE mock.default.test_table)", 2);
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+        assertThat(event.getIoMetadata().getOutput().get().getCatalogName()).isEqualTo("mock");
+        assertThat(event.getIoMetadata().getOutput().get().getSchema()).isEqualTo("default");
+        assertThat(event.getIoMetadata().getOutput().get().getTable()).isEqualTo("create_simple_table");
+        assertThat(event.getIoMetadata().getOutput().get().getColumns().get())
+                .containsExactly("test_column", "test_varchar", "test_bigint");
+    }
 }
