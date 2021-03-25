@@ -164,41 +164,6 @@ public abstract class AbstractTestHiveViews
         assertEquals((String) actualResult.row(0).get(0), format(expectedResult, "hive_with_external_writes"));
     }
 
-    @Test(groups = HIVE_VIEWS)
-    public void testLateralViewExplode()
-    {
-        onTrino().executeQuery("DROP TABLE IF EXISTS pageAds");
-        onTrino().executeQuery("CREATE TABLE pageAds(pageid, adid_list) WITH (format='TEXTFILE') AS " +
-                "VALUES " +
-                "  (CAST('two' AS varchar), ARRAY[11, 22]), " +
-                "  ('nothing', NULL), " +
-                "  ('zero', ARRAY[]), " +
-                "  ('one', ARRAY[42])");
-
-        onHive().executeQuery("DROP VIEW IF EXISTS hive_lateral_view");
-        onHive().executeQuery("CREATE VIEW hive_lateral_view as SELECT pageid, adid FROM pageAds LATERAL VIEW explode(adid_list) adTable AS adid");
-
-        assertViewQuery(
-                "SELECT * FROM hive_lateral_view",
-                queryAssert -> queryAssert.containsOnly(
-                        row("two", 11),
-                        row("two", 22),
-                        row("one", 42)));
-
-        onHive().executeQuery("DROP VIEW IF EXISTS hive_lateral_view_outer_explode");
-        onHive().executeQuery("CREATE VIEW hive_lateral_view_outer_explode as " +
-                "SELECT pageid, adid FROM pageAds LATERAL VIEW OUTER explode(adid_list) adTable AS adid");
-
-        assertViewQuery(
-                "SELECT * FROM hive_lateral_view_outer_explode",
-                queryAssert -> queryAssert.containsOnly(
-                        row("two", 11),
-                        row("two", 22),
-                        row("one", 42),
-                        row("nothing", null),
-                        row("zero", null)));
-    }
-
     /**
      * Test view containing IF, IN, LIKE, BETWEEN, CASE, COALESCE, operators, delimited and non-delimited columns, an inline comment
      */
