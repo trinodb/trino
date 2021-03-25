@@ -75,6 +75,7 @@ public final class PlanNodeStatsSummarizer
         Map<PlanNodeId, Long> planNodeInputBytes = new HashMap<>();
         Map<PlanNodeId, Long> planNodeOutputPositions = new HashMap<>();
         Map<PlanNodeId, Long> planNodeOutputBytes = new HashMap<>();
+        Map<PlanNodeId, Long> planNodeSpilledDataSize = new HashMap<>();
         Map<PlanNodeId, Long> planNodeScheduledMillis = new HashMap<>();
         Map<PlanNodeId, Long> planNodeCpuMillis = new HashMap<>();
 
@@ -122,6 +123,7 @@ public final class PlanNodeStatsSummarizer
 
                 planNodeInputPositions.merge(planNodeId, operatorStats.getInputPositions(), Long::sum);
                 planNodeInputBytes.merge(planNodeId, operatorStats.getInputDataSize().toBytes(), Long::sum);
+                planNodeSpilledDataSize.merge(planNodeId, operatorStats.getSpilledDataSize().toBytes(), Long::sum);
                 processedNodes.add(planNodeId);
             }
 
@@ -191,6 +193,7 @@ public final class PlanNodeStatsSummarizer
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
+                        succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
                         operatorInputStats.get(planNodeId),
                         operatorHashCollisionsStats.get(planNodeId));
             }
@@ -203,6 +206,7 @@ public final class PlanNodeStatsSummarizer
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
+                        succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
                         operatorInputStats.get(planNodeId),
                         windowNodeStats.get(planNodeId));
             }
@@ -215,6 +219,7 @@ public final class PlanNodeStatsSummarizer
                         succinctBytes(planNodeInputBytes.get(planNodeId)),
                         outputPositions,
                         succinctBytes(planNodeOutputBytes.getOrDefault(planNodeId, 0L)),
+                        succinctBytes(planNodeSpilledDataSize.get(planNodeId)),
                         operatorInputStats.get(planNodeId));
             }
 
