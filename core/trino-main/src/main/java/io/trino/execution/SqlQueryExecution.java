@@ -84,14 +84,18 @@ import java.util.function.Consumer;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.SystemSessionProperties.isEnableDynamicFiltering;
+import static io.trino.execution.QueryState.FAILED;
+import static io.trino.execution.QueryState.PLANNING;
 import static io.trino.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.trino.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.trino.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.sql.ParameterUtils.parameterExtractor;
+import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -336,6 +340,12 @@ public class SqlQueryExecution
     }
 
     @Override
+    public Optional<Duration> getPlanningTime()
+    {
+        return stateMachine.getPlanningTime();
+    }
+
+    @Override
     public DateTime getLastHeartbeat()
     {
         return stateMachine.getLastHeartbeat();
@@ -379,11 +389,33 @@ public class SqlQueryExecution
                     return;
                 }
 
-                PlanRoot plan = planQuery();
-                // DynamicFilterService needs plan for query to be registered.
-                // Query should be registered before dynamic filter suppliers are requested in distribution planning.
-                registerDynamicFilteringQuery(plan);
-                planDistribution(plan);
+                AtomicReference<Thread> planningThread = new AtomicReference<>(currentThread());
+                stateMachine.getStateChange(PLANNING).addListener(() -> {
+                    if (stateMachine.getQueryState() == FAILED) {
+                        synchronized (this) {
+                            Thread thread = planningThread.get();
+                            if (thread != null) {
+                                thread.interrupt();
+                            }
+                        }
+                    }
+                }, directExecutor());
+
+                try {
+                    PlanRoot plan = planQuery();
+                    // DynamicFilterService needs plan for query to be registered.
+                    // Query should be registered before dynamic filter suppliers are requested in distribution planning.
+                    registerDynamicFilteringQuery(plan);
+                    planDistribution(plan);
+                }
+                finally {
+                    synchronized (this) {
+                        planningThread.set(null);
+                        // Clear the interrupted flag in case there was a race condition where
+                        // the planning thread was interrupted right after planning completes above
+                        Thread.interrupted();
+                    }
+                }
 
                 if (!stateMachine.transitionToStarting()) {
                     // query already started or finished

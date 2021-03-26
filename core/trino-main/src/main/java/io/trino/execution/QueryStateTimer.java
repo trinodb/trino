@@ -189,6 +189,11 @@ class QueryStateTimer
         return toDateTime(beginPlanningNanos);
     }
 
+    public Optional<DateTime> getPlanningStartTime()
+    {
+        return toDateTime(beginPlanningNanos);
+    }
+
     public Duration getElapsedTime()
     {
         if (endNanos.get() != null) {
