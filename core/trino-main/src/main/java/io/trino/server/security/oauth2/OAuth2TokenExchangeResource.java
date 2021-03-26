@@ -61,7 +61,7 @@ public class OAuth2TokenExchangeResource
     public OAuth2TokenExchangeResource(OAuth2TokenExchange tokenExchange, DispatchExecutor executor)
     {
         this.tokenExchange = requireNonNull(tokenExchange, "tokenExchange is null");
-        this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
+        this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
     }
 
     @ResourceSecurity(PUBLIC)

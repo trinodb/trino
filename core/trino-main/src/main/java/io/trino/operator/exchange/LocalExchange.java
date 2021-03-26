@@ -382,7 +382,7 @@ public class LocalExchange
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.session = requireNonNull(session, "session is null");
             this.partitioning = requireNonNull(partitioning, "partitioning is null");
-            this.partitionChannels = requireNonNull(partitionChannels, "partitioningChannels is null");
+            this.partitionChannels = requireNonNull(partitionChannels, "partitionChannels is null");
             requireNonNull(types, "types is null");
             this.partitionChannelTypes = partitionChannels.stream()
                     .map(types::get)

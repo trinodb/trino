@@ -170,7 +170,7 @@ public class OperatorStats
 
         this.dynamicFilterSplitsProcessed = dynamicFilterSplitsProcessed;
 
-        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");
+        this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.blockedWall = requireNonNull(blockedWall, "blockedWall is null");
 

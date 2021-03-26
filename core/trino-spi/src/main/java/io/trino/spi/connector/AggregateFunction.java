@@ -44,10 +44,10 @@ public class AggregateFunction
             throw new IllegalArgumentException("DISTINCT requires inputs");
         }
 
-        this.functionName = requireNonNull(aggregateFunctionName, "name is null");
+        this.functionName = requireNonNull(aggregateFunctionName, "aggregateFunctionName is null");
         this.outputType = requireNonNull(outputType, "outputType is null");
         requireNonNull(inputs, "inputs is null");
-        requireNonNull(sortItems, "sortOrder is null");
+        requireNonNull(sortItems, "sortItems is null");
         this.inputs = List.copyOf(inputs);
         this.sortItems = List.copyOf(sortItems);
         this.isDistinct = isDistinct;

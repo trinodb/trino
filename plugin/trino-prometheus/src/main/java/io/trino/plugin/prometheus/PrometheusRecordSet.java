@@ -35,7 +35,7 @@ public class PrometheusRecordSet
         requireNonNull(prometheusClient, "prometheusClient is null");
         requireNonNull(split, "split is null");
 
-        this.columnHandles = requireNonNull(columnHandles, "column handles is null");
+        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         ImmutableList.Builder<Type> types = ImmutableList.builder();
         for (PrometheusColumnHandle column : columnHandles) {
             types.add(column.getColumnType());

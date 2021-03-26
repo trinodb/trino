@@ -30,7 +30,7 @@ public class ResourceGroupGlobalProperties
 
     public ResourceGroupGlobalProperties(Optional<Duration> cpuQuotaPeriod)
     {
-        this.cpuQuotaPeriod = requireNonNull(cpuQuotaPeriod, "Cpu Quota Period is null");
+        this.cpuQuotaPeriod = requireNonNull(cpuQuotaPeriod, "cpuQuotaPeriod is null");
     }
 
     public Optional<Duration> getCpuQuotaPeriod()

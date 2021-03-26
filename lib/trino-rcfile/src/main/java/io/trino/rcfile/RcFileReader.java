@@ -129,7 +129,7 @@ public class RcFileReader
             Optional<RcFileWriteValidation> writeValidation)
             throws IOException
     {
-        this.dataSource = requireNonNull(dataSource, "rcFileDataSource is null");
+        this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.readColumns = ImmutableMap.copyOf(requireNonNull(readColumns, "readColumns is null"));
         this.input = new ChunkedSliceInput(new DataSourceSliceLoader(dataSource), toIntExact(bufferSize.toBytes()));
 

@@ -45,8 +45,8 @@ public class PinotSplit
     {
         this.splitType = requireNonNull(splitType, "splitType id is null");
         this.suffix = requireNonNull(suffix, "suffix is null");
-        this.segments = ImmutableList.copyOf(requireNonNull(segments, "segment is null"));
-        this.segmentHost = requireNonNull(segmentHost, "host is null");
+        this.segments = ImmutableList.copyOf(requireNonNull(segments, "segments is null"));
+        this.segmentHost = requireNonNull(segmentHost, "segmentHost is null");
         this.timePredicate = requireNonNull(timePredicate, "timePredicate is null");
 
         // make sure the segment properties are present when the split type is segment

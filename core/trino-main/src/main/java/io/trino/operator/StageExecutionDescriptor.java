@@ -97,7 +97,7 @@ public class StageExecutionDescriptor
     {
         return new StageExecutionDescriptor(
                 requireNonNull(strategy, "strategy is null"),
-                ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionScanNodes is null")));
+                ImmutableSet.copyOf(requireNonNull(groupedExecutionCapableScanNodes, "groupedExecutionCapableScanNodes is null")));
     }
 
     @JsonProperty("groupedExecutionScanNodes")

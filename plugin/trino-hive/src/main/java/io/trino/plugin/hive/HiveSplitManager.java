@@ -157,7 +157,7 @@ public class HiveSplitManager
             boolean recursiveDfsWalkerEnabled,
             TypeManager typeManager)
     {
-        this.metastoreProvider = requireNonNull(metastoreProvider, "metastore is null");
+        this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.namenodeStats = requireNonNull(namenodeStats, "namenodeStats is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");

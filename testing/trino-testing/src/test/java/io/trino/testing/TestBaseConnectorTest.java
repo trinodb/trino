@@ -48,7 +48,7 @@ public class TestBaseConnectorTest
         private MethodSignature(String name, Class<?>[] parameters)
         {
             this.name = requireNonNull(name, "name is null");
-            this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "fields is null"));
+            this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
         }
 
         @Override

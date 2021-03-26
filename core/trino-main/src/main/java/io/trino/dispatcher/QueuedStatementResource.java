@@ -121,8 +121,8 @@ public class QueuedStatementResource
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
 
         requireNonNull(dispatchManager, "dispatchManager is null");
-        this.responseExecutor = requireNonNull(executor, "responseExecutor is null").getExecutor();
-        this.timeoutExecutor = requireNonNull(executor, "timeoutExecutor is null").getScheduledExecutor();
+        this.responseExecutor = requireNonNull(executor, "executor is null").getExecutor();
+        this.timeoutExecutor = requireNonNull(executor, "executor is null").getScheduledExecutor();
         this.compressionEnabled = requireNonNull(serverConfig, "serverConfig is null").isQueryResultsCompressionEnabled();
         this.alternateHeaderName = requireNonNull(protocolConfig, "protocolConfig is null").getAlternateHeaderName();
 

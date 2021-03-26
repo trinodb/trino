@@ -40,7 +40,7 @@ public class SetPath
     private SetPath(Optional<NodeLocation> location, PathSpecification pathSpecification)
     {
         super(location);
-        this.pathSpecification = requireNonNull(pathSpecification, "path is null");
+        this.pathSpecification = requireNonNull(pathSpecification, "pathSpecification is null");
     }
 
     public PathSpecification getPathSpecification()

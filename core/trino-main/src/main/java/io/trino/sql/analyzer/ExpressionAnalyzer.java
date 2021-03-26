@@ -275,11 +275,11 @@ public class ExpressionAnalyzer
         this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
-        this.parameters = requireNonNull(parameters, "parameterMap is null");
+        this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
-        this.correlationSupport = requireNonNull(correlationSupport, "correlation is null");
+        this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
         this.getPreanalyzedType = requireNonNull(getPreanalyzedType, "getPreanalyzedType is null");
         this.getResolvedWindow = requireNonNull(getResolvedWindow, "getResolvedWindow is null");
     }

@@ -85,7 +85,7 @@ public class TableWriterNode
         this.fragmentSymbol = requireNonNull(fragmentSymbol, "fragmentSymbol is null");
         this.columns = ImmutableList.copyOf(columns);
         this.columnNames = ImmutableList.copyOf(columnNames);
-        this.notNullColumnSymbols = ImmutableSet.copyOf(requireNonNull(notNullColumnSymbols, "notNullColumns is null"));
+        this.notNullColumnSymbols = ImmutableSet.copyOf(requireNonNull(notNullColumnSymbols, "notNullColumnSymbols is null"));
         this.partitioningScheme = requireNonNull(partitioningScheme, "partitioningScheme is null");
         this.preferredPartitioningScheme = requireNonNull(preferredPartitioningScheme, "preferredPartitioningScheme is null");
         this.statisticsAggregation = requireNonNull(statisticsAggregation, "statisticsAggregation is null");
@@ -351,8 +351,8 @@ public class TableWriterNode
 
         public RefreshMaterializedViewReference(QualifiedObjectName materializedViewName, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
         {
-            this.materializedViewName = requireNonNull(materializedViewName, "Materialized view handle is null");
-            this.storageTableHandle = requireNonNull(storageTableHandle, "Storage table handle is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
+            this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
         }
 

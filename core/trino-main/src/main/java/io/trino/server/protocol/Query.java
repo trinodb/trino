@@ -221,7 +221,7 @@ class Query
         requireNonNull(exchangeClient, "exchangeClient is null");
         requireNonNull(resultsProcessorExecutor, "resultsProcessorExecutor is null");
         requireNonNull(timeoutExecutor, "timeoutExecutor is null");
-        requireNonNull(blockEncodingSerde, "serde is null");
+        requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
 
         this.queryManager = queryManager;
 

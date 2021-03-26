@@ -67,7 +67,7 @@ public class JoinBridgeManager<T extends JoinBridge>
         this.buildOuter = buildOuter;
         this.probeExecutionStrategy = requireNonNull(probeExecutionStrategy, "probeExecutionStrategy is null");
         this.buildExecutionStrategy = requireNonNull(lookupSourceExecutionStrategy, "lookupSourceExecutionStrategy is null");
-        this.joinBridgeProvider = requireNonNull(lookupSourceFactoryProvider, "joinBridgeProvider is null");
+        this.joinBridgeProvider = requireNonNull(lookupSourceFactoryProvider, "lookupSourceFactoryProvider is null");
         this.buildOutputTypes = requireNonNull(buildOutputTypes, "buildOutputTypes is null");
     }
 

@@ -37,7 +37,7 @@ public class BoundSignature
             @JsonProperty("returnType") Type returnType,
             @JsonProperty("argumentTypes") List<Type> argumentTypes)
     {
-        this.name = requireNonNull(name, "qualifiedName is null");
+        this.name = requireNonNull(name, "name is null");
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }

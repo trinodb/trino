@@ -37,7 +37,7 @@ public class CachingKerberosHadoopAuthentication
 
     public CachingKerberosHadoopAuthentication(KerberosHadoopAuthentication delegate)
     {
-        this.delegate = requireNonNull(delegate, "hadoopAuthentication is null");
+        this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
     @Override

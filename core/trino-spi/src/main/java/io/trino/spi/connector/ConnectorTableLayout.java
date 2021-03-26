@@ -56,7 +56,7 @@ public class ConnectorTableLayout
     {
         requireNonNull(handle, "handle is null");
         requireNonNull(columns, "columns is null");
-        requireNonNull(streamPartitioningColumns, "partitioningColumns is null");
+        requireNonNull(streamPartitioningColumns, "streamPartitioningColumns is null");
         requireNonNull(tablePartitioning, "tablePartitioning is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(discretePredicates, "discretePredicates is null");

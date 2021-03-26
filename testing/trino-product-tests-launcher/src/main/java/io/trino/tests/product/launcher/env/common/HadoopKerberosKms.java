@@ -43,8 +43,8 @@ public class HadoopKerberosKms
     {
         this.configDir = dockerFiles.getDockerFilesHostDirectory("common/hadoop-kerberos-kms/");
         this.hadoopKerberos = requireNonNull(hadoopKerberos, "hadoopKerberos is null");
-        requireNonNull(environmentConfig, "environmentOptions is null");
-        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
+        requireNonNull(environmentConfig, "environmentConfig is null");
+        hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
     }
 
     @Override

@@ -214,7 +214,7 @@ public class ReaderProjectionsAdapter
         {
             checkArgument(inputBlockIndex >= 0, "inputBlockIndex cannot be negative");
             this.inputChannelIndex = inputBlockIndex;
-            this.dereferenceSequence = ImmutableList.copyOf(requireNonNull(dereferenceSequence, "dereferences is null"));
+            this.dereferenceSequence = ImmutableList.copyOf(requireNonNull(dereferenceSequence, "dereferenceSequence is null"));
         }
 
         public int getInputChannelIndex()

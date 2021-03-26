@@ -69,7 +69,7 @@ public class KafkaFilterManager
     @Inject
     public KafkaFilterManager(KafkaConsumerFactory consumerFactory, KafkaAdminFactory adminFactory)
     {
-        this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
+        this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
         this.adminFactory = requireNonNull(adminFactory, "adminFactory is null");
     }
 

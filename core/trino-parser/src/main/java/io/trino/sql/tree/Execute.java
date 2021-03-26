@@ -42,7 +42,7 @@ public class Execute
     {
         super(location);
         this.name = requireNonNull(name, "name is null");
-        this.parameters = requireNonNull(ImmutableList.copyOf(parameters), "parameters is null");
+        this.parameters = ImmutableList.copyOf(requireNonNull(parameters, "parameters is null"));
     }
 
     public Identifier getName()

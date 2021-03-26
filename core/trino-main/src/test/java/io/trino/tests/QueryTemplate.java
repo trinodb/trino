@@ -141,7 +141,7 @@ public class QueryTemplate
         private Parameter(String key, Optional<String> value)
         {
             this.key = requireNonNull(key, "key is null");
-            this.value = requireNonNull(value, "defaultValue is null");
+            this.value = requireNonNull(value, "value is null");
         }
 
         public Optional<String> getValue()

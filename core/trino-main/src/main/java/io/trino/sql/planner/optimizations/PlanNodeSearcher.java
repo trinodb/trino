@@ -65,7 +65,7 @@ public class PlanNodeSearcher
 
     public PlanNodeSearcher recurseOnlyWhen(Predicate<PlanNode> skipOnly)
     {
-        this.recurseOnlyWhen = requireNonNull(skipOnly, "recurseOnlyWhen is null");
+        this.recurseOnlyWhen = requireNonNull(skipOnly, "skipOnly is null");
         return this;
     }
 

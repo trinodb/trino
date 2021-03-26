@@ -54,7 +54,7 @@ public class PinotConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        requireNonNull(catalogName, "connectorId is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(config, "config is null");
 
         ImmutableList.Builder<Module> modulesBuilder = ImmutableList.<Module>builder()

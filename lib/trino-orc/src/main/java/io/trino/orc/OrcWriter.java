@@ -617,7 +617,7 @@ public final class OrcWriter
         public ClosedStripe(StripeInformation stripeInformation, StripeStatistics statistics)
         {
             this.stripeInformation = requireNonNull(stripeInformation, "stripeInformation is null");
-            this.statistics = requireNonNull(statistics, "stripeStatistics is null");
+            this.statistics = requireNonNull(statistics, "statistics is null");
         }
 
         public StripeInformation getStripeInformation()

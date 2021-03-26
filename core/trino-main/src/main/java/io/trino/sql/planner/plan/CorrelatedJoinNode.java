@@ -104,7 +104,7 @@ public class CorrelatedJoinNode
     {
         super(id);
         requireNonNull(input, "input is null");
-        requireNonNull(subquery, "right is null");
+        requireNonNull(subquery, "subquery is null");
         requireNonNull(correlation, "correlation is null");
         requireNonNull(filter, "filter is null");
         requireNonNull(originSubquery, "originSubquery is null");

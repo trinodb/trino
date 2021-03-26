@@ -44,7 +44,7 @@ public interface ParquetDataOutput
 
     static ParquetDataOutput createDataOutput(BytesInput bytesInput)
     {
-        requireNonNull(bytesInput, "slice is null");
+        requireNonNull(bytesInput, "bytesInput is null");
         return new ParquetDataOutput()
         {
             @Override

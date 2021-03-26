@@ -69,7 +69,7 @@ public class PrometheusSplitManager
     @Inject
     public PrometheusSplitManager(PrometheusClient prometheusClient, PrometheusClock prometheusClock, PrometheusConnectorConfig config)
     {
-        this.prometheusClient = requireNonNull(prometheusClient, "client is null");
+        this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
         this.prometheusClock = requireNonNull(prometheusClock, "prometheusClock is null");
 
         requireNonNull(config, "config is null");

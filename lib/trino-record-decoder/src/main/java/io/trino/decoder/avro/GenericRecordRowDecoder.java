@@ -36,7 +36,7 @@ class GenericRecordRowDecoder
 
     public GenericRecordRowDecoder(AvroDeserializer<GenericRecord> deserializer, Set<DecoderColumnHandle> columns)
     {
-        this.deserializer = requireNonNull(deserializer, "dataReader is null");
+        this.deserializer = requireNonNull(deserializer, "deserializer is null");
         requireNonNull(columns, "columns is null");
         this.columnDecoders = columns.stream()
                 .map(column -> new AbstractMap.SimpleImmutableEntry<>(column, new AvroColumnDecoder(column)))

@@ -44,7 +44,7 @@ public class ParquetReaderOptions
             DataSize maxBufferSize)
     {
         this.ignoreStatistics = ignoreStatistics;
-        this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxMergeDistance is null");
+        this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
         this.maxMergeDistance = requireNonNull(maxMergeDistance, "maxMergeDistance is null");
         this.maxBufferSize = requireNonNull(maxBufferSize, "maxBufferSize is null");
     }

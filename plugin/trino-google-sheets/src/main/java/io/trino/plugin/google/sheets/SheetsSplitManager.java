@@ -40,7 +40,7 @@ public class SheetsSplitManager
     @Inject
     public SheetsSplitManager(SheetsClient sheetsClient)
     {
-        this.sheetsClient = requireNonNull(sheetsClient, "client is null");
+        this.sheetsClient = requireNonNull(sheetsClient, "sheetsClient is null");
     }
 
     @Override

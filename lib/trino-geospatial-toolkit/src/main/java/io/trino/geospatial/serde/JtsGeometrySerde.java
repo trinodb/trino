@@ -259,7 +259,7 @@ public final class JtsGeometrySerde
      */
     public static Slice serialize(Geometry geometry)
     {
-        requireNonNull(geometry, "input is null");
+        requireNonNull(geometry, "geometry is null");
         DynamicSliceOutput output = new DynamicSliceOutput(100);
         writeGeometry(geometry, output);
         return output.slice();

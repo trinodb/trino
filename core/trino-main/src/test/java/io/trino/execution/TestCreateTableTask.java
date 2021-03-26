@@ -284,7 +284,7 @@ public class TestCreateTableTask
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-            this.connectorCapabilities = requireNonNull(immutableEnumSet(connectorCapabilities), "connectorCapabilities is null");
+            this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
             this.metadata = createTestMetadataManager();
         }
 

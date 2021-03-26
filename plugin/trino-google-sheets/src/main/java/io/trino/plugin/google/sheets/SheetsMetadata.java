@@ -47,7 +47,7 @@ public class SheetsMetadata
     @Inject
     public SheetsMetadata(SheetsClient sheetsClient)
     {
-        this.sheetsClient = requireNonNull(sheetsClient, "client is null");
+        this.sheetsClient = requireNonNull(sheetsClient, "sheetsClient is null");
     }
 
     @Override

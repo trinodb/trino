@@ -67,7 +67,7 @@ public class FunctionListBuilder
 
     public FunctionListBuilder function(SqlFunction sqlFunction)
     {
-        requireNonNull(sqlFunction, "parametricFunction is null");
+        requireNonNull(sqlFunction, "sqlFunction is null");
         functions.add(sqlFunction);
         return this;
     }

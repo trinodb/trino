@@ -85,7 +85,7 @@ public class HiveConnector
             ClassLoader classLoader)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.metadataFactory = requireNonNull(metadataFactory, "metadata is null");
+        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");

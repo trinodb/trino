@@ -57,7 +57,7 @@ public class QueryBuilder
 
     public QueryBuilder(JdbcClient client)
     {
-        this.client = requireNonNull(client, "jdbcClient is null");
+        this.client = requireNonNull(client, "client is null");
     }
 
     public PreparedQuery prepareQuery(

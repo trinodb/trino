@@ -31,7 +31,7 @@ public class TestEventListenerPlugin
 
         public TestingEventListenerPlugin(EventsCollector eventsCollector)
         {
-            this.eventsCollector = requireNonNull(eventsCollector, "eventsBuilder is null");
+            this.eventsCollector = requireNonNull(eventsCollector, "eventsCollector is null");
         }
 
         @Override

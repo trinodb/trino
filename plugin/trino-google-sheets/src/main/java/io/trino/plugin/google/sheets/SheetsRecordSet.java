@@ -32,7 +32,7 @@ public class SheetsRecordSet
     public SheetsRecordSet(SheetsSplit split, List<SheetsColumnHandle> columnHandles)
     {
         requireNonNull(split, "split is null");
-        this.columnHandles = requireNonNull(columnHandles, "column handles is null");
+        this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
         this.values = split.getValues();
         this.columnTypes = columnHandles.stream().map(SheetsColumnHandle::getColumnType).collect(Collectors.toList());
     }

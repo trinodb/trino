@@ -42,7 +42,7 @@ public class Catalog
             Connector systemTables)
     {
         this.catalogName = checkCatalogName(catalogName);
-        this.connectorCatalogName = requireNonNull(connectorCatalogName, "connectorConnectorId is null");
+        this.connectorCatalogName = requireNonNull(connectorCatalogName, "connectorCatalogName is null");
         this.connector = requireNonNull(connector, "connector is null");
         this.informationSchemaId = requireNonNull(informationSchemaId, "informationSchemaId is null");
         this.informationSchema = requireNonNull(informationSchema, "informationSchema is null");

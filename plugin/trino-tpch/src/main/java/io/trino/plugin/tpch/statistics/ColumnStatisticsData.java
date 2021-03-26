@@ -35,8 +35,8 @@ public class ColumnStatisticsData
             @JsonProperty("dataSize") Optional<Long> dataSize)
     {
         this.distinctValuesCount = requireNonNull(distinctValuesCount, "distinctValuesCount is null");
-        this.min = requireNonNull(min);
-        this.max = requireNonNull(max);
+        this.min = requireNonNull(min, "min is null");
+        this.max = requireNonNull(max, "max is null");
         this.dataSize = requireNonNull(dataSize, "dataSize is null");
     }
 

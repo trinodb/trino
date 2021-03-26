@@ -370,9 +370,9 @@ public final class LambdaBytecodeGenerator
                 ParameterizedType returnType,
                 List<ParameterizedType> parameterTypes)
         {
-            this.lambdaAsmHandle = requireNonNull(lambdaAsmHandle, "lambdaMethodAsmHandle is null");
+            this.lambdaAsmHandle = requireNonNull(lambdaAsmHandle, "lambdaAsmHandle is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
-            this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "returnType is null"));
+            this.parameterTypes = ImmutableList.copyOf(requireNonNull(parameterTypes, "parameterTypes is null"));
         }
 
         public Handle getLambdaAsmHandle()

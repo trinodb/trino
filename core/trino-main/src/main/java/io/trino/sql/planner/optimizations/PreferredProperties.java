@@ -310,7 +310,7 @@ class PreferredProperties
         private PartitioningProperties(Set<Symbol> partitioningColumns, Optional<Partitioning> partitioning, boolean nullsAndAnyReplicated)
         {
             this.partitioningColumns = ImmutableSet.copyOf(requireNonNull(partitioningColumns, "partitioningColumns is null"));
-            this.partitioning = requireNonNull(partitioning, "function is null");
+            this.partitioning = requireNonNull(partitioning, "partitioning is null");
             this.nullsAndAnyReplicated = nullsAndAnyReplicated;
 
             checkArgument(partitioning.isEmpty() || partitioning.get().getColumns().equals(partitioningColumns), "Partitioning input must match partitioningColumns");

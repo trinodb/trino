@@ -40,7 +40,7 @@ public class ExampleSplitManager
     @Inject
     public ExampleSplitManager(ExampleClient exampleClient)
     {
-        this.exampleClient = requireNonNull(exampleClient, "client is null");
+        this.exampleClient = requireNonNull(exampleClient, "exampleClient is null");
     }
 
     @Override

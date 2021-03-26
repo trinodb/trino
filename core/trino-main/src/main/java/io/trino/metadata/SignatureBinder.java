@@ -91,7 +91,7 @@ public class SignatureBinder
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
-        this.declaredSignature = requireNonNull(declaredSignature, "parametrizedSignature is null");
+        this.declaredSignature = requireNonNull(declaredSignature, "declaredSignature is null");
         this.allowCoercion = allowCoercion;
 
         this.typeVariableConstraints = declaredSignature.getTypeVariableConstraints().stream()

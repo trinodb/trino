@@ -110,7 +110,7 @@ public class HeartbeatFailureDetector
         requireNonNull(selector, "selector is null");
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(nodeInfo, "nodeInfo is null");
-        requireNonNull(failureDetectorConfig, "config is null");
+        requireNonNull(failureDetectorConfig, "failureDetectorConfig is null");
         checkArgument(failureDetectorConfig.getHeartbeatInterval().toMillis() >= 1, "heartbeat interval must be >= 1ms");
 
         this.selector = selector;

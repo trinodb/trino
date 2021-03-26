@@ -49,7 +49,7 @@ public class KafkaSplit
             @JsonProperty("leader") HostAddress leader)
     {
         this.topicName = requireNonNull(topicName, "topicName is null");
-        this.keyDataFormat = requireNonNull(keyDataFormat, "dataFormat is null");
+        this.keyDataFormat = requireNonNull(keyDataFormat, "keyDataFormat is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.keyDataSchemaContents = keyDataSchemaContents;
         this.messageDataSchemaContents = messageDataSchemaContents;

@@ -209,7 +209,7 @@ public class HiveTableHandle
 
     public HiveTableHandle withUpdateProcessor(AcidTransaction transaction, HiveUpdateProcessor updateProcessor)
     {
-        requireNonNull(updateProcessor, "updatedColumns is null");
+        requireNonNull(updateProcessor, "updateProcessor is null");
         return new HiveTableHandle(
                 schemaName,
                 tableName,

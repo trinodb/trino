@@ -59,7 +59,7 @@ public class RcFilePageSource
 
     public RcFilePageSource(RcFileReader rcFileReader, List<HiveColumnHandle> columns)
     {
-        requireNonNull(rcFileReader, "rcReader is null");
+        requireNonNull(rcFileReader, "rcFileReader is null");
         requireNonNull(columns, "columns is null");
 
         this.rcFileReader = rcFileReader;

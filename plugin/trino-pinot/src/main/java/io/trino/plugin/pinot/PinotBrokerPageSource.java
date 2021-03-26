@@ -54,7 +54,7 @@ public class PinotBrokerPageSource
             List<PinotColumnHandle> columnHandles,
             PinotClient pinotClient)
     {
-        this.query = requireNonNull(query, "broker is null");
+        this.query = requireNonNull(query, "query is null");
         this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
         this.session = requireNonNull(session, "session is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");

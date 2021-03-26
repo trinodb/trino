@@ -100,7 +100,7 @@ public class KuduMetadata
     @Override
     public Map<SchemaTableName, List<ColumnMetadata>> listTableColumns(ConnectorSession session, SchemaTablePrefix prefix)
     {
-        requireNonNull(prefix, "SchemaTablePrefix is null");
+        requireNonNull(prefix, "prefix is null");
 
         List<SchemaTableName> tables;
         if (prefix.getTable().isEmpty()) {

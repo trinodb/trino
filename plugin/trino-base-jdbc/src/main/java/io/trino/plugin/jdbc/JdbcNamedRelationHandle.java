@@ -34,7 +34,7 @@ public class JdbcNamedRelationHandle
             @JsonProperty("remoteTableName") RemoteTableName remoteTableName)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
-        this.remoteTableName = requireNonNull(remoteTableName, "remoteTable is null");
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
     }
 
     @JsonProperty

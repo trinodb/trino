@@ -38,7 +38,7 @@ public final class UncompressedOrcChunkLoader
 
     public UncompressedOrcChunkLoader(OrcDataReader dataReader, AggregatedMemoryContext memoryContext)
     {
-        this.dataReader = requireNonNull(dataReader, "loader is null");
+        this.dataReader = requireNonNull(dataReader, "dataReader is null");
         requireNonNull(memoryContext, "memoryContext is null");
         this.dataReaderMemoryUsage = memoryContext.newLocalMemoryContext(UncompressedOrcChunkLoader.class.getSimpleName());
         dataReaderMemoryUsage.setBytes(dataReader.getRetainedSize());

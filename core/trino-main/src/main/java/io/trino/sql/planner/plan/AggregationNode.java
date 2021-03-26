@@ -385,7 +385,7 @@ public class AggregationNode
                 @JsonProperty("orderingScheme") Optional<OrderingScheme> orderingScheme,
                 @JsonProperty("mask") Optional<Symbol> mask)
         {
-            this.resolvedFunction = requireNonNull(resolvedFunction, "signature is null");
+            this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
             this.arguments = ImmutableList.copyOf(requireNonNull(arguments, "arguments is null"));
             for (Expression argument : arguments) {
                 checkArgument(argument instanceof SymbolReference || argument instanceof LambdaExpression,

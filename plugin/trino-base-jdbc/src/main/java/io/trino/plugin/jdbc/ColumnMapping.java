@@ -118,7 +118,7 @@ public final class ColumnMapping
                 type,
                 writeFunction,
                 writeFunction.getJavaType());
-        this.predicatePushdownController = requireNonNull(predicatePushdownController, "pushdownController is null");
+        this.predicatePushdownController = requireNonNull(predicatePushdownController, "predicatePushdownController is null");
     }
 
     public Type getType()

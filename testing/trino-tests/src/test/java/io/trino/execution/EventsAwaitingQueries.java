@@ -35,7 +35,7 @@ class EventsAwaitingQueries
 
     EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner, Duration extraWaitTime)
     {
-        this.eventsCollector = requireNonNull(eventsCollector, "eventsBuilder is null");
+        this.eventsCollector = requireNonNull(eventsCollector, "eventsCollector is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
         this.extraWaitTime = extraWaitTime;
     }

@@ -49,7 +49,7 @@ public class JmxPeriodicSampler
             JmxRecordSetProvider jmxRecordSetProvider,
             JmxConnectorConfig jmxConfig)
     {
-        this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxStatsHolder is null");
+        this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
         requireNonNull(jmxMetadata, "jmxMetadata is null");
         this.jmxRecordSetProvider = requireNonNull(jmxRecordSetProvider, "jmxRecordSetProvider is null");
         requireNonNull(jmxConfig, "jmxConfig is null");

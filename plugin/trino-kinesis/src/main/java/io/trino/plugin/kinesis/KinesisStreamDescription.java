@@ -40,7 +40,7 @@ public class KinesisStreamDescription
     {
         checkArgument(!isNullOrEmpty(tableName), "tableName is null or is empty");
         this.tableName = tableName;
-        this.streamName = requireNonNull(streamName, "topicName is null");
+        this.streamName = requireNonNull(streamName, "streamName is null");
         this.schemaName = schemaName;
         this.message = message;
     }

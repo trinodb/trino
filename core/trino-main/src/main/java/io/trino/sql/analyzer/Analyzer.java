@@ -71,7 +71,7 @@ public class Analyzer
         this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
-        this.queryExplainer = requireNonNull(queryExplainer, "query explainer is null");
+        this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
         this.parameters = parameters;
         this.parameterLookup = parameterLookup;
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
