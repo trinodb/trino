@@ -56,7 +56,7 @@ public class TestMinimalFunctionality
     {
         kafka = TestingKafka.create();
         kafka.start();
-        pinot = new TestingPinotCluster();
+        pinot = new TestingPinotCluster(kafka.getNetwork());
         pinot.start();
 
         kafka.createTopic(TOPIC_AND_TABLE);
