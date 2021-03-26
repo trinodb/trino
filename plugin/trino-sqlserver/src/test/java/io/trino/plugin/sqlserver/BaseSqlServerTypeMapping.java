@@ -13,48 +13,30 @@
  */
 package io.trino.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.CreateAndInsertDataSetup;
 import io.trino.testing.datatype.CreateAsSelectDataSetup;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.datatype.SqlDataTypeTest;
-import io.trino.testing.sql.JdbcSqlExecutor;
+import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.ZoneId;
-import java.util.Properties;
 
-import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.time.ZoneOffset.UTC;
 
-public class TestBaseSqlServerTypeMapping
+public abstract class BaseSqlServerTypeMapping
         extends AbstractTestQueryFramework
 {
-    private TestingSqlServer sqlServer;
-
-    @Override
-    protected QueryRunner createQueryRunner()
-            throws Exception
-    {
-        sqlServer = closeAfterClass(new TestingSqlServer());
-        sqlServer.start();
-        return createSqlServerQueryRunner(
-                sqlServer,
-                ImmutableMap.of(),
-                ImmutableMap.of(),
-                ImmutableList.of());
-    }
+    protected abstract SqlExecutor onRemoteDatabase();
 
     @Test
     public void testVarbinary()
@@ -300,26 +282,23 @@ public class TestBaseSqlServerTypeMapping
         };
     }
 
-    private DataSetup trinoCreateAsSelect(String tableNamePrefix)
+    protected DataSetup trinoCreateAsSelect(String tableNamePrefix)
     {
         return trinoCreateAsSelect(getSession(), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
+    protected DataSetup trinoCreateAsSelect(Session session, String tableNamePrefix)
     {
         return new CreateAsSelectDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
+    protected DataSetup trinoCreateAndInsert(Session session, String tableNamePrefix)
     {
         return new CreateAndInsertDataSetup(new TrinoSqlExecutor(getQueryRunner(), session), tableNamePrefix);
     }
 
-    private DataSetup sqlServerCreateAndInsert(String tableNamePrefix)
+    protected DataSetup sqlServerCreateAndInsert(String tableNamePrefix)
     {
-        Properties properties = new Properties();
-        properties.setProperty("user", sqlServer.getUsername());
-        properties.setProperty("password", sqlServer.getPassword());
-        return new CreateAndInsertDataSetup(new JdbcSqlExecutor(sqlServer.getJdbcUrl(), properties), tableNamePrefix);
+        return new CreateAndInsertDataSetup(onRemoteDatabase(), tableNamePrefix);
     }
 }
