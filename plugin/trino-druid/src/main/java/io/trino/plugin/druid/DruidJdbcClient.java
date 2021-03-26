@@ -182,6 +182,7 @@ public class DruidJdbcClient
                     table.getSortOrder(),
                     table.getLimit(),
                     table.getColumns(),
+                    table.getOtherReferencedTables(),
                     table.getNextSyntheticColumnId());
         }
 

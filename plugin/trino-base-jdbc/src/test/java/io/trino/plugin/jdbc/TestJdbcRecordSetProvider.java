@@ -189,6 +189,7 @@ public class TestJdbcRecordSetProvider
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty(),
+                jdbcTableHandle.getOtherReferencedTables(),
                 jdbcTableHandle.getNextSyntheticColumnId());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
@@ -29,6 +30,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -50,6 +52,11 @@ public final class JdbcTableHandle
     // columns of the relation described by this handle
     private final Optional<List<JdbcColumnHandle>> columns;
 
+    /**
+     * Remote tables referenced by the query other than {@code this.relationHandle.schemaTableName}.
+     */
+    private final Set<SchemaTableName> otherReferencedTables;
+
     private final int nextSyntheticColumnId;
 
     @Deprecated
@@ -66,6 +73,7 @@ public final class JdbcTableHandle
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty(),
+                ImmutableSet.of(),
                 0);
     }
 
@@ -76,6 +84,7 @@ public final class JdbcTableHandle
             @JsonProperty("sortOrder") Optional<List<SortItem>> sortOrder,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
+            @JsonProperty("otherReferencedTables") Set<SchemaTableName> otherReferencedTables,
             @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId)
     {
         this.relationHandle = requireNonNull(relationHandle, "relationHandle is null");
@@ -86,6 +95,7 @@ public final class JdbcTableHandle
 
         requireNonNull(columns, "columns is null");
         this.columns = columns.map(ImmutableList::copyOf);
+        this.otherReferencedTables = ImmutableSet.copyOf(requireNonNull(otherReferencedTables, "otherReferencedTables is null"));
         this.nextSyntheticColumnId = nextSyntheticColumnId;
     }
 
@@ -187,6 +197,24 @@ public final class JdbcTableHandle
     public Optional<List<SortItem>> getSortOrder()
     {
         return sortOrder;
+    }
+
+    @JsonProperty
+    public Set<SchemaTableName> getOtherReferencedTables()
+    {
+        return otherReferencedTables;
+    }
+
+    @JsonIgnore // not a getter
+    public Set<SchemaTableName> getAllReferencedTables()
+    {
+        if (!isNamedRelation()) {
+            return getOtherReferencedTables();
+        }
+        return ImmutableSet.<SchemaTableName>builder()
+                .addAll(getOtherReferencedTables())
+                .add(getRequiredNamedRelation().getSchemaTableName())
+                .build();
     }
 
     @JsonProperty

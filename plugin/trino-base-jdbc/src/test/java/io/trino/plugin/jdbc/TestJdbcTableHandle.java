@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.testing.EquivalenceTester;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -69,6 +70,7 @@ public class TestJdbcTableHandle
                 Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
+                ImmutableSet.of(),
                 0);
     }
 
@@ -83,6 +85,7 @@ public class TestJdbcTableHandle
                 Optional.empty(),
                 OptionalLong.of(1),
                 Optional.of(ImmutableList.of(new JdbcColumnHandle("i", type, IntegerType.INTEGER))),
+                ImmutableSet.of(),
                 0);
     }
 }
