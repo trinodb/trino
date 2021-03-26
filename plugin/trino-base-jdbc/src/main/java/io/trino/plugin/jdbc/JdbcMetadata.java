@@ -170,6 +170,7 @@ public class JdbcMetadata
                 handle.getSortOrder(),
                 handle.getLimit(),
                 handle.getColumns(),
+                handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter));
@@ -179,12 +180,14 @@ public class JdbcMetadata
     {
         List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, handle);
         PreparedQuery preparedQuery = jdbcClient.prepareQuery(session, handle, Optional.empty(), columns, ImmutableMap.of());
+
         return new JdbcTableHandle(
                 new JdbcQueryRelationHandle(preparedQuery),
                 TupleDomain.all(),
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.of(columns),
+                handle.getAllReferencedTables(),
                 handle.getNextSyntheticColumnId());
     }
 
@@ -212,6 +215,7 @@ public class JdbcMetadata
                         handle.getSortOrder(),
                         handle.getLimit(),
                         Optional.of(newColumns),
+                        handle.getOtherReferencedTables(),
                         handle.getNextSyntheticColumnId()),
                 projections,
                 assignments.entrySet().stream()
@@ -301,6 +305,7 @@ public class JdbcMetadata
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.of(newColumnsList),
+                handle.getAllReferencedTables(),
                 nextSyntheticColumnId);
 
         return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
@@ -380,6 +385,10 @@ public class JdbcMetadata
                                         .addAll(newLeftColumns.values())
                                         .addAll(newRightColumns.values())
                                         .build()),
+                        ImmutableSet.<SchemaTableName>builder()
+                                .addAll(leftHandle.getAllReferencedTables())
+                                .addAll(rightHandle.getAllReferencedTables())
+                                .build(),
                         nextSyntheticColumnId),
                 ImmutableMap.copyOf(newLeftColumns),
                 ImmutableMap.copyOf(newRightColumns)));
@@ -434,6 +443,7 @@ public class JdbcMetadata
                 handle.getSortOrder(),
                 OptionalLong.of(limit),
                 handle.getColumns(),
+                handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
@@ -481,6 +491,7 @@ public class JdbcMetadata
                 Optional.of(resultSortOrder),
                 OptionalLong.of(topNCount),
                 handle.getColumns(),
+                handle.getOtherReferencedTables(),
                 handle.getNextSyntheticColumnId());
 
         return Optional.of(new TopNApplicationResult<>(sortedTableHandle, jdbcClient.isTopNLimitGuaranteed(session)));

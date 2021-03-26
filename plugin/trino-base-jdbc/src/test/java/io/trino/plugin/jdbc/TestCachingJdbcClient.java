@@ -394,6 +394,7 @@ public class TestCachingJdbcClient
                 Optional.empty(),
                 OptionalLong.empty(),
                 Optional.empty(),
+                Set.of(new SchemaTableName(schema, "first")),
                 0);
 
         // load
