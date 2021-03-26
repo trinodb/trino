@@ -31,7 +31,7 @@ public class StatsContext
     public StatsContext(Map<String, Symbol> columnSymbols, TypeProvider types)
     {
         this.columnSymbols = ImmutableMap.copyOf(columnSymbols);
-        this.types = requireNonNull(types, "symbolTypes is null");
+        this.types = requireNonNull(types, "types is null");
     }
 
     public Symbol getSymbolForColumn(String columnName)

@@ -67,7 +67,7 @@ public class PhoenixMetadata
     public PhoenixMetadata(PhoenixClient phoenixClient, JdbcMetadataConfig metadataConfig)
     {
         super(phoenixClient, metadataConfig.isAllowDropTable());
-        this.phoenixClient = requireNonNull(phoenixClient, "client is null");
+        this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
     }
 
     @Override

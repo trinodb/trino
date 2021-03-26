@@ -37,7 +37,7 @@ public class AggregationFunctionMatcher
 
     public AggregationFunctionMatcher(ExpectedValueProvider<FunctionCall> callMaker)
     {
-        this.callMaker = requireNonNull(callMaker, "functionCall is null");
+        this.callMaker = requireNonNull(callMaker, "callMaker is null");
     }
 
     @Override

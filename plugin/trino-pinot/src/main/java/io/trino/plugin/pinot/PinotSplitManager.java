@@ -56,7 +56,7 @@ public class PinotSplitManager
     @Inject
     public PinotSplitManager(PinotClient pinotClient)
     {
-        this.pinotClient = requireNonNull(pinotClient, "pinotClusterInfoFetcher is null");
+        this.pinotClient = requireNonNull(pinotClient, "pinotClient is null");
     }
 
     protected ConnectorSplitSource generateSplitForBrokerBasedScan(PinotTableHandle pinotTableHandle)
@@ -138,9 +138,9 @@ public class PinotSplitManager
                 ConnectorTableHandle connectorTableHandle,
                 String connectorId)
         {
-            super(requireNonNull(errorCode, "error code is null"), (String) null);
-            this.connectorId = requireNonNull(connectorId, "connector id is null");
-            this.connectorTableHandle = requireNonNull(connectorTableHandle, "connector table handle is null");
+            super(requireNonNull(errorCode, "errorCode is null"), (String) null);
+            this.connectorId = requireNonNull(connectorId, "connectorId is null");
+            this.connectorTableHandle = requireNonNull(connectorTableHandle, "connectorTableHandle is null");
         }
 
         @Override

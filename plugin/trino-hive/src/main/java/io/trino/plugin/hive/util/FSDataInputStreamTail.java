@@ -36,7 +36,7 @@ public final class FSDataInputStreamTail
 
     private FSDataInputStreamTail(long fileSize, Slice tailSlice)
     {
-        this.tailSlice = requireNonNull(tailSlice, "tailBuffer is null");
+        this.tailSlice = requireNonNull(tailSlice, "tailSlice is null");
         this.fileSize = fileSize;
         checkArgument(fileSize >= 0, "fileSize is negative: %s", fileSize);
         checkArgument(tailSlice.length() <= fileSize, "length (%s) is greater than fileSize (%s)", tailSlice.length(), fileSize);

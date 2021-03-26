@@ -47,8 +47,7 @@ public class PrometheusMetadata
     @Inject
     public PrometheusMetadata(PrometheusClient prometheusClient)
     {
-        this.prometheusClient = prometheusClient;
-        requireNonNull(this.prometheusClient, "client is null");
+        this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
     }
 
     @Override

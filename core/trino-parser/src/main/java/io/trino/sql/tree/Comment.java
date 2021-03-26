@@ -48,7 +48,7 @@ public final class Comment
     {
         super(location);
         this.type = requireNonNull(type, "type is null");
-        this.name = requireNonNull(name, "table is null");
+        this.name = requireNonNull(name, "name is null");
         this.comment = requireNonNull(comment, "comment is null");
     }
 

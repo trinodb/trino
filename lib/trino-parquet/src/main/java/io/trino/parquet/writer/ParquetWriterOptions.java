@@ -34,7 +34,7 @@ public class ParquetWriterOptions
 
     private ParquetWriterOptions(DataSize maxBlockSize, DataSize maxPageSize)
     {
-        this.maxRowGroupSize = toIntExact(requireNonNull(maxBlockSize, "maxRowGroupSize is null").toBytes());
+        this.maxRowGroupSize = toIntExact(requireNonNull(maxBlockSize, "maxBlockSize is null").toBytes());
         this.maxPageSize = toIntExact(requireNonNull(maxPageSize, "maxPageSize is null").toBytes());
     }
 

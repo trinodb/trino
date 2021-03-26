@@ -38,7 +38,7 @@ public class LocalFileRecordSet
 
     public LocalFileRecordSet(LocalFileTables localFileTables, LocalFileSplit split, LocalFileTableHandle table, List<LocalFileColumnHandle> columns)
     {
-        this.columns = requireNonNull(columns, "column handles is null");
+        this.columns = requireNonNull(columns, "columns is null");
         requireNonNull(split, "split is null");
 
         ImmutableList.Builder<Type> types = ImmutableList.builder();

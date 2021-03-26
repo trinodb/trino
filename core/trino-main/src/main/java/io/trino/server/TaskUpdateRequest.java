@@ -49,7 +49,7 @@ public class TaskUpdateRequest
             @JsonProperty("totalPartitions") OptionalInt totalPartitions)
     {
         requireNonNull(session, "session is null");
-        requireNonNull(extraCredentials, "credentials is null");
+        requireNonNull(extraCredentials, "extraCredentials is null");
         requireNonNull(fragment, "fragment is null");
         requireNonNull(sources, "sources is null");
         requireNonNull(outputIds, "outputIds is null");

@@ -112,7 +112,7 @@ public class OrcType
 
     public OrcType(OrcTypeKind orcTypeKind, List<OrcColumnId> fieldTypeIndexes, List<String> fieldNames, Optional<Integer> length, Optional<Integer> precision, Optional<Integer> scale, Map<String, String> attributes)
     {
-        this.orcTypeKind = requireNonNull(orcTypeKind, "typeKind is null");
+        this.orcTypeKind = requireNonNull(orcTypeKind, "orcTypeKind is null");
         this.fieldTypeIndexes = ImmutableList.copyOf(requireNonNull(fieldTypeIndexes, "fieldTypeIndexes is null"));
         if (fieldNames == null || (fieldNames.isEmpty() && !fieldTypeIndexes.isEmpty())) {
             this.fieldNames = null;

@@ -86,7 +86,7 @@ class TranslationMap
         this.outerContext = requireNonNull(outerContext, "outerContext is null");
         this.scope = requireNonNull(scope, "scope is null");
         this.analysis = requireNonNull(analysis, "analysis is null");
-        this.lambdaArguments = requireNonNull(lambdaArguments, "lambdaDeclarationToSymbolMap is null");
+        this.lambdaArguments = requireNonNull(lambdaArguments, "lambdaArguments is null");
 
         requireNonNull(fieldSymbols, "fieldSymbols is null");
         this.fieldSymbols = fieldSymbols.clone();

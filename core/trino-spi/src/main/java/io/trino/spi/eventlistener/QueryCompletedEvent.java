@@ -51,7 +51,7 @@ public class QueryCompletedEvent
         this.context = requireNonNull(context, "context is null");
         this.ioMetadata = requireNonNull(ioMetadata, "ioMetadata is null");
         this.failureInfo = requireNonNull(failureInfo, "failureInfo is null");
-        this.warnings = requireNonNull(warnings, "queryWarnings is null");
+        this.warnings = requireNonNull(warnings, "warnings is null");
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.executionStartTime = requireNonNull(executionStartTime, "executionStartTime is null");
         this.endTime = requireNonNull(endTime, "endTime is null");

@@ -443,7 +443,7 @@ public class OperatorContext
 
     public void setInfoSupplier(Supplier<OperatorInfo> infoSupplier)
     {
-        requireNonNull(infoSupplier, "infoProvider is null");
+        requireNonNull(infoSupplier, "infoSupplier is null");
         this.infoSupplier.set(infoSupplier);
     }
 

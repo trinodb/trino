@@ -117,7 +117,7 @@ public class ParametricScalarImplementation
         this.specializedTypeParameters = ImmutableMap.copyOf(requireNonNull(specializedTypeParameters, "specializedTypeParameters is null"));
         this.choices = requireNonNull(choices, "choices is null");
         checkArgument(!choices.isEmpty(), "choices is empty");
-        this.returnNativeContainerType = requireNonNull(returnContainerType, "return native container type is null");
+        this.returnNativeContainerType = requireNonNull(returnContainerType, "returnContainerType is null");
 
         for (Class<?> specializedJavaType : specializedTypeParameters.values()) {
             checkArgument(!Primitives.isWrapperType(specializedJavaType), "specializedTypeParameter must not contain boxed primitive types");
@@ -321,7 +321,7 @@ public class ParametricScalarImplementation
             this.argumentNativeContainerTypes = ImmutableList.copyOf(requireNonNull(argumentNativeContainerTypes, "argumentNativeContainerTypes is null"));
             this.specializedTypeParameters = ImmutableMap.copyOf(requireNonNull(specializedTypeParameters, "specializedTypeParameters is null"));
             this.choices = new ArrayList<>();
-            this.returnNativeContainerType = requireNonNull(returnNativeContainerType, "return native container type is null");
+            this.returnNativeContainerType = requireNonNull(returnNativeContainerType, "returnNativeContainerType is null");
         }
 
         void addChoice(ParametricScalarImplementationChoice choice)

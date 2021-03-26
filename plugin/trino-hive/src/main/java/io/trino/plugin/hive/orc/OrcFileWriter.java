@@ -106,7 +106,7 @@ public class OrcFileWriter
 
         this.rollbackAction = requireNonNull(rollbackAction, "rollbackAction is null");
 
-        this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "outputColumnInputIndexes is null");
+        this.fileInputColumnIndexes = requireNonNull(fileInputColumnIndexes, "fileInputColumnIndexes is null");
 
         ImmutableList.Builder<Block> nullBlocks = ImmutableList.builder();
         for (Type fileColumnType : fileColumnTypes) {

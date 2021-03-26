@@ -56,7 +56,7 @@ public class LegacyAccessControl
             LegacyAccessControlMetastore accessControlMetastore,
             LegacySecurityConfig securityConfig)
     {
-        this.accessControlMetastore = requireNonNull(accessControlMetastore, "metastoreProvider is null");
+        this.accessControlMetastore = requireNonNull(accessControlMetastore, "accessControlMetastore is null");
 
         requireNonNull(securityConfig, "securityConfig is null");
         allowDropTable = securityConfig.getAllowDropTable();

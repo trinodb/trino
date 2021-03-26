@@ -80,7 +80,7 @@ public final class SuiteList
         @Inject
         public Execution(SuiteFactory suiteFactory, EnvironmentConfigFactory configFactory)
         {
-            this.configFactory = requireNonNull(configFactory, "factory is null");
+            this.configFactory = requireNonNull(configFactory, "configFactory is null");
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
 
             try {

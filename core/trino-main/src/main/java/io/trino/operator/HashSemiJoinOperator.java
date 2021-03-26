@@ -156,9 +156,9 @@ public class HashSemiJoinOperator
         {
             checkArgument(probeJoinChannel >= 0, "probeJoinChannel is negative");
 
-            this.channelSetFuture = requireNonNull(channelSetFuture, "hashProvider is null").getChannelSet();
+            this.channelSetFuture = requireNonNull(channelSetFuture, "channelSetFuture is null").getChannelSet();
             this.probeJoinChannel = probeJoinChannel;
-            this.probeHashChannel = requireNonNull(probeHashChannel, "hashChannel is null");
+            this.probeHashChannel = requireNonNull(probeHashChannel, "probeHashChannel is null");
             this.localMemoryContext = requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null").newLocalMemoryContext(SemiJoinPages.class.getSimpleName());
         }
 

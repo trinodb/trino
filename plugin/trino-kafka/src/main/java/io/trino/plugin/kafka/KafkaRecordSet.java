@@ -85,11 +85,11 @@ public class KafkaRecordSet
             RowDecoder messageDecoder)
     {
         this.split = requireNonNull(split, "split is null");
-        this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
+        this.consumerFactory = requireNonNull(consumerFactory, "consumerFactory is null");
         this.connectorSession = requireNonNull(connectorSession, "connectorSession is null");
 
-        this.keyDecoder = requireNonNull(keyDecoder, "rowDecoder is null");
-        this.messageDecoder = requireNonNull(messageDecoder, "rowDecoder is null");
+        this.keyDecoder = requireNonNull(keyDecoder, "keyDecoder is null");
+        this.messageDecoder = requireNonNull(messageDecoder, "messageDecoder is null");
 
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
 

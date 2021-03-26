@@ -70,7 +70,7 @@ class ColumnInfo
     {
         this.columnType = columnType;
         this.columnParameterTypes = ImmutableList.copyOf(requireNonNull(columnParameterTypes, "columnParameterTypes is null"));
-        this.columnTypeSignature = requireNonNull(columnTypeSignature, "columnTypeName is null");
+        this.columnTypeSignature = requireNonNull(columnTypeSignature, "columnTypeSignature is null");
         this.nullable = requireNonNull(nullable, "nullable is null");
         this.currency = currency;
         this.signed = signed;

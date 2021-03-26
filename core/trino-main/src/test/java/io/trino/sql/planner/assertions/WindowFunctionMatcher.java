@@ -48,7 +48,7 @@ public class WindowFunctionMatcher
             Optional<ResolvedFunction> resolvedFunction,
             Optional<ExpectedValueProvider<WindowNode.Frame>> frameMaker)
     {
-        this.callMaker = requireNonNull(callMaker, "functionCall is null");
+        this.callMaker = requireNonNull(callMaker, "callMaker is null");
         this.resolvedFunction = requireNonNull(resolvedFunction, "resolvedFunction is null");
         this.frameMaker = requireNonNull(frameMaker, "frameMaker is null");
     }

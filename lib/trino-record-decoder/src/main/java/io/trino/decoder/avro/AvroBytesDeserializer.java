@@ -35,7 +35,7 @@ public class AvroBytesDeserializer<T>
 
     public AvroBytesDeserializer(AvroReaderSupplier<T> avroReaderSupplier)
     {
-        this.avroReaderSupplier = requireNonNull(avroReaderSupplier, "datumReaderSupplier is null");
+        this.avroReaderSupplier = requireNonNull(avroReaderSupplier, "avroReaderSupplier is null");
     }
 
     @Override

@@ -69,7 +69,7 @@ public class RaptorSplit
             List<HostAddress> addresses,
             OptionalLong transactionId)
     {
-        this.shardUuids = ImmutableSet.copyOf(requireNonNull(shardUuids, "shardUuid is null"));
+        this.shardUuids = ImmutableSet.copyOf(requireNonNull(shardUuids, "shardUuids is null"));
         this.bucketNumber = requireNonNull(bucketNumber, "bucketNumber is null");
         this.addresses = ImmutableList.copyOf(requireNonNull(addresses, "addresses is null"));
         this.transactionId = requireNonNull(transactionId, "transactionId is null");

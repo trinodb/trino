@@ -232,8 +232,8 @@ public class TestMinimalFunctionality
             this.neighbors = requireNonNull(neighbors, "neighbors is null");
             this.luckyNumbers = requireNonNull(luckyNumbers, "luckyNumbers is null");
             this.prices = requireNonNull(prices, "prices is null");
-            this.unluckyNumbers = requireNonNull(unluckyNumbers, "luckyNumbers is null");
-            this.longNumbers = requireNonNull(longNumbers, "luckyNumbers is null");
+            this.unluckyNumbers = requireNonNull(unluckyNumbers, "unluckyNumbers is null");
+            this.longNumbers = requireNonNull(longNumbers, "longNumbers is null");
             this.price = requireNonNull(price, "price is null");
             this.luckyNumber = requireNonNull(luckyNumber, "luckyNumber is null");
             this.unluckyNumber = requireNonNull(unluckyNumber, "unluckyNumber is null");

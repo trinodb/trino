@@ -34,7 +34,7 @@ public class ListBasedRecordSet
     public ListBasedRecordSet(List<List<String>> keys, List<Type> types)
     {
         this.types = requireNonNull(types, "types is null");
-        this.keys = requireNonNull(keys, "types is null");
+        this.keys = requireNonNull(keys, "keys is null");
         checkArgument(keys.isEmpty() || keys.size() == types.size(),
                 "number of types and key columns must match");
         this.totalRecords = keys.isEmpty() ? 0 : keys.get(0).size();

@@ -494,7 +494,7 @@ public class HivePageSource
 
         public MapCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
-            requireNonNull(typeManager, "typeManage is null");
+            requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             this.toType = requireNonNull(toHiveType, "toHiveType is null").getType(typeManager);
             HiveType fromKeyHiveType = HiveType.valueOf(((MapTypeInfo) fromHiveType.getTypeInfo()).getMapKeyTypeInfo().getTypeName());
@@ -529,7 +529,7 @@ public class HivePageSource
 
         public StructCoercer(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
         {
-            requireNonNull(typeManager, "typeManage is null");
+            requireNonNull(typeManager, "typeManager is null");
             requireNonNull(fromHiveType, "fromHiveType is null");
             requireNonNull(toHiveType, "toHiveType is null");
             List<HiveType> fromFieldTypes = extractStructFieldTypes(fromHiveType);

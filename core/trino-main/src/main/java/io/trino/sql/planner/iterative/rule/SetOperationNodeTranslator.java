@@ -66,7 +66,7 @@ public class SetOperationNodeTranslator
     public SetOperationNodeTranslator(Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
         this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
-        this.idAllocator = requireNonNull(idAllocator, "PlanNodeIdAllocator is null");
+        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
         requireNonNull(metadata, "metadata is null");
         this.countFunction = metadata.resolveFunction(QualifiedName.of("count"), fromTypes(BOOLEAN));
         this.rowNumberFunction = metadata.resolveFunction(QualifiedName.of("row_number"), ImmutableList.of());
@@ -232,7 +232,7 @@ public class SetOperationNodeTranslator
 
         public TranslationResult(PlanNode planNode, List<Symbol> countSymbols, Optional<Symbol> rowNumberSymbol)
         {
-            this.planNode = requireNonNull(planNode, "AggregationNode is null");
+            this.planNode = requireNonNull(planNode, "planNode is null");
             this.countSymbols = ImmutableList.copyOf(requireNonNull(countSymbols, "countSymbols is null"));
             this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         }

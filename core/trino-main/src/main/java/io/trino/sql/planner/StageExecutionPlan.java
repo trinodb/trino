@@ -42,8 +42,8 @@ public class StageExecutionPlan
             List<StageExecutionPlan> subStages, Map<PlanNodeId, TableInfo> tables)
     {
         this.fragment = requireNonNull(fragment, "fragment is null");
-        this.splitSources = requireNonNull(splitSources, "dataSource is null");
-        this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "dependencies is null"));
+        this.splitSources = requireNonNull(splitSources, "splitSources is null");
+        this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
 
         fieldNames = (fragment.getRoot() instanceof OutputNode) ?
                 Optional.of(ImmutableList.copyOf(((OutputNode) fragment.getRoot()).getColumnNames())) :

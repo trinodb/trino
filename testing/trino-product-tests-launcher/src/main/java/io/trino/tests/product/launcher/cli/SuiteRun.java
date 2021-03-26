@@ -365,7 +365,7 @@ public class SuiteRun
             this.suiteName = suiteName;
             this.runId = runId;
             this.suiteRun = requireNonNull(suiteRun, "suiteRun is null");
-            this.environmentConfig = requireNonNull(environmentConfig, "suiteConfig is null");
+            this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.duration = requireNonNull(duration, "duration is null");
             this.throwable = requireNonNull(throwable, "throwable is null");
         }

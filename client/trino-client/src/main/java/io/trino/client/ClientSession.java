@@ -347,7 +347,7 @@ public class ClientSession
 
         public Builder withCredentials(Map<String, String> credentials)
         {
-            this.credentials = requireNonNull(credentials, "extraCredentials is null");
+            this.credentials = requireNonNull(credentials, "credentials is null");
             return this;
         }
 

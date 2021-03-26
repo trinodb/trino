@@ -29,7 +29,7 @@ public class TableMetadata
 
     public TableMetadata(CatalogName catalogName, ConnectorTableMetadata metadata)
     {
-        requireNonNull(catalogName, "catalog is null");
+        requireNonNull(catalogName, "catalogName is null");
         requireNonNull(metadata, "metadata is null");
 
         this.catalogName = catalogName;

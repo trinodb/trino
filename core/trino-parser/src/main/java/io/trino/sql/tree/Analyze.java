@@ -41,7 +41,7 @@ public class Analyze
     private Analyze(Optional<NodeLocation> location, QualifiedName tableName, List<Property> properties)
     {
         super(location);
-        this.tableName = requireNonNull(tableName, "table is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.properties = ImmutableList.copyOf(requireNonNull(properties, "properties is null"));
     }
 

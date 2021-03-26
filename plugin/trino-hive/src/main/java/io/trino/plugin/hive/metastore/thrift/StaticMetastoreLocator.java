@@ -142,7 +142,7 @@ public class StaticMetastoreLocator
 
     private static URI checkMetastoreUri(URI uri)
     {
-        requireNonNull(uri, "metastoreUri is null");
+        requireNonNull(uri, "uri is null");
         String scheme = uri.getScheme();
         checkArgument(!isNullOrEmpty(scheme), "metastoreUri scheme is missing: %s", uri);
         checkArgument(scheme.equals("thrift"), "metastoreUri scheme must be thrift: %s", uri);

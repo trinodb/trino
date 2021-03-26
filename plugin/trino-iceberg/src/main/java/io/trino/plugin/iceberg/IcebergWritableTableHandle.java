@@ -50,7 +50,7 @@ public class IcebergWritableTableHandle
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
         this.partitionSpecAsJson = requireNonNull(partitionSpecAsJson, "partitionSpecAsJson is null");
         this.inputColumns = ImmutableList.copyOf(requireNonNull(inputColumns, "inputColumns is null"));
-        this.outputPath = requireNonNull(outputPath, "filePrefix is null");
+        this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
     }
 

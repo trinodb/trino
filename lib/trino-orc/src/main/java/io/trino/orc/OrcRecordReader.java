@@ -158,7 +158,7 @@ public class OrcRecordReader
         requireNonNull(fileStripes, "fileStripes is null");
         requireNonNull(stripeStats, "stripeStats is null");
         requireNonNull(orcDataSource, "orcDataSource is null");
-        this.orcTypes = requireNonNull(orcTypes, "types is null");
+        this.orcTypes = requireNonNull(orcTypes, "orcTypes is null");
         requireNonNull(decompressor, "decompressor is null");
         requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
@@ -632,7 +632,7 @@ public class OrcRecordReader
         public StripeInfo(StripeInformation stripe, Optional<StripeStatistics> stats)
         {
             this.stripe = requireNonNull(stripe, "stripe is null");
-            this.stats = requireNonNull(stats, "metadata is null");
+            this.stats = requireNonNull(stats, "stats is null");
         }
 
         public StripeInformation getStripe()

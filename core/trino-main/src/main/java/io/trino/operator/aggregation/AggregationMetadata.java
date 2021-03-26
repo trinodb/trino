@@ -83,7 +83,7 @@ public class AggregationMetadata
             Type outputType,
             List<Class<?>> lambdaInterfaces)
     {
-        this.outputType = requireNonNull(outputType);
+        this.outputType = requireNonNull(outputType, "outputType is null");
         this.valueInputMetadata = ImmutableList.copyOf(requireNonNull(valueInputMetadata, "valueInputMetadata is null"));
         this.name = requireNonNull(name, "name is null");
         this.inputFunction = requireNonNull(inputFunction, "inputFunction is null");

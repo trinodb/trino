@@ -150,7 +150,7 @@ public class StatisticsAggregationPlanner
                 StatisticAggregations aggregations,
                 StatisticAggregationsDescriptor<Symbol> descriptor)
         {
-            this.aggregations = requireNonNull(aggregations, "statisticAggregations is null");
+            this.aggregations = requireNonNull(aggregations, "aggregations is null");
             this.descriptor = requireNonNull(descriptor, "descriptor is null");
         }
 

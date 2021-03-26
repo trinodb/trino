@@ -51,7 +51,7 @@ public class TransactionInfo
         this.autoCommitContext = autoCommitContext;
         this.createTime = requireNonNull(createTime, "createTime is null");
         this.idleTime = requireNonNull(idleTime, "idleTime is null");
-        this.catalogNames = ImmutableList.copyOf(requireNonNull(catalogNames, "connectorIds is null"));
+        this.catalogNames = ImmutableList.copyOf(requireNonNull(catalogNames, "catalogNames is null"));
         this.writtenConnectorId = requireNonNull(writtenConnectorId, "writtenConnectorId is null");
     }
 

@@ -144,7 +144,7 @@ public class SetBuilderOperator
             BlockTypeOperators blockTypeOperators)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
-        this.setSupplier = requireNonNull(setSupplier, "setProvider is null");
+        this.setSupplier = requireNonNull(setSupplier, "setSupplier is null");
 
         if (requireNonNull(hashChannel, "hashChannel is null").isPresent()) {
             this.sourceChannels = new int[] {setChannel, hashChannel.get()};

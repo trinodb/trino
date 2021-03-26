@@ -75,7 +75,7 @@ public class GroupedTopNRankAccumulator
 
     public GroupedTopNRankAccumulator(RowIdComparisonHashStrategy strategy, int topN, LongConsumer rowIdEvictionListener)
     {
-        this.strategy = requireNonNull(strategy, "rowComparisonStrategy is null");
+        this.strategy = requireNonNull(strategy, "strategy is null");
         this.peerGroupLookup = new TopNPeerGroupLookup(10_000, strategy, NULL_GROUP_ID, UNKNOWN_INDEX);
         checkArgument(topN > 0, "topN must be greater than zero");
         this.topN = topN;

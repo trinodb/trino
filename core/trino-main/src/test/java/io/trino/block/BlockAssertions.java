@@ -92,7 +92,7 @@ public final class BlockAssertions
 
     public static Block createStringsBlock(String... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
 
         return createStringsBlock(Arrays.asList(values));
     }
@@ -115,7 +115,7 @@ public final class BlockAssertions
 
     public static Block createSlicesBlock(Slice... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
         return createSlicesBlock(Arrays.asList(values));
     }
 
@@ -181,7 +181,7 @@ public final class BlockAssertions
 
     public static Block createBooleansBlock(Boolean... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
 
         return createBooleansBlock(Arrays.asList(values));
     }
@@ -209,7 +209,7 @@ public final class BlockAssertions
 
     public static Block createShortDecimalsBlock(String... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
 
         return createShortDecimalsBlock(Arrays.asList(values));
     }
@@ -233,7 +233,7 @@ public final class BlockAssertions
 
     public static Block createLongDecimalsBlock(String... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
 
         return createLongDecimalsBlock(Arrays.asList(values));
     }
@@ -257,7 +257,7 @@ public final class BlockAssertions
 
     public static Block createIntsBlock(Integer... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
 
         return createIntsBlock(Arrays.asList(values));
     }
@@ -343,7 +343,7 @@ public final class BlockAssertions
 
     public static Block createLongsBlock(Long... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
 
         return createLongsBlock(Arrays.asList(values));
     }
@@ -436,7 +436,7 @@ public final class BlockAssertions
 
     public static Block createBlockOfReals(Float... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
 
         return createBlockOfReals(Arrays.asList(values));
     }
@@ -468,7 +468,7 @@ public final class BlockAssertions
 
     public static Block createDoublesBlock(Double... values)
     {
-        requireNonNull(values, "varargs 'values' is null");
+        requireNonNull(values, "values is null");
 
         return createDoublesBlock(Arrays.asList(values));
     }

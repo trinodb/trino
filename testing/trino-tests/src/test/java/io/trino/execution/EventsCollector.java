@@ -41,7 +41,7 @@ class EventsCollector
 
     public EventsCollector(EventFilters eventFilters)
     {
-        this.eventFilters = requireNonNull(eventFilters, "filter is null");
+        this.eventFilters = requireNonNull(eventFilters, "eventFilters is null");
         reset(0);
     }
 

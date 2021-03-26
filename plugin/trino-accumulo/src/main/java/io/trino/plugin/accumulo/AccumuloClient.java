@@ -622,7 +622,7 @@ public class AccumuloClient
 
     public AccumuloTable getTable(SchemaTableName table)
     {
-        requireNonNull(table, "schema table name is null");
+        requireNonNull(table, "table is null");
         return metaManager.getTable(table);
     }
 
@@ -634,7 +634,7 @@ public class AccumuloClient
 
     public AccumuloView getView(SchemaTableName viewName)
     {
-        requireNonNull(viewName, "schema table name is null");
+        requireNonNull(viewName, "viewName is null");
         return metaManager.getView(viewName);
     }
 

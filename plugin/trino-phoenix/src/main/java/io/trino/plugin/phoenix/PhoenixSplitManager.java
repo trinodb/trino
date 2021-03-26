@@ -67,7 +67,7 @@ public class PhoenixSplitManager
     @Inject
     public PhoenixSplitManager(PhoenixClient phoenixClient)
     {
-        this.phoenixClient = requireNonNull(phoenixClient, "client is null");
+        this.phoenixClient = requireNonNull(phoenixClient, "phoenixClient is null");
     }
 
     @Override

@@ -44,7 +44,7 @@ public class CreateTable
     private CreateTable(Optional<NodeLocation> location, QualifiedName name, List<TableElement> elements, boolean notExists, List<Property> properties, Optional<String> comment)
     {
         super(location);
-        this.name = requireNonNull(name, "table is null");
+        this.name = requireNonNull(name, "name is null");
         this.elements = ImmutableList.copyOf(requireNonNull(elements, "elements is null"));
         this.notExists = notExists;
         this.properties = requireNonNull(properties, "properties is null");

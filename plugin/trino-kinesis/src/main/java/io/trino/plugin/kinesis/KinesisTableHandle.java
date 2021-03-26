@@ -59,7 +59,7 @@ public class KinesisTableHandle
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.streamName = requireNonNull(streamName, "topicName is null");
+        this.streamName = requireNonNull(streamName, "streamName is null");
         this.messageDataFormat = requireNonNull(messageDataFormat, "messageDataFormat is null");
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
     }

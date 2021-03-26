@@ -1702,7 +1702,7 @@ public class SemiTransactionalHiveMetastore
                 PartitionStatistics updatedStatistics = statistics.withAdjustedRowCount(-rowCount);
                 requireNonNull(updatedStatistics, "updatedStatistics is null");
                 Partition updatedPartition = updatedPartitions.get(partitionId);
-                requireNonNull(updatedPartition, "partition is null");
+                requireNonNull(updatedPartition, "updatedPartition is null");
                 Partition originalPartition = partitionsOptionalMap.get(partitionId).get();
                 alterPartitionOperations.add(new AlterPartitionOperation(
                         identity,
@@ -3246,7 +3246,7 @@ public class SemiTransactionalHiveMetastore
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.tableName = requireNonNull(tableName, "tableName is null");
-            this.partitionName = requireNonNull(partitionName, "partitionValues is null");
+            this.partitionName = requireNonNull(partitionName, "partitionName is null");
             this.statistics = requireNonNull(statistics, "statistics is null");
             this.merge = merge;
         }

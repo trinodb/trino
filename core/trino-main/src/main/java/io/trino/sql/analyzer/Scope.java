@@ -387,7 +387,7 @@ public class Scope
 
         public AsteriskedIdentifierChainBasis(BasisType basisType, Optional<Scope> scope, Optional<RelationType> relationType)
         {
-            this.basisType = requireNonNull(basisType, "type is null");
+            this.basisType = requireNonNull(basisType, "basisType is null");
             this.scope = requireNonNull(scope, "scope is null");
             this.relationType = requireNonNull(relationType, "relationType is null");
             checkArgument(basisType == FIELD || scope.isPresent(), "missing scope");
