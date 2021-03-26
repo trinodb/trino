@@ -31,7 +31,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -223,7 +222,7 @@ public class CachingJdbcClient
     }
 
     @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
         return delegate.supportsTopN(session, handle, sortOrder);
     }

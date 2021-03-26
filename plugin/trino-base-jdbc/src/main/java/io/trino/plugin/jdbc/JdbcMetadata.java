@@ -454,10 +454,10 @@ public class JdbcMetadata
         verify(!sortItems.isEmpty(), "sortItems are empty");
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        List<SortItem> resultSortOrder = sortItems.stream()
+        List<JdbcSortItem> resultSortOrder = sortItems.stream()
                 .map(sortItem -> {
                     verify(assignments.containsKey(sortItem.getName()), "assignments does not contain sortItem: %s", sortItem.getName());
-                    return new SortItem(((JdbcColumnHandle) assignments.get(sortItem.getName())).getColumnName(), sortItem.getSortOrder());
+                    return new JdbcSortItem(((JdbcColumnHandle) assignments.get(sortItem.getName())), sortItem.getSortOrder());
                 })
                 .collect(toImmutableList());
 

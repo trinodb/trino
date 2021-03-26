@@ -33,7 +33,6 @@ import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.TableStatistics;
@@ -1043,7 +1042,7 @@ public abstract class BaseJdbcClient
     }
 
     @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
         if (topNFunction().isEmpty()) {
             return false;
@@ -1056,7 +1055,7 @@ public abstract class BaseJdbcClient
         return Optional.empty();
     }
 
-    private Function<String, String> applyTopN(List<SortItem> sortOrder, long limit)
+    private Function<String, String> applyTopN(List<JdbcSortItem> sortOrder, long limit)
     {
         return query -> topNFunction()
                 .orElseThrow()
@@ -1158,6 +1157,6 @@ public abstract class BaseJdbcClient
     @FunctionalInterface
     public interface TopNFunction
     {
-        String apply(String query, List<SortItem> sortItems, long limit);
+        String apply(String query, List<JdbcSortItem> sortItems, long limit);
     }
 }

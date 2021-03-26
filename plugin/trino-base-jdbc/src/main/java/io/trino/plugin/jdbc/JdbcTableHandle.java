@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.predicate.TupleDomain;
 
 import javax.annotation.Nullable;
@@ -42,7 +41,7 @@ public final class JdbcTableHandle
     private final TupleDomain<ColumnHandle> constraint;
 
     // semantically sort order is applied after constraint
-    private final Optional<List<SortItem>> sortOrder;
+    private final Optional<List<JdbcSortItem>> sortOrder;
 
     // semantically limit is applied after sort order
     private final OptionalLong limit;
@@ -73,7 +72,7 @@ public final class JdbcTableHandle
     public JdbcTableHandle(
             @JsonProperty("relationHandle") JdbcRelationHandle relationHandle,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
-            @JsonProperty("sortOrder") Optional<List<SortItem>> sortOrder,
+            @JsonProperty("sortOrder") Optional<List<JdbcSortItem>> sortOrder,
             @JsonProperty("limit") OptionalLong limit,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns,
             @JsonProperty("nextSyntheticColumnId") int nextSyntheticColumnId)
@@ -184,7 +183,7 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
-    public Optional<List<SortItem>> getSortOrder()
+    public Optional<List<JdbcSortItem>> getSortOrder()
     {
         return sortOrder;
     }
