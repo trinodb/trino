@@ -11,7 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.presto.license.LicenseManager;
-import io.trino.plugin.jdbc.SessionPropertiesProvider;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
