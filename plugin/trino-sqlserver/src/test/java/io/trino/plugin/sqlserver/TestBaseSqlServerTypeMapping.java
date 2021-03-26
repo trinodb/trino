@@ -38,7 +38,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.time.ZoneOffset.UTC;
 
-public class TestSqlServerTypeMapping
+public class TestBaseSqlServerTypeMapping
         extends AbstractTestQueryFramework
 {
     private TestingSqlServer sqlServer;
