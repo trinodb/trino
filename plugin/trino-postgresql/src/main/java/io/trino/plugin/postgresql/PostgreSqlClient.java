@@ -708,7 +708,7 @@ public class PostgreSqlClient
                     })
                     .collect(joining(", "));
 
-            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+            return format("%s ORDER BY %s OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY", query, orderBy, limit);
         });
     }
 
