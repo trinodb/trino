@@ -219,6 +219,12 @@ public class LocalDispatchQuery
     }
 
     @Override
+    public Optional<Duration> getPlanningTime()
+    {
+        return stateMachine.getPlanningTime();
+    }
+
+    @Override
     public Optional<DateTime> getEndTime()
     {
         return stateMachine.getEndTime();
