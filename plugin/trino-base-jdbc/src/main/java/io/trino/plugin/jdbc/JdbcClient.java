@@ -23,7 +23,6 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -105,7 +104,7 @@ public interface JdbcClient
             Map<JdbcColumnHandle, String> leftAssignments,
             JoinStatistics statistics);
 
-    boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder);
+    boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder);
 
     boolean isTopNLimitGuaranteed(ConnectorSession session);
 
