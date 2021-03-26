@@ -87,7 +87,7 @@ public class JmxMetadata
     public JmxMetadata(MBeanServer mbeanServer, JmxHistoricalData jmxHistoricalData)
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
-        this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxStatsHolder is null");
+        this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
     }
 
     @Override

@@ -80,7 +80,7 @@ public final class KafkaTableHandle
         this.messageDataSchemaLocation = requireNonNull(messageDataSchemaLocation, "messageDataSchemaLocation is null");
         this.keySubject = requireNonNull(keySubject, "keySubject is null");
         this.messageSubject = requireNonNull(messageSubject, "messageSubject is null");
-        this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.constraint = requireNonNull(constraint, "constraint is null");
     }
 

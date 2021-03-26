@@ -38,8 +38,8 @@ public class SheetsSplit
             @JsonProperty("tableName") String tableName,
             @JsonProperty("values") List<List<Object>> values)
     {
-        this.schemaName = requireNonNull(schemaName, "schema name is null");
-        this.tableName = requireNonNull(tableName, "table name is null");
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         this.values = requireNonNull(values, "values is null");
         this.hostAddresses = ImmutableList.of();
     }

@@ -181,7 +181,7 @@ public class SqlQueryScheduler
             DynamicFilterService dynamicFilterService)
     {
         this.queryStateMachine = requireNonNull(queryStateMachine, "queryStateMachine is null");
-        this.executionPolicy = requireNonNull(executionPolicy, "schedulerPolicyFactory is null");
+        this.executionPolicy = requireNonNull(executionPolicy, "executionPolicy is null");
         this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
         this.summarizeTaskInfo = summarizeTaskInfo;
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");

@@ -525,7 +525,7 @@ public final class PartitionTransforms
 
         public ColumnTransform(Type type, Function<Block, Block> transform)
         {
-            this.type = requireNonNull(type, "resultType is null");
+            this.type = requireNonNull(type, "type is null");
             this.transform = requireNonNull(transform, "transform is null");
         }
 

@@ -30,7 +30,7 @@ public class PartitionOfflineException
     {
         super(HIVE_PARTITION_OFFLINE, formatMessage(tableName, partitionName, forPresto, offlineMessage));
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partition = requireNonNull(partitionName, "partition is null");
+        this.partition = requireNonNull(partitionName, "partitionName is null");
     }
 
     public SchemaTableName getTableName()

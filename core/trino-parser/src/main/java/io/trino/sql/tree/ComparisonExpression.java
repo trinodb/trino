@@ -41,7 +41,7 @@ public class ComparisonExpression
     private ComparisonExpression(Optional<NodeLocation> location, Operator operator, Expression left, Expression right)
     {
         super(location);
-        requireNonNull(operator, "type is null");
+        requireNonNull(operator, "operator is null");
         requireNonNull(left, "left is null");
         requireNonNull(right, "right is null");
 

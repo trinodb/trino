@@ -53,7 +53,7 @@ public final class PropertyMetadata<T>
     {
         requireNonNull(name, "name is null");
         requireNonNull(description, "description is null");
-        requireNonNull(sqlType, "type is null");
+        requireNonNull(sqlType, "sqlType is null");
         requireNonNull(javaType, "javaType is null");
         requireNonNull(decoder, "decoder is null");
         requireNonNull(encoder, "encoder is null");

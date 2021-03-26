@@ -33,7 +33,7 @@ final class SerializedPageReference
 
     public SerializedPageReference(SerializedPage serializedPage, int referenceCount)
     {
-        this.serializedPage = requireNonNull(serializedPage, "page is null");
+        this.serializedPage = requireNonNull(serializedPage, "serializedPage is null");
         checkArgument(referenceCount > 0, "referenceCount must be at least 1");
         this.referenceCount = referenceCount;
     }

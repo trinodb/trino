@@ -308,7 +308,7 @@ class StatementAnalyzer
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.session = requireNonNull(session, "session is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
-        this.correlationSupport = requireNonNull(correlationSupport, "correlationAllowed is null");
+        this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
     }
 
     public Scope analyze(Node node, Scope outerQueryScope)

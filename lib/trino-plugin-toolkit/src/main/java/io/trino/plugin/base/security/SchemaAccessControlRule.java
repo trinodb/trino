@@ -43,9 +43,9 @@ public class SchemaAccessControlRule
             @JsonProperty("schema") Optional<Pattern> schemaRegex)
     {
         this.owner = owner;
-        this.userRegex = requireNonNull(userRegex, "user is null");
-        this.groupRegex = requireNonNull(groupRegex, "group is null");
-        this.schemaRegex = requireNonNull(schemaRegex, "sourceRegex is null");
+        this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
+        this.schemaRegex = requireNonNull(schemaRegex, "schemaRegex is null");
     }
 
     public Optional<Boolean> match(String user, Set<String> groups, String schema)

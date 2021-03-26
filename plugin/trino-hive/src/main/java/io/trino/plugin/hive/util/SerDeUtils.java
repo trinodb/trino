@@ -69,8 +69,8 @@ public final class SerDeUtils
 
     public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector)
     {
-        Block block = serializeObject(type, null, object, objectInspector);
-        return requireNonNull(block, "serialized result is null");
+        Block serialized = serializeObject(type, null, object, objectInspector);
+        return requireNonNull(serialized, "serialized is null");
     }
 
     public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
@@ -101,7 +101,7 @@ public final class SerDeUtils
 
     private static void serializePrimitive(Type type, BlockBuilder builder, Object object, PrimitiveObjectInspector inspector)
     {
-        requireNonNull(builder, "parent builder is null");
+        requireNonNull(builder, "builder is null");
 
         if (object == null) {
             builder.appendNull();
@@ -175,7 +175,7 @@ public final class SerDeUtils
     {
         List<?> list = inspector.getList(object);
         if (list == null) {
-            requireNonNull(builder, "parent builder is null").appendNull();
+            requireNonNull(builder, "builder is null").appendNull();
             return null;
         }
 
@@ -209,7 +209,7 @@ public final class SerDeUtils
     {
         Map<?, ?> map = inspector.getMap(object);
         if (map == null) {
-            requireNonNull(builder, "parent builder is null").appendNull();
+            requireNonNull(builder, "builder is null").appendNull();
             return null;
         }
 
@@ -248,7 +248,7 @@ public final class SerDeUtils
     private static Block serializeStruct(Type type, BlockBuilder builder, Object object, StructObjectInspector inspector)
     {
         if (object == null) {
-            requireNonNull(builder, "parent builder is null").appendNull();
+            requireNonNull(builder, "builder is null").appendNull();
             return null;
         }
 
@@ -282,7 +282,7 @@ public final class SerDeUtils
     private static Block serializeUnion(Type type, BlockBuilder builder, Object object, UnionObjectInspector inspector)
     {
         if (object == null) {
-            requireNonNull(builder, "parent builder is null").appendNull();
+            requireNonNull(builder, "builder is null").appendNull();
             return null;
         }
 

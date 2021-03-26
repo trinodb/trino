@@ -100,7 +100,7 @@ public class TableScanNode
         checkArgument(assignments.keySet().containsAll(outputs), "assignments does not cover all of outputs");
         this.enforcedConstraint = requireNonNull(enforcedConstraint, "enforcedConstraint is null");
         this.updateTarget = updateTarget;
-        this.useConnectorNodePartitioning = requireNonNull(useConnectorNodePartitioning, "useTableNodePartitioning is null");
+        this.useConnectorNodePartitioning = requireNonNull(useConnectorNodePartitioning, "useConnectorNodePartitioning is null");
     }
 
     @JsonProperty("table")

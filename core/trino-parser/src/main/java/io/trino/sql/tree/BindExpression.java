@@ -65,7 +65,7 @@ public class BindExpression
     private BindExpression(Optional<NodeLocation> location, List<Expression> values, Expression function)
     {
         super(location);
-        this.values = requireNonNull(values, "value is null");
+        this.values = requireNonNull(values, "values is null");
         this.function = requireNonNull(function, "function is null");
     }
 

@@ -165,7 +165,7 @@ public final class TimeZoneKey
      */
     public static TimeZoneKey getTimeZoneKey(String zoneId)
     {
-        requireNonNull(zoneId, "Zone id is null");
+        requireNonNull(zoneId, "zoneId is null");
         checkArgument(!zoneId.isEmpty(), "Zone id is an empty string");
 
         TimeZoneKey zoneKey = ZONE_ID_TO_KEY.get(zoneId);

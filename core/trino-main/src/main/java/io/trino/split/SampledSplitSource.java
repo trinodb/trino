@@ -35,7 +35,7 @@ public class SampledSplitSource
 
     public SampledSplitSource(SplitSource splitSource, double sampleRatio)
     {
-        this.splitSource = requireNonNull(splitSource, "dataSource is null");
+        this.splitSource = requireNonNull(splitSource, "splitSource is null");
         this.sampleRatio = sampleRatio;
     }
 

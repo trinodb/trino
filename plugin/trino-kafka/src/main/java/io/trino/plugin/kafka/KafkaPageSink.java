@@ -57,7 +57,7 @@ public class KafkaPageSink
             ConnectorSession session)
     {
         this.topicName = requireNonNull(topicName, "topicName is null");
-        this.columns = requireNonNull(ImmutableList.copyOf(columns), "columns is null");
+        this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
         this.keyEncoder = requireNonNull(keyEncoder, "keyEncoder is null");
         this.messageEncoder = requireNonNull(messageEncoder, "messageEncoder is null");
         requireNonNull(producerFactory, "producerFactory is null");

@@ -79,7 +79,7 @@ public class HiveRecordCursor
 
     public HiveRecordCursor(List<ColumnMapping> columnMappings, RecordCursor delegate)
     {
-        requireNonNull(columnMappings, "columns is null");
+        requireNonNull(columnMappings, "columnMappings is null");
 
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.columnMappings = columnMappings;

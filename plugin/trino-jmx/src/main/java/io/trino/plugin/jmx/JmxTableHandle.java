@@ -48,7 +48,7 @@ public class JmxTableHandle
             @JsonProperty("nodeFilter") TupleDomain<ColumnHandle> nodeFilter)
     {
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.objectNames = ImmutableList.copyOf(requireNonNull(objectNames, "objectName is null"));
+        this.objectNames = ImmutableList.copyOf(requireNonNull(objectNames, "objectNames is null"));
         this.columnHandles = ImmutableList.copyOf(requireNonNull(columnHandles, "columnHandles is null"));
         this.liveData = liveData;
         this.nodeFilter = requireNonNull(nodeFilter, "nodeFilter is null");

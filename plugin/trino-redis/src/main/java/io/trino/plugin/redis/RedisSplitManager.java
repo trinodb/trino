@@ -51,7 +51,7 @@ public class RedisSplitManager
             RedisConnectorConfig redisConnectorConfig,
             RedisJedisManager jedisManager)
     {
-        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConfig is null");
+        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.jedisManager = requireNonNull(jedisManager, "jedisManager is null");
     }
 

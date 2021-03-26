@@ -47,7 +47,7 @@ public class RedisJedisManager
             RedisConnectorConfig redisConnectorConfig,
             NodeManager nodeManager)
     {
-        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConfig is null");
+        this.redisConnectorConfig = requireNonNull(redisConnectorConfig, "redisConnectorConfig is null");
         this.jedisPoolCache = CacheBuilder.newBuilder().build(CacheLoader.from(this::createConsumer));
         this.jedisPoolConfig = new JedisPoolConfig();
     }

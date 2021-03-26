@@ -42,7 +42,7 @@ public final class PartialTranslator
             TypeAnalyzer typeAnalyzer,
             TypeProvider typeProvider)
     {
-        requireNonNull(inputExpression, "expressions is null");
+        requireNonNull(inputExpression, "inputExpression is null");
         requireNonNull(session, "session is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         requireNonNull(typeProvider, "typeProvider is null");

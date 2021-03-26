@@ -300,7 +300,7 @@ public class TestReaderProjectionsAdapter
 
         private RowData(Object... data)
         {
-            this.data = requireNonNull(Arrays.asList(data), "data is null");
+            this.data = Arrays.asList(requireNonNull(data, "data is null"));
         }
 
         static RowData rowData(Object... data)

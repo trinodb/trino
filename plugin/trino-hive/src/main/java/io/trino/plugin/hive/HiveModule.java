@@ -165,7 +165,7 @@ public class HiveModule
         public TypeDeserializer(TypeManager typeManager)
         {
             super(Type.class);
-            this.typeManager = requireNonNull(typeManager, "metadata is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override

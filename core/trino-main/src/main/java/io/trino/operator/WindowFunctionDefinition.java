@@ -50,7 +50,7 @@ public class WindowFunctionDefinition
         requireNonNull(type, "type is null");
         requireNonNull(frameInfo, "frameInfo is null");
         requireNonNull(lambdaProviders, "lambdaProviders is null");
-        requireNonNull(argumentChannels, "inputs is null");
+        requireNonNull(argumentChannels, "argumentChannels is null");
 
         this.functionSupplier = functionSupplier;
         this.type = type;

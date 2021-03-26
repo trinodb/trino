@@ -43,7 +43,7 @@ public class Update
     {
         super(location);
         this.table = requireNonNull(table, "table is null");
-        this.assignments = requireNonNull(assignments, "targets is null");
+        this.assignments = requireNonNull(assignments, "assignments is null");
         this.where = requireNonNull(where, "where is null");
     }
 

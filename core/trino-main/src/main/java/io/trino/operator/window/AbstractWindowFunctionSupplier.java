@@ -58,7 +58,7 @@ public abstract class AbstractWindowFunctionSupplier
     @Override
     public final WindowFunction createWindowFunction(List<Integer> argumentChannels, boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
     {
-        requireNonNull(argumentChannels, "inputs is null");
+        requireNonNull(argumentChannels, "argumentChannels is null");
 
         long argumentCount = signature.getArgumentTypes().stream()
                 .filter(type -> !type.getBase().equalsIgnoreCase(FunctionType.NAME))

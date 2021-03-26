@@ -102,7 +102,7 @@ public class HivePageSinkProvider
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.eventClient = requireNonNull(eventClient, "eventClient is null");
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
-        this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
+        this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
         this.parquetTimeZone = config.getParquetDateTimeZone();
     }

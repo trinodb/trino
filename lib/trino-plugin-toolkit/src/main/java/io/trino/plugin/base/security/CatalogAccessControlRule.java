@@ -49,8 +49,8 @@ public class CatalogAccessControlRule
             @JsonProperty("catalog") Optional<Pattern> catalogRegex)
     {
         this.accessMode = requireNonNull(accessMode, "accessMode is null");
-        this.userRegex = requireNonNull(userRegex, "user is null");
-        this.groupRegex = requireNonNull(groupRegex, "group is null");
+        this.userRegex = requireNonNull(userRegex, "userRegex is null");
+        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
     }
 

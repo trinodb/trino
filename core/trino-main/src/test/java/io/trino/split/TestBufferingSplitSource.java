@@ -249,7 +249,7 @@ public class TestBufferingSplitSource
 
         public NextBatchResult(SplitBatch splitBatch)
         {
-            this.splitBatch = requireNonNull(splitBatch, "splits is null");
+            this.splitBatch = requireNonNull(splitBatch, "splitBatch is null");
         }
 
         public NextBatchResult assertSize(int expectedSize)

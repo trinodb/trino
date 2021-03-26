@@ -84,7 +84,7 @@ public class LocalDispatchQueryFactory
 
         this.clusterSizeMonitor = requireNonNull(clusterSizeMonitor, "clusterSizeMonitor is null");
 
-        this.executor = requireNonNull(dispatchExecutor, "executorService is null").getExecutor();
+        this.executor = requireNonNull(dispatchExecutor, "dispatchExecutor is null").getExecutor();
     }
 
     @Override

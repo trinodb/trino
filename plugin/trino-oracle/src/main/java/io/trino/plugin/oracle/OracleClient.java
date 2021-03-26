@@ -163,7 +163,7 @@ public class OracleClient
     {
         super(config, "\"", connectionFactory);
 
-        requireNonNull(oracleConfig, "oracle config is null");
+        requireNonNull(oracleConfig, "oracleConfig is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
     }
 

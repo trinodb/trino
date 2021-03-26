@@ -39,7 +39,7 @@ public class MongoColumnHandle
             @JsonProperty("hidden") boolean hidden)
     {
         this.name = requireNonNull(name, "name is null");
-        this.type = requireNonNull(type, "columnType is null");
+        this.type = requireNonNull(type, "type is null");
         this.hidden = hidden;
     }
 

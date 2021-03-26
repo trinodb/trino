@@ -839,7 +839,7 @@ public class AddLocalExchanges
         public PlanWithProperties(PlanNode node, StreamProperties properties)
         {
             this.node = requireNonNull(node, "node is null");
-            this.properties = requireNonNull(properties, "StreamProperties is null");
+            this.properties = requireNonNull(properties, "properties is null");
         }
 
         public PlanNode getNode()

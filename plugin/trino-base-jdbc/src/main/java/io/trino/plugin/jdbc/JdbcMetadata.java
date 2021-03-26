@@ -91,7 +91,7 @@ public class JdbcMetadata
 
     public JdbcMetadata(JdbcClient jdbcClient, boolean allowDropTable)
     {
-        this.jdbcClient = requireNonNull(jdbcClient, "client is null");
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.allowDropTable = allowDropTable;
     }
 

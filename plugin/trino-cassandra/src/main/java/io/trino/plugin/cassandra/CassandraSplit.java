@@ -38,7 +38,7 @@ public class CassandraSplit
             @JsonProperty("splitCondition") String splitCondition,
             @JsonProperty("addresses") List<HostAddress> addresses)
     {
-        requireNonNull(partitionId, "partitionName is null");
+        requireNonNull(partitionId, "partitionId is null");
         requireNonNull(addresses, "addresses is null");
 
         this.partitionId = partitionId;

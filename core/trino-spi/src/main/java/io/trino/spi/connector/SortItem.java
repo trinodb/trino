@@ -29,7 +29,7 @@ public class SortItem
     public SortItem(String name, SortOrder sortOrder)
     {
         this.name = requireNonNull(name, "name is null");
-        this.sortOrder = requireNonNull(sortOrder, "name is null");
+        this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
     }
 
     @JsonProperty

@@ -63,7 +63,7 @@ public class HiveUpdateProcessor
             @JsonProperty("allColumns") List<HiveColumnHandle> allDataColumns,
             @JsonProperty("updatedColumns") List<HiveColumnHandle> updatedColumns)
     {
-        this.allDataColumns = requireNonNull(allDataColumns, "allColumns is null");
+        this.allDataColumns = requireNonNull(allDataColumns, "allDataColumns is null");
         this.updatedColumns = requireNonNull(updatedColumns, "updatedColumns is null");
         this.updatedColumnNames = updatedColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
         Set<String> allDataColumnNames = allDataColumns.stream().map(HiveColumnHandle::getName).collect(toImmutableSet());
@@ -194,7 +194,7 @@ public class HiveUpdateProcessor
      */
     public Block createMergedColumnsBlock(Page page, List<Integer> columnValueAndRowIdChannels)
     {
-        requireNonNull(page, "originalPage is null");
+        requireNonNull(page, "page is null");
         RowBlock acidBlock = getAcidRowBlock(page, columnValueAndRowIdChannels);
         List<Block> acidBlocks = acidBlock.getChildren();
         List<Block> nonUpdatedColumnRowBlocks;

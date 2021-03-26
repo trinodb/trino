@@ -182,7 +182,7 @@ public class SqlTaskExecution
         this.taskContext = requireNonNull(taskContext, "taskContext is null");
         this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
 
-        this.taskExecutor = requireNonNull(taskExecutor, "driverExecutor is null");
+        this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
 
         this.splitMonitor = requireNonNull(splitMonitor, "splitMonitor is null");
@@ -1026,7 +1026,7 @@ public class SqlTaskExecution
 
         private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit, Lifespan lifespan)
         {
-            this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverFactory is null");
+            this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverSplitRunnerFactory is null");
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
             this.lifespan = requireNonNull(lifespan, "lifespan is null");

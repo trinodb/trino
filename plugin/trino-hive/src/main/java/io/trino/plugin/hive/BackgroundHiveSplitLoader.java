@@ -204,7 +204,7 @@ public class BackgroundHiveSplitLoader
             Optional<ValidWriteIdList> validWriteIds)
     {
         this.table = table;
-        this.transaction = requireNonNull(transaction, "tranaction is null");
+        this.transaction = requireNonNull(transaction, "transaction is null");
         this.compactEffectivePredicate = compactEffectivePredicate;
         this.dynamicFilter = dynamicFilter;
         this.dynamicFilteringProbeBlockingTimeoutMillis = dynamicFilteringProbeBlockingTimeout.toMillis();
@@ -938,7 +938,7 @@ public class BackgroundHiveSplitLoader
         public static Optional<BucketSplitInfo> createBucketSplitInfo(Optional<HiveBucketHandle> bucketHandle, Optional<HiveBucketFilter> bucketFilter)
         {
             requireNonNull(bucketHandle, "bucketHandle is null");
-            requireNonNull(bucketFilter, "buckets is null");
+            requireNonNull(bucketFilter, "bucketFilter is null");
 
             if (bucketHandle.isEmpty()) {
                 checkArgument(bucketFilter.isEmpty(), "bucketHandle must be present if bucketFilter is present");

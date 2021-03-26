@@ -46,7 +46,7 @@ public class JsonRowDecoderFactory
     @Override
     public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
-        requireNonNull(columns, "columnHandles is null");
+        requireNonNull(columns, "columns is null");
         return new JsonRowDecoder(objectMapper, chooseFieldDecoders(columns));
     }
 

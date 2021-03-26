@@ -34,9 +34,9 @@ public class AggregationApplicationResult<T>
             Map<ColumnHandle, ColumnHandle> groupingColumnMapping)
     {
         this.handle = requireNonNull(handle, "handle is null");
-        requireNonNull(groupingColumnMapping, "goupingSetMapping is null");
+        requireNonNull(groupingColumnMapping, "groupingColumnMapping is null");
         requireNonNull(projections, "projections is null");
-        requireNonNull(assignments, "assignment is null");
+        requireNonNull(assignments, "assignments is null");
         this.groupingColumnMapping = Map.copyOf(groupingColumnMapping);
         this.projections = List.copyOf(projections);
         this.assignments = List.copyOf(assignments);

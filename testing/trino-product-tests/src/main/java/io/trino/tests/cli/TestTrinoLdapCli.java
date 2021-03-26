@@ -263,11 +263,11 @@ public class TestTrinoLdapCli
     private void launchTrinoCliWithServerArgument(String... arguments)
             throws IOException
     {
-        requireNonNull(ldapTruststorePath, "databases.presto.cli_ldap_truststore_path is null");
-        requireNonNull(ldapTruststorePassword, "databases.presto.cli_ldap_truststore_password is null");
-        requireNonNull(ldapUserName, "databases.presto.cli_ldap_user_name is null");
-        requireNonNull(ldapServerAddress, "databases.presto.cli_ldap_server_address is null");
-        requireNonNull(ldapUserPassword, "databases.presto.cli_ldap_user_password is null");
+        requireNonNull(ldapTruststorePath, "ldapTruststorePath is null");
+        requireNonNull(ldapTruststorePassword, "ldapTruststorePassword is null");
+        requireNonNull(ldapUserName, "ldapUserName is null");
+        requireNonNull(ldapServerAddress, "ldapServerAddress is null");
+        requireNonNull(ldapUserPassword, "ldapUserPassword is null");
 
         ImmutableList.Builder<String> prestoClientOptions = ImmutableList.builder();
         prestoClientOptions.add(

@@ -40,7 +40,7 @@ public class AccumuloConnectorFactory
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
         requireNonNull(catalogName, "catalogName is null");
-        requireNonNull(config, "requiredConfig is null");
+        requireNonNull(config, "config is null");
         requireNonNull(context, "context is null");
 
         Bootstrap app = new Bootstrap(

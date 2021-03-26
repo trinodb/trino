@@ -46,7 +46,7 @@ public class PartitionNotFoundException
     {
         super(message, cause);
         this.tableName = requireNonNull(tableName, "tableName is null");
-        this.partitionValues = requireNonNull(partitionValues, "partitionValue is null");
+        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
     }
 
     public SchemaTableName getTableName()

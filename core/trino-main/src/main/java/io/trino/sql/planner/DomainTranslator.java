@@ -1048,7 +1048,7 @@ public final class DomainTranslator
 
         public NormalizedSimpleComparison(Expression symbolExpression, ComparisonExpression.Operator comparisonOperator, NullableValue value)
         {
-            this.symbolExpression = requireNonNull(symbolExpression, "nameReference is null");
+            this.symbolExpression = requireNonNull(symbolExpression, "symbolExpression is null");
             this.comparisonOperator = requireNonNull(comparisonOperator, "comparisonOperator is null");
             this.value = requireNonNull(value, "value is null");
         }

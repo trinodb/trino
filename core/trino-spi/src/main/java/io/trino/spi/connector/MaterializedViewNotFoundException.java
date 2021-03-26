@@ -40,7 +40,7 @@ public class MaterializedViewNotFoundException
     public MaterializedViewNotFoundException(SchemaTableName materializedViewName, String message, Throwable cause)
     {
         super(message, cause);
-        this.materializedViewName = requireNonNull(materializedViewName, "viewName is null");
+        this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
     }
 
     public SchemaTableName getMaterializedViewName()

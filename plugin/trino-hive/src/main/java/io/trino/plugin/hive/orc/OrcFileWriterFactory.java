@@ -117,7 +117,7 @@ public class OrcFileWriterFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.writeLegacyVersion = writeLegacyVersion;
-        this.readStats = requireNonNull(readStats, "stats is null");
+        this.readStats = requireNonNull(readStats, "readStats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
     }
 

@@ -73,7 +73,7 @@ public class TDigestAndPercentileStateFactory
         @Override
         public void setDigest(TDigest digest)
         {
-            requireNonNull(digest, "value is null");
+            requireNonNull(digest, "digest is null");
             digests.set(getGroupId(), digest);
         }
 

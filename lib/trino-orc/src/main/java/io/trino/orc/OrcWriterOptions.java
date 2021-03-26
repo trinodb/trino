@@ -79,7 +79,7 @@ public class OrcWriterOptions
         requireNonNull(dictionaryMaxMemory, "dictionaryMaxMemory is null");
         requireNonNull(maxStringStatisticsLimit, "maxStringStatisticsLimit is null");
         requireNonNull(maxCompressionBufferSize, "maxCompressionBufferSize is null");
-        requireNonNull(bloomFilterColumns, "bloomFiltersColumns is null");
+        requireNonNull(bloomFilterColumns, "bloomFilterColumns is null");
         checkArgument(bloomFilterFpp > 0.0 && bloomFilterFpp < 1.0, "bloomFilterFpp should be > 0.0 & < 1.0");
 
         this.stripeMinSize = stripeMinSize;

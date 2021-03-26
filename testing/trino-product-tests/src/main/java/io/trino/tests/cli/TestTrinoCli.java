@@ -455,10 +455,10 @@ public class TestTrinoCli
         }
 
         if (kerberosAuthentication) {
-            requireNonNull(kerberosPrincipal, "databases.presto.cli_kerberos_principal is null");
-            requireNonNull(kerberosKeytab, "databases.presto.cli_kerberos_keytab is null");
-            requireNonNull(kerberosServiceName, "databases.presto.cli_kerberos_service_name is null");
-            requireNonNull(kerberosConfigPath, "databases.presto.cli_kerberos_config_path is null");
+            requireNonNull(kerberosPrincipal, "kerberosPrincipal is null");
+            requireNonNull(kerberosKeytab, "kerberosKeytab is null");
+            requireNonNull(kerberosServiceName, "kerberosServiceName is null");
+            requireNonNull(kerberosConfigPath, "kerberosConfigPath is null");
 
             trinoClientOptions.add("--krb5-principal", kerberosPrincipal);
             trinoClientOptions.add("--krb5-keytab-path", kerberosKeytab);

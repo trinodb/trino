@@ -135,7 +135,7 @@ public class CassandraSession
 
     public Set<Host> getReplicas(String caseSensitiveSchemaName, TokenRange tokenRange)
     {
-        requireNonNull(caseSensitiveSchemaName, "keyspace is null");
+        requireNonNull(caseSensitiveSchemaName, "caseSensitiveSchemaName is null");
         requireNonNull(tokenRange, "tokenRange is null");
         return executeWithSession(session ->
                 session.getCluster().getMetadata().getReplicas(validSchemaName(caseSensitiveSchemaName), tokenRange));
@@ -143,7 +143,7 @@ public class CassandraSession
 
     public Set<Host> getReplicas(String caseSensitiveSchemaName, ByteBuffer partitionKey)
     {
-        requireNonNull(caseSensitiveSchemaName, "keyspace is null");
+        requireNonNull(caseSensitiveSchemaName, "caseSensitiveSchemaName is null");
         requireNonNull(partitionKey, "partitionKey is null");
         return executeWithSession(session ->
                 session.getCluster().getMetadata().getReplicas(validSchemaName(caseSensitiveSchemaName), partitionKey));

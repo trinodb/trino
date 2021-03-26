@@ -198,7 +198,7 @@ public class Analysis
     public Analysis(@Nullable Statement root, Map<NodeRef<Parameter>, Expression> parameters, boolean isDescribe)
     {
         this.root = root;
-        this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameterMap is null"));
+        this.parameters = ImmutableMap.copyOf(requireNonNull(parameters, "parameters is null"));
         this.isDescribe = isDescribe;
     }
 
@@ -770,7 +770,7 @@ public class Analysis
 
     public void registerTableForView(Table tableReference)
     {
-        tablesForView.push(requireNonNull(tableReference, "table is null"));
+        tablesForView.push(requireNonNull(tableReference, "tableReference is null"));
     }
 
     public void unregisterTableForView()
@@ -1106,7 +1106,7 @@ public class Analysis
 
         public RefreshMaterializedViewAnalysis(QualifiedObjectName materializedViewName, TableHandle target, Query query, List<ColumnHandle> columns)
         {
-            this.materializedViewName = requireNonNull(materializedViewName, "Materialized view handle is null");
+            this.materializedViewName = requireNonNull(materializedViewName, "materializedViewName is null");
             this.target = requireNonNull(target, "target is null");
             this.query = query;
             this.columns = requireNonNull(columns, "columns is null");

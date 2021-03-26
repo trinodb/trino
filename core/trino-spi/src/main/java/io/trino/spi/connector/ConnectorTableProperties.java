@@ -53,7 +53,7 @@ public class ConnectorTableProperties
             Optional<DiscretePredicates> discretePredicates,
             List<LocalProperty<ColumnHandle>> localProperties)
     {
-        requireNonNull(streamPartitioningColumns, "partitioningColumns is null");
+        requireNonNull(streamPartitioningColumns, "streamPartitioningColumns is null");
         requireNonNull(tablePartitioning, "tablePartitioning is null");
         requireNonNull(predicate, "predicate is null");
         requireNonNull(discretePredicates, "discretePredicates is null");

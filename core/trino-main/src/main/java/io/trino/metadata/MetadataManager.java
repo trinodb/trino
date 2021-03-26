@@ -382,7 +382,7 @@ public final class MetadataManager
     public Optional<SystemTable> getSystemTable(Session session, QualifiedObjectName tableName)
     {
         requireNonNull(session, "session is null");
-        requireNonNull(tableName, "table is null");
+        requireNonNull(tableName, "tableName is null");
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
         if (catalog.isPresent()) {

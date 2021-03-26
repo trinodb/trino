@@ -31,7 +31,7 @@ public class ZsetRedisRowDecoderFactory
     @Override
     public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
-        requireNonNull(columns, "columnHandles is null");
+        requireNonNull(columns, "columns is null");
         checkArgument(columns.stream().noneMatch(DecoderColumnHandle::isInternal), "unexpected internal column");
         return DECODER_INSTANCE;
     }

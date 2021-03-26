@@ -43,8 +43,8 @@ public class SystemSplit
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        requireNonNull(addresses, "hosts is null");
-        checkArgument(!addresses.isEmpty(), "hosts is empty");
+        requireNonNull(addresses, "addresses is null");
+        checkArgument(!addresses.isEmpty(), "addresses is empty");
         this.addresses = ImmutableList.copyOf(addresses);
         this.constraint = requireNonNull(constraint, "constraint is null");
     }

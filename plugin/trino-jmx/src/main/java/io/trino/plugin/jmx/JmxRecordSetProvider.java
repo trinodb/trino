@@ -58,7 +58,7 @@ public class JmxRecordSetProvider
     {
         this.mbeanServer = requireNonNull(mbeanServer, "mbeanServer is null");
         this.nodeId = requireNonNull(nodeManager, "nodeManager is null").getCurrentNode().getNodeIdentifier();
-        this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoryHolder is null");
+        this.jmxHistoricalData = requireNonNull(jmxHistoricalData, "jmxHistoricalData is null");
     }
 
     public List<Object> getLiveRow(String objectName, List<? extends ColumnHandle> columns, long entryTimestamp)

@@ -79,7 +79,7 @@ public class MergeOperator
             this.outputTypes = mappedCopy(outputChannels, types::get);
             this.sortChannels = requireNonNull(sortChannels, "sortChannels is null");
             this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
-            this.orderingCompiler = requireNonNull(orderingCompiler, "mergeSortComparatorFactory is null");
+            this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         }
 
         @Override
