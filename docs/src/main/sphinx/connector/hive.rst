@@ -353,14 +353,8 @@ Property Name                                      Description                  
 ``hive.file-status-cache-expire-time``             How long a cached directory listing should be considered     ``1m``
                                                    valid.
 
-``hive.parquet.time-zone``                         Adjusts timestamp values to a specific time zone.            JVM default
-                                                   For Hive 3.1+, this should be set to UTC.
-
 ``hive.rcfile.time-zone``                          Adjusts binary encoded timestamp values to a specific        JVM default
                                                    time zone. For Hive 3.1+, this should be set to UTC.
-
-``hive.orc.time-zone``                             Sets the default time zone for legacy ORC files that did     JVM default
-                                                   not declare a time zone.
 
 ``hive.timestamp-precision``                       Specifies the precision to use for Hive columns of type      ``MILLISECONDS``
                                                    ``timestamp``. Possible values are ``MILLISECONDS``,
@@ -392,6 +386,48 @@ Property Name                                      Description                  
                                                    writes. When disabled, the number of writing threads
                                                    is limited to number of buckets.
 ================================================== ============================================================ ============
+
+ORC format configuration properties
+-----------------------------------
+
+The following properties are used to configure the read and write operations
+with ORC files performed by the Hive connector.
+
+.. list-table:: ORC format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - ``hive.orc.time-zone``
+      - Sets the default time zone for legacy ORC files that did not declare a
+        time zone.
+      - JVM default
+    * - ``hive.orc.use-columns-names``
+      - Access ORC columns by name. By default, columns in ORC files are
+        accessed by their ordinal position in the Hive table definition. The
+        equivalent catalog session property is ``orc_use_column_names``.
+      - ``false``
+
+Parquet format configuration properties
+---------------------------------------
+
+The following properties are used to configure the read and write operations
+with Parquet files performed by the Hive connector.
+
+.. list-table:: Parquet format configuration properties
+    :widths: 30, 50, 20
+    :header-rows: 1
+
+    * - ``hive.parquet.time-zone``
+      - Adjusts timestamp values to a specific time zone. For Hive 3.1+, set
+        this to UTC.
+      - JVM default
+    * - ``hive.parquet.use-columns-names``
+      - Access Parquet columns by name by default. Set this property to
+        ``false`` to access columns by their ordinal position in the Hive table
+        definition. The equivalent catalog session property is
+        ``parquet_use_column_names``.
+      - ``true``
+
 
 Metastore configuration properties
 ----------------------------------
