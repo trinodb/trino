@@ -1389,6 +1389,102 @@ public class TestTrinoDatabaseMetaData
                         .withGetColumnsCount(3000));
     }
 
+    @Test
+    public void testAssumeLiteralMetadataCalls()
+            throws Exception
+    {
+        try (Connection connection = DriverManager.getConnection(
+                format("jdbc:trino://%s?assumeLiteralNamesInMetadataCallsForNonConformingClients=true", server.getAddress()),
+                "admin",
+                null)) {
+            // getTables's schema name pattern treated as literal
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test_schema1", null, null),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
+                    countingMockConnector.getAllTables()
+                            .filter(schemaTableName -> schemaTableName.getSchemaName().equals("test_schema1"))
+                            .map(schemaTableName -> list(COUNTING_CATALOG, schemaTableName.getSchemaName(), schemaTableName.getTableName(), "TABLE"))
+                            .collect(toImmutableList()),
+                    new MetadataCallsCount()
+                            .withListSchemasCount(0)
+                            .withListTablesCount(1));
+
+            // getTables's schema and table name patterns treated as literals
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test_schema1", "test_table1", null),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
+                    list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
+                    new MetadataCallsCount()
+                            .withGetTableHandleCount(1));
+
+            // no matches in getTables call as table name pattern treated as literal
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test_schema_", null, null),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
+                    list(),
+                    new MetadataCallsCount()
+                            .withListTablesCount(1));
+
+            // getColumns's schema and table name patterns treated as literals
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test_schema1", "test_table1", null),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                    IntStream.range(0, 100)
+                            .mapToObj(i -> list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_" + i, "varchar"))
+                            .collect(toImmutableList()),
+                    new MetadataCallsCount()
+                            .withListTablesCount(1)
+                            .withGetColumnsCount(1));
+
+            // getColumns's schema, table and column name patterns treated as literals
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17"),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                    list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
+                    new MetadataCallsCount()
+                            .withListTablesCount(1)
+                            .withGetColumnsCount(1));
+
+            // no matches in getColumns call as table name pattern treated as literal
+            assertMetadataCalls(
+                    connection,
+                    readMetaData(
+                            databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test_schema1", "test_table_", null),
+                            list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
+                    list(),
+                    new MetadataCallsCount()
+                            .withListTablesCount(1));
+        }
+    }
+
+    @Test
+    public void testEscapeIfNecessary()
+    {
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, null), null);
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "a"), "a");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc_def"), "abc_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc__de_f"), "abc__de_f");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc%def"), "abc%def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, "abc\\_def"), "abc\\_def");
+
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, null), null);
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "a"), "a");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc_def"), "abc\\_def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc__de_f"), "abc\\_\\_de\\_f");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc%def"), "abc\\%def");
+        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, "abc\\_def"), "abc\\\\\\_def");
+    }
+
     private static void assertColumnSpec(ResultSet rs, int dataType, Long precision, Long numPrecRadix, String typeName)
             throws SQLException
     {
