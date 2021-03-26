@@ -89,7 +89,7 @@ class SnowflakePageSourceProvider
 
         Path path = new Path(snowflakeSplit.getPath());
         Configuration configuration = hdfsEnvironment.getConfiguration(
-                new HdfsContext(session, snowflakeSplit.getDatabase(), snowflakeSplit.getTable()),
+                new HdfsContext(session),
                 path);
 
         int paddedBytes = getPaddedBytes(session, hdfsEnvironment, configuration, snowflakeSplit, path);

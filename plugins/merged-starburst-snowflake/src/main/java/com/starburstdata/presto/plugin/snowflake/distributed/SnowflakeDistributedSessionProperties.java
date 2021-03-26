@@ -12,7 +12,7 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.trino.plugin.jdbc.SessionPropertiesProvider;
+import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.session.PropertyMetadata;
 
