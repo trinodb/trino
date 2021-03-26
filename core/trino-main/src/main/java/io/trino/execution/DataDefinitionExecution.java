@@ -279,6 +279,12 @@ public class DataDefinitionExecution<T extends Statement>
         return stateMachine.getQueryState();
     }
 
+    @Override
+    public Optional<Duration> getPlanningTime()
+    {
+        return stateMachine.getPlanningTime();
+    }
+
     public List<Expression> getParameters()
     {
         return parameters;
