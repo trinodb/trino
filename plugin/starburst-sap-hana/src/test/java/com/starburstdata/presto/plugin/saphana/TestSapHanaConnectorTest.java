@@ -56,9 +56,6 @@ public class TestSapHanaConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         switch (connectorBehavior) {
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
             case SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM:
