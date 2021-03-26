@@ -318,12 +318,6 @@ public class CachingJdbcClient
     @Override
     public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
     {
-        if (!handle.isNamedRelation()) {
-            // only cache named relation as we need to be able to invalidate the cache by table name
-            // TODO https://github.com/trinodb/trino/issues/6832 - to support other JdbcTableHandle types
-            return delegate.getTableStatistics(session, handle, tupleDomain);
-        }
-
         TableStatisticsCacheKey key = new TableStatisticsCacheKey(handle, tupleDomain);
 
         TableStatistics cachedStatistics = statisticsCache.getIfPresent(key);
@@ -453,7 +447,7 @@ public class CachingJdbcClient
         invalidateColumnsCache(schemaTableName);
         invalidateCache(tableHandleCache, key -> key.tableName.equals(schemaTableName));
         invalidateCache(tableNamesCache, key -> key.schemaName.equals(Optional.of(schemaTableName.getSchemaName())));
-        invalidateCache(statisticsCache, key -> key.tableHandle.getRequiredNamedRelation().getSchemaTableName().equals(schemaTableName));
+        invalidateCache(statisticsCache, key -> key.tableHandle.references(schemaTableName));
     }
 
     private void invalidateColumnsCache(SchemaTableName table)

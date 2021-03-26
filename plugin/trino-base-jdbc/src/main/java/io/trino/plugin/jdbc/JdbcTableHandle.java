@@ -217,6 +217,14 @@ public final class JdbcTableHandle
                 .build();
     }
 
+    boolean references(SchemaTableName schemaTableName)
+    {
+        if (isNamedRelation() && getRequiredNamedRelation().getSchemaTableName().equals(schemaTableName)) {
+            return true;
+        }
+        return getOtherReferencedTables().contains(schemaTableName);
+    }
+
     @JsonProperty
     public int getNextSyntheticColumnId()
     {
