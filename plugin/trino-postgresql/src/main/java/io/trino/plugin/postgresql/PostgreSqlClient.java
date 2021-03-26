@@ -202,7 +202,6 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -699,17 +698,7 @@ public class PostgreSqlClient
     @Override
     protected Optional<TopNFunction> topNFunction()
     {
-        return Optional.of((query, sortItems, limit) -> {
-            String orderBy = sortItems.stream()
-                    .map(sortItem -> {
-                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
-                    })
-                    .collect(joining(", "));
-
-            return format("%s ORDER BY %s OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY", query, orderBy, limit);
-        });
+        return Optional.of(TopNFunction.sqlStandard(this::quoted));
     }
 
     @Override

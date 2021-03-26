@@ -1158,5 +1158,20 @@ public abstract class BaseJdbcClient
     public interface TopNFunction
     {
         String apply(String query, List<JdbcSortItem> sortItems, long limit);
+
+        static TopNFunction sqlStandard(Function<String, String> quote)
+        {
+            return (query, sortItems, limit) -> {
+                String orderBy = sortItems.stream()
+                        .map(sortItem -> {
+                            String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+                            String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                            return format("%s %s %s", quote.apply(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
+                        })
+                        .collect(joining(", "));
+
+                return format("%s ORDER BY %s OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY", query, orderBy, limit);
+            };
+        }
     }
 }
