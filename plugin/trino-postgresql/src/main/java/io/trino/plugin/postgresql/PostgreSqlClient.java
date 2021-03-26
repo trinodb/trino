@@ -28,6 +28,7 @@ import io.trino.plugin.jdbc.DoubleReadFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -68,7 +69,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
@@ -115,7 +115,6 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
@@ -203,7 +202,6 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
@@ -684,14 +682,10 @@ public class PostgreSqlClient
     }
 
     @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
-        Map<String, JdbcColumnHandle> columns = getColumns(session, handle).stream()
-                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
-
-        for (SortItem sortItem : sortOrder) {
-            verify(columns.containsKey(sortItem.getName()));
-            Type sortItemType = columns.get(sortItem.getName()).getColumnType();
+        for (JdbcSortItem sortItem : sortOrder) {
+            Type sortItemType = sortItem.getColumn().getColumnType();
             if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
                 // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
                 // NOTE: VarcharType also includes PostgreSQL enums
@@ -710,7 +704,7 @@ public class PostgreSqlClient
                     .map(sortItem -> {
                         String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
                         String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.getName()), ordering, nullsHandling);
+                        return format("%s %s %s", quoted(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
                     })
                     .collect(joining(", "));
 

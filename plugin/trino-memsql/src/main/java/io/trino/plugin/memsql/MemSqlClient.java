@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
@@ -32,7 +33,6 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.StandardTypes;
@@ -56,7 +56,6 @@ import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -84,7 +83,6 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
 public class MemSqlClient
@@ -311,14 +309,10 @@ public class MemSqlClient
     }
 
     @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
-        Map<String, JdbcColumnHandle> columns = getColumns(session, handle).stream()
-                .collect(toImmutableMap(JdbcColumnHandle::getColumnName, identity()));
-
-        for (SortItem sortItem : sortOrder) {
-            verify(columns.containsKey(sortItem.getName()));
-            Type sortItemType = columns.get(sortItem.getName()).getColumnType();
+        for (JdbcSortItem sortItem : sortOrder) {
+            Type sortItemType = sortItem.getColumn().getColumnType();
             if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
                 // Remote database can be case insensitive.
                 return false;
@@ -334,7 +328,7 @@ public class MemSqlClient
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
                         String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnSorting = format("%s %s", quoted(sortItem.getName()), ordering);
+                        String columnSorting = format("%s %s", quoted(sortItem.getColumn().getColumnName()), ordering);
 
                         switch (sortItem.getSortOrder()) {
                             case ASC_NULLS_FIRST:
@@ -345,11 +339,11 @@ public class MemSqlClient
 
                             case ASC_NULLS_LAST:
                                 return Stream.of(
-                                        format("ISNULL(%s) ASC", quoted(sortItem.getName())),
+                                        format("ISNULL(%s) ASC", quoted(sortItem.getColumn().getColumnName())),
                                         columnSorting);
                             case DESC_NULLS_FIRST:
                                 return Stream.of(
-                                        format("ISNULL(%s) DESC", quoted(sortItem.getName())),
+                                        format("ISNULL(%s) DESC", quoted(sortItem.getColumn().getColumnName())),
                                         columnSorting);
                         }
                         throw new UnsupportedOperationException("Unsupported sort order: " + sortItem.getSortOrder());
