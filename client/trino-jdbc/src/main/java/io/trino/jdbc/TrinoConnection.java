@@ -91,6 +91,7 @@ public class TrinoConnection
     private final String user;
     private final Optional<String> sessionUser;
     private final boolean compressionDisabled;
+    private final boolean assumeLiteralNamesInMetadataCallsForNonConformingClients;
     private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
     private final Optional<String> source;
@@ -115,6 +116,7 @@ public class TrinoConnection
         this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
         this.compressionDisabled = uri.isCompressionDisabled();
+        this.assumeLiteralNamesInMetadataCallsForNonConformingClients = uri.isAssumeLiteralNamesInMetadataCallsForNonConformingClients();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
         uri.getClientTags().ifPresent(tags -> clientInfo.put(CLIENT_TAGS, tags));
@@ -238,7 +240,7 @@ public class TrinoConnection
     public DatabaseMetaData getMetaData()
             throws SQLException
     {
-        return new TrinoDatabaseMetaData(this);
+        return new TrinoDatabaseMetaData(this, assumeLiteralNamesInMetadataCallsForNonConformingClients);
     }
 
     @Override

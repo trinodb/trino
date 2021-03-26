@@ -55,6 +55,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<HostAndPort> HTTP_PROXY = new HttpProxy();
     public static final ConnectionProperty<String> APPLICATION_NAME_PREFIX = new ApplicationNamePrefix();
     public static final ConnectionProperty<Boolean> DISABLE_COMPRESSION = new DisableCompression();
+    public static final ConnectionProperty<Boolean> ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS = new AssumeLiteralNamesInMetadataCallsForNonConformingClients();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
     public static final ConnectionProperty<SslVerificationMode> SSL_VERIFICATION = new SslVerification();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
@@ -89,6 +90,7 @@ final class ConnectionProperties
             .add(HTTP_PROXY)
             .add(APPLICATION_NAME_PREFIX)
             .add(DISABLE_COMPRESSION)
+            .add(ASSUME_LITERAL_NAMES_IN_METADATA_CALLS_FOR_NON_CONFORMING_CLIENTS)
             .add(SSL)
             .add(SSL_VERIFICATION)
             .add(SSL_KEY_STORE_PATH)
@@ -270,6 +272,15 @@ final class ConnectionProperties
         public DisableCompression()
         {
             super("disableCompression", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class AssumeLiteralNamesInMetadataCallsForNonConformingClients
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public AssumeLiteralNamesInMetadataCallsForNonConformingClients()
+        {
+            super("assumeLiteralNamesInMetadataCallsForNonConformingClients", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
