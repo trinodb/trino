@@ -173,6 +173,7 @@ public class IcebergMetadata
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final JsonCodec<CommitTaskData> commitTaskCodec;
+    private final HiveTableOperationsProvider tableOperationsProvider;
 
     private final Map<String, Optional<Long>> snapshotIds = new ConcurrentHashMap<>();
 
@@ -183,13 +184,15 @@ public class IcebergMetadata
             HiveMetastore metastore,
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
-            JsonCodec<CommitTaskData> commitTaskCodec)
+            JsonCodec<CommitTaskData> commitTaskCodec,
+            HiveTableOperationsProvider tableOperationsProvider)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.commitTaskCodec = requireNonNull(commitTaskCodec, "commitTaskCodec is null");
+        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
     }
 
     @Override
@@ -234,7 +237,7 @@ public class IcebergMetadata
             throw new UnknownTableTypeException(tableName);
         }
 
-        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, hiveTable.get().getSchemaTableName());
+        org.apache.iceberg.Table table = getIcebergTable(tableOperationsProvider, session, hiveTable.get().getSchemaTableName());
         Optional<Long> snapshotId = getSnapshotId(table, name.getSnapshotId());
 
         return new IcebergTableHandle(
@@ -262,7 +265,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        org.apache.iceberg.Table table = getIcebergTable(metastore, hdfsEnvironment, session, hiveTable.get().getSchemaTableName());
+        org.apache.iceberg.Table table = getIcebergTable(tableOperationsProvider, session, hiveTable.get().getSchemaTableName());
 
         SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), name.getTableNameWithType());
         switch (name.getTableType()) {
@@ -292,7 +295,7 @@ public class IcebergMetadata
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, table.getSchemaTableName());
 
         TupleDomain<IcebergColumnHandle> enforcedPredicate = table.getEnforcedPredicate();
 
@@ -396,7 +399,7 @@ public class IcebergMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, table.getSchemaTableName());
         return getColumns(icebergTable.schema(), typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
     }
@@ -492,7 +495,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
         metastore.commentTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), comment);
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, handle.getSchemaTableName());
         if (comment.isEmpty()) {
             icebergTable.updateProperties().remove(TABLE_COMMENT).commit();
         }
@@ -522,7 +525,14 @@ public class IcebergMetadata
             targetPath = getTableDefaultLocation(database, hdfsContext, hdfsEnvironment, schemaName, tableName).toString();
         }
 
-        TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, schemaName, tableName, session.getUser(), targetPath);
+        TableOperations operations = tableOperationsProvider.createTableOperations(
+                hdfsContext,
+                identity,
+                schemaName,
+                tableName,
+                Optional.of(session.getUser()),
+                Optional.of(targetPath));
+
         if (operations.current() != null) {
             throw new TableAlreadyExistsException(schemaTableName);
         }
@@ -558,7 +568,7 @@ public class IcebergMetadata
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, table.getSchemaTableName());
 
         transaction = icebergTable.newTransaction();
 
@@ -644,7 +654,7 @@ public class IcebergMetadata
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, handle.getSchemaTableName());
         icebergTable.updateSchema().addColumn(column.getName(), toIcebergType(column.getType())).commit();
     }
 
@@ -653,7 +663,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle handle = (IcebergColumnHandle) column;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, icebergTableHandle.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, icebergTableHandle.getSchemaTableName());
         icebergTable.updateSchema().deleteColumn(handle.getName()).commit();
     }
 
@@ -662,7 +672,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         IcebergColumnHandle columnHandle = (IcebergColumnHandle) source;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, icebergTableHandle.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, icebergTableHandle.getSchemaTableName());
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
     }
 
@@ -672,7 +682,7 @@ public class IcebergMetadata
             throw new TableNotFoundException(table);
         }
 
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table);
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, table);
 
         List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
 
@@ -735,7 +745,7 @@ public class IcebergMetadata
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
 
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, handle.getSchemaTableName());
 
         icebergTable.newDelete()
                 .deleteFromRowFilter(toIcebergExpression(handle.getEnforcedPredicate()))
@@ -765,7 +775,7 @@ public class IcebergMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, table.getSchemaTableName());
 
         Set<Integer> partitionSourceIds = identityPartitionColumnsInAllSpecs(icebergTable);
         BiPredicate<IcebergColumnHandle, Domain> isIdentityPartition = (column, domain) -> partitionSourceIds.contains(column.getId());
@@ -811,7 +821,7 @@ public class IcebergMetadata
     public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
     {
         IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, handle.getSchemaTableName());
         return TableStatisticsMaker.getTableStatistics(typeManager, constraint, handle, icebergTable);
     }
 
@@ -915,7 +925,7 @@ public class IcebergMetadata
     public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, table.getSchemaTableName());
         transaction = icebergTable.newTransaction();
 
         return new IcebergWritableTableHandle(
@@ -1029,7 +1039,7 @@ public class IcebergMetadata
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, table.getSchemaTableName());
         return Optional.ofNullable(icebergTable.currentSnapshot())
                 .map(snapshot -> new TableToken(snapshot.snapshotId()));
     }
@@ -1084,7 +1094,7 @@ public class IcebergMetadata
                 .map(CatalogSchemaTableName::getSchemaTableName)
                 .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + name));
 
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, storageTableName);
+        org.apache.iceberg.Table icebergTable = getIcebergTable(tableOperationsProvider, session, storageTableName);
         String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
         if (!dependsOnTables.isEmpty()) {
             Map<String, String> tableToSnapshotIdMap = Splitter.on(',').withKeyValueSeparator('=').split(dependsOnTables);

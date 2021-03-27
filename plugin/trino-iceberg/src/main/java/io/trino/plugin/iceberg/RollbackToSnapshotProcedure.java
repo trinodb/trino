@@ -14,8 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.HdfsEnvironment;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
@@ -43,14 +41,12 @@ public class RollbackToSnapshotProcedure
             String.class,
             Long.class);
 
-    private final IcebergMetadataFactory metadataFactory;
-    private final HdfsEnvironment hdfsEnvironment;
+    private final HiveTableOperationsProvider tableOperationsProvider;
 
     @Inject
-    public RollbackToSnapshotProcedure(IcebergMetadataFactory metadataFactory, HdfsEnvironment hdfsEnvironment)
+    public RollbackToSnapshotProcedure(HiveTableOperationsProvider tableOperationsProvider)
     {
-        this.metadataFactory = requireNonNull(metadataFactory, "metadataFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
     }
 
     @Override
@@ -69,9 +65,7 @@ public class RollbackToSnapshotProcedure
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        IcebergMetadata metadata = metadataFactory.create();
-        HiveMetastore metastore = metadata.getMetastore();
-        Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, clientSession, schemaTableName);
+        Table icebergTable = getIcebergTable(tableOperationsProvider, clientSession, schemaTableName);
         icebergTable.rollback().toSnapshotId(snapshotId).commit();
     }
 }
