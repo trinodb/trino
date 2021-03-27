@@ -70,7 +70,7 @@ public class TestIcebergSystemTables
                         .setCatalogDirectory(baseDir.toURI().toString())
                         .setMetastoreUser("test"));
 
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastore));
+        queryRunner.installPlugin(new TestingIcebergPlugin(metastore, false));
         queryRunner.createCatalog("iceberg", "iceberg");
 
         return queryRunner;

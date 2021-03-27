@@ -96,9 +96,14 @@ final class IcebergUtil
 
     public static Table getIcebergTable(HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
-        HdfsContext hdfsContext = new HdfsContext(session);
-        HiveIdentity identity = new HiveIdentity(session);
-        TableOperations operations = tableOperationsProvider.createTableOperations(hdfsContext, identity, table.getSchemaName(), table.getTableName(), Optional.empty(), Optional.empty());
+        TableOperations operations = tableOperationsProvider.createTableOperations(
+                new HdfsContext(session),
+                session.getQueryId(),
+                new HiveIdentity(session),
+                table.getSchemaName(),
+                table.getTableName(),
+                Optional.empty(),
+                Optional.empty());
         return new BaseTable(operations, quotedTableName(table));
     }
 

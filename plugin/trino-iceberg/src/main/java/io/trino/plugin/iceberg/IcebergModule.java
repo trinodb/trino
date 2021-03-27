@@ -70,7 +70,6 @@ public class IcebergModule
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
 
         binder.bind(HiveTableOperationsProvider.class).in(Scopes.SINGLETON);
-        binder.bind(FileIoProvider.class).to(HdfsFileIoProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(IcebergFileWriterFactory.class).in(Scopes.SINGLETON);
         newExporter(binder).export(IcebergFileWriterFactory.class).withGeneratedName();
