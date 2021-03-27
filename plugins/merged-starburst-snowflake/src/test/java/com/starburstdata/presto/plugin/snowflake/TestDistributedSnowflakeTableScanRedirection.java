@@ -40,6 +40,6 @@ public class TestDistributedSnowflakeTableScanRedirection
     protected String getRedirectionsJmxTableName()
     {
         // SF connector uses ConnectorObjectNameGeneratorModule which overrides default name generation
-        return "jmx.current.\"com.starburstdata.presto.plugin.jdbc.redirection:catalog=snowflake,name=snowflake,type=redirectionstats\"";
+        return "jmx.current.\"com.starburstdata.presto.plugin.jdbc.redirection:name=snowflake,type=redirectionstats\"";
     }
 }
