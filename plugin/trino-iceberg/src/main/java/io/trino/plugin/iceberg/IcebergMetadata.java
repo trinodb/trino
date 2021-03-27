@@ -527,6 +527,7 @@ public class IcebergMetadata
 
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 hdfsContext,
+                session.getQueryId(),
                 identity,
                 schemaName,
                 tableName,

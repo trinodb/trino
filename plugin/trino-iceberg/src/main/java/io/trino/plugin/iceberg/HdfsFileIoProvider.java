@@ -33,7 +33,7 @@ public class HdfsFileIoProvider
     }
 
     @Override
-    public FileIO createFileIo(HdfsContext hdfsContext)
+    public FileIO createFileIo(HdfsContext hdfsContext, String queryId)
     {
         return new HdfsFileIo(hdfsEnvironment, hdfsContext);
     }

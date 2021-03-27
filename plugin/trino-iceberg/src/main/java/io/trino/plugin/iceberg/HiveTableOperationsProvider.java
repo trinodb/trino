@@ -38,6 +38,7 @@ public class HiveTableOperationsProvider
 
     public TableOperations createTableOperations(
             HdfsContext hdfsContext,
+            String queryId,
             HiveIdentity identity,
             String database,
             String table,
@@ -45,7 +46,7 @@ public class HiveTableOperationsProvider
             Optional<String> location)
     {
         return new HiveTableOperations(
-                fileIoProvider.createFileIo(hdfsContext),
+                fileIoProvider.createFileIo(hdfsContext, queryId),
                 hiveMetastore,
                 identity,
                 database,
