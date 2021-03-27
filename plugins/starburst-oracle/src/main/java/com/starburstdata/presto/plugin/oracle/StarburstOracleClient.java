@@ -26,6 +26,7 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcMetadataConfig;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -53,7 +54,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -345,7 +345,7 @@ public class StarburstOracleClient
     }
 
     @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
         return true;
     }
@@ -353,18 +353,8 @@ public class StarburstOracleClient
     @Override
     protected Optional<TopNFunction> topNFunction()
     {
-        return Optional.of((query, sortItems, limit) -> {
-            String orderBy = sortItems.stream()
-                    .map(sortItem -> {
-                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.getName()), ordering, nullsHandling);
-                    })
-                    .collect(joining(", "));
-
-            // NOTE: This syntax is supported since Oracle 12c (older releases are not supported by Oracle)
-            return format("%s ORDER BY %s FETCH FIRST %d ROWS ONLY", query, orderBy, limit);
-        });
+        // NOTE: The syntax used here is supported since Oracle 12c (older releases are not supported by Oracle)
+        return Optional.of(TopNFunction.sqlStandard(this::quoted));
     }
 
     @Override
