@@ -11,12 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.iceberg.testing;
 
-import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
-import org.apache.iceberg.io.FileIO;
+import javax.inject.Qualifier;
 
-public interface FileIoProvider
-{
-    FileIO createFileIo(HdfsContext hdfsContext, String queryId);
-}
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+@Retention(RUNTIME)
+@Target({FIELD, PARAMETER, METHOD})
+@Qualifier
+public @interface ForTrackingFileIoProvider {}

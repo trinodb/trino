@@ -38,8 +38,8 @@ public class IcebergConnectorFactory
         ClassLoader classLoader = context.duplicatePluginClassLoader();
         try {
             return (Connector) classLoader.loadClass(InternalIcebergConnectorFactory.class.getName())
-                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class)
-                    .invoke(null, catalogName, config, context, Optional.empty());
+                    .getMethod("createConnector", String.class, Map.class, ConnectorContext.class, Optional.class, boolean.class)
+                    .invoke(null, catalogName, config, context, Optional.empty(), false);
         }
         catch (InvocationTargetException e) {
             Throwable targetException = e.getTargetException();
