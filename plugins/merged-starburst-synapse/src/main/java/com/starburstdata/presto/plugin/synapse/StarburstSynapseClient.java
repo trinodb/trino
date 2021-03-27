@@ -15,6 +15,7 @@ import com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.WriteMapping;
@@ -22,7 +23,6 @@ import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
-import io.trino.spi.connector.SortItem;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
@@ -130,7 +130,7 @@ public class StarburstSynapseClient
     }
 
     @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<SortItem> sortOrder)
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
         // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/PRESTO-5683)
         return false;
