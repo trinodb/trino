@@ -24,6 +24,7 @@ import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.airlift.slice.Slice;
 import io.airlift.units.Duration;
+import io.trino.likematcher.LikeMatcher;
 import io.trino.operator.scalar.BitwiseFunctions;
 import io.trino.operator.scalar.FunctionAssertions;
 import io.trino.operator.scalar.JoniRegexpFunctions;
@@ -49,7 +50,6 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.tree.Extract.Field;
-import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -1590,8 +1590,8 @@ public class TestExpressionCompiler
             for (String pattern : stringLefts) {
                 Boolean expected = null;
                 if (value != null && pattern != null) {
-                    JoniRegexp regex = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
-                    expected = LikeFunctions.likeVarchar(utf8Slice(value), regex);
+                    LikeMatcher matcher = LikeFunctions.likePattern(utf8Slice(pattern), utf8Slice("\\"));
+                    expected = LikeFunctions.likeVarchar(utf8Slice(value), matcher);
                 }
                 assertExecute(generateExpression("%s like %s", value, pattern), BOOLEAN, expected);
             }
