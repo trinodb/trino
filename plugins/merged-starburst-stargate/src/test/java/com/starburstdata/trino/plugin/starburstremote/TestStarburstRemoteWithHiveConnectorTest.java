@@ -80,8 +80,7 @@ public class TestStarburstRemoteWithHiveConnectorTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
-                // not yet supported in Remote connector
-                return false;
+                return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
                 return true;
@@ -113,6 +112,24 @@ public class TestStarburstRemoteWithHiveConnectorTest
             default:
                 return super.hasBehavior(connectorBehavior);
         }
+    }
+
+    @Override
+    public void testCaseSensitiveTopNPushdown()
+    {
+        // This is tested in TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
+        assertThatThrownBy(super::testCaseSensitiveTopNPushdown)
+                .hasMessageStartingWith("This connector does not support creating tables");
+        throw new SkipException("tested elsewhere");
+    }
+
+    @Override
+    public void testNullSensitiveTopNPushdown()
+    {
+        // This is tested in TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
+        assertThatThrownBy(super::testNullSensitiveTopNPushdown)
+                .hasMessageStartingWith("This connector does not support creating tables");
+        throw new SkipException("tested elsewhere");
     }
 
     @Override

@@ -56,8 +56,7 @@ public class TestStarburstRemoteWithPostgreSqlConnectorSmokeTest
     {
         switch (connectorBehavior) {
             case SUPPORTS_TOPN_PUSHDOWN:
-                // not yet supported in Remote connector
-                return false;
+                return true;
 
             case SUPPORTS_CREATE_TABLE:
             case SUPPORTS_RENAME_TABLE:
