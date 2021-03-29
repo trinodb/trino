@@ -81,9 +81,9 @@ import static java.util.Objects.requireNonNull;
  * Into:
  * <pre>
  * - Project (output: CASE WHEN (countmatches > 0) THEN true WHEN (countnullmatches > 0) THEN null ELSE false END)
- *   - Aggregate (countmatches=count(*) where a, b not null; countnullmatches where a,b null but buildSideKnownNonNull is not null)
+ *   - Aggregate (countmatches=count(*) where a, b not null; countnullmatches where (a is null or b is null) but buildSideKnownNonNull is not null)
  *     grouping by (A'.*)
- *     - LeftJoin on (A and B correlation condition)
+ *     - LeftJoin on (a = B.b, A and B correlation condition)
  *       - AssignUniqueId (A')
  *         - A
  * </pre>
