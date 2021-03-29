@@ -70,6 +70,7 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.CodePointsType.CODE_POINTS;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.JsonPathType.JSON_PATH;
+import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.type.UnknownType.UNKNOWN;
@@ -239,9 +240,18 @@ public class TestLiteralEncoder
     @Test
     public void testEncodeRegex()
     {
-        assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), LIKE_PATTERN, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToJoniRegexp(utf8Slice("[a-z]")), JONI_REGEXP, (left, right) -> left.pattern().equals(right.pattern()));
         assertRoundTrip(castVarcharToRe2JRegexp(utf8Slice("[a-z]")), PLANNER_CONTEXT.getTypeManager().getType(RE2J_REGEXP_SIGNATURE), (left, right) -> left.pattern().equals(right.pattern()));
+    }
+
+    @Test
+    public void testEncodeLikePattern()
+    {
+        assertRoundTrip(likePattern(utf8Slice("abc")), LIKE_PATTERN, (left, right) -> left.getPattern().equals(right.getPattern()));
+        assertRoundTrip(likePattern(utf8Slice("abc_")), LIKE_PATTERN, (left, right) -> left.getPattern().equals(right.getPattern()));
+        assertRoundTrip(likePattern(utf8Slice("abc%")), LIKE_PATTERN, (left, right) -> left.getPattern().equals(right.getPattern()));
+
+        assertRoundTrip(likePattern(utf8Slice("a_b%cX%X_"), utf8Slice("/")), LIKE_PATTERN, (left, right) -> left.getPattern().equals(right.getPattern()));
     }
 
     @Test
