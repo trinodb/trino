@@ -317,9 +317,9 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - config-default
-          - config-hdp3
-          - config-cdh5
+          - default
+          - hdp3
+          - cdh5
         suite:
           - suite-1
           - suite-2
@@ -332,40 +332,40 @@ jobs:
           - suite-tpcds
           - suite-oauth2
         exclude:
-          - config: config-cdh5
+          - config: cdh5
             ignore exclusion if: >-
               ${{ github.event_name != 'pull_request'
                || contains(github.event.pull_request.labels.*.name, 'tests:all')
                || contains(github.event.pull_request.labels.*.name, 'tests:hive')
                }}
 
-          - config: config-default
+          - config: default
             ignore exclusion if: >-
               ${{ github.event_name != 'pull_request'
                || contains(github.event.pull_request.labels.*.name, 'tests:all')
                || contains(github.event.pull_request.labels.*.name, 'tests:hive')
                }}
 
-          - config: config-hdp3
+          - config: hdp3
             suite: suite-6-non-generic
-          - config: config-hdp3
+          - config: hdp3
             suite: suite-7-non-generic
-          - config: config-hdp3
+          - config: hdp3
             suite: suite-8-non-generic
-          - config: config-hdp3
+          - config: hdp3
             suite: suite-tpcds
-          - config: config-hdp3
+          - config: hdp3
             suite: suite-oauth2
 
-          - config: config-cdh5
+          - config: cdh5
             suite: suite-6-non-generic
-          - config: config-cdh5
+          - config: cdh5
             suite: suite-7-non-generic
-          - config: config-cdh5
+          - config: cdh5
             suite: suite-8-non-generic
-          - config: config-cdh5
+          - config: cdh5
             suite: suite-tpcds
-          - config: config-cdh5
+          - config: cdh5
             suite: suite-oauth2
         ignore exclusion if:
           # Do not use this property outside of the matrix configuration.
@@ -397,4 +397,4 @@ jobs:
       - name: Product Tests
         run: |
           testing/trino-product-tests-launcher/bin/run-launcher suite run \
-            --suite ${{ matrix.suite }} --config ${{ matrix.config }} --no-bind --logs-dir logs/ --timeout 2h
+            --suite ${{ matrix.suite }} --config config-${{ matrix.config }} --no-bind --logs-dir logs/ --timeout 2h
