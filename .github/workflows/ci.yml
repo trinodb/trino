@@ -342,6 +342,8 @@ jobs:
           - config: config-default
             ignore exclusion if: >-
               ${{ github.event_name != 'pull_request'
+               || contains(matrix.suite, 'non-generic')
+               || contains(matrix.suite, 'oauth2')
                || contains(github.event.pull_request.labels.*.name, 'tests:all')
                || contains(github.event.pull_request.labels.*.name, 'tests:hive')
                }}
