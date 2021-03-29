@@ -25,7 +25,6 @@ import static io.trino.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.trino.operator.scalar.JoniRegexpFunctions.regexpReplace;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.sql.analyzer.RegexLibrary.JONI;
-import static io.trino.type.LikeFunctions.likeVarchar;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -36,16 +35,6 @@ public class TestJoniRegexpFunctions
     public TestJoniRegexpFunctions()
     {
         super(JONI);
-    }
-
-    @Test
-    public void testMatchInterruptible()
-            throws IOException, InterruptedException
-    {
-        String source = Resources.toString(Resources.getResource("regularExpressionExtraLongSource.txt"), UTF_8);
-        String pattern = "\\((.*,)+(.*\\))";
-        // Test the interruptible version of `Matcher#match` by "LIKE"
-        testJoniRegexpFunctionsInterruptible(() -> likeVarchar(utf8Slice(source), joniRegexp(utf8Slice(pattern))));
     }
 
     @Test

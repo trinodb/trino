@@ -21,6 +21,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.likematcher.LikeMatcher;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -94,7 +95,6 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.WhenClause;
 import io.trino.type.FunctionType;
-import io.trino.type.JoniRegexp;
 import io.trino.type.LikeFunctions;
 import io.trino.type.TypeCoercion;
 import io.trino.util.FastutilSetHelper;
@@ -170,7 +170,7 @@ public class ExpressionInterpreter
     private final TypeCoercion typeCoercion;
 
     // identity-based cache for LIKE expressions with constant pattern and escape char
-    private final IdentityHashMap<LikePredicate, JoniRegexp> likePatternCache = new IdentityHashMap<>();
+    private final IdentityHashMap<LikePredicate, LikeMatcher> likePatternCache = new IdentityHashMap<>();
     private final IdentityHashMap<InListExpression, Set<?>> inListCache = new IdentityHashMap<>();
 
     public ExpressionInterpreter(Expression expression, PlannerContext plannerContext, Session session, Map<NodeRef<Expression>, Type> expressionTypes)
@@ -1153,15 +1153,15 @@ public class ExpressionInterpreter
             if (value instanceof Slice &&
                     pattern instanceof Slice &&
                     (escape == null || escape instanceof Slice)) {
-                JoniRegexp regex;
+                LikeMatcher matcher;
                 if (escape == null) {
-                    regex = LikeFunctions.compileLikePattern((Slice) pattern);
+                    matcher = LikeMatcher.compile(((Slice) pattern).toStringUtf8(), Optional.empty());
                 }
                 else {
-                    regex = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
+                    matcher = LikeFunctions.likePattern((Slice) pattern, (Slice) escape);
                 }
 
-                return evaluateLikePredicate(node, (Slice) value, regex);
+                return evaluateLikePredicate(node, (Slice) value, matcher);
             }
 
             // if pattern is a constant without % or _ replace with a comparison
@@ -1205,20 +1205,20 @@ public class ExpressionInterpreter
                     optimizedEscape);
         }
 
-        private boolean evaluateLikePredicate(LikePredicate node, Slice value, JoniRegexp regex)
+        private boolean evaluateLikePredicate(LikePredicate node, Slice value, LikeMatcher matcher)
         {
             if (type(node.getValue()) instanceof VarcharType) {
-                return LikeFunctions.likeVarchar(value, regex);
+                return LikeFunctions.likeVarchar(value, matcher);
             }
 
             Type type = type(node.getValue());
             checkState(type instanceof CharType, "LIKE value is neither VARCHAR or CHAR");
-            return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, regex);
+            return LikeFunctions.likeChar((long) ((CharType) type).getLength(), value, matcher);
         }
 
-        private JoniRegexp getConstantPattern(LikePredicate node)
+        private LikeMatcher getConstantPattern(LikePredicate node)
         {
-            JoniRegexp result = likePatternCache.get(node);
+            LikeMatcher result = likePatternCache.get(node);
 
             if (result == null) {
                 StringLiteral pattern = (StringLiteral) node.getPattern();
@@ -1228,7 +1228,7 @@ public class ExpressionInterpreter
                     result = LikeFunctions.likePattern(Slices.utf8Slice(pattern.getValue()), escape);
                 }
                 else {
-                    result = LikeFunctions.compileLikePattern(Slices.utf8Slice(pattern.getValue()));
+                    result = LikeMatcher.compile(pattern.getValue(), Optional.empty());
                 }
 
                 likePatternCache.put(node, result);
