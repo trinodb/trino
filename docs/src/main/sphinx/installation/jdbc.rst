@@ -167,4 +167,5 @@ Name                                                         Description
 ``externalAuthentication``                                   Use a local web browser to authenticate with an identity provider (IdP)
                                                              that has been configured for the Trino coordinator.
                                                              See :doc:`/security/oauth2` for more details.
+``disableCompression``                                       Whether compression should be enabled.
 ============================================================ =======================================================================
