@@ -76,6 +76,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.microsoft.sqlserver.jdbc.SQLServerConnection.TRANSACTION_SNAPSHOT;
 import static io.airlift.slice.Slices.wrappedBuffer;
@@ -435,6 +436,10 @@ public class SqlServerClient
     protected Optional<TopNFunction> topNFunction()
     {
         return Optional.of((query, sortItems, limit) -> {
+            String start = "SELECT ";
+            // This is guaranteed because QueryBuilder#prepareQuery ensures all queries start with SELECT
+            verify(query.startsWith(start), "Expected query to start with %s but query was %s", start, query);
+
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
                         String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
@@ -459,7 +464,7 @@ public class SqlServerClient
                         throw new UnsupportedOperationException("Unsupported sort order: " + sortItem.getSortOrder());
                     })
                     .collect(joining(", "));
-            return format("%s ORDER BY %s OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY", query, orderBy, limit);
+            return format("SELECT TOP (%d) %s ORDER BY %s", limit, query.substring(start.length()), orderBy);
         });
     }
 
