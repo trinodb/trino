@@ -185,7 +185,8 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name = 'test_table1'",
                 "VALUES 2",
                 new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                        .withListSchemasCount(1)
+                        .withGetTableHandleCount(2));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1'",
                 "VALUES 2",
@@ -196,12 +197,14 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.tables WHERE table_name LIKE 'test_t_ble1' AND table_name IN ('test_table1', 'test_table2')",
                 "VALUES 2",
                 new MetadataCallsCount()
-                        .withListSchemasCount(1));
+                        .withListSchemasCount(1)
+                        .withGetTableHandleCount(4));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_schema = 'test_schema1' AND table_name = 'test_table1'",
                 "VALUES 100",
                 new MetadataCallsCount()
                         .withListTablesCount(1)
+                        .withGetTableHandleCount(1)
                         .withGetColumnsCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'wrong'",
@@ -211,12 +214,14 @@ public class TestInformationSchemaConnector
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog = 'test_catalog' AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 new MetadataCallsCount()
-                        .withListTablesCount(1));
+                        .withListTablesCount(1)
+                        .withGetTableHandleCount(1));
         assertMetadataCalls(
                 "SELECT count(*) from test_catalog.information_schema.columns WHERE table_catalog IN ('wrong', 'test_catalog') AND table_schema = 'wrong_schema1' AND table_name = 'test_table1'",
                 "VALUES 0",
                 new MetadataCallsCount()
-                        .withListTablesCount(1));
+                        .withListTablesCount(1)
+                        .withGetTableHandleCount(1));
         assertMetadataCalls(
                 "SELECT count(*) FROM (SELECT * from test_catalog.information_schema.columns LIMIT 1)",
                 "VALUES 1",

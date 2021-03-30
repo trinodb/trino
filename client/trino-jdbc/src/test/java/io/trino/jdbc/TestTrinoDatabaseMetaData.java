@@ -1142,7 +1142,8 @@ public class TestTrinoDatabaseMetaData
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test\\_schema1", "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                 list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
-                new MetadataCallsCount());
+                new MetadataCallsCount()
+                        .withGetTableHandleCount(1));
 
         // LIKE predicate on schema name and table name
         assertMetadataCalls(
@@ -1304,6 +1305,7 @@ public class TestTrinoDatabaseMetaData
                 new MetadataCallsCount()
                         .withListSchemasCount(3)
                         .withListTablesCount(8)
+                        .withGetTableHandleCount(2)
                         .withGetColumnsCount(2));
 
         // Equality predicate on schema name and table name, but no predicate on catalog name
