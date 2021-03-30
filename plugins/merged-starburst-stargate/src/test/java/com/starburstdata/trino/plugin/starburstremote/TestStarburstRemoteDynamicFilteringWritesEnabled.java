@@ -45,7 +45,7 @@ public class TestStarburstRemoteDynamicFilteringWritesEnabled
     protected boolean supportsSplitDynamicFiltering()
     {
         // JDBC connectors always generate single split
-        // TODO https://starburstdata.atlassian.net/browse/PRESTO-4769 revisit in parallel Starburst Remote connector
+        // TODO https://starburstdata.atlassian.net/browse/SEP-4769 revisit in parallel Starburst Remote connector
         return false;
     }
 }

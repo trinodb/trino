@@ -246,7 +246,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
     @Test
     public void testPartitionedTableWithPredicate()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/PRESTO-5011"); // TODO https://starburstdata.atlassian.net/browse/PRESTO-5011
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-5011"); // TODO https://starburstdata.atlassian.net/browse/SEP-5011
     }
 
     @Test
@@ -342,7 +342,7 @@ public class TestStarburstRemoteTableStatisticsWithPostgreSql
     public void testNumericCornerCases()
     {
         try (TestTable table = fromColumns(
-                // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4832) we cannot use getQueryRunner()::execute due to current Starburst Remote connector write limitations
+                // TODO(https://starburstdata.atlassian.net/browse/SEP-4832) we cannot use getQueryRunner()::execute due to current Starburst Remote connector write limitations
                 this::executeInRemoteStarburst,
                 "test_numeric_corner_cases_",
                 ImmutableMap.<String, List<String>>builder()

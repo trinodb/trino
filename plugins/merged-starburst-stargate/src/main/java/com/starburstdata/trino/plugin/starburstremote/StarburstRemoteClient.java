@@ -643,7 +643,7 @@ public class StarburstRemoteClient
             throws SQLException
     {
         if (!table.isNamedRelation()) {
-            // TODO(https://starburstdata.atlassian.net/browse/PRESTO-4856) retrieve statistics for base table and derive statistics for the aggregation
+            // TODO(https://starburstdata.atlassian.net/browse/SEP-4856) retrieve statistics for base table and derive statistics for the aggregation
             return TableStatistics.empty();
         }
 

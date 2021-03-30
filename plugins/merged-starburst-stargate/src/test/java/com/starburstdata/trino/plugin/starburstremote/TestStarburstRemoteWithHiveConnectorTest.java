@@ -97,7 +97,7 @@ public class TestStarburstRemoteWithHiveConnectorTest
                 return true;
 
             case SUPPORTS_CREATE_VIEW:
-                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/PRESTO-4795)
+                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/SEP-4795)
                 return false;
 
             case SUPPORTS_INSERT:
@@ -106,7 +106,7 @@ public class TestStarburstRemoteWithHiveConnectorTest
                 return false;
 
             case SUPPORTS_ARRAY:
-                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/PRESTO-4798)
+                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/SEP-4798)
                 return false;
 
             default:
@@ -135,7 +135,7 @@ public class TestStarburstRemoteWithHiveConnectorTest
     @Override
     public void testCommentColumn()
     {
-        // TODO (https://starburstdata.atlassian.net/browse/PRESTO-4832) make sure this is tested
+        // TODO (https://starburstdata.atlassian.net/browse/SEP-4832) make sure this is tested
         assertThatThrownBy(super::testCommentColumn)
                 .hasMessageStartingWith("This connector does not support creating tables");
         throw new SkipException("not supported");
@@ -285,7 +285,7 @@ public class TestStarburstRemoteWithHiveConnectorTest
     {
         // The test ensures that we do not inherit CREATE VIEW capabilities from trino-base-jdbc.
         // While generic VIEW support in base JDBC is feasible, Starburst Remote connector would require special
-        // considerations, see https://starburstdata.atlassian.net/browse/PRESTO-4795.
+        // considerations, see https://starburstdata.atlassian.net/browse/SEP-4795.
         assertThatThrownBy(() -> query("CREATE VIEW v AS SELECT 1 a"))
                 .hasMessage("This connector does not support creating views");
     }

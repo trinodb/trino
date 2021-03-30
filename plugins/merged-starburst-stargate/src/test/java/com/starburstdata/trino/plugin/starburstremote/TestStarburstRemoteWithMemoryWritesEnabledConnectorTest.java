@@ -72,7 +72,7 @@ public class TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
                 return true;
 
             case SUPPORTS_ARRAY:
-                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/PRESTO-4798)
+                // TODO Add support in Remote connector (https://starburstdata.atlassian.net/browse/SEP-4798)
                 return false;
 
             default:

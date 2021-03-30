@@ -264,7 +264,7 @@ public class TestStarburstRemoteStatisticsWithHive
     @Test
     public void testPartitionedTableWithPredicate()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/PRESTO-5011"); // TODO https://starburstdata.atlassian.net/browse/PRESTO-5011
+        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-5011"); // TODO https://starburstdata.atlassian.net/browse/SEP-5011
     }
 
     @Test
