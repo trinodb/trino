@@ -1534,7 +1534,7 @@ public class TestExpressionCompiler
                     expected = callExtractFunction(micros, field);
                 }
                 String expressionPattern = format(
-                        "extract(%s from from_unixtime(cast(%s as double) / 1000000))",
+                        "extract(%s from from_unixtime(cast(%s as double) / 1000000, 'UTC'))",
                         field,
                         micros);
                 assertExecute(generateExpression(expressionPattern, micros), BIGINT, expected);
