@@ -16,7 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.plugin.tpch.ColumnNaming;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
@@ -120,7 +120,7 @@ public class BenchmarkPlanner
         return benchmarkData.queryRunner.inTransaction(transactionSession -> {
             LogicalPlanner.Stage stage = LogicalPlanner.Stage.valueOf(benchmarkData.stage.toUpperCase(ENGLISH));
             return benchmarkData.queries.stream()
-                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false, WarningCollector.NOOP))
+                    .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false, EventCollector.NOOP))
                     .collect(toImmutableList());
         });
     }

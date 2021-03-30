@@ -22,7 +22,7 @@ import com.google.common.collect.Multisets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
@@ -62,7 +62,7 @@ public final class QueryAssertions
         MaterializedResult results;
         Plan queryPlan;
         if (planAssertion.isPresent()) {
-            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql, WarningCollector.NOOP);
+            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql, EventCollector.NOOP);
             queryPlan = resultWithPlan.getQueryPlan();
             results = resultWithPlan.getMaterializedResult().toTestTypes();
         }
@@ -134,7 +134,7 @@ public final class QueryAssertions
         Plan queryPlan = null;
         if (planAssertion.isPresent()) {
             try {
-                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(session, actual, WarningCollector.NOOP);
+                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(session, actual, EventCollector.NOOP);
                 queryPlan = resultWithPlan.getQueryPlan();
                 actualResults = resultWithPlan.getMaterializedResult().toTestTypes();
             }

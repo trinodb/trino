@@ -15,8 +15,8 @@ package io.trino.testing;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.execution.events.EventCollector;
+import io.trino.execution.events.EventCollectorConfig;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 
@@ -32,17 +32,17 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class TestingWarningCollector
-        implements WarningCollector
+public class TestingEventCollector
+        implements EventCollector
 {
     @GuardedBy("this")
     private final Map<WarningCode, TrinoWarning> warnings = new LinkedHashMap<>();
-    private final WarningCollectorConfig config;
+    private final EventCollectorConfig config;
 
     private final boolean addWarnings;
     private final AtomicInteger warningCode = new AtomicInteger();
 
-    public TestingWarningCollector(WarningCollectorConfig config, TestingWarningCollectorConfig testConfig)
+    public TestingEventCollector(EventCollectorConfig config, TestingEventCollectorConfig testConfig)
     {
         this.config = requireNonNull(config, "config is null");
         requireNonNull(testConfig, "testConfig is null");

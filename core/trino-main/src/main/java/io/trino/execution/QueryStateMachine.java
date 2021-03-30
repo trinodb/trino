@@ -27,7 +27,7 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
 import io.trino.execution.StateMachine.StateChangeListener;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.memory.VersionedMemoryPoolId;
 import io.trino.metadata.Metadata;
 import io.trino.operator.BlockedReason;
@@ -158,7 +158,7 @@ public class QueryStateMachine
     private final AtomicReference<List<RoutineInfo>> routines = new AtomicReference<>(ImmutableList.of());
     private final StateMachine<Optional<QueryInfo>> finalQueryInfo;
 
-    private final WarningCollector warningCollector;
+    private final EventCollector eventCollector;
 
     private final Optional<QueryType> queryType;
 
@@ -176,7 +176,7 @@ public class QueryStateMachine
             Executor executor,
             Ticker ticker,
             Metadata metadata,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             Optional<QueryType> queryType)
     {
         this.query = requireNonNull(query, "query is null");
@@ -192,7 +192,7 @@ public class QueryStateMachine
         this.queryState = new StateMachine<>("query " + query, executor, QUEUED, TERMINAL_QUERY_STATES);
         this.finalQueryInfo = new StateMachine<>("finalQueryInfo-" + queryId, executor, Optional.empty());
         this.outputManager = new QueryOutputManager(executor);
-        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
@@ -210,7 +210,7 @@ public class QueryStateMachine
             AccessControl accessControl,
             Executor executor,
             Metadata metadata,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             Optional<QueryType> queryType)
     {
         return beginWithTicker(
@@ -225,7 +225,7 @@ public class QueryStateMachine
                 executor,
                 Ticker.systemTicker(),
                 metadata,
-                warningCollector,
+                eventCollector,
                 queryType);
     }
 
@@ -241,7 +241,7 @@ public class QueryStateMachine
             Executor executor,
             Ticker ticker,
             Metadata metadata,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             Optional<QueryType> queryType)
     {
         // If there is not an existing transaction, begin an auto commit transaction
@@ -261,7 +261,7 @@ public class QueryStateMachine
                 executor,
                 ticker,
                 metadata,
-                warningCollector,
+                eventCollector,
                 queryType);
         queryStateMachine.addStateChangeListener(newState -> QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState));
 
@@ -313,9 +313,9 @@ public class QueryStateMachine
         return peakTaskTotalMemory.get();
     }
 
-    public WarningCollector getWarningCollector()
+    public EventCollector getWarningCollector()
     {
-        return warningCollector;
+        return eventCollector;
     }
 
     public void updateMemoryUsage(
@@ -447,7 +447,7 @@ public class QueryStateMachine
                 rootStage,
                 failureCause,
                 errorCode,
-                warningCollector.getWarnings(),
+                eventCollector.getWarnings(),
                 inputs.get(),
                 output.get(),
                 referencedTables.get(),

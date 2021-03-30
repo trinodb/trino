@@ -18,14 +18,14 @@ import io.airlift.configuration.ConfigDescription;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
-public class TestingWarningCollectorConfig
+public class TestingEventCollectorConfig
 {
     private int preloadedWarnings;
     private boolean addWarnings;
 
-    @Config("testing-warning-collector.preloaded-warnings")
-    @ConfigDescription("Preloads warning collector with test warnings")
-    public TestingWarningCollectorConfig setPreloadedWarnings(int preloadedWarnings)
+    @Config("testing-event-collector.preloaded-warnings")
+    @ConfigDescription("Preloads event collector with test warnings")
+    public TestingEventCollectorConfig setPreloadedWarnings(int preloadedWarnings)
     {
         checkArgument(preloadedWarnings >= 0, "preloadedWarnings must be >= 0");
         this.preloadedWarnings = preloadedWarnings;
@@ -37,9 +37,9 @@ public class TestingWarningCollectorConfig
         return preloadedWarnings;
     }
 
-    @Config("testing-warning-collector.add-warnings")
+    @Config("testing-event-collector.add-warnings")
     @ConfigDescription("Adds a warning each time getWarnings is called")
-    public TestingWarningCollectorConfig setAddWarnings(boolean addWarnings)
+    public TestingEventCollectorConfig setAddWarnings(boolean addWarnings)
     {
         this.addWarnings = addWarnings;
         return this;

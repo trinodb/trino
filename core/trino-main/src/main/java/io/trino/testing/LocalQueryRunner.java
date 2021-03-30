@@ -69,11 +69,11 @@ import io.trino.execution.SetSessionTask;
 import io.trino.execution.StartTransactionTask;
 import io.trino.execution.TaskManagerConfig;
 import io.trino.execution.TaskSource;
+import io.trino.execution.events.EventCollector;
 import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.scheduler.NodeScheduler;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.execution.scheduler.UniformNodeSelectorFactory;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.index.IndexManager;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
@@ -635,11 +635,11 @@ public class LocalQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return executeWithPlan(session, sql, WarningCollector.NOOP).getMaterializedResult();
+        return executeWithPlan(session, sql, EventCollector.NOOP).getMaterializedResult();
     }
 
     @Override
-    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, EventCollector eventCollector)
     {
         return inTransaction(session, transactionSession -> executeInternal(transactionSession, sql));
     }
@@ -672,7 +672,7 @@ public class LocalQueryRunner
                     .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
                     .build();
 
-            Plan plan = createPlan(session, sql, WarningCollector.NOOP);
+            Plan plan = createPlan(session, sql, EventCollector.NOOP);
             List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
             drivers.forEach(closer::register);
 
@@ -718,13 +718,13 @@ public class LocalQueryRunner
 
     public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
-        Plan plan = createPlan(session, sql, WarningCollector.NOOP);
+        Plan plan = createPlan(session, sql, EventCollector.NOOP);
         return createDrivers(session, plan, outputFactory, taskContext);
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
     {
-        return planFragmenter.createSubPlans(session, plan, forceSingleNode, WarningCollector.NOOP);
+        return planFragmenter.createSubPlans(session, plan, forceSingleNode, EventCollector.NOOP);
     }
 
     private List<Driver> createDrivers(Session session, Plan plan, OutputFactory outputFactory, TaskContext taskContext)
@@ -834,23 +834,23 @@ public class LocalQueryRunner
     }
 
     @Override
-    public Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, EventCollector eventCollector)
     {
-        return createPlan(session, sql, OPTIMIZED_AND_VALIDATED, warningCollector);
+        return createPlan(session, sql, OPTIMIZED_AND_VALIDATED, eventCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, EventCollector eventCollector)
     {
-        return createPlan(session, sql, stage, true, warningCollector);
+        return createPlan(session, sql, stage, true, eventCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, EventCollector eventCollector)
     {
         PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
 
         assertFormattedSql(sqlParser, createParsingOptions(session), preparedQuery.getStatement());
 
-        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, warningCollector);
+        return createPlan(session, sql, getPlanOptimizers(forceSingleNode), stage, eventCollector);
     }
 
     public List<PlanOptimizer> getPlanOptimizers(boolean forceSingleNode)
@@ -873,12 +873,12 @@ public class LocalQueryRunner
                 nodePartitioningManager).get();
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, EventCollector eventCollector)
     {
-        return createPlan(session, sql, optimizers, OPTIMIZED_AND_VALIDATED, warningCollector);
+        return createPlan(session, sql, optimizers, OPTIMIZED_AND_VALIDATED, eventCollector);
     }
 
-    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, WarningCollector warningCollector)
+    public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, LogicalPlanner.Stage stage, EventCollector eventCollector)
     {
         PreparedQuery preparedQuery = new QueryPreparer(sqlParser).prepareQuery(session, sql);
 
@@ -897,7 +897,7 @@ public class LocalQueryRunner
                 statsCalculator,
                 costCalculator,
                 dataDefinitionTask);
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector, statsCalculator);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), eventCollector, statsCalculator);
 
         LogicalPlanner logicalPlanner = new LogicalPlanner(
                 session,
@@ -909,7 +909,7 @@ public class LocalQueryRunner
                 new TypeAnalyzer(sqlParser, metadata),
                 statsCalculator,
                 costCalculator,
-                warningCollector);
+                eventCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make LocalQueryRunner always compute plan statistics for test purposes

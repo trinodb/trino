@@ -17,7 +17,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
@@ -126,7 +126,7 @@ public class FilterStatsCalculator
                 types,
                 emptyMap(),
                 node -> new IllegalStateException("Unexpected node: " + node),
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 false);
         expressionAnalyzer.analyze(expression, Scope.create());
         return expressionAnalyzer.getExpressionTypes();
@@ -415,7 +415,7 @@ public class FilterStatsCalculator
                     ImmutableMap.of(),
                     // At this stage, there should be no subqueries in the plan.
                     node -> new VerifyException("Unexpected subquery"),
-                    WarningCollector.NOOP,
+                    EventCollector.NOOP,
                     false);
             return expressionAnalyzer.analyze(expression, Scope.create());
         }

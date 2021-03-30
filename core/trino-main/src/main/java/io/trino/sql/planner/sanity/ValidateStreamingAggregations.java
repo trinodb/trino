@@ -16,7 +16,7 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
@@ -51,7 +51,7 @@ public class ValidateStreamingAggregations
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         planNode.accept(new Visitor(session, metadata, typeOperators, typeAnalyzer, types), null);
     }

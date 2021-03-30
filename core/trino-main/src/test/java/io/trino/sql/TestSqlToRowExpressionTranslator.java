@@ -14,7 +14,7 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
@@ -114,7 +114,7 @@ public class TestSqlToRowExpressionTranslator
                 TypeProvider.empty(),
                 emptyMap(),
                 node -> new IllegalStateException("Unexpected node: " + node),
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 false);
         expressionAnalyzer.analyze(expression, Scope.create());
         return expressionAnalyzer.getExpressionTypes();

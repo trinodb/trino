@@ -11,26 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.warnings;
+package io.trino.execution.events;
 
-import io.airlift.configuration.Config;
-
-import static com.google.common.base.Preconditions.checkArgument;
-
-public class WarningCollectorConfig
+public interface EventCollectorFactory
 {
-    private int maxWarnings = Integer.MAX_VALUE;
-
-    @Config("warning-collector.max-warnings")
-    public WarningCollectorConfig setMaxWarnings(int maxWarnings)
-    {
-        checkArgument(maxWarnings >= 0, "maxWarnings must be >= 0");
-        this.maxWarnings = maxWarnings;
-        return this;
-    }
-
-    public int getMaxWarnings()
-    {
-        return maxWarnings;
-    }
+    EventCollector create();
 }

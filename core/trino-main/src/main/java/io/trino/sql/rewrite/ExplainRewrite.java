@@ -17,7 +17,7 @@ import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.QueryPreparer;
 import io.trino.execution.QueryPreparer.PreparedQuery;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
@@ -60,10 +60,10 @@ final class ExplainRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             StatsCalculator statsCalculator)
     {
-        return (Statement) new Visitor(session, parser, queryExplainer, warningCollector).process(node, null);
+        return (Statement) new Visitor(session, parser, queryExplainer, eventCollector).process(node, null);
     }
 
     private static final class Visitor
@@ -72,18 +72,18 @@ final class ExplainRewrite
         private final Session session;
         private final QueryPreparer queryPreparer;
         private final Optional<QueryExplainer> queryExplainer;
-        private final WarningCollector warningCollector;
+        private final EventCollector eventCollector;
 
         public Visitor(
                 Session session,
                 SqlParser parser,
                 Optional<QueryExplainer> queryExplainer,
-                WarningCollector warningCollector)
+                EventCollector eventCollector)
         {
             this.session = requireNonNull(session, "session is null");
             this.queryPreparer = new QueryPreparer(requireNonNull(parser, "parser is null"));
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
-            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
         }
 
         @Override
@@ -125,20 +125,20 @@ final class ExplainRewrite
             PreparedQuery preparedQuery = queryPreparer.prepareQuery(session, node.getStatement());
 
             if (planType == VALIDATE) {
-                queryExplainer.get().analyze(session, preparedQuery.getStatement(), preparedQuery.getParameters(), warningCollector);
+                queryExplainer.get().analyze(session, preparedQuery.getStatement(), preparedQuery.getParameters(), eventCollector);
                 return singleValueQuery("Valid", true);
             }
 
             String plan;
             switch (planFormat) {
                 case GRAPHVIZ:
-                    plan = queryExplainer.get().getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.get().getGraphvizPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), eventCollector);
                     break;
                 case JSON:
-                    plan = queryExplainer.get().getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.get().getJsonPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), eventCollector);
                     break;
                 case TEXT:
-                    plan = queryExplainer.get().getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), warningCollector);
+                    plan = queryExplainer.get().getPlan(session, preparedQuery.getStatement(), planType, preparedQuery.getParameters(), eventCollector);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid Explain Format: " + planFormat.toString());

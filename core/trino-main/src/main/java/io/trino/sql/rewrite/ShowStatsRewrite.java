@@ -19,7 +19,7 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.SymbolStatsEstimate;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
@@ -94,10 +94,10 @@ public class ShowStatsRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             StatsCalculator statsCalculator)
     {
-        return (Statement) new Visitor(session, parameters, queryExplainer, warningCollector, statsCalculator).process(node, null);
+        return (Statement) new Visitor(session, parameters, queryExplainer, eventCollector, statsCalculator).process(node, null);
     }
 
     private static class Visitor
@@ -106,15 +106,15 @@ public class ShowStatsRewrite
         private final Session session;
         private final List<Expression> parameters;
         private final Optional<QueryExplainer> queryExplainer;
-        private final WarningCollector warningCollector;
+        private final EventCollector eventCollector;
         private final StatsCalculator statsCalculator;
 
-        private Visitor(Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, WarningCollector warningCollector, StatsCalculator statsCalculator)
+        private Visitor(Session session, List<Expression> parameters, Optional<QueryExplainer> queryExplainer, EventCollector eventCollector, StatsCalculator statsCalculator)
         {
             this.session = requireNonNull(session, "session is null");
             this.parameters = requireNonNull(parameters, "parameters is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
-            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         }
 
@@ -125,7 +125,7 @@ public class ShowStatsRewrite
 
             Query query = getRelation(node);
             QuerySpecification specification = (QuerySpecification) query.getQueryBody();
-            Plan plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, warningCollector);
+            Plan plan = queryExplainer.get().getLogicalPlan(session, query(specification), parameters, eventCollector);
             CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes());
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);

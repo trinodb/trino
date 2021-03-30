@@ -37,8 +37,8 @@ import io.airlift.tracetoken.TraceTokenModule;
 import io.trino.client.NodeVersion;
 import io.trino.eventlistener.EventListenerManager;
 import io.trino.eventlistener.EventListenerModule;
+import io.trino.execution.events.EventCollectorModule;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
-import io.trino.execution.warnings.WarningCollectorModule;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.StaticCatalogStore;
@@ -101,7 +101,7 @@ public class Server
                 new EventListenerModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
-                new WarningCollectorModule());
+                new EventCollectorModule());
 
         modules.addAll(getAdditionalModules());
 

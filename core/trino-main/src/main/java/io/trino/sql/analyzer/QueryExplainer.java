@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.DataDefinitionTask;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
@@ -115,13 +115,13 @@ public class QueryExplainer
         this.dataDefinitionTask = ImmutableMap.copyOf(requireNonNull(dataDefinitionTask, "dataDefinitionTask is null"));
     }
 
-    public Analysis analyze(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    public Analysis analyze(Session session, Statement statement, List<Expression> parameters, EventCollector eventCollector)
     {
-        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), warningCollector, statsCalculator);
+        Analyzer analyzer = new Analyzer(session, metadata, sqlParser, groupProvider, accessControl, Optional.of(this), parameters, parameterExtractor(statement, parameters), eventCollector, statsCalculator);
         return analyzer.analyze(statement);
     }
 
-    public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
+    public String getPlan(Session session, Statement statement, Type planType, List<Expression> parameters, EventCollector eventCollector)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
@@ -130,13 +130,13 @@ public class QueryExplainer
 
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                Plan plan = getLogicalPlan(session, statement, parameters, eventCollector);
                 return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, plan.getStatsAndCosts(), session, 0, false);
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters, eventCollector);
                 return PlanPrinter.textDistributedPlan(subPlan, metadata, session, false);
             case IO:
-                return IoPlanPrinter.textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), metadata, typeOperators, session);
+                return IoPlanPrinter.textIoPlan(getLogicalPlan(session, statement, parameters, eventCollector), metadata, typeOperators, session);
             case VALIDATE:
                 // unsupported
                 break;
@@ -149,7 +149,7 @@ public class QueryExplainer
         return task.explain((T) statement, parameters);
     }
 
-    public String getGraphvizPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
+    public String getGraphvizPlan(Session session, Statement statement, Type planType, List<Expression> parameters, EventCollector eventCollector)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
@@ -159,10 +159,10 @@ public class QueryExplainer
 
         switch (planType) {
             case LOGICAL:
-                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                Plan plan = getLogicalPlan(session, statement, parameters, eventCollector);
                 return PlanPrinter.graphvizLogicalPlan(plan.getRoot(), plan.getTypes());
             case DISTRIBUTED:
-                SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
+                SubPlan subPlan = getDistributedPlan(session, statement, parameters, eventCollector);
                 return PlanPrinter.graphvizDistributedPlan(subPlan);
             case VALIDATE:
             case IO:
@@ -171,7 +171,7 @@ public class QueryExplainer
         throw new IllegalArgumentException("Unhandled plan type: " + planType);
     }
 
-    public String getJsonPlan(Session session, Statement statement, Type planType, List<Expression> parameters, WarningCollector warningCollector)
+    public String getJsonPlan(Session session, Statement statement, Type planType, List<Expression> parameters, EventCollector eventCollector)
     {
         DataDefinitionTask<?> task = dataDefinitionTask.get(statement.getClass());
         if (task != null) {
@@ -181,7 +181,7 @@ public class QueryExplainer
 
         switch (planType) {
             case IO:
-                Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
+                Plan plan = getLogicalPlan(session, statement, parameters, eventCollector);
                 return textIoPlan(plan, metadata, typeOperators, session);
             case LOGICAL:
             case DISTRIBUTED:
@@ -192,10 +192,10 @@ public class QueryExplainer
         throw new TrinoException(NOT_SUPPORTED, format("Unsupported explain plan type %s for JSON format", planType));
     }
 
-    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, EventCollector eventCollector)
     {
         // analyze statement
-        Analysis analysis = analyze(session, statement, parameters, warningCollector);
+        Analysis analysis = analyze(session, statement, parameters, eventCollector);
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
 
@@ -209,13 +209,13 @@ public class QueryExplainer
                 new TypeAnalyzer(sqlParser, metadata),
                 statsCalculator,
                 costCalculator,
-                warningCollector);
+                eventCollector);
         return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true);
     }
 
-    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector)
+    private SubPlan getDistributedPlan(Session session, Statement statement, List<Expression> parameters, EventCollector eventCollector)
     {
-        Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-        return planFragmenter.createSubPlans(session, plan, false, warningCollector);
+        Plan plan = getLogicalPlan(session, statement, parameters, eventCollector);
+        return planFragmenter.createSubPlans(session, plan, false, eventCollector);
     }
 }

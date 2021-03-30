@@ -20,7 +20,7 @@ import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -159,7 +159,7 @@ public class TestApplyTableScanRedirection
 
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(MOCK_SESSION, session -> {
-                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", WarningCollector.NOOP))
+                        assertThatThrownBy(() -> runner.createPlan(session, "SELECT source_col_a FROM test_table", EventCollector.NOOP))
                                 .isInstanceOf(TrinoException.class)
                                 // TODO report source column name instead of ColumnHandle toString
                                 .hasMessageMatching("Redirected column mock_catalog.target_schema.target_table.destination_col_c has type bigint, " +

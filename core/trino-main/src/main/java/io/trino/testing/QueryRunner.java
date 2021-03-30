@@ -15,7 +15,7 @@ package io.trino.testing;
 
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SqlFunction;
@@ -62,12 +62,12 @@ public interface QueryRunner
 
     MaterializedResult execute(Session session, @Language("SQL") String sql);
 
-    default MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
+    default MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql, EventCollector eventCollector)
     {
         throw new UnsupportedOperationException();
     }
 
-    default Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
+    default Plan createPlan(Session session, @Language("SQL") String sql, EventCollector eventCollector)
     {
         throw new UnsupportedOperationException();
     }

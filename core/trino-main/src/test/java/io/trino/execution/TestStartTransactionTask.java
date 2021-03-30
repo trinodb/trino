@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControlConfig;
@@ -84,7 +84,7 @@ public class TestStartTransactionTask
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP)))
+                () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), EventCollector.NOOP)))
                 .hasErrorCode(INCOMPATIBLE_CLIENT);
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
@@ -104,7 +104,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
 
         assertTrinoExceptionThrownBy(
-                () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP)))
+                () -> getFutureValue((Future<?>) new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), EventCollector.NOOP)))
                 .hasErrorCode(NOT_SUPPORTED);
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
@@ -123,7 +123,7 @@ public class TestStartTransactionTask
         QueryStateMachine stateMachine = createQueryStateMachine("START TRANSACTION", session, transactionManager);
         assertFalse(stateMachine.getSession().getTransactionId().isPresent());
 
-        getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), WarningCollector.NOOP));
+        getFutureValue(new StartTransactionTask().execute(new StartTransaction(ImmutableList.of()), transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList(), EventCollector.NOOP));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -149,7 +149,7 @@ public class TestStartTransactionTask
                 new AllowAllAccessControl(),
                 stateMachine,
                 emptyList(),
-                WarningCollector.NOOP));
+                EventCollector.NOOP));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
         assertEquals(transactionManager.getAllTransactionInfos().size(), 1);
@@ -178,7 +178,7 @@ public class TestStartTransactionTask
                         new AllowAllAccessControl(),
                         stateMachine,
                         emptyList(),
-                        WarningCollector.NOOP)))
+                        EventCollector.NOOP)))
                 .hasErrorCode(SYNTAX_ERROR);
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
@@ -205,7 +205,7 @@ public class TestStartTransactionTask
                         new AllowAllAccessControl(),
                         stateMachine,
                         emptyList(),
-                        WarningCollector.NOOP)))
+                        EventCollector.NOOP)))
                 .hasErrorCode(SYNTAX_ERROR);
 
         assertTrue(transactionManager.getAllTransactionInfos().isEmpty());
@@ -238,7 +238,7 @@ public class TestStartTransactionTask
                 new AllowAllAccessControl(),
                 stateMachine,
                 emptyList(),
-                WarningCollector.NOOP));
+                EventCollector.NOOP));
         assertFalse(stateMachine.getQueryInfo(Optional.empty()).isClearTransactionId());
         assertTrue(stateMachine.getQueryInfo(Optional.empty()).getStartedTransactionId().isPresent());
 
@@ -264,7 +264,7 @@ public class TestStartTransactionTask
                 new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig()),
                 executor,
                 metadata,
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 Optional.empty());
     }
 

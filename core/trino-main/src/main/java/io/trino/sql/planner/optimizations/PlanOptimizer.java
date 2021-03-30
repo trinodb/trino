@@ -14,7 +14,7 @@
 package io.trino.sql.planner.optimizations;
 
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
@@ -28,5 +28,5 @@ public interface PlanOptimizer
             TypeProvider types,
             SymbolAllocator symbolAllocator,
             PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector);
+            EventCollector eventCollector);
 }

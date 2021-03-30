@@ -23,7 +23,7 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
@@ -257,9 +257,9 @@ public class RuleAssert
             public void checkTimeoutNotExhausted() {}
 
             @Override
-            public WarningCollector getWarningCollector()
+            public EventCollector getEventCollector()
             {
-                return WarningCollector.NOOP;
+                return EventCollector.NOOP;
             }
         };
     }

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ColumnHandle;
@@ -363,7 +363,7 @@ public class TestTypeValidator
     private void assertTypesValid(PlanNode node)
     {
         Metadata metadata = createTestMetadataManager();
-        TYPE_VALIDATOR.validate(node, TEST_SESSION, metadata, typeOperators, new TypeAnalyzer(SQL_PARSER, metadata), symbolAllocator.getTypes(), WarningCollector.NOOP);
+        TYPE_VALIDATOR.validate(node, TEST_SESSION, metadata, typeOperators, new TypeAnalyzer(SQL_PARSER, metadata), symbolAllocator.getTypes(), EventCollector.NOOP);
     }
 
     private static PlanNodeId newId()

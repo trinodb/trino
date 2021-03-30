@@ -16,13 +16,13 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session.SessionBuilder;
 import io.trino.execution.TestEventListenerPlugin.TestingEventListenerPlugin;
-import io.trino.execution.warnings.WarningCollectorConfig;
+import io.trino.execution.events.EventCollectorConfig;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingWarningCollector;
-import io.trino.testing.TestingWarningCollectorConfig;
+import io.trino.testing.TestingEventCollector;
+import io.trino.testing.TestingEventCollectorConfig;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -53,7 +53,7 @@ public class TestCompletedEventWarnings
         SessionBuilder sessionBuilder = testSessionBuilder();
         generatedEvents = new EventsCollector();
         queryRunner = DistributedQueryRunner.builder(sessionBuilder.build())
-                .setExtraProperties(ImmutableMap.of("testing-warning-collector.preloaded-warnings", String.valueOf(TEST_WARNINGS)))
+                .setExtraProperties(ImmutableMap.of("testing-event-collector.preloaded-warnings", String.valueOf(TEST_WARNINGS)))
                 .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new TestingEventListenerPlugin(generatedEvents));
@@ -72,12 +72,12 @@ public class TestCompletedEventWarnings
     public void testCompletedEventWarnings()
             throws InterruptedException
     {
-        TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(TEST_WARNINGS);
-        TestingWarningCollector testingWarningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
+        TestingEventCollectorConfig eventCollectorConfig = new TestingEventCollectorConfig().setPreloadedWarnings(TEST_WARNINGS);
+        TestingEventCollector testingEventCollector = new TestingEventCollector(new EventCollectorConfig(), eventCollectorConfig);
         assertWarnings(
                 "select 1",
                 ImmutableMap.of(),
-                testingWarningCollector.getWarnings().stream()
+                testingEventCollector.getWarnings().stream()
                         .map(TrinoWarning::getWarningCode)
                         .collect(toImmutableList()));
     }

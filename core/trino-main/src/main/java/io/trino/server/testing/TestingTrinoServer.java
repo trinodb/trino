@@ -77,9 +77,9 @@ import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
 import io.trino.testing.ProcedureTester;
 import io.trino.testing.TestingAccessControlManager;
+import io.trino.testing.TestingEventCollectorModule;
 import io.trino.testing.TestingEventListenerManager;
 import io.trino.testing.TestingGroupProvider;
-import io.trino.testing.TestingWarningCollectorModule;
 import io.trino.transaction.TransactionManager;
 import org.weakref.jmx.guice.MBeanModule;
 
@@ -230,7 +230,7 @@ public class TestingTrinoServer
                 .add(new TraceTokenModule())
                 .add(new ServerSecurityModule())
                 .add(new ServerMainModule("testversion"))
-                .add(new TestingWarningCollectorModule())
+                .add(new TestingEventCollectorModule())
                 .add(binder -> {
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(TestingAccessControlManager.class).in(Scopes.SINGLETON);

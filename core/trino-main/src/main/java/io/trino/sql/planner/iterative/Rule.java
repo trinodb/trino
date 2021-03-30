@@ -16,7 +16,7 @@ package io.trino.sql.planner.iterative;
 import io.trino.Session;
 import io.trino.cost.CostProvider;
 import io.trino.cost.StatsProvider;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.sql.planner.PlanNodeIdAllocator;
@@ -57,7 +57,7 @@ public interface Rule<T>
 
         void checkTimeoutNotExhausted();
 
-        WarningCollector getWarningCollector();
+        EventCollector getEventCollector();
     }
 
     final class Result

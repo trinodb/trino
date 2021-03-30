@@ -16,7 +16,7 @@ package io.trino.sql.rewrite;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.security.GroupProvider;
@@ -54,11 +54,11 @@ public final class StatementRewrite
             Map<NodeRef<Parameter>, Expression> parameterLookup,
             GroupProvider groupProvider,
             AccessControl accessControl,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             StatsCalculator statsCalculator)
     {
         for (Rewrite rewrite : REWRITES) {
-            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, groupProvider, accessControl, warningCollector, statsCalculator), "Statement rewrite returned null");
+            node = requireNonNull(rewrite.rewrite(session, metadata, parser, queryExplainer, node, parameters, parameterLookup, groupProvider, accessControl, eventCollector, statsCalculator), "Statement rewrite returned null");
         }
         return node;
     }
@@ -75,7 +75,7 @@ public final class StatementRewrite
                 Map<NodeRef<Parameter>, Expression> parameterLookup,
                 GroupProvider groupProvider,
                 AccessControl accessControl,
-                WarningCollector warningCollector,
+                EventCollector eventCollector,
                 StatsCalculator statsCalculator);
     }
 }

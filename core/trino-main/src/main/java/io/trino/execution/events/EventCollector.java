@@ -11,17 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.warnings;
+package io.trino.execution.events;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoWarning;
 
 import java.util.List;
 
-public interface WarningCollector
+public interface EventCollector
 {
-    WarningCollector NOOP =
-            new WarningCollector()
+    EventCollector NOOP =
+            new EventCollector()
             {
                 @Override
                 public void add(TrinoWarning warning) {}

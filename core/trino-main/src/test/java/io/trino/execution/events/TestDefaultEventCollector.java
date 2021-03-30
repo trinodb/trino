@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.warnings;
+package io.trino.execution.events;
 
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
@@ -19,23 +19,23 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestDefaultWarningCollector
+public class TestDefaultEventCollector
 {
     @Test
     public void testNoWarnings()
     {
-        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig().setMaxWarnings(0));
-        warningCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
-        assertEquals(warningCollector.getWarnings().size(), 0);
+        EventCollector eventCollector = new DefaultEventCollector(new EventCollectorConfig().setMaxWarnings(0));
+        eventCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
+        assertEquals(eventCollector.getWarnings().size(), 0);
     }
 
     @Test
     public void testMaxWarnings()
     {
-        WarningCollector warningCollector = new DefaultWarningCollector(new WarningCollectorConfig().setMaxWarnings(2));
-        warningCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
-        warningCollector.add(new TrinoWarning(new WarningCode(2, "2"), "warning 2"));
-        warningCollector.add(new TrinoWarning(new WarningCode(3, "3"), "warning 3"));
-        assertEquals(warningCollector.getWarnings().size(), 2);
+        EventCollector eventCollector = new DefaultEventCollector(new EventCollectorConfig().setMaxWarnings(2));
+        eventCollector.add(new TrinoWarning(new WarningCode(1, "1"), "warning 1"));
+        eventCollector.add(new TrinoWarning(new WarningCode(2, "2"), "warning 2"));
+        eventCollector.add(new TrinoWarning(new WarningCode(3, "3"), "warning 3"));
+        assertEquals(eventCollector.getWarnings().size(), 2);
     }
 }

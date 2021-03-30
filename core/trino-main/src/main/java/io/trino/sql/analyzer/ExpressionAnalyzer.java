@@ -20,7 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.SliceUtf8;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
@@ -251,7 +251,7 @@ public class ExpressionAnalyzer
 
     private final Session session;
     private final Map<NodeRef<Parameter>, Expression> parameters;
-    private final WarningCollector warningCollector;
+    private final EventCollector eventCollector;
     private final TypeCoercion typeCoercion;
     private final CorrelationSupport correlationSupport;
     private final Function<Expression, Type> getPreanalyzedType;
@@ -264,7 +264,7 @@ public class ExpressionAnalyzer
             Session session,
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             boolean isDescribe,
             CorrelationSupport correlationSupport,
             Function<Expression, Type> getPreanalyzedType,
@@ -277,7 +277,7 @@ public class ExpressionAnalyzer
         this.symbolTypes = requireNonNull(symbolTypes, "symbolTypes is null");
         this.parameters = requireNonNull(parameters, "parameters is null");
         this.isDescribe = isDescribe;
-        this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+        this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.correlationSupport = requireNonNull(correlationSupport, "correlationSupport is null");
         this.getPreanalyzedType = requireNonNull(getPreanalyzedType, "getPreanalyzedType is null");
@@ -355,19 +355,19 @@ public class ExpressionAnalyzer
 
     public Type analyze(Expression expression, Scope scope)
     {
-        Visitor visitor = new Visitor(scope, warningCollector);
+        Visitor visitor = new Visitor(scope, eventCollector);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)));
     }
 
     private Type analyze(Expression expression, Scope baseScope, Context context)
     {
-        Visitor visitor = new Visitor(baseScope, warningCollector);
+        Visitor visitor = new Visitor(baseScope, eventCollector);
         return visitor.process(expression, new StackableAstVisitor.StackableAstVisitorContext<>(context));
     }
 
     private void analyzeWindow(ResolvedWindow window, Scope scope, Node originalNode)
     {
-        Visitor visitor = new Visitor(scope, warningCollector);
+        Visitor visitor = new Visitor(scope, eventCollector);
         visitor.analyzeWindow(window, new StackableAstVisitor.StackableAstVisitorContext<>(Context.notInLambda(scope)), originalNode);
     }
 
@@ -406,12 +406,12 @@ public class ExpressionAnalyzer
     {
         // Used to resolve FieldReferences (e.g. during local execution planning)
         private final Scope baseScope;
-        private final WarningCollector warningCollector;
+        private final EventCollector eventCollector;
 
-        public Visitor(Scope baseScope, WarningCollector warningCollector)
+        public Visitor(Scope baseScope, EventCollector eventCollector)
         {
             this.baseScope = requireNonNull(baseScope, "baseScope is null");
-            this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
+            this.eventCollector = requireNonNull(eventCollector, "eventCollector is null");
         }
 
         @Override
@@ -1052,7 +1052,7 @@ public class ExpressionAnalyzer
 
             FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
             if (functionMetadata.isDeprecated()) {
-                warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
+                eventCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
                         format("Use of deprecated function: %s: %s",
                                 functionMetadata.getSignature().getName(),
                                 functionMetadata.getDescription())));
@@ -1268,7 +1268,7 @@ public class ExpressionAnalyzer
                                         session,
                                         symbolTypes,
                                         parameters,
-                                        warningCollector,
+                                        eventCollector,
                                         isDescribe,
                                         correlationSupport,
                                         getPreanalyzedType,
@@ -1932,11 +1932,11 @@ public class ExpressionAnalyzer
             TypeProvider types,
             Iterable<Expression> expressions,
             Map<NodeRef<Parameter>, Expression> parameters,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             boolean isDescribe)
     {
         Analysis analysis = new Analysis(null, parameters, isDescribe);
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, warningCollector);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, eventCollector);
         for (Expression expression : expressions) {
             analyzer.analyze(
                     expression,
@@ -1966,10 +1966,10 @@ public class ExpressionAnalyzer
             Scope scope,
             Analysis analysis,
             Expression expression,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             CorrelationSupport correlationSupport)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector, correlationSupport);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), eventCollector, correlationSupport);
         analyzer.analyze(expression, scope);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -1994,12 +1994,12 @@ public class ExpressionAnalyzer
             SqlParser sqlParser,
             Scope scope,
             Analysis analysis,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             CorrelationSupport correlationSupport,
             ResolvedWindow window,
             Node originalNode)
     {
-        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), warningCollector, correlationSupport);
+        ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, groupProvider, accessControl, TypeProvider.empty(), eventCollector, correlationSupport);
         analyzer.analyzeWindow(window, scope, originalNode);
 
         updateAnalysis(analysis, analyzer, session, accessControl);
@@ -2041,9 +2041,9 @@ public class ExpressionAnalyzer
             GroupProvider groupProvider,
             AccessControl accessControl,
             TypeProvider types,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
-        return create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, warningCollector, CorrelationSupport.ALLOWED);
+        return create(analysis, session, metadata, sqlParser, groupProvider, accessControl, types, eventCollector, CorrelationSupport.ALLOWED);
     }
 
     public static ExpressionAnalyzer create(
@@ -2054,17 +2054,17 @@ public class ExpressionAnalyzer
             GroupProvider groupProvider,
             AccessControl accessControl,
             TypeProvider types,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             CorrelationSupport correlationSupport)
     {
         return new ExpressionAnalyzer(
                 metadata,
                 accessControl,
-                node -> new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, warningCollector, correlationSupport),
+                node -> new StatementAnalyzer(analysis, metadata, sqlParser, groupProvider, accessControl, session, eventCollector, correlationSupport),
                 session,
                 types,
                 analysis.getParameters(),
-                warningCollector,
+                eventCollector,
                 analysis.isDescribe(),
                 correlationSupport,
                 analysis::getType,
@@ -2076,7 +2076,7 @@ public class ExpressionAnalyzer
             AccessControl accessControl,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         return createWithoutSubqueries(
                 metadata,
@@ -2085,7 +2085,7 @@ public class ExpressionAnalyzer
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
                 "Constant expression cannot contain a subquery",
-                warningCollector,
+                eventCollector,
                 false);
     }
 
@@ -2094,7 +2094,7 @@ public class ExpressionAnalyzer
             AccessControl accessControl,
             Session session,
             Map<NodeRef<Parameter>, Expression> parameters,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             boolean isDescribe)
     {
         return createWithoutSubqueries(
@@ -2104,7 +2104,7 @@ public class ExpressionAnalyzer
                 parameters,
                 EXPRESSION_NOT_CONSTANT,
                 "Constant expression cannot contain a subquery",
-                warningCollector,
+                eventCollector,
                 isDescribe);
     }
 
@@ -2115,7 +2115,7 @@ public class ExpressionAnalyzer
             Map<NodeRef<Parameter>, Expression> parameters,
             ErrorCodeSupplier errorCode,
             String message,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             boolean isDescribe)
     {
         return createWithoutSubqueries(
@@ -2125,7 +2125,7 @@ public class ExpressionAnalyzer
                 TypeProvider.empty(),
                 parameters,
                 node -> semanticException(errorCode, node, message),
-                warningCollector,
+                eventCollector,
                 isDescribe);
     }
 
@@ -2136,7 +2136,7 @@ public class ExpressionAnalyzer
             TypeProvider symbolTypes,
             Map<NodeRef<Parameter>, Expression> parameters,
             Function<? super Node, ? extends RuntimeException> statementAnalyzerRejection,
-            WarningCollector warningCollector,
+            EventCollector eventCollector,
             boolean isDescribe)
     {
         return new ExpressionAnalyzer(
@@ -2148,7 +2148,7 @@ public class ExpressionAnalyzer
                 session,
                 symbolTypes,
                 parameters,
-                warningCollector,
+                eventCollector,
                 isDescribe,
                 CorrelationSupport.ALLOWED,
                 expression -> { throw new IllegalStateException("Cannot access preanalyzed types"); },

@@ -26,7 +26,7 @@ import io.trino.Session.SessionBuilder;
 import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.QueryManager;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
@@ -488,14 +488,14 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, EventCollector eventCollector)
     {
         ResultWithQueryId<MaterializedResult> resultWithQueryId = executeWithQueryId(session, sql);
         return new MaterializedResultWithPlan(resultWithQueryId.getResult().toTestTypes(), getQueryPlan(resultWithQueryId.getQueryId()));
     }
 
     @Override
-    public Plan createPlan(Session session, String sql, WarningCollector warningCollector)
+    public Plan createPlan(Session session, String sql, EventCollector eventCollector)
     {
         QueryId queryId = executeWithQueryId(session, sql).getQueryId();
         Plan queryPlan = getQueryPlan(queryId);

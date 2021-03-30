@@ -24,8 +24,8 @@ import io.trino.connector.system.SystemConnector;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.events.EventCollector;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.Catalog;
@@ -3172,7 +3172,7 @@ public class TestAnalyzer
                 Optional.empty(),
                 emptyList(),
                 emptyMap(),
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 createNewStatsCalculator(metadata, new TypeAnalyzer(SQL_PARSER, metadata)));
     }
 

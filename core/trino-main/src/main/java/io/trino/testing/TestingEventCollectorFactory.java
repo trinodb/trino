@@ -13,27 +13,27 @@
  */
 package io.trino.testing;
 
-import io.trino.execution.warnings.WarningCollector;
-import io.trino.execution.warnings.WarningCollectorConfig;
-import io.trino.execution.warnings.WarningCollectorFactory;
+import io.trino.execution.events.EventCollector;
+import io.trino.execution.events.EventCollectorConfig;
+import io.trino.execution.events.EventCollectorFactory;
 
 import static java.util.Objects.requireNonNull;
 
-public class TestingWarningCollectorFactory
-        implements WarningCollectorFactory
+public class TestingEventCollectorFactory
+        implements EventCollectorFactory
 {
-    private final WarningCollectorConfig config;
-    private final TestingWarningCollectorConfig testConfig;
+    private final EventCollectorConfig config;
+    private final TestingEventCollectorConfig testConfig;
 
-    public TestingWarningCollectorFactory(WarningCollectorConfig config, TestingWarningCollectorConfig testConfig)
+    public TestingEventCollectorFactory(EventCollectorConfig config, TestingEventCollectorConfig testConfig)
     {
         this.config = requireNonNull(config, "config is null");
         this.testConfig = requireNonNull(testConfig, "testConfig is null");
     }
 
     @Override
-    public WarningCollector create()
+    public EventCollector create()
     {
-        return new TestingWarningCollector(config, testConfig);
+        return new TestingEventCollector(config, testConfig);
     }
 }

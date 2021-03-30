@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.plugin.tpch.TpchConnectorFactory;
@@ -75,7 +75,7 @@ public class TestIterativeOptimizer
                 queryRunner.getCostCalculator(),
                 ImmutableSet.of(new AddIdentityOverTableScan(), new RemoveRedundantIdentityProjections()));
 
-        assertTrinoExceptionThrownBy(() -> queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), WarningCollector.NOOP)))
+        assertTrinoExceptionThrownBy(() -> queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, "SELECT nationkey FROM nation", ImmutableList.of(optimizer), EventCollector.NOOP)))
                 .hasErrorCode(OPTIMIZER_TIMEOUT)
                 .hasMessage("The optimizer exhausted the time limit of 1 ms");
     }

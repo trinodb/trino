@@ -14,7 +14,7 @@
 package io.trino.testing;
 
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 
@@ -58,7 +58,7 @@ public class PlanDeterminismChecker
     private String getPlanText(Session session, String sql)
     {
         return localQueryRunner.inTransaction(session, transactionSession -> {
-            Plan plan = localQueryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP);
+            Plan plan = localQueryRunner.createPlan(transactionSession, sql, OPTIMIZED_AND_VALIDATED, EventCollector.NOOP);
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),

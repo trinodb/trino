@@ -14,7 +14,7 @@
 package io.trino.sql.planner.sanity;
 
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.analyzer.ExpressionTreeUtils;
@@ -37,7 +37,7 @@ public final class NoIdentifierLeftChecker
             TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             TypeProvider types,
-            WarningCollector warningCollector)
+            EventCollector eventCollector)
     {
         List<Identifier> identifiers = ExpressionTreeUtils.extractExpressions(ExpressionExtractor.extractExpressions(plan), Identifier.class);
         if (!identifiers.isEmpty()) {

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution.warnings;
+package io.trino.execution.events;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoWarning;
@@ -26,14 +26,14 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class DefaultWarningCollector
-        implements WarningCollector
+public class DefaultEventCollector
+        implements EventCollector
 {
     @GuardedBy("this")
     private final Set<TrinoWarning> warnings = new LinkedHashSet<>();
-    private final WarningCollectorConfig config;
+    private final EventCollectorConfig config;
 
-    public DefaultWarningCollector(WarningCollectorConfig config)
+    public DefaultEventCollector(EventCollectorConfig config)
     {
         this.config = requireNonNull(config, "config is null");
     }

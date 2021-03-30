@@ -15,7 +15,7 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.BigintType;
@@ -113,7 +113,7 @@ public class ScalarStatsCalculator
         @Override
         protected SymbolStatsEstimate visitLiteral(Literal node, Void context)
         {
-            ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, new AllowAllAccessControl(), session, ImmutableMap.of(), WarningCollector.NOOP);
+            ExpressionAnalyzer analyzer = createConstantAnalyzer(metadata, new AllowAllAccessControl(), session, ImmutableMap.of(), EventCollector.NOOP);
             Type type = analyzer.analyze(node, Scope.create());
             Object value = evaluate(metadata, session.toConnectorSession(), analyzer.getExpressionTypes(), node);
 
@@ -161,7 +161,7 @@ public class ScalarStatsCalculator
                     types,
                     emptyMap(),
                     node -> new IllegalStateException("Unexpected node: %s" + node),
-                    WarningCollector.NOOP,
+                    EventCollector.NOOP,
                     false);
             expressionAnalyzer.analyze(expression, Scope.create());
             return expressionAnalyzer.getExpressionTypes();

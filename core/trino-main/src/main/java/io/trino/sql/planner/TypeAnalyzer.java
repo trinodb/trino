@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
+import io.trino.execution.events.EventCollector;
 import io.trino.metadata.Metadata;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
@@ -58,7 +58,7 @@ public class TypeAnalyzer
                 inputTypes,
                 expressions,
                 ImmutableMap.of(),
-                WarningCollector.NOOP,
+                EventCollector.NOOP,
                 false)
                 .getExpressionTypes();
     }
