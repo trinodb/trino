@@ -994,6 +994,7 @@ public class TestTrinoDatabaseMetaData
 
         // No filter
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getSchemas(null, null),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
@@ -1002,6 +1003,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on catalog name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, null),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
@@ -1014,6 +1016,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on schema name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, "test\\_schema%"),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
@@ -1025,6 +1028,7 @@ public class TestTrinoDatabaseMetaData
 
         // LIKE predicate on schema name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, "test_sch_ma1"),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
@@ -1034,6 +1038,7 @@ public class TestTrinoDatabaseMetaData
 
         // Empty schema name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getSchemas(COUNTING_CATALOG, ""),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
@@ -1043,6 +1048,7 @@ public class TestTrinoDatabaseMetaData
 
         // catalog does not exist
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getSchemas("wrong", null),
                         list("TABLE_CATALOG", "TABLE_SCHEM")),
@@ -1058,6 +1064,7 @@ public class TestTrinoDatabaseMetaData
 
         // No filter
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(null, null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1067,6 +1074,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on catalog name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1076,6 +1084,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on schema name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test\\_schema1", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1088,6 +1097,7 @@ public class TestTrinoDatabaseMetaData
 
         // LIKE predicate on schema name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test_sch_ma1", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1101,6 +1111,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on table name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1113,6 +1124,7 @@ public class TestTrinoDatabaseMetaData
 
         // LIKE predicate on table name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, "test_t_ble1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1125,6 +1137,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on schema name and table name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test\\_schema1", "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1133,6 +1146,7 @@ public class TestTrinoDatabaseMetaData
 
         // LIKE predicate on schema name and table name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "test_schema1", "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1143,6 +1157,7 @@ public class TestTrinoDatabaseMetaData
 
         // catalog does not exist
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables("wrong", null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1151,6 +1166,7 @@ public class TestTrinoDatabaseMetaData
 
         // empty schema name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, "", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1161,6 +1177,7 @@ public class TestTrinoDatabaseMetaData
 
         // empty table name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, "", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1171,6 +1188,7 @@ public class TestTrinoDatabaseMetaData
 
         // no table types selected
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, null, new String[0]),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
@@ -1186,6 +1204,7 @@ public class TestTrinoDatabaseMetaData
 
         // No filter
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(null, null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1196,6 +1215,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on catalog name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1206,6 +1226,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on catalog name, schema name and table name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test\\_schema1", "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1218,6 +1239,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on catalog name, schema name, table name and column name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test\\_schema1", "test\\_table1", "column\\_17"),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1228,6 +1250,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on catalog name, LIKE predicate on schema name, table name and column name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17"),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1239,6 +1262,7 @@ public class TestTrinoDatabaseMetaData
 
         // LIKE predicate on schema name and table name, but no predicate on catalog name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(null, "test_schema1", "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1252,6 +1276,7 @@ public class TestTrinoDatabaseMetaData
 
         // LIKE predicate on schema name, but no predicate on catalog name and table name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(null, "test_schema1", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1267,6 +1292,7 @@ public class TestTrinoDatabaseMetaData
 
         // LIKE predicate on table name, but no predicate on catalog name and schema name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(null, null, "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1282,6 +1308,7 @@ public class TestTrinoDatabaseMetaData
 
         // Equality predicate on schema name and table name, but no predicate on catalog name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(null, "test\\_schema1", "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1294,6 +1321,7 @@ public class TestTrinoDatabaseMetaData
 
         // catalog does not exist
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns("wrong", null, null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1302,6 +1330,7 @@ public class TestTrinoDatabaseMetaData
 
         // schema does not exist
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "wrong\\_schema1", "test\\_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1311,6 +1340,7 @@ public class TestTrinoDatabaseMetaData
 
         // schema does not exist
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "wrong_schema1", "test_table1", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1322,6 +1352,7 @@ public class TestTrinoDatabaseMetaData
 
         // empty schema name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, "", null, null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1333,6 +1364,7 @@ public class TestTrinoDatabaseMetaData
 
         // empty table name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, null, "", null),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1344,6 +1376,7 @@ public class TestTrinoDatabaseMetaData
 
         // empty column name
         assertMetadataCalls(
+                connection,
                 readMetaData(
                         databaseMetaData -> databaseMetaData.getColumns(COUNTING_CATALOG, null, null, ""),
                         list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "COLUMN_NAME", "TYPE_NAME")),
@@ -1393,19 +1426,23 @@ public class TestTrinoDatabaseMetaData
                 .collect(toImmutableSet());
     }
 
-    private void assertMetadataCalls(MetaDataCallback<? extends Collection<List<Object>>> callback, MetadataCallsCount expectedMetadataCallsCount)
-            throws Exception
+    private void assertMetadataCalls(Connection connection, MetaDataCallback<? extends Collection<List<Object>>> callback, MetadataCallsCount expectedMetadataCallsCount)
     {
         assertMetadataCalls(
+                connection,
                 callback,
                 actual -> {},
                 expectedMetadataCallsCount);
     }
 
-    private void assertMetadataCalls(MetaDataCallback<? extends Collection<List<Object>>> callback, Collection<List<?>> expected, MetadataCallsCount expectedMetadataCallsCount)
-            throws Exception
+    private void assertMetadataCalls(
+            Connection connection,
+            MetaDataCallback<? extends Collection<List<Object>>> callback,
+            Collection<List<?>> expected,
+            MetadataCallsCount expectedMetadataCallsCount)
     {
         assertMetadataCalls(
+                connection,
                 callback,
                 actual -> assertThat(ImmutableMultiset.copyOf(requireNonNull(actual, "actual is null")))
                         .isEqualTo(ImmutableMultiset.copyOf(requireNonNull(expected, "expected is null"))),
@@ -1413,23 +1450,20 @@ public class TestTrinoDatabaseMetaData
     }
 
     private void assertMetadataCalls(
+            Connection connection,
             MetaDataCallback<? extends Collection<List<Object>>> callback,
             Consumer<Collection<List<Object>>> resultsVerification,
             MetadataCallsCount expectedMetadataCallsCount)
-            throws Exception
     {
-        MetadataCallsCount actualMetadataCallsCount;
-        try (Connection connection = createConnection()) {
-            actualMetadataCallsCount = countingMockConnector.runCounting(() -> {
-                try {
-                    Collection<List<Object>> actual = callback.apply(connection.getMetaData());
-                    resultsVerification.accept(actual);
-                }
-                catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        }
+        MetadataCallsCount actualMetadataCallsCount = countingMockConnector.runCounting(() -> {
+            try {
+                Collection<List<Object>> actual = callback.apply(connection.getMetaData());
+                resultsVerification.accept(actual);
+            }
+            catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        });
         assertEquals(actualMetadataCallsCount, expectedMetadataCallsCount);
     }
 
