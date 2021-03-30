@@ -192,7 +192,6 @@ import io.trino.operator.scalar.timestamp.TimestampToTimestampCast;
 import io.trino.operator.scalar.timestamp.TimestampToTimestampWithTimeZoneCast;
 import io.trino.operator.scalar.timestamp.TimestampToVarcharCast;
 import io.trino.operator.scalar.timestamp.ToIso8601;
-import io.trino.operator.scalar.timestamp.ToUnixTime;
 import io.trino.operator.scalar.timestamp.VarcharToTimestampCast;
 import io.trino.operator.scalar.timestamp.WithTimeZone;
 import io.trino.operator.scalar.timestamptz.AtTimeZone;
@@ -632,7 +631,6 @@ public class FunctionRegistry
                 .scalar(VarcharToTimestampCast.class)
                 .scalar(LocalTimestamp.class)
                 .scalar(DateTrunc.class)
-                .scalar(ToUnixTime.class)
                 .scalar(HumanReadableSeconds.class)
                 .scalar(ToIso8601.class)
                 .scalar(WithTimeZone.class)
