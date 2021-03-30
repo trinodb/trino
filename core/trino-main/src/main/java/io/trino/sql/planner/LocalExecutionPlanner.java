@@ -2110,9 +2110,11 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
             // Plan build
+            boolean buildOuter = node.getType() == RIGHT || node.getType() == FULL;
             boolean spillEnabled = isSpillEnabled(session)
                     && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"))
-                    && probeSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION;
+                    && probeSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION
+                    && !buildOuter;
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
                     createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context, spillEnabled, localDynamicFilters);
 
@@ -2221,7 +2223,7 @@ public class LocalExecutionPlanner
                     searchFunctionFactories,
                     10_000,
                     pagesIndexFactory,
-                    spillEnabled && !buildOuter && partitionCount > 1,
+                    spillEnabled && partitionCount > 1,
                     singleStreamSpillerFactory);
 
             context.addDriverFactory(
@@ -2325,8 +2327,11 @@ public class LocalExecutionPlanner
             List<Integer> probeJoinChannels = ImmutableList.copyOf(getChannelsForSymbols(probeSymbols, probeSource.getLayout()));
             OptionalInt probeHashChannel = probeHashSymbol.map(channelGetter(probeSource))
                     .map(OptionalInt::of).orElse(OptionalInt.empty());
-            OptionalInt totalOperatorsCount = context.getDriverInstanceCount();
-            checkState(!spillEnabled || totalOperatorsCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
+            OptionalInt totalOperatorsCount = OptionalInt.empty();
+            if (spillEnabled) {
+                totalOperatorsCount = context.getDriverInstanceCount();
+                checkState(totalOperatorsCount.isPresent(), "A fixed distribution is required for JOIN when spilling is enabled");
+            }
 
             // Implementation of hash join operator may only take advantage of output duplicates insensitive joins when:
             // 1. Join is of INNER or LEFT type. For right or full joins all matching build rows must be tagged as visited.
