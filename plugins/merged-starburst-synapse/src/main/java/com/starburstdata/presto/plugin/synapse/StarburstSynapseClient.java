@@ -70,7 +70,7 @@ public class StarburstSynapseClient
         execute(session, sql);
     }
 
-    // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5074) Add support for DATETIME2 mapping to Synapse Connector
+    // TODO(https://starburstdata.atlassian.net/browse/SEP-5074) Add support for DATETIME2 mapping to Synapse Connector
 
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
@@ -78,8 +78,8 @@ public class StarburstSynapseClient
         switch (typeHandle.getJdbcType()) {
             case Types.TIME:
                 // SQL Server time read mapping added in https://github.com/trinodb/trino/pull/7122 does not work for Synapse
-                // TODO (https://starburstdata.atlassian.net/browse/PRESTO-5703) Support TIME(p) in Synapse
-                // TODO (https://starburstdata.atlassian.net/browse/PRESTO-5693) add type mapping tests for Synapse
+                // TODO (https://starburstdata.atlassian.net/browse/SEP-5703) Support TIME(p) in Synapse
+                // TODO (https://starburstdata.atlassian.net/browse/SEP-5693) add type mapping tests for Synapse
                 return Optional.of(timeColumnMapping(TIME));
         }
 
@@ -122,7 +122,7 @@ public class StarburstSynapseClient
 
         if (type instanceof TimeType) {
             // SQL Server time write mapping added in https://github.com/trinodb/trino/pull/7122 does not work for Synapse
-            // TODO (https://starburstdata.atlassian.net/browse/PRESTO-5703) Support TIME(p) in Synapse
+            // TODO (https://starburstdata.atlassian.net/browse/SEP-5703) Support TIME(p) in Synapse
             throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
         }
 
@@ -132,14 +132,14 @@ public class StarburstSynapseClient
     @Override
     public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
     {
-        // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/PRESTO-5683)
+        // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/SEP-5683)
         return false;
     }
 
     @Override
     protected Optional<TopNFunction> topNFunction()
     {
-        // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/PRESTO-5683)
+        // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/SEP-5683)
         return Optional.empty();
     }
 }

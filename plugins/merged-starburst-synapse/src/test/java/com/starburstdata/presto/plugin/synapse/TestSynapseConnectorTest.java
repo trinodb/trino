@@ -81,14 +81,14 @@ public class TestSynapseConnectorTest
     @Override
     public void testInsertUnicode()
     {
-        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5085) Test varchars with unicode with data setup done by synapse
+        // TODO(https://starburstdata.atlassian.net/browse/SEP-5085) Test varchars with unicode with data setup done by synapse
     }
 
     @Test
     @Override
     public void testSelectInformationSchemaTables()
     {
-        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5089)
+        // TODO(https://starburstdata.atlassian.net/browse/SEP-5089)
         throw new SkipException("long execution");
     }
 
@@ -96,7 +96,7 @@ public class TestSynapseConnectorTest
     @Override
     public void testSelectInformationSchemaColumns()
     {
-        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5089)
+        // TODO(https://starburstdata.atlassian.net/browse/SEP-5089)
         throw new SkipException("long execution");
     }
 
@@ -167,7 +167,7 @@ public class TestSynapseConnectorTest
     @Override
     public void testCreateWithDataCompression(DataCompression compression)
     {
-        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5073) overwrite with test of table option (WITH)
+        // TODO(https://starburstdata.atlassian.net/browse/SEP-5073) overwrite with test of table option (WITH)
         throw new SkipException("data_compression not supported in Synapse");
     }
 

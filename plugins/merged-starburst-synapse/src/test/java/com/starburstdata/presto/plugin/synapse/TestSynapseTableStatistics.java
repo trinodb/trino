@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.from;
 import static org.assertj.core.api.Assertions.withinPercentage;
 
-// TODO(https://starburstdata.atlassian.net/browse/PRESTO-5088) Extend Synapse tests form SQL server tests
+// TODO(https://starburstdata.atlassian.net/browse/SEP-5088) Extend Synapse tests form SQL server tests
 public class TestSynapseTableStatistics
         extends AbstractTestQueryFramework
 {

@@ -144,7 +144,7 @@ public final class SynapseQueryRunner
 
             queryRunner.createCatalog(catalogName, "synapse", connectorProperties);
 
-            // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5096) Resource cleaner for test objects in Synapse
+            // TODO(https://starburstdata.atlassian.net/browse/SEP-5096) Resource cleaner for test objects in Synapse
             copyTpchTablesIfNotExists(queryRunner, "tpch", TINY_SCHEMA_NAME, modifiedSession, tables);
 
             return queryRunner;

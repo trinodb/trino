@@ -54,8 +54,8 @@ import static io.trino.testing.datatype.DataType.dataType;
 import static io.trino.testing.datatype.DataType.varcharDataType;
 import static java.util.function.Function.identity;
 
-// TODO(https://starburstdata.atlassian.net/browse/PRESTO-5088) Extend Synapse tests form SQL server tests
-// TODO(https://starburstdata.atlassian.net/browse/PRESTO-5087) Port Synapse type mapping tests to OSS SQL server
+// TODO(https://starburstdata.atlassian.net/browse/SEP-5088) Extend Synapse tests form SQL server tests
+// TODO(https://starburstdata.atlassian.net/browse/SEP-5087) Port Synapse type mapping tests to OSS SQL server
 public class TestSynapseTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -110,7 +110,7 @@ public class TestSynapseTypeMapping
                 .addRoundTrip("varbinary", "X'0001020304050607080DF9367AA7000000'", VARBINARY, "X'0001020304050607080DF9367AA7000000'") // non-text
                 .addRoundTrip("varbinary", "X'000000000000'", VARBINARY, "X'000000000000'")
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_varbinary"));
-//     TODO(https://starburstdata.atlassian.net/browse/PRESTO-5089) prestoCreateAsSelect to correct
+//     TODO(https://starburstdata.atlassian.net/browse/SEP-5089) prestoCreateAsSelect to correct
 //                .execute(getQueryRunner(), synapseCreateAndInsert("test_varbinary"));
     }
 
@@ -191,7 +191,7 @@ public class TestSynapseTypeMapping
         varcharDataTypeTest(size -> unboundedPrestoVarchar, true)
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_varchar"));
 
-        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5085) Test varchars with unicode with data setup done by synapse
+        // TODO(https://starburstdata.atlassian.net/browse/SEP-5085) Test varchars with unicode with data setup done by synapse
         varcharDataTypeTest(DataType::varcharDataType, false)
                 .execute(getQueryRunner(), synapseCreateAndInsert("presto_test_varchar"));
 
@@ -258,7 +258,7 @@ public class TestSynapseTypeMapping
 
         DataTypeTest testCases = DataTypeTest.create(true)
 
-                // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5097) Add support for dates < 1583 (gregorian switch)
+                // TODO(https://starburstdata.atlassian.net/browse/SEP-5097) Add support for dates < 1583 (gregorian switch)
                 .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3)) // before epoch
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 1, 1))
                 .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
@@ -290,14 +290,14 @@ public class TestSynapseTypeMapping
     @Test
     public void testTime()
     {
-        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5084) Add support for TIME mapping for Synapse and SQL server connectors
+        // TODO(https://starburstdata.atlassian.net/browse/SEP-5084) Add support for TIME mapping for Synapse and SQL server connectors
         throw new SkipException("not supported");
     }
 
     @Test
     public void testTimestamp()
     {
-        // TODO(https://starburstdata.atlassian.net/browse/PRESTO-5074) Add support for DATETIME2 mapping for Synapse Connector
+        // TODO(https://starburstdata.atlassian.net/browse/SEP-5074) Add support for DATETIME2 mapping for Synapse Connector
         throw new SkipException("not supported");
     }
 
