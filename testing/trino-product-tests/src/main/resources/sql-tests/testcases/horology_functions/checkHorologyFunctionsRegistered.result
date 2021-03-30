@@ -44,7 +44,7 @@
  format_datetime | varchar | timestamp(p), varchar(x) | scalar | true | Formats the given time by the given format |
  from_iso8601_date | date | varchar(x) | scalar | true | |
  from_iso8601_timestamp | timestamp(3) with time zone | varchar(x) | scalar | true | |
- from_unixtime | timestamp(3) | double | scalar | true | |
+ from_unixtime | timestamp(3) with time zone | double | scalar | true | |
  from_unixtime | timestamp(3) with time zone | double, bigint, bigint | scalar | true | |
  hour | bigint | interval day to second | scalar | true | Hour of the day of the given interval |
  hour | bigint | time(p) | scalar | true | Hour of the day of the given time |
