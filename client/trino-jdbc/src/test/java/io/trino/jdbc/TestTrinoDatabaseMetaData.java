@@ -987,7 +987,6 @@ public class TestTrinoDatabaseMetaData
     }
 
     @Test
-    @SuppressWarnings("resource")
     public void testGetSchemasMetadataCalls()
             throws Exception
     {
@@ -1052,7 +1051,6 @@ public class TestTrinoDatabaseMetaData
     }
 
     @Test
-    @SuppressWarnings("resource")
     public void testGetTablesMetadataCalls()
             throws Exception
     {
@@ -1181,7 +1179,6 @@ public class TestTrinoDatabaseMetaData
     }
 
     @Test
-    @SuppressWarnings("resource")
     public void testGetColumnsMetadataCalls()
             throws Exception
     {
