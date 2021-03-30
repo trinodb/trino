@@ -49,7 +49,6 @@ import java.util.concurrent.TimeUnit;
 import static io.trino.operator.scalar.DateTimeFunctions.currentDate;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimeType.createTimeType;
 import static io.trino.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -297,13 +296,6 @@ public class TestDateTimeFunctions
         zoneId = "America/Los_Angeles";
         expected = new DateTime(1969, 12, 31, 18, 0, 0, DateTimeZone.forID(zoneId));
         assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
-    }
-
-    @Test
-    public void testToUnixTime()
-    {
-        assertFunction("to_unixtime(" + TIMESTAMP_LITERAL + ")", DOUBLE, TIMESTAMP.getMillis() / 1000.0);
-        assertFunction("to_unixtime(" + WEIRD_TIMESTAMP_LITERAL + ")", DOUBLE, WEIRD_TIMESTAMP.getMillis() / 1000.0);
     }
 
     @Test
