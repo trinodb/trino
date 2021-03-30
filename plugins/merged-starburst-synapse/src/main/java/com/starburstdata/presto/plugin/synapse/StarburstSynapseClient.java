@@ -15,8 +15,6 @@ import com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.JdbcSortItem;
-import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.spi.StandardErrorCode;
@@ -33,9 +31,10 @@ import javax.inject.Inject;
 
 import java.sql.Connection;
 import java.sql.Types;
-import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
@@ -43,6 +42,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.TimeType.TIME;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
 
 public class StarburstSynapseClient
         extends StarburstSqlServerClient
@@ -130,16 +130,39 @@ public class StarburstSynapseClient
     }
 
     @Override
-    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
-    {
-        // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/SEP-5683)
-        return false;
-    }
-
-    @Override
     protected Optional<TopNFunction> topNFunction()
     {
-        // TODO: Synapse doesn't support the SQL Server syntax OFFSET ... FETCH (https://starburstdata.atlassian.net/browse/SEP-5683)
-        return Optional.empty();
+        // Overriden because Synapse doesn't support ORDER BY...FETCH from SQL Server
+        return Optional.of((query, sortItems, limit) -> {
+            String start = "SELECT ";
+            // This is guaranteed because QueryBuilder#prepareQuery ensures all queries start with SELECT
+            verify(query.startsWith(start), "Expected query to start with %s but query was %s", start, query);
+
+            String orderBy = sortItems.stream()
+                    .flatMap(sortItem -> {
+                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+                        String columnSorting = format("%s %s", quoted(sortItem.getColumn().getColumnName()), ordering);
+
+                        switch (sortItem.getSortOrder()) {
+                            case ASC_NULLS_FIRST:
+                                // In Synapse ASC implies NULLS FIRST
+                            case DESC_NULLS_LAST:
+                                // In Synapse DESC implies NULLS LAST
+                                return Stream.of(columnSorting);
+
+                            case ASC_NULLS_LAST:
+                                return Stream.of(
+                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) ASC", quoted(sortItem.getColumn().getColumnName())),
+                                        columnSorting);
+                            case DESC_NULLS_FIRST:
+                                return Stream.of(
+                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) DESC", quoted(sortItem.getColumn().getColumnName())),
+                                        columnSorting);
+                        }
+                        throw new UnsupportedOperationException("Unsupported sort order: " + sortItem.getSortOrder());
+                    })
+                    .collect(joining(", "));
+            return format("SELECT TOP (%d) %s ORDER BY %s", limit, query.substring(start.length()), orderBy);
+        });
     }
 }

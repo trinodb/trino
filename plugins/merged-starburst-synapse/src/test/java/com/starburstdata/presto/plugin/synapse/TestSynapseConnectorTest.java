@@ -13,7 +13,6 @@ import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.DataCompression;
 import io.trino.testing.AbstractTestDistributedQueries;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
@@ -51,17 +50,6 @@ public class TestSynapseConnectorTest
     protected SqlExecutor onRemoteDatabase()
     {
         return synapseServer::execute;
-    }
-
-    @Override
-    protected boolean hasBehavior(TestingConnectorBehavior behavior)
-    {
-        switch (behavior) {
-            case SUPPORTS_TOPN_PUSHDOWN:
-                return false;
-            default:
-                return super.hasBehavior(behavior);
-        }
     }
 
     @Override
