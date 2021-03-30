@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>353-e-SNAPSHOT</version>
+        <version>355-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -115,7 +115,7 @@
         <dependency>
             <groupId>com.sap.cloud.db.jdbc</groupId>
             <artifactId>ngdbc</artifactId>
-            <!-- The driver's license doesn't allow redistribution (https://starburstdata.atlassian.net/browse/PRESTO-4063), hence provided scope -->
+            <!-- The driver's license doesn't allow redistribution (https://starburstdata.atlassian.net/browse/SEP-4063), hence provided scope -->
             <scope>provided</scope>
         </dependency>
 
