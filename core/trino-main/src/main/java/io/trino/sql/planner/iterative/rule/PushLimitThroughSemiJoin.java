@@ -52,6 +52,10 @@ public class PushLimitThroughSemiJoin
                 return Result.empty();
             }
         }
+        // Do not push down Limit with pre-sorted inputs if input ordering depends on symbol produced by SemiJoin
+        if (parent.getPreSortedInputs().contains(semiJoinNode.getSemiJoinOutput())) {
+            return Result.empty();
+        }
         return Result.ofPlanNode(
                 semiJoinNode.replaceChildren(ImmutableList.of(
                         parent.replaceChildren(ImmutableList.of(semiJoinNode.getSource())),

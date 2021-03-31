@@ -20,7 +20,9 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import org.testng.annotations.Test;
 
+import static io.trino.sql.planner.assertions.PlanMatchPattern.limit;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 
 public class TestPushLimitThroughMarkDistinct
         extends BaseRuleTest
@@ -68,5 +70,30 @@ public class TestPushLimitThroughMarkDistinct
                                         1,
                                         p.values())))
                 .doesNotFire();
+
+        tester().assertThat(new PushLimitThroughMarkDistinct())
+                .on(p -> p.limit(
+                        1,
+                        false,
+                        ImmutableList.of(p.symbol("foo")),
+                        p.markDistinct(
+                                p.symbol("foo"), ImmutableList.of(p.symbol("bar")), p.values())))
+                .doesNotFire();
+    }
+
+    @Test
+    public void testPushdownLimitWithPreSortedInputs()
+    {
+        tester().assertThat(new PushLimitThroughMarkDistinct())
+                .on(p -> p.limit(
+                        2,
+                        false,
+                        ImmutableList.of(p.symbol("bar")),
+                        p.markDistinct(
+                                p.symbol("foo"), ImmutableList.of(p.symbol("bar")), p.values())))
+                .matches(
+                        node(
+                                MarkDistinctNode.class,
+                                limit(2, ImmutableList.of(), false, ImmutableList.of("bar"), values())));
     }
 }

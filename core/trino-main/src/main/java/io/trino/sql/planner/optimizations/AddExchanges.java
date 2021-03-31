@@ -443,6 +443,23 @@ public class AddExchanges
                     return rebaseAndDeriveProperties(node, child);
                 case PARTIAL:
                     child = planChild(node, PreferredProperties.any());
+                    // If source is pre-sorted, partial topN can be replaced with partial limit N.
+                    // We record the pre-sorted symbols in LimitNode to avoid pushdown of such replaced LimitNode
+                    // through the source which was producing ordered input.
+                    List<LocalProperty<Symbol>> desiredProperties = node.getOrderingScheme().toLocalProperties();
+                    boolean sortingSatisfied = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
+                            .allMatch(Optional::isEmpty);
+                    if (sortingSatisfied) {
+                        return withDerivedProperties(
+                                new LimitNode(
+                                        node.getId(),
+                                        child.getNode(),
+                                        node.getCount(),
+                                        Optional.empty(),
+                                        true,
+                                        node.getOrderingScheme().getOrderBy()),
+                                child.getProperties());
+                    }
                     return rebaseAndDeriveProperties(node, child);
             }
             throw new UnsupportedOperationException(format("Unsupported step for TopN [%s]", node.getStep()));

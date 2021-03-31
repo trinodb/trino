@@ -541,9 +541,16 @@ public class PlanPrinter
         @Override
         public Void visitLimit(LimitNode node, Void context)
         {
+            String presSortedInputs = node.getPreSortedInputs().stream()
+                    .map(Symbol::getName)
+                    .collect(joining(", ", ", input pre-sorted by (", ")"));
             addNode(node,
                     format("Limit%s", node.isPartial() ? "Partial" : ""),
-                    format("[%s%s]", node.getCount(), node.isWithTies() ? "+ties" : ""));
+                    format(
+                            "[%s%s%s]",
+                            node.getCount(),
+                            node.isWithTies() ? "+ties" : "",
+                            node.requiresPreSortedInputs() ? presSortedInputs : ""));
             return processChildren(node, context);
         }
 

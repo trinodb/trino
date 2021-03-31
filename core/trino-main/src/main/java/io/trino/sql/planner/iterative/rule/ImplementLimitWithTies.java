@@ -40,6 +40,7 @@ import java.util.Optional;
 import static com.clearspring.analytics.util.Preconditions.checkArgument;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.plan.Patterns.Limit.requiresPreSortedInputs;
 import static io.trino.sql.planner.plan.Patterns.limit;
 import static io.trino.sql.planner.plan.Patterns.source;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
@@ -65,6 +66,7 @@ public class ImplementLimitWithTies
     private static final Capture<PlanNode> CHILD = newCapture();
     private static final Pattern<LimitNode> PATTERN = limit()
             .matching(LimitNode::isWithTies)
+            .with(requiresPreSortedInputs().equalTo(false))
             .with(source().capturedAs(CHILD));
 
     private final Metadata metadata;
