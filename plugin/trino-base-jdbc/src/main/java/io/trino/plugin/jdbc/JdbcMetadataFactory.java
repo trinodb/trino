@@ -17,9 +17,10 @@ import io.airlift.units.Duration;
 
 import javax.inject.Inject;
 
-import java.util.concurrent.TimeUnit;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.DAYS;
 
 public class JdbcMetadataFactory
 {
@@ -36,6 +37,8 @@ public class JdbcMetadataFactory
 
     public JdbcMetadata create()
     {
-        return new JdbcMetadata(new TransactionCachingJdbcClient(jdbcClient, new Duration(1, TimeUnit.DAYS)), allowDropTable);
+        // Session stays the same per transaction, therefore session properties don't need to
+        // be a part of cache keys in CachingJdbcClient.
+        return new JdbcMetadata(new CachingJdbcClient(jdbcClient, Set.of(), new Duration(1, DAYS), true), allowDropTable);
     }
 }
