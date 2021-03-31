@@ -156,7 +156,6 @@ public class TestSynapseConnectorTest
     @Override
     public void testCreateWithDataCompression(DataCompression compression)
     {
-        // TODO(https://starburstdata.atlassian.net/browse/SEP-5073) overwrite with test of table option (WITH)
         throw new SkipException("data_compression not supported in Synapse");
     }
 

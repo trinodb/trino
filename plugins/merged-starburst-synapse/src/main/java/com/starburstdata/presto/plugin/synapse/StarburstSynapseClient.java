@@ -76,8 +76,6 @@ public class StarburstSynapseClient
         execute(session, sql);
     }
 
-    // TODO(https://starburstdata.atlassian.net/browse/SEP-5074) Add support for DATETIME2 mapping to Synapse Connector
-
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {

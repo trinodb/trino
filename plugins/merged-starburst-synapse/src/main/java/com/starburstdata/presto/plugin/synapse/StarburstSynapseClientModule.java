@@ -46,8 +46,6 @@ public class StarburstSynapseClientModule
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
-        // TODO(https://starburstdata.atlassian.net/browse/SEP-5073) implement additional table properties support for Synapse
-//        bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
