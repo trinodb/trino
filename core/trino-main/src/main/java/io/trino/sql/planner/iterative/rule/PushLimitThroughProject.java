@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
@@ -77,14 +78,18 @@ public class PushLimitThroughProject
             return Result.empty();
         }
 
-        // for a LimitNode without ties, simply reorder the nodes
-        if (!parent.isWithTies()) {
+        // for a LimitNode without ties and pre-sorted inputs, simply reorder the nodes
+        if (!parent.isWithTies() && !parent.requiresPreSortedInputs()) {
             return Result.ofPlanNode(transpose(parent, projectNode));
         }
 
         // for a LimitNode with ties, the tiesResolvingScheme must be rewritten in terms of symbols before projection
         SymbolMapper.Builder symbolMapper = SymbolMapper.builder();
-        for (Symbol symbol : parent.getTiesResolvingScheme().get().getOrderBy()) {
+        Set<Symbol> symbolsForRewrite = ImmutableSet.<Symbol>builder()
+                .addAll(parent.getPreSortedInputs())
+                .addAll(parent.getTiesResolvingScheme().map(OrderingScheme::getOrderBy).orElse(ImmutableList.of()))
+                .build();
+        for (Symbol symbol : symbolsForRewrite) {
             Expression expression = projectNode.getAssignments().get(symbol);
             // if a symbol results from some computation, the translation fails
             if (!(expression instanceof SymbolReference)) {

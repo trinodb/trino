@@ -324,6 +324,11 @@ public final class Patterns
         {
             return property("count", LimitNode::getCount);
         }
+
+        public static Property<LimitNode, Lookup, Boolean> requiresPreSortedInputs()
+        {
+            return property("requiresPreSortedInputs", LimitNode::requiresPreSortedInputs);
+        }
     }
 
     public static final class Sample

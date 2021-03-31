@@ -61,6 +61,28 @@ public class TestPushLimitThroughSemiJoin
     }
 
     @Test
+    public void testPushLimitWithPreSortedInputs()
+    {
+        tester().assertThat(new PushLimitThroughSemiJoin())
+                .on(p ->
+                        p.limit(
+                                1,
+                                false,
+                                ImmutableList.of(p.symbol("leftKey")),
+                                buildSemiJoin(p)))
+                .matches(
+                        semiJoin(
+                                "leftKey", "rightKey", "match",
+                                limit(
+                                        1,
+                                        ImmutableList.of(),
+                                        false,
+                                        ImmutableList.of("leftKey"),
+                                        values("leftKey")),
+                                values("rightKey")));
+    }
+
+    @Test
     public void testDoesNotFire()
     {
         tester().assertThat(new PushLimitThroughSemiJoin())
@@ -79,6 +101,15 @@ public class TestPushLimitThroughSemiJoin
         tester().assertThat(new PushLimitThroughSemiJoin())
                 .on(p -> p.limit(
                         1,
+                        ImmutableList.of(p.symbol("match")),
+                        buildSemiJoin(p)))
+                .doesNotFire();
+
+        // Do not push down Limit with pre-sorted inputs if input ordering depends on symbol produced by SemiJoin
+        tester().assertThat(new PushLimitThroughSemiJoin())
+                .on(p -> p.limit(
+                        1,
+                        false,
                         ImmutableList.of(p.symbol("match")),
                         buildSemiJoin(p)))
                 .doesNotFire();
