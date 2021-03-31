@@ -124,7 +124,7 @@ public class TestHiveViews
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_json_tuple_table");
         onTrino().executeQuery("" +
-                "CREATE TABLE test_json_tuple_table AS " +
+                "CREATE TABLE test_json_tuple_table WITH (format='TEXTFILE') AS " +
                 "SELECT 3 id, CAST('{\"user_id\": 1000, \"first.name\": \"Mateusz\", \"Last Name\": \"Gajewski\", \".NET\": true, \"aNull\": null}' AS varchar) jsonstr");
 
         onHive().executeQuery("DROP VIEW IF EXISTS test_json_tuple_view");
