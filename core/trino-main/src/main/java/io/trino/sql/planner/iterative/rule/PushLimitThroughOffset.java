@@ -75,6 +75,7 @@ public class PushLimitThroughOffset
                                 child.getSource(),
                                 count,
                                 parent.getTiesResolvingScheme(),
-                                parent.isPartial()))));
+                                parent.isPartial(),
+                                parent.getPreSortedInputs()))));
     }
 }

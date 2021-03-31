@@ -38,17 +38,20 @@ public class RowNumberMatcher
     private final Optional<Optional<Integer>> maxRowCountPerPartition;
     private final Optional<SymbolAlias> rowNumberSymbol;
     private final Optional<Optional<SymbolAlias>> hashSymbol;
+    private final Optional<Boolean> orderSensitive;
 
     private RowNumberMatcher(
             Optional<List<SymbolAlias>> partitionBy,
             Optional<Optional<Integer>> maxRowCountPerPartition,
             Optional<SymbolAlias> rowNumberSymbol,
-            Optional<Optional<SymbolAlias>> hashSymbol)
+            Optional<Optional<SymbolAlias>> hashSymbol,
+            Optional<Boolean> orderSensitive)
     {
         this.partitionBy = requireNonNull(partitionBy, "partitionBy is null");
         this.maxRowCountPerPartition = requireNonNull(maxRowCountPerPartition, "maxRowCountPerPartition is null");
         this.rowNumberSymbol = requireNonNull(rowNumberSymbol, "rowNumberSymbol is null");
         this.hashSymbol = requireNonNull(hashSymbol, "hashSymbol is null");
+        this.orderSensitive = requireNonNull(orderSensitive, "orderSensitive is null");
     }
 
     @Override
@@ -94,6 +97,12 @@ public class RowNumberMatcher
             }
         }
 
+        if (orderSensitive.isPresent()) {
+            if (!orderSensitive.get().equals(rowNumberNode.isOrderSensitive())) {
+                return NO_MATCH;
+            }
+        }
+
         return match();
     }
 
@@ -105,6 +114,7 @@ public class RowNumberMatcher
                 .add("maxRowCountPerPartition", maxRowCountPerPartition)
                 .add("rowNumberSymbol", rowNumberSymbol)
                 .add("hashSymbol", hashSymbol)
+                .add("orderSensitive", orderSensitive)
                 .toString();
     }
 
@@ -120,6 +130,7 @@ public class RowNumberMatcher
         private Optional<Optional<Integer>> maxRowCountPerPartition = Optional.empty();
         private Optional<SymbolAlias> rowNumberSymbol = Optional.empty();
         private Optional<Optional<SymbolAlias>> hashSymbol = Optional.empty();
+        private Optional<Boolean> orderSensitive = Optional.empty();
 
         Builder(PlanMatchPattern source)
         {
@@ -154,6 +165,12 @@ public class RowNumberMatcher
             return this;
         }
 
+        public Builder orderSensitive(boolean isOrderSensitive)
+        {
+            this.orderSensitive = Optional.of(isOrderSensitive);
+            return this;
+        }
+
         PlanMatchPattern build()
         {
             return node(RowNumberNode.class, source).with(
@@ -161,7 +178,8 @@ public class RowNumberMatcher
                             partitionBy,
                             maxRowCountPerPartition,
                             rowNumberSymbol,
-                            hashSymbol));
+                            hashSymbol,
+                            orderSensitive));
         }
     }
 }

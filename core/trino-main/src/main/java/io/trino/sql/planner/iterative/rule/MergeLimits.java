@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableList;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.LimitNode;
+
+import java.util.List;
 
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.sql.planner.plan.Patterns.limit;
@@ -89,6 +92,14 @@ public class MergeLimits
     {
         LimitNode child = captures.get(CHILD);
 
+        List<Symbol> sortedInputs = ImmutableList.of();
+        if (child.requiresPreSortedInputs()) {
+            sortedInputs = child.getPreSortedInputs();
+        }
+        else if (parent.requiresPreSortedInputs()) {
+            sortedInputs = parent.getPreSortedInputs();
+        }
+
         // parent and child are without ties
         if (!child.isWithTies()) {
             return Result.ofPlanNode(
@@ -97,7 +108,8 @@ public class MergeLimits
                             child.getSource(),
                             Math.min(parent.getCount(), child.getCount()),
                             parent.getTiesResolvingScheme(),
-                            parent.isPartial()));
+                            parent.isPartial(),
+                            sortedInputs));
         }
 
         // parent is without ties and child is with ties

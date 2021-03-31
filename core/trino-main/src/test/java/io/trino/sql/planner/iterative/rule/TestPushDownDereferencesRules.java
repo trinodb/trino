@@ -392,6 +392,43 @@ public class TestPushDownDereferencesRules
     }
 
     @Test
+    public void testPushDownDereferenceThroughLimitWithPreSortedInputs()
+    {
+        tester().assertThat(new PushDownDereferencesThroughLimit(tester().getTypeAnalyzer()))
+                .on(p -> p.project(
+                        Assignments.builder()
+                                .put(p.symbol("msg1_x"), expression("msg1[1]"))
+                                .put(p.symbol("msg2_y"), expression("msg2[2]"))
+                                .put(p.symbol("z"), expression("z"))
+                                .build(),
+                        p.limit(
+                                10,
+                                false,
+                                ImmutableList.of(p.symbol("msg2", ROW_TYPE)),
+                                p.values(p.symbol("msg1", ROW_TYPE), p.symbol("msg2", ROW_TYPE), p.symbol("z")))))
+                .matches(
+                        strictProject(
+                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                        .put("msg1_x", PlanMatchPattern.expression("x"))
+                                        .put("msg2_y", PlanMatchPattern.expression("msg2[2]"))
+                                        .put("z", PlanMatchPattern.expression("z"))
+                                        .build(),
+                                limit(
+                                        10,
+                                        ImmutableList.of(),
+                                        false,
+                                        ImmutableList.of("msg2"),
+                                        strictProject(
+                                                ImmutableMap.<String, ExpressionMatcher>builder()
+                                                        .put("x", PlanMatchPattern.expression("msg1[1]"))
+                                                        .put("z", PlanMatchPattern.expression("z"))
+                                                        .put("msg1", PlanMatchPattern.expression("msg1"))
+                                                        .put("msg2", PlanMatchPattern.expression("msg2"))
+                                                        .build(),
+                                                values("msg1", "msg2", "z")))));
+    }
+
+    @Test
     public void testPushDownDereferenceThroughSort()
     {
         // Does not fire if symbols are used in the ordering scheme

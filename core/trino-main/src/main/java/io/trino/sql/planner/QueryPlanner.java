@@ -1484,7 +1484,8 @@ class QueryPlanner
                             subPlan.getRoot(),
                             analysis.getLimit(limit.get()).getAsLong(),
                             tiesResolvingScheme,
-                            false));
+                            false,
+                            ImmutableList.of()));
         }
         return subPlan;
     }
