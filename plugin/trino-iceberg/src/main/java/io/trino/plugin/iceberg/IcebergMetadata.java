@@ -976,28 +976,19 @@ public class IcebergMetadata
                 && table.getParameters().containsKey(STORAGE_TABLE);
     }
 
-    private boolean isMaterializedView(ConnectorSession session, SchemaTableName schemaTableName)
-    {
-        final HiveIdentity identity = new HiveIdentity(session);
-        if (metastore.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName()).isPresent()) {
-            Table table = metastore.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName()).get();
-            return isMaterializedView(table);
-        }
-        return false;
-    }
-
     @Override
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
-        Optional<Table> materializedViewOptional = metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName());
-        if (materializedViewOptional.isEmpty()) {
-            return Optional.empty();
-        }
-        if (!isMaterializedView(session, viewName)) {
+        Optional<Table> tableOptional = metastore.getTable(new HiveIdentity(session), viewName.getSchemaName(), viewName.getTableName());
+        if (tableOptional.isEmpty()) {
             return Optional.empty();
         }
 
-        Table materializedView = materializedViewOptional.get();
+        if (!isMaterializedView(tableOptional.get())) {
+            return Optional.empty();
+        }
+
+        Table materializedView = tableOptional.get();
 
         ConnectorMaterializedViewDefinition definition = decodeMaterializedViewData(materializedView.getViewOriginalText()
                 .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
