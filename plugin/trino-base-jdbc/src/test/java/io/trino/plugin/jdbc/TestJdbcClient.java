@@ -15,15 +15,22 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.units.Duration;
+import io.trino.plugin.jdbc.credential.EmptyCredentialProvider;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import org.h2.Driver;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
+import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
 
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_BIGINT;
 import static io.trino.plugin.jdbc.TestingJdbcTypeHandle.JDBC_DOUBLE;
@@ -37,7 +44,9 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestJdbcClient
@@ -140,5 +149,46 @@ public class TestJdbcClient
         jdbcClient.dropSchema(session, schemaName);
         assertThat(jdbcClient.getTableNames(session, Optional.empty())).doesNotContain(oldTable).doesNotContain(newTable);
         assertThat(jdbcClient.getSchemaNames(session)).doesNotContain(schemaName);
+    }
+
+    @Test
+    public void testJdbcClientUnwrapping()
+    {
+        JdbcClient client = new TransactionCachingJdbcClient(
+                new CachingJdbcClient(
+                        new ForwardingJdbcClient()
+                        {
+                            @Override
+                            protected JdbcClient delegate()
+                            {
+                                return new StatisticsAwareJdbcClient(
+                                        new TestingH2JdbcClient(
+                                                new BaseJdbcConfig(),
+                                                new DriverConnectionFactory(new Driver(), "empty", new Properties(), new EmptyCredentialProvider())));
+                            }
+                        },
+                        ImmutableSet.of(),
+                        new BaseJdbcConfig()
+                ), Duration.valueOf("10s"));
+
+        List<Class<?>> targetClasses = ImmutableList.of(
+                TransactionCachingJdbcClient.class,
+                CachingJdbcClient.class,
+                ForwardingJdbcClient.class,
+                StatisticsAwareJdbcClient.class,
+                TestingH2JdbcClient.class);
+
+        for (Class<?> targetClass : targetClasses) {
+            assertTrue(client.isWrapperFor(targetClass));
+            assertThat(client.unwrap(targetClass))
+                    .isNotNull()
+                    .isInstanceOf(targetClass);
+        }
+
+        assertFalse(client.isWrapperFor(Connection.class));
+
+        assertThatThrownBy(() -> client.unwrap(Connection.class))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("No wrapper for interface java.sql.Connection");
     }
 }

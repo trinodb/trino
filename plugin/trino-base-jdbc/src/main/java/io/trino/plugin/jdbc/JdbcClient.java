@@ -168,4 +168,18 @@ public interface JdbcClient
     {
         return Optional.empty();
     }
+
+    default <T> T unwrap(Class<T> iface)
+    {
+        if (isWrapperFor(iface)) {
+            return (T) this;
+        }
+
+        throw new RuntimeException("No wrapper for " + iface);
+    }
+
+    default boolean isWrapperFor(Class<?> iface)
+    {
+        return iface.isInstance(this);
+    }
 }

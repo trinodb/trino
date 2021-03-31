@@ -332,4 +332,24 @@ public abstract class ForwardingJdbcClient
     {
         return delegate().getTableScanRedirection(session, tableHandle);
     }
+
+    @Override
+    public <T> T unwrap(Class<T> iface)
+    {
+        if (isWrapperFor(iface)) {
+            if (iface.isInstance(this)) {
+                return (T) this;
+            }
+
+            return delegate().unwrap(iface);
+        }
+
+        throw new RuntimeException("No wrapper for " + iface);
+    }
+
+    @Override
+    public boolean isWrapperFor(Class<?> iface)
+    {
+        return iface.isInstance(this) || delegate().isWrapperFor(iface);
+    }
 }
