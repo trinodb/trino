@@ -15,7 +15,6 @@ package io.trino.client;
 
 import com.google.common.base.CharMatcher;
 import com.google.common.net.HostAndPort;
-import io.airlift.security.pem.PemReader;
 import okhttp3.Credentials;
 import okhttp3.Interceptor;
 import okhttp3.JavaNetCookieJar;
