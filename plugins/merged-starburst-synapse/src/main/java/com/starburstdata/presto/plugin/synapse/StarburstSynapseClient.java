@@ -16,6 +16,7 @@ import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.spi.StandardErrorCode;
@@ -31,16 +32,23 @@ import io.trino.spi.type.VarcharType;
 import javax.inject.Inject;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.sql.Types;
+import java.time.LocalTime;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.trino.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.trino.plugin.jdbc.StandardColumnMappings.fromTrinoTime;
+import static io.trino.plugin.jdbc.StandardColumnMappings.timeReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.TimeType.TIME;
+import static io.trino.spi.type.TimeType.createTimeType;
+import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.trino.spi.type.Timestamps.round;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 
@@ -50,6 +58,8 @@ public class StarburstSynapseClient
     private static final int MAX_NVARCHAR_LENGTH = 4000;
     private static final int MAX_NCHAR_LENGTH = 4000;
     private static final int MAX_VARBINARY_LENGTH = 8000;
+
+    private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
     @Inject
     public StarburstSynapseClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, JdbcStatisticsConfig statisticsConfig, TableScanRedirection tableScanRedirection, ConnectionFactory connectionFactory)
@@ -80,10 +90,11 @@ public class StarburstSynapseClient
     {
         switch (typeHandle.getJdbcType()) {
             case Types.TIME:
-                // SQL Server time read mapping added in https://github.com/trinodb/trino/pull/7122 does not work for Synapse
-                // TODO (https://starburstdata.atlassian.net/browse/SEP-5703) Support TIME(p) in Synapse
-                // TODO (https://starburstdata.atlassian.net/browse/SEP-5693) add type mapping tests for Synapse
-                return Optional.of(timeColumnMapping(TIME));
+                TimeType timeType = createTimeType(typeHandle.getRequiredDecimalDigits());
+                return Optional.of(ColumnMapping.longMapping(
+                        timeType,
+                        timeReadFunction(timeType),
+                        synapseTimeWriteFunction(timeType.getPrecision())));
         }
 
         return super.toColumnMapping(session, connection, typeHandle);
@@ -124,12 +135,31 @@ public class StarburstSynapseClient
         }
 
         if (type instanceof TimeType) {
-            // SQL Server time write mapping added in https://github.com/trinodb/trino/pull/7122 does not work for Synapse
-            // TODO (https://starburstdata.atlassian.net/browse/SEP-5703) Support TIME(p) in Synapse
-            throw new TrinoException(StandardErrorCode.NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+            TimeType timeType = (TimeType) type;
+            int precision = min(timeType.getPrecision(), MAX_SUPPORTED_TEMPORAL_PRECISION);
+            String dataType = format("time(%d)", precision);
+            return WriteMapping.longMapping(dataType, synapseTimeWriteFunction(precision));
         }
 
         return super.toWriteMapping(session, type);
+    }
+
+    private LongWriteFunction synapseTimeWriteFunction(int precision)
+    {
+        return new LongWriteFunction()
+        {
+            @Override
+            public void set(PreparedStatement statement, int index, long picosOfDay)
+                    throws SQLException
+            {
+                picosOfDay = round(picosOfDay, 12 - precision);
+                if (picosOfDay == PICOSECONDS_PER_DAY) {
+                    picosOfDay = 0;
+                }
+                LocalTime localTime = fromTrinoTime(picosOfDay);
+                statement.setString(index, localTime.toString());
+            }
+        };
     }
 
     @Override
