@@ -24,11 +24,13 @@ import io.trino.tests.product.launcher.env.common.TestsEnvironment;
 
 import javax.inject.Inject;
 
+import static io.trino.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.trino.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.trino.tests.product.launcher.env.common.Hadoop.CONTAINER_HADOOP_INIT_D;
 import static io.trino.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
+import static org.testcontainers.utility.MountableFile.forClasspathResource;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 // HDP 3.1 images (code) + HDP 3.1-like configuration.
@@ -58,6 +60,21 @@ public class SinglenodeHdp3
             dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/apply-hdp3-config.sh")),
                     CONTAINER_HADOOP_INIT_D + "apply-hdp3-config.sh");
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/json-serde-1.3.9-SNAPSHOT-jar-with-dependencies.jar")),
+                    "/docker/openx-serde.jar");
+            dockerContainer.withCopyFileToContainer(
+                    forClasspathResource("docker/presto-product-tests/install-openx-serde-in-hive.sh", 755),
+                    CONTAINER_HADOOP_INIT_D + "install-openx-serde.sh");
+        });
+
+        builder.configureContainer(COORDINATOR, dockerContainer -> {
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-hdp3/json-serde-1.3.9-SNAPSHOT-jar-with-dependencies.jar")),
+                    "/docker/openx-serde.jar");
+            dockerContainer.withCopyFileToContainer(
+                    forClasspathResource("docker/presto-product-tests/install-openx-serde-in-trino.sh", 755),
+                    "/docker/presto-init.d/install-openx-serde.sh");
         });
 
         builder.configureContainer(TESTS, dockerContainer -> {

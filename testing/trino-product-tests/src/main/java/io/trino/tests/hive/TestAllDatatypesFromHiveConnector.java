@@ -42,6 +42,7 @@ import static io.trino.tests.TestGroups.JDBC;
 import static io.trino.tests.TestGroups.SKIP_ON_CDH;
 import static io.trino.tests.TestGroups.SMOKE;
 import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_AVRO;
+import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_OPENX;
 import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_ORC;
 import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_PARQUET;
 import static io.trino.tests.hive.AllSimpleTypesTableDefinitions.ALL_HIVE_SIMPLE_TYPES_RCFILE;
@@ -74,6 +75,16 @@ public class TestAllDatatypesFromHiveConnector
         public Requirement getRequirements(Configuration configuration)
         {
             return immutableTable(ALL_HIVE_SIMPLE_TYPES_TEXTFILE);
+        }
+    }
+
+    public static final class OpenXJsonRequirements
+            implements RequirementsProvider
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return immutableTable(ALL_HIVE_SIMPLE_TYPES_OPENX);
         }
     }
 
@@ -143,6 +154,68 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
+                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        Date.valueOf("2015-05-10"),
+                        "ala ma kota",
+                        "ala ma kot",
+                        "ala ma    ",
+                        true,
+                        "kot binarny".getBytes(UTF_8)));
+    }
+
+    @Requires(OpenXJsonRequirements.class)
+    @Test(groups = SMOKE)
+    public void testSelectAllDatatypesOpenX()
+    {
+        String tableName = ALL_HIVE_SIMPLE_TYPES_OPENX.getName();
+
+        assertThat(query("SHOW COLUMNS FROM " + tableName).project(1, 2)).containsExactly(
+                row("c_tinyint", "tinyint"),
+                row("c_smallint", "smallint"),
+                row("c_int", "integer"),
+                row("c_bigint", "bigint"),
+                row("c_float", "real"),
+                row("c_double", "double"),
+                row("c_decimal", "decimal(10,0)"),
+                row("c_decimal_short", "decimal(10,5)"),
+                row("c_decimal_full", "decimal(38,18)"),
+                row("c_timestamp", "timestamp(3)"),
+                row("c_date", "date"),
+                row("c_string", "varchar"),
+                row("c_varchar", "varchar(10)"),
+                row("c_char", "char(10)"),
+                row("c_boolean", "boolean"),
+                row("c_binary", "varbinary"));
+        QueryResult queryResult = query(format("SELECT * FROM %s", tableName));
+
+        assertThat(queryResult).hasColumns(
+                TINYINT,
+                SMALLINT,
+                INTEGER,
+                BIGINT,
+                REAL,
+                DOUBLE,
+                DECIMAL,
+                DECIMAL,
+                DECIMAL,
+                TIMESTAMP,
+                DATE,
+                VARCHAR,
+                VARCHAR,
+                CHAR,
+                BOOLEAN,
+                VARBINARY);
+        assertThat(queryResult).containsOnly(
+                row(
+                        127,
+                        32767,
+                        2147483647,
+                        9223372036854775807L,
+                        123.345f,
+                        234.567,
+                        new BigDecimal("346"),
+                        new BigDecimal("345.67800"),
+                        new BigDecimal("12345678901234567890.123456789012345678"),
                         Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         Date.valueOf("2015-05-10"),
                         "ala ma kota",
