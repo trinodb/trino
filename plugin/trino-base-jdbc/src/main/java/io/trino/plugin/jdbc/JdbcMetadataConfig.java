@@ -58,7 +58,8 @@ public class JdbcMetadataConfig
         return joinPushdownEnabled;
     }
 
-    @Config("experimental.join-pushdown.enabled")
+    @LegacyConfig("experimental.join-pushdown.enabled")
+    @Config("join-pushdown.enabled")
     @ConfigDescription("Enable join pushdown")
     public JdbcMetadataConfig setJoinPushdownEnabled(boolean joinPushdownEnabled)
     {
