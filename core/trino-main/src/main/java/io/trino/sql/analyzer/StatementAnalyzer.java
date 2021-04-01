@@ -497,7 +497,7 @@ class StatementAnalyzer
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Materialized view '%s' does not exist", name);
             }
 
-            Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(name);
+            Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalView.get(), name);
 
             if (storageName.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Storage Table '%s' for materialized view '%s' does not exist", storageName, name);
@@ -1200,14 +1200,9 @@ class StatementAnalyzer
             return createAndAssignScope(node, scope, queryScope.getRelationType());
         }
 
-        private Optional<QualifiedName> getMaterializedViewStorageTableName(QualifiedObjectName name)
+        private Optional<QualifiedName> getMaterializedViewStorageTableName(ConnectorMaterializedViewDefinition viewDefinition, QualifiedObjectName name)
         {
-            Optional<ConnectorMaterializedViewDefinition> optionalView = metadata.getMaterializedView(session, name);
-            if (optionalView.isEmpty()) {
-                return Optional.empty();
-            }
-
-            String storageTable = optionalView.get().getStorageTable();
+            String storageTable = viewDefinition.getStorageTable();
             if (storageTable == null || storageTable.isEmpty()) {
                 return Optional.empty();
             }
@@ -1247,7 +1242,7 @@ class StatementAnalyzer
             if (optionalMaterializedView.isPresent()) {
                 if (metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
                     // If materialized view is current, answer the query using the storage table
-                    Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(name);
+                    Optional<QualifiedName> storageName = getMaterializedViewStorageTableName(optionalMaterializedView.get(), name);
                     if (storageName.isPresent()) {
                         tableHandle = metadata.getTableHandle(session, createQualifiedObjectName(session, table, storageName.get()));
                     }
