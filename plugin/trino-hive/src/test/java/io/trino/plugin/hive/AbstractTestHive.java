@@ -295,6 +295,8 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
@@ -773,8 +775,8 @@ public abstract class AbstractTestHive
                         hdfsEnvironment,
                         false)),
                 executor,
-                Duration.valueOf("1m"),
-                Optional.of(Duration.valueOf("15s")),
+                new Duration(1, MINUTES),
+                Optional.of(new Duration(15, SECONDS)),
                 10000);
 
         setup(databaseName, hiveConfig, metastore, hdfsEnvironment);

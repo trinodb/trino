@@ -30,6 +30,8 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class PrometheusQueryRunner
 {
@@ -69,9 +71,9 @@ public final class PrometheusQueryRunner
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
         config.setPrometheusURI(server.getUri());
-        config.setQueryChunkSizeDuration(Duration.valueOf("1d"));
-        config.setMaxQueryRangeDuration(Duration.valueOf("21d"));
-        config.setCacheDuration(Duration.valueOf("30s"));
+        config.setQueryChunkSizeDuration(new Duration(1, DAYS));
+        config.setMaxQueryRangeDuration(new Duration(21, DAYS));
+        config.setCacheDuration(new Duration(30, SECONDS));
         return new PrometheusClient(config, METRIC_CODEC, TYPE_MANAGER);
     }
 

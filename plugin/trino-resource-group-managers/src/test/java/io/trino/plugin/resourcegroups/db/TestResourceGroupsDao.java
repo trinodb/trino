@@ -37,6 +37,9 @@ import static io.trino.spi.resourcegroups.QueryType.DELETE;
 import static io.trino.spi.resourcegroups.QueryType.EXPLAIN;
 import static io.trino.spi.resourcegroups.QueryType.INSERT;
 import static io.trino.spi.resourcegroups.QueryType.SELECT;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -47,9 +50,9 @@ public class TestResourceGroupsDao
     private static final SelectorResourceEstimate SELECTOR_RESOURCE_ESTIMATE = new SelectorResourceEstimate(
             Optional.of(new Range<>(
                     Optional.empty(),
-                    Optional.of(Duration.valueOf("5m")))),
+                    Optional.of(new Duration(5, MINUTES)))),
             Optional.of(new SelectorResourceEstimate.Range<>(
-                    Optional.of(Duration.valueOf("10s")),
+                    Optional.of(new Duration(10, SECONDS)),
                     Optional.empty())),
             Optional.of(new Range<>(
                     Optional.empty(),
@@ -237,7 +240,7 @@ public class TestResourceGroupsDao
         H2ResourceGroupsDao dao = setup("global_properties");
         dao.createResourceGroupsGlobalPropertiesTable();
         dao.insertResourceGroupsGlobalProperties("cpu_quota_period", "1h");
-        ResourceGroupGlobalProperties globalProperties = new ResourceGroupGlobalProperties(Optional.of(Duration.valueOf("1h")));
+        ResourceGroupGlobalProperties globalProperties = new ResourceGroupGlobalProperties(Optional.of(new Duration(1, HOURS)));
         ResourceGroupGlobalProperties records = dao.getResourceGroupGlobalProperties().get(0);
         assertEquals(globalProperties, records);
         try {

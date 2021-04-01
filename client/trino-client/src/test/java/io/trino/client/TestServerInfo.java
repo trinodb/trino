@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.client.NodeVersion.UNKNOWN;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
 public class TestServerInfo
@@ -30,7 +31,7 @@ public class TestServerInfo
     @Test
     public void testJsonRoundTrip()
     {
-        assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.of(Duration.valueOf("2m"))));
+        assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.of(new Duration(2, MINUTES))));
         assertJsonRoundTrip(new ServerInfo(UNKNOWN, "test", true, false, Optional.empty()));
     }
 

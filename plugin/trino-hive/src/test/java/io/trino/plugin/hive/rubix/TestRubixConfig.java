@@ -28,6 +28,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRubixConfig
@@ -39,7 +41,7 @@ public class TestRubixConfig
                 .setBookKeeperServerPort(CacheConfig.DEFAULT_BOOKKEEPER_SERVER_PORT)
                 .setDataTransferServerPort(CacheConfig.DEFAULT_DATA_TRANSFER_SERVER_PORT)
                 .setCacheLocation(null)
-                .setCacheTtl(Duration.valueOf("7d"))
+                .setCacheTtl(new Duration(7, DAYS))
                 .setDiskUsagePercentage(CacheConfig.DEFAULT_DATA_CACHE_FULLNESS)
                 .setReadMode(RubixConfig.ReadMode.ASYNC)
                 .setStartServerOnCoordinator(false));
@@ -61,7 +63,7 @@ public class TestRubixConfig
         RubixConfig expected = new RubixConfig()
                 .setReadMode(RubixConfig.ReadMode.READ_THROUGH)
                 .setCacheLocation("/some-directory")
-                .setCacheTtl(Duration.valueOf("5h"))
+                .setCacheTtl(new Duration(5, HOURS))
                 .setDiskUsagePercentage(90)
                 .setBookKeeperServerPort(1234)
                 .setDataTransferServerPort(1235)

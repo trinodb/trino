@@ -25,6 +25,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestS3SecurityMappingConfig
 {
@@ -57,7 +58,7 @@ public class TestS3SecurityMappingConfig
                 .setConfigFile(securityMappingConfigFile.toFile())
                 .setRoleCredentialName("iam-role-credential-name")
                 .setKmsKeyIdCredentialName("kms-key-id-credential-name")
-                .setRefreshPeriod(Duration.valueOf("1s"))
+                .setRefreshPeriod(new Duration(1, SECONDS))
                 .setColonReplacement("#");
 
         assertFullMapping(properties, expected);

@@ -50,7 +50,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -60,12 +59,13 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class CachingJdbcClient
         implements JdbcClient
 {
     private static final Object NULL_MARKER = new Object();
-    private static final Duration CACHING_DISABLED = Duration.valueOf("0ms");
+    private static final Duration CACHING_DISABLED = new Duration(0, MILLISECONDS);
 
     private final JdbcClient delegate;
     private final boolean cacheMissing;
@@ -93,7 +93,7 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
-                .expireAfterWrite(metadataCachingTtl.toMillis(), TimeUnit.MILLISECONDS)
+                .expireAfterWrite(metadataCachingTtl.toMillis(), MILLISECONDS)
                 .recordStats();
 
         if (metadataCachingTtl.equals(CACHING_DISABLED)) {
