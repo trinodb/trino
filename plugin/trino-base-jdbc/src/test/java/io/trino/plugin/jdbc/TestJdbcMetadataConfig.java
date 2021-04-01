@@ -40,7 +40,7 @@ public class TestJdbcMetadataConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("allow-drop-table", "true")
-                .put("experimental.join-pushdown.enabled", "true")
+                .put("join-pushdown.enabled", "true")
                 .put("aggregation-pushdown.enabled", "false")
                 .put("domain-compaction-threshold", "42")
                 .put("topn-pushdown.enabled", "false")
