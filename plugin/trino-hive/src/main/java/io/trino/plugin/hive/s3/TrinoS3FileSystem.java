@@ -344,14 +344,21 @@ public class TrinoS3FileSystem
     {
         // Either a single level or full listing, depending on the recursive flag, no "directories"
         // included in either path
-        return new S3ObjectsV2RemoteIterator(listPrefix(path, OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
+        return new S3ObjectsV2RemoteIterator(listPath(path, OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
+    }
+
+    public RemoteIterator<LocatedFileStatus> listFilesByPrefix(Path prefix, boolean recursive)
+    {
+        // Either a single level or full listing, depending on the recursive flag, no "directories"
+        // included in either path
+        return new S3ObjectsV2RemoteIterator(listPrefix(keyFromPath(prefix), OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
     }
 
     @Override
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path path)
     {
         STATS.newListLocatedStatusCall();
-        return new S3ObjectsV2RemoteIterator(listPrefix(path, OptionalInt.empty(), ListingMode.SHALLOW_ALL));
+        return new S3ObjectsV2RemoteIterator(listPath(path, OptionalInt.empty(), ListingMode.SHALLOW_ALL));
     }
 
     private static final class S3ObjectsV2RemoteIterator
@@ -405,7 +412,7 @@ public class TrinoS3FileSystem
 
         if (metadata == null) {
             // check if this path is a directory
-            Iterator<LocatedFileStatus> iterator = listPrefix(path, OptionalInt.of(1), ListingMode.SHALLOW_ALL);
+            Iterator<LocatedFileStatus> iterator = listPath(path, OptionalInt.of(1), ListingMode.SHALLOW_ALL);
             if (iterator.hasNext()) {
                 return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
             }
@@ -605,16 +612,27 @@ public class TrinoS3FileSystem
         }
     }
 
-    private Iterator<LocatedFileStatus> listPrefix(Path path, OptionalInt initialMaxKeys, ListingMode mode)
+    /**
+     * List all objects rooted at the provided path.
+     */
+    private Iterator<LocatedFileStatus> listPath(Path path, OptionalInt initialMaxKeys, ListingMode mode)
     {
         String key = keyFromPath(path);
         if (!key.isEmpty()) {
             key += PATH_SEPARATOR;
         }
 
+        return listPrefix(key, initialMaxKeys, mode);
+    }
+
+    /**
+     * List all objects whose absolute path matches the provided prefix.
+     */
+    private Iterator<LocatedFileStatus> listPrefix(String prefix, OptionalInt initialMaxKeys, ListingMode mode)
+    {
         ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
-                .withPrefix(key)
+                .withPrefix(prefix)
                 .withDelimiter(mode == ListingMode.RECURSIVE_FILES_ONLY ? null : PATH_SEPARATOR)
                 .withMaxKeys(initialMaxKeys.isPresent() ? initialMaxKeys.getAsInt() : null)
                 .withRequesterPays(requesterPaysEnabled);
