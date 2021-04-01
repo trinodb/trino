@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.iceberg;
+package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.plugin.hive.authentication.HiveIdentity;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
-import io.trino.plugin.iceberg.TestingIcebergConnectorFactory;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
 import io.trino.sql.tree.LongLiteral;
