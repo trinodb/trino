@@ -589,7 +589,7 @@ public class SqlServerClient
                 DISABLE_PUSHDOWN);
     }
 
-    private static SliceWriteFunction varbinaryWriteFunction()
+    public static SliceWriteFunction varbinaryWriteFunction()
     {
         return new SliceWriteFunction()
         {
