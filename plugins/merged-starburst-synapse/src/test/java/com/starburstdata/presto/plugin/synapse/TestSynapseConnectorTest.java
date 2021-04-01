@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.synapse;
 
+import io.trino.Session;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.DataCompression;
 import io.trino.testing.AbstractTestDistributedQueries;
@@ -194,5 +195,14 @@ public class TestSynapseConnectorTest
         }
 
         return super.filterDataMappingSmokeTestData(dataMappingTestSetup);
+    }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work without statistics
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
     }
 }

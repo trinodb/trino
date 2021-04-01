@@ -16,6 +16,8 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
+import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownConfig;
+import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSessionProperties;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
@@ -40,6 +42,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 
 public class StarburstSynapseClientModule
@@ -52,8 +55,11 @@ public class StarburstSynapseClientModule
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        configBinder(binder).bindConfig(JdbcJoinPushdownConfig.class);
         // TODO(https://starburstdata.atlassian.net/browse/SEP-5073) implement additional table properties support for Synapse
 //        bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
+
+        bindSessionPropertiesProvider(binder, JdbcJoinPushdownSessionProperties.class);
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
