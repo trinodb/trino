@@ -12,6 +12,8 @@ package com.starburstdata.trino.plugin.starburstremote;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
+import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownConfig;
+import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSessionProperties;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
@@ -28,6 +30,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
 public class StarburstRemoteModule
         extends AbstractConfigurationAwareModule
@@ -43,6 +46,9 @@ public class StarburstRemoteModule
         configBinder(binder).bindConfig(StarburstRemoteConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
         configBinder(binder).bindConfig(StarburstRemoteJdbcConfig.class);
+        configBinder(binder).bindConfig(JdbcJoinPushdownConfig.class);
+
+        bindSessionPropertiesProvider(binder, JdbcJoinPushdownSessionProperties.class);
 
         install(installModuleIf(
                 StarburstRemoteConfig.class,

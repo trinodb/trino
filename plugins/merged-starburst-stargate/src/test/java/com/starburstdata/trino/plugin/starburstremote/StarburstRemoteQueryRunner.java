@@ -182,6 +182,20 @@ public final class StarburstRemoteQueryRunner
         return queryRunner;
     }
 
+    public static DistributedQueryRunner createStarburstRemoteQueryRunnerWithPostgreSql(
+            TestingPostgreSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> requiredTablesInPostgreSqlConnector,
+            Session defaultSession,
+            Optional<SystemAccessControl> systemAccessControl)
+            throws Exception
+    {
+        DistributedQueryRunner queryRunner = createStarburstRemoteQueryRunner(extraProperties, systemAccessControl);
+        addPostgreSqlToStarburstRemoteQueryRunner(queryRunner, server, connectorProperties, requiredTablesInPostgreSqlConnector);
+        return queryRunner;
+    }
+
     public static DistributedQueryRunner createStarburstRemoteQueryRunner(
             boolean enableWrites,
             Map<String, String> extraProperties,

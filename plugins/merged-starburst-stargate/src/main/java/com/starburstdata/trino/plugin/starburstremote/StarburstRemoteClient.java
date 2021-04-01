@@ -41,6 +41,8 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.JoinStatistics;
+import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
@@ -78,6 +80,7 @@ import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownUtil.implementJoinCostAware;
 import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteColumnMappings.remoteDateColumnMapping;
 import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteColumnMappings.remoteTimeColumnMapping;
 import static com.starburstdata.trino.plugin.starburstremote.StarburstRemoteColumnMappings.remoteTimeWithTimeZoneColumnMapping;
@@ -194,6 +197,15 @@ public class StarburstRemoteClient
                 quoted(column.getColumnName()),
                 comment.isPresent() ? format("'%s'", comment.get()) : "NULL");
         execute(session, sql);
+    }
+
+    @Override
+    public Optional<PreparedQuery> implementJoin(ConnectorSession session, JoinType joinType, PreparedQuery leftSource, PreparedQuery rightSource, List<JdbcJoinCondition> joinConditions, Map<JdbcColumnHandle, String> rightAssignments, Map<JdbcColumnHandle, String> leftAssignments, JoinStatistics statistics)
+    {
+        return implementJoinCostAware(
+                session,
+                statistics,
+                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
     }
 
     @Override

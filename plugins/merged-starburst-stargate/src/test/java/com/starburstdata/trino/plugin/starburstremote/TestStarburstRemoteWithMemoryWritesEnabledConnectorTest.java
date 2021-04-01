@@ -10,6 +10,7 @@
 
 package com.starburstdata.trino.plugin.starburstremote;
 
+import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -153,5 +154,14 @@ public class TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
             throw new SkipException("skipped to save time");
         }
         super.testLargeIn(size);
+    }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work without statistics
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
     }
 }
