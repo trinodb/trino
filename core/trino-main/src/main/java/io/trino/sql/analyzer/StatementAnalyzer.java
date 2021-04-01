@@ -515,12 +515,7 @@ class StatementAnalyzer
                 throw semanticException(TABLE_NOT_FOUND, refreshMaterializedView, "Table '%s' does not exist", targetTable);
             }
 
-            if (targetTableHandle.isPresent() && metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh()) {
-                analysis.setSkipMaterializedViewRefresh(true);
-            }
-            else {
-                analysis.setSkipMaterializedViewRefresh(false);
-            }
+            analysis.setSkipMaterializedViewRefresh(metadata.getMaterializedViewFreshness(session, name).isMaterializedViewFresh());
 
             TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
             List<String> insertColumns = tableMetadata.getColumns().stream()
