@@ -13,6 +13,8 @@
  */
 package io.trino.tests.jdbc;
 
+import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import io.trino.tempto.Requires;
 import io.trino.tempto.fulfillment.table.hive.tpch.ImmutableTpchTablesRequirements.ImmutableNationTable;
 import org.testng.annotations.Test;
@@ -25,6 +27,7 @@ import static io.trino.tests.ImmutableLdapObjectDefinitions.CHILD_GROUP_USER;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.ORPHAN_USER;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
 import static io.trino.tests.TestGroups.LDAP;
+import static io.trino.tests.TestGroups.LDAP_AND_FILE;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.TestGroups.TRINO_JDBC;
 import static io.trino.tests.TpchTableResults.PRESTO_NATION_RESULT;
@@ -34,6 +37,14 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 public class TestLdapTrinoJdbc
         extends BaseLdapJdbcTest
 {
+    @Inject(optional = true)
+    @Named("databases.presto.file_user_password")
+    private String fileUserPassword;
+
+    @Inject(optional = true)
+    @Named("databases.OnlyFileUser@presto.file_user_password")
+    private String onlyFileUserPassword;
+
     @Override
     protected String getLdapUrlFormat()
     {
@@ -118,8 +129,33 @@ public class TestLdapTrinoJdbc
         expectQueryToFail("UserWith:Colon", ldapUserPassword, "Illegal character ':' found in username");
     }
 
+    @Requires(ImmutableNationTable.class)
+    @Test(groups = {LDAP_AND_FILE, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldRunQueryWithFileAuthenticator()
+            throws SQLException
+    {
+        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, ldapUserName, fileUserPassword)).matches(PRESTO_NATION_RESULT);
+    }
+
+    @Requires(ImmutableNationTable.class)
+    @Test(groups = {LDAP_AND_FILE, TRINO_JDBC, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldRunQueryForAnotherUserWithOnlyFileAuthenticator()
+            throws SQLException
+    {
+        assertThat(executeLdapQuery(NATION_SELECT_ALL_QUERY, "OnlyFileUser", onlyFileUserPassword)).matches(PRESTO_NATION_RESULT);
+    }
+
     private void expectQueryToFailForUserNotInGroup(String user)
     {
         expectQueryToFail(user, ldapUserPassword, format("Authentication failed: Access Denied: User [%s] not a member of an authorized group", user));
+    }
+
+    @Override
+    protected void expectQueryToFail(String user, String password, String message)
+    {
+        //Changes 'hasMessage' to 'hasMessageContaining' to pass multiple authenticators tests
+        assertThatThrownBy(() -> executeLdapQuery(NATION_SELECT_ALL_QUERY, user, password))
+                .isInstanceOf(SQLException.class)
+                .hasMessageContaining(message);
     }
 }
