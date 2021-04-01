@@ -27,6 +27,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestOracleConfig
@@ -42,7 +43,7 @@ public class TestOracleConfig
                 .setConnectionPoolEnabled(true)
                 .setConnectionPoolMinSize(1)
                 .setConnectionPoolMaxSize(30)
-                .setInactiveConnectionTimeout(Duration.valueOf("20m")));
+                .setInactiveConnectionTimeout(new Duration(20, MINUTES)));
     }
 
     @Test

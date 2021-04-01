@@ -38,6 +38,8 @@ import static io.trino.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITION
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -163,9 +165,9 @@ public class TestPrometheusIntegrationSchema
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
         config.setPrometheusURI(server.getUri());
-        config.setMaxQueryRangeDuration(Duration.valueOf("21d"));
-        config.setQueryChunkSizeDuration(Duration.valueOf("1d"));
-        config.setCacheDuration(Duration.valueOf("30s"));
+        config.setMaxQueryRangeDuration(new Duration(21, DAYS));
+        config.setQueryChunkSizeDuration(new Duration(1, DAYS));
+        config.setCacheDuration(new Duration(30, SECONDS));
         PrometheusTable table = client.getTable("default", "up");
         PrometheusSplitManager splitManager = new PrometheusSplitManager(client, new PrometheusClock(), config);
         ConnectorSplitSource splits = splitManager.getSplits(

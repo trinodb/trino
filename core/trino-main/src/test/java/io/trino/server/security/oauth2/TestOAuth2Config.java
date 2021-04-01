@@ -25,6 +25,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestOAuth2Config
 {
@@ -40,7 +42,7 @@ public class TestOAuth2Config
                 .setClientSecret(null)
                 .setAudience(null)
                 .setScopes("openid")
-                .setChallengeTimeout(Duration.valueOf("15m"))
+                .setChallengeTimeout(new Duration(15, MINUTES))
                 .setPrincipalField("sub")
                 .setUserMappingPattern(null)
                 .setUserMappingFile(null));
@@ -76,7 +78,7 @@ public class TestOAuth2Config
                 .setAudience("https://127.0.0.1:8443")
                 .setScopes("email, offline")
                 .setPrincipalField("some-field")
-                .setChallengeTimeout(Duration.valueOf("90s"))
+                .setChallengeTimeout(new Duration(90, SECONDS))
                 .setUserMappingPattern("(.*)@something")
                 .setUserMappingFile(userMappingFile.toFile());
 

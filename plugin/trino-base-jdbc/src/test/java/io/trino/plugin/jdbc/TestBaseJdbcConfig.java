@@ -39,7 +39,7 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(false)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, MINUTES))
                 .setJdbcTypesMappedToVarchar("")
-                .setMetadataCacheTtl(Duration.valueOf("0m"))
+                .setMetadataCacheTtl(new Duration(0, MINUTES))
                 .setCacheMissing(false));
     }
 
@@ -60,7 +60,7 @@ public class TestBaseJdbcConfig
                 .setCaseInsensitiveNameMatching(true)
                 .setCaseInsensitiveNameMatchingCacheTtl(new Duration(1, SECONDS))
                 .setJdbcTypesMappedToVarchar("mytype, struct_type1")
-                .setMetadataCacheTtl(Duration.valueOf("1s"))
+                .setMetadataCacheTtl(new Duration(1, SECONDS))
                 .setCacheMissing(true);
 
         assertFullMapping(properties, expected);
