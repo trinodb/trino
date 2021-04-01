@@ -393,7 +393,6 @@ public class TestHashJoinOperator
 
     @Test(dataProvider = "joinWithFailingSpillValues")
     public void testInnerJoinWithFailingSpill(boolean probeHashEnabled, List<WhenSpill> whenSpill, WhenSpillFails whenSpillFails, boolean isDictionaryProcessingJoinEnabled)
-            throws Exception
     {
         DummySpillerFactory buildSpillerFactory = new DummySpillerFactory();
         DummySpillerFactory joinSpillerFactory = new DummySpillerFactory();
