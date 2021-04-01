@@ -188,11 +188,6 @@ public class TestSynapseConnectorTest
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
 
-        if (typeName.equals("varbinary")) {
-            // TODO this should either work or fail cleanly
-            return Optional.empty();
-        }
-
         return super.filterDataMappingSmokeTestData(dataMappingTestSetup);
     }
 
