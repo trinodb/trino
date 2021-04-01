@@ -68,6 +68,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorBucketNodeMap;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -120,6 +121,7 @@ import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.SqlVarbinary;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeId;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.gen.JoinCompiler;
@@ -817,6 +819,25 @@ public abstract class AbstractTestHive
                             new CatalogSchemaTableName("hive", databaseName, "mock_redirection_target"),
                             ImmutableMap.of(),
                             TupleDomain.all()));
+                },
+                new NoneHiveMaterializedViewMetadata()
+                {
+                    @Override
+                    public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+                    {
+                        if (!viewName.getTableName().contains("materialized_view_tester")) {
+                            return Optional.empty();
+                        }
+                        return Optional.of(new ConnectorMaterializedViewDefinition(
+                                "dummy_view_sql",
+                                Optional.empty(),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
+                                Optional.empty(),
+                                Optional.empty(),
+                                ImmutableMap.of()));
+                    }
                 },
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
@@ -3350,6 +3371,28 @@ public abstract class AbstractTestHive
             assertThat(result).isPresent();
             assertThat(getOnlyElement(result.get().getRedirections()).getDestinationTable())
                     .isEqualTo(new CatalogSchemaTableName("hive", database, "mock_redirection_target"));
+        }
+        finally {
+            dropTable(sourceTableName);
+            dropTable(tableName);
+        }
+    }
+
+    @Test
+    public void testMaterializedViewMetadata()
+            throws Exception
+    {
+        SchemaTableName sourceTableName = temporaryTable("materialized_view_tester");
+        doCreateEmptyTable(sourceTableName, ORC, CREATE_TABLE_COLUMNS);
+        SchemaTableName tableName = temporaryTable("mock_table");
+        doCreateEmptyTable(tableName, ORC, CREATE_TABLE_COLUMNS);
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            ConnectorMetadata metadata = transaction.getMetadata();
+            assertThat(metadata.getMaterializedView(session, tableName)).isEmpty();
+            Optional<ConnectorMaterializedViewDefinition> result = metadata.getMaterializedView(session, sourceTableName);
+            assertThat(result).isPresent();
+            assertThat(result.get().getOriginalSql()).isEqualTo("dummy_view_sql");
         }
         finally {
             dropTable(sourceTableName);
