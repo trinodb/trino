@@ -233,6 +233,12 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
+    public void testMaterializedViewMetadata()
+    {
+        // Alluxio metastore does not support create/delete operations
+    }
+
+    @Override
     public void testPreferredInsertLayout()
     {
         // Alluxio metastore does not support insert layout operations
