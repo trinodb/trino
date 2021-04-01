@@ -11,6 +11,8 @@ package com.starburstdata.presto.plugin.saphana;
 
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
+import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownConfig;
+import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSessionProperties;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -22,6 +24,7 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 
 public class SapHanaClientModule
         extends AbstractConfigurationAwareModule
@@ -32,6 +35,9 @@ public class SapHanaClientModule
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SapHanaClient.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
+        configBinder(binder).bindConfig(JdbcJoinPushdownConfig.class);
+
+        bindSessionPropertiesProvider(binder, JdbcJoinPushdownSessionProperties.class);
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);

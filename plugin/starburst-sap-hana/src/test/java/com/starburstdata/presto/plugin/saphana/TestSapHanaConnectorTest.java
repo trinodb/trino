@@ -449,4 +449,13 @@ public class TestSapHanaConnectorTest
                         "   current_year_adjustment varchar(2)\n" +
                         ")");
     }
+
+    @Override
+    protected Session joinPushdownEnabled(Session session)
+    {
+        return Session.builder(super.joinPushdownEnabled(session))
+                // strategy is AUTOMATIC by default and would not work without statistics
+                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
+                .build();
+    }
 }
