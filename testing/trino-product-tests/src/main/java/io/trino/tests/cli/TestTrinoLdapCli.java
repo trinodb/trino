@@ -44,6 +44,7 @@ import static io.trino.tests.ImmutableLdapObjectDefinitions.PARENT_GROUP_USER;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.SPECIAL_USER;
 import static io.trino.tests.ImmutableLdapObjectDefinitions.USER_IN_MULTIPLE_GROUPS;
 import static io.trino.tests.TestGroups.LDAP;
+import static io.trino.tests.TestGroups.LDAP_AND_FILE_CLI;
 import static io.trino.tests.TestGroups.LDAP_CLI;
 import static io.trino.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.String.format;
@@ -76,6 +77,14 @@ public class TestTrinoLdapCli
     @Inject(optional = true)
     @Named("databases.presto.cli_ldap_user_password")
     private String ldapUserPassword;
+
+    @Inject(optional = true)
+    @Named("databases.presto.file_user_password")
+    private String fileUserPassword;
+
+    @Inject(optional = true)
+    @Named("databases.OnlyFileUser@presto.file_user_password")
+    private String onlyFileUserPassword;
 
     public TestTrinoLdapCli()
             throws IOException
@@ -260,6 +269,29 @@ public class TestTrinoLdapCli
         assertThat(trimLines(trino.readRemainingErrorLines())).anySatisfy(line ->
                 assertThat(line).contains("Illegal character ':' found in username"));
         skipAfterTestWithContext();
+    }
+
+    @Test(groups = {LDAP_AND_FILE_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldRunQueryWithFileAuthenticator()
+            throws IOException
+    {
+        ldapUserPassword = fileUserPassword;
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
+        trino.getProcessInput().println(SELECT_FROM_NATION);
+        assertThat(trimLines(trino.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
+    }
+
+    @Test(groups = {LDAP_AND_FILE_CLI, PROFILE_SPECIFIC_TESTS}, timeOut = TIMEOUT)
+    public void shouldRunQueryForAnotherUserWithOnlyFileAuthenticator()
+            throws IOException
+    {
+        ldapUserName = "OnlyFileUser";
+        ldapUserPassword = onlyFileUserPassword;
+        launchTrinoCliWithServerArgument();
+        trino.waitForPrompt();
+        trino.getProcessInput().println(SELECT_FROM_NATION);
+        assertThat(trimLines(trino.readLinesUntilPrompt())).containsAll(nationTableInteractiveLines);
     }
 
     private void launchTrinoCliWithServerArgument(String... arguments)
