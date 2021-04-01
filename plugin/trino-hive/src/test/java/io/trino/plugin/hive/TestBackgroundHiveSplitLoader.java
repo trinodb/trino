@@ -120,6 +120,7 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -407,7 +408,7 @@ public class TestBackgroundHiveSplitLoader
                         return TupleDomain.all();
                     }
                 },
-                Duration.valueOf("1s"));
+                new Duration(1, SECONDS));
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
@@ -528,7 +529,7 @@ public class TestBackgroundHiveSplitLoader
                 },
                 TupleDomain.all(),
                 DynamicFilter.EMPTY,
-                Duration.valueOf("0s"),
+                new Duration(0, SECONDS),
                 TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 SESSION,
@@ -922,7 +923,7 @@ public class TestBackgroundHiveSplitLoader
                 hdfsEnvironment,
                 compactEffectivePredicate,
                 DynamicFilter.EMPTY,
-                Duration.valueOf("0s"),
+                new Duration(0, SECONDS),
                 hiveBucketFilter,
                 table,
                 bucketHandle,
@@ -984,7 +985,7 @@ public class TestBackgroundHiveSplitLoader
                 hivePartitionMetadatas,
                 TupleDomain.none(),
                 DynamicFilter.EMPTY,
-                Duration.valueOf("0s"),
+                new Duration(0, SECONDS),
                 TYPE_MANAGER,
                 Optional.empty(),
                 connectorSession,
@@ -1010,7 +1011,7 @@ public class TestBackgroundHiveSplitLoader
                 createPartitionMetadataWithOfflinePartitions(),
                 TupleDomain.all(),
                 DynamicFilter.EMPTY,
-                Duration.valueOf("0s"),
+                new Duration(0, SECONDS),
                 TYPE_MANAGER,
                 createBucketSplitInfo(Optional.empty(), Optional.empty()),
                 connectorSession,

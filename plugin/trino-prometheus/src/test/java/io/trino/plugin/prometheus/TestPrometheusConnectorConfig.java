@@ -26,6 +26,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPrometheusConnectorConfig
@@ -36,9 +38,9 @@ public class TestPrometheusConnectorConfig
     {
         assertRecordedDefaults(recordDefaults(PrometheusConnectorConfig.class)
                 .setPrometheusURI(new URI("http://localhost:9090"))
-                .setQueryChunkSizeDuration(Duration.valueOf("1d"))
-                .setMaxQueryRangeDuration(Duration.valueOf("21d"))
-                .setCacheDuration(Duration.valueOf("30s"))
+                .setQueryChunkSizeDuration(new Duration(1, DAYS))
+                .setMaxQueryRangeDuration(new Duration(21, DAYS))
+                .setCacheDuration(new Duration(30, SECONDS))
                 .setBearerTokenFile(null));
     }
 
@@ -56,9 +58,9 @@ public class TestPrometheusConnectorConfig
         URI uri = URI.create("file://test.json");
         PrometheusConnectorConfig expected = new PrometheusConnectorConfig();
         expected.setPrometheusURI(uri);
-        expected.setQueryChunkSizeDuration(Duration.valueOf("365d"));
-        expected.setMaxQueryRangeDuration(Duration.valueOf("1095d"));
-        expected.setCacheDuration(Duration.valueOf("60s"));
+        expected.setQueryChunkSizeDuration(new Duration(365, DAYS));
+        expected.setMaxQueryRangeDuration(new Duration(1095, DAYS));
+        expected.setCacheDuration(new Duration(60, SECONDS));
         expected.setBearerTokenFile(new File("/tmp/bearer_token.txt"));
 
         assertFullMapping(properties, expected);
@@ -70,9 +72,9 @@ public class TestPrometheusConnectorConfig
     {
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
         config.setPrometheusURI(new URI("http://doesnotmatter.com"));
-        config.setQueryChunkSizeDuration(Duration.valueOf("21d"));
-        config.setMaxQueryRangeDuration(Duration.valueOf("1d"));
-        config.setCacheDuration(Duration.valueOf("30s"));
+        config.setQueryChunkSizeDuration(new Duration(21, DAYS));
+        config.setMaxQueryRangeDuration(new Duration(1, DAYS));
+        config.setCacheDuration(new Duration(30, SECONDS));
         assertThatThrownBy(config::checkConfig)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration");
