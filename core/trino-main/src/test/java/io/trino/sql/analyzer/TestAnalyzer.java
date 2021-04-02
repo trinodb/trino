@@ -44,6 +44,7 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -2501,6 +2502,27 @@ public class TestAnalyzer
                 .hasErrorCode(TABLE_NOT_FOUND);
     }
 
+    // This test validates object resolution order (materialized view, view and table).
+    // The order is arbitrary (connector should not return different object types with same name).
+    // However, "SHOW CREATE" command should be consistent with how object resolution is performed
+    // during table scan.
+    @Test
+    public void testShowCreateDuplicateNames()
+    {
+        analyze("SHOW CREATE MATERIALIZED VIEW table_view_and_materialized_view");
+        assertFails("SHOW CREATE VIEW table_view_and_materialized_view")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Relation 'tpch.s1.table_view_and_materialized_view' is a materialized view, not a view");
+        assertFails("SHOW CREATE TABLE table_view_and_materialized_view")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Relation 'tpch.s1.table_view_and_materialized_view' is a materialized view, not a table");
+
+        analyze("SHOW CREATE VIEW table_and_view");
+        assertFails("SHOW CREATE TABLE table_and_view")
+                .hasErrorCode(NOT_SUPPORTED)
+                .hasMessageContaining("Relation 'tpch.s1.table_and_view' is a view, not a table");
+    }
+
     @Test
     public void testStaleView()
     {
@@ -3175,6 +3197,56 @@ public class TestAnalyzer
         inSetupTransaction(session -> metadata.createTable(session, CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
                 new ConnectorTableMetadata(t5, ImmutableList.of(
                         new ColumnMetadata("b", singleFieldRowType))),
+                false));
+
+        QualifiedObjectName tableViewAndMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "table_view_and_materialized_view");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                tableViewAndMaterializedView,
+                new ConnectorMaterializedViewDefinition(
+                        "SELECT a FROM t1",
+                        Optional.of("t1"),
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of()),
+                false,
+                false));
+        ConnectorViewDefinition viewDefinition = new ConnectorViewDefinition(
+                "SELECT a FROM t2",
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
+                Optional.empty(),
+                Optional.empty(),
+                false);
+        inSetupTransaction(session -> metadata.createView(
+                session,
+                tableViewAndMaterializedView,
+                viewDefinition,
+                false));
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(
+                        tableViewAndMaterializedView.asSchemaTableName(),
+                        ImmutableList.of(new ColumnMetadata("a", BIGINT))),
+                false));
+
+        QualifiedObjectName tableAndView = new QualifiedObjectName(TPCH_CATALOG, "s1", "table_and_view");
+        inSetupTransaction(session -> metadata.createView(
+                session,
+                tableAndView,
+                viewDefinition,
+                false));
+        inSetupTransaction(session -> metadata.createTable(
+                session,
+                CATALOG_FOR_IDENTIFIER_CHAIN_TESTS,
+                new ConnectorTableMetadata(
+                        tableAndView.asSchemaTableName(),
+                        ImmutableList.of(new ColumnMetadata("a", BIGINT))),
                 false));
     }
 
