@@ -27,6 +27,8 @@ import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.eventlistener.ColumnInfo;
@@ -122,6 +124,19 @@ public class TestEventListenerBasic
                                     true);
                             SchemaTableName viewName = new SchemaTableName("default", "test_view");
                             return ImmutableMap.of(viewName, definition);
+                        })
+                        .withGetMaterializedViews((connectorSession, prefix) -> {
+                            ConnectorMaterializedViewDefinition definition = new ConnectorMaterializedViewDefinition(
+                                    "SELECT nationkey AS test_column FROM tpch.tiny.nation",
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    ImmutableList.of(new Column("test_column", BIGINT.getTypeId())),
+                                    Optional.empty(),
+                                    Optional.empty(),
+                                    ImmutableMap.of());
+                            SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
+                            return ImmutableMap.of(materializedViewName, definition);
                         })
                         .withRowFilter(schemaTableName -> {
                             if (schemaTableName.getTableName().equals("test_table_with_row_filter")) {
@@ -332,6 +347,43 @@ public class TestEventListenerBasic
         assertThat(table.getCatalog()).isEqualTo("mock");
         assertThat(table.getSchema()).isEqualTo("default");
         assertThat(table.getTable()).isEqualTo("test_view");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isTrue();
+        assertThat(table.getFilters()).isEmpty();
+        assertThat(table.getColumns()).hasSize(1);
+
+        column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("test_column");
+        assertThat(column.getMasks()).isEmpty();
+    }
+
+    @Test
+    public void testReferencedTablesWithMaterializedViews()
+            throws Exception
+    {
+        runQueryAndWaitForEvents("SELECT test_column FROM mock.default.test_materialized_view", 2);
+
+        QueryCompletedEvent event = getOnlyElement(generatedEvents.getQueryCompletedEvents());
+
+        List<TableInfo> tables = event.getMetadata().getTables();
+        assertThat(tables).hasSize(2);
+        TableInfo table = tables.get(0);
+        assertThat(table.getCatalog()).isEqualTo("tpch");
+        assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getTable()).isEqualTo("nation");
+        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.isDirectlyReferenced()).isFalse();
+        assertThat(table.getFilters()).isEmpty();
+        assertThat(table.getColumns()).hasSize(1);
+
+        ColumnInfo column = table.getColumns().get(0);
+        assertThat(column.getColumn()).isEqualTo("nationkey");
+        assertThat(column.getMasks()).isEmpty();
+
+        table = tables.get(1);
+        assertThat(table.getCatalog()).isEqualTo("mock");
+        assertThat(table.getSchema()).isEqualTo("default");
+        assertThat(table.getTable()).isEqualTo("test_materialized_view");
         assertThat(table.getAuthorization()).isEqualTo("user");
         assertThat(table.isDirectlyReferenced()).isTrue();
         assertThat(table.getFilters()).isEmpty();
