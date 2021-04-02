@@ -15,6 +15,7 @@ package io.trino.sql.analyzer;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
@@ -42,6 +43,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -2465,6 +2467,17 @@ public class TestAnalyzer
     {
         assertFails("CREATE OR REPLACE VIEW v1 AS SELECT * FROM v1")
                 .hasErrorCode(VIEW_IS_RECURSIVE);
+        assertFails("CREATE OR REPLACE VIEW mv1 AS SELECT * FROM mv1")
+                .hasErrorCode(VIEW_IS_RECURSIVE);
+    }
+
+    @Test
+    public void testCreateMaterializedRecursiveView()
+    {
+        assertFails("CREATE OR REPLACE MATERIALIZED VIEW v1 AS SELECT * FROM v1")
+                .hasErrorCode(VIEW_IS_RECURSIVE);
+        assertFails("CREATE OR REPLACE MATERIALIZED VIEW mv1 AS SELECT * FROM mv1")
+                .hasErrorCode(VIEW_IS_RECURSIVE);
     }
 
     @Test
@@ -3033,6 +3046,18 @@ public class TestAnalyzer
                         new ColumnMetadata("c", new ArrayType(BIGINT)),
                         new ColumnMetadata("d", new ArrayType(DOUBLE)))),
                 false));
+
+        // materialized view referencing table in same schema
+        ConnectorMaterializedViewDefinition materializedViewData1 = new ConnectorMaterializedViewDefinition(
+                "select a from t1",
+                Optional.empty(),
+                Optional.of(TPCH_CATALOG),
+                Optional.of("s1"),
+                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("a", BIGINT.getTypeId())),
+                Optional.of("comment"),
+                Optional.of("user"),
+                ImmutableMap.of());
+        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
 
         // valid view referencing table in same schema
         ConnectorViewDefinition viewData1 = new ConnectorViewDefinition(
