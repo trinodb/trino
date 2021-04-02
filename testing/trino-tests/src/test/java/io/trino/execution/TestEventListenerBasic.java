@@ -135,7 +135,7 @@ public class TestEventListenerBasic
                                     Optional.empty(),
                                     ImmutableList.of(new Column("test_column", BIGINT.getTypeId())),
                                     Optional.empty(),
-                                    Optional.empty(),
+                                    "alice",
                                     ImmutableMap.of());
                             SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
                             return ImmutableMap.of(materializedViewName, definition);
@@ -373,7 +373,7 @@ public class TestEventListenerBasic
         assertThat(table.getCatalog()).isEqualTo("tpch");
         assertThat(table.getSchema()).isEqualTo("tiny");
         assertThat(table.getTable()).isEqualTo("nation");
-        assertThat(table.getAuthorization()).isEqualTo("user");
+        assertThat(table.getAuthorization()).isEqualTo("alice");
         assertThat(table.isDirectlyReferenced()).isFalse();
         assertThat(table.getFilters()).isEmpty();
         assertThat(table.getColumns()).hasSize(1);

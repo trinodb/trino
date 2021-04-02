@@ -1001,7 +1001,7 @@ public class IcebergMetadata
                 Optional.of(viewName.getSchemaName()),
                 definition.getColumns(),
                 definition.getComment(),
-                Optional.of(materializedView.getOwner()),
+                materializedView.getOwner(),
                 new HashMap<>(materializedView.getParameters())));
     }
 

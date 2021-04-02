@@ -99,7 +99,7 @@ public class CreateMaterializedViewTask
                 .map(field -> new ConnectorMaterializedViewDefinition.Column(field.getName().get(), field.getType().getTypeId()))
                 .collect(toImmutableList());
 
-        Optional<String> owner = Optional.of(session.getUser());
+        String owner = session.getUser();
 
         CatalogName catalogName = metadata.getCatalogHandle(session, name.getCatalogName())
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + name.getCatalogName()));
