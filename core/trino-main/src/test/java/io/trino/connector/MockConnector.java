@@ -262,6 +262,15 @@ public class MockConnector
         }
 
         @Override
+        public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, TrinoPrincipal owner) {}
+
+        @Override
+        public void renameSchema(ConnectorSession session, String source, String target) {}
+
+        @Override
+        public void dropSchema(ConnectorSession session, String schemaName) {}
+
+        @Override
         public ConnectorTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
         {
             return getTableHandle.apply(session, tableName);
