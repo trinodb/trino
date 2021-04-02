@@ -68,7 +68,6 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
@@ -205,23 +204,18 @@ public class ParquetPageSourceFactory
             requestedSchema = message.orElse(new MessageType(fileSchema.getName(), ImmutableList.of()));
             messageColumn = getColumnIO(fileSchema, requestedSchema);
 
-            ImmutableList.Builder<BlockMetaData> footerBlocks = ImmutableList.builder();
-            for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                if (firstDataPage >= start && firstDataPage < start + length) {
-                    footerBlocks.add(block);
-                }
-            }
-
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics()
                     ? TupleDomain.all()
                     : getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
 
             Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
+
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
-            for (BlockMetaData block : footerBlocks.build()) {
-                if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {
+            for (BlockMetaData block : parquetMetadata.getBlocks()) {
+                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
+                if (start <= firstDataPage && firstDataPage < start + length
+                        && predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {
                     blocks.add(block);
                 }
             }
@@ -270,22 +264,15 @@ public class ParquetPageSourceFactory
             checkArgument(column.getColumnType() == REGULAR, "column type must be REGULAR: %s", column);
         }
 
-        List<Optional<org.apache.parquet.schema.Type>> parquetFields = baseColumns.stream()
-                .map(column -> getParquetType(column, fileSchema, useColumnNames))
-                .map(Optional::ofNullable)
-                .collect(toImmutableList());
         ImmutableList.Builder<Type> trinoTypes = ImmutableList.builder();
         ImmutableList.Builder<Optional<Field>> internalFields = ImmutableList.builder();
-        for (int columnIndex = 0; columnIndex < baseColumns.size(); columnIndex++) {
-            HiveColumnHandle column = baseColumns.get(columnIndex);
-            Optional<org.apache.parquet.schema.Type> parquetField = parquetFields.get(columnIndex);
-
+        for (HiveColumnHandle column : baseColumns) {
             trinoTypes.add(column.getBaseType());
-
-            internalFields.add(parquetField.flatMap(field -> {
-                String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
-                return constructField(column.getBaseType(), lookupColumnByName(messageColumn, columnName));
-            }));
+            internalFields.add(Optional.ofNullable(getParquetType(column, fileSchema, useColumnNames))
+                    .flatMap(field -> {
+                        String columnName = useColumnNames ? column.getBaseColumnName() : fileSchema.getFields().get(column.getBaseHiveColumnIndex()).getName();
+                        return constructField(column.getBaseType(), lookupColumnByName(messageColumn, columnName));
+                    }));
         }
 
         ConnectorPageSource parquetPageSource = new ParquetPageSource(parquetReader, trinoTypes.build(), internalFields.build());
