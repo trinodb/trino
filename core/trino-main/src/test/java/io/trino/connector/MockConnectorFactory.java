@@ -24,6 +24,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorHandleResolver;
+import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorNewTableLayout;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -66,6 +67,7 @@ public class MockConnectorFactory
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
+    private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final ApplyProjection applyProjection;
@@ -85,6 +87,7 @@ public class MockConnectorFactory
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
+            BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             ApplyProjection applyProjection,
@@ -103,6 +106,7 @@ public class MockConnectorFactory
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
+        this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
@@ -138,6 +142,7 @@ public class MockConnectorFactory
                 listSchemaNames,
                 listTables,
                 getViews,
+                getMaterializedViews,
                 getTableHandle,
                 getColumns,
                 applyProjection,
@@ -227,6 +232,7 @@ public class MockConnectorFactory
         private Function<ConnectorSession, List<String>> listSchemaNames = defaultListSchemaNames();
         private BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables = defaultListTables();
         private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews = defaultGetViews();
+        private BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews = defaultGetMaterializedViews();
         private BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle = defaultGetTableHandle();
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
@@ -266,6 +272,12 @@ public class MockConnectorFactory
         public Builder withGetViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews)
         {
             this.getViews = requireNonNull(getViews, "getViews is null");
+            return this;
+        }
+
+        public Builder withGetMaterializedViews(BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews)
+        {
+            this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
             return this;
         }
 
@@ -381,6 +393,7 @@ public class MockConnectorFactory
                     listSchemaNames,
                     listTables,
                     getViews,
+                    getMaterializedViews,
                     getTableHandle,
                     getColumns,
                     applyProjection,
@@ -413,6 +426,11 @@ public class MockConnectorFactory
         }
 
         public static BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> defaultGetViews()
+        {
+            return (session, schemaTablePrefix) -> ImmutableMap.of();
+        }
+
+        public static BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> defaultGetMaterializedViews()
         {
             return (session, schemaTablePrefix) -> ImmutableMap.of();
         }
