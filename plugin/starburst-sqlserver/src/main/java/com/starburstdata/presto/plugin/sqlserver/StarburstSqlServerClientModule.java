@@ -15,8 +15,7 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
-import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownConfig;
-import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSessionProperties;
+import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
@@ -62,9 +61,9 @@ public class StarburstSqlServerClientModule
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
-        configBinder(binder).bindConfig(JdbcJoinPushdownConfig.class);
+
         bindSessionPropertiesProvider(binder, SqlServerSessionProperties.class);
-        bindSessionPropertiesProvider(binder, JdbcJoinPushdownSessionProperties.class);
+
         bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
 
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(SINGLETON);
@@ -77,6 +76,8 @@ public class StarburstSqlServerClientModule
                 SqlServerConfig::isImpersonationEnabled,
                 new ImpersonationModule(),
                 new NoImpersonationModule()));
+
+        install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
     }
 
