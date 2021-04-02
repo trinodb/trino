@@ -59,7 +59,7 @@ public class TestMockConnector
                                                 Optional.of("default"),
                                                 ImmutableList.of(new Column("nationkey", BIGINT.getTypeId())),
                                                 Optional.empty(),
-                                                Optional.empty(),
+                                                "alice",
                                                 ImmutableMap.of())))
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
