@@ -13,8 +13,7 @@ import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
 import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownConfig;
-import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSessionProperties;
+import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcRecordSetProvider;
@@ -65,12 +64,10 @@ public class OracleClientModule
 
         bindSessionPropertiesProvider(binder, StarburstOracleSessionProperties.class);
         bindSessionPropertiesProvider(binder, OracleSessionProperties.class);
-        bindSessionPropertiesProvider(binder, JdbcJoinPushdownSessionProperties.class);
 
         configBinder(binder).bindConfig(OracleConfig.class);
         configBinder(binder).bindConfig(StarburstOracleConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
-        configBinder(binder).bindConfig(JdbcJoinPushdownConfig.class);
 
         install(new OracleAuthenticationModule(catalogName));
 
@@ -82,6 +79,8 @@ public class OracleClientModule
                 .to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfigDefaults(JdbcMetadataConfig.class, config -> config.setAggregationPushdownEnabled(licenseManager.hasFeature(ORACLE_EXTENSIONS)));
+
+        install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
     }
 }
