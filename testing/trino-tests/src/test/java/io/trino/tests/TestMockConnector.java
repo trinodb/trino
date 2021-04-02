@@ -23,7 +23,7 @@ import org.testng.annotations.Test;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public class TestMockContainer
+public class TestMockConnector
         extends AbstractTestQueryFramework
 {
     @Override
