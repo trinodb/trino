@@ -87,6 +87,7 @@ public class MockConnector
     private final Function<ConnectorSession, List<String>> listSchemaNames;
     private final BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables;
     private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews;
+    private final BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews;
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final MockConnectorFactory.ApplyProjection applyProjection;
@@ -106,6 +107,7 @@ public class MockConnector
             Function<ConnectorSession, List<String>> listSchemaNames,
             BiFunction<ConnectorSession, String, List<SchemaTableName>> listTables,
             BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorViewDefinition>> getViews,
+            BiFunction<ConnectorSession, SchemaTablePrefix, Map<SchemaTableName, ConnectorMaterializedViewDefinition>> getMaterializedViews,
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             MockConnectorFactory.ApplyProjection applyProjection,
@@ -124,6 +126,7 @@ public class MockConnector
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
         this.getViews = requireNonNull(getViews, "getViews is null");
+        this.getMaterializedViews = requireNonNull(getMaterializedViews, "getMaterializedViews is null");
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = requireNonNull(getColumns, "getColumns is null");
         this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
@@ -327,6 +330,33 @@ public class MockConnector
 
         @Override
         public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting) {}
+
+        @Override
+        public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
+        {
+            return Optional.ofNullable(getMaterializedViews.apply(session, viewName.toSchemaTablePrefix()).get(viewName));
+        }
+
+        @Override
+        public ConnectorInsertTableHandle beginRefreshMaterializedView(ConnectorSession session, ConnectorTableHandle tableHandle, List<ConnectorTableHandle> sourceTableHandles)
+        {
+            return new MockConnectorInsertTableHandle(((MockConnectorTableHandle) tableHandle).getTableName());
+        }
+
+        @Override
+        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(
+                ConnectorSession session,
+                ConnectorTableHandle tableHandle,
+                ConnectorInsertTableHandle insertHandle,
+                Collection<Slice> fragments,
+                Collection<ComputedStatistics> computedStatistics,
+                List<ConnectorTableHandle> sourceTableHandles)
+        {
+            return Optional.empty();
+        }
+
+        @Override
+        public void dropMaterializedView(ConnectorSession session, SchemaTableName viewName) {}
 
         @Override
         public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> schemaName)
