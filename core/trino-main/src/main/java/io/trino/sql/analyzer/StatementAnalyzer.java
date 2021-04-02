@@ -1421,47 +1421,15 @@ class StatementAnalyzer
 
         private Scope createScopeForMaterializedView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorMaterializedViewDefinition view)
         {
-            Statement statement = analysis.getStatement();
-            if (statement instanceof CreateMaterializedView) {
-                CreateMaterializedView viewStatement = (CreateMaterializedView) statement;
-                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
-                if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
-                    throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive materialized view");
-                }
-            }
-            if (analysis.hasTableInView(table)) {
-                throw semanticException(VIEW_IS_RECURSIVE, table, "Materialized View is recursive");
-            }
-
-            Query query = parseView(view.getOriginalSql(), name, table);
-            analysis.registerNamedQuery(table, query);
-            analysis.registerTableForView(table);
-            RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
-            analysis.unregisterTableForView();
-
-            List<ConnectorViewDefinition.ViewColumn> viewColumns = translateMaterializedViewColumns(view.getColumns());
-            checkViewStaleness(viewColumns, descriptor.getVisibleFields(), name, table)
-                    .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "Materialized View '%s' is stale or in invalid state: %s", name, explanation); });
-
-            // Derive the type of the materialized view from the stored definition, not from the analysis of the underlying query.
-            // This is needed in case the underlying table(s) changed and the query in the materialized view now produces types that
-            // are implicitly coercible to the declared materialized view types.
-            List<Field> outputFields = viewColumns.stream()
-                    .map(column -> Field.newQualified(
-                            table.getName(),
-                            Optional.of(column.getName()),
-                            getViewColumnType(column, name, table),
-                            false,
-                            Optional.of(name),
-                            Optional.of(column.getName()),
-                            false))
-                    .collect(toImmutableList());
-
-            analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
-
-            analyzeFiltersAndMasks(table, name, Optional.empty(), outputFields, session.getIdentity().getUser());
-
-            return createAndAssignScope(table, scope, outputFields);
+            return createScopeForView(
+                    table,
+                    name,
+                    scope,
+                    view.getOriginalSql(),
+                    view.getCatalog(),
+                    view.getSchema(),
+                    view.getOwner(),
+                    translateMaterializedViewColumns(view.getColumns()));
         }
 
         private List<ConnectorViewDefinition.ViewColumn> translateMaterializedViewColumns(List<ConnectorMaterializedViewDefinition.Column> materializedViewColumns)
@@ -1475,6 +1443,19 @@ class StatementAnalyzer
 
         private Scope createScopeForView(Table table, QualifiedObjectName name, Optional<Scope> scope, ConnectorViewDefinition view)
         {
+            return createScopeForView(table, name, scope, view.getOriginalSql(), view.getCatalog(), view.getSchema(), view.getOwner(), view.getColumns());
+        }
+
+        private Scope createScopeForView(
+                Table table,
+                QualifiedObjectName name,
+                Optional<Scope> scope,
+                String originalSql,
+                Optional<String> catalog,
+                Optional<String> schema,
+                Optional<String> owner,
+                List<ConnectorViewDefinition.ViewColumn> columns)
+        {
             Statement statement = analysis.getStatement();
             if (statement instanceof CreateView) {
                 CreateView viewStatement = (CreateView) statement;
@@ -1483,23 +1464,30 @@ class StatementAnalyzer
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }
             }
+            if (statement instanceof CreateMaterializedView) {
+                CreateMaterializedView viewStatement = (CreateMaterializedView) statement;
+                QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
+                    throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive materialized view");
+                }
+            }
             if (analysis.hasTableInView(table)) {
                 throw semanticException(VIEW_IS_RECURSIVE, table, "View is recursive");
             }
 
-            Query query = parseView(view.getOriginalSql(), name, table);
+            Query query = parseView(originalSql, name, table);
             analysis.registerNamedQuery(table, query);
             analysis.registerTableForView(table);
-            RelationType descriptor = analyzeView(query, name, view.getCatalog(), view.getSchema(), view.getOwner(), table);
+            RelationType descriptor = analyzeView(query, name, catalog, schema, owner, table);
             analysis.unregisterTableForView();
 
-            checkViewStaleness(view.getColumns(), descriptor.getVisibleFields(), name, table)
+            checkViewStaleness(columns, descriptor.getVisibleFields(), name, table)
                     .ifPresent(explanation -> { throw semanticException(VIEW_IS_STALE, table, "View '%s' is stale or in invalid state: %s", name, explanation); });
 
             // Derive the type of the view from the stored definition, not from the analysis of the underlying query.
             // This is needed in case the underlying table(s) changed and the query in the view now produces types that
             // are implicitly coercible to the declared view types.
-            List<Field> outputFields = view.getColumns().stream()
+            List<Field> outputFields = columns.stream()
                     .map(column -> Field.newQualified(
                             table.getName(),
                             Optional.of(column.getName()),
