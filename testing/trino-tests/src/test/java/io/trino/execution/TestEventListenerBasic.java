@@ -287,6 +287,7 @@ public class TestEventListenerBasic
         TableInfo table = tables.get(0);
         assertEquals(table.getCatalog(), "tpch");
         assertEquals(table.getSchema(), "tiny");
+        assertEquals(table.getTable(), "lineitem");
         assertEquals(table.getAuthorization(), "user");
         assertTrue(table.getFilters().isEmpty());
         assertEquals(table.getColumns().size(), 1);
@@ -317,6 +318,7 @@ public class TestEventListenerBasic
         TableInfo table = tables.get(0);
         assertThat(table.getCatalog()).isEqualTo("tpch");
         assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getTable()).isEqualTo("nation");
         assertThat(table.getAuthorization()).isEqualTo("user");
         assertThat(table.isDirectlyReferenced()).isFalse();
         assertThat(table.getFilters()).isEmpty();
@@ -329,6 +331,7 @@ public class TestEventListenerBasic
         table = tables.get(1);
         assertThat(table.getCatalog()).isEqualTo("mock");
         assertThat(table.getSchema()).isEqualTo("default");
+        assertThat(table.getTable()).isEqualTo("test_view");
         assertThat(table.getAuthorization()).isEqualTo("user");
         assertThat(table.isDirectlyReferenced()).isTrue();
         assertThat(table.getFilters()).isEmpty();
@@ -445,6 +448,7 @@ public class TestEventListenerBasic
         TableInfo table = tables.get(0);
         assertThat(table.getCatalog()).isEqualTo("tpch");
         assertThat(table.getSchema()).isEqualTo("tiny");
+        assertThat(table.getTable()).isEqualTo("orders");
         assertThat(table.getAuthorization()).isEqualTo("user");
         assertThat(table.isDirectlyReferenced()).isFalse();
         assertThat(table.getFilters()).hasSize(0);
@@ -457,6 +461,7 @@ public class TestEventListenerBasic
         table = tables.get(1);
         assertThat(table.getCatalog()).isEqualTo("mock");
         assertThat(table.getSchema()).isEqualTo("default");
+        assertThat(table.getTable()).isEqualTo("test_table_with_column_mask");
         assertThat(table.getAuthorization()).isEqualTo("user");
         assertThat(table.isDirectlyReferenced()).isTrue();
         assertThat(table.getFilters()).isEmpty();
