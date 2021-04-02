@@ -837,7 +837,7 @@ public abstract class AbstractTestHive
                                 Optional.empty(),
                                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("abc", TypeId.of("type"))),
                                 Optional.empty(),
-                                Optional.empty(),
+                                "alice",
                                 ImmutableMap.of()));
                     }
                 },

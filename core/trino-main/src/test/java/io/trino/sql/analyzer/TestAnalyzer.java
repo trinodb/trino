@@ -3055,7 +3055,7 @@ public class TestAnalyzer
                 Optional.of("s1"),
                 ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("a", BIGINT.getTypeId())),
                 Optional.of("comment"),
-                Optional.of("user"),
+                "user",
                 ImmutableMap.of());
         inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
 
