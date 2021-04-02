@@ -479,10 +479,15 @@ final class ShowQueriesRewrite
                 Optional<ConnectorMaterializedViewDefinition> viewDefinition = metadata.getMaterializedView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
+                    if (metadata.getView(session, objectName).isPresent()) {
+                        throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a materialized view", objectName);
+                    }
+
                     if (metadata.getTableHandle(session, objectName).isPresent()) {
                         throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a table, not a materialized view", objectName);
                     }
-                    throw semanticException(TABLE_NOT_FOUND, node, "View '%s' does not exist", objectName);
+
+                    throw semanticException(TABLE_NOT_FOUND, node, "Materialized view '%s' does not exist", objectName);
                 }
 
                 Query query = parseView(viewDefinition.get().getOriginalSql(), objectName, node);
@@ -529,9 +534,12 @@ final class ShowQueriesRewrite
 
             if (node.getType() == TABLE) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
-                Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
-                if (viewDefinition.isPresent()) {
+                if (metadata.getMaterializedView(session, objectName).isPresent()) {
+                    throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a materialized view, not a table", objectName);
+                }
+
+                if (metadata.getView(session, objectName).isPresent()) {
                     throw semanticException(NOT_SUPPORTED, node, "Relation '%s' is a view, not a table", objectName);
                 }
 
