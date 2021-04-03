@@ -29,6 +29,7 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.security.AllowAllAccessControl;
+import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.authentication.HiveAuthenticationModule;
 import io.trino.plugin.hive.azure.HiveAzureModule;
@@ -68,6 +69,7 @@ public final class InternalIcebergConnectorFactory
                     new JsonModule(),
                     new IcebergModule(),
                     new IcebergMetastoreModule(),
+                    new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
