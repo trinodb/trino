@@ -92,6 +92,7 @@ public final class InternalHiveConnectorFactory
                     new ConnectorObjectNameGeneratorModule(catalogName, "io.trino.plugin.hive", "trino.plugin.hive"),
                     new JsonModule(),
                     new HiveModule(),
+                    new HiveHdfsModule(),
                     new HiveS3Module(),
                     new HiveGcsModule(),
                     new HiveAzureModule(),
