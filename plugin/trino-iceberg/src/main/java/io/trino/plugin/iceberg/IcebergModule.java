@@ -19,7 +19,6 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveConfig;
-import io.trino.plugin.hive.HiveHdfsModule;
 import io.trino.plugin.hive.HiveNodePartitioningProvider;
 import io.trino.plugin.hive.metastore.MetastoreConfig;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -43,8 +42,6 @@ public class IcebergModule
     @Override
     public void configure(Binder binder)
     {
-        binder.install(new HiveHdfsModule());
-
         binder.bind(IcebergTransactionManager.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(HiveConfig.class);
