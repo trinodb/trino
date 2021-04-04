@@ -100,9 +100,9 @@ import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.NUM_ROWS
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createDirectory;
 import static io.trino.plugin.hive.util.HiveWriteUtils.pathExists;
-import static io.trino.plugin.hive.util.Statistics.ReduceOperator.SUBTRACT;
-import static io.trino.plugin.hive.util.Statistics.merge;
-import static io.trino.plugin.hive.util.Statistics.reduce;
+import static io.trino.plugin.hive.util.HiveStatistics.ReduceOperator.SUBTRACT;
+import static io.trino.plugin.hive.util.HiveStatistics.merge;
+import static io.trino.plugin.hive.util.HiveStatistics.reduce;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TRANSACTION_CONFLICT;

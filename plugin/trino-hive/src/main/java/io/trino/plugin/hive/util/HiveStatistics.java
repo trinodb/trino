@@ -53,9 +53,9 @@ import static com.google.common.collect.Sets.intersection;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
-import static io.trino.plugin.hive.util.Statistics.ReduceOperator.ADD;
-import static io.trino.plugin.hive.util.Statistics.ReduceOperator.MAX;
-import static io.trino.plugin.hive.util.Statistics.ReduceOperator.MIN;
+import static io.trino.plugin.hive.util.HiveStatistics.ReduceOperator.ADD;
+import static io.trino.plugin.hive.util.HiveStatistics.ReduceOperator.MAX;
+import static io.trino.plugin.hive.util.HiveStatistics.ReduceOperator.MIN;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -74,9 +74,9 @@ import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public final class Statistics
+public final class HiveStatistics
 {
-    private Statistics() {}
+    private HiveStatistics() {}
 
     public static PartitionStatistics merge(PartitionStatistics first, PartitionStatistics second)
     {
