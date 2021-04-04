@@ -15,14 +15,16 @@ package io.trino.plugin.hive.util;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.statistics.BooleanStatistics;
+import io.trino.plugin.base.statistics.DateStatistics;
+import io.trino.plugin.base.statistics.DecimalStatistics;
+import io.trino.plugin.base.statistics.DoubleStatistics;
+import io.trino.plugin.base.statistics.IntegerStatistics;
+import io.trino.plugin.base.statistics.ReduceOperator;
+import io.trino.plugin.base.statistics.Statistics;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.PartitionStatistics;
-import io.trino.plugin.hive.metastore.BooleanStatistics;
-import io.trino.plugin.hive.metastore.DateStatistics;
-import io.trino.plugin.hive.metastore.DecimalStatistics;
-import io.trino.plugin.hive.metastore.DoubleStatistics;
 import io.trino.plugin.hive.metastore.HiveColumnStatistics;
-import io.trino.plugin.hive.metastore.IntegerStatistics;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -30,11 +32,8 @@ import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.ColumnStatisticType;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -50,12 +49,21 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Sets.intersection;
+import static io.trino.plugin.base.statistics.ReduceOperator.ADD;
+import static io.trino.plugin.base.statistics.ReduceOperator.MAX;
+import static io.trino.plugin.base.statistics.Statistics.createColumnToComputedStatisticsMap;
+import static io.trino.plugin.base.statistics.Statistics.getDateValue;
+import static io.trino.plugin.base.statistics.Statistics.getDecimalValue;
+import static io.trino.plugin.base.statistics.Statistics.getDoubleValue;
+import static io.trino.plugin.base.statistics.Statistics.getIntegerValue;
+import static io.trino.plugin.base.statistics.Statistics.mergeBooleanStatistics;
+import static io.trino.plugin.base.statistics.Statistics.mergeDateStatistics;
+import static io.trino.plugin.base.statistics.Statistics.mergeDecimalStatistics;
+import static io.trino.plugin.base.statistics.Statistics.mergeDoubleStatistics;
+import static io.trino.plugin.base.statistics.Statistics.mergeIntegerStatistics;
 import static io.trino.plugin.hive.HiveBasicStatistics.createZeroStatistics;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_COLUMN_STATISTIC_TYPE;
 import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
-import static io.trino.plugin.hive.util.HiveStatistics.ReduceOperator.ADD;
-import static io.trino.plugin.hive.util.HiveStatistics.ReduceOperator.MAX;
-import static io.trino.plugin.hive.util.HiveStatistics.ReduceOperator.MIN;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE_SIZE_IN_BYTES;
 import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
@@ -70,8 +78,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveStatistics
@@ -95,10 +101,10 @@ public final class HiveStatistics
     public static HiveBasicStatistics reduce(HiveBasicStatistics first, HiveBasicStatistics second, ReduceOperator operator)
     {
         return new HiveBasicStatistics(
-                reduce(first.getFileCount(), second.getFileCount(), operator, false),
-                reduce(first.getRowCount(), second.getRowCount(), operator, false),
-                reduce(first.getInMemoryDataSizeInBytes(), second.getInMemoryDataSizeInBytes(), operator, false),
-                reduce(first.getOnDiskDataSizeInBytes(), second.getOnDiskDataSizeInBytes(), operator, false));
+                Statistics.reduce(first.getFileCount(), second.getFileCount(), operator, false),
+                Statistics.reduce(first.getRowCount(), second.getRowCount(), operator, false),
+                Statistics.reduce(first.getInMemoryDataSizeInBytes(), second.getInMemoryDataSizeInBytes(), operator, false),
+                Statistics.reduce(first.getOnDiskDataSizeInBytes(), second.getOnDiskDataSizeInBytes(), operator, false));
     }
 
     public static Map<String, HiveColumnStatistics> merge(Map<String, HiveColumnStatistics> first, Map<String, HiveColumnStatistics> second)
@@ -119,139 +125,10 @@ public final class HiveStatistics
                 mergeDecimalStatistics(first.getDecimalStatistics(), second.getDecimalStatistics()),
                 mergeDateStatistics(first.getDateStatistics(), second.getDateStatistics()),
                 mergeBooleanStatistics(first.getBooleanStatistics(), second.getBooleanStatistics()),
-                reduce(first.getMaxValueSizeInBytes(), second.getMaxValueSizeInBytes(), MAX, true),
-                reduce(first.getTotalSizeInBytes(), second.getTotalSizeInBytes(), ADD, true),
-                reduce(first.getNullsCount(), second.getNullsCount(), ADD, false),
-                reduce(first.getDistinctValuesCount(), second.getDistinctValuesCount(), MAX, false));
-    }
-
-    private static Optional<IntegerStatistics> mergeIntegerStatistics(Optional<IntegerStatistics> first, Optional<IntegerStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new IntegerStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<DoubleStatistics> mergeDoubleStatistics(Optional<DoubleStatistics> first, Optional<DoubleStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new DoubleStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<DecimalStatistics> mergeDecimalStatistics(Optional<DecimalStatistics> first, Optional<DecimalStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new DecimalStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<DateStatistics> mergeDateStatistics(Optional<DateStatistics> first, Optional<DateStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new DateStatistics(
-                    reduce(first.get().getMin(), second.get().getMin(), MIN, true),
-                    reduce(first.get().getMax(), second.get().getMax(), MAX, true)));
-        }
-        return Optional.empty();
-    }
-
-    private static Optional<BooleanStatistics> mergeBooleanStatistics(Optional<BooleanStatistics> first, Optional<BooleanStatistics> second)
-    {
-        // normally, either both or none is present
-        if (first.isPresent() && second.isPresent()) {
-            return Optional.of(new BooleanStatistics(
-                    reduce(first.get().getTrueCount(), second.get().getTrueCount(), ADD, false),
-                    reduce(first.get().getFalseCount(), second.get().getFalseCount(), ADD, false)));
-        }
-        return Optional.empty();
-    }
-
-    private static OptionalLong reduce(OptionalLong first, OptionalLong second, ReduceOperator operator, boolean returnFirstNonEmpty)
-    {
-        if (first.isPresent() && second.isPresent()) {
-            switch (operator) {
-                case ADD:
-                    return OptionalLong.of(first.getAsLong() + second.getAsLong());
-                case SUBTRACT:
-                    return OptionalLong.of(first.getAsLong() - second.getAsLong());
-                case MAX:
-                    return OptionalLong.of(max(first.getAsLong(), second.getAsLong()));
-                case MIN:
-                    return OptionalLong.of(min(first.getAsLong(), second.getAsLong()));
-            }
-            throw new IllegalArgumentException("Unexpected operator: " + operator);
-        }
-        if (returnFirstNonEmpty) {
-            return first.isPresent() ? first : second;
-        }
-        return OptionalLong.empty();
-    }
-
-    private static OptionalDouble reduce(OptionalDouble first, OptionalDouble second, ReduceOperator operator, boolean returnFirstNonEmpty)
-    {
-        if (first.isPresent() && second.isPresent()) {
-            switch (operator) {
-                case ADD:
-                    return OptionalDouble.of(first.getAsDouble() + second.getAsDouble());
-                case SUBTRACT:
-                    return OptionalDouble.of(first.getAsDouble() - second.getAsDouble());
-                case MAX:
-                    return OptionalDouble.of(max(first.getAsDouble(), second.getAsDouble()));
-                case MIN:
-                    return OptionalDouble.of(min(first.getAsDouble(), second.getAsDouble()));
-            }
-            throw new IllegalArgumentException("Unexpected operator: " + operator);
-        }
-        if (returnFirstNonEmpty) {
-            return first.isPresent() ? first : second;
-        }
-        return OptionalDouble.empty();
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends Comparable<? super T>> Optional<T> reduce(Optional<T> first, Optional<T> second, ReduceOperator operator, boolean returnFirstNonEmpty)
-    {
-        if (first.isPresent() && second.isPresent()) {
-            switch (operator) {
-                case ADD:
-                case SUBTRACT:
-                    // unsupported
-                    break;
-                case MAX:
-                    return Optional.of(max(first.get(), second.get()));
-                case MIN:
-                    return Optional.of(min(first.get(), second.get()));
-            }
-            throw new IllegalArgumentException("Unexpected operator: " + operator);
-        }
-        if (returnFirstNonEmpty) {
-            return first.isPresent() ? first : second;
-        }
-        return Optional.empty();
-    }
-
-    private static <T extends Comparable<? super T>> T max(T first, T second)
-    {
-        return first.compareTo(second) >= 0 ? first : second;
-    }
-
-    private static <T extends Comparable<? super T>> T min(T first, T second)
-    {
-        return first.compareTo(second) <= 0 ? first : second;
+                Statistics.reduce(first.getMaxValueSizeInBytes(), second.getMaxValueSizeInBytes(), MAX, true),
+                Statistics.reduce(first.getTotalSizeInBytes(), second.getTotalSizeInBytes(), ADD, true),
+                Statistics.reduce(first.getNullsCount(), second.getNullsCount(), ADD, false),
+                Statistics.reduce(first.getDistinctValuesCount(), second.getDistinctValuesCount(), MAX, false));
     }
 
     public static PartitionStatistics createEmptyPartitionStatistics(Map<String, Type> columnTypes, Map<String, Set<ColumnStatisticType>> columnStatisticsMetadataTypes)
@@ -347,18 +224,6 @@ public final class HiveStatistics
                 .collect(toImmutableMap(Entry::getKey, entry -> createHiveColumnStatistics(entry.getValue(), columnTypes.get(entry.getKey()), rowCount)));
     }
 
-    private static Map<String, Map<ColumnStatisticType, Block>> createColumnToComputedStatisticsMap(Map<ColumnStatisticMetadata, Block> computedStatistics)
-    {
-        Map<String, Map<ColumnStatisticType, Block>> result = new HashMap<>();
-        computedStatistics.forEach((metadata, block) -> {
-            Map<ColumnStatisticType, Block> columnStatistics = result.computeIfAbsent(metadata.getColumnName(), key -> new HashMap<>());
-            columnStatistics.put(metadata.getStatisticType(), block);
-        });
-        return result.entrySet()
-                .stream()
-                .collect(toImmutableMap(Entry::getKey, entry -> ImmutableMap.copyOf(entry.getValue())));
-    }
-
     @VisibleForTesting
     static HiveColumnStatistics createHiveColumnStatistics(
             Map<ColumnStatisticType, Block> computedStatistics,
@@ -429,61 +294,5 @@ public final class HiveStatistics
         else {
             throw new IllegalArgumentException("Unexpected type: " + type);
         }
-    }
-
-    private static OptionalLong getIntegerValue(Type type, Block block)
-    {
-        verify(type == BIGINT || type == INTEGER || type == SMALLINT || type == TINYINT, "Unsupported type: %s", type);
-        if (block.isNull(0)) {
-            return OptionalLong.empty();
-        }
-        return OptionalLong.of(type.getLong(block, 0));
-    }
-
-    private static OptionalDouble getDoubleValue(Type type, Block block)
-    {
-        verify(type == DOUBLE || type == REAL, "Unsupported type: %s", type);
-        if (block.isNull(0)) {
-            return OptionalDouble.empty();
-        }
-        double value;
-        if (type == DOUBLE) {
-            value = type.getDouble(block, 0);
-        }
-        else {
-            verify(type == REAL);
-            value = intBitsToFloat(toIntExact(type.getLong(block, 0)));
-        }
-        if (!Double.isFinite(value)) {
-            return OptionalDouble.empty();
-        }
-        return OptionalDouble.of(value);
-    }
-
-    private static Optional<LocalDate> getDateValue(Type type, Block block)
-    {
-        verify(type == DATE, "Unsupported type: %s", type);
-        if (block.isNull(0)) {
-            return Optional.empty();
-        }
-        int days = toIntExact(type.getLong(block, 0));
-        return Optional.of(LocalDate.ofEpochDay(days));
-    }
-
-    private static Optional<BigDecimal> getDecimalValue(Type type, Block block)
-    {
-        verify(type instanceof DecimalType, "Unsupported type: %s", type);
-        if (block.isNull(0)) {
-            return Optional.empty();
-        }
-        return Optional.of(Decimals.readBigDecimal((DecimalType) type, block, 0));
-    }
-
-    public enum ReduceOperator
-    {
-        ADD,
-        SUBTRACT,
-        MIN,
-        MAX,
     }
 }

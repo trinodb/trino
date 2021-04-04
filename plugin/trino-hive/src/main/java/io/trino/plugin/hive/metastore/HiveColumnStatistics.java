@@ -15,6 +15,11 @@ package io.trino.plugin.hive.metastore;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.trino.plugin.base.statistics.BooleanStatistics;
+import io.trino.plugin.base.statistics.DateStatistics;
+import io.trino.plugin.base.statistics.DecimalStatistics;
+import io.trino.plugin.base.statistics.DoubleStatistics;
+import io.trino.plugin.base.statistics.IntegerStatistics;
 
 import javax.annotation.concurrent.Immutable;
 

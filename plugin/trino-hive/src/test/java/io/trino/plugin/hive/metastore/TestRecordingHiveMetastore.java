@@ -21,6 +21,7 @@ import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.statistics.IntegerStatistics;
 import io.trino.plugin.hive.HiveBasicStatistics;
 import io.trino.plugin.hive.HiveBucketProperty;
 import io.trino.plugin.hive.HiveModule;

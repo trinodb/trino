@@ -11,42 +11,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore;
+package io.trino.plugin.base.statistics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.time.LocalDate;
 import java.util.Objects;
-import java.util.OptionalDouble;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class DoubleStatistics
+public class DateStatistics
 {
-    private final OptionalDouble min;
-    private final OptionalDouble max;
+    private final Optional<LocalDate> min;
+    private final Optional<LocalDate> max;
 
     @JsonCreator
-    public DoubleStatistics(
-            @JsonProperty("min") OptionalDouble min,
-            @JsonProperty("max") OptionalDouble max)
+    public DateStatistics(
+            @JsonProperty("min") Optional<LocalDate> min,
+            @JsonProperty("max") Optional<LocalDate> max)
     {
         this.min = requireNonNull(min, "min is null");
         this.max = requireNonNull(max, "max is null");
     }
 
     @JsonProperty
-    public OptionalDouble getMin()
+    public Optional<LocalDate> getMin()
     {
         return min;
     }
 
     @JsonProperty
-    public OptionalDouble getMax()
+    public Optional<LocalDate> getMax()
     {
         return max;
     }
@@ -60,7 +61,7 @@ public class DoubleStatistics
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        DoubleStatistics that = (DoubleStatistics) o;
+        DateStatistics that = (DateStatistics) o;
         return Objects.equals(min, that.min) &&
                 Objects.equals(max, that.max);
     }

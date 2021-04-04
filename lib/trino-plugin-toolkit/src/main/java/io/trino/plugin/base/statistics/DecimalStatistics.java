@@ -11,44 +11,45 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.metastore;
+package io.trino.plugin.base.statistics;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.annotation.concurrent.Immutable;
 
+import java.math.BigDecimal;
 import java.util.Objects;
-import java.util.OptionalLong;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
-public class BooleanStatistics
+public class DecimalStatistics
 {
-    private final OptionalLong trueCount;
-    private final OptionalLong falseCount;
+    private final Optional<BigDecimal> min;
+    private final Optional<BigDecimal> max;
 
     @JsonCreator
-    public BooleanStatistics(
-            @JsonProperty("trueCount") OptionalLong trueCount,
-            @JsonProperty("falseCount") OptionalLong falseCount)
+    public DecimalStatistics(
+            @JsonProperty("min") Optional<BigDecimal> min,
+            @JsonProperty("max") Optional<BigDecimal> max)
     {
-        this.trueCount = requireNonNull(trueCount, "trueCount is null");
-        this.falseCount = requireNonNull(falseCount, "falseCount is null");
+        this.min = requireNonNull(min, "min is null");
+        this.max = requireNonNull(max, "max is null");
     }
 
     @JsonProperty
-    public OptionalLong getTrueCount()
+    public Optional<BigDecimal> getMin()
     {
-        return trueCount;
+        return min;
     }
 
     @JsonProperty
-    public OptionalLong getFalseCount()
+    public Optional<BigDecimal> getMax()
     {
-        return falseCount;
+        return max;
     }
 
     @Override
@@ -60,23 +61,23 @@ public class BooleanStatistics
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        BooleanStatistics that = (BooleanStatistics) o;
-        return Objects.equals(trueCount, that.trueCount) &&
-                Objects.equals(falseCount, that.falseCount);
+        DecimalStatistics that = (DecimalStatistics) o;
+        return Objects.equals(min, that.min) &&
+                Objects.equals(max, that.max);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(trueCount, falseCount);
+        return Objects.hash(min, max);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("trueCount", trueCount)
-                .add("falseCount", falseCount)
+                .add("min", min)
+                .add("max", max)
                 .toString();
     }
 }
