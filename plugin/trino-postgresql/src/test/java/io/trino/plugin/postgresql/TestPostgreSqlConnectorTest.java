@@ -82,6 +82,7 @@ public class TestPostgreSqlConnectorTest
                 return false;
 
             case SUPPORTS_TOPN_PUSHDOWN:
+            case SUPPORTS_TOPN_PUSHDOWN_WITH_VARCHAR:
                 return true;
 
             case SUPPORTS_JOIN_PUSHDOWN:
@@ -763,7 +764,7 @@ public class TestPostgreSqlConnectorTest
         // with TopN over numeric column
         assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY nationkey ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
         // with TopN over varchar column
-        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isNotFullyPushedDown(TopNNode.class);
+        assertThat(query("SELECT * FROM (SELECT regionkey FROM nation ORDER BY name ASC LIMIT 10) LIMIT 5")).isFullyPushedDown();
 
         // LIMIT with JOIN
         assertThat(query(joinPushdownEnabled(getSession()), "" +
