@@ -202,6 +202,7 @@ import static java.lang.String.format;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -686,10 +687,9 @@ public class PostgreSqlClient
         for (JdbcSortItem sortItem : sortOrder) {
             Type sortItemType = sortItem.getColumn().getColumnType();
             if (sortItemType instanceof CharType || sortItemType instanceof VarcharType) {
-                // PostgreSQL by default orders lowercase letters before uppercase, which is different from Trino
-                // NOTE: VarcharType also includes PostgreSQL enums
-                // TODO We could still push the sort down if we could inject a PostgreSQL-specific syntax for selecting a collation for given comparison.
-                return false;
+                if (!isCollatable(sortItem.getColumn())) {
+                    return false;
+                }
             }
         }
         return true;
@@ -698,7 +698,33 @@ public class PostgreSqlClient
     @Override
     protected Optional<TopNFunction> topNFunction()
     {
-        return Optional.of(TopNFunction.sqlStandard(this::quoted));
+        return Optional.of((query, sortItems, limit) -> {
+            String orderBy = sortItems.stream()
+                    .map(sortItem -> {
+                        String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
+                        String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
+                        String collation = "";
+                        if (isCollatable(sortItem.getColumn())) {
+                            collation = "COLLATE \"C\"";
+                        }
+                        return format("%s %s %s %s", quoted(sortItem.getColumn().getColumnName()), collation, ordering, nullsHandling);
+                    })
+                    .collect(joining(", "));
+            return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
+        });
+    }
+
+    private boolean isCollatable(JdbcColumnHandle column)
+    {
+        if (column.getColumnType() instanceof CharType || column.getColumnType() instanceof VarcharType) {
+            String jdbcTypeName = column.getJdbcTypeHandle().getJdbcTypeName()
+                    .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + column.getJdbcTypeHandle()));
+            // Only char (internally named bpchar)/varchar/text are the built-in collatable types
+            return "bpchar".equals(jdbcTypeName) || "varchar".equals(jdbcTypeName) || "text".equals(jdbcTypeName);
+        }
+
+        // non-textual types don't have the concept of collation
+        return false;
     }
 
     @Override
