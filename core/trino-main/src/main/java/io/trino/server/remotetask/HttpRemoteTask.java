@@ -493,9 +493,9 @@ public final class HttpRemoteTask
                 pendingSourceSplitCount -= removed;
             }
         }
-        updateSplitQueueSpace();
-
+        // Update node level split tracker before split queue space to ensure it's up to date before waking up the scheduler
         partitionedSplitCountTracker.setPartitionedSplitCount(getPartitionedSplitCount());
+        updateSplitQueueSpace();
     }
 
     private void updateTaskInfo(TaskInfo taskInfo)
