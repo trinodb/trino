@@ -87,15 +87,15 @@ public class TestIcebergMetadataFileOperations
         // for assertions.
 
         String metadataFileSuffix = "metadata.json";
-        assertEquals(counts.forPathContaining(metadataFileSuffix).forOperation(INPUT_FILE_NEW_STREAM).sum(), 16);
+        assertEquals(counts.forPathContaining(metadataFileSuffix).forOperation(INPUT_FILE_NEW_STREAM).sum(), 1);
         // getLength is cached, so only assert number of different InputFile instances for a file
         assertEquals(counts.forPathContaining(metadataFileSuffix).forOperation(INPUT_FILE_GET_LENGTH).get().size(), 0);
         assertEquals(counts.forPathContaining(metadataFileSuffix).forOperation(INPUT_FILE_EXISTS).sum(), 0);
 
         String snapshotFilePrefix = "/snap-";
-        assertEquals(counts.forPathContaining(snapshotFilePrefix).forOperation(INPUT_FILE_NEW_STREAM).sum(), 10);
+        assertEquals(counts.forPathContaining(snapshotFilePrefix).forOperation(INPUT_FILE_NEW_STREAM).sum(), 1);
         // getLength is cached, so only assert number of different InputFile instances for a file
-        assertEquals(counts.forPathContaining(snapshotFilePrefix).forOperation(INPUT_FILE_GET_LENGTH).get().size(), 10);
+        assertEquals(counts.forPathContaining(snapshotFilePrefix).forOperation(INPUT_FILE_GET_LENGTH).get().size(), 1);
         assertEquals(counts.forPathContaining(snapshotFilePrefix).forOperation(INPUT_FILE_EXISTS).sum(), 0);
 
         String manifestFileSuffix = "-m0.avro";

@@ -28,7 +28,6 @@ import org.apache.iceberg.TableScan;
 import javax.inject.Inject;
 
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
-import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTable;
 import static java.util.Objects.requireNonNull;
 
 public class IcebergSplitManager
@@ -37,13 +36,11 @@ public class IcebergSplitManager
     public static final int ICEBERG_DOMAIN_COMPACTION_THRESHOLD = 1000;
 
     private final IcebergTransactionManager transactionManager;
-    private final HiveTableOperationsProvider tableOperationsProvider;
 
     @Inject
     public IcebergSplitManager(IcebergTransactionManager transactionManager, HiveTableOperationsProvider tableOperationsProvider)
     {
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
     }
 
     @Override
@@ -60,7 +57,7 @@ public class IcebergSplitManager
             return new FixedSplitSource(ImmutableList.of());
         }
 
-        Table icebergTable = getIcebergTable(tableOperationsProvider, session, table.getSchemaTableName());
+        Table icebergTable = transactionManager.get(transaction).getIcebergTable(session, table.getSchemaTableName());
 
         TableScan tableScan = icebergTable.newScan()
                 .filter(toIcebergExpression(
