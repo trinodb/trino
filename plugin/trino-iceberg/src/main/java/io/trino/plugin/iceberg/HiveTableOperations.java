@@ -105,6 +105,15 @@ public class HiveTableOperations
         this.location = requireNonNull(location, "location is null");
     }
 
+    public void initializeFromMetadata(TableMetadata tableMetadata)
+    {
+        checkState(currentMetadata == null, "already initialized");
+        currentMetadata = tableMetadata;
+        currentMetadataLocation = tableMetadata.metadataFileLocation();
+        shouldRefresh = false;
+        version = parseVersion(currentMetadataLocation);
+    }
+
     @Override
     public TableMetadata current()
     {

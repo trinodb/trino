@@ -37,6 +37,7 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 
 import java.math.BigDecimal;
@@ -94,7 +95,7 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
-    public static Table getIcebergTable(HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
+    public static Table loadIcebergTable(HiveTableOperationsProvider tableOperationsProvider, ConnectorSession session, SchemaTableName table)
     {
         TableOperations operations = tableOperationsProvider.createTableOperations(
                 new HdfsContext(session),
@@ -104,6 +105,24 @@ final class IcebergUtil
                 table.getTableName(),
                 Optional.empty(),
                 Optional.empty());
+        return new BaseTable(operations, quotedTableName(table));
+    }
+
+    public static Table getIcebergTableWithMetadata(
+            HiveTableOperationsProvider tableOperationsProvider,
+            ConnectorSession session,
+            SchemaTableName table,
+            TableMetadata tableMetadata)
+    {
+        HiveTableOperations operations = (HiveTableOperations) tableOperationsProvider.createTableOperations(
+                new HdfsContext(session),
+                session.getQueryId(),
+                new HiveIdentity(session),
+                table.getSchemaName(),
+                table.getTableName(),
+                Optional.empty(),
+                Optional.empty());
+        operations.initializeFromMetadata(tableMetadata);
         return new BaseTable(operations, quotedTableName(table));
     }
 

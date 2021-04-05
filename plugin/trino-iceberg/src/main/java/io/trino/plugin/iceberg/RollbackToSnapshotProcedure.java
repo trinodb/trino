@@ -24,7 +24,7 @@ import javax.inject.Provider;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTable;
+import static io.trino.plugin.iceberg.IcebergUtil.loadIcebergTable;
 import static io.trino.spi.block.MethodHandleUtil.methodHandle;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -65,7 +65,7 @@ public class RollbackToSnapshotProcedure
     public void rollbackToSnapshot(ConnectorSession clientSession, String schema, String table, Long snapshotId)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
-        Table icebergTable = getIcebergTable(tableOperationsProvider, clientSession, schemaTableName);
+        Table icebergTable = loadIcebergTable(tableOperationsProvider, clientSession, schemaTableName);
         icebergTable.rollback().toSnapshotId(snapshotId).commit();
     }
 }
