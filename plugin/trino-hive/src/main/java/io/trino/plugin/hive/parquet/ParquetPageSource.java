@@ -92,13 +92,10 @@ public class ParquetPageSource
 
             Block[] blocks = new Block[fields.size()];
             for (int fieldId = 0; fieldId < blocks.length; fieldId++) {
-                Optional<Field> field = fields.get(fieldId);
-                if (field.isPresent()) {
-                    blocks[fieldId] = new LazyBlock(batchSize, new ParquetBlockLoader(field.get()));
-                }
-                else {
-                    blocks[fieldId] = RunLengthEncodedBlock.create(types.get(fieldId), null, batchSize);
-                }
+                Type type = types.get(fieldId);
+                blocks[fieldId] = fields.get(fieldId)
+                        .<Block>map(field -> new LazyBlock(batchSize, new ParquetBlockLoader(field)))
+                        .orElseGet(() -> RunLengthEncodedBlock.create(type, null, batchSize));
             }
             return new Page(batchSize, blocks);
         }
