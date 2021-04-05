@@ -13,23 +13,44 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.trino.plugin.jdbc.expression.ImplementCountAll;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ColumnStatisticMetadata;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.ComputedStatistics;
+import io.trino.spi.statistics.DoubleRange;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.sql.Connection;
 import java.sql.Types;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
@@ -53,6 +74,11 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.statistics.ColumnStatisticType.MAX_VALUE;
+import static io.trino.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_DISTINCT_VALUES;
+import static io.trino.spi.statistics.ColumnStatisticType.NUMBER_OF_NON_NULL_VALUES;
+import static io.trino.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -62,11 +88,14 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
+import static java.util.Locale.ENGLISH;
 
 class TestingH2JdbcClient
         extends BaseJdbcClient
 {
     private static final JdbcTypeHandle BIGINT_TYPE_HANDLE = new JdbcTypeHandle(Types.BIGINT, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+
+    private final Map<SchemaTableName, JdbcTableStatistics> tableStatistics = new ConcurrentHashMap<>();
 
     public TestingH2JdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
@@ -85,6 +114,84 @@ class TestingH2JdbcClient
     {
         return new AggregateFunctionRewriter(this::quoted, ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
                 .rewrite(session, aggregate, assignments);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        Set<ColumnStatisticMetadata> columnStatistics = tableMetadata.getColumns().stream()
+                .filter(column -> !column.isHidden())
+                .map(this::getColumnStatisticMetadata)
+                .flatMap(List::stream)
+                .collect(toImmutableSet());
+
+        return new TableStatisticsMetadata(columnStatistics, ImmutableSet.of(ROW_COUNT), ImmutableList.of());
+    }
+
+    private List<ColumnStatisticMetadata> getColumnStatisticMetadata(ColumnMetadata columnMetadata)
+    {
+        return Stream.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES)
+                .map(columnStatisticType -> new ColumnStatisticMetadata(columnMetadata.getName(), columnStatisticType))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public void finishStatisticsCollection(ConnectorSession session, JdbcTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
+        checkArgument(tableHandle.isNamedRelation(), "Expected named relation");
+        Map<String, Type> types = tableHandle.getColumns()
+                .orElseGet(() -> this.getColumns(session, tableHandle)).stream()
+                .collect(toImmutableMap(
+                        column -> column.getColumnName().toLowerCase(ENGLISH),
+                        column -> column.getColumnType()));
+        Optional<JdbcTableStatistics> jdbcTableStatistics = computedStatistics.stream()
+                .map(statistics -> JdbcTableStatistics.from(statistics, types))
+                .reduce(JdbcTableStatistics::merge);
+        if (jdbcTableStatistics.isPresent()) {
+            tableStatistics.put(tableHandle.getRequiredNamedRelation().getSchemaTableName(), jdbcTableStatistics.get());
+        }
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, JdbcTableHandle handle, TupleDomain<ColumnHandle> tupleDomain)
+    {
+        if (!handle.isNamedRelation()) {
+            return TableStatistics.empty();
+        }
+        JdbcTableStatistics jdbcTableStatistics = this.tableStatistics.get(handle.getRequiredNamedRelation().getSchemaTableName());
+        if (jdbcTableStatistics == null) {
+            return TableStatistics.empty();
+        }
+
+        Map<String, JdbcColumnHandle> columnHandles = handle.getColumns()
+                .orElseGet(() -> this.getColumns(session, handle)).stream()
+                .collect(toImmutableMap(
+                        column -> column.getColumnName().toLowerCase(ENGLISH),
+                        Function.identity()));
+
+        TableStatistics.Builder tableStatistics = TableStatistics.builder();
+        Estimate rowsCount = jdbcTableStatistics.getRowsCount();
+        tableStatistics.setRowCount(rowsCount);
+        if (rowsCount.getValue() <= 0) {
+            return tableStatistics.build();
+        }
+        jdbcTableStatistics.getColumnStatistics().entrySet()
+                .forEach(entry -> {
+                    String columnName = entry.getKey();
+                    JdbcColumnStatistics jdbcColumnStatistics = entry.getValue();
+                    ColumnStatistics.Builder columnStatistics = ColumnStatistics.builder();
+                    columnStatistics.setDistinctValuesCount(jdbcColumnStatistics.getDistinctValuesCount());
+                    columnStatistics.setNullsFraction(Estimate.of((rowsCount.getValue() - jdbcColumnStatistics.getNonNullsCount().getValue()) / rowsCount.getValue()));
+                    columnStatistics.setRange(jdbcColumnStatistics.getIntegerStatistics().map(integerStatistics -> {
+                        OptionalLong min = integerStatistics.getMin();
+                        OptionalLong max = integerStatistics.getMax();
+                        return new DoubleRange(
+                                min.isPresent() ? min.getAsLong() : Double.NEGATIVE_INFINITY,
+                                max.isPresent() ? max.getAsLong() : Double.POSITIVE_INFINITY);
+                    }));
+                    tableStatistics.setColumnStatistics(columnHandles.get(columnName), columnStatistics.build());
+                });
+        return tableStatistics.build();
     }
 
     @Override

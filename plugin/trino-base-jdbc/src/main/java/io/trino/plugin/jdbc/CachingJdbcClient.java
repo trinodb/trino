@@ -35,7 +35,9 @@ import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.session.PropertyMetadata;
+import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 
 import javax.inject.Inject;
@@ -43,6 +45,7 @@ import javax.inject.Inject;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -422,6 +425,18 @@ public class CachingJdbcClient
     public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return delegate.getTableScanRedirection(session, tableHandle);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return delegate.getStatisticsCollectionMetadata(session, tableMetadata);
+    }
+
+    @Override
+    public void finishStatisticsCollection(ConnectorSession session, JdbcTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
+        delegate.finishStatisticsCollection(session, tableHandle, computedStatistics);
     }
 
     private Map<String, Object> getSessionProperties(ConnectorSession session)

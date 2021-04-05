@@ -15,6 +15,7 @@ package io.trino.testing;
 
 import io.trino.Session;
 import io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType;
+import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
@@ -26,6 +27,7 @@ import static io.trino.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.QueryAssertions.assertContains;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ANALYZE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ARRAY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABLE;
@@ -524,6 +526,35 @@ public abstract class BaseConnectorTest
                         "('table_privileges'), " +
                         "('tables'), " +
                         "('views')");
+    }
+
+    @Test
+    public void testAnalyze()
+    {
+        if (!hasBehavior(SUPPORTS_ANALYZE)) {
+            assertQueryFails("ANALYZE nation", "This connector does not support analyze");
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "analyze", "AS SELECT * FROM nation")) {
+            assertQuery(
+                    "SHOW STATS FOR " + table,
+                    "VALUES " +
+                            "   ('regionkey', null, null, null, null, null, null), " +
+                            "   ('nationkey', null, null, null, null, null, null), " +
+                            "   ('name', null, null, null, null, null, null), " +
+                            "   ('comment', null, null, null, null, null, null), " +
+                            "   (null, null, null, null, null, null, null)");
+            assertQuerySucceeds("ANALYZE " + table);
+            assertQuery(
+                    "SHOW STATS FOR " + table,
+                    "VALUES " +
+                            "   ('regionkey', null, 5.0, 0.0, null, 0, 4), " +
+                            "   ('nationkey', null, 25.0, 0.0, null, 0, 24), " +
+                            "   ('name', null, 25.0, 0.0, null, null, null), " +
+                            "   ('comment', null, 25.0, 0.0, null, null, null), " +
+                            "   (null, null, null, null, 25.0, null, null)");
+        }
     }
 
     @Test

@@ -56,6 +56,9 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
+
+import javax.annotation.Nullable;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -75,6 +78,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isAggregationPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isJoinPushdownEnabled;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.isTopNPushdownEnabled;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
@@ -664,6 +668,34 @@ public class JdbcMetadata
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         jdbcClient.dropColumn(session, tableHandle, columnHandle);
+    }
+
+    @Override
+    public TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        return jdbcClient.getStatisticsCollectionMetadata(session, tableMetadata);
+    }
+
+    @Nullable
+    @Override
+    public ConnectorTableHandle getTableHandleForStatisticsCollection(ConnectorSession session, SchemaTableName tableName, Map<String, Object> analyzeProperties)
+    {
+        if (!analyzeProperties.isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, "Not supported analyze properties: " + analyzeProperties.keySet());
+        }
+        return getTableHandle(session, tableName);
+    }
+
+    @Override
+    public ConnectorTableHandle beginStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return tableHandle;
+    }
+
+    @Override
+    public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
+        jdbcClient.finishStatisticsCollection(session, (JdbcTableHandle) tableHandle, computedStatistics);
     }
 
     @Override

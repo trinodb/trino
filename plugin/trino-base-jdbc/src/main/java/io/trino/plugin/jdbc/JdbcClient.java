@@ -26,12 +26,15 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.statistics.TableStatisticsMetadata;
 import io.trino.spi.type.Type;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -167,5 +170,15 @@ public interface JdbcClient
     default Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return Optional.empty();
+    }
+
+    default TableStatisticsMetadata getStatisticsCollectionMetadata(ConnectorSession session, ConnectorTableMetadata tableMetadata)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support analyze");
+    }
+
+    default void finishStatisticsCollection(ConnectorSession session, JdbcTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support analyze");
     }
 }

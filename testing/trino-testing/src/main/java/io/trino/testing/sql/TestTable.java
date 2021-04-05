@@ -64,6 +64,12 @@ public class TestTable
         return name;
     }
 
+    @Override
+    public String toString()
+    {
+        return name;
+    }
+
     public static TestTable fromColumns(SqlExecutor sqlExecutor, String namePrefix, Map<String, List<String>> columns)
     {
         return fromColumns(

@@ -54,6 +54,8 @@ public enum TestingConnectorBehavior
     SUPPORTS_DELETE(false),
     SUPPORTS_ROW_LEVEL_DELETE(SUPPORTS_DELETE),
 
+    SUPPORTS_ANALYZE(false),
+
     SUPPORTS_ARRAY,
 
     /**/;
