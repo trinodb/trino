@@ -23,12 +23,16 @@ import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.execution.events.DefaultEventCollector;
 import io.trino.execution.events.EventCollector;
+import io.trino.execution.events.EventCollectorConfig;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
+import io.trino.spi.TrinoEvent;
+import io.trino.spi.TrinoWarning;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
@@ -42,6 +46,7 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.transaction.TransactionManager;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -55,6 +60,7 @@ import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.fail;
 
 public class RuleAssert
@@ -62,6 +68,7 @@ public class RuleAssert
     private final Metadata metadata;
     private final TestingStatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
+    private final EventCollector eventCollector;
     private Session session;
     private final Rule<?> rule;
 
@@ -77,6 +84,7 @@ public class RuleAssert
         this.metadata = metadata;
         this.statsCalculator = new TestingStatsCalculator(statsCalculator);
         this.costCalculator = costCalculator;
+        this.eventCollector = new DefaultEventCollector(new EventCollectorConfig());
         this.session = session;
         this.rule = rule;
         this.transactionManager = transactionManager;
@@ -112,7 +120,7 @@ public class RuleAssert
         return this;
     }
 
-    public void doesNotFire()
+    public EventsMatcher doesNotFire()
     {
         RuleApplication ruleApplication = applyRule();
 
@@ -122,9 +130,11 @@ public class RuleAssert
                     rule,
                     inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, StatsAndCosts.empty(), session, 2, false))));
         }
+
+        return new EventsMatcher(eventCollector.getWarnings(), eventCollector.getEvents());
     }
 
-    public void matches(PlanMatchPattern pattern)
+    public EventsMatcher matches(PlanMatchPattern pattern)
     {
         RuleApplication ruleApplication = applyRule();
         TypeProvider types = ruleApplication.types;
@@ -159,6 +169,40 @@ public class RuleAssert
             assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern);
             return null;
         });
+
+        return new EventsMatcher(eventCollector.getWarnings(), eventCollector.getEvents());
+    }
+
+    public static class EventsMatcher
+    {
+        private final List<TrinoWarning> warnings;
+        private final List<TrinoEvent> events;
+
+        EventsMatcher(List<TrinoWarning> warnings, List<TrinoEvent> events)
+        {
+            this.warnings = warnings;
+            this.events = events;
+        }
+
+        public void producesWarnings(TrinoWarning...expectedWarnings)
+        {
+            assertThat(warnings).containsExactlyInAnyOrder(expectedWarnings);
+        }
+
+        public void doesNotProduceWarnings()
+        {
+            assertThat(warnings).isEmpty();
+        }
+
+        public void producesEvents(TrinoEvent...expectedEvents)
+        {
+            assertThat(events).containsExactlyInAnyOrder(expectedEvents);
+        }
+
+        public void doesNotProduceEvents()
+        {
+            assertThat(events).isEmpty();
+        }
     }
 
     private RuleApplication applyRule()
@@ -259,7 +303,7 @@ public class RuleAssert
             @Override
             public EventCollector getEventCollector()
             {
-                return EventCollector.NOOP;
+                return eventCollector;
             }
         };
     }
