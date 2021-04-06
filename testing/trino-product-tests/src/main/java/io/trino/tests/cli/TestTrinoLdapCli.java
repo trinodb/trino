@@ -55,7 +55,7 @@ public class TestTrinoLdapCli
         extends TrinoCliLauncher
         implements RequirementsProvider
 {
-    private static final String SELECT_FROM_NATION = "select * from hive.default.nation;";
+    private static final String SELECT_FROM_NATION = "SELECT * FROM hive.default.nation;";
 
     @Inject(optional = true)
     @Named("databases.presto.cli_ldap_truststore_path")
