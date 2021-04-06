@@ -71,6 +71,7 @@ public class ParquetReader
 
     private final Optional<String> fileCreatedBy;
     private final List<BlockMetaData> blocks;
+    private final Optional<List<Long>> firstRowsOfBlocks;
     private final List<PrimitiveColumnIO> columns;
     private final ParquetDataSource dataSource;
     private final DateTimeZone timeZone;
@@ -79,6 +80,13 @@ public class ParquetReader
     private int currentRowGroup = -1;
     private BlockMetaData currentBlockMetadata;
     private long currentGroupRowCount;
+    /**
+     * Index in the Parquet file of the first row of the current group
+     */
+    private Optional<Long> firstRowIndexInGroup = Optional.empty();
+    /**
+     * Index in the current group of the next row
+     */
     private long nextRowInGroup;
     private int batchSize;
     private int nextBatchSize = INITIAL_BATCH_SIZE;
@@ -95,6 +103,7 @@ public class ParquetReader
             Optional<String> fileCreatedBy,
             MessageColumnIO messageColumnIO,
             List<BlockMetaData> blocks,
+            Optional<List<Long>> firstRowsOfBlocks,
             ParquetDataSource dataSource,
             DateTimeZone timeZone,
             AggregatedMemoryContext systemMemoryContext,
@@ -104,6 +113,7 @@ public class ParquetReader
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         this.columns = requireNonNull(messageColumnIO, "messageColumnIO is null").getLeaves();
         this.blocks = requireNonNull(blocks, "blocks is null");
+        this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
@@ -111,6 +121,10 @@ public class ParquetReader
         this.options = requireNonNull(options, "options is null");
         this.columnReaders = new PrimitiveColumnReader[columns.size()];
         this.maxBytesPerCell = new long[columns.size()];
+
+        firstRowsOfBlocks.ifPresent(firstRows -> {
+            checkArgument(blocks.size() == firstRows.size(), "elements of firstRowsOfBlocks must correspond to blocks");
+        });
 
         Map<ChunkKey, DiskRange> ranges = new HashMap<>();
         for (int rowGroup = 0; rowGroup < blocks.size(); rowGroup++) {
@@ -133,6 +147,15 @@ public class ParquetReader
         freeCurrentRowGroupBuffers();
         currentRowGroupMemoryContext.close();
         dataSource.close();
+    }
+
+    /**
+     * Get the global row index of the first row in the last batch.
+     */
+    public long lastBatchStartRow()
+    {
+        long baseIndex = firstRowIndexInGroup.orElseThrow(() -> new IllegalStateException("row index unavailable"));
+        return baseIndex + nextRowInGroup - batchSize;
     }
 
     public int nextBatch()
@@ -162,7 +185,7 @@ public class ParquetReader
             return false;
         }
         currentBlockMetadata = blocks.get(currentRowGroup);
-
+        firstRowIndexInGroup = firstRowsOfBlocks.map(firstRows -> firstRows.get(currentRowGroup));
         nextRowInGroup = 0L;
         currentGroupRowCount = currentBlockMetadata.getRowCount();
         initializeColumnReaders();
