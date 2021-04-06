@@ -64,6 +64,7 @@ import io.trino.sql.planner.iterative.rule.ImplementIntersectAll;
 import io.trino.sql.planner.iterative.rule.ImplementIntersectDistinctAsUnion;
 import io.trino.sql.planner.iterative.rule.ImplementLimitWithTies;
 import io.trino.sql.planner.iterative.rule.ImplementOffset;
+import io.trino.sql.planner.iterative.rule.InlineProjectIntoFilter;
 import io.trino.sql.planner.iterative.rule.InlineProjections;
 import io.trino.sql.planner.iterative.rule.MergeExcept;
 import io.trino.sql.planner.iterative.rule.MergeFilters;
@@ -557,7 +558,9 @@ public class PlanOptimizers
                         ruleStats,
                         statsCalculator,
                         estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new TransformFilteringSemiJoinToInnerJoin()))); // must run after PredicatePushDown
+                        ImmutableSet.of(
+                                new TransformFilteringSemiJoinToInnerJoin(),
+                                new InlineProjectIntoFilter(metadata)))); // must run after PredicatePushDown
 
         // Perform redirection before CBO rules to ensure stats from destination connector are used
         // Perform redirection before agg, topN, limit, sample etc. push down into table scan as the destination connector may support a different set of push downs
