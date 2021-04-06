@@ -14,6 +14,7 @@
 package io.trino.execution.events;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoWarning;
 
 import java.util.List;
@@ -31,9 +32,22 @@ public interface EventCollector
                 {
                     return ImmutableList.of();
                 }
+
+                @Override
+                public void add(TrinoEvent event) {}
+
+                @Override
+                public List<TrinoEvent> getEvents()
+                {
+                    return ImmutableList.of();
+                }
             };
 
     void add(TrinoWarning warning);
 
     List<TrinoWarning> getWarnings();
+
+    void add(TrinoEvent event);
+
+    List<TrinoEvent> getEvents();
 }

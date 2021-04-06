@@ -13,11 +13,13 @@
  */
 package io.trino.execution.events;
 
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDefaultEventCollector
 {
@@ -37,5 +39,23 @@ public class TestDefaultEventCollector
         eventCollector.add(new TrinoWarning(new WarningCode(2, "2"), "warning 2"));
         eventCollector.add(new TrinoWarning(new WarningCode(3, "3"), "warning 3"));
         assertEquals(eventCollector.getWarnings().size(), 2);
+    }
+
+    @Test
+    public void testNoEvents()
+    {
+        EventCollector eventCollector = new DefaultEventCollector(new EventCollectorConfig().setMaxEvents(0));
+        eventCollector.add(new TrinoEvent("event 1"));
+        assertTrue(eventCollector.getEvents().isEmpty());
+    }
+
+    @Test
+    public void testMaxEvents()
+    {
+        EventCollector eventCollector = new DefaultEventCollector(new EventCollectorConfig().setMaxEvents(2));
+        eventCollector.add(new TrinoEvent("event 1"));
+        eventCollector.add(new TrinoEvent("event 2"));
+        eventCollector.add(new TrinoEvent("event 3"));
+        assertEquals(eventCollector.getEvents().size(), 2);
     }
 }

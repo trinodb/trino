@@ -240,6 +240,7 @@ public class MockManagedQueryExecution
                 null,
                 null,
                 ImmutableList.of(),
+                ImmutableList.of(),
                 ImmutableSet.of(),
                 Optional.empty(),
                 ImmutableList.of(),

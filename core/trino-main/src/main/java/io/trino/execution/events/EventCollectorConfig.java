@@ -16,11 +16,14 @@ package io.trino.execution.events;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.LegacyConfig;
 
+import javax.validation.constraints.Min;
+
 import static com.google.common.base.Preconditions.checkArgument;
 
 public class EventCollectorConfig
 {
     private int maxWarnings = Integer.MAX_VALUE;
+    private int maxEvents = Integer.MAX_VALUE;
 
     @Config("event-collector.max-warnings")
     @LegacyConfig("warning-collector.max-warnings")
@@ -34,5 +37,18 @@ public class EventCollectorConfig
     public int getMaxWarnings()
     {
         return maxWarnings;
+    }
+
+    @Config("event-collector.max-events")
+    public EventCollectorConfig setMaxEvents(int maxEvents)
+    {
+        this.maxEvents = maxEvents;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxEvents()
+    {
+        return maxEvents;
     }
 }

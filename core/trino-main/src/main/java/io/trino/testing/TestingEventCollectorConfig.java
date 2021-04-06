@@ -23,6 +23,9 @@ public class TestingEventCollectorConfig
     private int preloadedWarnings;
     private boolean addWarnings;
 
+    private int preloadedEvents;
+    private boolean addEvents;
+
     @Config("testing-event-collector.preloaded-warnings")
     @ConfigDescription("Preloads event collector with test warnings")
     public TestingEventCollectorConfig setPreloadedWarnings(int preloadedWarnings)
@@ -48,5 +51,32 @@ public class TestingEventCollectorConfig
     public boolean getAddWarnings()
     {
         return addWarnings;
+    }
+
+    @Config("testing-event-collector.preloaded-events")
+    @ConfigDescription("Preloads event collector with test events")
+    public TestingEventCollectorConfig setPreloadedEvents(int preloadedEvents)
+    {
+        checkArgument(preloadedEvents >= 0, "preloadedEvents must be >= 0");
+        this.preloadedEvents = preloadedEvents;
+        return this;
+    }
+
+    public int getPreloadedEvents()
+    {
+        return preloadedEvents;
+    }
+
+    @Config("testing-event-collector.add-events")
+    @ConfigDescription("Adds an event each time getEvents is called")
+    public TestingEventCollectorConfig setAddEvents(boolean addEvents)
+    {
+        this.addEvents = addEvents;
+        return this;
+    }
+
+    public boolean getAddEvents()
+    {
+        return addEvents;
     }
 }

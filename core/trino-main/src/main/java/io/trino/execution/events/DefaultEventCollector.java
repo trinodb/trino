@@ -14,6 +14,7 @@
 package io.trino.execution.events;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoWarning;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -31,6 +32,10 @@ public class DefaultEventCollector
 {
     @GuardedBy("this")
     private final Set<TrinoWarning> warnings = new LinkedHashSet<>();
+
+    @GuardedBy("this")
+    private final Set<TrinoEvent> events = new LinkedHashSet<>();
+
     private final EventCollectorConfig config;
 
     public DefaultEventCollector(EventCollectorConfig config)
@@ -51,5 +56,20 @@ public class DefaultEventCollector
     public synchronized List<TrinoWarning> getWarnings()
     {
         return ImmutableList.copyOf(warnings);
+    }
+
+    @Override
+    public synchronized void add(TrinoEvent event)
+    {
+        requireNonNull(events, "event is null");
+        if (events.size() < config.getMaxEvents()) {
+            events.add(event);
+        }
+    }
+
+    @Override
+    public synchronized List<TrinoEvent> getEvents()
+    {
+        return ImmutableList.copyOf(events);
     }
 }
