@@ -244,15 +244,12 @@ public class PhoenixClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columnHandles)
             throws SQLException
     {
-        PreparedQuery preparedQuery = prepareQuery(
+        PreparedStatement query = prepareStatement(
                 session,
                 connection,
                 table,
-                Optional.empty(),
                 columnHandles,
-                ImmutableMap.of(),
                 Optional.of(split));
-        PreparedStatement query = new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
         ResultSet resultSet = getResultSet(((PhoenixSplit) split).getPhoenixInputSplit(), queryPlan);
         return new DelegatePreparedStatement(query)
@@ -263,6 +260,25 @@ public class PhoenixClient
                 return resultSet;
             }
         };
+    }
+
+    public PreparedStatement prepareStatement(
+            ConnectorSession session,
+            Connection connection,
+            JdbcTableHandle table,
+            List<JdbcColumnHandle> columns,
+            Optional<JdbcSplit> split)
+            throws SQLException
+    {
+        PreparedQuery preparedQuery = prepareQuery(
+                session,
+                connection,
+                table,
+                Optional.empty(),
+                columns,
+                ImmutableMap.of(),
+                split);
+        return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
     }
 
     @Override
