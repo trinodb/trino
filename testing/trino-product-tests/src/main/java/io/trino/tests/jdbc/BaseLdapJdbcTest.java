@@ -48,7 +48,7 @@ public abstract class BaseLdapJdbcTest
 {
     protected static final long TIMEOUT = 30 * 1000; // seconds per test
 
-    protected static final String NATION_SELECT_ALL_QUERY = "select * from tpch.tiny.nation";
+    protected static final String NATION_SELECT_ALL_QUERY = "SELECT * FROM tpch.tiny.nation";
 
     @Inject
     @Named("databases.presto.cli_ldap_truststore_path")
