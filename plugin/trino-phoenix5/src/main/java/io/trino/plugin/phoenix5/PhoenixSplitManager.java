@@ -14,12 +14,9 @@
 package io.trino.plugin.phoenix5;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.plugin.jdbc.PreparedQuery;
-import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -83,17 +80,12 @@ public class PhoenixSplitManager
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
-            QueryBuilder queryBuilder = new QueryBuilder(phoenixClient);
-            PreparedQuery preparedQuery = queryBuilder.prepareQuery(
+            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) phoenixClient.prepareStatement(
                     session,
                     connection,
-                    tableHandle.getRelationHandle(),
-                    Optional.empty(),
+                    tableHandle,
                     columns,
-                    ImmutableMap.of(),
-                    tableHandle.getConstraint(),
                     Optional.empty());
-            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) queryBuilder.prepareStatement(session, connection, preparedQuery);
 
             List<ConnectorSplit> splits = getSplits(inputQuery).stream()
                     .map(PhoenixInputSplit.class::cast)
