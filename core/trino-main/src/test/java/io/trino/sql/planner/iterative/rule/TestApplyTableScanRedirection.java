@@ -22,6 +22,7 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.events.EventCollector;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.TrinoEvent;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnHandle;
@@ -101,7 +102,8 @@ public class TestApplyTableScanRedirection
                                 ImmutableMap.of(column, SOURCE_COLUMN_HANDLE_A));
                     })
                     .withSession(MOCK_SESSION)
-                    .doesNotFire();
+                    .doesNotFire()
+                    .doesNotProduceEvents();
         }
     }
 
@@ -191,7 +193,9 @@ public class TestApplyTableScanRedirection
                             tableScan(
                                     equalTo(new MockConnectorTableHandle(DESTINATION_TABLE)),
                                     TupleDomain.all(),
-                                    ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A))));
+                                    ImmutableMap.of("DEST_COL", equalTo(DESTINATION_COLUMN_HANDLE_A))))
+                    .producesEvents(
+                            new TrinoEvent("Table scan on 'mock_catalog.test_schema.test_table' redirected to 'mock_catalog.target_schema.target_table'"));
         }
     }
 
