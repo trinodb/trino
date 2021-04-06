@@ -142,6 +142,10 @@ public class ParquetPageSource
     private final class ParquetBlockLoader
             implements LazyBlockLoader
     {
+        /**
+         * Stores batch ID at instantiation time. Loading fails if the ID
+         * changes before {@link #load()} is called.
+         */
         private final int expectedBatchId = batchId;
         private final Field field;
         private boolean loaded;
@@ -155,7 +159,7 @@ public class ParquetPageSource
         public final Block load()
         {
             checkState(!loaded, "Already loaded");
-            checkState(batchId == expectedBatchId);
+            checkState(batchId == expectedBatchId, "Inconsistent state; wrong batch");
 
             Block block;
             String parquetDataSourceId = parquetReader.getDataSource().getId().toString();
