@@ -88,20 +88,13 @@ public class OAuth2CallbackResource
         // Note: the Web UI may be disabled, so REST requests can not redirect to a success or error page inside of the Web UI
 
         if (error != null) {
-            LOG.debug(
-                    "OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s",
-                    error,
-                    errorDescription,
-                    errorUri,
-                    state);
+            LOG.debug("OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s", error, errorDescription, errorUri, state);
 
-            passErrorToTokenExchange(
-                    authId,
-                    "OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s",
-                    error,
-                    errorDescription,
-                    errorUri,
-                    state);
+            if (tokenExchange.isPresent() && authId.isPresent()) {
+                tokenExchange.get().setTokenExchangeError(
+                        authId.get(),
+                        format("OAuth server returned an error: error=%s, error_description=%s, error_uri=%s, state=%s", error, errorDescription, errorUri, state));
+            }
             return Response.ok()
                     .entity(service.getCallbackErrorHtml(error))
                     .build();
@@ -117,8 +110,9 @@ public class OAuth2CallbackResource
         }
         catch (ChallengeFailedException | RuntimeException e) {
             LOG.debug(e, "Authentication response could not be verified: state=%s", state);
-
-            passErrorToTokenExchange(authId, "Authentication response could not be verified: state=%s", state);
+            if (tokenExchange.isPresent() && authId.isPresent()) {
+                tokenExchange.get().setTokenExchangeError(authId.get(), format("Authentication response could not be verified: state=%s", state));
+            }
             return Response.ok()
                     .entity(service.getInternalFailureHtml("Authentication response could not be verified"))
                     .build();
@@ -145,13 +139,5 @@ public class OAuth2CallbackResource
             builder.cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()));
         }
         return builder.build();
-    }
-
-    private void passErrorToTokenExchange(Optional<UUID> authId, String format, String... args)
-    {
-        if (tokenExchange.isEmpty() || authId.isEmpty()) {
-            return;
-        }
-        tokenExchange.orElseThrow().setTokenExchangeError(authId.orElseThrow(), format(format, args));
     }
 }
