@@ -26,9 +26,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -113,26 +113,31 @@ public class TrinoResultSet
         // Semaphore to indicate that some data is ready.
         // Each permit represents a row of data (or that the underlying iterator is exhausted).
         private final Semaphore semaphore = new Semaphore(0);
-        private final CompletableFuture<Void> future;
+        private final Future<?> future;
 
         public AsyncIterator(Iterator<T> dataIterator, StatementClient client)
         {
             requireNonNull(dataIterator, "dataIterator is null");
             this.client = client;
-            this.future = CompletableFuture.runAsync(() -> {
-                try {
-                    while (dataIterator.hasNext()) {
-                        rowQueue.put(dataIterator.next());
+            this.future = executorService.submit(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    try {
+                        while (dataIterator.hasNext()) {
+                            rowQueue.put(dataIterator.next());
+                            semaphore.release();
+                        }
+                    }
+                    catch (InterruptedException e) {
+                        interrupt(e);
+                    }
+                    finally {
                         semaphore.release();
                     }
                 }
-                catch (InterruptedException e) {
-                    interrupt(e);
-                }
-                finally {
-                    semaphore.release();
-                }
-            }, executorService);
+            });
         }
 
         public void cancel()
