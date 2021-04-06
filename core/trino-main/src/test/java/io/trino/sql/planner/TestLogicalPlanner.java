@@ -1170,6 +1170,70 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testCorrelatedIn()
+    {
+        assertPlan(
+                "SELECT name FROM region r WHERE regionkey IN (SELECT regionkey FROM nation WHERE name < r.name)",
+                anyTree(
+                        filter(
+                                "count_matches > BIGINT '0'",
+                                project(
+                                        aggregation(
+                                                singleGroupingSet("region_regionkey", "region_name", "unique"),
+                                                ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
+                                                ImmutableList.of("region_regionkey", "region_name", "unique"),
+                                                ImmutableList.of("mask"),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                project(
+                                                        ImmutableMap.of("mask", expression("((NOT (region_regionkey IS NULL)) AND (NOT (nation_regionkey IS NULL)))")),
+                                                        join(
+                                                                LEFT,
+                                                                ImmutableList.of(),
+                                                                Optional.of("((((region_regionkey IS NULL) OR (region_regionkey = nation_regionkey)) OR (nation_regionkey IS NULL)) AND (nation_name < region_name))"),
+                                                                assignUniqueId(
+                                                                        "unique",
+                                                                        tableScan("region", ImmutableMap.of(
+                                                                                "region_regionkey", "regionkey",
+                                                                                "region_name", "name"))),
+                                                                any(
+                                                                        tableScan("nation", ImmutableMap.of(
+                                                                                "nation_name", "name",
+                                                                                "nation_regionkey", "regionkey"))))))))));
+    }
+
+    @Test
+    public void testCorrelatedExists()
+    {
+        assertPlan(
+                "SELECT regionkey, name FROM region r WHERE EXISTS(SELECT regionkey FROM nation WHERE name < r.name)",
+                anyTree(
+                        filter(
+                                "count_matches > BIGINT '0'",
+                                project(
+                                        aggregation(
+                                                singleGroupingSet("region_regionkey", "region_name", "unique"),
+                                                ImmutableMap.of(Optional.of("count_matches"), functionCall("count", ImmutableList.of())),
+                                                ImmutableList.of("region_regionkey", "region_name", "unique"),
+                                                ImmutableList.of("mask"),
+                                                Optional.empty(),
+                                                SINGLE,
+                                                join(
+                                                        LEFT,
+                                                        ImmutableList.of(),
+                                                        Optional.of("nation_name < region_name"),
+                                                        assignUniqueId(
+                                                                "unique",
+                                                                tableScan("region", ImmutableMap.of(
+                                                                        "region_regionkey", "regionkey",
+                                                                        "region_name", "name"))),
+                                                        any(
+                                                                project(
+                                                                        ImmutableMap.of("mask", expression("true")),
+                                                                        tableScan("nation", ImmutableMap.of("nation_name", "name"))))))))));
+    }
+
+    @Test
     public void testOrderByFetch()
     {
         assertPlan(
