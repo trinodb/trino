@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.jdbc.BaseJdbcClient;
+import io.trino.plugin.jdbc.BaseJdbcClient.TopNFunction;
 import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
+import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcSplit;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
@@ -184,6 +186,7 @@ public class PhoenixClient
         extends BaseJdbcClient
 {
     private static final String ROWKEY = "ROWKEY";
+    private static final long MAX_TOPN_LIMIT = 2000000;
 
     private final Configuration configuration;
 
@@ -278,6 +281,33 @@ public class PhoenixClient
                 ImmutableMap.of(),
                 split);
         return new QueryBuilder(this).prepareStatement(session, connection, preparedQuery);
+    }
+
+    @Override
+    public boolean supportsTopN(ConnectorSession session, JdbcTableHandle handle, List<JdbcSortItem> sortOrder)
+    {
+        return true;
+    }
+
+    @Override
+    protected Optional<TopNFunction> topNFunction()
+    {
+        return Optional.of((query, sortItems, limit) -> {
+            // TODO: Remove when this is fixed in Phoenix.
+            // Phoenix severely over-estimates the memory
+            // required to execute a topN query.
+            // https://issues.apache.org/jira/browse/PHOENIX-6436
+            if (limit > MAX_TOPN_LIMIT) {
+                return query;
+            }
+            return TopNFunction.sqlStandard(this::quoted).apply(query, sortItems, limit);
+        });
+    }
+
+    @Override
+    public boolean isTopNLimitGuaranteed(ConnectorSession session)
+    {
+        return false;
     }
 
     @Override
