@@ -16,8 +16,8 @@ package io.trino.sql.planner.planprinter;
 import io.trino.Session;
 import io.trino.execution.TableInfo;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableProperties;
+import io.trino.metadata.TableSchema;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.function.Function;
@@ -39,8 +39,8 @@ public class TableInfoSupplier
     @Override
     public TableInfo apply(TableScanNode node)
     {
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
+        TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
         TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
-        return new TableInfo(tableMetadata.getQualifiedName(), tableProperties.getPredicate());
+        return new TableInfo(tableSchema.getQualifiedName(), tableProperties.getPredicate());
     }
 }
