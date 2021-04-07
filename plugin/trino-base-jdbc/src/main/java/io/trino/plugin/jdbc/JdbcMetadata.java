@@ -518,6 +518,18 @@ public class JdbcMetadata
     }
 
     @Override
+    public ConnectorTableSchema getTableSchema(ConnectorSession session, ConnectorTableHandle table)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        return new ConnectorTableSchema(
+                getSchemaTableName(handle),
+                jdbcClient.getColumns(session, handle).stream()
+                        .map(JdbcColumnHandle::getColumnSchema)
+                        .collect(toImmutableList()));
+    }
+
+    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
