@@ -537,7 +537,7 @@
             <dependency>
                 <groupId>io.trino.hadoop</groupId>
                 <artifactId>hadoop-apache</artifactId>
-                <version>3.2.0-10</version>
+                <version>3.2.0-11</version>
             </dependency>
 
             <dependency>
