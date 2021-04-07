@@ -33,6 +33,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.JoinApplicationResult;
@@ -521,15 +522,20 @@ public class JdbcMetadata
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;
 
-        ImmutableList.Builder<ColumnMetadata> columnMetadata = ImmutableList.builder();
-        for (JdbcColumnHandle column : jdbcClient.getColumns(session, handle)) {
-            columnMetadata.add(column.getColumnMetadata());
-        }
-        SchemaTableName schemaTableName = handle.isNamedRelation()
+        return new ConnectorTableMetadata(
+                getSchemaTableName(handle),
+                jdbcClient.getColumns(session, handle).stream()
+                        .map(JdbcColumnHandle::getColumnMetadata)
+                        .collect(toImmutableList()),
+                jdbcClient.getTableProperties(session, handle));
+    }
+
+    protected static SchemaTableName getSchemaTableName(JdbcTableHandle handle)
+    {
+        return handle.isNamedRelation()
                 ? handle.getRequiredNamedRelation().getSchemaTableName()
                 // TODO (https://github.com/trinodb/trino/issues/6694) SchemaTableName should not be required for synthetic ConnectorTableHandle
                 : new SchemaTableName("_generated", "_generated_query");
-        return new ConnectorTableMetadata(schemaTableName, columnMetadata.build(), jdbcClient.getTableProperties(session, handle));
     }
 
     @Override
