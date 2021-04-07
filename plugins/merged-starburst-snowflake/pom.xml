@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>355-e-SNAPSHOT</version>
+        <version>356-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -135,6 +135,11 @@
             <groupId>com.jayway.jsonpath</groupId>
             <artifactId>json-path</artifactId>
             <version>2.4.0</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.microsoft.azure</groupId>
+            <artifactId>azure-keyvault-cryptography</artifactId>
         </dependency>
 
         <dependency>
@@ -340,6 +345,13 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <configuration>
+                        <excludes>**/org/apache/hadoop/fs/azure/*</excludes>
+                    </configuration>
+                </plugin>
+                <plugin>
                     <groupId>org.basepom.maven</groupId>
                     <artifactId>duplicate-finder-maven-plugin</artifactId>
                     <configuration>
@@ -402,6 +414,7 @@
                                 <exclude>**/TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeWithImpersonationConnectorSmokeTest.java</exclude>
                                 <exclude>**/TestDistributedSnowflakeTypeMapping.java</exclude>
+                                <exclude>**/TestSnowflakeJmxStats.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
@@ -436,8 +449,6 @@
                         <configuration>
                             <includes>
                                 <include>**/TestDistributedSnowflakeConnectorTest.java</include>
-                                <include>**/TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest.java</include>
-                                <include>**/TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest.java</include>
                                 <include>**/TestDistributedSnowflakeWithImpersonationConnectorSmokeTest.java</include>
                                 <include>**/TestDistributedSnowflakeTypeMapping.java</include>
                             </includes>
@@ -457,6 +468,9 @@
                             <includes>
                                 <include>**/TestDistributedNoImpresonationOktaPoolingSnowflakeTest.java</include>
                                 <include>**/TestDistributedWithImpresonationOktaSnowflakeConnectorTest.java</include>
+                                <include>**/TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTest.java</include>
+                                <include>**/TestDistributedSnowflakeOktaWithImpresonationConnectorSmokeTest.java</include>
+                                <include>**/TestSnowflakeJmxStats.java</include>
                             </includes>
                         </configuration>
                     </plugin>

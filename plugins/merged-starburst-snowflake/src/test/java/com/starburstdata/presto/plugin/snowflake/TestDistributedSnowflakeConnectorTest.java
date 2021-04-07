@@ -54,6 +54,12 @@ public class TestDistributedSnowflakeConnectorTest
     }
 
     @Test
+    public void testSimpleSelect()
+    {
+        assertQuery("SELECT regionkey, name FROM region ORDER BY regionkey", "VALUES (0, 'AFRICA'), (1, 'AMERICA'), (2, 'ASIA'), (3, 'EUROPE'), (4, 'MIDDLE EAST')");
+    }
+
+    @Test
     public void testDynamicFilterIsApplied()
     {
         String sql = "SELECT l.partkey FROM lineitem l JOIN nation n ON n.regionkey = l.orderkey AND n.name < 'B' ";

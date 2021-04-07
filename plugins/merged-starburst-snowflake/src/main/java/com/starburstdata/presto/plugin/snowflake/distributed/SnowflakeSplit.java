@@ -38,17 +38,11 @@ public class SnowflakeSplit
     private final String table;
     private final boolean forceLocalScheduling;
 
-    private final String s3AwsAccessKey;
-    private final String s3AwsSecretKey;
-    private final String s3AwsSessionToken;
-    private final String queryStageMasterKey;
+    private final SnowflakeStageAccessInfo stageAccessInfo;
 
     SnowflakeSplit(
             HiveSplit hiveSplit,
-            String s3AwsAccessKey,
-            String s3AwsSecretKey,
-            String s3AwsSessionToken,
-            String queryStageMasterKey)
+            SnowflakeStageAccessInfo stageAccessInfo)
     {
         this(
                 hiveSplit.getDatabase(),
@@ -60,10 +54,7 @@ public class SnowflakeSplit
                 hiveSplit.getSchema(),
                 hiveSplit.getAddresses(),
                 hiveSplit.isForceLocalScheduling(),
-                s3AwsAccessKey,
-                s3AwsSecretKey,
-                s3AwsSessionToken,
-                queryStageMasterKey);
+                stageAccessInfo);
     }
 
     @JsonCreator
@@ -77,10 +68,7 @@ public class SnowflakeSplit
             @JsonProperty("schema") Properties schema,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("s3AwsAccessKey") String s3AwsAccessKey,
-            @JsonProperty("s3AwsSecretKey") String s3AwsSecretKey,
-            @JsonProperty("s3AwsSessionToken") String s3AwsSessionToken,
-            @JsonProperty("queryStageMasterKey") String queryStageMasterKey)
+            @JsonProperty("stageAccessInfo") SnowflakeStageAccessInfo stageAccessInfo)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -101,10 +89,7 @@ public class SnowflakeSplit
         this.addresses = ImmutableList.copyOf(addresses);
         this.forceLocalScheduling = forceLocalScheduling;
 
-        this.s3AwsAccessKey = requireNonNull(s3AwsAccessKey, "s3AwsAccessKey is null");
-        this.s3AwsSecretKey = requireNonNull(s3AwsSecretKey, "s3AwsSecretKey is null");
-        this.s3AwsSessionToken = requireNonNull(s3AwsSessionToken, "s3AwsSessionToken is null");
-        this.queryStageMasterKey = requireNonNull(queryStageMasterKey, "queryStageMasterKey is null");
+        this.stageAccessInfo = requireNonNull(stageAccessInfo, "stageAccessInfo is null");
     }
 
     @JsonProperty
@@ -163,27 +148,9 @@ public class SnowflakeSplit
     }
 
     @JsonProperty
-    public String getS3AwsAccessKey()
+    public SnowflakeStageAccessInfo getStageAccessInfo()
     {
-        return s3AwsAccessKey;
-    }
-
-    @JsonProperty
-    public String getS3AwsSecretKey()
-    {
-        return s3AwsSecretKey;
-    }
-
-    @JsonProperty
-    public String getS3AwsSessionToken()
-    {
-        return s3AwsSessionToken;
-    }
-
-    @JsonProperty
-    public String getQueryStageMasterKey()
-    {
-        return queryStageMasterKey;
+        return stageAccessInfo;
     }
 
     @Override
@@ -208,6 +175,7 @@ public class SnowflakeSplit
                 .addValue(start)
                 .addValue(length)
                 .addValue(fileSize)
+                .addValue(stageAccessInfo)
                 .toString();
     }
 }

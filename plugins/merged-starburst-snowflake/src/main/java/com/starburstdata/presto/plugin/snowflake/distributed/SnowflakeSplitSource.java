@@ -67,11 +67,12 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getLast;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
+import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getSnowflakeStageAccessInfo;
+import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getStageLocation;
+import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.validateStageType;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.retryCanceledQueries;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeHiveTypeTranslator.toHiveType;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
@@ -87,7 +88,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static net.snowflake.client.jdbc.cloud.storage.StageInfo.StageType.S3;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.CONNECTION_DOES_NOT_EXIST;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.CONNECTION_EXCEPTION;
 import static net.snowflake.client.jdbc.internal.snowflake.common.core.SqlState.DATA_EXCEPTION;
@@ -114,9 +114,6 @@ public class SnowflakeSplitSource
             CONNECTION_DOES_NOT_EXIST);
 
     private static final String DUMMY_LOCATION = "file:///tmp/dummy_location_presto_connector_tmp/";
-    private static final String AWS_KEY_ID = "AWS_KEY_ID";
-    private static final String AWS_SECRET_KEY = "AWS_SECRET_KEY";
-    private static final String AWS_TOKEN = "AWS_TOKEN";
 
     private final ListeningExecutorService executorService;
     private final TypeManager typeManager;
@@ -183,15 +180,11 @@ public class SnowflakeSplitSource
             hiveSplitSource = getHiveSplitSource();
         }
 
+        SnowflakeStageAccessInfo snowflakeStageAccessInfo = getSnowflakeStageAccessInfo(transferAgent);
         return hiveSplitSource.getNextBatch(NOT_PARTITIONED, maxSize)
                 .thenApply(hiveSplitBatch -> new ConnectorSplitBatch(
                         hiveSplitBatch.getSplits().stream()
-                                .map(hiveSplit -> new SnowflakeSplit(
-                                        (HiveSplit) hiveSplit,
-                                        getCredential(AWS_KEY_ID),
-                                        getCredential(AWS_SECRET_KEY),
-                                        getCredential(AWS_TOKEN),
-                                        getQueryStageMasterKey()))
+                                .map(hiveSplit -> new SnowflakeSplit((HiveSplit) hiveSplit, snowflakeStageAccessInfo))
                                 .collect(toImmutableList()),
                         hiveSplitBatch.isNoMoreSplits()));
     }
@@ -241,8 +234,7 @@ public class SnowflakeSplitSource
                             format("GET @%s.%s/ %s", snowflakeConfig.getStageSchema(), stageName, DUMMY_LOCATION),
                             connection.getSfSession(),
                             new SFStatement(connection.getSfSession()));
-                    checkState(transferAgent.getStageInfo().getStageType() == S3, "Only S3 Snowflake Stages are supported");
-
+                    validateStageType(transferAgent.getStageInfo().getStageType());
                     return new ConnectorSplitBatch(ImmutableList.of(), false);
                 }));
             }
@@ -322,13 +314,7 @@ public class SnowflakeSplitSource
     {
         HiveConfig hiveConfig = snowflakeConfig.getHiveConfig();
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(
-                hdfsConfig,
-                getCredential(AWS_KEY_ID),
-                getCredential(AWS_SECRET_KEY),
-                getCredential(AWS_TOKEN),
-                Optional.of(getQueryStageMasterKey()));
-
+        HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(hdfsConfig, transferAgent);
         SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore(hiveConfig, hdfsEnvironment);
         metastore.beginQuery(session);
 
@@ -359,7 +345,7 @@ public class SnowflakeSplitSource
                 "dummy",
                 EXTERNAL_TABLE.name(),
                 Storage.builder()
-                        .setLocation("s3://" + transferAgent.getStageLocation())
+                        .setLocation(getStageLocation(transferAgent))
                         .setStorageFormat(StorageFormat.fromHiveStorageFormat(PARQUET))
                         .build(),
                 getHiveColumns(),
@@ -418,10 +404,5 @@ public class SnowflakeSplitSource
     private boolean isEmptyExport()
     {
         return transferAgent.getEncryptionMaterial().isEmpty();
-    }
-
-    private String getQueryStageMasterKey()
-    {
-        return getLast(transferAgent.getEncryptionMaterial()).getQueryStageMasterKey();
     }
 }

@@ -6,9 +6,6 @@
 
 package org.apache.hadoop.fs.azure;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.microsoft.azure.keyvault.core.IKey;
 import com.microsoft.azure.keyvault.cryptography.Algorithm;
 import com.microsoft.azure.keyvault.cryptography.AlgorithmResolver;
 import com.microsoft.azure.keyvault.cryptography.IAuthenticatedCryptoTransform;
@@ -24,9 +21,13 @@ import com.microsoft.azure.keyvault.cryptography.algorithms.Aes256CbcHmacSha512;
 import com.microsoft.azure.keyvault.cryptography.algorithms.AesKw128;
 import com.microsoft.azure.keyvault.cryptography.algorithms.AesKw192;
 import com.microsoft.azure.keyvault.cryptography.algorithms.AesKw256;
-import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
+import com.starburstdata.presto.plugin.snowflake.distributed.AesKwPkcs5;
+import io.trino.hadoop.$internal.com.google.common.util.concurrent.Futures;
+import io.trino.hadoop.$internal.com.google.common.util.concurrent.ListenableFuture;
+import io.trino.hadoop.$internal.com.microsoft.azure.keyvault.core.IKey;
+import io.trino.hadoop.$internal.org.apache.commons.lang3.NotImplementedException;
+import io.trino.hadoop.$internal.org.apache.commons.lang3.tuple.Pair;
+import io.trino.hadoop.$internal.org.apache.commons.lang3.tuple.Triple;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
@@ -37,10 +38,11 @@ import java.util.UUID;
 /**
  * A simple symmetric key implementation
  *
+ * Copied from com.microsoft.azure.keyvault.cryptography.SymmetricKey from package com.microsoft.azure:azure-keyvault-cryptography:1.0.0
  */
 public class SymmetricKey
         implements IKey {
-    
+
     private static final SecureRandom Rng = new SecureRandom();
 
     public static final int KeySize128 = 128 >> 3;
@@ -50,6 +52,7 @@ public class SymmetricKey
     public static final int KeySize512 = 512 >> 3;
     
     public static final int DefaultKeySize = KeySize256;
+    public static final AesKwPkcs5 SNOWFLAKE_KW_ALGORITHM = new AesKwPkcs5();
 
     private final String   _kid;
     private final byte[]   _key;
@@ -230,11 +233,11 @@ public class SymmetricKey
 
         // Interpret the algorithm
         Algorithm baseAlgorithm = AlgorithmResolver.Default.get(algorithm);
-        
+
         if (baseAlgorithm == null || !(baseAlgorithm instanceof SymmetricEncryptionAlgorithm)) {
             throw new NoSuchAlgorithmException(algorithm);
         }
-        
+
         SymmetricEncryptionAlgorithm algo = (SymmetricEncryptionAlgorithm)baseAlgorithm;
 
         ICryptoTransform transform = null;
@@ -268,7 +271,7 @@ public class SymmetricKey
         }
 
         // Interpret the algorithm
-        String    algorithmName = (Strings.isNullOrWhiteSpace(algorithm)) ? getDefaultEncryptionAlgorithm() : algorithm;
+        String    algorithmName = Strings.isNullOrWhiteSpace(algorithm) ? getDefaultEncryptionAlgorithm() : algorithm;
         Algorithm baseAlgorithm = AlgorithmResolver.Default.get(algorithmName);
         
         if (baseAlgorithm == null || !(baseAlgorithm instanceof SymmetricEncryptionAlgorithm)) {
@@ -313,7 +316,7 @@ public class SymmetricKey
         }
 
         // Interpret the algorithm
-        String    algorithmName = (Strings.isNullOrWhiteSpace(algorithm)) ? getDefaultKeyWrapAlgorithm() : algorithm;
+        String    algorithmName = Strings.isNullOrWhiteSpace(algorithm) ? getDefaultKeyWrapAlgorithm() : algorithm;
         Algorithm baseAlgorithm = AlgorithmResolver.Default.get(algorithmName);
         
         if (baseAlgorithm == null || !(baseAlgorithm instanceof KeyWrapAlgorithm)) {
@@ -351,13 +354,18 @@ public class SymmetricKey
         if (encryptedKey == null || encryptedKey.length == 0) {
             throw new IllegalArgumentException("wrappedKey");
         }
-        
-        Algorithm baseAlgorithm = AlgorithmResolver.Default.get(algorithm);
-        
+
+        Algorithm baseAlgorithm = null;
+        if (algorithm.equals(AesKwPkcs5.ALGORITHM_NAME)) {
+            baseAlgorithm = SNOWFLAKE_KW_ALGORITHM;
+        } else {
+            baseAlgorithm = AlgorithmResolver.Default.get(algorithm);
+        }
+
         if (baseAlgorithm == null || !(baseAlgorithm instanceof KeyWrapAlgorithm)) {
             throw new NoSuchAlgorithmException(algorithm);
         }
-        
+
         KeyWrapAlgorithm algo = (KeyWrapAlgorithm)baseAlgorithm;
 
         ICryptoTransform transform = null;

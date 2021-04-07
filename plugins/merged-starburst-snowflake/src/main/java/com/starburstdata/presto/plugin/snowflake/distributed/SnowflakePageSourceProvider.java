@@ -10,7 +10,6 @@
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.HdfsConfig;
 import io.trino.plugin.hive.HdfsEnvironment;
 import io.trino.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -39,7 +38,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.amazonaws.services.s3.internal.crypto.JceEncryptionConstants.SYMMETRIC_CIPHER_BLOCK_SIZE;
@@ -48,6 +46,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
+import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.validateStageType;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -80,12 +79,8 @@ class SnowflakePageSourceProvider
             TupleDomain<ColumnHandle> dynamicFilter)
     {
         SnowflakeSplit snowflakeSplit = (SnowflakeSplit) split;
-        HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(
-                new HdfsConfig(),
-                snowflakeSplit.getS3AwsAccessKey(),
-                snowflakeSplit.getS3AwsSecretKey(),
-                snowflakeSplit.getS3AwsSessionToken(),
-                Optional.of(snowflakeSplit.getQueryStageMasterKey()));
+        validateStageType(snowflakeSplit.getStageAccessInfo().getStageType());
+        HdfsEnvironment hdfsEnvironment = getHdfsEnvironment(snowflakeSplit);
 
         Path path = new Path(snowflakeSplit.getPath());
         Configuration configuration = hdfsEnvironment.getConfiguration(

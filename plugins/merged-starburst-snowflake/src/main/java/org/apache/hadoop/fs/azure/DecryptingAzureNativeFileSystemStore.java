@@ -14,11 +14,15 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * NOTICE: This file was changed by michal.slizak@starburstdata.com
  */
 
 package org.apache.hadoop.fs.azure;
 
+import com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils;
 import io.trino.hadoop.$internal.com.google.common.annotations.VisibleForTesting;
+import io.trino.hadoop.$internal.com.microsoft.azure.keyvault.core.IKey;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.CloudStorageAccount;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.Constants;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.OperationContext;
@@ -31,6 +35,7 @@ import io.trino.hadoop.$internal.com.microsoft.azure.storage.StorageCredentialsS
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.StorageErrorCode;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.StorageEvent;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.StorageException;
+import io.trino.hadoop.$internal.com.microsoft.azure.storage.blob.BlobEncryptionPolicy;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.blob.BlobListingDetails;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.blob.BlobProperties;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.blob.BlobRequestOptions;
@@ -39,8 +44,10 @@ import io.trino.hadoop.$internal.com.microsoft.azure.storage.blob.CloudBlob;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.blob.CopyStatus;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.blob.DeleteSnapshotsOption;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.blob.ListBlobItem;
+import io.trino.hadoop.$internal.com.microsoft.azure.storage.core.Base64;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.core.BaseRequest;
 import io.trino.hadoop.$internal.com.microsoft.azure.storage.core.Utility;
+import io.trino.hadoop.$internal.org.apache.commons.io.input.BoundedInputStream;
 import io.trino.hadoop.$internal.org.apache.commons.lang3.StringUtils;
 import io.trino.hadoop.$internal.org.eclipse.jetty.util.ajax.JSON;
 import io.trino.hadoop.$internal.org.slf4j.Logger;
@@ -72,7 +79,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.EnumSet;
@@ -83,12 +92,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.primitives.Bytes.indexOf;
+import static com.google.common.primitives.Bytes.reverse;
+import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getQueryStageMasterKey;
 import static org.apache.hadoop.fs.azure.NativeAzureFileSystem.PATH_DELIMITER;
 
 /**
  * Core implementation of Windows Azure Filesystem for Hadoop.
  * Provides the bridging logic between Hadoop's abstract filesystem and Azure Storage
  *
+ * Copied from org.apache.hadoop.fs.azure.AzureNativeFileSystemStore from package io.trino.hadoop:hadoop-apache:3.2.0-10
  */
 @InterfaceAudience.Private
 @VisibleForTesting
@@ -114,6 +128,10 @@ public class DecryptingAzureNativeFileSystemStore
   static final String USER_AGENT_ID_DEFAULT = "unknown";
 
   public static final Logger LOG = LoggerFactory.getLogger(DecryptingAzureNativeFileSystemStore.class);
+  public static final String SNOWFLAKE_KEY_ID = "symmKey1";
+  public static final int SYMMETRIC_CIPHER_BLOCK_SIZE = 32;
+  public static final byte[] REVERSED_PARQUET_MAGIC_VALUE = "1RAP".getBytes(StandardCharsets.UTF_8);
+  public static final int STREAM_TAIL_SIZE = SYMMETRIC_CIPHER_BLOCK_SIZE + REVERSED_PARQUET_MAGIC_VALUE.length; // Make sure we include the magic value for value matching to work
 
   private StorageInterface storageInteractionLayer;
   private CloudBlobDirectoryWrapper rootDirectory;
@@ -346,7 +364,12 @@ public class DecryptingAzureNativeFileSystemStore
   // User-Agent
   private String userAgentId;
 
+  @SuppressWarnings("UnusedVariable")
   private String delegationToken;
+
+  // client-side decryption
+  private IKey stageMasterKey;
+  private BlobEncryptionPolicy downloadPolicy;
 
   /** The error message template when container is not accessible. */
   public static final String NO_ACCESS_TO_CONTAINER_MSG = "No credentials found for "
@@ -568,6 +591,10 @@ public class DecryptingAzureNativeFileSystemStore
       LOG.warn("Unable to initialize HBase root as an atomic rename directory.");
     }
     LOG.debug("Atomic rename directories: {} ", setToString(atomicRenameDirs));
+
+    String base64MasterKey = getQueryStageMasterKey(conf);
+    stageMasterKey = new SymmetricKey(SNOWFLAKE_KEY_ID, Base64.decode(base64MasterKey));
+    downloadPolicy = new BlobEncryptionPolicy(stageMasterKey, null);
   }
 
   /**
@@ -905,7 +932,7 @@ public class DecryptingAzureNativeFileSystemStore
    * @param sessionUri - URI provided in the initializer
    */
   private void connectToAzureStorageInSecureMode(String accountName,
-      String containerName, URI sessionUri)
+      String containerName, @SuppressWarnings("UnusedVariable") URI sessionUri)
           throws AzureException, StorageException, URISyntaxException {
 
     // Assertion: storageInteractionLayer instance has to be a SecureStorageInterfaceImpl
@@ -959,10 +986,10 @@ public class DecryptingAzureNativeFileSystemStore
   @VisibleForTesting
   public static String getAccountKeyFromConfiguration(String accountName,
       Configuration conf) throws KeyProviderException {
-    String key = null;
+    String key;
     String keyProviderClass = conf.get(KEY_ACCOUNT_KEYPROVIDER_PREFIX
         + accountName);
-    KeyProvider keyProvider = null;
+    KeyProvider keyProvider;
 
     if (keyProviderClass == null) {
       // No key provider was provided so use the provided key as is.
@@ -970,10 +997,10 @@ public class DecryptingAzureNativeFileSystemStore
     } else {
       // create an instance of the key provider class and verify it
       // implements KeyProvider
-      Object keyProviderObject = null;
+      Object keyProviderObject;
       try {
         Class<?> clazz = conf.getClassByName(keyProviderClass);
-        keyProviderObject = clazz.newInstance();
+        keyProviderObject = clazz.getDeclaredConstructor().newInstance();
       } catch (Exception e) {
         throw new KeyProviderException("Unable to load key provider class.", e);
       }
@@ -1188,6 +1215,7 @@ public class DecryptingAzureNativeFileSystemStore
    * Checks if the given key in Azure Storage should be stored as a page
    * blob instead of block blob.
    */
+  @Override
   public boolean isPageBlobKey(String key) {
     return isKeyForDirectorySet(key, pageBlobDirs);
   }
@@ -1398,6 +1426,7 @@ public class DecryptingAzureNativeFileSystemStore
     options.setRetryPolicyFactory(
           new RetryExponentialRetry(minBackoff, deltaBackoff, maxBackoff, maxRetries));
     options.setUseTransactionalContentMD5(getUseTransactionalContentMD5());
+    options.setEncryptionPolicy(downloadPolicy);
     return options;
   }
 
@@ -2173,7 +2202,8 @@ public class DecryptingAzureNativeFileSystemStore
         }
         checkContainer(ContainerAccessType.PureRead);
 
-        InputStream inputStream = openInputStream(getBlobReference(key));
+        long unpaddedStreamSize = getUnpaddedStreamSize(key);
+        InputStream inputStream = new BoundedInputStream(openInputStream(getBlobReference(key)), unpaddedStreamSize);
         if (startByteOffset > 0) {
           // Skip bytes and ignore return value. This is okay
           // because if you try to skip too far you will be positioned
@@ -2186,6 +2216,22 @@ public class DecryptingAzureNativeFileSystemStore
     } catch (Exception e) {
         // Re-throw as an Azure storage exception.
         throw new AzureException(e);
+    }
+  }
+
+  private long getUnpaddedStreamSize(String key)
+          throws IOException, URISyntaxException, StorageException
+  {
+    FileMetadata fileMetadata = retrieveMetadata(key);
+    try (InputStream inputStream = openInputStream(getBlobReference(key))) {
+      long skipped = inputStream.skip(fileMetadata.getLen() - STREAM_TAIL_SIZE);
+      byte[] buffer = new byte[STREAM_TAIL_SIZE];
+      int readBytes = inputStream.read(buffer, 0, STREAM_TAIL_SIZE);
+      checkState(readBytes >= REVERSED_PARQUET_MAGIC_VALUE.length, "Not enough bytes for REVERSED_PARQUET_MAGIC_VALUE search, only read: " + readBytes);
+      reverse(buffer);
+      int paddingLength = indexOf(buffer, REVERSED_PARQUET_MAGIC_VALUE);
+      checkState(paddingLength > -1, "Couldn't find REVERSED_PARQUET_MAGIC_VALUE in reversed buffer contents: " + Arrays.toString(buffer));
+      return skipped + readBytes - paddingLength;
     }
   }
 
@@ -2231,13 +2277,12 @@ public class DecryptingAzureNativeFileSystemStore
         }
 
         if (blobItem instanceof CloudBlockBlobWrapper || blobItem instanceof CloudPageBlobWrapper) {
-          String blobKey = null;
           CloudBlobWrapper blob = (CloudBlobWrapper) blobItem;
           BlobProperties properties = blob.getProperties();
 
           // Determine format of the blob name depending on whether an absolute
           // path is being used or not.
-          blobKey = normalizeKey(blob);
+          String blobKey = normalizeKey(blob);
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
@@ -2375,13 +2420,12 @@ public class DecryptingAzureNativeFileSystemStore
         // directory item.
         //
         if (blobItem instanceof CloudBlockBlobWrapper || blobItem instanceof CloudPageBlobWrapper) {
-          String blobKey = null;
           CloudBlobWrapper blob = (CloudBlobWrapper) blobItem;
           BlobProperties properties = blob.getProperties();
 
           // Determine format of the blob name depending on whether an absolute
           // path is being used or not.
-          blobKey = normalizeKey(blob);
+          String blobKey = normalizeKey(blob);
 
           FileMetadata metadata;
           if (retrieveFolderAttribute(blob)) {
