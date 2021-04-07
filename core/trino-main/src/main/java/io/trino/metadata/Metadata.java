@@ -115,7 +115,18 @@ public interface Metadata
     Optional<Object> getInfo(Session session, TableHandle handle);
 
     /**
+     * Return table schema definition for the specified table handle.
+     * Table schema definition is a set of information
+     * required by semantic analyzer to analyze the query.
+     * @see {@link #getTableMetadata(Session, TableHandle)}
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    TableSchema getTableSchema(Session session, TableHandle tableHandle);
+
+    /**
      * Return the metadata for the specified table handle.
+     * @see {@link #getTableSchema(Session, TableHandle)} which is less expsensive.
      *
      * @throws RuntimeException if table handle is no longer valid
      */
