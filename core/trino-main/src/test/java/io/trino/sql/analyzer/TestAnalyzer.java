@@ -3242,7 +3242,7 @@ public class TestAnalyzer
                 ImmutableList.of(new ViewColumn("a", BIGINT.getTypeId())),
                 Optional.empty(),
                 Optional.empty(),
-                false);
+                true);
         inSetupTransaction(session -> metadata.createView(
                 session,
                 tableViewAndMaterializedView,
