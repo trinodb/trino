@@ -19,8 +19,8 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.TableInfo;
 import io.trino.metadata.Metadata;
-import io.trino.metadata.TableMetadata;
 import io.trino.metadata.TableProperties;
+import io.trino.metadata.TableSchema;
 import io.trino.operator.StageExecutionDescriptor;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.connector.DynamicFilter;
@@ -149,9 +149,9 @@ public class DistributedExecutionPlanner
 
     private TableInfo getTableInfo(TableScanNode node, Session session)
     {
-        TableMetadata tableMetadata = metadata.getTableMetadata(session, node.getTable());
+        TableSchema tableSchema = metadata.getTableSchema(session, node.getTable());
         TableProperties tableProperties = metadata.getTableProperties(session, node.getTable());
-        return new TableInfo(tableMetadata.getQualifiedName(), tableProperties.getPredicate());
+        return new TableInfo(tableSchema.getQualifiedName(), tableProperties.getPredicate());
     }
 
     private final class Visitor

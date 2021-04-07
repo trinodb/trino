@@ -33,6 +33,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableMetadata;
+import io.trino.metadata.TableSchema;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.security.ViewAccessControl;
@@ -41,6 +42,7 @@ import io.trino.spi.TrinoWarning;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -409,20 +411,20 @@ class StatementAnalyzer
                 throw semanticException(NOT_SUPPORTED, insert, "Insert into table with a row filter is not supported");
             }
 
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, targetTableHandle.get());
+            TableSchema tableSchema = metadata.getTableSchema(session, targetTableHandle.get());
 
-            List<ColumnMetadata> columns = tableMetadata.getColumns().stream()
+            List<ColumnSchema> columns = tableSchema.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
 
-            for (ColumnMetadata column : columns) {
+            for (ColumnSchema column : columns) {
                 if (!accessControl.getColumnMasks(session.toSecurityContext(), targetTable, column.getName(), column.getType()).isEmpty()) {
                     throw semanticException(NOT_SUPPORTED, insert, "Insert into table with column masks is not supported");
                 }
             }
 
             List<String> tableColumns = columns.stream()
-                    .map(ColumnMetadata::getName)
+                    .map(ColumnSchema::getName)
                     .collect(toImmutableList());
 
             // analyze target table layout, table columns should contain all partition columns
@@ -461,7 +463,7 @@ class StatementAnalyzer
                     newTableLayout));
 
             List<Type> tableTypes = insertColumns.stream()
-                    .map(insertColumn -> tableMetadata.getColumn(insertColumn).getType())
+                    .map(insertColumn -> tableSchema.getColumn(insertColumn).getType())
                     .collect(toImmutableList());
 
             List<Type> queryTypes = queryScope.getRelationType().getVisibleFields().stream()
@@ -481,7 +483,7 @@ class StatementAnalyzer
                     targetTable,
                     Optional.empty(),
                     Optional.of(insertColumns.stream()
-                            .map(insertColumn -> new Column(insertColumn, tableMetadata.getColumn(insertColumn).getType().toString()))
+                            .map(insertColumn -> new Column(insertColumn, tableSchema.getColumn(insertColumn).getType().toString()))
                             .collect(toImmutableList())));
 
             return createAndAssignScope(insert, scope, Field.newUnqualified("rows", BIGINT));
@@ -1270,12 +1272,12 @@ class StatementAnalyzer
                 }
                 throw semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", name);
             }
-            TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle.get());
+            TableSchema tableSchema = metadata.getTableSchema(session, tableHandle.get());
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle.get());
 
             // TODO: discover columns lazily based on where they are needed (to support connectors that can't enumerate all tables)
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
-            for (ColumnMetadata column : tableMetadata.getColumns()) {
+            for (ColumnSchema column : tableSchema.getColumns()) {
                 Field field = Field.newQualified(
                         table.getName(),
                         Optional.of(column.getName()),
