@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Module;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -44,12 +45,17 @@ public final class H2QueryRunner
 
     public static DistributedQueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables)
             throws Exception
-
     {
         return createH2QueryRunner(tables, TestingH2JdbcModule.createProperties());
     }
 
     public static DistributedQueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> properties)
+            throws Exception
+    {
+        return createH2QueryRunner(tables, properties, new TestingH2JdbcModule());
+    }
+
+    public static DistributedQueryRunner createH2QueryRunner(Iterable<TpchTable<?>> tables, Map<String, String> properties, Module module)
             throws Exception
     {
         DistributedQueryRunner queryRunner = null;
@@ -61,7 +67,7 @@ public final class H2QueryRunner
 
             createSchema(properties, "tpch");
 
-            queryRunner.installPlugin(new JdbcPlugin("base-jdbc", new TestingH2JdbcModule()));
+            queryRunner.installPlugin(new JdbcPlugin("base-jdbc", module));
             queryRunner.createCatalog("jdbc", "base-jdbc", properties);
 
             copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, createSession(), tables);

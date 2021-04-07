@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
@@ -105,6 +106,14 @@ public final class JdbcColumnHandle
                 .setType(columnType)
                 .setNullable(nullable)
                 .setComment(comment)
+                .build();
+    }
+
+    public ColumnSchema getColumnSchema()
+    {
+        return ColumnSchema.builder()
+                .setName(columnName)
+                .setType(columnType)
                 .build();
     }
 
