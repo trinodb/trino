@@ -31,6 +31,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.UriInfo;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +39,7 @@ import java.util.UUID;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.server.security.oauth2.NonceCookie.NONCE_COOKIE;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
+import static io.trino.server.security.oauth2.OAuth2UISuccessResource.UI_LOGIN_SUCCESS;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.UI_LOCATION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -56,6 +58,7 @@ public class OAuth2CallbackResource
 
     @Inject
     public OAuth2CallbackResource(OAuth2Service service, Optional<OAuth2TokenExchange> tokenExchange, Optional<OAuth2WebUiInstalled> webUiOAuthEnabled)
+            throws IOException
     {
         this.service = requireNonNull(service, "service is null");
         this.tokenExchange = requireNonNull(tokenExchange, "tokenExchange is null");
@@ -126,7 +129,7 @@ public class OAuth2CallbackResource
 
         if (authId.isEmpty()) {
             return Response
-                    .seeOther(URI.create(UI_LOCATION))
+                    .seeOther(getSuccessfulLoginWebUIUri())
                     .cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()), NonceCookie.delete())
                     .build();
         }
@@ -145,6 +148,14 @@ public class OAuth2CallbackResource
             builder.cookie(OAuthWebUiCookie.create(result.getAccessToken(), result.getTokenExpiration()));
         }
         return builder.build();
+    }
+
+    private URI getSuccessfulLoginWebUIUri()
+    {
+        if (service.showTokenOnSuccessfulWebLogin()) {
+            return URI.create(UI_LOGIN_SUCCESS);
+        }
+        return URI.create(UI_LOCATION);
     }
 
     private void passErrorToTokenExchange(Optional<UUID> authId, String format, String... args)

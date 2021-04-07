@@ -40,6 +40,7 @@ public class OAuth2Config
     private String jwksUrl;
     private String clientId;
     private String clientSecret;
+    private boolean printOutTokenForWebUI = true;
     private Optional<String> audience = Optional.empty();
     private Set<String> scopes = ImmutableSet.of(OPENID_SCOPE);
     private String principalField = "sub";
@@ -209,6 +210,19 @@ public class OAuth2Config
     public OAuth2Config setUserMappingFile(File userMappingFile)
     {
         this.userMappingFile = Optional.ofNullable(userMappingFile);
+        return this;
+    }
+
+    public boolean isPrintOutTokenForWebUI()
+    {
+        return printOutTokenForWebUI;
+    }
+
+    @Config("web-ui.authentication.print-token")
+    @ConfigDescription("Regex to match against user name")
+    public OAuth2Config setPrintOutTokenForWebUI(boolean printOutTokenForWebUI)
+    {
+        this.printOutTokenForWebUI = printOutTokenForWebUI;
         return this;
     }
 }
