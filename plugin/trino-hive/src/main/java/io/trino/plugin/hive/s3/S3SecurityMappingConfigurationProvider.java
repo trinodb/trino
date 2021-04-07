@@ -25,14 +25,12 @@ import org.apache.hadoop.conf.Configuration;
 
 import javax.inject.Inject;
 
-import java.io.File;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Verify.verify;
-import static io.trino.plugin.base.util.JsonUtils.parseJson;
 import static io.trino.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ACCESS_KEY;
 import static io.trino.plugin.hive.s3.TrinoS3FileSystem.S3_ENDPOINT;
@@ -57,25 +55,9 @@ public class S3SecurityMappingConfigurationProvider
     private final Optional<String> colonReplacement;
 
     @Inject
-    public S3SecurityMappingConfigurationProvider(S3SecurityMappingConfig config)
+    public S3SecurityMappingConfigurationProvider(S3SecurityMappingConfig config, S3SecurityMappingsProvider mappingsProvider)
     {
-        this(getMappings(config), config.getRoleCredentialName(), config.getKmsKeyIdCredentialName(), config.getColonReplacement());
-    }
-
-    private static Supplier<S3SecurityMappings> getMappings(S3SecurityMappingConfig config)
-    {
-        File configFile = config.getConfigFile().orElseThrow(() -> new IllegalArgumentException("config file not set"));
-        Supplier<S3SecurityMappings> supplier = () -> parseJson(configFile.toPath(), S3SecurityMappings.class);
-        if (config.getRefreshPeriod().isEmpty()) {
-            return Suppliers.memoize(supplier::get);
-        }
-        return Suppliers.memoizeWithExpiration(
-                () -> {
-                    log.info("Refreshing S3 security mapping configuration from %s", configFile);
-                    return supplier.get();
-                },
-                config.getRefreshPeriod().get().toMillis(),
-                MILLISECONDS);
+        this(getMappings(config, mappingsProvider), config.getRoleCredentialName(), config.getKmsKeyIdCredentialName(), config.getColonReplacement());
     }
 
     public S3SecurityMappingConfigurationProvider(Supplier<S3SecurityMappings> mappings, Optional<String> roleCredentialName, Optional<String> kmsKeyIdCredentialName, Optional<String> colonReplacement)
@@ -84,6 +66,21 @@ public class S3SecurityMappingConfigurationProvider
         this.roleCredentialName = requireNonNull(roleCredentialName, "roleCredentialName is null");
         this.kmsKeyIdCredentialName = requireNonNull(kmsKeyIdCredentialName, "kmsKeyIdCredentialName is null");
         this.colonReplacement = requireNonNull(colonReplacement, "colonReplacement is null");
+    }
+
+    private static Supplier<S3SecurityMappings> getMappings(S3SecurityMappingConfig config, S3SecurityMappingsProvider supplier)
+    {
+        String configFilePath = config.getConfigFilePath().orElseThrow(() -> new IllegalArgumentException("config file not set"));
+        if (config.getRefreshPeriod().isEmpty()) {
+            return Suppliers.memoize(supplier::get);
+        }
+        return Suppliers.memoizeWithExpiration(
+                () -> {
+                    log.info("Refreshing S3 security mapping configuration from %s", configFilePath);
+                    return supplier.get();
+                },
+                config.getRefreshPeriod().get().toMillis(),
+                MILLISECONDS);
     }
 
     @Override
