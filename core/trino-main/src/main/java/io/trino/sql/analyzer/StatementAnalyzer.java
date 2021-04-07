@@ -1149,7 +1149,7 @@ class StatementAnalyzer
         @Override
         protected Scope visitUnnest(Unnest node, Optional<Scope> scope)
         {
-            ImmutableMap.Builder<NodeRef<Expression>, List<Field>> mappings = ImmutableMap.<NodeRef<Expression>, List<Field>>builder();
+            ImmutableMap.Builder<NodeRef<Expression>, List<Field>> mappings = ImmutableMap.builder();
 
             ImmutableList.Builder<Field> outputFields = ImmutableList.builder();
             for (Expression expression : node.getExpressions()) {
@@ -2786,7 +2786,7 @@ class StatementAnalyzer
             }
         }
 
-        public void analyzeWhere(Node node, Scope scope, Expression predicate)
+        private void analyzeWhere(Node node, Scope scope, Expression predicate)
         {
             verifyNoAggregateWindowOrGroupingFunctions(metadata, predicate, "WHERE clause");
 
@@ -3207,7 +3207,7 @@ class StatementAnalyzer
             }
             Relation from = ((QuerySpecification) specification).getFrom().get();
             List<Node> fromReferences = findReferences(from, withQuery.getName());
-            if (fromReferences.size() == 0) {
+            if (fromReferences.isEmpty()) {
                 throw semanticException(INVALID_RECURSIVE_REFERENCE, stepReferences.get(0), "recursive reference outside of FROM clause of the step relation of recursion");
             }
 
