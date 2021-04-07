@@ -63,7 +63,7 @@ public class InputExtractor
 
     private Input createInput(Session session, TableHandle table, Set<Column> columns, PlanFragmentId fragmentId, PlanNodeId planNodeId)
     {
-        SchemaTableName schemaTable = metadata.getTableMetadata(session, table).getTable();
+        SchemaTableName schemaTable = metadata.getTableSchema(session, table).getTable();
         Optional<Object> inputMetadata = metadata.getInfo(session, table);
         return new Input(table.getCatalogName().getCatalogName(), schemaTable.getSchemaName(), schemaTable.getTableName(), inputMetadata, ImmutableList.copyOf(columns), fragmentId, planNodeId);
     }
