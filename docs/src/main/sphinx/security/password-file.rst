@@ -14,8 +14,15 @@ and clients to use TLS and authenticate with a username and password.
 Password authenticator configuration
 ------------------------------------
 
-Enable password file authentication by creating an
-``etc/password-authenticator.properties`` file on the coordinator:
+To enable password file authentication, set the :doc:`password authentication
+type <authentication-types>` in ``etc/config.properties``:
+
+.. code-block:: properties
+
+    http-server.authentication.type=PASSWORD
+
+In addition, create a ``etc/password-authenticator.properties`` file on the
+coordinator with the ``file`` authenticator name:
 
 .. code-block:: text
 

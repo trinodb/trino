@@ -49,8 +49,8 @@ to the coordinator's ``config.properties`` file:
 ============================================================= ======================================================
 Property                                                      Description
 ============================================================= ======================================================
-``http-server.authentication.type``                           Enable password authentication for the Trino
-                                                              coordinator. Must be set to ``PASSWORD``.
+``http-server.authentication.type``                           Enable the password :doc:`authentication type <authentication-types>`
+                                                              for the Trino coordinator. Must be set to ``PASSWORD``.
 ``http-server.https.enabled``                                 Enables HTTPS access for the Trino coordinator.
                                                               Should be set to ``true``. Default value is
                                                               ``false``.
