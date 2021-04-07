@@ -34,7 +34,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.TableNotFoundException;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -89,7 +88,7 @@ class BigQueryClient
             return Optional.of(RemoteDatabaseObject.of(datasetName));
         }
 
-        @Nullable Optional<RemoteDatabaseObject> remoteDataset = remoteDatasets.getIfPresent(datasetName);
+        Optional<RemoteDatabaseObject> remoteDataset = remoteDatasets.getIfPresent(datasetName);
         if (remoteDataset != null) {
             return remoteDataset;
         }
@@ -123,7 +122,7 @@ class BigQueryClient
         }
 
         TableId cacheKey = TableId.of(projectId, remoteDatasetName, tableName);
-        @Nullable Optional<RemoteDatabaseObject> remoteTable = remoteTables.getIfPresent(cacheKey);
+        Optional<RemoteDatabaseObject> remoteTable = remoteTables.getIfPresent(cacheKey);
         if (remoteTable != null) {
             return remoteTable;
         }
@@ -264,7 +263,7 @@ class BigQueryClient
                     tableHandle.getSchemaTableName(),
                     format("Table '%s' not found", tableHandle.getSchemaTableName()));
         }
-        @Nullable Schema schema = tableInfo.getDefinition().getSchema();
+        Schema schema = tableInfo.getDefinition().getSchema();
         if (schema == null) {
             throw new TableNotFoundException(
                     tableHandle.getSchemaTableName(),
