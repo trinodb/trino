@@ -36,6 +36,7 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.TableHandle;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
@@ -59,6 +60,7 @@ import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Statement;
 import io.trino.testing.TestingMetadata;
+import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
@@ -69,6 +71,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.trino.connector.CatalogName.createSystemTablesCatalogName;
 import static io.trino.cost.StatsCalculatorModule.createNewStatsCalculator;
@@ -147,6 +150,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestAnalyzer
@@ -2523,6 +2527,23 @@ public class TestAnalyzer
                 .hasMessageContaining("Relation 'tpch.s1.table_and_view' is a view, not a table");
     }
 
+    // This test validates object resolution order (materialized view, view and table).
+    // The order is arbitrary (connector should not return different object types with same name)
+    // and can be changed along with test.
+    @Test
+    public void testAnalysisDuplicateNames()
+    {
+        // Materialized view redirects to "t1"
+        Analysis analysis = analyze("SELECT * FROM table_view_and_materialized_view");
+        TableHandle handle = getOnlyElement(analysis.getTables());
+        assertThat(((TestingTableHandle) handle.getConnectorHandle()).getTableName().getTableName()).isEqualTo("t1");
+
+        // View redirects to "t2"
+        analysis = analyze("SELECT * FROM table_and_view");
+        handle = getOnlyElement(analysis.getTables());
+        assertThat(((TestingTableHandle) handle.getConnectorHandle()).getTableName().getTableName()).isEqualTo("t2");
+    }
+
     @Test
     public void testStaleView()
     {
@@ -3273,21 +3294,21 @@ public class TestAnalyzer
                 createNewStatsCalculator(metadata, new TypeAnalyzer(SQL_PARSER, metadata)));
     }
 
-    private void analyze(@Language("SQL") String query)
+    private Analysis analyze(@Language("SQL") String query)
     {
-        analyze(CLIENT_SESSION, query);
+        return analyze(CLIENT_SESSION, query);
     }
 
-    private void analyze(Session clientSession, @Language("SQL") String query)
+    private Analysis analyze(Session clientSession, @Language("SQL") String query)
     {
-        transaction(transactionManager, accessControl)
+        return transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .execute(clientSession, session -> {
                     Analyzer analyzer = createAnalyzer(session, metadata);
                     Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
                             new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
-                    analyzer.analyze(statement);
+                    return analyzer.analyze(statement);
                 });
     }
 
