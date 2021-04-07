@@ -35,6 +35,7 @@ import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTableLayoutResult;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
+import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
@@ -215,6 +216,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getSystemTable(session, tableName);
+        }
+    }
+
+    @Override
+    public ConnectorTableSchema getTableSchema(ConnectorSession session, ConnectorTableHandle table)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getTableSchema(session, table);
         }
     }
 

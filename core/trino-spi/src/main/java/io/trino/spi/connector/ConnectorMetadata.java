@@ -162,6 +162,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Return table schema definition for the specified table handle.
+     * This method is useful when getting full table metadata is expensive.
+     *
+     * @throws RuntimeException if table handle is no longer valid
+     */
+    default ConnectorTableSchema getTableSchema(ConnectorSession session, ConnectorTableHandle table)
+    {
+        return getTableMetadata(session, table).getTableSchema();
+    }
+
+    /**
      * Return the metadata for the specified table handle.
      *
      * @throws RuntimeException if table handle is no longer valid

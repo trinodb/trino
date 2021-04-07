@@ -135,6 +135,12 @@ public class ColumnMetadata
         return properties;
     }
 
+    public ColumnSchema getColumnSchema()
+    {
+        return ColumnSchema.builder(this)
+                .build();
+    }
+
     @Override
     public String toString()
     {
