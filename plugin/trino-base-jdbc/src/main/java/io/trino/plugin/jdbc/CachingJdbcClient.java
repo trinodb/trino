@@ -135,7 +135,7 @@ public class CachingJdbcClient
         if (tableHandle.getColumns().isPresent()) {
             return tableHandle.getColumns().get();
         }
-        ColumnsCacheKey key = new ColumnsCacheKey(JdbcIdentity.from(session), getSessionProperties(session), tableHandle.getRequiredNamedRelation().getSchemaTableName());
+        ColumnsCacheKey key = new ColumnsCacheKey(JdbcIdentity.from(session), getSessionProperties(session), tableHandle);
         return get(columnsCache, key, () -> delegate.getColumns(session, tableHandle));
     }
 
@@ -451,7 +451,7 @@ public class CachingJdbcClient
 
     private void invalidateColumnsCache(SchemaTableName table)
     {
-        invalidateCache(columnsCache, key -> key.table.equals(table));
+        invalidateCache(columnsCache, key -> key.tableHandle.references(table));
     }
 
     @VisibleForTesting
@@ -478,14 +478,14 @@ public class CachingJdbcClient
     private static final class ColumnsCacheKey
     {
         private final JdbcIdentity identity;
-        private final SchemaTableName table;
+        private final JdbcTableHandle tableHandle;
         private final Map<String, Object> sessionProperties;
 
-        private ColumnsCacheKey(JdbcIdentity identity, Map<String, Object> sessionProperties, SchemaTableName table)
+        private ColumnsCacheKey(JdbcIdentity identity, Map<String, Object> sessionProperties, JdbcTableHandle tableHandle)
         {
             this.identity = requireNonNull(identity, "identity is null");
             this.sessionProperties = ImmutableMap.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
-            this.table = requireNonNull(table, "table is null");
+            this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         }
 
         public JdbcIdentity getIdentity()
@@ -505,13 +505,13 @@ public class CachingJdbcClient
             ColumnsCacheKey that = (ColumnsCacheKey) o;
             return Objects.equals(identity, that.identity) &&
                     Objects.equals(sessionProperties, that.sessionProperties) &&
-                    Objects.equals(table, that.table);
+                    Objects.equals(tableHandle, that.tableHandle);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(identity, sessionProperties, table);
+            return Objects.hash(identity, sessionProperties, tableHandle);
         }
 
         @Override
@@ -520,7 +520,7 @@ public class CachingJdbcClient
             return toStringHelper(this)
                     .add("identity", identity)
                     .add("sessionProperties", sessionProperties)
-                    .add("table", table)
+                    .add("tableHandle", tableHandle)
                     .toString();
         }
     }
