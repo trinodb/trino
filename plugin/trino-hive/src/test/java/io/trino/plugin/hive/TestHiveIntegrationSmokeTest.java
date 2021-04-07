@@ -155,6 +155,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.data.Offset.offset;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -4236,8 +4237,8 @@ public class TestHiveIntegrationSmokeTest
         assertUpdate("DROP TABLE test_file_size");
     }
 
-    @Test
-    public void testFileModifiedTimeHiddenColumn()
+    @Test(dataProvider = "timestampPrecision")
+    public void testFileModifiedTimeHiddenColumn(HiveTimestampPrecision precision)
     {
         long testStartTime = Instant.now().toEpochMilli();
 
@@ -4267,7 +4268,10 @@ public class TestHiveIntegrationSmokeTest
         }
         assertEquals(getPartitions("test_file_modified_time").size(), 3);
 
-        MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_file_modified_time", FILE_MODIFIED_TIME_COLUMN_NAME));
+        Session sessionWithTimestampPrecision = withTimestampPrecision(getSession(), precision);
+        MaterializedResult results = computeActual(
+                sessionWithTimestampPrecision,
+                format("SELECT *, \"%s\" FROM test_file_modified_time", FILE_MODIFIED_TIME_COLUMN_NAME));
         Map<Integer, Instant> fileModifiedTimeMap = new HashMap<>();
         for (int i = 0; i < results.getRowCount(); i++) {
             MaterializedRow row = results.getMaterializedRows().get(i);
@@ -4275,7 +4279,7 @@ public class TestHiveIntegrationSmokeTest
             int col1 = (int) row.getField(1);
             Instant fileModifiedTime = ((ZonedDateTime) row.getField(2)).toInstant();
 
-            assertTrue(fileModifiedTime.toEpochMilli() > (testStartTime - 2_000));
+            assertThat(fileModifiedTime.toEpochMilli()).isCloseTo(testStartTime, offset(2000L));
             assertEquals(col0 % 3, col1);
             if (fileModifiedTimeMap.containsKey(col1)) {
                 assertEquals(fileModifiedTimeMap.get(col1), fileModifiedTime);
