@@ -396,7 +396,8 @@ public enum FileFormat
                 Optional.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                TupleDomain.all());
 
         ConnectorPageSource hivePageSource = factory.createPageSource(
                 TestingConnectorTransactionHandle.INSTANCE,

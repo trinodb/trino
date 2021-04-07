@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
+import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
 import java.util.Objects;
@@ -54,6 +55,7 @@ public class HiveSplit
     private final Optional<BucketValidation> bucketValidation;
     private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
+    private final TupleDomain<HiveColumnHandle> dynamicFilter;
 
     @JsonCreator
     public HiveSplit(
@@ -75,7 +77,8 @@ public class HiveSplit
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("bucketValidation") Optional<BucketValidation> bucketValidation,
             @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
-            @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo)
+            @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
+            @JsonProperty("dynamicFilter") TupleDomain<HiveColumnHandle> dynamicFilter)
     {
         checkArgument(start >= 0, "start must be positive");
         checkArgument(length >= 0, "length must be positive");
@@ -92,6 +95,7 @@ public class HiveSplit
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
+        requireNonNull(dynamicFilter, "dynamicFilter is null");
 
         this.database = database;
         this.table = table;
@@ -112,6 +116,7 @@ public class HiveSplit
         this.bucketValidation = bucketValidation;
         this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
+        this.dynamicFilter = dynamicFilter;
     }
 
     @JsonProperty
@@ -233,6 +238,12 @@ public class HiveSplit
     public Optional<AcidInfo> getAcidInfo()
     {
         return acidInfo;
+    }
+
+    @JsonProperty
+    public TupleDomain<HiveColumnHandle> getDynamicFilter()
+    {
+        return dynamicFilter;
     }
 
     @Override

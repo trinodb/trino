@@ -19,6 +19,7 @@ import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilter;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
@@ -56,6 +57,7 @@ public class TestHiveSplitSource
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
+                DynamicFilter.EMPTY,
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
 
@@ -91,6 +93,7 @@ public class TestHiveSplitSource
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
+                DynamicFilter.EMPTY,
                 Executors.newSingleThreadExecutor(),
                 new CounterStat());
 
@@ -118,6 +121,7 @@ public class TestHiveSplitSource
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
+                DynamicFilter.EMPTY,
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
 
@@ -168,6 +172,7 @@ public class TestHiveSplitSource
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
+                DynamicFilter.EMPTY,
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
 
@@ -222,6 +227,7 @@ public class TestHiveSplitSource
                 maxOutstandingSplitsSize,
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
+                DynamicFilter.EMPTY,
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
         int testSplitSizeInBytes = new TestSplit(0).getEstimatedSizeInBytes();
@@ -255,6 +261,7 @@ public class TestHiveSplitSource
                 DataSize.of(1, MEGABYTE),
                 Integer.MAX_VALUE,
                 new TestingHiveSplitLoader(),
+                DynamicFilter.EMPTY,
                 Executors.newFixedThreadPool(5),
                 new CounterStat());
         hiveSplitSource.addToQueue(new TestSplit(0, OptionalInt.of(2)));

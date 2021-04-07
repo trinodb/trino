@@ -29,6 +29,7 @@ import io.trino.spi.connector.ConnectorPartitionHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.DynamicFilter;
 
 import java.io.FileNotFoundException;
 import java.util.List;
@@ -81,6 +82,7 @@ class HiveSplitSource
     private final AtomicInteger remainingInitialSplits;
 
     private final HiveSplitLoader splitLoader;
+    private final DynamicFilter dynamicFilter;
     private final AtomicReference<State> stateReference;
 
     private final AtomicLong estimatedSplitSizeInBytes = new AtomicLong();
@@ -96,6 +98,7 @@ class HiveSplitSource
             int maxInitialSplits,
             DataSize maxOutstandingSplitsSize,
             HiveSplitLoader splitLoader,
+            DynamicFilter dynamicFilter,
             AtomicReference<State> stateReference,
             CounterStat highMemorySplitSourceCounter)
     {
@@ -106,6 +109,7 @@ class HiveSplitSource
         this.queues = requireNonNull(queues, "queues is null");
         this.maxOutstandingSplitsBytes = requireNonNull(maxOutstandingSplitsSize, "maxOutstandingSplitsSize is null").toBytes();
         this.splitLoader = requireNonNull(splitLoader, "splitLoader is null");
+        this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.stateReference = requireNonNull(stateReference, "stateReference is null");
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
 
@@ -123,6 +127,7 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             int maxSplitsPerSecond,
             HiveSplitLoader splitLoader,
+            DynamicFilter dynamicFilter,
             Executor executor,
             CounterStat highMemorySplitSourceCounter)
     {
@@ -165,6 +170,7 @@ class HiveSplitSource
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
+                dynamicFilter,
                 stateReference,
                 highMemorySplitSourceCounter);
     }
@@ -178,6 +184,7 @@ class HiveSplitSource
             DataSize maxOutstandingSplitsSize,
             int maxSplitsPerSecond,
             HiveSplitLoader splitLoader,
+            DynamicFilter dynamicFilter,
             Executor executor,
             CounterStat highMemorySplitSourceCounter)
     {
@@ -240,6 +247,7 @@ class HiveSplitSource
                 maxInitialSplits,
                 maxOutstandingSplitsSize,
                 splitLoader,
+                dynamicFilter,
                 stateReference,
                 highMemorySplitSourceCounter);
     }
@@ -381,7 +389,9 @@ class HiveSplitSource
                         internalSplit.getBucketConversion(),
                         internalSplit.getBucketValidation(),
                         internalSplit.isS3SelectPushdownEnabled(),
-                        internalSplit.getAcidInfo()));
+                        internalSplit.getAcidInfo(),
+                        dynamicFilter.getCurrentPredicate().simplify()
+                                .transform(HiveColumnHandle.class::cast)));
 
                 internalSplit.increaseStart(splitBytes);
 

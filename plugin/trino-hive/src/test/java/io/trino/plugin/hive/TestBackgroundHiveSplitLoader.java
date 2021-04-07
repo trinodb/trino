@@ -1065,6 +1065,7 @@ public class TestBackgroundHiveSplitLoader
                 DataSize.of(32, MEGABYTE),
                 Integer.MAX_VALUE,
                 hiveSplitLoader,
+                DynamicFilter.EMPTY,
                 executor,
                 new CounterStat());
     }

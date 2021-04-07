@@ -255,6 +255,7 @@ public class HiveSplitManager
                         maxOutstandingSplitsSize,
                         maxSplitsPerSecond,
                         hiveSplitLoader,
+                        dynamicFilter,
                         executor,
                         highMemorySplitSourceCounter);
                 break;
@@ -268,6 +269,7 @@ public class HiveSplitManager
                         maxOutstandingSplitsSize,
                         maxSplitsPerSecond,
                         hiveSplitLoader,
+                        dynamicFilter,
                         executor,
                         highMemorySplitSourceCounter);
                 break;

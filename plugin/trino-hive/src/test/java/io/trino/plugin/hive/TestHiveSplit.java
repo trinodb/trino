@@ -18,8 +18,13 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.trino.block.BlockJsonSerde;
 import io.trino.plugin.hive.HiveColumnHandle.ColumnType;
 import io.trino.spi.HostAddress;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.TestingBlockEncodingSerde;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
@@ -42,7 +47,10 @@ public class TestHiveSplit
     public void testJsonRoundTrip()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
-        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new HiveModule.TypeDeserializer(new TestingTypeManager())));
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(
+                Type.class, new HiveModule.TypeDeserializer(new TestingTypeManager()),
+                Block.class, new BlockJsonSerde.Deserializer(new TestingBlockEncodingSerde())));
+        objectMapperProvider.setJsonSerializers(ImmutableMap.of(Block.class, new BlockJsonSerde.Serializer(new TestingBlockEncodingSerde())));
         JsonCodec<HiveSplit> codec = new JsonCodecFactory(objectMapperProvider).jsonCodec(HiveSplit.class);
 
         Properties schema = new Properties();
@@ -56,6 +64,9 @@ public class TestHiveSplit
         acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000004_0000004_0000"));
         acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000007_0000007_0000"));
         AcidInfo acidInfo = acidInfoBuilder.build().get();
+        TupleDomain<HiveColumnHandle> dynamicFilter = TupleDomain.withColumnDomains(ImmutableMap.of(
+                createBaseColumn("abc", 1, HIVE_LONG, BIGINT, ColumnType.REGULAR, Optional.of("comment")),
+                Domain.singleValue(BIGINT, 10L)));
 
         HiveSplit expected = new HiveSplit(
                 "db",
@@ -80,7 +91,8 @@ public class TestHiveSplit
                         ImmutableList.of(createBaseColumn("col", 5, HIVE_LONG, BIGINT, ColumnType.REGULAR, Optional.of("comment"))))),
                 Optional.empty(),
                 false,
-                Optional.of(acidInfo));
+                Optional.of(acidInfo),
+                dynamicFilter);
 
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
@@ -101,5 +113,6 @@ public class TestHiveSplit
         assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
         assertEquals(actual.isS3SelectPushdownEnabled(), expected.isS3SelectPushdownEnabled());
         assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
+        assertEquals(actual.getDynamicFilter(), expected.getDynamicFilter());
     }
 }
