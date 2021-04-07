@@ -297,7 +297,8 @@ public abstract class AbstractTestHiveViews
     public void testTimestampHiveView()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS timestamp_hive_table");
-        onHive().executeQuery("CREATE TABLE timestamp_hive_table AS SELECT cast('1990-01-02 12:13:14.123456789' AS timestamp) ts");
+        onHive().executeQuery("CREATE TABLE timestamp_hive_table (ts timestamp)");
+        onHive().executeQuery("INSERT INTO timestamp_hive_table (ts) values ('1990-01-02 12:13:14.123456789')");
         onHive().executeQuery("DROP VIEW IF EXISTS timestamp_hive_view");
         onHive().executeQuery("CREATE VIEW timestamp_hive_view AS SELECT * FROM timestamp_hive_table");
 
