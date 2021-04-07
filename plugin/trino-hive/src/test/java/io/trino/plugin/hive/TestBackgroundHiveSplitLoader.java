@@ -713,7 +713,8 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
         assertThatThrownBy(() -> drain(hiveSplitSource))
                 .isInstanceOfSatisfying(TrinoException.class, e -> assertEquals(NOT_SUPPORTED.toErrorCode(), e.getErrorCode()))
-                .hasMessage("Hive transactional tables are supported with Hive 3.0 and only after a major compaction has been run");
+                .hasMessage("Hive transactional tables are supported since Hive 3.0. " +
+                        "If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
 
         deleteRecursively(tablePath, ALLOW_INSECURE);
     }

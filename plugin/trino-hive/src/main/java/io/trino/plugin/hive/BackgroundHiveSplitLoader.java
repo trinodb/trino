@@ -498,7 +498,8 @@ public class BackgroundHiveSplitLoader
                         : (directory.getCurrentDirectories().size() > 0 ? directory.getCurrentDirectories().get(0).getPath() : null);
 
                 if (baseOrDeltaPath != null && AcidUtils.OrcAcidVersion.getAcidVersionFromMetaFile(baseOrDeltaPath, fs) < 2) {
-                    throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables are supported with Hive 3.0 and only after a major compaction has been run");
+                    throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables are supported since Hive 3.0. " +
+                            "If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
                 }
             }
 
