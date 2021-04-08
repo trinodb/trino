@@ -491,18 +491,6 @@ public class BackgroundHiveSplitLoader
                     false,
                     true));
 
-            if (AcidUtils.isFullAcidTable(table.getParameters())) {
-                // From Hive version >= 3.0, delta/base files will always have file '_orc_acid_version' with value >= '2'.
-                Path baseOrDeltaPath = directory.getBaseDirectory() != null
-                        ? directory.getBaseDirectory()
-                        : (directory.getCurrentDirectories().size() > 0 ? directory.getCurrentDirectories().get(0).getPath() : null);
-
-                if (baseOrDeltaPath != null && AcidUtils.OrcAcidVersion.getAcidVersionFromMetaFile(baseOrDeltaPath, fs) < 2) {
-                    throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables are supported since Hive 3.0. " +
-                            "If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
-                }
-            }
-
             readPaths = new ArrayList<>();
 
             // base

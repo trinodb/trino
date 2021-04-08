@@ -16,6 +16,7 @@ package io.trino.plugin.hive.orc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.orc.NameBasedFieldMapper;
 import io.trino.orc.OrcColumn;
@@ -26,6 +27,7 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
+import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcType.OrcTypeKind;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -99,6 +101,7 @@ import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.util.HiveUtil.isDeserializerClass;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
@@ -113,6 +116,7 @@ import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
 public class OrcPageSourceFactory
         implements HivePageSourceFactory
 {
+    private static final String ACID_VERSION_KEY = "hive.acid.version";
     private static final Pattern DEFAULT_HIVE_COLUMN_NAME_PATTERN = Pattern.compile("_col\\d+");
     private final OrcReaderOptions orcReaderOptions;
     private final HdfsEnvironment hdfsEnvironment;
@@ -258,6 +262,11 @@ public class OrcPageSourceFactory
                 return new EmptyPageSource();
             }
             OrcReader reader = optionalOrcReader.get();
+
+            if (isFullAcid && getAcidVersion(reader.getFooter()) < 2) {
+                throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables are supported since Hive 3.0. " +
+                        "If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
+            }
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
             int actualColumnCount = columns.size() + (isFullAcid ? 3 : 0);
@@ -539,5 +548,16 @@ public class OrcPageSourceFactory
             current = orcColumn.get();
         }
         return current;
+    }
+
+    private static int getAcidVersion(Footer footer)
+    {
+        Map<String, Slice> metadata = footer.getUserMetadata();
+        if (metadata.containsKey(ACID_VERSION_KEY)) {
+            Slice value = metadata.get(ACID_VERSION_KEY);
+            return Integer.parseInt(value.toStringUtf8());
+        }
+
+        return -1;
     }
 }
