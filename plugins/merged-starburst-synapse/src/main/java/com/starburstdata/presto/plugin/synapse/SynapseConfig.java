@@ -10,10 +10,21 @@
 package com.starburstdata.presto.plugin.synapse;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+
+import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.PASSWORD;
 
 public class SynapseConfig
 {
     private boolean impersonationEnabled;
+    private SynapseAuthenticationType authenticationType = PASSWORD;
+
+    enum SynapseAuthenticationType
+    {
+        ACTIVE_DIRECTORY_PASSWORD,
+        PASSWORD,
+        /**/;
+    }
 
     public boolean isImpersonationEnabled()
     {
@@ -24,6 +35,19 @@ public class SynapseConfig
     public SynapseConfig setImpersonationEnabled(boolean impersonationEnabled)
     {
         this.impersonationEnabled = impersonationEnabled;
+        return this;
+    }
+
+    public SynapseAuthenticationType getAuthenticationType()
+    {
+        return authenticationType;
+    }
+
+    @Config("synapse.authentication.type")
+    @ConfigDescription("Synapse authentication mechanism")
+    public SynapseConfig setAuthenticationType(SynapseAuthenticationType authenticationType)
+    {
+        this.authenticationType = authenticationType;
         return this;
     }
 }

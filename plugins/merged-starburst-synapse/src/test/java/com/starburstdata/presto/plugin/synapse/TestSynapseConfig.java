@@ -14,6 +14,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.ACTIVE_DIRECTORY_PASSWORD;
+import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.PASSWORD;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -24,7 +26,8 @@ public class TestSynapseConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SynapseConfig.class)
-                .setImpersonationEnabled(false));
+                .setImpersonationEnabled(false)
+                .setAuthenticationType(PASSWORD));
     }
 
     @Test
@@ -32,10 +35,12 @@ public class TestSynapseConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("synapse.impersonation.enabled", "true")
+                .put("synapse.authentication.type", "ACTIVE_DIRECTORY_PASSWORD")
                 .build();
 
         SynapseConfig expected = new SynapseConfig()
-                .setImpersonationEnabled(true);
+                .setImpersonationEnabled(true)
+                .setAuthenticationType(ACTIVE_DIRECTORY_PASSWORD);
 
         assertFullMapping(properties, expected);
     }

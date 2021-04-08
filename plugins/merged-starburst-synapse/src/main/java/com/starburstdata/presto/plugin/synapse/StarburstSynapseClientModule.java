@@ -38,7 +38,12 @@ import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
+import java.util.Properties;
+
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.ACTIVE_DIRECTORY_PASSWORD;
+import static com.starburstdata.presto.plugin.synapse.SynapseConfig.SynapseAuthenticationType.PASSWORD;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
@@ -59,24 +64,24 @@ public class StarburstSynapseClientModule
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
 
-        install(new CredentialProviderModule());
-
         install(installModuleIf(
                 SynapseConfig.class,
                 SynapseConfig::isImpersonationEnabled,
                 new ImpersonationModule(),
                 new NoImpersonationModule()));
 
+        install(installModuleIf(
+                SynapseConfig.class,
+                config -> config.getAuthenticationType() == ACTIVE_DIRECTORY_PASSWORD,
+                new ActiveDirectoryPasswordModule()));
+
+        install(installModuleIf(
+                SynapseConfig.class,
+                config -> config.getAuthenticationType() == PASSWORD,
+                new PasswordModule()));
+
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
-    }
-
-    @Provides
-    @Singleton
-    @ForAuthentication
-    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
-    {
-        return new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider);
     }
 
     private static class ImpersonationModule
@@ -87,6 +92,55 @@ public class StarburstSynapseClientModule
         {
             binder.install(new AuthToLocalModule());
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(Scopes.SINGLETON);
+        }
+    }
+
+    private class ActiveDirectoryPasswordModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            install(new CredentialProviderModule());
+        }
+
+        @Provides
+        @Singleton
+        @ForAuthentication
+        public ConnectionFactory getConnectionFactory(
+                BaseJdbcConfig baseJdbcConfig,
+                CredentialProvider credentialProvider)
+        {
+            checkState(
+                    !baseJdbcConfig.getConnectionUrl().contains("authentication="),
+                    "Cannot specify 'authentication' parameter in JDBC URL when using Active Directory password authentication: %s",
+                    baseJdbcConfig.getConnectionUrl());
+            Properties properties = new Properties();
+            properties.setProperty("authentication", "ActiveDirectoryPassword");
+
+            return new DriverConnectionFactory(
+                    new SQLServerDriver(),
+                    baseJdbcConfig.getConnectionUrl(),
+                    properties,
+                    credentialProvider);
+        }
+    }
+
+    private class PasswordModule
+            implements Module
+    {
+        @Override
+        public void configure(Binder binder)
+        {
+            install(new CredentialProviderModule());
+        }
+
+        @Provides
+        @Singleton
+        @ForAuthentication
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig baseJdbcConfig, CredentialProvider credentialProvider)
+        {
+            return new DriverConnectionFactory(new SQLServerDriver(), baseJdbcConfig, credentialProvider);
         }
     }
 }
