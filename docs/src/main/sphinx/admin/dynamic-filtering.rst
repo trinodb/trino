@@ -23,6 +23,11 @@ from the processed dimension table on the right side of join. In the case of bro
 the runtime predicates generated from this collection are pushed into the local table scan
 on the left side of the join running on the same worker.
 
+Dynamic filtering is enabled by default using the ``enable-dynamic-filtering``
+configuration property. To disable dynamic filtering, set the configuration
+property to ``false``. Alternatively, use the session property
+``enable_dynamic_filtering``.
+
 Additionally, these runtime predicates are communicated to the coordinator over the network
 so that dynamic filtering can also be performed on the coordinator during enumeration of
 table scan splits.
