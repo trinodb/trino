@@ -58,6 +58,17 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``memsql`` in the above examples.
 
+.. _memsql-pushdown:
+
+Pushdown
+--------
+
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
+
 Limitations
 -----------
 

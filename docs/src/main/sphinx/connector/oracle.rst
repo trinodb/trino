@@ -361,10 +361,16 @@ include ``SYNONYM``, add the following configuration property:
 
     oracle.synonyms.enabled=true
 
+.. _oracle-pushdown:
+
 Pushdown
 --------
 
-The connector supports :doc:`pushdown </optimizer/pushdown>` for optimized query processing.
+The connector supports pushdown for a number of operations:
+
+* :ref:`join-pushdown`
+* :ref:`limit-pushdown`
+* :ref:`topn-pushdown`
 
 Limitations
 -----------

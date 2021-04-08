@@ -876,8 +876,10 @@ Otherwise, it is arbitrary which rows are discarded.
 If the count specified in the ``OFFSET`` clause equals or exceeds the size
 of the result set, the final result is empty.
 
-LIMIT or FETCH FIRST clauses
-----------------------------
+.. _limit-clause:
+
+LIMIT or FETCH FIRST clause
+---------------------------
 
 The ``LIMIT`` or ``FETCH FIRST`` clause restricts the number of rows
 in the result set.
