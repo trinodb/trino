@@ -18,6 +18,7 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
@@ -27,6 +28,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -35,6 +37,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.MoreCollectors.toOptional;
+import static io.trino.plugin.jdbc.VarcharPredicatePushdownSessionProperties.UNSAFE_VARCHAR_PUSHDOWN;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
@@ -48,6 +51,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_LIMIT_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
+import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -552,5 +556,59 @@ public abstract class BaseJdbcConnectorTest
         return Session.builder(session)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_enabled", "true")
                 .build();
+    }
+
+    @Test(dataProvider = "testCaseInsensitivePredicatePushdownDataProvider")
+    public void testCaseInsensitivePredicatePushdown(String type)
+    {
+        Session unsafeVarcharPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), UNSAFE_VARCHAR_PUSHDOWN, "true")
+                .build();
+
+        if (hasBehavior(SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_INEQUALITY)) {
+            assertQueryFails(unsafeVarcharPushdown, "SELECT 1", "Unknown session property .*.unsafe-varchar-pushdown");
+            return;
+        }
+        String tableName = "test_case_insensitive_predicate_pushdown" + randomTableSuffix();
+        assertQuerySucceeds(format("CREATE TABLE %s (value %s)", tableName, type));
+        assertQuerySucceeds(format("INSERT INTO %s VALUES 'a', 'A', 'b', 'B'", tableName));
+
+        assertThat(query(unsafeVarcharPushdown, format("SELECT value FROM %s WHERE value = 'a'", tableName)))
+                // possibly incorrect results with unexpected 'A'
+                .isFullyPushedDown();
+        assertThat(query(unsafeVarcharPushdown, format("SELECT value FROM %s WHERE value != 'a'", tableName)))
+                // possibly incorrect results with missing 'A'
+                .isFullyPushedDown();
+        assertThat(query(unsafeVarcharPushdown, format("SELECT value FROM %s WHERE value > 'A'", tableName)))
+                // possibly incorrect results with missing 'a'
+                .isFullyPushedDown();
+
+        // Verify that results are correct when session property is not used
+        assertThat(query(format("SELECT value FROM %s WHERE value = 'a'", tableName)))
+                .skippingTypesCheck()
+                .matches("VALUES 'a'");
+        assertThat(query(format("SELECT value FROM %s WHERE value != 'a'", tableName)))
+                .isNotFullyPushedDown(FilterNode.class)
+                .skippingTypesCheck()
+                .matches("VALUES 'A', 'b', 'B'");
+        assertThat(query(format("SELECT value FROM %s WHERE value != 'a'", tableName)))
+                .isNotFullyPushedDown(FilterNode.class)
+                .skippingTypesCheck()
+                .matches("VALUES 'A', 'b', 'B'");
+        assertThat(query(format("SELECT value FROM %s WHERE value > 'A'", tableName)))
+                .isNotFullyPushedDown(FilterNode.class)
+                .skippingTypesCheck()
+                .matches("VALUES 'a', 'B', 'b'");
+
+        assertQuerySucceeds("DROP TABLE " + tableName);
+    }
+
+    @DataProvider
+    public Object[][] testCaseInsensitivePredicatePushdownDataProvider()
+    {
+        return new Object[][] {
+                {"char(1)"},
+                {"varchar(1)"},
+        };
     }
 }
