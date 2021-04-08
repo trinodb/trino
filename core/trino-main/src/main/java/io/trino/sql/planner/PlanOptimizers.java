@@ -867,6 +867,9 @@ public class PlanOptimizers
                 ImmutableSet.of(
                         new AddIntermediateAggregations(),
                         new RemoveRedundantIdentityProjections())));
+        // Run MetadataQueryOptimizer again to optimize partial aggregations
+        builder.add(new MetadataQueryOptimizer(metadata));
+
         // DO NOT add optimizers that change the plan shape (computations) after this point
 
         // Remove any remaining sugar
