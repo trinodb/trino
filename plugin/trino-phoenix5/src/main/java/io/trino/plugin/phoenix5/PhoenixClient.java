@@ -320,7 +320,6 @@ public class PhoenixClient
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
-        // Note that limit exceeding Integer.MAX_VALUE gets completely ignored.
         return false;
     }
 
