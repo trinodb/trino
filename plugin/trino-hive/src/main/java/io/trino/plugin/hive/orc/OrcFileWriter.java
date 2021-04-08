@@ -15,6 +15,7 @@ package io.trino.plugin.hive.orc;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.orc.OrcDataSink;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcWriteValidation.OrcWriteValidationMode;
@@ -161,6 +162,7 @@ public class OrcFileWriter
             nullBlocksArray[i] = inputColumnIndex < 0;
         }
         if (transaction.isInsert() && useAcidSchema) {
+            orcWriter.updateUserMetadata(ImmutableMap.of("hive.acid.version", "3"));
             Optional<boolean[]> nullBlocks = hasNullBlocks ? Optional.of(nullBlocksArray) : Optional.empty();
             Block rowBlock = RowBlock.fromFieldBlocks(positionCount, nullBlocks, blocks);
             blocks = buildAcidColumns(rowBlock, transaction);
