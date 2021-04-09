@@ -27,6 +27,24 @@ import static java.util.Objects.requireNonNull;
 
 public class OrcWriterOptions
 {
+    public enum WriterIdentification
+    {
+        /**
+         * Write ORC files with a writer identification and version number that is readable by Hive 2.0.0 to 2.2.0
+         */
+        LEGACY_HIVE_COMPATIBLE,
+
+        /**
+         * Write ORC files with the legacy writer identification of PrestoSQL
+         */
+        PRESTO,
+
+        /**
+         * Write ORC files with Trino writer identification.
+         */
+        TRINO,
+    }
+
     @VisibleForTesting
     static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = DataSize.ofBytes(64);
     @VisibleForTesting
@@ -38,7 +56,7 @@ public class OrcWriterOptions
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
     private static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = DataSize.of(16, MEGABYTE);
 
-    private final boolean useLegacyVersion;
+    private final WriterIdentification writerIdentification;
     private final DataSize stripeMinSize;
     private final DataSize stripeMaxSize;
     private final int stripeMaxRowCount;
@@ -52,7 +70,7 @@ public class OrcWriterOptions
     public OrcWriterOptions()
     {
         this(
-                false,
+                WriterIdentification.TRINO,
                 DEFAULT_STRIPE_MIN_SIZE,
                 DEFAULT_STRIPE_MAX_SIZE,
                 DEFAULT_STRIPE_MAX_ROW_COUNT,
@@ -65,7 +83,7 @@ public class OrcWriterOptions
     }
 
     private OrcWriterOptions(
-            boolean useLegacyVersion,
+            WriterIdentification writerIdentification,
             DataSize stripeMinSize,
             DataSize stripeMaxSize,
             int stripeMaxRowCount,
@@ -86,7 +104,7 @@ public class OrcWriterOptions
         requireNonNull(bloomFilterColumns, "bloomFilterColumns is null");
         checkArgument(bloomFilterFpp > 0.0 && bloomFilterFpp < 1.0, "bloomFilterFpp should be > 0.0 & < 1.0");
 
-        this.useLegacyVersion = useLegacyVersion;
+        this.writerIdentification = requireNonNull(writerIdentification, "writerIdentification is null");
         this.stripeMinSize = stripeMinSize;
         this.stripeMaxSize = stripeMaxSize;
         this.stripeMaxRowCount = stripeMaxRowCount;
@@ -98,15 +116,15 @@ public class OrcWriterOptions
         this.bloomFilterFpp = bloomFilterFpp;
     }
 
-    public boolean isUseLegacyVersion()
+    public WriterIdentification getWriterIdentification()
     {
-        return useLegacyVersion;
+        return writerIdentification;
     }
 
-    public OrcWriterOptions withUseLegacyVersion(boolean useLegacyVersion)
+    public OrcWriterOptions withWriterIdentification(WriterIdentification writerIdentification)
     {
         return builderFrom(this)
-                .setUseLegacyVersion(useLegacyVersion)
+                .setWriterIdentification(writerIdentification)
                 .build();
     }
 
@@ -246,7 +264,7 @@ public class OrcWriterOptions
 
     public static final class Builder
     {
-        private boolean useLegacyVersion;
+        private WriterIdentification writerIdentification;
         private DataSize stripeMinSize;
         private DataSize stripeMaxSize;
         private int stripeMaxRowCount;
@@ -261,7 +279,7 @@ public class OrcWriterOptions
         {
             requireNonNull(options, "options is null");
 
-            this.useLegacyVersion = options.useLegacyVersion;
+            this.writerIdentification = options.writerIdentification;
             this.stripeMinSize = options.stripeMinSize;
             this.stripeMaxSize = options.stripeMaxSize;
             this.stripeMaxRowCount = options.stripeMaxRowCount;
@@ -273,9 +291,9 @@ public class OrcWriterOptions
             this.bloomFilterFpp = options.bloomFilterFpp;
         }
 
-        public Builder setUseLegacyVersion(boolean useLegacyVersion)
+        public Builder setWriterIdentification(WriterIdentification writerIdentification)
         {
-            this.useLegacyVersion = useLegacyVersion;
+            this.writerIdentification = writerIdentification;
             return this;
         }
 
@@ -336,7 +354,7 @@ public class OrcWriterOptions
         public OrcWriterOptions build()
         {
             return new OrcWriterOptions(
-                    useLegacyVersion,
+                    writerIdentification,
                     stripeMinSize,
                     stripeMaxSize,
                     stripeMaxRowCount,
