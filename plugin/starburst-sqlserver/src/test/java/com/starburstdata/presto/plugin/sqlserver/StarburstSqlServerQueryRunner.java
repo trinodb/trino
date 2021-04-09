@@ -128,7 +128,7 @@ public final class StarburstSqlServerQueryRunner
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
-                return List.of(getConnectoryFactory(NOOP_LICENSE_MANAGER));
+                return List.of(getConnectorFactory(NOOP_LICENSE_MANAGER));
             }
         };
     }

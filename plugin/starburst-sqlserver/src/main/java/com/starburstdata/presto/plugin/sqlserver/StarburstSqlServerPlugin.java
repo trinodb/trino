@@ -26,11 +26,11 @@ public class StarburstSqlServerPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(getConnectoryFactory(new LicenseManagerProvider().get()));
+        return ImmutableList.of(getConnectorFactory(new LicenseManagerProvider().get()));
     }
 
     @VisibleForTesting
-    DynamicFilteringJdbcConnectorFactory getConnectoryFactory(LicenseManager licenseManager)
+    DynamicFilteringJdbcConnectorFactory getConnectorFactory(LicenseManager licenseManager)
     {
         requireNonNull(licenseManager, "licenseManager is null");
         return new DynamicFilteringJdbcConnectorFactory(
