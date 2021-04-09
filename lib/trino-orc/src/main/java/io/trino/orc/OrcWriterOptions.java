@@ -31,12 +31,13 @@ public class OrcWriterOptions
     static final DataSize DEFAULT_MAX_STRING_STATISTICS_LIMIT = DataSize.ofBytes(64);
     @VisibleForTesting
     static final DataSize DEFAULT_MAX_COMPRESSION_BUFFER_SIZE = DataSize.of(256, KILOBYTE);
-    static final double DEFAULT_BLOOM_FILTER_FPP = 0.05;
+    private static final double DEFAULT_BLOOM_FILTER_FPP = 0.05;
     private static final DataSize DEFAULT_STRIPE_MIN_SIZE = DataSize.of(32, MEGABYTE);
     private static final DataSize DEFAULT_STRIPE_MAX_SIZE = DataSize.of(64, MEGABYTE);
     private static final int DEFAULT_STRIPE_MAX_ROW_COUNT = 10_000_000;
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
     private static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = DataSize.of(16, MEGABYTE);
+
     private final DataSize stripeMinSize;
     private final DataSize stripeMaxSize;
     private final int stripeMaxRowCount;
@@ -140,47 +141,65 @@ public class OrcWriterOptions
 
     public OrcWriterOptions withStripeMinSize(DataSize stripeMinSize)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setStripeMinSize(stripeMinSize)
+                .build();
     }
 
     public OrcWriterOptions withStripeMaxSize(DataSize stripeMaxSize)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setStripeMaxSize(stripeMaxSize)
+                .build();
     }
 
     public OrcWriterOptions withStripeMaxRowCount(int stripeMaxRowCount)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setStripeMaxRowCount(stripeMaxRowCount)
+                .build();
     }
 
     public OrcWriterOptions withRowGroupMaxRowCount(int rowGroupMaxRowCount)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setRowGroupMaxRowCount(rowGroupMaxRowCount)
+                .build();
     }
 
     public OrcWriterOptions withDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setDictionaryMaxMemory(dictionaryMaxMemory)
+                .build();
     }
 
     public OrcWriterOptions withMaxStringStatisticsLimit(DataSize maxStringStatisticsLimit)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setMaxStringStatisticsLimit(maxStringStatisticsLimit)
+                .build();
     }
 
     public OrcWriterOptions withMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setMaxCompressionBufferSize(maxCompressionBufferSize)
+                .build();
     }
 
     public OrcWriterOptions withBloomFilterColumns(Set<String> bloomFilterColumns)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setBloomFilterColumns(bloomFilterColumns)
+                .build();
     }
 
     public OrcWriterOptions withBloomFilterFpp(double bloomFilterFpp)
     {
-        return new OrcWriterOptions(stripeMinSize, stripeMaxSize, stripeMaxRowCount, rowGroupMaxRowCount, dictionaryMaxMemory, maxStringStatisticsLimit, maxCompressionBufferSize, bloomFilterColumns, bloomFilterFpp);
+        return builderFrom(this)
+                .setBloomFilterFpp(bloomFilterFpp)
+                .build();
     }
 
     @Override
@@ -197,5 +216,111 @@ public class OrcWriterOptions
                 .add("bloomFilterColumns", bloomFilterColumns)
                 .add("bloomFilterFpp", bloomFilterFpp)
                 .toString();
+    }
+
+    public static Builder builder()
+    {
+        return builderFrom(new OrcWriterOptions());
+    }
+
+    public static Builder builderFrom(OrcWriterOptions options)
+    {
+        return new Builder(options);
+    }
+
+    public static final class Builder
+    {
+        private DataSize stripeMinSize;
+        private DataSize stripeMaxSize;
+        private int stripeMaxRowCount;
+        private int rowGroupMaxRowCount;
+        private DataSize dictionaryMaxMemory;
+        private DataSize maxStringStatisticsLimit;
+        private DataSize maxCompressionBufferSize;
+        private Set<String> bloomFilterColumns;
+        private double bloomFilterFpp;
+
+        private Builder(OrcWriterOptions options)
+        {
+            requireNonNull(options, "options is null");
+
+            this.stripeMinSize = options.stripeMinSize;
+            this.stripeMaxSize = options.stripeMaxSize;
+            this.stripeMaxRowCount = options.stripeMaxRowCount;
+            this.rowGroupMaxRowCount = options.rowGroupMaxRowCount;
+            this.dictionaryMaxMemory = options.dictionaryMaxMemory;
+            this.maxStringStatisticsLimit = options.maxStringStatisticsLimit;
+            this.maxCompressionBufferSize = options.maxCompressionBufferSize;
+            this.bloomFilterColumns = ImmutableSet.copyOf(options.bloomFilterColumns);
+            this.bloomFilterFpp = options.bloomFilterFpp;
+        }
+
+        public Builder setStripeMinSize(DataSize stripeMinSize)
+        {
+            this.stripeMinSize = stripeMinSize;
+            return this;
+        }
+
+        public Builder setStripeMaxSize(DataSize stripeMaxSize)
+        {
+            this.stripeMaxSize = stripeMaxSize;
+            return this;
+        }
+
+        public Builder setStripeMaxRowCount(int stripeMaxRowCount)
+        {
+            this.stripeMaxRowCount = stripeMaxRowCount;
+            return this;
+        }
+
+        public Builder setRowGroupMaxRowCount(int rowGroupMaxRowCount)
+        {
+            this.rowGroupMaxRowCount = rowGroupMaxRowCount;
+            return this;
+        }
+
+        public Builder setDictionaryMaxMemory(DataSize dictionaryMaxMemory)
+        {
+            this.dictionaryMaxMemory = dictionaryMaxMemory;
+            return this;
+        }
+
+        public Builder setMaxStringStatisticsLimit(DataSize maxStringStatisticsLimit)
+        {
+            this.maxStringStatisticsLimit = maxStringStatisticsLimit;
+            return this;
+        }
+
+        public Builder setMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
+        {
+            this.maxCompressionBufferSize = maxCompressionBufferSize;
+            return this;
+        }
+
+        public Builder setBloomFilterColumns(Set<String> bloomFilterColumns)
+        {
+            this.bloomFilterColumns = bloomFilterColumns;
+            return this;
+        }
+
+        public Builder setBloomFilterFpp(double bloomFilterFpp)
+        {
+            this.bloomFilterFpp = bloomFilterFpp;
+            return this;
+        }
+
+        public OrcWriterOptions build()
+        {
+            return new OrcWriterOptions(
+                    stripeMinSize,
+                    stripeMaxSize,
+                    stripeMaxRowCount,
+                    rowGroupMaxRowCount,
+                    dictionaryMaxMemory,
+                    maxStringStatisticsLimit,
+                    maxCompressionBufferSize,
+                    bloomFilterColumns,
+                    bloomFilterFpp);
+        }
     }
 }
