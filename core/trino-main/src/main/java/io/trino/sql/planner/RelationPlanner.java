@@ -226,7 +226,7 @@ class RelationPlanner
                 .withScope(analysis.getAccessControlScope(node), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
         for (Expression filter : filters) {
-            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, filter);
+            planBuilder = subqueryPlanner.handleSubqueries(planBuilder, filter, analysis.getSubqueries(filter));
 
             planBuilder = planBuilder.withNewRoot(new FilterNode(
                     idAllocator.getNextId(),
@@ -255,7 +255,7 @@ class RelationPlanner
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
             for (Expression mask : columnMasks.getOrDefault(field.getName().get(), ImmutableList.of())) {
-                planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask);
+                planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, analysis.getSubqueries(mask));
 
                 Map<Symbol, Expression> assignments = new LinkedHashMap<>();
                 for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
@@ -405,8 +405,8 @@ class RelationPlanner
                 }
             }
 
-            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, leftComparisonExpressions, node);
-            rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, rightComparisonExpressions, node);
+            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, leftComparisonExpressions, analysis.getSubqueries(node));
+            rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, rightComparisonExpressions, analysis.getSubqueries(node));
 
             // Add projections for join criteria
             leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, symbolAllocator, idAllocator);
@@ -461,10 +461,10 @@ class RelationPlanner
                 //  t JOIN u ON t.x = (...) get's planned on the u side
                 //  t JOIN u ON t.x + u.x = (...) get's planned on an arbitrary side
                 if (dependencies.stream().allMatch(left::canResolve)) {
-                    leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexExpression, node);
+                    leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexExpression, analysis.getSubqueries(node));
                 }
                 else {
-                    rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, complexExpression, node);
+                    rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, complexExpression, analysis.getSubqueries(node));
                 }
             }
         }
@@ -495,7 +495,7 @@ class RelationPlanner
         if (node.getType() == INNER) {
             // rewrite all the other conditions using output symbols from left + right plan node.
             PlanBuilder rootPlanBuilder = new PlanBuilder(translationMap, root);
-            rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, node);
+            rootPlanBuilder = subqueryPlanner.handleSubqueries(rootPlanBuilder, complexJoinExpressions, analysis.getSubqueries(node));
 
             for (Expression expression : complexJoinExpressions) {
                 postInnerJoinConditions.add(rootPlanBuilder.rewrite(expression));
