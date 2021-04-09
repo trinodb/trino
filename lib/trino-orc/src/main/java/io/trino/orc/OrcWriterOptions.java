@@ -99,51 +99,16 @@ public class OrcWriterOptions
         return stripeMinSize;
     }
 
-    public DataSize getStripeMaxSize()
-    {
-        return stripeMaxSize;
-    }
-
-    public int getStripeMaxRowCount()
-    {
-        return stripeMaxRowCount;
-    }
-
-    public int getRowGroupMaxRowCount()
-    {
-        return rowGroupMaxRowCount;
-    }
-
-    public DataSize getDictionaryMaxMemory()
-    {
-        return dictionaryMaxMemory;
-    }
-
-    public DataSize getMaxStringStatisticsLimit()
-    {
-        return maxStringStatisticsLimit;
-    }
-
-    public DataSize getMaxCompressionBufferSize()
-    {
-        return maxCompressionBufferSize;
-    }
-
-    public double getBloomFilterFpp()
-    {
-        return bloomFilterFpp;
-    }
-
-    public boolean isBloomFilterColumn(String columnName)
-    {
-        return bloomFilterColumns.contains(columnName);
-    }
-
     public OrcWriterOptions withStripeMinSize(DataSize stripeMinSize)
     {
         return builderFrom(this)
                 .setStripeMinSize(stripeMinSize)
                 .build();
+    }
+
+    public DataSize getStripeMaxSize()
+    {
+        return stripeMaxSize;
     }
 
     public OrcWriterOptions withStripeMaxSize(DataSize stripeMaxSize)
@@ -153,11 +118,21 @@ public class OrcWriterOptions
                 .build();
     }
 
+    public int getStripeMaxRowCount()
+    {
+        return stripeMaxRowCount;
+    }
+
     public OrcWriterOptions withStripeMaxRowCount(int stripeMaxRowCount)
     {
         return builderFrom(this)
                 .setStripeMaxRowCount(stripeMaxRowCount)
                 .build();
+    }
+
+    public int getRowGroupMaxRowCount()
+    {
+        return rowGroupMaxRowCount;
     }
 
     public OrcWriterOptions withRowGroupMaxRowCount(int rowGroupMaxRowCount)
@@ -167,11 +142,21 @@ public class OrcWriterOptions
                 .build();
     }
 
+    public DataSize getDictionaryMaxMemory()
+    {
+        return dictionaryMaxMemory;
+    }
+
     public OrcWriterOptions withDictionaryMaxMemory(DataSize dictionaryMaxMemory)
     {
         return builderFrom(this)
                 .setDictionaryMaxMemory(dictionaryMaxMemory)
                 .build();
+    }
+
+    public DataSize getMaxStringStatisticsLimit()
+    {
+        return maxStringStatisticsLimit;
     }
 
     public OrcWriterOptions withMaxStringStatisticsLimit(DataSize maxStringStatisticsLimit)
@@ -181,6 +166,11 @@ public class OrcWriterOptions
                 .build();
     }
 
+    public DataSize getMaxCompressionBufferSize()
+    {
+        return maxCompressionBufferSize;
+    }
+
     public OrcWriterOptions withMaxCompressionBufferSize(DataSize maxCompressionBufferSize)
     {
         return builderFrom(this)
@@ -188,11 +178,21 @@ public class OrcWriterOptions
                 .build();
     }
 
+    public boolean isBloomFilterColumn(String columnName)
+    {
+        return bloomFilterColumns.contains(columnName);
+    }
+
     public OrcWriterOptions withBloomFilterColumns(Set<String> bloomFilterColumns)
     {
         return builderFrom(this)
                 .setBloomFilterColumns(bloomFilterColumns)
                 .build();
+    }
+
+    public double getBloomFilterFpp()
+    {
+        return bloomFilterFpp;
     }
 
     public OrcWriterOptions withBloomFilterFpp(double bloomFilterFpp)
