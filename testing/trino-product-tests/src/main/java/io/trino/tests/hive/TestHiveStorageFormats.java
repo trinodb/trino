@@ -480,7 +480,7 @@ public class TestHiveStorageFormats
         onHive().executeQuery("DROP TABLE " + tableName);
     }
 
-    @Test(groups = STORAGE_FORMATS)
+    @Test
     public void testOrcStructsWithNonLowercaseFields()
             throws SQLException
     {
