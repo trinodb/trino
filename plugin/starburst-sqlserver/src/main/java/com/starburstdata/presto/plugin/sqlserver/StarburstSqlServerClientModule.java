@@ -11,15 +11,12 @@ package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.inject.Binder;
 import com.google.inject.Key;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import com.starburstdata.presto.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import com.starburstdata.presto.plugin.jdbc.PreparingConnectionFactory;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
-import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
-import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
@@ -33,7 +30,6 @@ import io.trino.plugin.jdbc.JdbcRecordSetProvider;
 import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
-import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.sqlserver.SqlServerTableProperties;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSession;
@@ -45,7 +41,6 @@ import java.sql.SQLException;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.starburstdata.presto.plugin.sqlserver.SqlServerSessionProperties.getOverrideCatalog;
-import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
@@ -70,14 +65,7 @@ public class StarburstSqlServerClientModule
         binder.bind(ConnectorSplitManager.class).annotatedWith(ForDynamicFiltering.class).to(JdbcSplitManager.class).in(SINGLETON);
         binder.bind(ConnectorRecordSetProvider.class).annotatedWith(ForDynamicFiltering.class).to(JdbcRecordSetProvider.class).in(SINGLETON);
 
-        install(new CredentialProviderModule());
-
-        install(installModuleIf(
-                SqlServerConfig.class,
-                SqlServerConfig::isImpersonationEnabled,
-                new ImpersonationModule(),
-                new NoImpersonationModule()));
-
+        install(new SqlServerAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
         install(new JdbcTableScanRedirectionModule());
     }
@@ -92,17 +80,6 @@ public class StarburstSqlServerClientModule
             factory = new CatalogOverridingConnectionFactory(factory);
         }
         return factory;
-    }
-
-    private static class ImpersonationModule
-            implements Module
-    {
-        @Override
-        public void configure(Binder binder)
-        {
-            binder.install(new AuthToLocalModule());
-            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(SqlServerImpersonatingConnectionFactory.class).in(SINGLETON);
-        }
     }
 
     private static class CatalogOverridingConnectionFactory
