@@ -2110,7 +2110,9 @@ public class LocalExecutionPlanner
             PhysicalOperation probeSource = probeNode.accept(this, context);
 
             // Plan build
-            boolean spillEnabled = isSpillEnabled(session) && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"));
+            boolean spillEnabled = isSpillEnabled(session)
+                    && node.isSpillable().orElseThrow(() -> new IllegalArgumentException("spillable not yet set"))
+                    && probeSource.getPipelineExecutionStrategy() == UNGROUPED_EXECUTION;
             JoinBridgeManager<PartitionedLookupSourceFactory> lookupSourceFactory =
                     createLookupSourceFactory(node, buildNode, buildSymbols, buildHashSymbol, probeSource, context, spillEnabled, localDynamicFilters);
 
