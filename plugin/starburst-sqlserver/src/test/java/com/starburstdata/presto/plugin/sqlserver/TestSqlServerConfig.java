@@ -14,6 +14,8 @@ import org.testng.annotations.Test;
 
 import java.util.Map;
 
+import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SqlServerAuthenticationType.PASSWORD;
+import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SqlServerAuthenticationType.PASSWORD_PASS_THROUGH;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
@@ -27,7 +29,8 @@ public class TestSqlServerConfig
         assertRecordedDefaults(recordDefaults(SqlServerConfig.class)
                 .setImpersonationEnabled(false)
                 .setOverrideCatalogEnabled(false)
-                .setOverrideCatalogName(null));
+                .setOverrideCatalogName(null)
+                .setAuthenticationType(PASSWORD));
     }
 
     @Test
@@ -37,12 +40,14 @@ public class TestSqlServerConfig
                 .put("sqlserver.impersonation.enabled", "true")
                 .put("sqlserver.override-catalog.enabled", "true")
                 .put("sqlserver.override-catalog.name", "catalog")
+                .put("sqlserver.authentication.type", "PASSWORD_PASS_THROUGH")
                 .build();
 
         SqlServerConfig expected = new SqlServerConfig()
                 .setImpersonationEnabled(true)
                 .setOverrideCatalogEnabled(true)
-                .setOverrideCatalogName("catalog");
+                .setOverrideCatalogName("catalog")
+                .setAuthenticationType(PASSWORD_PASS_THROUGH);
 
         assertFullMapping(properties, expected);
     }

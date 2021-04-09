@@ -18,6 +18,7 @@ import javax.annotation.PostConstruct;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static com.starburstdata.presto.plugin.sqlserver.SqlServerConfig.SqlServerAuthenticationType.PASSWORD;
 
 // TODO rename to avoid name collision & confusion with io.trino.plugin.sqlserver.SqlServerConfig
 public class SqlServerConfig
@@ -29,6 +30,13 @@ public class SqlServerConfig
     private boolean overrideCatalogEnabled;
     @Nullable
     private String overrideCatalogName;
+    private SqlServerAuthenticationType authenticationType = PASSWORD;
+
+    public enum SqlServerAuthenticationType
+    {
+        PASSWORD,
+        PASSWORD_PASS_THROUGH,
+    }
 
     public boolean isImpersonationEnabled()
     {
@@ -65,6 +73,19 @@ public class SqlServerConfig
     public SqlServerConfig setOverrideCatalogName(@Nullable String overrideCatalogName)
     {
         this.overrideCatalogName = overrideCatalogName;
+        return this;
+    }
+
+    public SqlServerAuthenticationType getAuthenticationType()
+    {
+        return authenticationType;
+    }
+
+    @Config("sqlserver.authentication.type")
+    @ConfigDescription("SQL Server authentication mechanism")
+    public SqlServerConfig setAuthenticationType(SqlServerAuthenticationType authenticationType)
+    {
+        this.authenticationType = authenticationType;
         return this;
     }
 
