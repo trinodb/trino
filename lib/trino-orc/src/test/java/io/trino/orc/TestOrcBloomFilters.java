@@ -123,7 +123,7 @@ public class TestOrcBloomFilters
         assertTrue(bloomFilterWrite.test(TEST_STRING));
         assertTrue(bloomFilterWrite.testSlice(wrappedBuffer(TEST_STRING)));
 
-        Slice bloomFilterBytes = new CompressedMetadataWriter(new OrcMetadataWriter(true), CompressionKind.NONE, 1024)
+        Slice bloomFilterBytes = new CompressedMetadataWriter(new OrcMetadataWriter(false), CompressionKind.NONE, 1024)
                 .writeBloomFilters(ImmutableList.of(bloomFilterWrite));
 
         // Read through method
