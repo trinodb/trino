@@ -124,6 +124,19 @@ Enable errorprone ([Error Prone Installation#IDEA](https://errorprone.info/docs/
 - In ``Java Compiler`` tab, select ``Javac with error-prone`` as the compiler,
 - Update ``Additional command line parameters`` with ``-XepExcludedPaths:.*/target/generated-(|test-)sources/.* -XepDisableAllChecks -Xep:MissingOverride:ERROR ......`` (for current recommended list of command line parameters, see the top level ``pom.xml``, the definition of the ``errorprone-compiler`` profile.
 
+### Language injection in IDE
+
+In order to enable language injection inside Intellij IDEA, some code elements can be annotated with the `@org.intellij.lang.annotations.Language` annotation. To make it useful, we recommend:
+
+- Set the project-wide SQL dialect in ``Languages & Frameworks | SQL Dialects`` - "Generic SQL" is a decent choice here,
+- Disable inspection ``SQL | No data source configured``,
+- Optionally disable inspection ``Language injection | Language mismatch``.
+
+Even if the IDE does not support language injection this annotation is useful for documenting the API's intent. Considering the above, we recommend annotating with `@Language`:
+
+- All API parameters which are expecting to take a `String` containing an SQL statement (or any other language, like regular expressions),
+- Local variables which otherwise would not be properly recognized by IDE for language injection.
+
 ## Building the Web UI
 
 The Trino Web UI is composed of several React components and is written in JSX and ES6. This source code is compiled and packaged into browser-compatible Javascript, which is then checked in to the Trino source code (in the `dist` folder). You must have [Node.js](https://nodejs.org/en/download/) and [Yarn](https://yarnpkg.com/en/) installed to execute these commands. To update this folder after making changes, simply run:
