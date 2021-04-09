@@ -544,7 +544,7 @@ public class OrcPageSourceFactory
         return column.getHiveColumnProjectionInfo()
                 .map(info -> info.getDereferenceNames().stream()
                         .map(dereference -> dereference.toLowerCase(ENGLISH))
-                        .collect(toList()))
-                .orElse(ImmutableList.<String>of());
+                        .collect(toImmutableList()))
+                .orElse(ImmutableList.of());
     }
 }

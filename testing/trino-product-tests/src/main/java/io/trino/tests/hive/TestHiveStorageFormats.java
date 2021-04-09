@@ -482,6 +482,7 @@ public class TestHiveStorageFormats
 
     @Test(groups = STORAGE_FORMATS)
     public void testOrcStructsWithNonLowercaseFields()
+            throws SQLException
     {
         String tableName = "orc_structs_with_non_lowercase";
 
@@ -497,19 +498,19 @@ public class TestHiveStorageFormats
 
         onHive().executeQuery(format(
                 "INSERT INTO %s"
-                // insert with SELECT because hive does not support array/map/struct functions in VALUES
-                + " SELECT"
-                + "   1,"
-                + "   named_struct('testCustId', '1234', 'requestDate', 'some day')"
-                // some hive versions don't allow INSERT from SELECT without FROM
-                + " FROM dummy",
+                        // insert with SELECT because hive does not support array/map/struct functions in VALUES
+                        + " SELECT"
+                        + "   1,"
+                        + "   named_struct('testCustId', '1234', 'requestDate', 'some day')"
+                        // some hive versions don't allow INSERT from SELECT without FROM
+                        + " FROM dummy",
                 tableName));
 
-        setProjectionPushdownEnabled(onTrino().getConnection(), true);
+        setSessionProperty(onTrino().getConnection(), "hive.projection_pushdown_enabled", "true");
         assertThat(onTrino().executeQuery("SELECT c_struct.testCustId FROM " + tableName)).containsOnly(row("1234"));
         assertThat(onTrino().executeQuery("SELECT c_struct.testcustid FROM " + tableName)).containsOnly(row("1234"));
         assertThat(onTrino().executeQuery("SELECT c_struct.requestDate FROM " + tableName)).containsOnly(row("some day"));
-        setProjectionPushdownEnabled(onTrino().getConnection(), false);
+        setSessionProperty(onTrino().getConnection(), "hive.projection_pushdown_enabled", "false");
         assertThat(onTrino().executeQuery("SELECT c_struct.testCustId FROM " + tableName)).containsOnly(row("1234"));
         assertThat(onTrino().executeQuery("SELECT c_struct.testcustid FROM " + tableName)).containsOnly(row("1234"));
         assertThat(onTrino().executeQuery("SELECT c_struct.requestDate FROM " + tableName)).containsOnly(row("some day"));
@@ -790,16 +791,6 @@ public class TestHiveStorageFormats
     {
         try {
             setSessionProperty(onTrino().getConnection(), "hive.timestamp_precision", readPrecision.name());
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static void setProjectionPushdownEnabled(Connection connection, boolean isEnabled)
-    {
-        try {
-            setSessionProperty(connection, "hive.projection_pushdown_enabled", Boolean.toString(isEnabled));
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
