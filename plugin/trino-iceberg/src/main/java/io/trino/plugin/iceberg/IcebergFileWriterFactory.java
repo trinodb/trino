@@ -220,7 +220,6 @@ public class IcebergFileWriterFactory
                             .withStripeMaxRowCount(getOrcWriterMaxStripeRows(session))
                             .withDictionaryMaxMemory(getOrcWriterMaxDictionaryMemory(session))
                             .withMaxStringStatisticsLimit(getOrcStringStatisticsLimit(session)),
-                    false,
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
