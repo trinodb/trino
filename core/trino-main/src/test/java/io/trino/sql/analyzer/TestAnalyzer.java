@@ -3231,7 +3231,7 @@ public class TestAnalyzer
                         Optional.of("s1"),
                         ImmutableList.of(new Column("a", BIGINT.getTypeId())),
                         Optional.empty(),
-                        Optional.empty(),
+                        "some user",
                         ImmutableMap.of()),
                 false,
                 false));
