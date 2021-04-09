@@ -202,6 +202,16 @@ class BigQueryClient
         return bigQuery.update(table);
     }
 
+    public void createSchema(DatasetInfo datasetInfo)
+    {
+        bigQuery.create(datasetInfo);
+    }
+
+    public void dropSchema(DatasetId datasetId)
+    {
+        bigQuery.delete(datasetId);
+    }
+
     public void createTable(TableInfo tableInfo)
     {
         bigQuery.create(tableInfo);
