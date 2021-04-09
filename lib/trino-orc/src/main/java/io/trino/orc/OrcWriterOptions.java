@@ -38,6 +38,7 @@ public class OrcWriterOptions
     private static final int DEFAULT_ROW_GROUP_MAX_ROW_COUNT = 10_000;
     private static final DataSize DEFAULT_DICTIONARY_MAX_MEMORY = DataSize.of(16, MEGABYTE);
 
+    private final boolean useLegacyVersion;
     private final DataSize stripeMinSize;
     private final DataSize stripeMaxSize;
     private final int stripeMaxRowCount;
@@ -51,6 +52,7 @@ public class OrcWriterOptions
     public OrcWriterOptions()
     {
         this(
+                false,
                 DEFAULT_STRIPE_MIN_SIZE,
                 DEFAULT_STRIPE_MAX_SIZE,
                 DEFAULT_STRIPE_MAX_ROW_COUNT,
@@ -63,6 +65,7 @@ public class OrcWriterOptions
     }
 
     private OrcWriterOptions(
+            boolean useLegacyVersion,
             DataSize stripeMinSize,
             DataSize stripeMaxSize,
             int stripeMaxRowCount,
@@ -83,6 +86,7 @@ public class OrcWriterOptions
         requireNonNull(bloomFilterColumns, "bloomFilterColumns is null");
         checkArgument(bloomFilterFpp > 0.0 && bloomFilterFpp < 1.0, "bloomFilterFpp should be > 0.0 & < 1.0");
 
+        this.useLegacyVersion = useLegacyVersion;
         this.stripeMinSize = stripeMinSize;
         this.stripeMaxSize = stripeMaxSize;
         this.stripeMaxRowCount = stripeMaxRowCount;
@@ -92,6 +96,18 @@ public class OrcWriterOptions
         this.maxCompressionBufferSize = maxCompressionBufferSize;
         this.bloomFilterColumns = ImmutableSet.copyOf(bloomFilterColumns);
         this.bloomFilterFpp = bloomFilterFpp;
+    }
+
+    public boolean isUseLegacyVersion()
+    {
+        return useLegacyVersion;
+    }
+
+    public OrcWriterOptions withUseLegacyVersion(boolean useLegacyVersion)
+    {
+        return builderFrom(this)
+                .setUseLegacyVersion(useLegacyVersion)
+                .build();
     }
 
     public DataSize getStripeMinSize()
@@ -230,6 +246,7 @@ public class OrcWriterOptions
 
     public static final class Builder
     {
+        private boolean useLegacyVersion;
         private DataSize stripeMinSize;
         private DataSize stripeMaxSize;
         private int stripeMaxRowCount;
@@ -244,6 +261,7 @@ public class OrcWriterOptions
         {
             requireNonNull(options, "options is null");
 
+            this.useLegacyVersion = options.useLegacyVersion;
             this.stripeMinSize = options.stripeMinSize;
             this.stripeMaxSize = options.stripeMaxSize;
             this.stripeMaxRowCount = options.stripeMaxRowCount;
@@ -253,6 +271,12 @@ public class OrcWriterOptions
             this.maxCompressionBufferSize = options.maxCompressionBufferSize;
             this.bloomFilterColumns = ImmutableSet.copyOf(options.bloomFilterColumns);
             this.bloomFilterFpp = options.bloomFilterFpp;
+        }
+
+        public Builder setUseLegacyVersion(boolean useLegacyVersion)
+        {
+            this.useLegacyVersion = useLegacyVersion;
+            return this;
         }
 
         public Builder setStripeMinSize(DataSize stripeMinSize)
@@ -312,6 +336,7 @@ public class OrcWriterOptions
         public OrcWriterOptions build()
         {
             return new OrcWriterOptions(
+                    useLegacyVersion,
                     stripeMinSize,
                     stripeMaxSize,
                     stripeMaxRowCount,

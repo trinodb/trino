@@ -31,7 +31,6 @@ public class OrcWriterConfig
     private OrcWriterOptions options = new OrcWriterOptions();
 
     private double defaultBloomFilterFpp = 0.05;
-    private boolean useLegacyVersion;
     private double validationPercentage;
     private OrcWriteValidationMode validationMode = OrcWriteValidationMode.BOTH;
 
@@ -139,14 +138,14 @@ public class OrcWriterConfig
 
     public boolean isUseLegacyVersion()
     {
-        return useLegacyVersion;
+        return options.isUseLegacyVersion();
     }
 
     @Config("hive.orc.writer.use-legacy-version-number")
     @ConfigDescription("Write ORC files with a version number that is readable by Hive 2.0.0 to 2.2.0")
     public OrcWriterConfig setUseLegacyVersion(boolean useLegacyVersion)
     {
-        this.useLegacyVersion = useLegacyVersion;
+        this.options = options.withUseLegacyVersion(useLegacyVersion);
         return this;
     }
 
