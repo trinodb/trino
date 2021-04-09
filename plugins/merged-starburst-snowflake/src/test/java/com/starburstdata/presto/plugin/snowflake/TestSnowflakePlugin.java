@@ -94,7 +94,7 @@ public class TestSnowflakePlugin
                     .describedAs("create failure for " + impersonationType)
                     .isInstanceOf(RuntimeException.class)
                     // We expect 'snowflake' not 'jdbc-impersonation' -- the test exists just in case we base our Snowflake connector on open source in the future
-                    .hasStackTraceContaining("com.starburstdata.presto.license.PrestoLicenseException: Valid license required to use the feature: snowflake");
+                    .hasStackTraceContaining("PrestoLicenseException: Valid license required to use the feature: snowflake");
         }
     }
 }
