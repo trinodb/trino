@@ -98,7 +98,7 @@ public class TestOrcPredicates
         file.delete();
         try {
             // Write data
-            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), false, STATS, new OrcWriterOptions());
+            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), STATS, new OrcWriterOptions());
             FileSplit split = createTestFileTrino(file.getAbsolutePath(), ORC, HiveCompressionCodec.NONE, columnsToWrite, session, NUM_ROWS, writerFactory);
 
             TupleDomain<TestColumn> testingPredicate;

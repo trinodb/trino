@@ -135,7 +135,6 @@ public final class OrcWriter
             ColumnMetadata<OrcType> orcTypes,
             CompressionKind compression,
             OrcWriterOptions options,
-            boolean writeLegacyVersion,
             Map<String, String> userMetadata,
             boolean validate,
             OrcWriteValidationMode validationMode,
@@ -162,7 +161,7 @@ public final class OrcWriter
 
         this.userMetadata.putAll(requireNonNull(userMetadata, "userMetadata is null"));
         this.userMetadata.put(PRESTO_ORC_WRITER_VERSION_METADATA_KEY, PRESTO_ORC_WRITER_VERSION);
-        this.metadataWriter = new CompressedMetadataWriter(new OrcMetadataWriter(writeLegacyVersion), compression, maxCompressionBufferSize);
+        this.metadataWriter = new CompressedMetadataWriter(new OrcMetadataWriter(options.isUseLegacyVersion()), compression, maxCompressionBufferSize);
         this.stats = requireNonNull(stats, "stats is null");
 
         requireNonNull(columnNames, "columnNames is null");

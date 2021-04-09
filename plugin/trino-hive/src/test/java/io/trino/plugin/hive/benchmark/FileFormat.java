@@ -603,7 +603,6 @@ public enum FileFormat
                     OrcType.createRootOrcType(columnNames, types),
                     compressionCodec.getOrcCompressionKind(),
                     new OrcWriterOptions(),
-                    false,
                     ImmutableMap.of(),
                     false,
                     BOTH,
