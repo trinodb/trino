@@ -115,7 +115,7 @@ public class IcebergHiveMetadata
             throw new UnknownTableTypeException(schemaTableName);
         }
 
-        HdfsContext hdfsContext = new HdfsContext(session, schemaTableName.getSchemaName(), schemaTableName.getTableName());
+        HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
         TableOperations operations = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
         return new BaseTable(operations, quotedTableName(schemaTableName));
@@ -174,7 +174,7 @@ public class IcebergHiveMetadata
     {
         Optional<String> location = getSchemaLocation(properties).map(uri -> {
             try {
-                hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(uri));
+                hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(uri));
             }
             catch (IOException | IllegalArgumentException e) {
                 throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + uri, e);
@@ -245,7 +245,7 @@ public class IcebergHiveMetadata
         Database database = metastore.getDatabase(schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
-        HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
+        HdfsContext hdfsContext = new HdfsContext(session);
         HiveIdentity identity = new HiveIdentity(session);
 
         if (targetPath == null) {
@@ -391,13 +391,13 @@ public class IcebergHiveMetadata
 
         String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");
         return Optional.of(new ConnectorMaterializedViewDefinition(
-            definition.getOriginalSql(),
-            storageTable,
-            definition.getCatalog(),
-            Optional.of(viewName.getSchemaName()),
-            definition.getColumns(),
-            definition.getComment(),
-            Optional.of(materializedView.getOwner()),
-            new HashMap<>(materializedView.getParameters())));
+                definition.getOriginalSql(),
+                storageTable,
+                definition.getCatalog(),
+                Optional.of(viewName.getSchemaName()),
+                definition.getColumns(),
+                definition.getComment(),
+                Optional.of(materializedView.getOwner()),
+                new HashMap<>(materializedView.getParameters())));
     }
 }
