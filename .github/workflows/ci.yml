@@ -43,7 +43,7 @@ jobs:
       - name: Test Server RPM
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
-          $RETRY ./mvnw verify -B -P ci -pl :trino-server-rpm
+          $RETRY bash -c './mvnw verify -B -P ci -pl :trino-server-rpm || find core/trino-server-rpm/ -exec ls -ald {} +'
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!:trino-server,!:trino-cli'
       - name: Test Docker Image
