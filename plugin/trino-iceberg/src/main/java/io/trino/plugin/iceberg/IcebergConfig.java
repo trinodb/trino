@@ -29,9 +29,9 @@ public class IcebergConfig
 {
     private IcebergFileFormat fileFormat = ORC;
     private HiveCompressionCodec compressionCodec = GZIP;
+    private IcebergCatalogType type = HIVE;
     private boolean useFileSizeFromMetadata = true;
     private int maxPartitionsPerWriter = 100;
-    private IcebergCatalogType type = HIVE;
 
     @NotNull
     public FileFormat getFileFormat()
@@ -56,6 +56,19 @@ public class IcebergConfig
     public IcebergConfig setCompressionCodec(HiveCompressionCodec compressionCodec)
     {
         this.compressionCodec = compressionCodec;
+        return this;
+    }
+
+    @NotNull
+    public IcebergCatalogType getCatalogType()
+    {
+        return type;
+    }
+
+    @Config("iceberg.catalog-type")
+    public IcebergConfig setCatalogType(IcebergCatalogType type)
+    {
+        this.type = type;
         return this;
     }
 
@@ -91,16 +104,6 @@ public class IcebergConfig
     public IcebergConfig setMaxPartitionsPerWriter(int maxPartitionsPerWriter)
     {
         this.maxPartitionsPerWriter = maxPartitionsPerWriter;
-    @NotNull
-    public IcebergCatalogType getCatalogType()
-    {
-        return type;
-    }
-
-    @Config("iceberg.catalog-type")
-    public IcebergConfig setCatalogType(IcebergCatalogType type)
-    {
-        this.type = type;
         return this;
     }
 }

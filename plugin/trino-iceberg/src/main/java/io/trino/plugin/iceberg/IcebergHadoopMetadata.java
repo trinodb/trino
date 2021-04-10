@@ -84,7 +84,7 @@ public class IcebergHadoopMetadata
 
     private HadoopCatalog getHadoopCatalog(ConnectorSession session)
     {
-        HdfsContext hdfsContext = new HdfsContext(session, "not used");
+        HdfsContext hdfsContext = new HdfsContext(session);
         Path path = new Path("/");
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         String warehouse = configuration.get("hive.metastore.warehouse.dir");
@@ -102,7 +102,7 @@ public class IcebergHadoopMetadata
      */
     private HadoopCatalog getHadoopCatalog(ConnectorSession session, String location)
     {
-        HdfsContext hdfsContext = new HdfsContext(session, "not used");
+        HdfsContext hdfsContext = new HdfsContext(session);
         Path path = new Path(location);
         Configuration configuration = hdfsEnvironment.getConfiguration(hdfsContext, path);
         return new HadoopCatalog(configuration, location);
@@ -185,7 +185,7 @@ public class IcebergHadoopMetadata
     {
         Optional<String> location = getSchemaLocation(properties).map(uri -> {
             try {
-                hdfsEnvironment.getFileSystem(new HdfsContext(session, schemaName), new Path(uri));
+                hdfsEnvironment.getFileSystem(new HdfsContext(session), new Path(uri));
             }
             catch (IOException | IllegalArgumentException e) {
                 throw new TrinoException(INVALID_SCHEMA_PROPERTY, "Invalid location URI: " + uri, e);
@@ -248,7 +248,7 @@ public class IcebergHadoopMetadata
             throw new TableAlreadyExistsException(schemaTableName);
         }
 
-        HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);
+        HdfsContext hdfsContext = new HdfsContext(session);
         HadoopCatalog catalog;
         if (targetPath == null) {
             catalog = getHadoopCatalog(session);
