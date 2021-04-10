@@ -33,8 +33,8 @@ steps:
     TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
     echo "##vso[task.setvariable variable=TRINO_VERSION]$TRINO_VERSION"
 
-    docker tag trino:$(TRINO_VERSION) $(imageRepository):$(BRANCH_NAME)_v$(TRINO_VERSION)
-    docker tag trino:$(TRINO_VERSION) $(imageRepository):$(BRANCH_NAME)_v$(TRINO_VERSION)_$(buildTimestamp)_b$(Build.BuildId)
+    docker tag trino:${TRINO_VERSION} $(imageRepository):$(BRANCH_NAME)_v${TRINO_VERSION}
+    docker tag trino:${TRINO_VERSION} $(imageRepository):$(BRANCH_NAME)_v${TRINO_VERSION}_$(buildTimestamp)_b$(Build.BuildId)
   displayName: Docker build
 - task: Docker@2
   displayName: Login to $(containerRegistry)
