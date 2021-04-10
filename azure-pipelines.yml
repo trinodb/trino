@@ -21,16 +21,16 @@ steps:
 - bash: $(Build.SourcesDirectory)/mvnw clean install -DskipTests
   displayName: Maven build
 - bash: |
+    set -euxo pipefail
+    TRINO_VERSION=$($(Build.SourcesDirectory)/mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+    echo "##vso[task.setvariable variable=TRINO_VERSION]$TRINO_VERSION"
+    
     cd $(Build.SourcesDirectory)/core/docker
     ./build-local.sh
     if [ $? -ne 0 ]; then
       echo "Docker build failed"
       exit 1
     fi
-    
-    set -euxo pipefail
-    TRINO_VERSION=$($(Build.SourcesDirectory)/mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
-    echo "##vso[task.setvariable variable=TRINO_VERSION]$TRINO_VERSION"
 
     docker tag trino:$(TRINO_VERSION) $(imageRepository):$(BRANCH_NAME)_v$(TRINO_VERSION)
     docker tag trino:$(TRINO_VERSION) $(imageRepository):$(BRANCH_NAME)_v$(TRINO_VERSION)_$(buildTimestamp)_b$(Build.BuildId)
