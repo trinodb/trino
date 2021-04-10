@@ -520,6 +520,52 @@ public class TestCassandraIntegrationSmokeTest
     }
 
     @Test
+    public void testNullAndEmptyTimestamp()
+    {
+        String tableName = "test_empty_timestamp";
+
+        session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, tableName));
+        session.execute(format("CREATE TABLE %s.%s (id int PRIMARY KEY, timestamp_column_with_null timestamp, timestamp_column_with_empty timestamp)", KEYSPACE, tableName));
+        session.execute(format("INSERT INTO %s.%s (id, timestamp_column_with_null, timestamp_column_with_empty) VALUES (1, NULL, '')", KEYSPACE, tableName));
+        assertContainsEventually(() -> execute(format("SHOW TABLES FROM cassandra.%s LIKE '%s'", KEYSPACE, tableName)), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
+
+        assertThat(query(format("SELECT timestamp_column_with_null FROM %s.%s", KEYSPACE, tableName)))
+                .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
+        assertThat(query(format("SELECT timestamp_column_with_empty FROM %s.%s", KEYSPACE, tableName)))
+                .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
+
+        assertThat(query(format("SELECT id FROM %s.%s WHERE timestamp_column_with_null IS NULL", KEYSPACE, tableName)))
+                .matches("VALUES 1");
+        assertThat(query(format("SELECT id FROM %s.%s WHERE timestamp_column_with_empty IS NULL", KEYSPACE, tableName)))
+                .matches("VALUES 1");
+
+        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+    }
+
+    @Test
+    public void testEmptyTimestampClusteringKey()
+    {
+        String tableName = "test_empty_timestamp_clustering_key";
+
+        session.execute(format("DROP TABLE IF EXISTS %s.%s", KEYSPACE, tableName));
+        session.execute(format("CREATE TABLE %s.%s (id int, timestamp_column_with_empty timestamp, PRIMARY KEY (id, timestamp_column_with_empty))", KEYSPACE, tableName));
+        session.execute(format("INSERT INTO %s.%s (id, timestamp_column_with_empty) VALUES (1, '')", KEYSPACE, tableName));
+        assertContainsEventually(() -> execute(format("SHOW TABLES FROM cassandra.%s LIKE '%s'", KEYSPACE, tableName)), resultBuilder(getSession(), createUnboundedVarcharType())
+                .row(tableName)
+                .build(), new Duration(1, MINUTES));
+
+        assertThat(query(format("SELECT timestamp_column_with_empty FROM %s.%s", KEYSPACE, tableName)))
+                .matches("VALUES CAST(NULL AS timestamp(3) with time zone)");
+
+        assertThat(query(format("SELECT id FROM %s.%s WHERE timestamp_column_with_empty IS NULL", KEYSPACE, tableName)))
+                .matches("VALUES 1");
+
+        session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+    }
+
+    @Test
     public void testNestedCollectionType()
     {
         session.execute("CREATE KEYSPACE keyspace_test_nested_collection WITH REPLICATION = {'class':'SimpleStrategy', 'replication_factor': 1}");
