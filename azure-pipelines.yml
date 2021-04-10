@@ -29,6 +29,7 @@ steps:
       echo "Docker build failed"
       exit 1
     fi
+    set -euxo pipefail
     docker tag trino:$(TRINO_VERSION) $(imageRepository):$(BRANCH_NAME)_v$(TRINO_VERSION)
     docker tag trino:$(TRINO_VERSION) $(imageRepository):$(BRANCH_NAME)_v$(TRINO_VERSION)_$(buildTimestamp)_b$(Build.BuildId)
   displayName: Docker build
