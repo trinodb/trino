@@ -28,25 +28,25 @@ steps:
       exit 1
     fi
 
-    set -euxo pipefail
     cd $(Build.SourcesDirectory)
     TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
     echo "##vso[task.setvariable variable=TRINO_VERSION]$TRINO_VERSION"
 
-    docker tag trino:${TRINO_VERSION} $(imageRepository):$(BRANCH_NAME)_v${TRINO_VERSION}
-    docker tag trino:${TRINO_VERSION} $(imageRepository):$(BRANCH_NAME)_v${TRINO_VERSION}_$(buildTimestamp)_b$(Build.BuildId)
+    mkdir -p /tmp/trino_build
+    echo "FROM trino:{TRINO_VERSION}" > /tmp/trino_build/Dockerfile
   displayName: Docker build
 - task: Docker@2
   displayName: Login to $(containerRegistry)
   inputs:
-    containerRegistry: $(containerRegistry)
     command: login
-- task: Docker@2
-  displayName: Push image to container registry
-  inputs:
     containerRegistry: $(containerRegistry)
-    command: push
+- task: Docker@2
+  displayName: Finalize, tag and push image to container registry
+  inputs:
+    command: buildAndPush
+    containerRegistry: $(containerRegistry)
     repository: $(imageRepository)
+    Dockerfile: /tmp/trino_build/Dockerfile
     tags: |
       $(BRANCH_NAME)_v$(TRINO_VERSION)
       $(BRANCH_NAME)_v$(TRINO_VERSION)_$(buildTimestamp)_b$(Build.BuildId)
@@ -55,3 +55,4 @@ steps:
   inputs:
     command: logout
     containerRegistry: $(containerRegistry)
+  condition: always()
