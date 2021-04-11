@@ -37,7 +37,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -169,7 +168,7 @@ public abstract class BaseMySqlConnectorTest
     public void testShowCreateTable()
     {
         assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
-                .isEqualTo("CREATE TABLE mysql.tpch.orders (\n" +
+                .isEqualTo("CREATE TABLE " + getSession().getCatalog().orElseThrow() + ".tpch.orders (\n" +
                         "   orderkey bigint,\n" +
                         "   custkey bigint,\n" +
                         "   orderstatus varchar(255),\n" +
@@ -213,43 +212,38 @@ public abstract class BaseMySqlConnectorTest
     @Test
     public void testNameEscaping()
     {
-        Session session = testSessionBuilder()
-                .setCatalog("mysql")
-                .setSchema(getSession().getSchema().get())
-                .build();
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_table"));
 
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
+        assertUpdate("CREATE TABLE test_table AS SELECT 123 x", 1);
+        assertTrue(getQueryRunner().tableExists(getSession(), "test_table"));
 
-        assertUpdate(session, "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(session, "test_table"));
+        assertQuery("SELECT * FROM test_table", "SELECT 123");
 
-        assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
-
-        assertUpdate(session, "DROP TABLE test_table");
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
+        assertUpdate("DROP TABLE test_table");
+        assertFalse(getQueryRunner().tableExists(getSession(), "test_table"));
     }
 
     @Test
-    public void testMySqlTinyint()
+    public void testTinyint()
     {
-        onRemoteDatabase().execute("CREATE TABLE tpch.mysql_test_tinyint1 (c_tinyint tinyint(1))");
+        onRemoteDatabase().execute("CREATE TABLE tpch.test_tinyint1 (c_tinyint tinyint(1))");
 
-        MaterializedResult actual = computeActual("SHOW COLUMNS FROM mysql_test_tinyint1");
+        MaterializedResult actual = computeActual("SHOW COLUMNS FROM test_tinyint1");
         MaterializedResult expected = MaterializedResult.resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("c_tinyint", "tinyint", "", "")
                 .build();
 
         assertEquals(actual, expected);
 
-        onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
-        MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
+        onRemoteDatabase().execute("INSERT INTO tpch.test_tinyint1 VALUES (127), (-128)");
+        MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.test_tinyint1 WHERE c_tinyint = 127");
         assertEquals(materializedRows.getRowCount(), 1);
         MaterializedRow row = getOnlyElement(materializedRows);
 
         assertEquals(row.getFields().size(), 1);
         assertEquals(row.getField(0), (byte) 127);
 
-        assertUpdate("DROP TABLE mysql_test_tinyint1");
+        assertUpdate("DROP TABLE test_tinyint1");
     }
 
     @Test
