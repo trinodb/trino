@@ -128,6 +128,7 @@ public abstract class BaseDruidConnectorTest
             case SUPPORTS_RENAME_TABLE:
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_TOPN_PUSHDOWN:
                 return false;
             default:
                 return super.hasBehavior(connectorBehavior);
