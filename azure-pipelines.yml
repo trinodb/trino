@@ -33,7 +33,7 @@ steps:
     echo "##vso[task.setvariable variable=TRINO_VERSION]$TRINO_VERSION"
 
     mkdir -p /tmp/trino_build
-    echo "FROM trino:{TRINO_VERSION}" > /tmp/trino_build/Dockerfile
+    echo "FROM trino:${TRINO_VERSION}" > /tmp/trino_build/Dockerfile
   displayName: Docker build
 - task: Docker@2
   displayName: Login to $(containerRegistry)
@@ -41,7 +41,7 @@ steps:
     command: login
     containerRegistry: $(containerRegistry)
 - task: Docker@2
-  displayName: Finalize, tag and push image to container registry
+  displayName: Finalize, tag and push image to $(containerRegistry)
   inputs:
     command: buildAndPush
     containerRegistry: $(containerRegistry)
