@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import com.linkedin.coral.hive.hive2rel.HiveMetastoreClient;
 import com.linkedin.coral.hive.hive2rel.HiveToRelConverter;
-import com.linkedin.coral.presto.rel2presto.RelToPrestoConverter;
+import com.linkedin.coral.trino.rel2trino.RelToTrinoConverter;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
@@ -163,15 +163,16 @@ public final class ViewReaderUtil
             try {
                 HiveToRelConverter hiveToRelConverter = HiveToRelConverter.create(metastoreClient);
                 RelNode rel = hiveToRelConverter.convertView(table.getDatabaseName(), table.getTableName());
-                RelToPrestoConverter rel2Presto = new RelToPrestoConverter();
-                String prestoSql = rel2Presto.convert(rel);
+                RelToTrinoConverter relToTrino = new RelToTrinoConverter();
+                String trinoSql = relToTrino.convert(rel);
                 RelDataType rowType = rel.getRowType();
                 List<ViewColumn> columns = rowType.getFieldList().stream()
                         .map(field -> new ViewColumn(
                                 field.getName(),
                                 typeManager.fromSqlType(getTypeString(field.getType())).getTypeId()))
                         .collect(toImmutableList());
-                return new ConnectorViewDefinition(prestoSql,
+                return new ConnectorViewDefinition(
+                        trinoSql,
                         Optional.of(catalogName.toString()),
                         Optional.of(table.getDatabaseName()),
                         columns,
