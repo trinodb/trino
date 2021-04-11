@@ -33,21 +33,19 @@ public final class TestingSqlServer
     private static final DockerImageName DOCKER_IMAGE_NAME = DockerImageName.parse("microsoft/mssql-server-linux:2017-CU13")
             .asCompatibleSubstituteFor("mcr.microsoft.com/mssql/server:2017-CU12");
     private final MSSQLServerContainer<?> container;
-    private final boolean snapshotIsolationEnabled;
     private final String databaseName;
     private Closeable cleanup = () -> {};
 
     public TestingSqlServer()
     {
-        this(true);
-    }
-
-    public TestingSqlServer(boolean snapshotIsolationEnabled)
-    {
         container = new MSSQLServerContainer<>(DOCKER_IMAGE_NAME);
         container.addEnv("ACCEPT_EULA", "yes");
-        this.snapshotIsolationEnabled = snapshotIsolationEnabled;
         this.databaseName = "database_" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    public String getDatabaseName()
+    {
+        return databaseName;
     }
 
     public void execute(String sql)
@@ -92,10 +90,9 @@ public final class TestingSqlServer
     {
         execute("CREATE DATABASE " + databaseName);
 
-        if (snapshotIsolationEnabled) {
-            execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
-            execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
-        }
+        // Enable snapshot isolation by default to reduce flakiness on CI
+        execute(format("ALTER DATABASE %s SET ALLOW_SNAPSHOT_ISOLATION ON", databaseName));
+        execute(format("ALTER DATABASE %s SET READ_COMMITTED_SNAPSHOT ON", databaseName));
 
         container.withUrlParam("database", this.databaseName);
     }

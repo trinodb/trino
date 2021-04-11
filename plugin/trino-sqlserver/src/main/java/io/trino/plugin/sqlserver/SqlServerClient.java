@@ -558,7 +558,7 @@ public class SqlServerClient
         try {
             return snapshotIsolationEnabled.get(SnapshotIsolationEnabledCacheKey.INSTANCE, () -> {
                 Handle handle = Jdbi.open(connection);
-                return handle.createQuery("SELECT is_read_committed_snapshot_on FROM sys.databases WHERE name = :name")
+                return handle.createQuery("SELECT snapshot_isolation_state FROM sys.databases WHERE name = :name")
                         .bind("name", connection.getCatalog())
                         .mapTo(Boolean.class)
                         .findOne()
