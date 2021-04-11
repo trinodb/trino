@@ -187,7 +187,7 @@
 
         <dependency>
             <groupId>com.linkedin.coral</groupId>
-            <artifactId>coral-presto</artifactId>
+            <artifactId>coral-trino</artifactId>
         </dependency>
 
         <dependency>

@@ -61,7 +61,7 @@
         <dep.errorprone.version>2.5.1</dep.errorprone.version>
         <dep.testcontainers.version>1.15.1</dep.testcontainers.version>
         <dep.docker-java.version>3.2.7</dep.docker-java.version>
-        <dep.coral.version>1.0.37</dep.coral.version>
+        <dep.coral.version>1.0.42</dep.coral.version>
         <dep.confluent.version>5.5.2</dep.confluent.version>
 
         <!--
@@ -1065,7 +1065,7 @@
 
             <dependency>
                 <groupId>com.linkedin.coral</groupId>
-                <artifactId>coral-presto</artifactId>
+                <artifactId>coral-trino</artifactId>
                 <version>${dep.coral.version}</version>
             </dependency>
 
