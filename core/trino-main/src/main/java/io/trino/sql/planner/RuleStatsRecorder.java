@@ -58,7 +58,7 @@ public class RuleStatsRecorder
         stats.get(rule.getClass()).recordFailure();
     }
 
-    synchronized void export(MBeanExporter exporter)
+    public synchronized void export(MBeanExporter exporter)
     {
         checkState(mbeanExports.isEmpty(), "MBeans already exported");
         for (Map.Entry<Class<?>, RuleStats> entry : stats.entrySet()) {
@@ -75,7 +75,7 @@ public class RuleStatsRecorder
         }
     }
 
-    synchronized void unexport(MBeanExporter exporter)
+    public synchronized void unexport(MBeanExporter exporter)
     {
         for (MBeanExport mbeanExport : mbeanExports) {
             mbeanExport.unexport();

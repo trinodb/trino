@@ -61,7 +61,7 @@ public class OptimizerStatsRecorder
         optimizerStats.recordFailure();
     }
 
-    synchronized void export(MBeanExporter exporter)
+    public synchronized void export(MBeanExporter exporter)
     {
         checkState(mbeanExports.isEmpty(), "MBeans already exported");
         for (Map.Entry<Class<?>, OptimizerStats> entry : stats.entrySet()) {
@@ -78,7 +78,7 @@ public class OptimizerStatsRecorder
         }
     }
 
-    synchronized void unexport(MBeanExporter exporter)
+    public synchronized void unexport(MBeanExporter exporter)
     {
         for (MBeanExport mbeanExport : mbeanExports) {
             mbeanExport.unexport();
