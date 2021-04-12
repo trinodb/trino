@@ -130,6 +130,7 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.Duration.ofMinutes;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 public class SqlServerClient
@@ -140,6 +141,7 @@ public class SqlServerClient
 
     private static final Joiner DOT_JOINER = Joiner.on(".");
 
+    private final boolean snapshotIsolationDisabled;
     private final Cache<SnapshotIsolationEnabledCacheKey, Boolean> snapshotIsolationEnabled = CacheBuilder.newBuilder()
             .maximumSize(1)
             .expireAfterWrite(ofMinutes(5))
@@ -150,9 +152,12 @@ public class SqlServerClient
     private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 7;
 
     @Inject
-    public SqlServerClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
+    public SqlServerClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, ConnectionFactory connectionFactory)
     {
         super(config, "\"", connectionFactory);
+
+        requireNonNull(sqlServerConfig, "sqlServerConfig is null");
+        snapshotIsolationDisabled = sqlServerConfig.isSnapshotIsolationDisabled();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
@@ -538,6 +543,9 @@ public class SqlServerClient
     private Connection configureConnectionTransactionIsolation(Connection connection)
             throws SQLException
     {
+        if (snapshotIsolationDisabled) {
+            return connection;
+        }
         try {
             if (hasSnapshotIsolationEnabled(connection)) {
                 // SQL Server's READ COMMITTED + SNAPSHOT ISOLATION is equivalent to ordinary READ COMMITTED in e.g. Oracle, PostgreSQL.
