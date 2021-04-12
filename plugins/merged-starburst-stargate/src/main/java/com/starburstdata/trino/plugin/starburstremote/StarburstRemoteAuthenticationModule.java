@@ -12,7 +12,7 @@ package com.starburstdata.trino.plugin.starburstremote;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
-import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
+import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocal;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
@@ -48,7 +48,7 @@ public class StarburstRemoteAuthenticationModule
         install(installModuleIf(
                 StarburstRemoteConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH,
-                new PasswordPassthroughModule()));
+                new StarburstRemotePasswordPassThroughModule()));
 
         install(installModuleIf(
                 StarburstRemoteConfig.class,
@@ -71,18 +71,19 @@ public class StarburstRemoteAuthenticationModule
                 new KerberosWithImpersonationModule()));
     }
 
-    private static class PasswordPassthroughModule
+    private static class StarburstRemotePasswordPassThroughModule
             extends AbstractConfigurationAwareModule
     {
         @Override
         protected void setup(Binder binder)
         {
+            install(new PasswordPassThroughModule());
         }
 
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, StarburstRemoteConfig starburstRemoteConfig, StarburstRemoteSslConfig sslConfig)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, StarburstRemoteConfig starburstRemoteConfig, StarburstRemoteSslConfig sslConfig, CredentialProvider credentialProvider)
         {
             checkState(
                     !starburstRemoteConfig.isImpersonationEnabled(),
@@ -92,7 +93,7 @@ public class StarburstRemoteAuthenticationModule
             Properties properties = new Properties();
             setSslProperties(properties, sslConfig);
 
-            return new DriverConnectionFactory(new TrinoDriver(), config.getConnectionUrl(), properties, new PassThroughCredentialProvider());
+            return new DriverConnectionFactory(new TrinoDriver(), config.getConnectionUrl(), properties, credentialProvider);
         }
     }
 
