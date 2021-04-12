@@ -103,7 +103,7 @@ public class TestPushTopNIntoTableScan
     }
 
     @Test
-    public void testPushTopNIntoTableScan()
+    public void testPushSingleTopNIntoTableScan()
     {
         try (RuleTester ruleTester = defaultRuleTester()) {
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
@@ -135,7 +135,7 @@ public class TestPushTopNIntoTableScan
     }
 
     @Test
-    public void testPushTopNIntoTableScanPartial()
+    public void testPushSingleTopNIntoTableScanNotGuaranteed()
     {
         try (RuleTester ruleTester = defaultRuleTester()) {
             MockConnectorTableHandle connectorHandle = new MockConnectorTableHandle(TEST_SCHEMA_TABLE);
