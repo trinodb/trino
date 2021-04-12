@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>135</version>
+        <version>136</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -2205,6 +2205,13 @@
                                 <groupId>org.apache.maven.surefire</groupId>
                                 <artifactId>surefire-testng</artifactId>
                                 <version>2.22.2</version> <!-- legacy version which Surefire seems to need for some reason -->
+                                <type>jar</type>
+                                <repositoryType>MAIN</repositoryType>
+                            </DynamicDependency>
+                            <DynamicDependency>
+                                <groupId>org.junit.platform</groupId>
+                                <artifactId>junit-platform-launcher</artifactId>
+                                <version>1.9.2</version> <!-- legacy version which Surefire seems to need for some reason -->
                                 <type>jar</type>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
