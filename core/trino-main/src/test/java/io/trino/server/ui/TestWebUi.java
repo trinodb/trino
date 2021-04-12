@@ -31,6 +31,7 @@ import io.trino.server.security.oauth2.OAuth2Client;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.BasicPrincipal;
+import io.trino.spi.security.Identity;
 import okhttp3.FormBody;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
@@ -43,6 +44,8 @@ import org.testng.annotations.Test;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.container.ContainerRequestFilter;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,6 +62,7 @@ import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.net.HttpHeaders.AUTHORIZATION;
 import static com.google.common.net.HttpHeaders.LOCATION;
@@ -67,7 +71,9 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.trino.client.OkHttpUtil.setupSsl;
+import static io.trino.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.trino.server.security.oauth2.OAuth2Service.NONCE;
 import static io.trino.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
@@ -78,6 +84,7 @@ import static io.trino.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.function.Predicate.not;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
@@ -591,6 +598,41 @@ public class TestWebUi
         }
     }
 
+    @Test
+    public void testCustomPrincipalField()
+            throws Exception
+    {
+        String accessToken = createTokenBuilder()
+                .setSubject("unknown")
+                .addClaims(ImmutableMap.of("preferred_username", "test-user@email.com"))
+                .compact();
+        TestingHttpServer jwkServer = createTestingJwkServer();
+        jwkServer.start();
+        try (TestingTrinoServer server = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(OAUTH2_PROPERTIES)
+                        .put("http-server.authentication.oauth2.jwks-url", jwkServer.getBaseUrl().toString())
+                        .put("http-server.authentication.oauth2.principal-field", "preferred_username")
+                        .put("http-server.authentication.oauth2.user-mapping.pattern", "(.*)@.*")
+                        .build())
+                .setAdditionalModule(binder -> {
+                    newOptionalBinder(binder, OAuth2Client.class)
+                            .setBinding()
+                            .toInstance(new OAuth2ClientStub(accessToken));
+                    jaxrsBinder(binder).bind(AuthenticatedIdentityCapturingFilter.class);
+                })
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+            assertAuth2Authentication(httpServerInfo, accessToken);
+            Identity identity = server.getInstance(Key.get(AuthenticatedIdentityCapturingFilter.class)).getAuthenticatedIdentity();
+            assertThat(identity.getUser()).isEqualTo("test-user");
+            assertThat(identity.getPrincipal()).isEqualTo(Optional.of(new BasicPrincipal("test-user@email.com")));
+        }
+        finally {
+            jwkServer.stop();
+        }
+    }
+
     private void assertAuth2Authentication(HttpServerInfo httpServerInfo, String accessToken)
             throws Exception
     {
@@ -976,6 +1018,30 @@ public class TestWebUi
                 throw new IllegalArgumentException("Expected TEST_CODE");
             }
             return new AccessToken(accessToken, Optional.empty(), idTokenBuilder.map(JwtBuilder::compact));
+        }
+    }
+
+    private static class AuthenticatedIdentityCapturingFilter
+            implements ContainerRequestFilter
+    {
+        private Identity authenticatedIdentity;
+
+        @Override
+        public synchronized void filter(ContainerRequestContext request)
+                throws IOException
+        {
+            Optional<Identity> identity = Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY));
+            if (identity.map(Identity::getUser).filter(not("<internal>"::equals)).isPresent()) {
+                if (authenticatedIdentity == null) {
+                    authenticatedIdentity = identity.get();
+                }
+                checkState(authenticatedIdentity.equals(identity.get()), "Detected more than one user identity");
+            }
+        }
+
+        public Identity getAuthenticatedIdentity()
+        {
+            return authenticatedIdentity;
         }
     }
 }
