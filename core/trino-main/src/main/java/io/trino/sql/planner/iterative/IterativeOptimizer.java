@@ -57,6 +57,7 @@ public class IterativeOptimizer
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final List<PlanOptimizer> legacyRules;
+    private final Set<Rule<?>> rules;
     private final RuleIndex ruleIndex;
     private final Predicate<Session> useLegacyRules;
 
@@ -71,6 +72,7 @@ public class IterativeOptimizer
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.useLegacyRules = requireNonNull(useLegacyRules, "useLegacyRules is null");
+        this.rules = requireNonNull(newRules, "rules is null");
         this.legacyRules = ImmutableList.copyOf(legacyRules);
         this.ruleIndex = RuleIndex.builder()
                 .register(newRules)
@@ -99,6 +101,12 @@ public class IterativeOptimizer
         exploreGroup(memo.getRootGroup(), context);
 
         return memo.extract();
+    }
+
+    // Used for diagnostics.
+    public Set<Rule<?>> getRules()
+    {
+        return rules;
     }
 
     private boolean exploreGroup(int group, Context context)
