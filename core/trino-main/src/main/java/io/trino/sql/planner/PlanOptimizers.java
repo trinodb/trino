@@ -734,7 +734,8 @@ public class PlanOptimizers
                         new CreatePartialTopN(),
                         new PushTopNThroughProject(),
                         new PushTopNThroughOuterJoin(),
-                        new PushTopNThroughUnion())));
+                        new PushTopNThroughUnion(),
+                        new PushTopNIntoTableScan(metadata))));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,
