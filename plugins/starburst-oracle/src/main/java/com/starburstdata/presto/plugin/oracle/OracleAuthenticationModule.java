@@ -20,7 +20,7 @@ import com.starburstdata.presto.kerberos.KerberosManager;
 import com.starburstdata.presto.license.LicenseManager;
 import com.starburstdata.presto.plugin.jdbc.auth.ForAuthentication;
 import com.starburstdata.presto.plugin.jdbc.auth.NoImpersonationModule;
-import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
+import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import com.starburstdata.presto.plugin.jdbc.authtolocal.AuthToLocalModule;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConfig;
 import com.starburstdata.presto.plugin.jdbc.kerberos.KerberosConnectionFactory;
@@ -87,7 +87,7 @@ public class OracleAuthenticationModule
         install(installModuleIf(
                 StarburstOracleConfig.class,
                 config -> config.getAuthenticationType() == PASSWORD_PASS_THROUGH && !oracleConfig.isConnectionPoolEnabled(),
-                new PasswordPassThroughModule()));
+                new OraclePasswordPassThroughModule()));
 
         install(installModuleIf(
                 StarburstOracleConfig.class,
@@ -154,22 +154,25 @@ public class OracleAuthenticationModule
         }
     }
 
-    private static class PasswordPassThroughModule
-            implements Module
+    private static class OraclePasswordPassThroughModule
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder) {}
+        protected void setup(Binder binder)
+        {
+            install(new PasswordPassThroughModule());
+        }
 
         @Provides
         @Singleton
         @ForAuthentication
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, CredentialProvider credentialProvider)
         {
             return new DriverConnectionFactory(
                     new OracleDriver(),
                     config.getConnectionUrl(),
                     getProperties(oracleConfig),
-                    new PassThroughCredentialProvider());
+                    credentialProvider);
         }
     }
 
