@@ -910,8 +910,7 @@ public class TestLogicalPlanner
                                                                 "C", "custkey"))),
                                                 project(
                                                         any(
-                                                                any(
-                                                                        tableScan("lineitem", ImmutableMap.of("L", "orderkey"))))))))),
+                                                                tableScan("lineitem", ImmutableMap.of("L", "orderkey")))))))),
                 MorePredicates.<PlanOptimizer>isInstanceOfAny(AddLocalExchanges.class, CheckSubqueryNodesAreRewritten.class).negate());
     }
 
