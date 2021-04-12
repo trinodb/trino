@@ -19,6 +19,7 @@ import io.trino.spi.connector.SortOrder;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
@@ -171,6 +172,18 @@ public abstract class BaseJdbcConnectorTest
                     .ordered()
                     .isFullyPushedDown();
         }
+
+        // TopN over LEFT join (enforces SINGLE TopN cannot be pushed below OUTER side of join)
+        // We expect PARTIAL TopN on the LEFT side of join to be pushed down.
+        assertThat(query("SELECT * " +
+                "FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey " +
+                "ORDER BY n.nationkey LIMIT 3"))
+                .ordered()
+                .isNotFullyPushedDown(
+                        node(TopNNode.class, // FINAL TopN
+                                anyTree(node(JoinNode.class,
+                                        node(ExchangeNode.class, node(ProjectNode.class, node(TableScanNode.class))), // no PARTIAL TopN
+                                        anyTree(node(TableScanNode.class))))));
     }
 
     @Test
