@@ -10,13 +10,12 @@
 package com.starburstdata.presto.plugin.saphana;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.sap.db.jdbc.Driver;
 import com.starburstdata.presto.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.presto.plugin.jdbc.PoolingConnectionFactory;
-import com.starburstdata.presto.plugin.jdbc.auth.PassThroughCredentialProvider;
+import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -43,7 +42,7 @@ public class SapHanaAuthenticationModule
         install(installModuleIf(
                 SapHanaAuthenticationConfig.class,
                 config -> config.getAuthenticationType() == SapHanaAuthenticationType.PASSWORD_PASS_THROUGH,
-                new PasswordPassThroughModule()));
+                new SapHanaPasswordPassThroughModule()));
     }
 
     private class PasswordModule
@@ -65,21 +64,22 @@ public class SapHanaAuthenticationModule
         }
     }
 
-    private class PasswordPassThroughModule
-            implements Module
+    private class SapHanaPasswordPassThroughModule
+            extends AbstractConfigurationAwareModule
     {
         @Override
-        public void configure(Binder binder)
+        protected void setup(Binder binder)
         {
             configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
+            install(new PasswordPassThroughModule());
         }
 
         @Provides
         @Singleton
         @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig)
+        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider)
         {
-            return createBasicConnectionFactory(catalogName, config, poolConfig, new PassThroughCredentialProvider());
+            return createBasicConnectionFactory(catalogName, config, poolConfig, credentialProvider);
         }
     }
 
