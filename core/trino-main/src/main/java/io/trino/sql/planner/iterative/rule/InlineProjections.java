@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.trino.matching.Capture;
@@ -75,6 +76,11 @@ public class InlineProjections
 
     static Optional<ProjectNode> inlineProjections(ProjectNode parent, ProjectNode child)
     {
+        // squash identity projections
+        if (parent.isIdentity() && child.isIdentity()) {
+            return Optional.of((ProjectNode) parent.replaceChildren(ImmutableList.of(child.getSource())));
+        }
+
         Set<Symbol> targets = extractInliningTargets(parent, child);
         if (targets.isEmpty()) {
             return Optional.empty();
