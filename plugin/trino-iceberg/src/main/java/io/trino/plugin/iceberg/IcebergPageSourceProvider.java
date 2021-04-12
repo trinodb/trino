@@ -471,7 +471,7 @@ public class IcebergPageSourceProvider
             List<BlockMetaData> blocks = new ArrayList<>();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                if ((firstDataPage >= start) && (firstDataPage < (start + length)) &&
+                if (start <= firstDataPage && firstDataPage < start + length &&
                         predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain)) {
                     blocks.add(block);
                 }
