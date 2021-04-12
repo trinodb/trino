@@ -72,7 +72,8 @@ public class JdbcModule
         bindSessionPropertiesProvider(binder, TypeHandlingJdbcSessionProperties.class);
         bindSessionPropertiesProvider(binder, JdbcMetadataSessionProperties.class);
 
-        binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
+        binder.bind(CachingJdbcClient.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class).to(Key.get(CachingJdbcClient.class)).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 

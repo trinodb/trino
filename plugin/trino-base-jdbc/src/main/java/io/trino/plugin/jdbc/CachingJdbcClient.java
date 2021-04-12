@@ -497,6 +497,11 @@ public class CachingJdbcClient
         cache.invalidateAll(cacheKeys);
     }
 
+    public void onDataChanged(JdbcTableHandle handle)
+    {
+        invalidateCache(statisticsCache, key -> key.tableHandle.equals(handle));
+    }
+
     private static final class ColumnsCacheKey
     {
         private final JdbcIdentityCacheKey identity;
