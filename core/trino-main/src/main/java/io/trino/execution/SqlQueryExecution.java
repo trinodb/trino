@@ -59,7 +59,7 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.StageExecutionPlan;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -747,7 +747,7 @@ public class SqlQueryExecution
                 SplitManager splitManager,
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
-                PlanOptimizers planOptimizers,
+                PlanOptimizersFactory planOptimizersFactory,
                 PlanFragmenter planFragmenter,
                 RemoteTaskFactory remoteTaskFactory,
                 @ForQueryExecution ExecutorService queryExecutor,
@@ -780,7 +780,7 @@ public class SqlQueryExecution
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.queryExplainer = requireNonNull(queryExplainer, "queryExplainer is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
-            this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null").get();
+            this.planOptimizers = requireNonNull(planOptimizersFactory, "planOptimizersFactory is null").get();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");

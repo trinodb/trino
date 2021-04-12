@@ -29,7 +29,7 @@ import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.PlanOptimizers;
+import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SubPlan;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
@@ -67,7 +67,7 @@ public class QueryExplainer
 
     @Inject
     public QueryExplainer(
-            PlanOptimizers planOptimizers,
+            PlanOptimizersFactory planOptimizersFactory,
             PlanFragmenter planFragmenter,
             Metadata metadata,
             TypeOperators typeOperators,
@@ -79,7 +79,7 @@ public class QueryExplainer
             Map<Class<? extends Statement>, DataDefinitionTask<?>> dataDefinitionTask)
     {
         this(
-                planOptimizers.get(),
+                planOptimizersFactory.get(),
                 planFragmenter,
                 metadata,
                 typeOperators,
