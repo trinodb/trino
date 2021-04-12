@@ -53,6 +53,7 @@ public class OAuth2WebUiAuthenticationFilter
 {
     private static final Logger LOG = Logger.get(OAuth2WebUiAuthenticationFilter.class);
 
+    private final String principalField;
     private final OAuth2Service service;
     private final UserMapping userMapping;
     private final Optional<String> validAudience;
@@ -64,6 +65,7 @@ public class OAuth2WebUiAuthenticationFilter
         requireNonNull(oauth2Config, "oauth2Config is null");
         this.userMapping = UserMapping.createUserMapping(oauth2Config.getUserMappingPattern(), oauth2Config.getUserMappingFile());
         this.validAudience = oauth2Config.getAudience();
+        this.principalField = oauth2Config.getPrincipalField();
     }
 
     @Override
@@ -97,9 +99,15 @@ public class OAuth2WebUiAuthenticationFilter
             return;
         }
         try {
-            String subject = claims.get().getSubject();
-            setAuthenticatedIdentity(request, Identity.forUser(userMapping.mapUser(subject))
-                    .withPrincipal(new BasicPrincipal(subject))
+            Object principal = claims.get().get(principalField);
+            if (!isValidPrincipal(principal)) {
+                LOG.debug("Invalid principal field: %s. Expected principal to be non-empty", principalField);
+                sendErrorMessage(request, UNAUTHORIZED, "Unauthorized");
+                return;
+            }
+            String principalName = (String) principal;
+            setAuthenticatedIdentity(request, Identity.forUser(userMapping.mapUser(principalName))
+                    .withPrincipal(new BasicPrincipal(principalName))
                     .build());
         }
         catch (UserMappingException e) {
@@ -149,5 +157,10 @@ public class OAuth2WebUiAuthenticationFilter
             return ((List<?>) audience).contains(validAudience.get());
         }
         return false;
+    }
+
+    private boolean isValidPrincipal(Object principal)
+    {
+        return principal instanceof String && !((String) principal).isEmpty();
     }
 }
