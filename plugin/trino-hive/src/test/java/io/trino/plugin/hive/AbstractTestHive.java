@@ -3926,7 +3926,7 @@ public abstract class AbstractTestHive
         FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
         if (fileSystem.exists(path)) {
             for (FileStatus fileStatus : fileSystem.listStatus(path)) {
-                if (fileStatus.getPath().getName().startsWith(".presto")) {
+                if (fileStatus.getPath().getName().startsWith(".trino")) {
                     // skip hidden files
                 }
                 else if (fileStatus.isFile()) {
@@ -5021,7 +5021,7 @@ public abstract class AbstractTestHive
         return Arrays.stream(fileSystem.listStatus(path))
                 .map(FileStatus::getPath)
                 .map(Path::getName)
-                .filter(name -> !name.startsWith(".presto"))
+                .filter(name -> !name.startsWith(".trino"))
                 .collect(toList());
     }
 
