@@ -238,6 +238,7 @@ import java.util.Set;
 import static io.trino.SystemSessionProperties.isIterativeRuleBasedColumnPruning;
 
 public class PlanOptimizers
+        implements PlanOptimizersFactory
 {
     private final List<PlanOptimizer> optimizers;
     private final RuleStatsRecorder ruleStats;
@@ -892,6 +893,7 @@ public class PlanOptimizers
         this.optimizers = builder.build();
     }
 
+    @Override
     public List<PlanOptimizer> get()
     {
         return optimizers;
