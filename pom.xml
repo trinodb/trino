@@ -74,6 +74,8 @@
 
         <dep.docker.images.version>77</dep.docker.images.version>
 
+        <dep.plugin.surefire.version>3.0.0</dep.plugin.surefire.version>
+
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
