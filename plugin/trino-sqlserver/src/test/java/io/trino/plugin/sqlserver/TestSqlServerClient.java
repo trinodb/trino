@@ -56,6 +56,7 @@ public class TestSqlServerClient
 
     private static final JdbcClient JDBC_CLIENT = new SqlServerClient(
             new BaseJdbcConfig(),
+            new SqlServerConfig(),
             session -> {
                 throw new UnsupportedOperationException();
             });
