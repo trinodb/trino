@@ -405,32 +405,41 @@ public class ExpressionInterpreter
         @Override
         protected Object visitSearchedCaseExpression(SearchedCaseExpression node, Object context)
         {
-            Object defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
+            Object newDefault = null;
+            boolean foundNewDefault = false;
 
             List<WhenClause> whenClauses = new ArrayList<>();
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
-                Object result = processWithExceptionHandling(whenClause.getResult(), context);
 
                 if (whenOperand instanceof Expression) {
                     // cannot fully evaluate, add updated whenClause
                     whenClauses.add(new WhenClause(
                             toExpression(whenOperand, type(whenClause.getOperand())),
-                            toExpression(result, type(whenClause.getResult()))));
+                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), type(whenClause.getResult()))));
                 }
                 else if (Boolean.TRUE.equals(whenOperand)) {
-                    // condition is true, use this as defaultResult
-                    defaultResult = result;
+                    // condition is true, use this as default
+                    foundNewDefault = true;
+                    newDefault = processWithExceptionHandling(whenClause.getResult(), context);
                     break;
                 }
+            }
+
+            Object defaultResult;
+            if (foundNewDefault) {
+                defaultResult = newDefault;
+            }
+            else {
+                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
             }
 
             if (whenClauses.isEmpty()) {
                 return defaultResult;
             }
 
-            Expression resultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
-            return new SearchedCaseExpression(whenClauses, Optional.ofNullable(resultExpression));
+            Expression defaultExpression = (defaultResult == null) ? null : toExpression(defaultResult, type(node));
+            return new SearchedCaseExpression(whenClauses, Optional.ofNullable(defaultExpression));
         }
 
         @Override
