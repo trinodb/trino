@@ -41,13 +41,16 @@ public class PlainTextKafkaConsumerFactory
     private final SecurityProtocol securityProtocol;
 
     @Inject
-    public PlainTextKafkaConsumerFactory(KafkaConfig kafkaConfig)
+    public PlainTextKafkaConsumerFactory(
+            KafkaConfig kafkaConfig,
+            KafkaSecurityConfig securityConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
+        requireNonNull(securityConfig, "securityConfig is null");
 
         nodes = kafkaConfig.getNodes();
         kafkaBufferSize = kafkaConfig.getKafkaBufferSize();
-        securityProtocol = kafkaConfig.getSecurityProtocol();
+        securityProtocol = securityConfig.getSecurityProtocol();
     }
 
     @Override

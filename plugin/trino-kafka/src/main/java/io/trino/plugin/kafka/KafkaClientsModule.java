@@ -21,6 +21,7 @@ import io.trino.plugin.kafka.security.ForKafkaSsl;
 import io.trino.plugin.kafka.security.SecurityProtocol;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class KafkaClientsModule
         extends AbstractConfigurationAwareModule
@@ -28,6 +29,7 @@ public class KafkaClientsModule
     @Override
     protected void setup(Binder binder)
     {
+        configBinder(binder).bindConfig(KafkaSecurityConfig.class);
         installClientModule(SecurityProtocol.PLAINTEXT, KafkaClientsModule::configurePlainText);
         installClientModule(SecurityProtocol.SSL, KafkaClientsModule::configureSsl);
     }
@@ -35,7 +37,7 @@ public class KafkaClientsModule
     private void installClientModule(SecurityProtocol securityProtocol, Module module)
     {
         install(installModuleIf(
-                KafkaConfig.class,
+                KafkaSecurityConfig.class,
                 config -> config.getSecurityProtocol().equals(securityProtocol),
                 module));
     }
