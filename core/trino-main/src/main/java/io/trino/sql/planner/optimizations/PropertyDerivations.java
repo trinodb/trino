@@ -28,7 +28,6 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
-import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -278,10 +277,7 @@ public final class PropertyDerivations
                 localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
 
-            orderingScheme.ifPresent(scheme ->
-                    scheme.getOrderBy().stream()
-                            .map(column -> new SortingProperty<>(column, scheme.getOrdering(column)))
-                            .forEach(localProperties::add));
+            orderingScheme.ifPresent(ordering -> localProperties.addAll(ordering.toLocalProperties()));
 
             return ActualProperties.builderFrom(properties)
                     .local(LocalProperties.normalizeAndPrune(localProperties.build()))
@@ -334,9 +330,7 @@ public final class PropertyDerivations
 
             ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
             localProperties.add(new GroupingProperty<>(node.getPartitionBy()));
-            for (Symbol column : node.getOrderingScheme().getOrderBy()) {
-                localProperties.add(new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)));
-            }
+            localProperties.addAll(node.getOrderingScheme().toLocalProperties());
 
             return ActualProperties.builderFrom(properties)
                     .local(localProperties.build())
@@ -348,12 +342,8 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            List<SortingProperty<Symbol>> localProperties = node.getOrderingScheme().getOrderBy().stream()
-                    .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
-                    .collect(toImmutableList());
-
             return ActualProperties.builderFrom(properties)
-                    .local(localProperties)
+                    .local(node.getOrderingScheme().toLocalProperties())
                     .build();
         }
 
@@ -362,12 +352,8 @@ public final class PropertyDerivations
         {
             ActualProperties properties = Iterables.getOnlyElement(inputProperties);
 
-            List<SortingProperty<Symbol>> localProperties = node.getOrderingScheme().getOrderBy().stream()
-                    .map(column -> new SortingProperty<>(column, node.getOrderingScheme().getOrdering(column)))
-                    .collect(toImmutableList());
-
             return ActualProperties.builderFrom(properties)
-                    .local(localProperties)
+                    .local(node.getOrderingScheme().toLocalProperties())
                     .build();
         }
 
@@ -565,12 +551,8 @@ public final class PropertyDerivations
             Map<Symbol, NullableValue> constants = entries.stream()
                     .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-            ImmutableList.Builder<SortingProperty<Symbol>> localProperties = ImmutableList.builder();
-            if (node.getOrderingScheme().isPresent()) {
-                node.getOrderingScheme().get().getOrderBy().stream()
-                        .map(column -> new SortingProperty<>(column, node.getOrderingScheme().get().getOrdering(column)))
-                        .forEach(localProperties::add);
-            }
+            ImmutableList.Builder<LocalProperty<Symbol>> localProperties = ImmutableList.builder();
+            node.getOrderingScheme().ifPresent(orderingScheme -> localProperties.addAll(orderingScheme.toLocalProperties()));
 
             // Local exchanges are only created in AddLocalExchanges, at the end of optimization, and
             // local exchanges do not produce all global properties as represented by ActualProperties.
