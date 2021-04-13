@@ -14,9 +14,11 @@
 package io.trino.plugin.accumulo;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.testing.AbstractTestDistributedQueries;
+import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
+import io.trino.testing.assertions.Assert;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -25,6 +27,10 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRunner;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.MaterializedResult.resultBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -38,8 +44,8 @@ import static org.testng.Assert.assertTrue;
  * This is the same for any test cases that were creating tables with duplicate rows,
  * so some test cases are overridden from the base class and slightly modified to add an additional UUID column.
  */
-public class TestAccumuloDistributedQueries
-        extends AbstractTestDistributedQueries
+public class TestAccumuloConnectorTest
+        extends BaseConnectorTest
 {
     @Override
     protected QueryRunner createQueryRunner()
@@ -49,21 +55,25 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    protected boolean supportsDelete()
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        return false;
-    }
+        switch (connectorBehavior) {
+            case SUPPORTS_CREATE_SCHEMA:
+                return false;
 
-    @Override
-    protected boolean supportsCommentOnTable()
-    {
-        return false;
-    }
+            case SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS:
+                return false;
 
-    @Override
-    protected boolean supportsCommentOnColumn()
-    {
-        return false;
+            case SUPPORTS_COMMENT_ON_TABLE:
+            case SUPPORTS_COMMENT_ON_COLUMN:
+                return false;
+
+            case SUPPORTS_TOPN_PUSHDOWN:
+                return false;
+
+            default:
+                return super.hasBehavior(connectorBehavior);
+        }
     }
 
     @Override
@@ -73,21 +83,17 @@ public class TestAccumuloDistributedQueries
     }
 
     @Override
-    public void testCreateSchema()
-    {
-        // schema creation is not supported
-    }
-
-    @Override
     public void testAddColumn()
     {
-        // Adding columns via SQL are not supported until adding columns with comments are supported
+        assertThatThrownBy(super::testAddColumn).hasMessage("This connector does not support adding columns");
+        throw new SkipException("Accumulo connector does not support adding columns");
     }
 
     @Override
     public void testDropColumn()
     {
-        // Dropping columns are not supported by the connector
+        assertThatThrownBy(super::testDropColumn).hasMessage("This connector does not support dropping columns");
+        throw new SkipException("Dropping columns are not supported by the connector");
     }
 
     @Override
@@ -252,6 +258,43 @@ public class TestAccumuloDistributedQueries
         finally {
             assertUpdate("DROP TABLE test_create_table_empty_columns");
         }
+    }
+
+    @Test
+    @Override
+    public void testDescribeTable()
+    {
+        MaterializedResult expectedColumns = resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
+                .row("orderkey", "bigint", "", "Accumulo row ID")
+                .row("custkey", "bigint", "", "Accumulo column custkey:custkey. Indexed: false")
+                .row("orderstatus", "varchar(1)", "", "Accumulo column orderstatus:orderstatus. Indexed: false")
+                .row("totalprice", "double", "", "Accumulo column totalprice:totalprice. Indexed: false")
+                .row("orderdate", "date", "", "Accumulo column orderdate:orderdate. Indexed: true")
+                .row("orderpriority", "varchar(15)", "", "Accumulo column orderpriority:orderpriority. Indexed: false")
+                .row("clerk", "varchar(15)", "", "Accumulo column clerk:clerk. Indexed: false")
+                .row("shippriority", "integer", "", "Accumulo column shippriority:shippriority. Indexed: false")
+                .row("comment", "varchar(79)", "", "Accumulo column comment:comment. Indexed: false")
+                .build();
+        MaterializedResult actualColumns = computeActual("DESCRIBE orders");
+        Assert.assertEquals(actualColumns, expectedColumns);
+    }
+
+    @Test
+    @Override
+    public void testShowCreateTable()
+    {
+        assertThat(computeActual("SHOW CREATE TABLE orders").getOnlyValue())
+                .isEqualTo("CREATE TABLE accumulo.tpch.orders (\n" +
+                        "   orderkey bigint COMMENT 'Accumulo row ID',\n" +
+                        "   custkey bigint COMMENT 'Accumulo column custkey:custkey. Indexed: false',\n" +
+                        "   orderstatus varchar(1) COMMENT 'Accumulo column orderstatus:orderstatus. Indexed: false',\n" +
+                        "   totalprice double COMMENT 'Accumulo column totalprice:totalprice. Indexed: false',\n" +
+                        "   orderdate date COMMENT 'Accumulo column orderdate:orderdate. Indexed: true',\n" +
+                        "   orderpriority varchar(15) COMMENT 'Accumulo column orderpriority:orderpriority. Indexed: false',\n" +
+                        "   clerk varchar(15) COMMENT 'Accumulo column clerk:clerk. Indexed: false',\n" +
+                        "   shippriority integer COMMENT 'Accumulo column shippriority:shippriority. Indexed: false',\n" +
+                        "   comment varchar(79) COMMENT 'Accumulo column comment:comment. Indexed: false'\n" +
+                        ")");
     }
 
     @Override
