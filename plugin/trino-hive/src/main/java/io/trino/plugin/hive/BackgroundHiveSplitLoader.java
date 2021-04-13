@@ -498,6 +498,8 @@ public class BackgroundHiveSplitLoader
                         : (directory.getCurrentDirectories().size() > 0 ? directory.getCurrentDirectories().get(0).getPath() : null);
 
                 if (baseOrDeltaPath != null && AcidUtils.OrcAcidVersion.getAcidVersionFromMetaFile(baseOrDeltaPath, fs) < 2) {
+                    // Trino cannot read ORC ACID tables with version < 2 (written by Hive older than 3.0)
+                    // See https://github.com/trinodb/trino/issues/2790#issuecomment-591901728 for more context
                     throw new TrinoException(NOT_SUPPORTED, "Hive transactional tables are supported since Hive 3.0. " +
                             "If you have upgraded from an older version of Hive, make sure a major compaction has been run at least once after the upgrade.");
                 }
