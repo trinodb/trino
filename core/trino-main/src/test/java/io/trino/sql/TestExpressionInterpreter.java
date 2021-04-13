@@ -942,6 +942,20 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("CASE WHEN ARRAY[CAST(1 AS bigint)] = ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'matched'");
         assertOptimizedEquals("CASE WHEN ARRAY[CAST(2 AS bigint)] = ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'not_matched'");
         assertOptimizedEquals("CASE WHEN ARRAY[CAST(NULL AS bigint)] = ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'not_matched'");
+
+        assertOptimizedEquals("CASE WHEN 0 / 0 = 0 THEN 'a' ELSE 'b' END", "CASE WHEN 0 / 0 = 0 THEN 'a' ELSE 'b' END");
+        assertOptimizedEquals("CASE WHEN true THEN 'a' WHEN 0 / 0 = 0 THEN 'b' ELSE 'c' END", "'a'");
+        assertOptimizedEquals("CASE WHEN 0 / 0 = 0 THEN 'a' WHEN true THEN 'b' ELSE 'c' END", "CASE WHEN 0 / 0 = 0 THEN 'a' ELSE 'b' END");
+        assertOptimizedEquals("CASE WHEN 0 / 0 = 0 THEN 'a' WHEN false THEN 'b' ELSE 'c' END", "CASE WHEN 0 / 0 = 0 THEN 'a' ELSE 'c' END");
+        assertOptimizedEquals("CASE WHEN 0 / 0 = 0 THEN 'a' WHEN false THEN 'b' END", "CASE WHEN 0 / 0 = 0 THEN 'a' END");
+        assertOptimizedEquals("CASE WHEN false THEN 'a' WHEN false THEN 'b' ELSE 'c' END", "'c'");
+        assertOptimizedEquals("CASE WHEN false THEN 'a' WHEN false THEN 'b' END", "null");
+        assertOptimizedEquals("CASE WHEN 0 > 1 THEN 'a' WHEN 1 > 2 THEN 'b' END", "null");
+        assertOptimizedEquals("CASE WHEN true THEN 0 / 0 WHEN false THEN 1 END", "0 / 0");
+        assertOptimizedEquals("CASE WHEN false THEN 1 WHEN false THEN 2 ELSE 0 / 0 END", "0 / 0");
+
+        assertEvaluatedEquals("CASE WHEN false THEN 0 / 0 WHEN true THEN 1 ELSE 0 / 0 END", "1");
+        assertEvaluatedEquals("CASE WHEN true THEN 1 WHEN 0 / 0 = 0 THEN 2 ELSE 0 / 0 END", "1");
     }
 
     @Test
