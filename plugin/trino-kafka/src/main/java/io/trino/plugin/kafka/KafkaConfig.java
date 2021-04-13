@@ -21,7 +21,6 @@ import io.airlift.configuration.DefunctConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
-import io.trino.plugin.kafka.security.SecurityProtocol;
 import io.trino.spi.HostAddress;
 
 import javax.validation.constraints.Min;
@@ -32,7 +31,6 @@ import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.plugin.kafka.security.SecurityProtocol.PLAINTEXT;
 
 @DefunctConfig("kafka.connect-timeout")
 public class KafkaConfig
@@ -46,7 +44,6 @@ public class KafkaConfig
     private int messagesPerSplit = 100_000;
     private boolean timestampUpperBoundPushDownEnabled;
     private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
-    private SecurityProtocol securityProtocol = PLAINTEXT;
 
     @Size(min = 1)
     public Set<HostAddress> getNodes()
@@ -154,18 +151,5 @@ public class KafkaConfig
     {
         this.timestampUpperBoundPushDownEnabled = timestampUpperBoundPushDownEnabled;
         return this;
-    }
-
-    @Config("kafka.security-protocol")
-    @ConfigDescription("Security protocol used for Kafka connection")
-    public KafkaConfig setSecurityProtocol(SecurityProtocol securityProtocol)
-    {
-        this.securityProtocol = securityProtocol;
-        return this;
-    }
-
-    public SecurityProtocol getSecurityProtocol()
-    {
-        return securityProtocol;
     }
 }
