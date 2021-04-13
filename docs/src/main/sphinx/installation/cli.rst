@@ -29,6 +29,23 @@ The CLI uses the HTTP protocol and the
 :doc:`Trino client REST API </develop/client-protocol>` to communicate
 with Trino.
 
+TLS/HTTPS
+---------
+
+Trino is typically available with an HTTPS URL. This means that all network
+traffic between the CLI and Trino uses TLS. :doc:`TLS configuration
+</security/tls>` is common, since it is a requirement for any authentication.
+
+Use the HTTPS URL to connect to the server:
+
+.. code-block:: text
+
+    ./trino --server https://trino.example.com
+
+The recommended TLS implementation is to use a globally trusted certificate. In
+this case, no other options are necessary, since the JVM running the CLI
+recognizes these certificates.
+
 Authentication
 --------------
 
