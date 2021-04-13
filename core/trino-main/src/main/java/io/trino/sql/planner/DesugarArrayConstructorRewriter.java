@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
+import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
 public final class DesugarArrayConstructorRewriter
@@ -69,6 +71,7 @@ public final class DesugarArrayConstructorRewriter
         public Expression rewriteArrayConstructor(ArrayConstructor node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
             ArrayConstructor rewritten = treeRewriter.defaultRewrite(node, context);
+            checkCondition(node.getValues().size() <= 254, TOO_MANY_ARGUMENTS, "Too many arguments for array constructor");
             return new FunctionCallBuilder(metadata)
                     .setName(QualifiedName.of(ArrayConstructor.ARRAY_CONSTRUCTOR))
                     .setArguments(getTypes(node.getValues()), rewritten.getValues())
