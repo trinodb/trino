@@ -39,12 +39,13 @@ public class PlainTextKafkaProducerFactory
     private final SecurityProtocol securityProtocol;
 
     @Inject
-    public PlainTextKafkaProducerFactory(KafkaConfig kafkaConfig)
+    public PlainTextKafkaProducerFactory(KafkaConfig kafkaConfig, KafkaSecurityConfig securityConfig)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
+        requireNonNull(securityConfig, "securityConfig is null");
 
         nodes = kafkaConfig.getNodes();
-        securityProtocol = kafkaConfig.getSecurityProtocol();
+        securityProtocol = securityConfig.getSecurityProtocol();
     }
 
     @Override
