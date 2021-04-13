@@ -441,22 +441,21 @@ public class ExpressionInterpreter
         @Override
         protected Object visitIfExpression(IfExpression node, Object context)
         {
-            Object trueValue = processWithExceptionHandling(node.getTrueValue(), context);
-            Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), context);
             Object condition = processWithExceptionHandling(node.getCondition(), context);
 
             if (condition instanceof Expression) {
-                Expression falseValueExpression = (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get()));
+                Object trueValue = processWithExceptionHandling(node.getTrueValue(), context);
+                Object falseValue = processWithExceptionHandling(node.getFalseValue().orElse(null), context);
                 return new IfExpression(
                         toExpression(condition, type(node.getCondition())),
                         toExpression(trueValue, type(node.getTrueValue())),
-                        falseValueExpression);
+                        (falseValue == null) ? null : toExpression(falseValue, type(node.getFalseValue().get())));
             }
             else if (Boolean.TRUE.equals(condition)) {
-                return trueValue;
+                return processWithExceptionHandling(node.getTrueValue(), context);
             }
             else {
-                return falseValue;
+                return processWithExceptionHandling(node.getFalseValue().orElse(null), context);
             }
         }
 
