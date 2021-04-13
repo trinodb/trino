@@ -17,7 +17,6 @@ import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
-import io.trino.plugin.kafka.security.KafkaSecurityModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -60,7 +59,6 @@ public class KafkaConnectorFactory
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new KafkaConnectorModule(),
-                new KafkaSecurityModule(),
                 extension,
                 binder -> {
                     binder.bind(ClassLoader.class).toInstance(KafkaConnectorFactory.class.getClassLoader());
