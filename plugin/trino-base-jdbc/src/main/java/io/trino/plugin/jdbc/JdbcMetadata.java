@@ -542,7 +542,7 @@ public class JdbcMetadata
                 jdbcClient.getTableProperties(session, handle));
     }
 
-    protected static SchemaTableName getSchemaTableName(JdbcTableHandle handle)
+    public static SchemaTableName getSchemaTableName(JdbcTableHandle handle)
     {
         return handle.isNamedRelation()
                 ? handle.getRequiredNamedRelation().getSchemaTableName()
