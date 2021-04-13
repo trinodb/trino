@@ -18,7 +18,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.kafka.security.ForKafkaSsl;
-import io.trino.plugin.kafka.security.SecurityProtocol;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
