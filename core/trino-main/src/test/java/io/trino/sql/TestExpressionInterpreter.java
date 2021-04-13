@@ -558,6 +558,17 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testDereference()
+    {
+        assertOptimizedEquals("CAST(ROW(1, true) AS ROW(id BIGINT, value BOOLEAN)).value", "true");
+        assertOptimizedEquals("CAST(ROW(1, null) AS ROW(id BIGINT, value BOOLEAN)).value", "null");
+        assertOptimizedEquals("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value", "CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value");
+
+        assertTrinoExceptionThrownBy(() -> evaluate("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value"))
+                .hasErrorCode(DIVISION_BY_ZERO);
+    }
+
+    @Test
     public void testCurrentUser()
     {
         assertOptimizedEquals("current_user", "'" + TEST_SESSION.getUser() + "'");

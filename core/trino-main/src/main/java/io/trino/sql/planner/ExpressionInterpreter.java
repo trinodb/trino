@@ -321,6 +321,7 @@ public class ExpressionInterpreter
                 return node;
             }
 
+            // Row dereference: process dereference base eagerly, and only then pick the expected field
             Object base = processWithExceptionHandling(node.getBase(), context);
             // if the base part is evaluated to be null, the dereference expression should also be null
             if (base == null) {
