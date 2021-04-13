@@ -1192,6 +1192,19 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("CASE ARRAY[CAST(1 AS bigint)] WHEN ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'matched'");
         assertOptimizedEquals("CASE ARRAY[CAST(2 AS bigint)] WHEN ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'not_matched'");
         assertOptimizedEquals("CASE ARRAY[CAST(NULL AS bigint)] WHEN ARRAY[CAST(1 AS bigint)] THEN 'matched' ELSE 'not_matched' END", "'not_matched'");
+
+        assertOptimizedEquals("CASE null WHEN 0 / 0 THEN 0 / 0 ELSE 1 END", "1");
+        assertOptimizedEquals("CASE null WHEN 1 THEN 2 ELSE 0 / 0 END", "0 / 0");
+        assertOptimizedEquals("CASE 0 / 0 WHEN 1 THEN 2 ELSE 3 END", "CASE 0 / 0 WHEN 1 THEN 2 ELSE 3 END");
+        assertOptimizedEquals("CASE 1 WHEN 0 / 0 THEN 2 ELSE 3 END", "CASE 1 WHEN 0 / 0 THEN 2 ELSE 3 END");
+        assertOptimizedEquals("CASE 1 WHEN 2 THEN 2 WHEN 0 / 0 THEN 3 ELSE 4 END", "CASE 1 WHEN 0 / 0 THEN 3 ELSE 4 END");
+        assertOptimizedEquals("CASE 1 WHEN 0 / 0 THEN 2 END", "CASE 1 WHEN 0 / 0 THEN 2 END");
+        assertOptimizedEquals("CASE 1 WHEN 2 THEN 2 WHEN 3 THEN 3 END", "null");
+
+        assertEvaluatedEquals("CASE null WHEN 0 / 0 THEN 0 / 0 ELSE 1 END", "1");
+        assertEvaluatedEquals("CASE 1 WHEN 2 THEN 0 / 0 ELSE 3 END", "3");
+        assertEvaluatedEquals("CASE 1 WHEN 1 THEN 2 WHEN 1 THEN 0 / 0 END", "2");
+        assertEvaluatedEquals("CASE 1 WHEN 1 THEN 2 ELSE 0 / 0 END", "2");
     }
 
     @Test

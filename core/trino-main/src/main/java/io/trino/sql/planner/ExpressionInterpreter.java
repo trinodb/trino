@@ -469,31 +469,38 @@ public class ExpressionInterpreter
             Object operand = processWithExceptionHandling(node.getOperand(), context);
             Type operandType = type(node.getOperand());
 
-            // evaluate defaultClause
-            Expression defaultClause = node.getDefaultValue().orElse(null);
-            Object defaultResult = processWithExceptionHandling(defaultClause, context);
-
             // if operand is null, return defaultValue
             if (operand == null) {
-                return defaultResult;
+                return processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
             }
+
+            Object newDefault = null;
+            boolean foundNewDefault = false;
 
             List<WhenClause> whenClauses = new ArrayList<>();
             for (WhenClause whenClause : node.getWhenClauses()) {
                 Object whenOperand = processWithExceptionHandling(whenClause.getOperand(), context);
-                Object result = processWithExceptionHandling(whenClause.getResult(), context);
 
                 if (whenOperand instanceof Expression || operand instanceof Expression) {
                     // cannot fully evaluate, add updated whenClause
                     whenClauses.add(new WhenClause(
                             toExpression(whenOperand, type(whenClause.getOperand())),
-                            toExpression(result, type(whenClause.getResult()))));
+                            toExpression(processWithExceptionHandling(whenClause.getResult(), context), type(whenClause.getResult()))));
                 }
                 else if (whenOperand != null && isEqual(operand, operandType, whenOperand, type(whenClause.getOperand()))) {
-                    // condition is true, use this as defaultResult
-                    defaultResult = result;
+                    // condition is true, use this as default
+                    foundNewDefault = true;
+                    newDefault = processWithExceptionHandling(whenClause.getResult(), context);
                     break;
                 }
+            }
+
+            Object defaultResult;
+            if (foundNewDefault) {
+                defaultResult = newDefault;
+            }
+            else {
+                defaultResult = processWithExceptionHandling(node.getDefaultValue().orElse(null), context);
             }
 
             if (whenClauses.isEmpty()) {
