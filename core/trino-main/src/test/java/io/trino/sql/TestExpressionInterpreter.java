@@ -1252,6 +1252,17 @@ public class TestExpressionInterpreter
         // todo optimize case statement
         assertOptimizedEquals("IF(unbound_boolean, 1 + 2, 3 + 4)", "CASE WHEN unbound_boolean THEN (1 + 2) ELSE (3 + 4) END");
         assertOptimizedEquals("IF(unbound_boolean, BIGINT '1' + 2, 3 + 4)", "CASE WHEN unbound_boolean THEN (BIGINT '1' + 2) ELSE (3 + 4) END");
+
+        assertOptimizedEquals("IF(true, 0 / 0)", "0 / 0");
+        assertOptimizedEquals("IF(true, 1, 0 / 0)", "1");
+        assertOptimizedEquals("IF(false, 1, 0 / 0)", "0 / 0");
+        assertOptimizedEquals("IF(false, 0 / 0, 1)", "1");
+        assertOptimizedEquals("IF(0 / 0 = 0, 1, 2)", "IF(0 / 0 = 0, 1, 2)");
+
+        assertEvaluatedEquals("IF(true, 1, 0 / 0)", "1");
+        assertEvaluatedEquals("IF(false, 0 / 0, 1)", "1");
+        assertTrinoExceptionThrownBy(() -> evaluate("IF(0 / 0 = 0, 1, 2)"))
+                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test
