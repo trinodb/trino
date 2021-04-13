@@ -37,6 +37,7 @@ public class Footer
     private final ColumnMetadata<OrcType> types;
     private final Optional<ColumnMetadata<ColumnStatistics>> fileStats;
     private final Map<String, Slice> userMetadata;
+    private final Optional<Integer> writerId;
 
     public Footer(
             long numberOfRows,
@@ -44,7 +45,8 @@ public class Footer
             List<StripeInformation> stripes,
             ColumnMetadata<OrcType> types,
             Optional<ColumnMetadata<ColumnStatistics>> fileStats,
-            Map<String, Slice> userMetadata)
+            Map<String, Slice> userMetadata,
+            Optional<Integer> writerId)
     {
         this.numberOfRows = numberOfRows;
         rowsInRowGroup.ifPresent(value -> checkArgument(value > 0, "rowsInRowGroup must be at least 1"));
@@ -54,6 +56,7 @@ public class Footer
         this.fileStats = requireNonNull(fileStats, "fileStats is null");
         requireNonNull(userMetadata, "userMetadata is null");
         this.userMetadata = ImmutableMap.copyOf(transformValues(userMetadata, Slices::copyOf));
+        this.writerId = requireNonNull(writerId, "writerId is null");
     }
 
     public long getNumberOfRows()
@@ -86,6 +89,11 @@ public class Footer
         return ImmutableMap.copyOf(transformValues(userMetadata, Slices::copyOf));
     }
 
+    public Optional<Integer> getWriterId()
+    {
+        return writerId;
+    }
+
     @Override
     public String toString()
     {
@@ -96,6 +104,7 @@ public class Footer
                 .add("types", types)
                 .add("columnStatistics", fileStats)
                 .add("userMetadata", userMetadata.keySet())
+                .add("writerId", writerId)
                 .toString();
     }
 }
