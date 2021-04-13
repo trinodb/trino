@@ -22,7 +22,6 @@ import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
-import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningScheme;
@@ -393,10 +392,7 @@ public class AddLocalExchanges
             if (!node.getPartitionBy().isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
-            node.getOrderingScheme().ifPresent(orderingScheme ->
-                    orderingScheme.getOrderBy().stream()
-                            .map(symbol -> new SortingProperty<>(symbol, orderingScheme.getOrdering(symbol)))
-                            .forEach(desiredProperties::add));
+            node.getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
             Iterator<Optional<LocalProperty<Symbol>>> matchIterator = LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).iterator();
 
             Set<Symbol> prePartitionedInputs = ImmutableSet.of();

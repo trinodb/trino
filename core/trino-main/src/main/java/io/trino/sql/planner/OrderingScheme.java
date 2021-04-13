@@ -18,7 +18,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.SortOrder;
+import io.trino.spi.connector.SortingProperty;
 import io.trino.sql.tree.OrderBy;
 import io.trino.sql.tree.SortItem;
 import io.trino.sql.tree.SortItem.NullOrdering;
@@ -136,6 +138,13 @@ public class OrderingScheme
                 .map(symbol -> new io.trino.spi.connector.SortItem(
                         symbol.getName(),
                         io.trino.spi.connector.SortOrder.valueOf(getOrdering(symbol).name())))
+                .collect(toImmutableList());
+    }
+
+    public List<LocalProperty<Symbol>> toLocalProperties()
+    {
+        return getOrderBy().stream()
+                .map(symbol -> new SortingProperty<>(symbol, getOrdering(symbol)))
                 .collect(toImmutableList());
     }
 }
