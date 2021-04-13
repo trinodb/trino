@@ -25,7 +25,6 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
-import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.Partitioning;
@@ -293,10 +292,7 @@ public class AddExchanges
             if (!node.getPartitionBy().isEmpty()) {
                 desiredProperties.add(new GroupingProperty<>(node.getPartitionBy()));
             }
-            node.getOrderingScheme().ifPresent(orderingScheme ->
-                    orderingScheme.getOrderBy().stream()
-                            .map(symbol -> new SortingProperty<>(symbol, orderingScheme.getOrdering(symbol)))
-                            .forEach(desiredProperties::add));
+            node.getOrderingScheme().ifPresent(orderingScheme -> desiredProperties.addAll(orderingScheme.toLocalProperties()));
 
             PlanWithProperties child = planChild(
                     node,
@@ -428,10 +424,7 @@ public class AddExchanges
                 // current plan so far is single node, so local properties are effectively global properties
                 // skip the SortNode if the local properties guarantee ordering on Sort keys
                 // TODO: This should be extracted as a separate optimizer once the planner is able to reason about the ordering of each operator
-                List<LocalProperty<Symbol>> desiredProperties = new ArrayList<>();
-                for (Symbol symbol : node.getOrderingScheme().getOrderBy()) {
-                    desiredProperties.add(new SortingProperty<>(symbol, node.getOrderingScheme().getOrdering(symbol)));
-                }
+                List<LocalProperty<Symbol>> desiredProperties = node.getOrderingScheme().toLocalProperties();
 
                 if (LocalProperties.match(child.getProperties().getLocalProperties(), desiredProperties).stream()
                         .noneMatch(Optional::isPresent)) {
