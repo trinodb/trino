@@ -6038,7 +6038,11 @@ public abstract class AbstractTestEngineOnlyQueries
 
     private static String pivotQuery(int columnsCount)
     {
-        String values = IntStream.range(0, columnsCount)
+        String fields = IntStream.range(0, columnsCount)
+                .mapToObj(columnNumber -> "lower(name)")
+                .collect(joining(", "));
+
+        String literals = IntStream.range(0, columnsCount)
                 .mapToObj(columnNumber -> format("%d", columnNumber))
                 .collect(joining(", "));
 
@@ -6046,7 +6050,7 @@ public abstract class AbstractTestEngineOnlyQueries
                 .mapToObj(columnNumber -> format("a%d", columnNumber))
                 .collect(joining(", "));
 
-        return format("SELECT * FROM (SELECT %s) a(%s) INNER JOIN unnest(ARRAY[%1$s], ARRAY[%2$s]) b(b1, b2) ON true", values, columns);
+        return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
     }
 
     @Test(timeOut = 30_000)
