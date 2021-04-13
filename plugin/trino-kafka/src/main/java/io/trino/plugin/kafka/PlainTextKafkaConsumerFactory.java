@@ -14,9 +14,9 @@
 package io.trino.plugin.kafka;
 
 import io.airlift.units.DataSize;
-import io.trino.plugin.kafka.security.SecurityProtocol;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
 import javax.inject.Inject;

@@ -14,9 +14,9 @@
 
 package io.trino.plugin.kafka;
 
-import io.trino.plugin.kafka.security.SecurityProtocol;
 import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSession;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
 import javax.inject.Inject;
 

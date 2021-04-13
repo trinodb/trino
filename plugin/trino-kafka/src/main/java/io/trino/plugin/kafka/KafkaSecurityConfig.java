@@ -15,13 +15,19 @@ package io.trino.plugin.kafka;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.trino.plugin.kafka.security.SecurityProtocol;
+import org.apache.kafka.common.security.auth.SecurityProtocol;
 
+import javax.annotation.PostConstruct;
 import javax.validation.constraints.NotNull;
+
+import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
+import static org.apache.kafka.common.security.auth.SecurityProtocol.PLAINTEXT;
+import static org.apache.kafka.common.security.auth.SecurityProtocol.SSL;
 
 public class KafkaSecurityConfig
 {
-    private SecurityProtocol securityProtocol = SecurityProtocol.PLAINTEXT;
+    private SecurityProtocol securityProtocol = PLAINTEXT;
 
     @NotNull
     public SecurityProtocol getSecurityProtocol()
@@ -35,5 +41,13 @@ public class KafkaSecurityConfig
     {
         this.securityProtocol = securityProtocol;
         return this;
+    }
+
+    @PostConstruct
+    public void validate()
+    {
+        checkState(
+                securityProtocol.equals(PLAINTEXT) || securityProtocol.equals(SSL),
+                format("Only %s and %s security protocols are supported", PLAINTEXT, SSL));
     }
 }
