@@ -16,6 +16,7 @@ package io.trino.plugin.phoenix5;
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.Connector;
@@ -63,6 +64,7 @@ public class PhoenixConnectorFactory
                     new MBeanModule(),
                     new PhoenixClientModule(catalogName),
                     binder -> {
+                        binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
                         binder.bind(ClassLoader.class).toInstance(PhoenixConnectorFactory.class.getClassLoader());
                         binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     });
