@@ -57,6 +57,8 @@ public enum TestingConnectorBehavior
 
     SUPPORTS_ARRAY,
 
+    SUPPORTS_CANCELLATION(false),
+
     /**/;
 
     private final Predicate<Predicate<TestingConnectorBehavior>> hasBehaviorByDefault;

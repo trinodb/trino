@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -27,8 +28,11 @@ import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.procedure.Procedure;
 
+import javax.annotation.PreDestroy;
 import javax.inject.Provider;
 import javax.inject.Singleton;
+
+import java.util.concurrent.ExecutorService;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -71,6 +75,11 @@ public class JdbcModule
         binder.bind(JdbcClient.class).to(CachingJdbcClient.class).in(Scopes.SINGLETON);
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
+
+        newOptionalBinder(binder, Key.get(ExecutorService.class, ForRecordCursor.class))
+                .setDefault()
+                .toProvider(MoreExecutors::newDirectExecutorService)
+                .in(Scopes.SINGLETON);
     }
 
     @Provides
@@ -108,5 +117,11 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    @PreDestroy
+    public void shutdownRecordCursorExecutor(@ForRecordCursor ExecutorService executor)
+    {
+        executor.shutdownNow();
     }
 }
