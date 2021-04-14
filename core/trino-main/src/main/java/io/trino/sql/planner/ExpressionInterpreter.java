@@ -581,7 +581,7 @@ public class ExpressionInterpreter
                 return node;
             }
             InListExpression valueList = (InListExpression) valueListExpression;
-            verify(!valueList.getValues().isEmpty()); // `NULL IN ()` would be false, but is not possible
+            // `NULL IN ()` would be false, but InListExpression cannot be empty by construction
             if (value == null) {
                 return null;
             }
