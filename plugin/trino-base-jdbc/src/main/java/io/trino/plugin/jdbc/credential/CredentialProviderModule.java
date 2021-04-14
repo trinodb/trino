@@ -16,8 +16,11 @@ package io.trino.plugin.jdbc.credential;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
+import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationFactory;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedJdbcIdentityCacheMapping;
+import io.trino.plugin.jdbc.JdbcIdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.file.ConfigFileBasedCredentialProviderConfig;
 import io.trino.plugin.jdbc.credential.keystore.KeyStoreBasedCredentialProviderConfig;
 
@@ -51,6 +54,7 @@ public class CredentialProviderModule
 
         configBinder(binder).bindConfig(ExtraCredentialConfig.class);
         binder.bind(CredentialProvider.class).to(ExtraCredentialProvider.class).in(SINGLETON);
+        binder.bind(JdbcIdentityCacheMapping.class).to(ExtraCredentialsBasedJdbcIdentityCacheMapping.class).in(Scopes.SINGLETON);
     }
 
     private void bindCredentialProviderModule(CredentialProviderType name, Module module)
