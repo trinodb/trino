@@ -68,13 +68,13 @@ public class CachingJdbcClient
     private static final Duration CACHING_DISABLED = new Duration(0, MILLISECONDS);
 
     private final JdbcClient delegate;
+    private final List<PropertyMetadata<?>> sessionProperties;
     private final boolean cacheMissing;
 
     private final Cache<JdbcIdentity, Set<String>> schemaNamesCache;
     private final Cache<TableNamesCacheKey, List<SchemaTableName>> tableNamesCache;
     private final Cache<TableHandleCacheKey, Optional<JdbcTableHandle>> tableHandleCache;
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
-    private final List<PropertyMetadata<?>> sessionProperties;
     private final Cache<TableStatisticsCacheKey, TableStatistics> statisticsCache;
 
     @Inject
@@ -89,7 +89,6 @@ public class CachingJdbcClient
         this.sessionProperties = requireNonNull(sessionPropertiesProviders, "sessionPropertiesProviders is null").stream()
                 .flatMap(provider -> provider.getSessionProperties().stream())
                 .collect(toImmutableList());
-
         this.cacheMissing = cacheMissing;
 
         CacheBuilder<Object, Object> cacheBuilder = CacheBuilder.newBuilder()
