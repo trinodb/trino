@@ -1028,9 +1028,9 @@ public class ExpressionInterpreter
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {
-                verify(!node.isDistinct(), "window does not support distinct");
-                verify(node.getOrderBy().isEmpty(), "window does not support order by");
-                verify(node.getFilter().isEmpty(), "window does not support filter");
+                verify(!node.isDistinct(), "distinct not supported");
+                verify(node.getOrderBy().isEmpty(), "order by not supported");
+                verify(node.getFilter().isEmpty(), "filter not supported");
                 return new FunctionCallBuilder(metadata)
                         .setName(node.getName())
                         .setWindow(node.getWindow())
