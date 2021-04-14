@@ -232,7 +232,12 @@ public abstract class AbstractTestQueries
     }
 
     @DataProvider
-    public static Object[][] largeInValuesCount()
+    public Object[][] largeInValuesCount()
+    {
+        return largeInValuesCountData();
+    }
+
+    protected Object[][] largeInValuesCountData()
     {
         return new Object[][] {
                 {200},
