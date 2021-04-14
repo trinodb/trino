@@ -65,7 +65,7 @@ public class TestCachingJdbcClient
                     null,
                     false));
 
-    public static final Set<SessionPropertiesProvider> SESSION_PROPERTIES_PROVIDERS = Set.of(() -> PROPERTY_METADATA);
+    private static final Set<SessionPropertiesProvider> SESSION_PROPERTIES_PROVIDERS = Set.of(() -> PROPERTY_METADATA);
 
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
             .setPropertyMetadata(PROPERTY_METADATA)
