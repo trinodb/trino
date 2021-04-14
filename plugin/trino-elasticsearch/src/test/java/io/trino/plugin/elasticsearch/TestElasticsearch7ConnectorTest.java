@@ -15,10 +15,10 @@ package io.trino.plugin.elasticsearch;
 
 import static java.lang.String.format;
 
-public class TestElasticsearch7IntegrationSmokeTest
-        extends BaseElasticsearchSmokeTest
+public class TestElasticsearch7ConnectorTest
+        extends BaseElasticsearchConnectorTest
 {
-    public TestElasticsearch7IntegrationSmokeTest()
+    public TestElasticsearch7ConnectorTest()
     {
         super("elasticsearch:7.0.0");
     }
