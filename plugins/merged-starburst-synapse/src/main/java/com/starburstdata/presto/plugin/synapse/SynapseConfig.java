@@ -19,7 +19,7 @@ public class SynapseConfig
     private boolean impersonationEnabled;
     private SynapseAuthenticationType authenticationType = PASSWORD;
 
-    enum SynapseAuthenticationType
+    public enum SynapseAuthenticationType
     {
         ACTIVE_DIRECTORY_PASSWORD,
         PASSWORD,
