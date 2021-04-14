@@ -337,6 +337,18 @@ public class TestExpressionInterpreter
     }
 
     @Test
+    public void testArithmeticUnary()
+    {
+        assertOptimizedEquals("-rand()", "-rand()");
+        assertOptimizedEquals("-(0 / 0)", "-(0 / 0)");
+        assertOptimizedEquals("-(-(0 / 0))", "0 / 0");
+        assertOptimizedEquals("-(-(-(0 / 0)))", "-(0 / 0)");
+        assertOptimizedEquals("+rand()", "rand()");
+        assertOptimizedEquals("+(0 / 0)", "0 / 0");
+        assertOptimizedEquals("+++(0 / 0)", "0 / 0");
+    }
+
+    @Test
     public void testNot()
     {
         assertOptimizedEquals("not true", "false");
