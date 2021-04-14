@@ -524,43 +524,52 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCoalesceExpression(CoalesceExpression node, Object context)
         {
-            Type type = type(node);
-            List<Object> values = node.getOperands().stream()
-                    .map(value -> processWithExceptionHandling(value, context))
-                    .filter(Objects::nonNull)
-                    .flatMap(expression -> {
-                        if (expression instanceof CoalesceExpression) {
-                            return ((CoalesceExpression) expression).getOperands().stream();
-                        }
-                        return Stream.of(expression);
-                    })
-                    .collect(toList());
-
-            if ((!values.isEmpty() && !(values.get(0) instanceof Expression)) || values.size() == 1) {
-                return values.get(0);
-            }
-            ImmutableList.Builder<Expression> operandsBuilder = ImmutableList.builder();
-            Set<Expression> visitedExpression = new HashSet<>();
-            for (Object value : values) {
-                Expression expression = toExpression(value, type);
-                if (!isDeterministic(expression, metadata) || visitedExpression.add(expression)) {
-                    operandsBuilder.add(expression);
-                }
-                // TODO: Replace this logic with an anlyzer which specifies whether it evaluates to null
-                if (expression instanceof Literal && !(expression instanceof NullLiteral)) {
-                    break;
-                }
-            }
-            List<Expression> expressions = operandsBuilder.build();
-
-            if (expressions.isEmpty()) {
+            List<Object> newOperands = processOperands(node, context);
+            if (newOperands.isEmpty()) {
                 return null;
             }
-
-            if (expressions.size() == 1) {
-                return getOnlyElement(expressions);
+            if (newOperands.size() == 1) {
+                return getOnlyElement(newOperands);
             }
-            return new CoalesceExpression(expressions);
+            return new CoalesceExpression(newOperands.stream()
+                    .map(value -> toExpression(value, type(node)))
+                    .collect(toImmutableList()));
+        }
+
+        private List<Object> processOperands(CoalesceExpression node, Object context)
+        {
+            Type type = type(node);
+            List<Object> newOperands = new ArrayList<>();
+            Set<Expression> uniqueNewOperands = new HashSet<>();
+            for (Expression operand : node.getOperands()) {
+                Object value = processWithExceptionHandling(operand, context);
+                if (value instanceof CoalesceExpression) {
+                    // The nested CoalesceExpression was recursively processed. It does not contain null.
+                    for (Expression nestedOperand : ((CoalesceExpression) value).getOperands()) {
+                        // Skip duplicates unless they are non-deterministic.
+                        if (!isDeterministic(nestedOperand, metadata) || uniqueNewOperands.add(nestedOperand)) {
+                            newOperands.add(nestedOperand);
+                        }
+                        // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
+                        if (nestedOperand instanceof Literal) {
+                            return newOperands;
+                        }
+                    }
+                }
+                else if (value instanceof Expression) {
+                    // Skip duplicates unless they are non-deterministic.
+                    Expression expression = toExpression(value, type);
+                    if (!isDeterministic(expression, metadata) || uniqueNewOperands.add(expression)) {
+                        newOperands.add(expression);
+                    }
+                }
+                else if (value != null) {
+                    // This operand can be evaluated to a non-null value. Remaining operands can be skipped.
+                    newOperands.add(value);
+                    return newOperands;
+                }
+            }
+            return newOperands;
         }
 
         @Override
