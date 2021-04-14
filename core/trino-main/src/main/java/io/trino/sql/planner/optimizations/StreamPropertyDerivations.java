@@ -335,6 +335,13 @@ public final class StreamPropertyDerivations
 
             switch (node.getType()) {
                 case GATHER:
+                    if (inputProperties.size() == 1) {
+                        StreamProperties properties = inputProperties.get(0);
+                        // For single stream, GATHER acts as a pass-through and preserves all properties
+                        if (properties.isSingleStream()) {
+                            return properties;
+                        }
+                    }
                     return StreamProperties.singleStream();
                 case REPARTITION:
                     if (node.getPartitioningScheme().getPartitioning().getHandle().equals(FIXED_ARBITRARY_DISTRIBUTION)) {
