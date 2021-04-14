@@ -17,8 +17,6 @@ import io.trino.Session;
 import io.trino.execution.QueryStats;
 import io.trino.operator.OperatorStats;
 import io.trino.spi.QueryId;
-import io.trino.spi.predicate.Domain;
-import io.trino.spi.predicate.ValueSet;
 import io.trino.sql.analyzer.FeaturesConfig;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -26,25 +24,15 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.airlift.testing.Assertions.assertGreaterThan;
-import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
-import static io.trino.spi.predicate.Domain.none;
-import static io.trino.spi.predicate.Domain.singleValue;
-import static io.trino.spi.predicate.Range.range;
-import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 /**
  * Generic test for connectors exercising connector's dynamic filter capabilities.
@@ -59,390 +47,9 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     private static final int PART_COUNT = 2000;
     private static final int CUSTOMER_COUNT = 1500;
 
-    protected boolean supportsNodeLocalDynamicFiltering()
-    {
-        return true;
-    }
-
-    protected boolean supportsCoordinatorDynamicFiltering()
-    {
-        return true;
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithEmptyBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'");
-        assertEquals(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/trinodb/trino/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/trinodb/trino/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(INTEGER).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
-        assertTrue(domainStats.getCollectionDuration().isPresent());
-    }
-
-    @Test
-    public void testJoinWithEmptyBuildSideWithBroadcastJoin()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        Session session = Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
-                .build();
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                session,
-                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 123.4567");
-        assertEquals(result.getResult().getRowCount(), 0);
-
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), "tpch:lineitem");
-        // Probe-side is not scanned at all, due to dynamic filtering:
-        assertEquals(probeStats.getInputPositions(), 0L);
-        assertEquals(probeStats.getDynamicFilterSplitsProcessed(), probeStats.getTotalDrivers());
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithSelectiveBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
-                        "AND supplier.name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(INTEGER, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithNonSelectiveBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(INTEGER, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinLargeBuildSideRangeDynamicFiltering()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem JOIN orders ON partitioned_lineitem.orderkey = orders.orderkey");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(
-                domainStats.getSimplifiedDomain(),
-                Domain.create(
-                        ValueSet.ofRanges(range(INTEGER, 1L, true, 60000L, true)), false)
-                        .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithMultipleDynamicFiltersOnProbe()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM (" +
-                        "SELECT supplier.suppkey FROM " +
-                        "partitioned_lineitem JOIN tpch.tiny.supplier ON partitioned_lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
-                        ") t JOIN supplier ON t.suppkey = supplier.suppkey AND supplier.suppkey IN (2, 3)");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/1feaa0f928a02f577c8ac9ef6cc0c8ec2008a46d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 2L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 2L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 2);
-
-        List<DynamicFilterDomainStats> domainStats = dynamicFiltersStats.getDynamicFilterDomainStats();
-        assertEquals(domainStats.size(), 2);
-        domainStats.forEach(stats -> {
-            assertGreaterThanOrEqual(stats.getRangeCount(), 1);
-            assertEquals(stats.getDiscreteValuesCount(), 0);
-        });
-    }
-
-    @Test(timeOut = 30_000)
-    public void testJoinWithImplicitCoercion()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        // setup partitioned fact table with integer suppkey
-        assertUpdate(
-                "CREATE TABLE partitioned_lineitem_int " +
-                        "WITH (format = 'TEXTFILE', partitioned_by=array['suppkey_int']) AS " +
-                        "SELECT orderkey, CAST(suppkey as int) suppkey_int FROM tpch.tiny.lineitem",
-                LINEITEM_COUNT);
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem_int l JOIN supplier s ON l.suppkey_int = s.suppkey AND s.name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testSemiJoinWithEmptyBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'abc')");
-        assertEquals(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(INTEGER).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testSemiJoinWithSelectiveBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier WHERE name = 'Supplier#000000001')");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(INTEGER, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testSemiJoinWithNonSelectiveBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE suppkey IN (SELECT suppkey FROM supplier)");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(INTEGER, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testSemiJoinLargeBuildSideRangeDynamicFiltering()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem WHERE orderkey IN (SELECT orderkey FROM orders)");
-        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(
-                domainStats.getSimplifiedDomain(),
-                Domain.create(
-                        ValueSet.ofRanges(range(INTEGER, 1L, true, 60000L, true)), false)
-                        .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testRightJoinWithEmptyBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'abc'");
-        assertEquals(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 0);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testRightJoinWithSelectiveBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey WHERE name = 'Supplier#000000001'");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 1);
-    }
-
-    @Test(timeOut = 30_000)
-    public void testRightJoinWithNonSelectiveBuildSide()
-    {
-        skipTestUnless(supportsCoordinatorDynamicFiltering());
-
-        ResultWithQueryId<MaterializedResult> result = getDistributedQueryRunner().executeWithQueryId(
-                getSession(),
-                "SELECT * FROM partitioned_lineitem l RIGHT JOIN supplier s ON l.suppkey = s.suppkey");
-        assertGreaterThan(result.getResult().getRowCount(), 0);
-
-        // TODO bring back OperatorStats assertions from https://github.com/prestosql/presto/commit/0fb16ab9d9c990e58fad63d4dab3dbbe482a077d
-        // after https://github.com/prestosql/presto/issues/5120 is fixed
-
-        DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
-
-        DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), Domain.create(ValueSet.ofRanges(
-                range(BIGINT, 1L, true, 100L, true)), false)
-                .toString(getSession().toConnectorSession()));
-        assertEquals(domainStats.getDiscreteValuesCount(), 0);
-        assertEquals(domainStats.getRangeCount(), 100);
-    }
-
     @Test
     public void testJoinDynamicFilteringNone()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Probe-side is not scanned at all, due to dynamic filtering:
         assertDynamicFiltering(
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
@@ -454,8 +61,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testJoinLargeBuildSideDynamicFiltering()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         @Language("SQL") String sql = "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey and orders.custkey BETWEEN 300 AND 700";
         int expectedRowCount = 15793;
         // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
@@ -475,8 +80,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testPartitionedJoinNoDynamicFiltering()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Probe-side is fully scanned, because local dynamic filtering does not work for partitioned joins:
         assertDynamicFiltering(
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0",
@@ -488,8 +91,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testJoinDynamicFilteringSingleValue()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         assertQueryResult("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
         assertQueryResult("SELECT COUNT() FROM lineitem WHERE orderkey = 1", 6L);
 
@@ -514,8 +115,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testJoinDynamicFilteringImplicitCoercion()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         assertUpdate("CREATE TABLE coerce_test AS SELECT CAST(orderkey as INT) orderkey_int FROM tpch.tiny.lineitem", "SELECT count(*) FROM lineitem");
         // Probe-side is partially scanned, dynamic filters from build side are coerced to the probe column type
         assertDynamicFiltering(
@@ -528,8 +127,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testJoinDynamicFilteringBlockProbeSide()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
         assertDynamicFiltering(
                 "SELECT l.comment" +
@@ -544,8 +141,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testSemiJoinDynamicFilteringNone()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Probe-side is not scanned at all, due to dynamic filtering:
         assertDynamicFiltering(
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
@@ -557,8 +152,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testSemiJoinLargeBuildSideDynamicFiltering()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
         @Language("SQL") String sql = "SELECT * FROM lineitem WHERE lineitem.orderkey IN " +
                 "(SELECT orders.orderkey FROM orders WHERE orders.custkey BETWEEN 300 AND 700)";
@@ -580,8 +173,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testPartitionedSemiJoinNoDynamicFiltering()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Probe-side is fully scanned, because local dynamic filtering does not work for partitioned joins:
         assertDynamicFiltering(
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
@@ -593,8 +184,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testSemiJoinDynamicFilteringSingleValue()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Join lineitem with a single row of orders
         assertDynamicFiltering(
                 "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.comment = 'nstructions sleep furiously among ')",
@@ -613,8 +202,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testSemiJoinDynamicFilteringBlockProbeSide()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
         assertDynamicFiltering(
                 "SELECT t.comment FROM " +
@@ -628,8 +215,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testCrossJoinDynamicFiltering()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         assertUpdate("CREATE TABLE probe (k VARCHAR, v INTEGER)");
         assertUpdate("CREATE TABLE build (vmin INTEGER, vmax INTEGER)");
         assertUpdate("INSERT INTO probe VALUES ('a', 0), ('b', 1), ('c', 2), ('d', 3)", 4);
@@ -674,8 +259,6 @@ public abstract class AbstractDynamicFilteringIntegrationSmokeTest
     @Test
     public void testCrossJoinLargeBuildSideDynamicFiltering()
     {
-        skipTestUnless(supportsNodeLocalDynamicFiltering());
-
         // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
         assertDynamicFiltering(
                 "SELECT * FROM orders o, customer c WHERE o.custkey < c.custkey AND c.name < 'Customer#000001000' AND o.custkey > 1000",

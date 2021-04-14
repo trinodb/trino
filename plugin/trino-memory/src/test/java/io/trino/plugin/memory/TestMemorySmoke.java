@@ -33,12 +33,6 @@ public class TestMemorySmoke
         extends AbstractDynamicFilteringIntegrationSmokeTest
 {
     @Override
-    protected boolean supportsCoordinatorDynamicFiltering()
-    {
-        return false;
-    }
-
-    @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
