@@ -138,6 +138,7 @@ import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMap
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
+import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
 import static io.trino.util.Failures.checkCondition;
@@ -701,7 +702,18 @@ public class ExpressionInterpreter
                 return null;
             }
             if (value instanceof Expression) {
-                return new ArithmeticUnaryExpression(node.getSign(), toExpression(value, type(node.getValue())));
+                Expression valueExpression = toExpression(value, type(node.getValue()));
+                switch (node.getSign()) {
+                    case PLUS:
+                        return valueExpression;
+                    case MINUS:
+                        if (valueExpression instanceof ArithmeticUnaryExpression && ((ArithmeticUnaryExpression) valueExpression).getSign().equals(MINUS)) {
+                            return ((ArithmeticUnaryExpression) valueExpression).getValue();
+                        }
+                        return new ArithmeticUnaryExpression(MINUS, valueExpression);
+                    default:
+                        throw new UnsupportedOperationException("Unsupported unary operator: " + node.getSign());
+                }
             }
 
             switch (node.getSign()) {
