@@ -1230,6 +1230,21 @@ public class TestExpressionInterpreter
         assertOptimizedMatches("coalesce(unbound_long, 2, coalesce(unbound_long, 1))", "coalesce(unbound_long, BIGINT '2')");
         assertOptimizedMatches("coalesce(coalesce(unbound_long, coalesce(unbound_long2, unbound_long3)), 1)", "coalesce(unbound_long, unbound_long2, unbound_long3, BIGINT '1')");
         assertOptimizedMatches("coalesce(unbound_double, coalesce(random(), unbound_double))", "coalesce(unbound_double, random())");
+
+        assertOptimizedEquals("coalesce(null, coalesce(null, null))", "null");
+        assertOptimizedEquals("coalesce(null, coalesce(null, coalesce(null, null, 1)))", "1");
+        assertOptimizedEquals("coalesce(1, 0 / 0)", "1");
+        assertOptimizedEquals("coalesce(0 / 0, 1)", "coalesce(0 / 0, 1)");
+        assertOptimizedEquals("coalesce(0 / 0, 1, null)", "coalesce(0 / 0, 1)");
+        assertOptimizedEquals("coalesce(1, coalesce(0 / 0, 2))", "1");
+        assertOptimizedEquals("coalesce(0 / 0, null, 1 / 0, null, 0 / 0)", "coalesce(0 / 0, 1 / 0)");
+        assertOptimizedEquals("coalesce(0 / 0, null, 0 / 0, null)", "0 / 0");
+        assertOptimizedEquals("coalesce(0 / 0, null, coalesce(0 / 0, null))", "0 / 0");
+        assertOptimizedEquals("coalesce(rand(), rand(), 1, rand())", "coalesce(rand(), rand(), 1)");
+
+        assertEvaluatedEquals("coalesce(1, 0 / 0)", "1");
+        assertTrinoExceptionThrownBy(() -> evaluate("coalesce(0 / 0, 1)"))
+                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test
