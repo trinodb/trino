@@ -33,6 +33,7 @@ jobs:
           sudo apt-get clean
           df -h
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java-version }}
@@ -54,6 +55,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
@@ -75,6 +77,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - name: Web UI Checks
         run: core/trino-main/bin/check_webui.sh
 
@@ -85,6 +88,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0 # checkout tags so version in Manifest is set properly
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
@@ -110,6 +114,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
@@ -198,6 +203,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
@@ -249,6 +255,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
@@ -264,6 +271,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
@@ -287,6 +295,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
@@ -382,6 +391,7 @@ jobs:
     timeout-minutes: 140
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
