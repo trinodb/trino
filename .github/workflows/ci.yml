@@ -29,6 +29,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v2
+      - uses: ./.github/actions/tune-runner-vm
       - uses: actions/setup-java@v1
         with:
           java-version: 11
