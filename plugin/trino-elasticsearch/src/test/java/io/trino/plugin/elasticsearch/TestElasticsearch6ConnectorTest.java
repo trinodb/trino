@@ -23,10 +23,10 @@ import java.io.IOException;
 
 import static java.lang.String.format;
 
-public class TestElasticsearch6IntegrationSmokeTest
-        extends BaseElasticsearchSmokeTest
+public class TestElasticsearch6ConnectorTest
+        extends BaseElasticsearchConnectorTest
 {
-    public TestElasticsearch6IntegrationSmokeTest()
+    public TestElasticsearch6ConnectorTest()
     {
         super("docker.elastic.co/elasticsearch/elasticsearch-oss:6.0.0");
     }
