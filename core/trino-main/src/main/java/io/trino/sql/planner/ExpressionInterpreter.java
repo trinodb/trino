@@ -767,7 +767,7 @@ public class ExpressionInterpreter
             Expression right = node.getRight();
 
             if (operator == Operator.IS_DISTINCT_FROM) {
-                return evaluateIsDistinctFrom(context, left, right);
+                return processIsDistinctFrom(context, left, right);
             }
             // Execution engine does not have not equal and greater than operators, so interpret with
             // equal or less than, but do not flip operator in result, as many optimizers depend on
@@ -790,10 +790,10 @@ public class ExpressionInterpreter
                 return result;
             }
 
-            return evaluateComparisonExpression(context, operator, left, right);
+            return processComparisonExpression(context, operator, left, right);
         }
 
-        private Object evaluateIsDistinctFrom(Object context, Expression leftExpression, Expression rightExpression)
+        private Object processIsDistinctFrom(Object context, Expression leftExpression, Expression rightExpression)
         {
             Object left = processWithExceptionHandling(leftExpression, context);
             Object right = processWithExceptionHandling(rightExpression, context);
@@ -813,7 +813,7 @@ public class ExpressionInterpreter
             return invokeOperator(OperatorType.valueOf(Operator.IS_DISTINCT_FROM.name()), types(leftExpression, rightExpression), Arrays.asList(left, right));
         }
 
-        private Object evaluateComparisonExpression(Object context, Operator operator, Expression leftExpression, Expression rightExpression)
+        private Object processComparisonExpression(Object context, Operator operator, Expression leftExpression, Expression rightExpression)
         {
             Object left = processWithExceptionHandling(leftExpression, context);
             if (left == null) {
