@@ -1578,8 +1578,8 @@ public class HiveMetadata
         Table table = metastore.getTable(identity, tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
 
-        if (!isTransactionalTable(table.getParameters())) {
-            throw new TrinoException(NOT_SUPPORTED, "Hive update is only supported for transactional tables");
+        if (!isFullAcidTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, "Hive update is only supported for ACID transactional tables");
         }
 
         // Verify that none of the updated columns are partition columns or bucket columns
