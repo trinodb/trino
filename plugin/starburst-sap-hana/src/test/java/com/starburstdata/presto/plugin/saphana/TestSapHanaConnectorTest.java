@@ -28,6 +28,7 @@ import java.util.Optional;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -457,5 +458,19 @@ public class TestSapHanaConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
+    }
+
+    @Override
+    public void testSortItemsReflectedInExplain()
+    {
+        // TODO: Remove once https://github.com/trinodb/trino/pull/7586 is merged (https://starburstdata.atlassian.net/browse/SEP-5842)
+        // Even if the sort items are pushed down into the table scan, it should still be reflected in EXPLAIN (via ConnectorTableHandle.toString)
+        String expectedPattern = hasBehavior(SUPPORTS_TOPN_PUSHDOWN)
+                ? "sortOrder=\\[NATIONKEY:bigint:BIGINT DESC NULLS LAST] limit=5"
+                : "\\[5 by \\(nationkey DESC NULLS LAST\\)]";
+
+        assertExplain(
+                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
+                expectedPattern);
     }
 }
