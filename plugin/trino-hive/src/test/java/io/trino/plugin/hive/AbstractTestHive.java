@@ -841,7 +841,8 @@ public abstract class AbstractTestHive
                                 ImmutableMap.of()));
                     }
                 },
-                SqlStandardAccessControlMetadata::new);
+                SqlStandardAccessControlMetadata::new,
+                false);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),

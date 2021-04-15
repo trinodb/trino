@@ -55,6 +55,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 })
 public class HiveConfig
 {
+    public static final String ORC_ACID_WRITES_ENABLED_CONFIG_PROPERTY = "hive.experimental.orc-acid-writes.enabled";
+
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
@@ -145,6 +147,8 @@ public class HiveConfig
     private boolean optimizeSymlinkListing = true;
 
     private boolean legacyHiveViewTranslation;
+
+    private boolean orcAcidWritesEnabled = true;
 
     public int getMaxInitialSplits()
     {
@@ -1040,5 +1044,19 @@ public class HiveConfig
     public boolean isLegacyHiveViewTranslation()
     {
         return this.legacyHiveViewTranslation;
+    }
+
+    // TODO drop property after resolving https://github.com/trinodb/trino/issues/7611
+    @Config(ORC_ACID_WRITES_ENABLED_CONFIG_PROPERTY)
+    @ConfigDescription("Enable writes to ORC ACID transactional tables")
+    public HiveConfig setOrcAcidWritesEnabled(boolean orcAcidWritesEnabled)
+    {
+        this.orcAcidWritesEnabled = orcAcidWritesEnabled;
+        return this;
+    }
+
+    public boolean isOrcAcidWritesEnabled()
+    {
+        return this.orcAcidWritesEnabled;
     }
 }

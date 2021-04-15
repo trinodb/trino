@@ -61,6 +61,7 @@ public class HiveMetadataFactory
     private final AccessControlMetadataFactory accessControlMetadataFactory;
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
     private final ScheduledExecutorService heartbeatService;
+    private final boolean orcAcidWritesEnabled;
 
     @Inject
     @SuppressWarnings("deprecation")
@@ -105,7 +106,8 @@ public class HiveMetadataFactory
                 nodeVersion.toString(),
                 hiveRedirectionsProvider,
                 hiveMaterializedViewMetadata,
-                accessControlMetadataFactory);
+                accessControlMetadataFactory,
+                hiveConfig.isOrcAcidWritesEnabled());
     }
 
     public HiveMetadataFactory(
@@ -132,7 +134,8 @@ public class HiveMetadataFactory
             String trinoVersion,
             HiveRedirectionsProvider hiveRedirectionsProvider,
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
-            AccessControlMetadataFactory accessControlMetadataFactory)
+            AccessControlMetadataFactory accessControlMetadataFactory,
+            boolean orcAcidWritesEnabled)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.skipDeletionForAlter = skipDeletionForAlter;
@@ -165,6 +168,7 @@ public class HiveMetadataFactory
             updateExecutor = new BoundedExecutor(executorService, maxConcurrentMetastoreUpdates);
         }
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
+        this.orcAcidWritesEnabled = orcAcidWritesEnabled;
     }
 
     @Override
@@ -197,6 +201,7 @@ public class HiveMetadataFactory
                 new MetastoreHiveStatisticsProvider(metastore),
                 hiveRedirectionsProvider,
                 hiveMaterializedViewMetadata,
-                accessControlMetadataFactory.create(metastore));
+                accessControlMetadataFactory.create(metastore),
+                orcAcidWritesEnabled);
     }
 }
