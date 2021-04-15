@@ -1,5 +1,10 @@
 name: Tune Runner VM
-description: tunes the GitHub Runner VM operation system
+description: |
+  Fine tunes the GitHub Runner VM operation system for Trino builds. 
+  The tuning currently includes a workaround for 
+  "Reverse name lookup is broken for current hostname in ubuntu-latest VMs",
+  reported as https://github.com/actions/virtual-environments/issues/3185
+
 runs:
   using: composite
   steps:
@@ -7,6 +12,9 @@ runs:
         if [[ "$OSTYPE" == "linux-gnu"* ]]; then
             # Ensure that reverse lookups for current hostname are handled properly
             # Add the current IP address, long hostname and short hostname record to /etc/hosts file
-            echo -e "$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)\t$(hostname -f) $(hostname -s)" | sudo tee -a /etc/hosts
+            eth0_ip_addr=$(ip addr show eth0 | grep "inet\b" | awk '{print $2}' | cut -d/ -f1)
+            hostname_fqdn=$(hostname -f)
+            hostname_short=$(hostname -s)
+            echo -e "${eth0_ip_addr}\t${hostname_fqdn} ${hostname_short}" | sudo tee -a /etc/hosts
         fi
       shell: bash
