@@ -326,6 +326,7 @@ public class HiveMetadata
     private final HiveRedirectionsProvider hiveRedirectionsProvider;
     private final HiveMaterializedViewMetadata hiveMaterializedViewMetadata;
     private final AccessControlMetadata accessControlMetadata;
+    private final boolean orcAcidWritesEnabled;
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -343,7 +344,8 @@ public class HiveMetadata
             HiveStatisticsProvider hiveStatisticsProvider,
             HiveRedirectionsProvider hiveRedirectionsProvider,
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
-            AccessControlMetadata accessControlMetadata)
+            AccessControlMetadata accessControlMetadata,
+            boolean orcAcidWritesEnabled)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.metastore = requireNonNull(metastore, "metastore is null");
@@ -361,6 +363,7 @@ public class HiveMetadata
         this.hiveRedirectionsProvider = requireNonNull(hiveRedirectionsProvider, "hiveRedirectionsProvider is null");
         this.hiveMaterializedViewMetadata = requireNonNull(hiveMaterializedViewMetadata, "hiveMaterializedViewMetadata is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
+        this.orcAcidWritesEnabled = orcAcidWritesEnabled;
     }
 
     public SemiTransactionalHiveMetastore getMetastore()
@@ -1582,6 +1585,10 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, "Hive update is only supported for ACID transactional tables");
         }
 
+        if (!orcAcidWritesEnabled) {
+            throw new TrinoException(NOT_SUPPORTED, "Updates for transactional tables must be explicitly enabled via " + HiveConfig.ORC_ACID_WRITES_ENABLED_CONFIG_PROPERTY + " config property");
+        }
+
         // Verify that none of the updated columns are partition columns or bucket columns
 
         Set<String> updatedColumnNames = updatedColumns.stream().map(handle -> ((HiveColumnHandle) handle).getName()).collect(toImmutableSet());
@@ -1683,6 +1690,10 @@ public class HiveMetadata
             throw new TrinoException(NOT_SUPPORTED, format("Inserting into Hive table with %s property not supported", SKIP_FOOTER_COUNT_KEY));
         }
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
+
+        if (!orcAcidWritesEnabled && isFullAcidTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, "Insert for ACID transactional tables must be explicitly enabled via " + HiveConfig.ORC_ACID_WRITES_ENABLED_CONFIG_PROPERTY + " config property");
+        }
 
         AcidTransaction transaction = isTransactionalTable(table.getParameters()) ? metastore.beginInsert(session, table) : NO_ACID_TRANSACTION;
 
@@ -2092,6 +2103,10 @@ public class HiveMetadata
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         ensureTableSupportsDelete(table);
+
+        if (!orcAcidWritesEnabled && isFullAcidTable(table.getParameters())) {
+            throw new TrinoException(NOT_SUPPORTED, "Deletes for transactional tables must be explicitly enabled via " + HiveConfig.ORC_ACID_WRITES_ENABLED_CONFIG_PROPERTY + " config property");
+        }
 
         LocationHandle locationHandle = locationService.forExistingTable(metastore, session, table);
 
