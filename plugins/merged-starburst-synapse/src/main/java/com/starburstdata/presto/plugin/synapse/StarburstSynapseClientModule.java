@@ -35,6 +35,7 @@ import io.trino.plugin.jdbc.JdbcSplitManager;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 
@@ -54,6 +55,12 @@ public class StarburstSynapseClientModule
     @Override
     protected void setup(Binder binder)
     {
+        configBinder(binder).bindConfig(SqlServerConfig.class);
+        // The SNAPSHOT ISOLATION seems not supported by Synapse, but the docs (
+        // https://docs.microsoft.com/en-us/sql/t-sql/statements/set-transaction-isolation-level-transact-sql?view=sql-server-ver15) don't explain
+        // whether this is the expected behavior.
+        configBinder(binder).bindConfigDefaults(SqlServerConfig.class, config -> config.setSnapshotIsolationDisabled(true));
+
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstSynapseClient.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class)).setBinding().toInstance(SQL_SERVER_MAX_LIST_EXPRESSIONS);
 

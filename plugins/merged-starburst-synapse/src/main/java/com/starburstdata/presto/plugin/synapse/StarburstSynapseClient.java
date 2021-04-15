@@ -17,6 +17,7 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.WriteMapping;
+import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
@@ -52,9 +53,14 @@ public class StarburstSynapseClient
     private static final int MAX_VARBINARY_LENGTH = 8000;
 
     @Inject
-    public StarburstSynapseClient(BaseJdbcConfig config, JdbcStatisticsConfig statisticsConfig, TableScanRedirection tableScanRedirection, ConnectionFactory connectionFactory)
+    public StarburstSynapseClient(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, JdbcStatisticsConfig statisticsConfig, TableScanRedirection tableScanRedirection, ConnectionFactory connectionFactory)
     {
-        super(config, statisticsConfig, tableScanRedirection, connectionFactory);
+        super(
+                config,
+                sqlServerConfig,
+                statisticsConfig,
+                tableScanRedirection,
+                connectionFactory);
     }
 
     @Override
