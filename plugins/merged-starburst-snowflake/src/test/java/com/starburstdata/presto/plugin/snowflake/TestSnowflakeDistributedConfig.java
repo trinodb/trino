@@ -46,7 +46,7 @@ public class TestSnowflakeDistributedConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("snowflake.stage-schema", "test_schema")
+                .put("snowflake.stage-schema", "test_schema_2")
                 .put("snowflake.max-initial-split-size", "31MB")
                 .put("snowflake.max-split-size", "222MB")
                 .put("snowflake.parquet.max-read-block-size", "66kB")
@@ -56,7 +56,7 @@ public class TestSnowflakeDistributedConfig
                 .build();
 
         SnowflakeDistributedConfig expected = new SnowflakeDistributedConfig()
-                .setStageSchema("test_schema")
+                .setStageSchema("test_schema_2")
                 .setMaxInitialSplitSize(DataSize.of(31, MEGABYTE))
                 .setMaxSplitSize(DataSize.of(222, MEGABYTE))
                 .setParquetMaxReadBlockSize(DataSize.of(66, KILOBYTE))
@@ -79,7 +79,7 @@ public class TestSnowflakeDistributedConfig
     public void testInvalidExportFileSize(DataSize size)
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("snowflake.stage-schema", "test_schema")
+                .put("snowflake.stage-schema", "test_schema_2")
                 .put("snowflake.export-file-max-size", size.toString())
                 .build();
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);

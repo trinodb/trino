@@ -53,7 +53,7 @@ class SnowflakeQueryRunner
     private static final String TPCH_CATALOG = "tpch";
     private static final String SNOWFLAKE_CATALOG = "snowflake";
 
-    static final String TEST_SCHEMA = "test_schema";
+    static final String TEST_SCHEMA = "test_schema_2";
 
     public static final String ALICE_USER = "alice";
 

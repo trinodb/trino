@@ -51,10 +51,10 @@ public class TestDistributedSnowflakeOktaNoImpersonationPoolingConnectorSmokeTes
                 .build()) {
             Session session = getSession();
             String tableName = "test_insert_" + randomTableSuffix();
-            queryRunner.execute(session, format("CREATE TABLE test_schema.%s (x decimal(19, 0), y varchar(100))", tableName));
+            queryRunner.execute(session, format("CREATE TABLE test_schema_2.%s (x decimal(19, 0), y varchar(100))", tableName));
             queryRunner.execute(session, format("INSERT INTO %s VALUES (123, 'test')", tableName));
             queryRunner.execute(session, format("SELECT * FROM %s", tableName));
-            queryRunner.execute(session, format("DROP TABLE test_schema.%s", tableName));
+            queryRunner.execute(session, format("DROP TABLE test_schema_2.%s", tableName));
         }
     }
 

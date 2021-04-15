@@ -112,14 +112,14 @@ public abstract class BaseSnowflakeConnectorTest
 
         MaterializedResult expectedParametrizedVarchar = resultBuilder(getSession(),
                 VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "decimal(38,0)", "", "")
-                .row("custkey", "decimal(38,0)", "", "")
+                .row("orderkey", "decimal(19,0)", "", "")
+                .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "decimal(38,0)", "", "")
+                .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
 
@@ -135,7 +135,7 @@ public abstract class BaseSnowflakeConnectorTest
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
         MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
                 .row(0, "unknown")
-                .row(1, "decimal(38,0)")
+                .row(1, "decimal(19,0)")
                 .row(2, "varchar(25)")
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
@@ -150,9 +150,9 @@ public abstract class BaseSnowflakeConnectorTest
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
-                .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(38,0)", 16, false)
+                .row("nationkey", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(19,0)", 16, false)
                 .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
-                .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(38,0)", 16, false)
+                .row("regionkey", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(19,0)", 16, false)
                 .row("comment", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(152)", 0, false)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
@@ -169,7 +169,7 @@ public abstract class BaseSnowflakeConnectorTest
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("_col0", "", "", "", "integer", 4, false)
                 .row("name", session.getCatalog().get(), session.getSchema().get(), "nation", "varchar(25)", 0, false)
-                .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(38,0)", 16, true)
+                .row("my_alias", session.getCatalog().get(), session.getSchema().get(), "nation", "decimal(19,0)", 16, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }
@@ -179,10 +179,10 @@ public abstract class BaseSnowflakeConnectorTest
     public void testInformationSchemaFiltering()
     {
         assertQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' AND table_schema = 'test_schema' LIMIT 1",
+                "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' AND table_schema = 'test_schema_2' LIMIT 1",
                 "SELECT 'orders'");
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(38,0)' AND table_schema = 'test_schema' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'decimal(19,0)' AND table_schema = 'test_schema_2' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
                 "SELECT 'customer'");
     }
 
@@ -201,14 +201,14 @@ public abstract class BaseSnowflakeConnectorTest
         MaterializedResult expectedColumns = resultBuilder(
                 getSession(),
                 VARCHAR, VARCHAR, VARCHAR, VARCHAR)
-                .row("orderkey", "decimal(38,0)", "", "")
-                .row("custkey", "decimal(38,0)", "", "")
+                .row("orderkey", "decimal(19,0)", "", "")
+                .row("custkey", "decimal(19,0)", "", "")
                 .row("orderstatus", "varchar(1)", "", "")
                 .row("totalprice", "double", "", "")
                 .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar(15)", "", "")
                 .row("clerk", "varchar(15)", "", "")
-                .row("shippriority", "decimal(38,0)", "", "")
+                .row("shippriority", "decimal(10,0)", "", "")
                 .row("comment", "varchar(79)", "", "")
                 .build();
 
@@ -231,10 +231,10 @@ public abstract class BaseSnowflakeConnectorTest
             throws SQLException
     {
         String viewName = "test_view_" + randomTableSuffix();
-        server.execute(format("CREATE VIEW test_schema.%s AS SELECT * FROM orders", viewName));
+        server.execute(format("CREATE VIEW test_schema_2.%s AS SELECT * FROM orders", viewName));
         assertTrue(getQueryRunner().tableExists(getSession(), viewName));
         assertQuery(format("SELECT orderkey FROM %s", viewName), "SELECT orderkey FROM orders");
-        server.execute(format("DROP VIEW test_schema.%s", viewName));
+        server.execute(format("DROP VIEW test_schema_2.%s", viewName));
     }
 
     @Test
@@ -431,14 +431,14 @@ public abstract class BaseSnowflakeConnectorTest
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
                 .matches("CREATE TABLE \\w+\\.\\w+\\.orders \\Q(\n" +
-                        "   orderkey decimal(38, 0),\n" +
-                        "   custkey decimal(38, 0),\n" +
+                        "   orderkey decimal(19, 0),\n" +
+                        "   custkey decimal(19, 0),\n" +
                         "   orderstatus varchar(1),\n" +
                         "   totalprice double,\n" +
                         "   orderdate date,\n" +
                         "   orderpriority varchar(15),\n" +
                         "   clerk varchar(15),\n" +
-                        "   shippriority decimal(38, 0),\n" +
+                        "   shippriority decimal(10, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
     }
@@ -952,7 +952,7 @@ public abstract class BaseSnowflakeConnectorTest
         // TODO: Remove once https://github.com/trinodb/trino/pull/7586 is merged (https://starburstdata.atlassian.net/browse/SEP-5842)
         // Even if the sort items are pushed down into the table scan, it should still be reflected in EXPLAIN (via ConnectorTableHandle.toString)
         String expectedPattern = hasBehavior(SUPPORTS_TOPN_PUSHDOWN)
-                ? "sortOrder=\\[NATIONKEY:decimal\\(38,0\\):NUMBER DESC NULLS LAST] limit=5"
+                ? "sortOrder=\\[NATIONKEY:decimal\\(19,0\\):NUMBER DESC NULLS LAST] limit=5"
                 : "\\[5 by \\(nationkey DESC NULLS LAST\\)]";
 
         assertExplain(

@@ -22,8 +22,8 @@ public abstract class BaseDistbutedSnowflakeConnectorSmokeTest
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE region").getOnlyValue())
-                .isEqualTo("CREATE TABLE snowflake.test_schema.region (\n" +
-                        "   regionkey decimal(38, 0),\n" +
+                .isEqualTo("CREATE TABLE snowflake.test_schema_2.region (\n" +
+                        "   regionkey decimal(19, 0),\n" +
                         "   name varchar(25),\n" +
                         "   comment varchar(152)\n" +
                         ")");
