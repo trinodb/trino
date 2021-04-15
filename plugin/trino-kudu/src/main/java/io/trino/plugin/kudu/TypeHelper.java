@@ -133,7 +133,7 @@ public final class TypeHelper
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             // Kudu's native format is in microseconds
-            return nativeValue;
+            return ((Long) nativeValue) - (TimestampHelper.getTimeZoneOffset() * 1_000);
         }
         if (type == BigintType.BIGINT) {
             return nativeValue;
@@ -179,7 +179,7 @@ public final class TypeHelper
             return row.getString(field);
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            return truncateEpochMicrosToMillis(row.getLong(field));
+            return truncateEpochMicrosToMillis(row.getLong(field)) + (TimestampHelper.getTimeZoneOffset() * 1_000);
         }
         if (type == BigintType.BIGINT) {
             return row.getLong(field);
@@ -214,7 +214,7 @@ public final class TypeHelper
     public static long getLong(Type type, RowResult row, int field)
     {
         if (type.equals(TIMESTAMP_MILLIS)) {
-            return truncateEpochMicrosToMillis(row.getLong(field));
+            return truncateEpochMicrosToMillis(row.getLong(field)) + (TimestampHelper.getTimeZoneOffset() * 1_000);
         }
         if (type == BigintType.BIGINT) {
             return row.getLong(field);

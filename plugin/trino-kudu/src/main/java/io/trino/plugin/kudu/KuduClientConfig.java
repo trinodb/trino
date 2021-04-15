@@ -45,6 +45,7 @@ public class KuduClientConfig
     private String schemaEmulationPrefix = "presto::";
     private boolean groupedExecutionEnabled;
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
+    private String timeZone = "UTC";
 
     @NotNull
     @Size(min = 1)
@@ -169,5 +170,18 @@ public class KuduClientConfig
     {
         this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
         return this;
+    }
+
+    @Config("kudu.timezone")
+    public KuduClientConfig setTimeZone(String timeZoneStr)
+    {
+        this.timeZone = timeZoneStr;
+        TimestampHelper.setTimeZoneOffset(TimestampHelper.getZoneOffset(timeZone));
+        return this;
+    }
+
+    public String getTimeZone()
+    {
+        return timeZone;
     }
 }
