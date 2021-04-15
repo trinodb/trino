@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.sqlserver.SqlServerClient;
+import io.trino.plugin.sqlserver.SqlServerConfig;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.JoinStatistics;
@@ -60,11 +61,12 @@ public class StarburstSqlServerClient
     @Inject
     public StarburstSqlServerClient(
             BaseJdbcConfig config,
+            SqlServerConfig sqlServerConfig,
             JdbcStatisticsConfig statisticsConfig,
             TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory)
     {
-        super(config, connectionFactory);
+        super(config, sqlServerConfig, connectionFactory);
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
         this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
     }

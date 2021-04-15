@@ -19,6 +19,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 
+// TODO rename to avoid name collision & confusion with io.trino.plugin.sqlserver.SqlServerConfig
 public class SqlServerConfig
 {
     static final String SQLSERVER_OVERRIDE_CATALOG_NAME = "sqlserver.override-catalog.name";
