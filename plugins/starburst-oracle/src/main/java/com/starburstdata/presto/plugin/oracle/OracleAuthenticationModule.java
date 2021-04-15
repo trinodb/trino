@@ -163,7 +163,7 @@ public class OracleAuthenticationModule
         @Provides
         @Singleton
         @ForAuthentication
-        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig, StarburstOracleConfig starburstOracleConfig)
+        public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, OracleConfig oracleConfig)
         {
             return new DriverConnectionFactory(
                     new OracleDriver(),
