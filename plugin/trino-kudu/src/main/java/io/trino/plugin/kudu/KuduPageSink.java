@@ -142,7 +142,7 @@ public class KuduPageSink
             row.setNull(destChannel);
         }
         else if (TIMESTAMP_MILLIS.equals(type)) {
-            row.addLong(destChannel, truncateEpochMicrosToMillis(type.getLong(block, position)) - (TimestampHelper.getTimeZoneOffset() * 1_000));
+            row.addLong(destChannel, truncateEpochMicrosToMillis(type.getLong(block, position)));
         }
         else if (REAL.equals(type)) {
             row.addFloat(destChannel, intBitsToFloat(toIntExact(type.getLong(block, position))));
