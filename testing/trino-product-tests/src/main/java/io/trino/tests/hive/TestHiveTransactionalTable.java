@@ -975,7 +975,24 @@ public class TestHiveTransactionalTable
 
             log.info("About to fail update");
             assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
-                    .failsWithMessage("Hive update is only supported for transactional tables");
+                    .failsWithMessage("Hive update is only supported for ACID transactional tables");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testAcidUpdateFailInsertOnlyTable()
+    {
+        withTemporaryTable("update_fail_insert_only", true, false, NONE, tableName -> {
+            onHive().executeQuery("CREATE TABLE " + tableName + " (customer STRING, purchase STRING) " +
+                    "STORED AS ORC " +
+                    hiveTableProperties(INSERT_ONLY, NONE));
+
+            log.info("About to insert");
+            onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
+
+            log.info("About to fail update");
+            assertThat(() -> onTrino().executeQuery(format("UPDATE %s SET purchase = 'bread' WHERE customer = 'Fred'", tableName)))
+                    .failsWithMessage("Hive update is only supported for ACID transactional tables");
         });
     }
 
