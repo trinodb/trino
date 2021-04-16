@@ -30,6 +30,7 @@ import io.trino.connector.system.CatalogSystemTable;
 import io.trino.connector.system.ColumnPropertiesSystemTable;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.connector.system.GlobalSystemConnectorFactory;
+import io.trino.connector.system.MaterializedViewPropertiesSystemTable;
 import io.trino.connector.system.NodeSystemTable;
 import io.trino.connector.system.SchemaPropertiesSystemTable;
 import io.trino.connector.system.TableCommentSystemTable;
@@ -373,6 +374,7 @@ public class LocalQueryRunner
                 new TableCommentSystemTable(metadata, accessControl),
                 new SchemaPropertiesSystemTable(transactionManager, metadata),
                 new TablePropertiesSystemTable(transactionManager, metadata),
+                new MaterializedViewPropertiesSystemTable(transactionManager, metadata),
                 new ColumnPropertiesSystemTable(transactionManager, metadata),
                 new AnalyzePropertiesSystemTable(transactionManager, metadata),
                 new TransactionsSystemTable(metadata, transactionManager)),
