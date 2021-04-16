@@ -25,7 +25,12 @@ public class TestJdbcConnectorFactory
     @Test
     public void test()
     {
-        ConnectorFactory connectorFactory = new JdbcConnectorFactory("test", combine(new CredentialProviderModule(), new TestingH2JdbcModule()));
+        ConnectorFactory connectorFactory = new JdbcConnectorFactory(
+                "test",
+                combine(
+                        new CredentialProviderModule(),
+                        new ExtraCredentialsBasedJdbcIdentityCacheMappingModule(),
+                        new TestingH2JdbcModule()));
 
         connectorFactory.create("test", TestingH2JdbcModule.createProperties(), new TestingConnectorContext());
     }
