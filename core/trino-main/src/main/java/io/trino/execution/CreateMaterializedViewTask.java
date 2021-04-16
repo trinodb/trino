@@ -105,7 +105,7 @@ public class CreateMaterializedViewTask
                 .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + name.getCatalogName()));
 
         Map<String, Expression> sqlProperties = mapFromProperties(statement.getProperties());
-        Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
+        Map<String, Object> properties = metadata.getMaterializedViewPropertyManager().getProperties(
                 catalogName,
                 name.getCatalogName(),
                 sqlProperties,

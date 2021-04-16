@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertFalse;
 import static io.trino.testing.assertions.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergMaterializedViews
         extends AbstractTestQueryFramework
@@ -50,6 +51,15 @@ public class TestIcebergMaterializedViews
         assertUpdate("CREATE TABLE base_table2 (_varchar VARCHAR, _bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_bigint', '_date'])");
         assertUpdate("INSERT INTO base_table2 VALUES ('a', 0, DATE '2019-09-08'), ('a', 1, DATE '2019-09-08'), ('a', 0, DATE '2019-09-09')", 3);
         assertQuery("SELECT count(*) FROM base_table2", "VALUES 3");
+    }
+
+    @Test
+    public void testCreateWithInvalidPropertyFails()
+    {
+        assertThatThrownBy(() -> computeActual("CREATE MATERIALIZED VIEW materialized_view_with_property " +
+                "WITH (invalid_property = ARRAY['_date']) AS " +
+                "SELECT _bigint, _date FROM base_table1"))
+                .hasMessage("Catalog 'iceberg' does not support materialized view property 'invalid_property'");
     }
 
     @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
