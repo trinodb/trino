@@ -82,6 +82,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataUtil;
@@ -321,6 +322,7 @@ public class LocalQueryRunner
                 new SessionPropertyManager(new SystemSessionProperties(new QueryManagerConfig(), taskManagerConfig, new MemoryManagerConfig(), featuresConfig, new NodeMemoryConfig(), new DynamicFilterConfig(), new NodeSchedulerConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
+                new MaterializedViewPropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager,
