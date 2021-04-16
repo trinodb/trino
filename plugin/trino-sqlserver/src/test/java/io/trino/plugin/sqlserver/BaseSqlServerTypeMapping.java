@@ -124,11 +124,13 @@ public abstract class BaseSqlServerTypeMapping
         SqlDataTypeTest.create()
                 .addRoundTrip("double precision", "NULL", DOUBLE, "CAST(NULL AS double)")
                 .addRoundTrip("double precision", "1.0E100", DOUBLE, "1.0E100")
+                .addRoundTrip("double precision", "123.456E10", DOUBLE, "123.456E10")
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_double"));
 
         SqlDataTypeTest.create()
                 .addRoundTrip("double", "NULL", DOUBLE, "CAST(NULL AS double)")
                 .addRoundTrip("double", "1.0E100", DOUBLE, "1.0E100")
+                .addRoundTrip("double", "123.456E10", DOUBLE, "123.456E10")
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_double"));
     }
 
