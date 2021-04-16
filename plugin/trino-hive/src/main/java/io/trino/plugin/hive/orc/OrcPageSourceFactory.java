@@ -100,6 +100,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.ReaderPageSource.noProjectionAdaptation;
 import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumns;
+import static io.trino.plugin.hive.orc.OrcPageSource.ColumnAdaptation.updatedRowColumnsWithOriginalFiles;
 import static io.trino.plugin.hive.orc.OrcPageSource.handleException;
 import static io.trino.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -416,7 +417,14 @@ public class OrcPageSourceFactory
                 List<HiveColumnHandle> dependencyColumns = projections.stream()
                         .filter(HiveColumnHandle::isBaseColumn)
                         .collect(toImmutableList());
-                columnAdaptations.add(updatedRowColumns(updateProcessor, dependencyColumns));
+                if (originalFile) {
+                    int bucket = bucketNumber.orElse(0);
+                    long startingRowId = originalFileRowId.orElse(0L);
+                    columnAdaptations.add(updatedRowColumnsWithOriginalFiles(startingRowId, bucket, updateProcessor, dependencyColumns));
+                }
+                else {
+                    columnAdaptations.add(updatedRowColumns(updateProcessor, dependencyColumns));
+                }
             }
 
             return new OrcPageSource(
