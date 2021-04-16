@@ -25,6 +25,7 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.assertions.Assert.assertFalse;
 import static io.trino.testing.assertions.Assert.assertTrue;
@@ -83,6 +84,13 @@ public class TestIcebergMaterializedViews
                                 "FROM\n" +
                                 "  base_table1");
         assertUpdate("DROP MATERIALIZED VIEW materialized_view_with_property");
+    }
+
+    @Test
+    public void testSystemMaterializedViewProperties()
+    {
+        assertThat(computeActual("SELECT * FROM system.metadata.materialized_view_properties WHERE catalog_name = 'iceberg'"))
+                .contains(new MaterializedRow(DEFAULT_PRECISION, "iceberg", "partitioning", "[]", "array(varchar)", "Partition transforms"));
     }
 
     @Test(enabled = false) // TODO https://github.com/trinodb/trino/issues/5892
