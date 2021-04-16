@@ -30,10 +30,12 @@ steps:
 
     cd $(Build.SourcesDirectory)
     TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
-    echo "##vso[task.setvariable variable=TRINO_VERSION]$TRINO_VERSION"
+
+    DOCKERFILE="FROM trino:${TRINO_VERSION}
+    LABEL cccs.trino.upstream.version=${TRINO_VERSION}"
 
     mkdir -p /tmp/trino_build
-    echo "FROM trino:${TRINO_VERSION}" > /tmp/trino_build/Dockerfile
+    echo "${DOCKERFILE}" > /tmp/trino_build/Dockerfile
   displayName: Docker build
 - task: Docker@2
   displayName: Login to $(containerRegistry)
@@ -48,8 +50,8 @@ steps:
     repository: $(imageRepository)
     Dockerfile: /tmp/trino_build/Dockerfile
     tags: |
-      $(BRANCH_NAME)_v$(TRINO_VERSION)
-      $(BRANCH_NAME)_v$(TRINO_VERSION)_$(buildTimestamp)_b$(Build.BuildId)
+      $(BRANCH_NAME)
+      $(BRANCH_NAME)_$(buildTimestamp)_b$(Build.BuildId)
 - task: Docker@2
   displayName: Logout of $(containerRegistry)
   inputs:
