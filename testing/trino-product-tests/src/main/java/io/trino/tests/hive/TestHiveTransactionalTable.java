@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -76,6 +77,11 @@ public class TestHiveTransactionalTable
     private static final Logger log = Logger.get(TestHiveTransactionalTable.class);
 
     private static final int TEST_TIMEOUT = 15 * 60 * 1000;
+
+    // Hive original file path end looks like /000000_0
+    // New Trino original file path end looks like /000000_132574635756428963553891918669625313402
+    // Older Trino path ends look like /20210416_190616_00000_fsymd_af6f0a3d-5449-4478-a53d-9f9f99c07ed9
+    private static final Pattern ORIGINAL_FILE_MATCHER = Pattern.compile(".*/\\d+_\\d+(_[^/]+)?$");
 
     @Inject
     private TestHiveMetastoreClientFactory testHiveMetastoreClientFactory;
@@ -253,6 +259,10 @@ public class TestHiveTransactionalTable
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
+
+            // verify that the existing rows are stored in original files
+            verifyOriginalFiles(tableName, "WHERE col = 21");
+
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
 
             // read with original files
@@ -292,6 +302,10 @@ public class TestHiveTransactionalTable
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
+
+            // verify that the existing rows are stored in original files
+            verifyOriginalFiles(tableName, "WHERE col = 21");
+
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
 
             // read with original files
@@ -338,6 +352,9 @@ public class TestHiveTransactionalTable
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (10, 100), (11, 110), (12, 120), (13, 130), (14, 140)");
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (15, 150), (16, 160), (17, 170), (18, 180), (19, 190)");
+
+            // verify that the existing rows are stored in original files
+            verifyOriginalFiles(tableName, "WHERE col = 10");
 
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
 
@@ -392,6 +409,10 @@ public class TestHiveTransactionalTable
 
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (1)");
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (2)");
+
+            // verify that the existing rows are stored in original files
+            verifyOriginalFiles(tableName, "WHERE col = 1");
+
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(INSERT_ONLY, bucketingType));
 
             // read with original files
@@ -1314,15 +1335,17 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testDeletePartitionedTable()
+    public void testDeleteFromOriginalFiles()
     {
-        withTemporaryTable("delete_partitioned", true, true, NONE, tableName -> {
+        withTemporaryTable("delete_original_files", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
                     " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
-            // SELECT before deletion may prime the cache on the Hive side
+            verifyOriginalFiles(tableName, "WHERE regionkey = 4");
             verifySelectForPrestoAndHive("SELECT count(*) FROM " + tableName, "true", row(25));
+            verifySelectForPrestoAndHive(format("SELECT nationkey, name FROM %s", tableName), "regionkey = 4", row(4, "EGYPT"), row(10, "IRAN"), row(11, "IRAQ"), row(13, "JORDAN"), row(20, "SAUDI ARABIA"));
             onTrino().executeQuery(format("DELETE FROM %s WHERE regionkey = 4 AND nationkey %% 10 = 3", tableName));
             verifySelectForPrestoAndHive("SELECT count(*) FROM " + tableName, "true", row(24));
+            verifySelectForPrestoAndHive(format("SELECT nationkey, name FROM %s", tableName), "regionkey = 4", row(4, "EGYPT"), row(10, "IRAN"), row(11, "IRAQ"), row(20, "SAUDI ARABIA"));
         });
     }
 
@@ -1333,7 +1356,8 @@ public class TestHiveTransactionalTable
             onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
                     " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
 
-            // SELECT before deletion may prime the cache on the Hive side
+            verifyOriginalFiles(tableName, "WHERE regionkey = 4");
+
             verifySelectForPrestoAndHive("SELECT count(*) FROM " + tableName, "true", row(25));
 
             // verify all partitions exist
@@ -1348,6 +1372,39 @@ public class TestHiveTransactionalTable
             assertThat(onTrino().executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName)))
                     .containsOnly(row(0), row(1), row(2), row(3), row(4));
         });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testUpdateOriginalFilesPartitioned()
+    {
+        withTemporaryTable("update_original_files", true, true, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
+                    " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+            verifyOriginalFiles(tableName, "WHERE regionkey = 4");
+            verifySelectForPrestoAndHive("SELECT nationkey, name FROM " + tableName, "regionkey = 4", row(4, "EGYPT"), row(10, "IRAN"), row(11, "IRAQ"), row(13, "JORDAN"), row(20, "SAUDI ARABIA"));
+            onTrino().executeQuery(format("UPDATE %s SET nationkey = 100 WHERE regionkey = 4 AND nationkey %% 10 = 3", tableName));
+            verifySelectForPrestoAndHive("SELECT nationkey, name FROM " + tableName, "regionkey = 4", row(4, "EGYPT"), row(10, "IRAN"), row(11, "IRAQ"), row(100, "JORDAN"), row(20, "SAUDI ARABIA"));
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testUpdateOriginalFilesUnpartitioned()
+    {
+        withTemporaryTable("update_original_files", true, true, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true)" +
+                    " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+            verifyOriginalFiles(tableName, "WHERE regionkey = 4");
+            verifySelectForPrestoAndHive("SELECT nationkey, name, regionkey FROM " + tableName, "nationkey % 10 = 3", row(3, "CANADA", 1), row(13, "JORDAN", 4), row(23, "UNITED KINGDOM", 3));
+            onTrino().executeQuery(format("UPDATE %s SET nationkey = nationkey + 100 WHERE nationkey %% 10 = 3", tableName));
+            verifySelectForPrestoAndHive("SELECT nationkey, name, regionkey FROM " + tableName, "nationkey % 10 = 3", row(103, "CANADA", 1), row(113, "JORDAN", 4), row(123, "UNITED KINGDOM", 3));
+        });
+    }
+
+    private void verifyOriginalFiles(String tableName, String whereClause)
+    {
+        QueryResult result = onTrino().executeQuery(format("SELECT DISTINCT \"$path\" FROM %s %s", tableName, whereClause));
+        String path = (String) result.row(0).get(0);
+        checkArgument(ORIGINAL_FILE_MATCHER.matcher(path).matches(), "Path should be original file path, but isn't, path: %s", path);
     }
 
     @DataProvider
