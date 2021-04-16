@@ -997,6 +997,38 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testAcidDeleteFailNonTransactional()
+    {
+        withTemporaryTable("delete_fail_nontransactional", true, true, NONE, tableName -> {
+            onTrino().executeQuery(format("CREATE TABLE %s (customer VARCHAR, purchase VARCHAR)", tableName));
+
+            log.info("About to insert");
+            onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
+
+            log.info("About to fail delete");
+            assertThat(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
+                    .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testAcidDeleteFailInsertOnlyTable()
+    {
+        withTemporaryTable("delete_fail_insert_only", true, false, NONE, tableName -> {
+            onHive().executeQuery("CREATE TABLE " + tableName + " (customer STRING, purchase STRING) " +
+                    "STORED AS ORC " +
+                    hiveTableProperties(INSERT_ONLY, NONE));
+
+            log.info("About to insert");
+            onTrino().executeQuery(format("INSERT INTO %s (customer, purchase) VALUES ('Fred', 'cards')", tableName));
+
+            log.info("About to fail delete");
+            assertThat(() -> onTrino().executeQuery(format("DELETE FROM %s WHERE customer = 'Fred'", tableName)))
+                    .failsWithMessage("Deletes must match whole partitions for non-transactional tables");
+        });
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testAcidUpdateFailUpdatePartitionKey()
     {
         withTemporaryTable("fail_update_partition_key", true, true, NONE, tableName -> {
