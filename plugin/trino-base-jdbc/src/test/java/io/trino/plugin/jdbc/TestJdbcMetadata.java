@@ -155,6 +155,7 @@ public class TestJdbcMetadata
         // all schemas
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.empty())), ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "timestamps"),
                 new SchemaTableName("example", "view_source"),
                 new SchemaTableName("example", "view"),
                 new SchemaTableName("tpch", "orders"),
@@ -165,6 +166,7 @@ public class TestJdbcMetadata
         // specific schema
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("example"))), ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
+                new SchemaTableName("example", "timestamps"),
                 new SchemaTableName("example", "view_source"),
                 new SchemaTableName("example", "view")));
         assertEquals(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("tpch"))), ImmutableSet.of(
