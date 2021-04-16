@@ -23,6 +23,7 @@ import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
+import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -42,8 +43,11 @@ import io.trino.spi.type.TypeSignature;
 import io.trino.sql.planner.TestingConnectorTransactionHandle;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.CreateTable;
+import io.trino.sql.tree.Identifier;
 import io.trino.sql.tree.LikeClause;
+import io.trino.sql.tree.Property;
 import io.trino.sql.tree.QualifiedName;
+import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.TableElement;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
@@ -61,6 +65,7 @@ import static com.google.common.collect.Sets.immutableEnumSet;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.ConnectorCapabilities.NOT_NULL_COLUMN_CONSTRAINT;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
@@ -108,18 +113,23 @@ public class TestCreateTableTask
         CatalogManager catalogManager = new CatalogManager();
         transactionManager = createTestTransactionManager(catalogManager);
         TablePropertyManager tablePropertyManager = new TablePropertyManager();
+        MaterializedViewPropertyManager materializedViewPropertyManager = new MaterializedViewPropertyManager();
         ColumnPropertyManager columnPropertyManager = new ColumnPropertyManager();
         Catalog testCatalog = createBogusTestingCatalog(CATALOG_NAME);
         catalogManager.registerCatalog(testCatalog);
         tablePropertyManager.addProperties(
                 testCatalog.getConnectorCatalogName(),
                 ImmutableList.of(stringProperty("baz", "test property", null, false)));
+        materializedViewPropertyManager.addProperties(
+                testCatalog.getConnectorCatalogName(),
+                ImmutableList.of(stringProperty("foo", "test materialized view property", null, false)));
         columnPropertyManager.addProperties(testCatalog.getConnectorCatalogName(), ImmutableList.of());
         testSession = testSessionBuilder()
                 .setTransactionId(transactionManager.beginTransaction(false))
                 .build();
         metadata = new MockMetadata(
                 tablePropertyManager,
+                materializedViewPropertyManager,
                 columnPropertyManager,
                 testCatalog.getConnectorCatalogName(),
                 emptySet());
@@ -152,6 +162,22 @@ public class TestCreateTableTask
                 .hasMessage("Table already exists");
 
         assertEquals(metadata.getCreateTableCallCount(), 1);
+    }
+
+    @Test
+    public void testCreateTableWithMaterializedViewPropertyFails()
+    {
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
+                ImmutableList.of(new ColumnDefinition(identifier("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                false,
+                ImmutableList.of(new Property(new Identifier("foo"), new StringLiteral("bar"))),
+                Optional.empty());
+
+        assertTrinoExceptionThrownBy(() -> getFutureValue(new CreateTableTask().internalExecute(statement, metadata, new AllowAllAccessControl(), testSession, emptyList(), output -> {})))
+                .hasErrorCode(INVALID_TABLE_PROPERTY)
+                .hasMessage("Catalog 'catalog' does not support table property 'foo'");
+
+        assertEquals(metadata.getCreateTableCallCount(), 0);
     }
 
     @Test
@@ -270,6 +296,7 @@ public class TestCreateTableTask
     {
         private final MetadataManager metadata;
         private final TablePropertyManager tablePropertyManager;
+        private final MaterializedViewPropertyManager materializedViewPropertyManager;
         private final ColumnPropertyManager columnPropertyManager;
         private final CatalogName catalogHandle;
         private final List<ConnectorTableMetadata> tables = new CopyOnWriteArrayList<>();
@@ -277,11 +304,13 @@ public class TestCreateTableTask
 
         public MockMetadata(
                 TablePropertyManager tablePropertyManager,
+                MaterializedViewPropertyManager materializedViewPropertyManager,
                 ColumnPropertyManager columnPropertyManager,
                 CatalogName catalogHandle,
                 Set<ConnectorCapabilities> connectorCapabilities)
         {
             this.tablePropertyManager = requireNonNull(tablePropertyManager, "tablePropertyManager is null");
+            this.materializedViewPropertyManager = requireNonNull(materializedViewPropertyManager, "materializedViewPropertyManager is null");
             this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
             this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
             this.connectorCapabilities = immutableEnumSet(requireNonNull(connectorCapabilities, "connectorCapabilities is null"));
@@ -301,6 +330,12 @@ public class TestCreateTableTask
         public TablePropertyManager getTablePropertyManager()
         {
             return tablePropertyManager;
+        }
+
+        @Override
+        public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
+        {
+            return materializedViewPropertyManager;
         }
 
         @Override
