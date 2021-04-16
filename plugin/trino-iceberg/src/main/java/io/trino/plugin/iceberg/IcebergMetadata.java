@@ -994,6 +994,7 @@ public class IcebergMetadata
                 .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)));
 
         String storageTable = materializedView.getParameters().getOrDefault(STORAGE_TABLE, "");
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, new SchemaTableName(viewName.getSchemaName(), storageTable));
         return Optional.of(new ConnectorMaterializedViewDefinition(
                 definition.getOriginalSql(),
                 Optional.of(storageTable),
@@ -1002,7 +1003,7 @@ public class IcebergMetadata
                 definition.getColumns(),
                 definition.getComment(),
                 materializedView.getOwner(),
-                new HashMap<>(materializedView.getParameters())));
+                ImmutableMap.copyOf(tableMetadata.getProperties())));
     }
 
     public Optional<TableToken> getTableToken(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -1059,7 +1060,7 @@ public class IcebergMetadata
             return viewToken;
         }
 
-        String storageTableName = materializedViewDefinition.get().getProperties().getOrDefault(STORAGE_TABLE, "").toString();
+        String storageTableName = Optional.ofNullable(materializedViewDefinition.get().getStorageTable()).orElse("");
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, new SchemaTableName(name.getSchemaName(), storageTableName));
         String dependsOnTables = icebergTable.currentSnapshot().summary().getOrDefault(DEPENDS_ON_TABLES, "");
         if (!dependsOnTables.isEmpty()) {
