@@ -60,6 +60,7 @@ import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Statement;
+import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.assertions.TrinoExceptionAssert;
@@ -125,6 +126,7 @@ import static io.trino.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NULL_TREATMENT_NOT_ALLOWED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_HAS_NO_COLUMNS;
@@ -151,6 +153,8 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
+import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
+import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -3999,6 +4003,47 @@ public class TestAnalyzer
                 .hasMessage("line 1:195: MATCH_NUMBER pattern recognition function takes no arguments");
     }
 
+    @Test
+    public void testAnalyzeFreshMaterializedView()
+    {
+        analyze("SELECT * FROM fresh_materialized_view");
+    }
+
+    @Test
+    public void testAnalyzeInvalidFreshMaterializedView()
+    {
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_count")
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:15: storage table column count (2) does not match column count derived from the materialized view query analysis (1)");
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_name")
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different name from column [c] of type bigint stored in materialized view definition");
+        assertFails("SELECT * FROM fresh_materialized_view_mismatched_column_type")
+                .hasErrorCode(INVALID_VIEW)
+                .hasMessage("line 1:15: column [b] of type bigint projected from storage table at position 1 has a different type from column [b] of type tinyint stored in view definition");
+    }
+
+    @Test
+    public void testAnalyzeMaterializedViewWithAccessControl()
+    {
+        TestingAccessControlManager accessControlManager = new TestingAccessControlManager(transactionManager, emptyEventListenerManager());
+        accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
+
+        analyze("SELECT * FROM fresh_materialized_view");
+
+        // materialized view analysis should succeed even if access to storage table is denied when querying the table directly
+        accessControlManager.deny(privilege("t2.a", SELECT_COLUMN));
+        analyze("SELECT * FROM fresh_materialized_view");
+
+        accessControlManager.deny(privilege("fresh_materialized_view.a", SELECT_COLUMN));
+        assertFails(
+                CLIENT_SESSION,
+                "SELECT * FROM fresh_materialized_view",
+                accessControlManager)
+                .hasErrorCode(PERMISSION_DENIED)
+                .hasMessage("Access Denied: Cannot select from columns [a, b] in table or view tpch.s1.fresh_materialized_view");
+    }
+
     @BeforeClass
     public void setup()
     {
@@ -4016,6 +4061,7 @@ public class TestAnalyzer
         metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
 
         Catalog tpchTestCatalog = createTestingCatalog(TPCH_CATALOG, TPCH_CATALOG_NAME);
+        TestingMetadata testingConnectorMetadata = (TestingMetadata) tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getMetadata(null);
         catalogManager.registerCatalog(tpchTestCatalog);
         metadata.getTablePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getTableProperties());
         metadata.getAnalyzePropertyManager().addProperties(TPCH_CATALOG_NAME, tpchTestCatalog.getConnector(TPCH_CATALOG_NAME).getAnalyzeProperties());
@@ -4261,6 +4307,75 @@ public class TestAnalyzer
                         tableAndView.asSchemaTableName(),
                         ImmutableList.of(new ColumnMetadata("a", BIGINT))),
                 false));
+
+        QualifiedObjectName freshMaterializedView = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                freshMaterializedView,
+                new ConnectorMaterializedViewDefinition(
+                        "SELECT a, b FROM t1",
+                        // t3 has a, b column and hidden column x
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", BIGINT.getTypeId())),
+                        Optional.empty(),
+                        "some user",
+                        ImmutableMap.of()),
+                false,
+                false));
+        testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
+
+        QualifiedObjectName freshMaterializedViewMismatchedColumnCount = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_count");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                freshMaterializedViewMismatchedColumnCount,
+                new ConnectorMaterializedViewDefinition(
+                        "SELECT a FROM t1",
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new Column("a", BIGINT.getTypeId())),
+                        Optional.empty(),
+                        "some user",
+                        ImmutableMap.of()),
+                false,
+                false));
+        testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewMismatchedColumnCount.asSchemaTableName());
+
+        QualifiedObjectName freshMaterializedMismatchedColumnName = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_name");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                freshMaterializedMismatchedColumnName,
+                new ConnectorMaterializedViewDefinition(
+                        "SELECT a, b as c FROM t1",
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("c", BIGINT.getTypeId())),
+                        Optional.empty(),
+                        "some user",
+                        ImmutableMap.of()),
+                false,
+                false));
+        testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnName.asSchemaTableName());
+
+        QualifiedObjectName freshMaterializedMismatchedColumnType = new QualifiedObjectName(TPCH_CATALOG, "s1", "fresh_materialized_view_mismatched_column_type");
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                freshMaterializedMismatchedColumnType,
+                new ConnectorMaterializedViewDefinition(
+                        "SELECT a, CAST(b as tinyint) b FROM t1",
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
+                        Optional.of(TPCH_CATALOG),
+                        Optional.of("s1"),
+                        ImmutableList.of(new Column("a", BIGINT.getTypeId()), new Column("b", TINYINT.getTypeId())),
+                        Optional.empty(),
+                        "some user",
+                        ImmutableMap.of()),
+                false,
+                false));
+        testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());
     }
 
     private void inSetupTransaction(Consumer<Session> consumer)
@@ -4271,14 +4386,14 @@ public class TestAnalyzer
                 .execute(SETUP_SESSION, consumer);
     }
 
-    private static Analyzer createAnalyzer(Session session, Metadata metadata)
+    private static Analyzer createAnalyzer(Session session, Metadata metadata, AccessControl accessControl)
     {
         return new Analyzer(
                 session,
                 metadata,
                 SQL_PARSER,
                 user -> ImmutableSet.of(),
-                new AllowAllAccessControl(),
+                accessControl,
                 Optional.empty(),
                 emptyList(),
                 emptyMap(),
@@ -4293,25 +4408,35 @@ public class TestAnalyzer
 
     private Analysis analyze(Session clientSession, @Language("SQL") String query)
     {
+        return analyze(clientSession, query, new AllowAllAccessControl());
+    }
+
+    private Analysis analyze(Session clientSession, @Language("SQL") String query, AccessControl accessControl)
+    {
         return transaction(transactionManager, accessControl)
                 .singleStatement()
                 .readUncommitted()
                 .execute(clientSession, session -> {
-                    Analyzer analyzer = createAnalyzer(session, metadata);
+                    Analyzer analyzer = createAnalyzer(session, metadata, accessControl);
                     Statement statement = SQL_PARSER.createStatement(query, new ParsingOptions(
                             new FeaturesConfig().isParseDecimalLiteralsAsDouble() ? AS_DOUBLE : AS_DECIMAL));
                     return analyzer.analyze(statement);
                 });
     }
 
-    private TrinoExceptionAssert assertFails(Session session, @Language("SQL") String query)
-    {
-        return assertTrinoExceptionThrownBy(() -> analyze(session, query));
-    }
-
     private TrinoExceptionAssert assertFails(@Language("SQL") String query)
     {
         return assertFails(CLIENT_SESSION, query);
+    }
+
+    private TrinoExceptionAssert assertFails(Session session, @Language("SQL") String query)
+    {
+        return assertFails(session, query, new AllowAllAccessControl());
+    }
+
+    private TrinoExceptionAssert assertFails(Session session, @Language("SQL") String query, AccessControl accessControl)
+    {
+        return assertTrinoExceptionThrownBy(() -> analyze(session, query, accessControl));
     }
 
     private Catalog createTestingCatalog(String catalogName, CatalogName catalog)
