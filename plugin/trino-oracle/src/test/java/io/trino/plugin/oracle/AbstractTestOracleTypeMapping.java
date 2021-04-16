@@ -147,6 +147,7 @@ public abstract class AbstractTestOracleTypeMapping
                 .addRoundTrip("real", "-infinity()", REAL, "CAST(-infinity() AS real)")
                 .addRoundTrip("real", "NULL", REAL, "CAST(NULL AS real)")
                 .addRoundTrip("double", "1.0E100", DOUBLE, "double '1.0E100'")
+                .addRoundTrip("double", "123.456E10", DOUBLE, "123.456E10")
                 .addRoundTrip("double", "nan()", DOUBLE, "CAST(nan() AS double)")
                 .addRoundTrip("double", "+infinity()", DOUBLE, "CAST(+infinity() AS double)")
                 .addRoundTrip("double", "-infinity()", DOUBLE, "CAST(-infinity() AS double)")
