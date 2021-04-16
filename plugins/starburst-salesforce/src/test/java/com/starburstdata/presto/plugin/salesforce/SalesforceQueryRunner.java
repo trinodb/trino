@@ -27,6 +27,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
@@ -127,6 +128,13 @@ public final class SalesforceQueryRunner
                 .build()) {
             connectorProperties = new HashMap<>(ImmutableMap.copyOf(connectorProperties));
             connectorProperties.putIfAbsent("allow-drop-table", "true");
+
+            // If the redirection properties are included with redirectionDisabled(createSession()), then queryRunner.tableExists fails in copyTableIfNotExists
+            // We get an error from the SessionPropertyManager.getConnectorSessionPropertyMetadata "Unknown catalog: salesforce"
+            // Not sure if something is missing or this error is unique to this connector since we check for table existence before creating it
+            for (String redirectionProperty : connectorProperties.keySet().stream().filter(key -> key.startsWith("redirection")).collect(Collectors.toList())) {
+                connectorProperties.remove(redirectionProperty);
+            }
 
             queryRunner.installPlugin(new TestingSalesforcePlugin(true));
             queryRunner.createCatalog("salesforce", "salesforce", connectorProperties);

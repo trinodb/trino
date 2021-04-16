@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.salesforce;
 
+import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -25,6 +26,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.IntegerType;
@@ -81,22 +83,32 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 
 public class SalesforceJdbcClient
         extends BaseJdbcClient
 {
+    private final TableScanRedirection tableScanRedirection;
     private final boolean enableWrites;
 
     @Inject
     public SalesforceJdbcClient(
             BaseJdbcConfig baseJdbcConfig,
+            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             @EnableWrites boolean enableWrites)
     {
         super(baseJdbcConfig, "\"", connectionFactory);
+        this.tableScanRedirection = requireNonNull(tableScanRedirection, "tableScanRedirection is null");
         this.enableWrites = enableWrites;
+    }
+
+    @Override
+    public Optional<TableScanRedirectApplicationResult> getTableScanRedirection(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return tableScanRedirection.getTableScanRedirection(session, handle, this);
     }
 
     @Override
