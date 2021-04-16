@@ -131,6 +131,7 @@ public final class InternalHiveConnectorFactory
             Set<SessionPropertiesProvider> sessionPropertiesProviders = injector.getInstance(Key.get(new TypeLiteral<Set<SessionPropertiesProvider>>() {}));
             HiveTableProperties hiveTableProperties = injector.getInstance(HiveTableProperties.class);
             HiveAnalyzeProperties hiveAnalyzeProperties = injector.getInstance(HiveAnalyzeProperties.class);
+            HiveMaterializedViewMetadata hiveMaterializedViewMetadata = injector.getInstance(HiveMaterializedViewMetadata.class);
             ConnectorAccessControl accessControl = new ClassLoaderSafeConnectorAccessControl(
                     new SystemTableAwareAccessControl(injector.getInstance(ConnectorAccessControl.class)),
                     classLoader);
@@ -156,6 +157,7 @@ public final class InternalHiveConnectorFactory
                     HiveSchemaProperties.SCHEMA_PROPERTIES,
                     hiveTableProperties.getTableProperties(),
                     hiveAnalyzeProperties.getAnalyzeProperties(),
+                    hiveMaterializedViewMetadata,
                     accessControl,
                     classLoader);
         }

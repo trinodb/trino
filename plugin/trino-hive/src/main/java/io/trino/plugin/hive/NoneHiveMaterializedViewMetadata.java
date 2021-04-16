@@ -13,12 +13,15 @@
  */
 package io.trino.plugin.hive;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.session.PropertyMetadata;
 
+import java.util.List;
 import java.util.Optional;
 
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -26,6 +29,12 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 public class NoneHiveMaterializedViewMetadata
         implements HiveMaterializedViewMetadata
 {
+    @Override
+    public List<PropertyMetadata<?>> getMaterializedViewProperties()
+    {
+        return ImmutableList.of();
+    }
+
     @Override
     public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
     {

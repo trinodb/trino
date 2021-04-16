@@ -17,11 +17,15 @@ import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.session.PropertyMetadata;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface HiveMaterializedViewMetadata
 {
+    List<PropertyMetadata<?>> getMaterializedViewProperties();
+
     void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting);
 
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);

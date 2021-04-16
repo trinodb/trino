@@ -60,6 +60,7 @@ public class HiveConnector
     private final List<PropertyMetadata<?>> schemaProperties;
     private final List<PropertyMetadata<?>> tableProperties;
     private final List<PropertyMetadata<?>> analyzeProperties;
+    private final HiveMaterializedViewMetadata hiveMaterializedViewMetadata;
 
     private final ConnectorAccessControl accessControl;
     private final ClassLoader classLoader;
@@ -81,6 +82,7 @@ public class HiveConnector
             List<PropertyMetadata<?>> schemaProperties,
             List<PropertyMetadata<?>> tableProperties,
             List<PropertyMetadata<?>> analyzeProperties,
+            HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
             ConnectorAccessControl accessControl,
             ClassLoader classLoader)
     {
@@ -100,6 +102,7 @@ public class HiveConnector
         this.schemaProperties = ImmutableList.copyOf(requireNonNull(schemaProperties, "schemaProperties is null"));
         this.tableProperties = ImmutableList.copyOf(requireNonNull(tableProperties, "tableProperties is null"));
         this.analyzeProperties = ImmutableList.copyOf(requireNonNull(analyzeProperties, "analyzeProperties is null"));
+        this.hiveMaterializedViewMetadata = requireNonNull(hiveMaterializedViewMetadata, "hiveMaterializedViewMetadata is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.classLoader = requireNonNull(classLoader, "classLoader is null");
     }
@@ -176,6 +179,12 @@ public class HiveConnector
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getMaterializedViewProperties()
+    {
+        return hiveMaterializedViewMetadata.getMaterializedViewProperties();
     }
 
     @Override
