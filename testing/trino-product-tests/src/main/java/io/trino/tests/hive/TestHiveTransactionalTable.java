@@ -1283,10 +1283,21 @@ public class TestHiveTransactionalTable
         withTemporaryTable("delete_partitioned", true, true, NONE, tableName -> {
             onTrino().executeQuery(format("CREATE TABLE %s WITH (transactional = true, partitioned_by = ARRAY['regionkey'])" +
                     " AS SELECT nationkey, name, regionkey FROM tpch.tiny.nation", tableName));
+
             // SELECT before deletion may prime the cache on the Hive side
             verifySelectForPrestoAndHive("SELECT count(*) FROM " + tableName, "true", row(25));
+
+            // verify all partitions exist
+            assertThat(onTrino().executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName)))
+                    .containsOnly(row(0), row(1), row(2), row(3), row(4));
+
+            // run delete and verify row count
             onTrino().executeQuery(format("DELETE FROM %s WHERE regionkey = 4", tableName));
             verifySelectForPrestoAndHive("SELECT count(*) FROM " + tableName, "true", row(20));
+
+            // verify all partitions still exist
+            assertThat(onTrino().executeQuery(format("SELECT * FROM \"%s$partitions\"", tableName)))
+                    .containsOnly(row(0), row(1), row(2), row(3), row(4));
         });
     }
 

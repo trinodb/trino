@@ -2147,7 +2147,10 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorTableHandle> applyDelete(ConnectorSession session, ConnectorTableHandle handle)
     {
-        return Optional.of(handle);
+        Map<String, String> parameters = ((HiveTableHandle) handle).getTableParameters()
+                .orElseThrow(() -> new IllegalStateException("tableParameters missing from handle"));
+
+        return isFullAcidTable(parameters) ? Optional.empty() : Optional.of(handle);
     }
 
     @Override
