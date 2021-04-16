@@ -819,6 +819,7 @@ public class TestMySqlTypeMapping
         // we are not testing Nan/-Infinity/+Infinity as those are not supported by MySQL
         return DataTypeTest.create()
                 .addRoundTrip(doubleType, 1.0e100d)
+                .addRoundTrip(doubleType, 123.456E10)
                 .addRoundTrip(doubleType, null);
     }
 
