@@ -18,6 +18,7 @@ import io.trino.tests.product.launcher.env.EnvironmentConfig;
 import io.trino.tests.product.launcher.env.EnvironmentDefaults;
 import io.trino.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.trino.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
+import io.trino.tests.product.launcher.env.environment.SinglenodeMariadb;
 import io.trino.tests.product.launcher.env.environment.SinglenodeMysql;
 import io.trino.tests.product.launcher.env.environment.SinglenodePostgresql;
 import io.trino.tests.product.launcher.env.environment.SinglenodeSparkHive;
@@ -43,6 +44,7 @@ public class Suite7NonGeneric
 
         return ImmutableList.of(
                 testOnEnvironment(SinglenodeMysql.class).withGroups("mysql").build(),
+                testOnEnvironment(SinglenodeMariadb.class).withGroups("mariadb").build(),
                 testOnEnvironment(SinglenodePostgresql.class).withGroups("postgresql").build(),
                 testOnEnvironment(SinglenodeSqlserver.class).withGroups("sqlserver").build(),
                 testOnEnvironment(SinglenodeSparkHive.class).withGroups("hive_spark_bucketing").build(),

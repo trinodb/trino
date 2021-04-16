@@ -13,13 +13,22 @@
  */
 package io.trino.plugin.mysql;
 
-import io.trino.plugin.jdbc.JdbcPlugin;
+import com.google.common.collect.ImmutableList;
+import io.trino.plugin.jdbc.JdbcConnectorFactory;
+import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
+
+import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class MySqlPlugin
-        extends JdbcPlugin
+        implements Plugin
 {
-    public MySqlPlugin()
+    @Override
+    public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        super("mysql", new MySqlClientModule());
+        return ImmutableList.of(
+                new JdbcConnectorFactory("mysql", combine(new CredentialProviderModule(), new MySqlClientModule())),
+                new JdbcConnectorFactory("mariadb", combine(new CredentialProviderModule(), new MySqlClientModule())));
     }
 }

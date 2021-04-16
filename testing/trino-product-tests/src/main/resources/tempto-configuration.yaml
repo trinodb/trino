@@ -120,6 +120,14 @@ databases:
     jdbc_pooling: true
     table_manager_type: jdbc
 
+  mariadb:
+      jdbc_driver_class: com.mysql.jdbc.Driver
+      jdbc_url: jdbc:mysql://mariadb:23306/test
+      jdbc_user: root
+      jdbc_password: test
+      jdbc_pooling: true
+      table_manager_type: jdbc
+
   postgres:
     jdbc_driver_class: org.postgresql.Driver
     jdbc_url: jdbc:postgresql://postgresql:15432/test

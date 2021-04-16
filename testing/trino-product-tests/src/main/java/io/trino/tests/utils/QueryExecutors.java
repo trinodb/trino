@@ -79,6 +79,11 @@ public final class QueryExecutors
         return testContext().getDependency(QueryExecutor.class, "mysql");
     }
 
+    public static QueryExecutor onMariaDb()
+    {
+        return testContext().getDependency(QueryExecutor.class, "mariadb");
+    }
+
     public static QueryExecutor onSpark()
     {
         return testContext().getDependency(QueryExecutor.class, "spark");

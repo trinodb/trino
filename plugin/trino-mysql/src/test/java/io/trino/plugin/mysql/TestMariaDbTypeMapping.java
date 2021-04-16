@@ -18,24 +18,24 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.plugin.mysql.MariaDbQueryRunner.createMariaDbQueryRunner;
 
-public class TestMySqlTypeMapping
+public class TestMariaDbTypeMapping
         extends BaseMySqlTypeMappingTest
 {
-    private TestingMySqlServer mysqlServer;
+    private TestingMariaDbServer mariaDbServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = closeAfterClass(new TestingMySqlServer());
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        mariaDbServer = closeAfterClass(new TestingMariaDbServer());
+        return createMariaDbQueryRunner(mariaDbServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
     }
 
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return mysqlServer::execute;
+        return mariaDbServer::execute;
     }
 }

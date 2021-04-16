@@ -13,29 +13,28 @@
  */
 package io.trino.plugin.mysql;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 
-import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.trino.plugin.mysql.MariaDbQueryRunner.createMariaDbQueryRunner;
 
-public class TestMySqlTypeMapping
-        extends BaseMySqlTypeMappingTest
+public class TestMariaDbConnectorTest
+        extends BaseMySqlConnectorTest
 {
-    private TestingMySqlServer mysqlServer;
+    private TestingMariaDbServer mariaDbServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = closeAfterClass(new TestingMySqlServer());
-        return createMySqlQueryRunner(mysqlServer, ImmutableMap.of(), ImmutableMap.of(), ImmutableList.of());
+        mariaDbServer = closeAfterClass(new TestingMariaDbServer());
+        return createMariaDbQueryRunner(mariaDbServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override
     protected SqlExecutor onRemoteDatabase()
     {
-        return mysqlServer::execute;
+        return mariaDbServer::execute;
     }
 }
