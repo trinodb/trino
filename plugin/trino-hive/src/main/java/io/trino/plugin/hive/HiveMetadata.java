@@ -66,7 +66,6 @@ import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
-import io.trino.spi.connector.ConnectorTableLayoutHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTablePartitioning;
 import io.trino.spi.connector.ConnectorTableProperties;
@@ -2006,13 +2005,6 @@ public class HiveMetadata
         }
 
         throw new SchemaNotFoundException(schemaName.getSchemaName());
-    }
-
-    @Override
-    public boolean supportsMetadataDelete(ConnectorSession session, ConnectorTableHandle tableHandle, ConnectorTableLayoutHandle tableLayoutHandle)
-    {
-        HiveTableHandle handle = (HiveTableHandle) tableHandle;
-        return handle.getTableParameters().isEmpty() || !isFullAcidTable(handle.getTableParameters().get());
     }
 
     @Override
