@@ -71,7 +71,7 @@ public class SapHanaAuthenticationModule
         protected void setup(Binder binder)
         {
             configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
-            install(new PasswordPassThroughModule());
+            install(new PasswordPassThroughModule<>(SapHanaAuthenticationConfig.class, config -> false));
         }
 
         @Provides
