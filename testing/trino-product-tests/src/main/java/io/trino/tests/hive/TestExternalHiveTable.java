@@ -149,6 +149,38 @@ public class TestExternalHiveTable
         String table = "test_create_external";
         String tableLocation = "/tmp/" + table;
         query(format("CREATE TABLE %s.%s.%s WITH (external_location = '%s') AS SELECT * FROM tpch.tiny.nation", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, table, tableLocation));
+
+        String otherSchema = "schema_with_unknown_location";
+        query(format("CREATE SCHEMA %s.%s", HIVE_CATALOG_WITH_EXTERNAL_WRITES, otherSchema));
+
+        String otherTable = "table_with_unknown_schema_location";
+        String otherTableLocation = "/tmp/" + otherTable;
+        query(format("CREATE TABLE %s.%s.%s WITH (external_location = '%s') AS SELECT * FROM tpch.tiny.nation", HIVE_CATALOG_WITH_EXTERNAL_WRITES, otherSchema, otherTable, otherTableLocation));
+    }
+
+    @Test(groups = {HIVE_WITH_EXTERNAL_WRITES, PROFILE_SPECIFIC_TESTS})
+    public void testCreateExternalTableWithExistingPath()
+    {
+        String schema = "schema_with_file_as_location";
+
+        String table = "table_with_file_as_location";
+        String tableLocation = "/tmp/" + table;
+        hdfsClient.saveFile(tableLocation, "This is a file");
+        assertThat(() -> query(
+                format("CREATE TABLE %s.%s.%s WITH (external_location = '%s') AS SELECT * FROM tpch.tiny.nation", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, table, tableLocation)))
+                .failsWithMessage(format("Target path for table '%s.%s' already exists: %s", schema, table, tableLocation));
+        hdfsClient.delete(tableLocation);
+    }
+
+    @Test(groups = {HIVE_WITH_EXTERNAL_WRITES, PROFILE_SPECIFIC_TESTS})
+    public void testCreateExternalTableWithNonExistentPath()
+    {
+        String schema = "schema_with_table_without_location";
+        query(format("CREATE SCHEMA %s.%s", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema));
+
+        String table = "table_with_non_existent_path";
+        String tableLocation = "/tmp/" + table;
+        query(format("CREATE TABLE %s.%s.%s (id BIGINT, name VARCHAR) WITH (external_location = '%s')", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, table, tableLocation));
     }
 
     private void insertNationPartition(TableInstance<?> nation, int partition)

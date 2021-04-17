@@ -23,6 +23,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 
 import static com.google.common.io.Files.createTempDir;
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -84,6 +85,23 @@ public class TestHiveCreateExternalTable
                         "SELECT * FROM tpch.tiny.nation",
                 tempDir.toURI().toASCIIString());
 
-        assertQueryFails(createTableSql, "Target directory for table '.*' already exists:.*");
+        assertQueryFails(createTableSql, "Target path for table '.*' already exists:.*");
+    }
+
+    @Test
+    public void testCreateExternalTableWithoutExistingDirectory()
+            throws IOException
+    {
+        File tempDir = Files.createTempDirectory(null).toFile();
+        tempDir.delete(); // Delete path to imitate an unavailable path
+
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE test_create_external_not_exists" +
+                        "(id bigint, name varchar)" +
+                        "WITH (external_location = '%s')",
+                tempDir.toURI().toASCIIString());
+
+        assertQuerySucceeds(createTableSql);
+        deleteRecursively(tempDir.toPath(), ALLOW_INSECURE);
     }
 }

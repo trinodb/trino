@@ -58,9 +58,9 @@ public class HiveLocationService
         HdfsContext context = new HdfsContext(session);
         Path targetPath = externalLocation.orElseGet(() -> getTableDefaultLocation(context, metastore, hdfsEnvironment, schemaName, tableName));
 
-        // verify the target directory for the table
+        // verify the target path for the table
         if (pathExists(context, hdfsEnvironment, targetPath)) {
-            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target directory for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
+            throw new TrinoException(HIVE_PATH_ALREADY_EXISTS, format("Target path for table '%s.%s' already exists: %s", schemaName, tableName, targetPath));
         }
 
         // TODO detect when existing table's location is a on a different file system than the temporary directory

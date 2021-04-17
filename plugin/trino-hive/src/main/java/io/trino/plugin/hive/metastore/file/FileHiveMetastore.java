@@ -97,6 +97,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.HiveMetadata.SPARK_TABLE_PROVIDER_KEY;
@@ -303,8 +304,13 @@ public class FileHiveMetastore
             try {
                 Path externalLocation = new Path(table.getStorage().getLocation());
                 FileSystem externalFileSystem = hdfsEnvironment.getFileSystem(hdfsContext, externalLocation);
-                if (!externalFileSystem.isDirectory(externalLocation)) {
-                    throw new TrinoException(HIVE_METASTORE_ERROR, "External table location does not exist");
+                if (externalFileSystem.exists(externalLocation)) {
+                    if (!externalFileSystem.getFileStatus(externalLocation).isDirectory()) {
+                        throw new TrinoException(HIVE_METASTORE_ERROR, "External table location exists but is not a directory: " + externalLocation);
+                    }
+                }
+                else if (!externalFileSystem.mkdirs(externalLocation)) {
+                    throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + externalLocation);
                 }
             }
             catch (IOException e) {
