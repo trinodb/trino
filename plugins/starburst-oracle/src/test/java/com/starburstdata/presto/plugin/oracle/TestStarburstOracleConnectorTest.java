@@ -38,7 +38,6 @@ import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleTimes
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
 import static com.starburstdata.presto.plugin.oracle.TestingStarburstOracleServer.executeInOracle;
 import static io.trino.SystemSessionProperties.USE_MARK_DISTINCT;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -456,19 +455,5 @@ public class TestStarburstOracleConnectorTest
                 // strategy is AUTOMATIC by default and would not work for certain test cases (even if statistics are collected)
                 .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "join_pushdown_strategy", "EAGER")
                 .build();
-    }
-
-    @Override
-    public void testSortItemsReflectedInExplain()
-    {
-        // TODO: Remove once https://github.com/trinodb/trino/pull/7586 is merged (https://starburstdata.atlassian.net/browse/SEP-5842)
-        // Even if the sort items are pushed down into the table scan, it should still be reflected in EXPLAIN (via ConnectorTableHandle.toString)
-        String expectedPattern = hasBehavior(SUPPORTS_TOPN_PUSHDOWN)
-                ? "sortOrder=\\[NATIONKEY:decimal\\(19,0\\):NUMBER DESC NULLS LAST] limit=5"
-                : "\\[5 by \\(nationkey DESC NULLS LAST\\)]";
-
-        assertExplain(
-                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
-                expectedPattern);
     }
 }
