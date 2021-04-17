@@ -75,12 +75,13 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>presto</artifactId>
+            <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
+            <artifactId>trino</artifactId>
             <scope>test</scope>
         </dependency>
 
