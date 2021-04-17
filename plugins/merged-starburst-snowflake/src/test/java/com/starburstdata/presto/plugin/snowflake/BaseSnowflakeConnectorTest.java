@@ -41,7 +41,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
-import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TOPN_PUSHDOWN;
 import static io.trino.testing.assertions.Assert.assertEquals;
 import static io.trino.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
@@ -944,19 +943,5 @@ public abstract class BaseSnowflakeConnectorTest
                             "TIME '04:05:06.123'," + // Snowflake truncates on cast
                             "TIME '23:59:59.999'");
         }
-    }
-
-    @Override
-    public void testSortItemsReflectedInExplain()
-    {
-        // TODO: Remove once https://github.com/trinodb/trino/pull/7586 is merged (https://starburstdata.atlassian.net/browse/SEP-5842)
-        // Even if the sort items are pushed down into the table scan, it should still be reflected in EXPLAIN (via ConnectorTableHandle.toString)
-        String expectedPattern = hasBehavior(SUPPORTS_TOPN_PUSHDOWN)
-                ? "sortOrder=\\[NATIONKEY:decimal\\(19,0\\):NUMBER DESC NULLS LAST] limit=5"
-                : "\\[5 by \\(nationkey DESC NULLS LAST\\)]";
-
-        assertExplain(
-                "EXPLAIN SELECT name FROM nation ORDER BY nationkey DESC NULLS LAST LIMIT 5",
-                expectedPattern);
     }
 }
